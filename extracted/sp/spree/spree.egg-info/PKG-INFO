@@ -1,0 +1,63 @@
+Metadata-Version: 1.1
+Name: spree
+Version: 0.4.2
+Summary: Spree python api client
+Home-page: https://github.com/fulfilio/python-spree
+Author: Fulfil.IO Inc.
+Author-email: info@fulfil.io
+License: BSD license
+Description: ===============================
+        Spree API Client in Python
+        ===============================
+        
+        
+        .. image:: https://img.shields.io/pypi/v/spree.svg
+                :target: https://pypi.python.org/pypi/spree
+        
+        .. image:: https://img.shields.io/travis/audreyr/spree.svg
+                :target: https://travis-ci.org/audreyr/spree
+        
+        .. image:: https://readthedocs.org/projects/spree/badge/?version=latest
+                :target: https://spree.readthedocs.io/en/latest/?badge=latest
+                :alt: Documentation Status
+        
+        .. image:: https://pyup.io/repos/github/audreyr/cookiecutter-django/shield.svg
+             :target: https://pyup.io/repos/github/audreyr/spree/
+             :alt: Updates
+        
+        
+        Spree python api client
+        
+        
+        * Free software: BSD license
+        * Documentation: https://spree.readthedocs.io.
+        
+        
+        Features
+        --------
+        
+        * TODO
+        
+        
+        =======
+        History
+        =======
+        
+        0.1.0 (2016-06-27)
+        ------------------
+        
+        * First release on PyPI.
+        
+Keywords: spree
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5

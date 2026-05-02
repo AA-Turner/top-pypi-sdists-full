@@ -647,6 +647,8 @@ class DefaultRunSettingOutputTypeDef(TypedDict):
     workflowOwnerId: NotRequired[str]
     outputBucketOwnerId: NotRequired[str]
     workflowVersionName: NotRequired[str]
+    networkingMode: NotRequired[NetworkingModeType]
+    configurationName: NotRequired[str]
 
 class DefaultRunSettingTypeDef(TypedDict):
     workflowId: str
@@ -667,6 +669,8 @@ class DefaultRunSettingTypeDef(TypedDict):
     workflowOwnerId: NotRequired[str]
     outputBucketOwnerId: NotRequired[str]
     workflowVersionName: NotRequired[str]
+    networkingMode: NotRequired[NetworkingModeType]
+    configurationName: NotRequired[str]
 
 SourceReferenceTypeDef = TypedDict(
     "SourceReferenceTypeDef",

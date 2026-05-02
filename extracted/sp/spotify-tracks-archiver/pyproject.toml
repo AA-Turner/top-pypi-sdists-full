@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=58", "setuptools-scm>=6"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotify_tracks_archiver"
+description = "A python application to back up your \"Liked Songs\" library from Spotify to a JSON file"
+readme = "README.md"
+license = {file = "LICENSE.md"}
+requires-python = ">=3.9"
+dependencies = [
+  "colorama<1",
+  "httpx<1",
+  "python-dotenv<1",
+]
+dynamic = [
+  "version",
+]
+
+[project.urls]
+Issues = "https://github.com/keller00/spotify-tracks-archiver/issues"
+Source = "https://github.com/keller00/spotify-tracks-archiver"
+
+[project.scripts]
+spotify_tracks_archiver = "spotify_tracks_archiver.main:run_cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["spotify_tracks_archiver*"]
+namespaces = false
+
+[tool.setuptools_scm]
+write_to = "src/spotify_tracks_archiver/version.py"
+
+[tool.pytest.ini_options]
+addopts = "--color=yes --tb=short"
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+    "coverage[toml]",
+    "covdefaults",
+]

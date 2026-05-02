@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit"
-version = "0.15.4"
+version = "0.15.5"
 description = "GitHub SDK for Python"
 authors = [{ name = "yanyongyu", email = "yyy@yyydl.top" }]
 license = "MIT"
@@ -329,7 +329,9 @@ source = "descriptions-next/ghec/ghec.2026-03-10.json"
 ], "$ref" = "<unset>" }
 
 # https://github.com/yanyongyu/githubkit/issues/293
-"/components/schemas/repo-search-result-item/required" = { "<remove>" = ["has_downloads"] }
+"/components/schemas/repo-search-result-item/required" = { "<remove>" = [
+  "has_downloads",
+] }
 
 # https://github.com/github/rest-api-description/issues/2491
 "/components/schemas/auto-merge/properties/commit_title" = { type = [
@@ -386,6 +388,14 @@ source = "descriptions-next/ghec/ghec.2026-03-10.json"
   "string",
   "null",
 ] }
+
+# https://github.com/yanyongyu/githubkit/issues/299
+"/components/schemas/pages-deployment-status/properties/status/enum" = { "<add>" = [
+  "deployment_queued",
+] }
+
+# https://github.com/yanyongyu/githubkit/issues/300
+"/paths/~1repos~1{owner}~1{repo}~1pages~1deployments/post/requestBody/content/application~1json/schema/properties/artifact_id/type" = { "<copy>" = "#/components/parameters/artifact-id/schema/type" }
 
 # https://github.com/yanyongyu/githubkit/issues/199
 # https://github.com/github/rest-api-description/issues/4697

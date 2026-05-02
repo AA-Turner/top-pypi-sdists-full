@@ -25,7 +25,6 @@ import json
 import sys
 from argparse import Namespace
 from pathlib import Path
-from typing import Any, Dict, Union
 
 from ._version import package_name
 from .printing import print_namespace
@@ -44,8 +43,8 @@ def config_path() -> Path:
 
 
 def load_config_file(tool: str = package_name,
-                     ns: Namespace = None,
-                     file_path: Union[str, Path] = config_path(),
+                     ns: Namespace | None = None,
+                     file_path: str | Path = config_path(),
                      verbose: bool = False) -> Namespace:
     """Load configuration for tool from file and return update namespace.
     Silently ignores file if it does not exist.
@@ -64,13 +63,12 @@ def load_config_file(tool: str = package_name,
         # But that default is created once, and shared by all subsequent tools.
         # And that hurts during testing.
 
-    if type(file_path) is str:
-        file_path = Path(file_path)  # TODO can this raise an exception?
+    file_path = Path(file_path)  # TODO can this raise an exception?
 
     if file_path.exists():
         try:
             with file_path.open(encoding='utf-8') as config_file:
-                config_all = json.load(config_file)  # type: Dict[str, Dict[str, Any]]
+                config_all = json.load(config_file)  # type: dict[str, dict[str, object]]
         except Exception as e:
             print('Could not load configuration for {} in: {}'.format(tool, file_path), file=sys.stderr)
             print('{}: {}'.format(type(e).__name__, e), file=sys.stderr)

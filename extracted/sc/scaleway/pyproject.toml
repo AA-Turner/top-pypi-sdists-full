@@ -1,0 +1,118 @@
+[tool.poetry]
+name = "scaleway"
+version = "2.11.0"
+description = "Scaleway SDK for Python"
+authors = ["Scaleway <opensource@scaleway.com>"]
+license = "BSD"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.4",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+scaleway-core = "2.11.0"
+
+[tool.poetry.group.dev.dependencies]
+scaleway-core = { path = "../scaleway-core", develop = true }
+ruff = ">=0.5.0,<0.15.9"
+mypy = "^1.5.1"
+ty = ">=0.0.1,<0.0.28"
+pytest = ">=8.4.1,<10.0.0"
+pyrefly = ">=0.36.1,<0.60.0"
+vcrpy = ">=7,<9"
+pytest-timeout = "^2.4.0"
+pytest-cov = ">=6.3,<8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+ignore = [
+    "A",# flake8-builtins
+    "ANN",# flake8-annotations
+    "ARG",# flake8-unused-arguments
+    "BLE",# flake8-blind-except
+    "C4",# flake8-comprehensions
+    "C90",# mccabe
+    "COM",# flake8-commas
+    "D",# pydocstyle
+    "E501",
+    "EM",# flake8-errmsg
+    "FA",# flake8-future-annotations
+    "I",# isort
+    "INP",# flake8-no-pep420
+    "N",# pep8-naming
+    "PIE",# flake8-pie
+    "PL",# Pylint
+    "PT",# flake8-pytest-style
+    "RUF",# Ruff-specific rules
+    "S",# flake8-bandit
+    "SLF",# flake8-self
+    "T20",# flake8-print
+    "TC",# flake8-type-checking
+    "TID",# flake8-tidy-imports
+    "TRY",# tryceratops
+    "UP",
+]
+select = [
+    "ASYNC", # https://docs.astral.sh/ruff/rules/#flake8-async-async
+    "B", # https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
+    "DTZ", # https://docs.astral.sh/ruff/rules/#flake8-datetimez-dtz
+    "ERA", # https://docs.astral.sh/ruff/rules/#eradicate-era
+    "EXE", # https://docs.astral.sh/ruff/rules/#flake8-executable-exe
+    "F", # https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "FBT", # https://docs.astral.sh/ruff/rules/#flake8-boolean-trap-fbt
+    "FIX", # https://docs.astral.sh/ruff/rules/#flake8-fixme-fix
+    "FLY", # https://docs.astral.sh/ruff/rules/#flynt-fly
+    "FURB", # https://docs.astral.sh/ruff/rules/#refurb-furb
+    "G", # https://docs.astral.sh/ruff/rules/#flake8-logging-format-g
+    "ICN", # https://docs.astral.sh/ruff/rules/#flake8-import-conventions-icn
+    "INT", # https://docs.astral.sh/ruff/rules/#flake8-gettext-int
+    "ISC", # https://docs.astral.sh/ruff/rules/#flake8-implicit-str-concat-isc
+    "LOG", # https://docs.astral.sh/ruff/rules/#flake8-logging-log
+    "PERF", # https://docs.astral.sh/ruff/rules/#perflint-perf
+    "PGH", # https://docs.astral.sh/ruff/rules/#pygrep-hooks-pgh
+    "PTH", # https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth
+    "PYI", # https://docs.astral.sh/ruff/rules/#flake8-pyi-pyi
+    "Q", # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+    "RET", # https://docs.astral.sh/ruff/rules/#flake8-return-ret
+    "RSE", # https://docs.astral.sh/ruff/rules/#flake8-raise-rse
+    "SIM", # https://docs.astral.sh/ruff/rules/#flake8-simplify-sim
+    "SLOT", # https://docs.astral.sh/ruff/rules/#flake8-slots-slot
+    "T10", # https://docs.astral.sh/ruff/rules/#flake8-debugger-t10
+    "TD", # https://docs.astral.sh/ruff/rules/#flake8-todos-td
+    "YTT", # https://docs.astral.sh/ruff/rules/#flake8-2020-ytt
+]
+
+[tool.pyrefly.errors]
+missing-attribute = false
+no-access = false
+no-matching-overload = false
+missing-import = false
+bad-assignment = false
+bad-return = false
+missing-argument = false
+bad-argument-type = false
+invalid-argument = false
+
+[tool.ty.rules]
+invalid-assignment = "ignore"
+invalid-argument-type = "ignore"
+missing-argument = "ignore"
+unresolved-reference = "ignore"
+possibly-missing-attribute = "ignore"

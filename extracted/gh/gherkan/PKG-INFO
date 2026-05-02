@@ -1,0 +1,22 @@
+Metadata-Version: 1.2
+Name: gherkan
+Version: 0.0.9rc1.dev19
+Summary: NL to Gherkin format translation tool
+Home-page: UNKNOWN
+Author: Imitation Learning Group CIIRC CVUT
+Maintainer-email: radoslav.skoviera@cvut.cz
+License: This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/ or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+Description: Utility to process industrial production line instructions given in natural language.
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Flask
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: Czech
+Classifier: Natural Language :: English
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces

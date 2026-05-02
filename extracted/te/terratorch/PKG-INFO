@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: terratorch
-Version: 1.2.6
+Version: 1.2.7
 Summary: TerraTorch - The geospatial foundation model fine-tuning toolkit
 Author: Carlos Gomes, Joao Lucas de Sousa Almeida, Romeo Kienzler, Benedikt Blumenstiel, Francesc Martí Escofet, Paolo Fraccaro, Pedro Henrique Conrado, Jaione Tirapu Azpiroz, Daniela Szwarcman, Bianca Zadrozny, Þorsteinn Elí Gíslason, Raunak Bhansali, Takao Moriyama, Þorsteinn Elí Gíslason, Isabelle Wittmann, Christian Pinto, Rosie Lickorish
 Author-email: terratorch@ibm.com
@@ -91,7 +91,7 @@ Requires-Dist: mlflow; extra == "geobenchv2"
 Provides-Extra: vllm
 Requires-Dist: geobenchv2>=0.9; extra == "vllm"
 Requires-Dist: impactmesh>0.1.0; extra == "vllm"
-Requires-Dist: vllm!=0.15.*,>=0.12; extra == "vllm"
+Requires-Dist: vllm>=0.19.0; extra == "vllm"
 Provides-Extra: vllm-test
 Requires-Dist: pillow; extra == "vllm-test"
 Requires-Dist: imagehash; extra == "vllm-test"
@@ -116,7 +116,7 @@ Dynamic: license-file
 
 [![huggingface](https://img.shields.io/badge/Hugging_Face-join-FFD21E?logo=huggingface)](https://huggingface.co/ibm-nasa-geospatial)
 [![pypi](https://badge.fury.io/py/terratorch.svg)](https://pypi.org/project/terratorch)
-[![tests](https://github.com/terrastackai/terratorch/actions/workflows/test.yaml/badge.svg)](https://github.com/terrastackai/terratorch/actions/workflows/test.yaml)
+[![tests](https://github.com/terrastackai/terratorch/actions/workflows/tests.yaml/badge.svg)](https://github.com/terrastackai/terratorch/actions/workflows/tests.yaml)
 [![MkDocs](https://img.shields.io/badge/MkDocs-526CFE?logo=materialformkdocs&logoColor=fff)](https://terrastackai.github.io/terratorch/)
 <!--
 ![cov](https://github.com/terrastackai/terratorch/raw/main/assets/coverage-badge.svg)

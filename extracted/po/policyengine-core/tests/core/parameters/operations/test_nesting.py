@@ -1,0 +1,189 @@
+import pytest
+
+
+def test_parameter_homogenization():
+    import numpy as np
+
+    from policyengine_core.parameters import ParameterNode
+
+    # Create the parameter
+
+    root = ParameterNode(
+        data={
+            "value_by_country_and_region": {
+                "ENGLAND": {
+                    "NORTH_EAST": {
+                        1: {
+                            "2021-01-01": 1,
+                        }
+                    }
+                },
+                "metadata": {
+                    "breakdown": ["country", "region", "range(1, 4)"],
+                },
+            }
+        }
+    )
+
+    from policyengine_core.entities import Entity
+    from policyengine_core.model_api import ETERNITY, Enum, Variable
+
+    Person = Entity("person", "people", "Person", "A person")
+
+    class Country(Enum):
+        ENGLAND = "England"
+        SCOTLAND = "Scotland"
+        WALES = "Wales"
+        NORTHERN_IRELAND = "Northern Ireland"
+
+    class country(Variable):
+        value_type = Enum
+        entity = Person
+        definition_period = ETERNITY
+        possible_values = Country
+        default_value = Country.ENGLAND
+        label = "country"
+
+    class Region(Enum):
+        NORTH_EAST = "North East"
+        NORTH_WEST = "North West"
+        SOUTH_EAST = "South East"
+        SOUTH_WEST = "South West"
+        LONDON = "London"
+        EAST_OF_ENGLAND = "East of England"
+        WALES = "Wales"
+        SCOTLAND = "Scotland"
+        WEST_MIDLANDS = "West Midlands"
+        NORTHERN_IRELAND = "Northern Ireland"
+        EAST_MIDLANDS = "East Midlands"
+        YORKSHIRE = "Yorkshire and The Humber"
+
+    class region(Variable):
+        value_type = Enum
+        entity = Person
+        definition_period = ETERNITY
+        possible_values = Region
+        default_value = Region.NORTH_EAST
+        label = "region"
+
+    class family_size(Variable):
+        value_type = int
+        entity = Person
+        definition_period = ETERNITY
+        label = "family size"
+
+    from policyengine_core.parameters import homogenize_parameter_structures
+    from policyengine_core.taxbenefitsystems import TaxBenefitSystem
+
+    system = TaxBenefitSystem([Person])
+    system.add_variables(country, region, family_size)
+    system.parameters = root
+
+    system.parameters = homogenize_parameter_structures(
+        system.parameters, system.variables, default_value=0
+    )
+
+    countries = np.array(["ENGLAND", "ENGLAND", "SCOTLAND"])
+    regions = np.array(["NORTH_EAST", "LONDON", "SCOTLAND"])
+    family_sizes = np.array([1, 2, 3])
+
+    assert (
+        system.parameters("2021-01-01").value_by_country_and_region[countries][regions][
+            family_sizes
+        ]
+        == [1, 0, 0]
+    ).all()
+
+
+def test_breakdown_mismatch_raises_error():
+    """Extra parameter keys not in the breakdown enum should raise ValueError."""
+    from policyengine_core.entities import Entity
+    from policyengine_core.model_api import ETERNITY, Enum, Variable
+    from policyengine_core.parameters import (
+        ParameterNode,
+        homogenize_parameter_structures,
+    )
+    from policyengine_core.taxbenefitsystems import TaxBenefitSystem
+
+    Person = Entity("person", "people", "Person", "A person")
+
+    class Color(Enum):
+        RED = "Red"
+        BLUE = "Blue"
+
+    class color(Variable):
+        value_type = Enum
+        entity = Person
+        definition_period = ETERNITY
+        possible_values = Color
+        default_value = Color.RED
+        label = "color"
+
+    # "GREEN" is not in the Color enum — should raise ValueError
+    root = ParameterNode(
+        data={
+            "value_by_color": {
+                "RED": {"2021-01-01": 1},
+                "GREEN": {"2021-01-01": 2},
+                "metadata": {
+                    "breakdown": ["color"],
+                },
+            }
+        }
+    )
+
+    system = TaxBenefitSystem([Person])
+    system.add_variables(color)
+    system.parameters = root
+
+    with pytest.raises(ValueError, match="GREEN"):
+        homogenize_parameter_structures(
+            system.parameters, system.variables, default_value=0
+        )
+
+
+def test_breakdown_partial_coverage_is_ok():
+    """Missing enum values in parameter YAML should NOT raise an error."""
+    from policyengine_core.entities import Entity
+    from policyengine_core.model_api import ETERNITY, Enum, Variable
+    from policyengine_core.parameters import (
+        ParameterNode,
+        homogenize_parameter_structures,
+    )
+    from policyengine_core.taxbenefitsystems import TaxBenefitSystem
+
+    Person = Entity("person", "people", "Person", "A person")
+
+    class Color(Enum):
+        RED = "Red"
+        BLUE = "Blue"
+        GREEN = "Green"
+
+    class color(Variable):
+        value_type = Enum
+        entity = Person
+        definition_period = ETERNITY
+        possible_values = Color
+        default_value = Color.RED
+        label = "color"
+
+    # Only RED is present — BLUE and GREEN are missing but that's fine
+    root = ParameterNode(
+        data={
+            "value_by_color": {
+                "RED": {"2021-01-01": 1},
+                "metadata": {
+                    "breakdown": ["color"],
+                },
+            }
+        }
+    )
+
+    system = TaxBenefitSystem([Person])
+    system.add_variables(color)
+    system.parameters = root
+
+    # Should not raise — partial coverage is allowed
+    homogenize_parameter_structures(
+        system.parameters, system.variables, default_value=0
+    )

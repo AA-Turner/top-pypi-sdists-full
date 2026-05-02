@@ -1,0 +1,44 @@
+try:
+    import tkinter as tk
+except ImportError:
+    raise RuntimeError(
+        "Tkinter is required to start the behavior creation interface, but it is not installed. "
+        "On macOS, install Python from python.org or install Tcl/Tk via Homebrew:\n"
+        "    brew install python-tk"
+    )
+
+import tkinter.ttk as ttk
+from .control_panel_interface import BehaviorNotebook
+from .drawing_interface import DrawingSpace
+from .gui_event_handler import GUIEventHandler
+from .gui_settings import DEBUG
+import warnings
+import sys
+import os
+
+
+def suppress_output():
+    sys.stderr = open(os.devnull, 'w')
+
+
+# Suppress RuntimeWarnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+
+def start_behavior_creation():
+    window = tk.Tk()
+    if not DEBUG:
+        suppress_output()
+    window.wm_title('Behavior creation')
+    handler = GUIEventHandler(window)
+    main_frame = ttk.Frame(window, padding=(3, 3, 12, 12))
+    main_frame.grid(column=0, row=0)
+    drawing_frame = ttk.Frame(main_frame, borderwidth=5, relief="ridge", width=200, height=100)
+    drawing_frame.grid(column=0, row=0, columnspan=3, rowspan=2)
+    notebook_frame = ttk.Frame(main_frame)
+    notebook_frame.grid(column=3, row=0, sticky='N')
+    ds = DrawingSpace(drawing_frame, handler, window)
+    handler.connect_to_drawing_space(ds)
+    bn = BehaviorNotebook(notebook_frame, handler, window)
+    handler.connect_to_notebook(bn)
+    window.mainloop()

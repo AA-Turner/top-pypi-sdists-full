@@ -1,0 +1,66 @@
+[project]
+name = "pybiolib"
+version = "1.3.441"
+description = "BioLib Python Client"
+readme = "PYPI_README.md"
+license = "MIT"
+keywords = ["biolib"]
+authors = [
+    { name = "biolib", email = "hello@biolib.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.6.3"
+dependencies = [
+    "importlib-metadata>=1.6.1; python_version < '3.8'",
+    "typing-extensions>=4.1.0; python_version < '3.8'",
+]
+
+[project.urls]
+Homepage = "https://github.com/biolib"
+
+[project.scripts]
+biolib = "biolib:call_cli"
+
+[project.optional-dependencies]
+sdk = [
+    "docker>=5.0.3",
+    "pyyaml>=5.3.1",
+    "rich>=12.4.4",
+]
+compute-node = [
+    "docker>=5.0.3",
+    "flask>=2.0.1",
+    "gunicorn>=20.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter==1.0.0; python_version >= '3.9'",
+    "mypy==1.9.0; python_version >= '3.9'",
+    "pandas==2.2.1; python_version >= '3.9'",
+    "pylint==3.1.0; python_version >= '3.9'",
+    "ruff==0.3.2; python_version >= '3.9'",
+    "pytest==8.0.2; python_version >= '3.9'",
+    "pytest-timeout==2.2.0; python_version >= '3.9'",
+    "setuptools==69.1.1; python_version >= '3.9'",
+    "types-flask==1.1.6; python_version >= '3.9'",
+    "types-PyYAML==6.0.12.12; python_version >= '3.9'",
+    "types-docker==7.1.0.20250705; python_version >= '3.9'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["biolib"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "biolib",
+    "PYPI_README.md",
+    "LICENSE",
+]

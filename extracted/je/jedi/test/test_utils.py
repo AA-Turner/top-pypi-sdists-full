@@ -1,7 +1,10 @@
+import sys
+from typing import Any
+
 try:
     import readline
 except ImportError:
-    readline = False
+    readline = False  # type: ignore[assignment]
 import unittest
 
 from jedi import utils
@@ -15,7 +18,7 @@ class TestSetupReadline(unittest.TestCase):
     def setUp(self, *args, **kwargs):
         super().setUp(*args, **kwargs)
 
-        self.namespace = self.NameSpace()
+        self.namespace: Any = self.NameSpace()
         utils.setup_readline(self.namespace)
 
     def complete(self, text):
@@ -34,7 +37,10 @@ class TestSetupReadline(unittest.TestCase):
         assert self.complete('list') == ['list']
         assert self.complete('importerror') == ['ImportError']
         s = "print(BaseE"
-        assert self.complete(s) == [s + 'xception']
+        if sys.version_info >= (3, 11):
+            assert self.complete(s) == [s + 'xception', s + 'xceptionGroup']
+        else:
+            assert self.complete(s) == [s + 'xception']
 
     def test_nested(self):
         assert self.complete('list.Insert') == ['list.insert']
@@ -47,8 +53,8 @@ class TestSetupReadline(unittest.TestCase):
     def test_modules(self):
         import sys
         import os
-        self.namespace.sys = sys
-        self.namespace.os = os
+        self.namespace.sys = sys  # type: ignore[attr-defined]
+        self.namespace.os = os  # type: ignore[attr-defined]
 
         try:
             assert self.complete('os.path.join') == ['os.path.join']
@@ -58,8 +64,8 @@ class TestSetupReadline(unittest.TestCase):
             c = {'os.' + d for d in dir(os) if d.startswith('ch')}
             assert set(self.complete('os.ch')) == set(c)
         finally:
-            del self.namespace.sys
-            del self.namespace.os
+            del self.namespace.sys  # type: ignore[attr-defined]
+            del self.namespace.os  # type: ignore[attr-defined]
 
     def test_calls(self):
         s = 'str(bytes'
@@ -67,7 +73,11 @@ class TestSetupReadline(unittest.TestCase):
 
     def test_import(self):
         s = 'from os.path import a'
-        assert set(self.complete(s)) == {s + 'ltsep', s + 'bspath'}
+        assert set(self.complete(s)) == {
+            s + 'ltsep',
+            s + 'bspath',
+            'from os.path import ALLOW_MISSING'
+        }
         assert self.complete('import keyword') == ['import keyword']
 
         import os
@@ -81,6 +91,9 @@ class TestSetupReadline(unittest.TestCase):
             '_', 'O_', 'EX_', 'EFD_', 'MFD_', 'TFD_',
             'SF_', 'ST_', 'CLD_', 'POSIX_SPAWN_', 'P_',
             'RWF_', 'CLONE_', 'SCHED_', 'SPLICE_',
+            # Python 3.15+ new constants
+            'AT_', 'PIDFD_', 'STATX_', 'GRND_', 'XATTR_',
+            'RTLD_', 'PRIO_', 'F_', 'SEEK_', 'NODEV',
         ]
         difference = {
             x for x in difference
@@ -91,7 +104,7 @@ class TestSetupReadline(unittest.TestCase):
         }
         # There are quite a few differences, because both Windows and Linux
         # (posix and nt) libraries are included.
-        assert len(difference) < 30
+        assert len(difference) < 40
 
     def test_local_import(self):
         s = 'import test.test_utils'

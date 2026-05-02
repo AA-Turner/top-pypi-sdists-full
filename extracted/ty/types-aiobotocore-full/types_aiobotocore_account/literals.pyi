@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_account.literals import AlternateContactTypeType
+    from types_aiobotocore_account.literals import AccountStateType
 
-    data: AlternateContactTypeType = "BILLING"
+    data: AccountStateType = "ACTIVE"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AccountServiceName",
+    "AccountStateType",
     "AlternateContactTypeType",
     "AwsAccountStateType",
     "ListRegionsPaginatorName",
@@ -33,6 +34,7 @@ __all__ = (
     "ServiceName",
 )
 
+AccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"]
 AlternateContactTypeType = Literal["BILLING", "OPERATIONS", "SECURITY"]
 AwsAccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"]
 ListRegionsPaginatorName = Literal["list_regions"]

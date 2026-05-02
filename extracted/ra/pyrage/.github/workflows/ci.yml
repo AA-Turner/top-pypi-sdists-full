@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Format
+        run: cargo fmt && git diff --exit-code
+
+      - name: Lint
+        run: |
+          rustup update
+          rustup component add clippy
+          cargo clippy -- -D warnings
+
+  test:
+    strategy:
+      matrix:
+        platform:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+          # Use 22.04, as 24.04 is unstable atm:
+          # https://github.com/orgs/community/discussions/148648#discussioncomment-11890717
+          - ubuntu-22.04-arm
+        python:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Build
+      shell: bash
+      run: make develop
+
+    - name: Test
+      shell: bash
+      run: make test
+
+  all-tests-pass:
+    if: always()
+
+    needs:
+    - test
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: check test jobs
+        uses: re-actors/alls-green@v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}

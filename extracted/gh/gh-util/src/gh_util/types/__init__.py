@@ -1,0 +1,48 @@
+from gh_util.types.core import (
+    GitHubBranch,
+    GitHubCommit,
+    GitHubComment,
+    GitHubEvent,
+    GitHubIssue,
+    GitHubLabel,
+    GitHubOrg,
+    GitHubPullRequest,
+    GitHubRef,
+    GitHubRelease,
+    GitHubRepo,
+    GitHubResourceModel,
+    GitHubTag,
+    GitHubTagger,
+    GitHubUser,
+)
+
+from gh_util.types.webhooks import (
+    GitHubIssueEvent,
+    GitHubPullRequestEvent,
+    GitHubWebhookEvent,
+    GitHubWebhookEventHeaders,
+    GitHubWebhookRequest,
+)
+
+__all__ = [
+    "GitHubBranch",
+    "GitHubCommit",
+    "GitHubComment",
+    "GitHubEvent",
+    "GitHubIssue",
+    "GitHubLabel",
+    "GitHubOrg",
+    "GitHubPullRequest",
+    "GitHubRef",
+    "GitHubRelease",
+    "GitHubRepo",
+    "GitHubResourceModel",
+    "GitHubTag",
+    "GitHubTagger",
+    "GitHubUser",
+    "GitHubIssueEvent",
+    "GitHubPullRequestEvent",
+    "GitHubWebhookEvent",
+    "GitHubWebhookEventHeaders",
+    "GitHubWebhookRequest",
+]

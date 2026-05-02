@@ -273,9 +273,13 @@ impl PrimitiveMagneticSymmetrySearch {
         for mops1 in magnetic_operations.iter() {
             for mops2 in magnetic_operations.iter() {
                 let mops12 = mops1.clone() * mops2.clone();
-                let diff = (translations_map[&(mops12.operation.rotation, mops12.time_reversal)]
-                    - mops12.operation.translation)
-                    .map(|e| e - e.round());
+                let Some(expected_translation) =
+                    translations_map.get(&(mops12.operation.rotation, mops12.time_reversal))
+                else {
+                    return false;
+                };
+                let diff =
+                    (expected_translation - mops12.operation.translation).map(|e| e - e.round());
                 if lattice.cartesian_coords(&diff).norm() > symprec {
                     return false;
                 }
@@ -333,7 +337,9 @@ fn search_bravais_group(
         .map(|v| v.norm())
         .collect::<Vec<_>>();
     let mut candidate_lattice_points = [vec![], vec![], vec![]];
-    // It would be sufficient to search coeffs in [-1, 0, 1] because the third column of the Minkowski lattice is already in [-1, 0, 1]^3
+    // For a Minkowski-reduced lattice, it is sufficient to search coeffs in
+    // `[-1, 0, 1]` because the third column is already in `[-1, 0, 1]^3`.
+    // This bounded integer search is exact under that precondition.
     for coeffs in iproduct!(-1..=1, -1..=1, -1..=1) {
         let v = minkowski_lattice.basis
             * Vector3::new(coeffs.0 as f64, coeffs.1 as f64, coeffs.2 as f64);

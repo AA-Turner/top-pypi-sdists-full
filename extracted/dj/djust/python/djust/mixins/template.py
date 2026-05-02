@@ -1,0 +1,982 @@
+"""
+TemplateMixin - Template loading, rendering, and HTML extraction for LiveView.
+"""
+
+import asyncio
+import json
+import logging
+import os
+import re
+from typing import Optional, TYPE_CHECKING
+
+from ..utils import get_template_dirs
+
+if TYPE_CHECKING:  # pragma: no cover — imported only for type hints
+    from ..http_streaming import ChunkEmitter
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Module-level regexes for streaming render split (hoisted for perf — see
+# PR review: avoid re.compile() on every request).
+# ---------------------------------------------------------------------------
+
+# Match ``<div ... dj-root ...>`` as a standalone attribute name.
+# The (?=[\s=>/]) lookahead ensures the character immediately AFTER ``dj-root``
+# is whitespace, ``=``, ``>``, or ``/`` — so ``dj-root-other``, ``dj-rooted``,
+# ``data-dj-root``, etc. do NOT match. \b alone is unreliable because ``-``
+# is a non-word character and ``dj-root-foo`` has a \b between ``t`` and ``-``.
+_DJ_ROOT_RE = re.compile(
+    r"<div\b[^>]*?(?<![A-Za-z0-9_-])dj-root(?=[\s=>/])[^>]*>",
+    re.IGNORECASE,
+)
+
+# Match ``</body>`` tolerating trailing whitespace inside the tag (``</body >``).
+_BODY_CLOSE_RE = re.compile(r"</body\s*>", re.IGNORECASE)
+
+# Match a full ``<script>...</script>`` block. Used to mask script contents
+# before searching for ``</body>`` so a literal ``</body>`` in a JS string
+# doesn't become a false split boundary.
+#
+# The closing-tag pattern ``</script[^>]*>`` accepts any tokens between
+# ``</script`` and ``>`` per HTML5 tokenizer tolerance — e.g. ``</script >``,
+# ``</script\t\n foo>`` are all valid script-close forms that browsers honor.
+# Using the narrower ``</script\s*>`` fails CodeQL py/bad-html-filtering-regexp
+# (the same rule that flagged PR #966's ``_stamp_view_id`` regex).
+_SCRIPT_BLOCK_RE = re.compile(
+    r"<script\b[^>]*>.*?</script[^>]*>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+class TemplateMixin:
+    """Template-related methods: get_template, render, render_full_template, render_with_diff,
+    and various HTML extraction/stripping helpers."""
+
+    def get_template(self) -> str:
+        """
+        Get the Rust template source for this view.
+
+        Supports template inheritance via {% extends %} and {% block %} tags.
+        Templates are resolved using Rust template inheritance for performance.
+
+        For templates with inheritance, extracts only [dj-root] content
+        for VDOM tracking to avoid tracking the entire document.
+        """
+        if self.template:
+            return self.template
+        elif self.template_name:
+            # Load the raw template source
+            from django.template import loader
+            from django.conf import settings
+
+            template = loader.get_template(self.template_name)
+            template_source = template.template.source
+
+            # Check if template uses {% extends %} - if so, resolve inheritance in Rust
+            if "{% extends" in template_source or "{%extends" in template_source:
+                # Get template directories from Django settings in the EXACT same order Django searches
+                template_dirs = []
+
+                # Step 1: Add DIRS from all TEMPLATES configs
+                for template_config in settings.TEMPLATES:
+                    if "DIRS" in template_config:
+                        template_dirs.extend(template_config["DIRS"])
+
+                # Step 2: Add app template directories (only for DjangoTemplates with APP_DIRS=True)
+                for template_config in settings.TEMPLATES:
+                    if (
+                        template_config["BACKEND"]
+                        == "django.template.backends.django.DjangoTemplates"
+                    ):
+                        if template_config.get("APP_DIRS", False):
+                            from django.apps import apps
+                            from pathlib import Path
+
+                            for app_config in apps.get_app_configs():
+                                templates_dir = Path(app_config.path) / "templates"
+                                if templates_dir.exists():
+                                    template_dirs.append(str(templates_dir))
+
+                # Convert to strings
+                template_dirs_str = [str(d) for d in template_dirs]
+
+                # Get the actual path Django resolved for verification
+                django_resolved_path = (
+                    template.origin.name
+                    if hasattr(template, "origin") and template.origin
+                    else None
+                )
+
+                # Use Rust template inheritance resolution
+                try:
+                    from djust._rust import resolve_template_inheritance
+
+                    resolved = resolve_template_inheritance(self.template_name, template_dirs_str)
+
+                    # Verify Rust found the same template as Django
+                    if django_resolved_path:
+                        rust_would_find = None
+                        for template_dir in template_dirs_str:
+                            candidate = os.path.join(template_dir, self.template_name)
+                            if os.path.exists(candidate):
+                                rust_would_find = os.path.abspath(candidate)
+                                break
+
+                        if (
+                            rust_would_find
+                            and os.path.abspath(django_resolved_path) != rust_would_find
+                        ):
+                            logger.warning(
+                                "Template resolution mismatch! Django found: %s, "
+                                "Rust found: %s, Template dirs order: %s...",
+                                django_resolved_path,
+                                rust_would_find,
+                                template_dirs_str[:3],
+                            )
+
+                    # Store full template for initial GET rendering
+                    self._full_template = resolved
+
+                    # For VDOM tracking, prefer the child template source — it contains
+                    # the dj-root block directly without base template surrounding HTML,
+                    # making extraction simpler and immune to Issue #365 miscount.
+                    # Fall back to resolved if dj-root is only in the base template.
+                    vdom_source = (
+                        template_source
+                        if ("dj-root" in template_source or "dj-view" in template_source)
+                        else resolved
+                    )
+                    vdom_template = self._extract_liveview_root_with_wrapper(vdom_source)
+
+                    # CRITICAL: Strip comments and whitespace from template BEFORE Rust VDOM sees it
+                    vdom_template = self._strip_comments_and_whitespace(vdom_template)
+
+                    logger.debug(
+                        "[LiveView] Template inheritance resolved (%d chars), "
+                        "extracted liveview-root for VDOM (%d chars)",
+                        len(resolved),
+                        len(vdom_template),
+                    )
+                    return vdom_template
+
+                except Exception as e:
+                    # Fallback to raw template if Rust resolution fails
+                    logger.debug("[LiveView] Template inheritance resolution failed: %s", e)
+                    logger.debug("[LiveView] Falling back to raw template source")
+                    # Set to None so render_full_template won't try to render a template
+                    # that contains {% extends %} tags as a standalone document.
+                    self._full_template = None
+                    extracted = self._extract_liveview_root_with_wrapper(template_source)
+                    extracted = self._strip_comments_and_whitespace(extracted)
+
+                    logger.debug(
+                        "[LiveView] Extracted and stripped liveview-root: %d chars (from %d chars)",
+                        len(extracted),
+                        len(template_source),
+                    )
+                    return extracted
+
+            # No template inheritance - store full template and extract liveview-root for VDOM
+            self._full_template = template_source
+            extracted = self._extract_liveview_root_with_wrapper(template_source)
+            extracted = self._strip_comments_and_whitespace(extracted)
+
+            logger.debug(
+                "[LiveView] No inheritance - extracted and stripped liveview-root: "
+                "%d chars (from %d chars)",
+                len(extracted),
+                len(template_source),
+            )
+            return extracted
+        else:
+            raise ValueError("Either template_name or template must be set")
+
+    def render(self, request=None) -> str:
+        """
+        Render the view to HTML.
+
+        Returns the rendered HTML from the template. For WebSocket updates,
+        caller should use _extract_liveview_content() to get innerHTML only.
+
+        After rendering, temporary_assigns and streams are reset to free memory.
+
+        Args:
+            request: The request object
+
+        Returns:
+            Rendered HTML with embedded handler metadata
+        """
+        self._initialize_rust_view(request)
+        self._sync_state_to_rust()
+        html = self._rust_view.render()
+
+        # Post-process to hydrate React components
+        html = self._hydrate_react_components(html)
+
+        # Inject handler metadata for client-side decorators
+        html = self._inject_handler_metadata(html, request=request)
+
+        # Reset temporary assigns and streams to free memory after rendering
+        self._reset_temporary_assigns()
+
+        return html
+
+    def _inject_handler_metadata(self, html: str, request=None) -> str:
+        """
+        Inject handler metadata script into HTML.
+
+        Adds a <script> tag that sets window.handlerMetadata with
+        decorator metadata for all handlers. When ``request.csp_nonce`` is
+        set (django-csp with ``CSP_INCLUDE_NONCE_IN``), the emitted script
+        carries the nonce so apps can drop ``'unsafe-inline'`` from
+        ``CSP_SCRIPT_SRC`` (see #655).
+        """
+        # Extract metadata
+        metadata = self._extract_handler_metadata()
+
+        # Skip injection if no metadata
+        if not metadata:
+            logger.debug("[LiveView] No handler metadata to inject, skipping script injection")
+            return html
+
+        logger.debug("[LiveView] Injecting handler metadata script for %s handlers", len(metadata))
+
+        # CSP nonce support (#655): if a nonce is available on the request,
+        # emit a nonce attribute so apps can drop 'unsafe-inline' from their
+        # CSP script-src directive. Fall through to no-nonce output when
+        # django-csp is not installed or the request doesn't carry one —
+        # backward compatible with apps still using 'unsafe-inline'.
+        req = request if request is not None else getattr(self, "request", None)
+        from ..utils import get_csp_nonce
+
+        nonce = get_csp_nonce(req)
+        nonce_attr = f' nonce="{nonce}"' if nonce else ""
+
+        # Build script tag
+        script = f"""
+<script{nonce_attr}>
+// Handler metadata for client-side decorators
+window.handlerMetadata = window.handlerMetadata || {{}};
+Object.assign(window.handlerMetadata, {json.dumps(metadata)});
+</script>"""
+
+        # Try to inject before </body>
+        if "</body>" in html:
+            html = html.replace("</body>", f"{script}\n</body>")
+            logger.debug("[LiveView] Injected metadata script before </body>")
+        elif "</html>" in html:
+            html = html.replace("</html>", f"{script}\n</html>")
+            logger.debug("[LiveView] Injected metadata script before </html>")
+        else:
+            html = html + script
+            logger.debug("[LiveView] Appended metadata script to end of HTML")
+
+        return html
+
+    def _strip_comments_and_whitespace(self, html: str) -> str:
+        """
+        Strip HTML comments and normalize whitespace to match Rust VDOM parser behavior.
+
+        IMPORTANT: Preserve whitespace inside <pre>, <code>, and <textarea> tags.
+        """
+        # Remove HTML comments
+        html = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
+
+        # Preserve whitespace inside <pre>, <code>, and <textarea> tags
+        preserved_blocks = []
+
+        def preserve_block(match):
+            preserved_blocks.append(match.group(0))
+            return f"__PRESERVED_BLOCK_{len(preserved_blocks) - 1}__"
+
+        html = re.sub(r"<pre[^>]*>.*?</pre>", preserve_block, html, flags=re.DOTALL | re.IGNORECASE)
+        html = re.sub(
+            r"<code[^>]*>.*?</code>", preserve_block, html, flags=re.DOTALL | re.IGNORECASE
+        )
+        html = re.sub(
+            r"<textarea[^>]*>.*?</textarea>", preserve_block, html, flags=re.DOTALL | re.IGNORECASE
+        )
+
+        # Normalize whitespace
+        html = re.sub(r"\s+", " ", html)
+        html = re.sub(r">\s+<", "><", html)
+
+        # Restore preserved blocks
+        for i, block in enumerate(preserved_blocks):
+            html = html.replace(f"__PRESERVED_BLOCK_{i}__", block)
+
+        return html
+
+    async def arender_chunks(
+        self,
+        full_html: str,
+        emitter: "ChunkEmitter",
+    ) -> None:
+        """Async-generator producer that pushes shell-then-body chunks.
+
+        PR-A foundation for v0.9.0 streaming (ADR-015). Replaces the
+        synchronous regex-after-render path used by Phase 1
+        (:meth:`_split_for_streaming` + :meth:`RequestMixin._make_streaming_response`)
+        with a real async iterator. ``await asyncio.sleep(0)`` is used
+        between chunks to yield control to the ASGI event loop so the
+        shell can flush to the wire before the body chunks arrive at the
+        consumer.
+
+        Chunk schedule (4 yields when the page has a full document
+        wrapper, fewer for fragment templates):
+
+        1. ``shell_open`` — everything before ``<div dj-root>``
+           (``<!DOCTYPE>``, ``<head>``, ``<body>`` open, top chrome).
+        2. ``body_open`` — the ``<div dj-root>`` opening tag itself.
+        3. ``body_content`` — the children of ``<div dj-root>``.
+        4. ``body_close`` — ``</div>`` + ``</body></html>`` + trailing.
+
+        The 4-chunk shape is invariant when ``<div dj-root>`` is present
+        (covered by ``test_minimum_chunk_count_with_dj_root``). Templates
+        without a ``<div dj-root>`` (raw fragments) yield a single chunk
+        equivalent to the non-streaming path.
+
+        Each yield routes through :meth:`ChunkEmitter.emit` so backpressure
+        applies. When the emitter is cancelled
+        (:meth:`ChunkEmitter.cancel`), :class:`~djust.http_streaming.ChunkEmitterCancelled`
+        propagates out and the generator returns cleanly.
+
+        :param full_html: Fully-rendered HTML string from
+            :meth:`render_full_template` (post-injection of client script,
+            handler metadata, ``dj-view`` attribute).
+        :param emitter: Per-request :class:`ChunkEmitter` that this
+            coroutine pushes chunks through. The chunks then flow out
+            via ``emitter.__aiter__`` to the consumer (typically the
+            ``StreamingHttpResponse`` async iterator wired in
+            :meth:`RequestMixin.aget`).
+        :returns: ``None``. This is a coroutine, not an async generator —
+            chunks are delivered exclusively via ``emitter.emit()``.
+        """
+        from ..http_streaming import ChunkEmitterCancelled
+
+        # Find <div dj-root> opening tag start.
+        dj_root_match = _DJ_ROOT_RE.search(full_html)
+        if not dj_root_match:
+            # No dj-root wrapper: fragment template. Single-chunk fallback.
+            try:
+                await emitter.emit(full_html.encode("utf-8"))
+            except ChunkEmitterCancelled:
+                logger.debug("arender_chunks: cancelled during fragment emit")
+            return
+
+        dj_root_open_start = dj_root_match.start()
+        dj_root_open_end = dj_root_match.end()
+
+        # Find the matching </div> for <div dj-root> using shared logic.
+        # _find_closing_div_pos already handles balanced div nesting AND
+        # ignores script-block contents, so the script-mask + </body>
+        # search the Phase-1 splitter does is redundant here — the chunk
+        # boundary is the closing-</div>, not the </body>.
+        result = TemplateMixin._find_closing_div_pos(full_html, dj_root_open_end)
+        if result[1] is None:
+            # Malformed HTML (no closing </div> for dj-root). Fall back to
+            # a single chunk so we never produce broken output.
+            try:
+                await emitter.emit(full_html.encode("utf-8"))
+            except ChunkEmitterCancelled:
+                logger.debug("arender_chunks: cancelled during fallback emit")
+            return
+
+        # result is (close_start, close_end); close_end is the index just
+        # AFTER </div>. Slice the four pieces.
+        shell_open = full_html[:dj_root_open_start]
+        body_open = full_html[dj_root_open_start:dj_root_open_end]
+        body_content = full_html[dj_root_open_end : result[0]]
+        # body_close: from the closing </div> through end-of-document.
+        body_close_chunk = full_html[result[0] :]
+
+        try:
+            # 1. Shell: <!DOCTYPE>, <head>, <body>, top chrome.
+            if shell_open:
+                await emitter.emit(shell_open.encode("utf-8"))
+            # Yield to the loop so ASGI can flush the shell over the wire
+            # before we proceed. PR-B uses this same await as the boundary
+            # where lazy thunks become eligible to start rendering.
+            await asyncio.sleep(0)
+
+            # 2. Body open: <div dj-root ...> opening tag.
+            if body_open:
+                await emitter.emit(body_open.encode("utf-8"))
+            await asyncio.sleep(0)
+
+            # 3. Body content: dj-root children.
+            if body_content:
+                await emitter.emit(body_content.encode("utf-8"))
+            await asyncio.sleep(0)
+
+            # 4. Body close: </div></body></html> + trailing.
+            if body_close_chunk:
+                await emitter.emit(body_close_chunk.encode("utf-8"))
+        except ChunkEmitterCancelled:
+            logger.debug("arender_chunks: cancelled mid-stream")
+            return
+
+        # 5. Lazy thunks (PR-B + PR-C, ADR-015). The body of the page
+        # has already flushed; lazy ``<template id="djl-fill-X">``
+        # chunks are appended after </html>. Browsers tolerate
+        # post-</html> content per the HTML5 parser tree-construction
+        # spec — the template element + its inline <script> activator
+        # move into the implicit body and execute in order.
+        #
+        # PR-C: parallel render via ``asyncio.as_completed``. All
+        # thunks start concurrently; chunks emerge in completion order
+        # rather than registration order. Total wall-clock time =
+        # max(thunk_durations) instead of sum(thunk_durations). Client-
+        # side reconciliation is keyed by slot id (``data-target``) so
+        # out-of-order arrival is correct by construction.
+        if not emitter.thunks:
+            return
+
+        # Per-thunk wrapper returns ``(view_id, result, exc)`` so the
+        # surfacing task is unambiguously identified at completion
+        # time. A naive ``next(t for t in task_to_id if t.done() and
+        # t.exception() ...)`` recovery returns the FIRST done-with-
+        # exception task — on multi-failure that attributes the wrong
+        # view_id. Wrapping packages the identity at thunk-start time.
+        async def _wrap(view_id, thunk_fn):
+            try:
+                result = await thunk_fn()
+            except asyncio.CancelledError:
+                # Re-raise so as_completed sees the cancellation
+                # propagate; otherwise the wrapped task swallows the
+                # cancel signal and the caller can't tell.
+                raise
+            except ChunkEmitterCancelled:
+                raise
+            except Exception as exc:  # noqa: BLE001 — captured for logging
+                return (view_id, None, exc)
+            return (view_id, result, None)
+
+        thunk_tasks = [
+            asyncio.ensure_future(_wrap(view_id, thunk_fn)) for view_id, thunk_fn in emitter.thunks
+        ]
+
+        def _cancel_pending():
+            for task in thunk_tasks:
+                if not task.done():
+                    task.cancel()
+
+        async def _drain_iterator(it):
+            """Drain a partially-consumed ``asyncio.as_completed``
+            iterator so its internally-queued ``_wait_for_one``
+            coroutines are awaited and don't trigger
+            ``RuntimeWarning: coroutine '_wait_for_one' was never
+            awaited`` (#1153).
+
+            CPython's ``asyncio.as_completed`` is a generator that
+            yields one ``_wait_for_one()`` coroutine per pending
+            task. When we ``return`` mid-loop after an
+            ``emitter.cancelled`` check, Python's for-protocol has
+            ALREADY pulled the next coroutine via ``next()`` into
+            ``completed`` — and any further pending coroutines the
+            generator would have produced get discarded along with
+            the generator itself.
+
+            ``task.cancel()`` only schedules cancellation; it doesn't
+            unblock ``_wait_for_one``'s ``done.get()`` from the
+            ``as_completed`` queue. We need to keep iterating + await
+            each remaining coroutine so the queue drains. Cancelled
+            tasks raise ``CancelledError`` from ``f.result()`` inside
+            ``_wait_for_one``; we swallow those, since the cancellation
+            was self-inflicted via ``_cancel_pending``.
+            """
+            for remaining in it:
+                try:
+                    await remaining
+                except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                    # Swallow — we cancelled these tasks ourselves.
+                    pass
+
+        as_completed_iter = asyncio.as_completed(thunk_tasks)
+        try:
+            for completed in as_completed_iter:
+                if emitter.cancelled:
+                    _cancel_pending()
+                    # Drain ``completed`` (already pulled by for-protocol)
+                    # plus any further coroutines the iterator would
+                    # produce, so no ``_wait_for_one`` is GC'd unawaited.
+                    try:
+                        await completed
+                    except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                        pass
+                    await _drain_iterator(as_completed_iter)
+                    return
+                try:
+                    view_id, chunk_bytes, exc = await completed
+                except ChunkEmitterCancelled:
+                    raise
+                except asyncio.CancelledError:
+                    # Suppressing CancelledError is safe HERE because
+                    # this is an INNER thunk task being cancelled by
+                    # ``_cancel_pending`` (in response to the outer
+                    # emitter cancel). The outer ``arender_chunks``
+                    # coroutine's own cancellation propagates via the
+                    # next iteration's ``emitter.cancelled`` check and
+                    # then the outer ``except ChunkEmitterCancelled``
+                    # branch. Re-raising here would short-circuit that.
+                    continue
+                if exc is not None:
+                    logger.exception(
+                        "arender_chunks: lazy thunk raised for view_id=%s; "
+                        "thunks should catch + emit error envelope themselves",
+                        view_id,
+                        exc_info=exc,
+                    )
+                    continue
+                if chunk_bytes is None:
+                    continue
+                if not isinstance(chunk_bytes, (bytes, bytearray)):
+                    chunk_bytes = chunk_bytes.encode("utf-8")
+                await emitter.emit(chunk_bytes)
+                # Yield between fills so each chunk has a chance to
+                # leave the wire before the next completed task is
+                # picked up.
+                await asyncio.sleep(0)
+        except ChunkEmitterCancelled:
+            _cancel_pending()
+            await _drain_iterator(as_completed_iter)
+            logger.debug("arender_chunks: cancelled during lazy phase")
+            return
+        finally:
+            # Defensive — cancel + drain any remaining pending tasks so
+            # we don't leak ``coroutine '_wait_for_one' was never
+            # awaited`` warnings on paths that bypass the explicit
+            # cancellation branches above (e.g. the emit call raising
+            # something we don't catch). ``_cancel_pending`` is
+            # idempotent; ``_drain_iterator`` is a no-op once the
+            # generator is exhausted.
+            _cancel_pending()
+            try:
+                await _drain_iterator(as_completed_iter)
+            except Exception:  # noqa: BLE001
+                # Best-effort drain — never raise from finally.
+                pass
+
+    def _split_for_streaming(self, full_html: str) -> tuple:
+        """Split rendered HTML into ``(shell_open, main_content, shell_close)``.
+
+        .. deprecated:: 0.9.0
+            This synchronous splitter is the Phase 1 (v0.6.1) regex-split-
+            after-render path. PR-A introduces :meth:`arender_chunks`, an
+            async generator that yields the same chunks with
+            ``await asyncio.sleep(0)`` boundaries between them so the
+            shell flushes over the ASGI socket before the body bytes are
+            queued. This sync helper is retained for the WSGI fallback in
+            :meth:`RequestMixin._make_streaming_response`.
+
+        Used by :meth:`_make_streaming_response` to flush the page shell to
+        the browser before the main LiveView body is written. The browser
+        begins parsing ``<head>`` and loading CSS/JS as soon as the first
+        chunk arrives, competitive with Next.js ``renderToPipeableStream``.
+
+        Split boundaries:
+
+        - ``shell_open`` — everything before the outermost ``<div dj-root>``.
+        - ``main_content`` — the ``<div dj-root>...</div>`` block plus any
+          markup between that closing div and the closing ``</body>``.
+        - ``shell_close`` — ``</body></html>`` + any trailing markup.
+
+        Edge cases:
+
+        - HTML without a ``<div dj-root>`` (e.g. a minimal template without
+          a document wrapper) returns ``(full_html, "", "")`` so streaming
+          falls back to a single-chunk response equivalent to the
+          non-streaming path.
+        - HTML with a ``<div dj-root>`` but no ``</body>`` returns
+          ``(shell_open, main_content, "")`` — the main chunk runs to the
+          end of the document.
+
+        The ``dj-root`` match is case-insensitive, precise (hyphenated
+        suffixes like ``dj-root-other`` do NOT match), and the
+        ``</body>`` match tolerates trailing whitespace (``</body >``).
+        ``</body>`` tokens appearing as literal string content inside a
+        ``<script>...</script>`` block are skipped so they don't create
+        a false split boundary.
+
+        :param full_html: Fully-rendered HTML as returned by
+            :meth:`render` / the GET handler.
+        :returns: Three-tuple of string chunks that, when concatenated,
+            equal ``full_html``.
+        """
+        m = _DJ_ROOT_RE.search(full_html)
+        if not m:
+            return full_html, "", ""
+
+        dj_root_start = m.start()
+
+        # Mask out <script>...</script> blocks (preserving string length via
+        # NUL fill) so a literal "</body>" inside a JS string doesn't get
+        # picked up as the real body close. Search the masked tail, then
+        # translate the hit position back into the original string.
+        tail = full_html[dj_root_start:]
+        masked_tail = _SCRIPT_BLOCK_RE.sub(
+            lambda s: "\x00" * len(s.group(0)),
+            tail,
+        )
+        body_close = _BODY_CLOSE_RE.search(masked_tail)
+        if not body_close:
+            return full_html[:dj_root_start], full_html[dj_root_start:], ""
+
+        abs_close = dj_root_start + body_close.start()
+        shell_open = full_html[:dj_root_start]
+        main_content = full_html[dj_root_start:abs_close]
+        shell_close = full_html[abs_close:]
+        return shell_open, main_content, shell_close
+
+    def _extract_liveview_content(self, html: str) -> str:
+        """
+        Extract the inner content of [dj-root] from full HTML.
+
+        This ensures the HTML sent over WebSocket matches what the client expects:
+        just the content to insert into the existing [dj-root] container.
+
+        Falls back to [dj-view] if [dj-root] is not present, since dj-root
+        is auto-inferred from dj-view (see PR #297).
+        """
+        # Find the opening tag for [dj-root], falling back to [dj-view]
+        opening_match = re.search(r"<div\s+[^>]*dj-root[^>]*>", html, re.IGNORECASE)
+        if not opening_match:
+            opening_match = re.search(r"<div\s+[^>]*dj-view[^>]*>", html, re.IGNORECASE)
+
+        if not opening_match:
+            return html
+
+        start_pos = opening_match.end()
+
+        result = TemplateMixin._find_closing_div_pos(html, start_pos)
+        if result[0] is not None:
+            return html[start_pos : result[0]]
+        return html
+
+    def _extract_liveview_root_with_wrapper(self, template: str) -> str:
+        """
+        Extract the <div dj-root>...</div> section from a template (WITH the wrapper div).
+
+        Falls back to [dj-view] if [dj-root] is not present, since dj-root
+        is auto-inferred from dj-view (see PR #297).
+        """
+        opening_match = re.search(r"<div\s+[^>]*dj-root[^>]*>", template, re.IGNORECASE)
+        if not opening_match:
+            opening_match = re.search(r"<div\s+[^>]*dj-view[^>]*>", template, re.IGNORECASE)
+
+        if not opening_match:
+            return template
+
+        start_pos = opening_match.start()
+        inner_start_pos = opening_match.end()
+
+        result = TemplateMixin._find_closing_div_pos(template, inner_start_pos)
+        if result[1] is not None:
+            return template[start_pos : result[1]]
+        return template
+
+    def _extract_liveview_template_content(self, template: str) -> str:
+        """
+        Extract the innerHTML of [dj-root] from a TEMPLATE (not rendered HTML).
+
+        Falls back to [dj-view] if [dj-root] is not present.
+        """
+        opening_match = re.search(r"<div\s+[^>]*dj-root[^>]*>", template, re.IGNORECASE)
+        if not opening_match:
+            opening_match = re.search(r"<div\s+[^>]*dj-view[^>]*>", template, re.IGNORECASE)
+
+        if not opening_match:
+            return template
+
+        start_pos = opening_match.end()
+
+        result = TemplateMixin._find_closing_div_pos(template, start_pos)
+        if result[0] is not None:
+            return template[start_pos : result[0]]
+        return template
+
+    @staticmethod
+    def _find_closing_div_pos(
+        template: str, inner_start: int
+    ) -> "tuple[int, int] | tuple[None, None]":
+        """
+        Find the </div> that closes the div opened just before inner_start.
+
+        Returns (close_start, close_end) or (None, None) if not found.
+
+        Handles Django {% if/else/elif/endif %} branching correctly: when
+        {% else %} or {% elif %} is encountered, depth is restored to what
+        it was at the matching {% if %}, so mutually-exclusive branches that
+        each open a <div> are counted only once.
+        """
+        # Pre-scan for if/elif/else/endif tags in the region being searched.
+        flow_tags = [
+            (inner_start + m.start(), inner_start + m.end(), m.group(1))
+            for m in re.finditer(
+                r"\{%-?\s*(if|elif|else|endif)\b.*?-?%\}",
+                template[inner_start:],
+                re.DOTALL,
+            )
+        ]
+
+        branch_stack: list[int] = []
+        depth = 1
+        pos = inner_start
+
+        while depth > 0 and pos < len(template):
+            open_match = re.search(r"<div\b", template[pos:], re.IGNORECASE)
+            close_match = re.search(r"</div>", template[pos:], re.IGNORECASE)
+
+            if close_match is None:
+                break
+
+            close_pos = pos + close_match.start()
+            open_pos = pos + open_match.start() if open_match else float("inf")
+            next_pos = min(open_pos, close_pos)  # type: ignore[type-var]
+
+            # Process any flow-control tags that fall before the next div tag.
+            pending = [(ts, te, tt) for ts, te, tt in flow_tags if pos <= ts < next_pos]
+            if pending:
+                ts, te, tag_type = pending[0]
+                if tag_type == "if":
+                    branch_stack.append(depth)
+                elif tag_type in ("else", "elif"):
+                    if branch_stack:
+                        depth = branch_stack[-1]  # undo this branch's depth changes
+                elif tag_type == "endif":
+                    if branch_stack:
+                        branch_stack.pop()
+                pos = te
+                continue
+
+            if open_pos < close_pos:
+                depth += 1
+                pos = open_pos + 4
+            else:
+                depth -= 1
+                if depth == 0:
+                    return close_pos, pos + close_match.end()
+                pos = close_pos + 6
+
+        return None, None
+
+    def _strip_liveview_root_in_html(self, html: str) -> str:
+        """
+        Strip comments and whitespace from [dj-root] div in full HTML page.
+
+        Falls back to [dj-view] if [dj-root] is not present.
+        """
+        opening_match = re.search(r"<div\s+[^>]*dj-root[^>]*>", html, re.IGNORECASE)
+        if not opening_match:
+            opening_match = re.search(r"<div\s+[^>]*dj-view[^>]*>", html, re.IGNORECASE)
+
+        if not opening_match:
+            return html
+
+        start_pos = opening_match.start()
+        inner_start_pos = opening_match.end()
+
+        result = TemplateMixin._find_closing_div_pos(html, inner_start_pos)
+        if result[1] is not None:
+            liveview_div = html[start_pos : result[1]]
+            stripped_div = self._strip_comments_and_whitespace(liveview_div)
+            return html[:start_pos] + stripped_div + html[result[1] :]
+        return html
+
+    def render_full_template(self, request=None, serialized_context=None) -> str:
+        """
+        Render the full template including base template inheritance.
+        Used for initial GET requests when using template inheritance.
+
+        Args:
+            request: HTTP request object
+            serialized_context: Optional pre-serialized context dict
+
+        Returns the complete HTML document (DOCTYPE, html, head, body, etc.)
+        """
+        # Check if we have a full template from template inheritance
+        if hasattr(self, "_full_template") and self._full_template:
+            from djust._rust import RustLiveView
+
+            template_dirs = get_template_dirs()
+            temp_rust = RustLiveView(self._full_template, template_dirs)
+
+            safe_keys = []
+            if serialized_context is not None:
+                # Always normalize — even "pre-serialized" context may contain
+                # Django Model instances whose FK descriptors are not in __dict__.
+                # Rust's FromPyObject extracts __dict__ which has claimant_id=1
+                # (the FK column int), not the related Claimant object.
+                # normalize_django_value resolves FK descriptors via getattr(),
+                # producing nested dicts that the Rust renderer can traverse
+                # with dot notation: {{ claim.claimant.first_name }}
+                from ..serialization import normalize_django_value
+
+                json_compatible_context = normalize_django_value(serialized_context)
+                # Recursively detect SafeStrings in the normalized context
+                from ..mixins.rust_bridge import _collect_safe_keys
+
+                for key, value in json_compatible_context.items():
+                    safe_keys.extend(_collect_safe_keys(value, key))
+            else:
+                from ..components.base import Component, LiveComponent
+
+                context = self.get_context_data()
+                context = self._apply_context_processors(context, request)
+
+                from django.http import HttpRequest
+
+                rendered_context = {}
+                for key, value in context.items():
+                    if isinstance(value, HttpRequest):
+                        continue
+                    elif isinstance(value, (Component, LiveComponent)):
+                        rendered_context[key] = {"render": str(value.render())}
+                        safe_keys.append(key)
+                    else:
+                        rendered_context[key] = value
+
+                from ..serialization import normalize_django_value
+                from ..mixins.rust_bridge import _collect_safe_keys
+
+                # Normalize first so Form/BoundField objects are converted to
+                # SafeString values before safe-key detection runs.  SafeString
+                # is a str subclass so it passes through normalize_django_value
+                # unchanged, preserving the safe marker.
+                json_compatible_context = normalize_django_value(rendered_context)
+
+                # Detect SafeStrings in normalized context (including those
+                # produced by Form/BoundField rendering above).
+                for key, value in json_compatible_context.items():
+                    safe_keys.extend(_collect_safe_keys(value, key))
+
+            temp_rust.update_state(json_compatible_context)
+            if safe_keys:
+                temp_rust.mark_safe_keys(safe_keys)
+            html = temp_rust.render()
+
+            html = self._hydrate_react_components(html)
+            html = self._inject_handler_metadata(html, request=request)
+
+            return html
+        else:
+            return self.render(request)
+
+    def render_with_diff(
+        self, request=None, extract_liveview_root=False, preloaded_context=None
+    ) -> tuple[str, Optional[str], int]:
+        """
+        Render the view and compute diff from last render.
+
+        Args:
+            extract_liveview_root: If True, extract innerHTML of [dj-root]
+            preloaded_context: If provided, pass to _sync_state_to_rust
+                instead of calling get_context_data() again. Used by the
+                async websocket path where context was already awaited.
+
+        Returns:
+            Tuple of (html, patches_json, version)
+        """
+        logger.debug(
+            "[LiveView] render_with_diff() called (extract_liveview_root=%s)",
+            extract_liveview_root,
+        )
+        logger.debug("[LiveView] _rust_view before init: %s", self._rust_view)
+
+        self._initialize_rust_view(request)
+
+        # If template is a property (dynamic), update the template
+        if hasattr(self.__class__, "template") and isinstance(
+            getattr(self.__class__, "template"), property
+        ):
+            logger.debug("[LiveView] template is a property - updating template")
+            new_template = self.get_template()
+            self._rust_view.update_template(new_template)
+
+        logger.debug("[LiveView] _rust_view after init: %s", self._rust_view)
+
+        # Skip sync if already done this cycle (avoids double-sync which
+        # causes false-positive id() changes and defeats the text fast path).
+        if not getattr(self, "_sync_done_this_cycle", False):
+            self._sync_state_to_rust(preloaded_context=preloaded_context)
+        else:
+            logger.debug(
+                "[LiveView] _sync_done_this_cycle=True — SKIPPING sync (force_full=%s)",
+                getattr(self, "_force_full_html", False),
+            )
+        self._sync_done_this_cycle = False  # Reset for next cycle
+
+        result = self._rust_view.render_with_diff()
+        html, patches_json, version = result
+
+        # Capture per-phase Rust timing (render, parse, diff, serialize)
+        self._rust_render_timing = self._rust_view.get_render_timing()
+
+        logger.debug(
+            "[LiveView] Rendered HTML length: %d chars, starts with: %s...",
+            len(html),
+            html[:100],
+        )
+
+        if extract_liveview_root:
+            html = self._extract_liveview_content(html)
+            logger.debug("[LiveView] Extracted [dj-root] content (%d chars)", len(html))
+
+        logger.debug(
+            "[LiveView] Rust returned: version=%d, patches=%s",
+            version,
+            "YES" if patches_json else "NO",
+        )
+        if not patches_json:
+            logger.debug("[LiveView] NO PATCHES GENERATED!")
+        else:
+            from djust.config import config
+
+            if config.get("debug_vdom", False):
+                import json as json_module
+
+                patches_list = json_module.loads(patches_json) if patches_json else []
+                logger.debug("[LiveView] Generated %d patches:", len(patches_list))
+                for i, patch in enumerate(patches_list[:5]):
+                    patch_type = patch.get("type", "Unknown")
+                    path = patch.get("path", [])
+
+                    if patch_type == "SetAttr":
+                        logger.debug(
+                            "[LiveView]   Patch %d: %s '%s' = '%s' at path %s",
+                            i,
+                            patch_type,
+                            patch.get("key"),
+                            patch.get("value"),
+                            path,
+                        )
+                    elif patch_type == "RemoveAttr":
+                        logger.debug(
+                            "[LiveView]   Patch %d: %s '%s' at path %s",
+                            i,
+                            patch_type,
+                            patch.get("key"),
+                            path,
+                        )
+                    elif patch_type == "SetText":
+                        text_preview = patch.get("text", "")[:50]
+                        logger.debug(
+                            "[LiveView]   Patch %d: %s to '%s' at path %s",
+                            i,
+                            patch_type,
+                            text_preview,
+                            path,
+                        )
+                    else:
+                        logger.debug("[LiveView]   Patch %d: %s", i, patch)
+
+        # Track HTML sizes for diagnostics (used by full_html_update signal)
+        self._previous_html_size = getattr(self, "_current_html_size", None)
+        self._current_html_size = len(html)
+
+        # Reset temporary assigns and streams to free memory after rendering
+        self._reset_temporary_assigns()
+
+        return (html, patches_json, version)

@@ -1,8 +1,0 @@
-"""
-lunchable-splitlunch info file
-"""
-
-from importlib.metadata import version
-
-__application__ = "lunchable-splitlunch"
-__version__ = version(__application__)

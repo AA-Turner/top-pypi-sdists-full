@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "jetpack-io"
+# Versions follow PEP 440 (https://www.python.org/dev/peps/pep-0440)
+# Use X.Y.Z-devYYYYMMDD for development versions
+version = "0.5.1-dev202208201660993532"     # Placeholder. Real version gets set in publish script
+description = "Python SDK for Jetpack.io"
+license = "Jetpack Community License"
+authors = ["jetpack.io <hello@jetpack.io>"]
+homepage = "https://www.jetpack.io"         # Point to developers portal instead?
+
+# Include these links once we publish publicly. URLs tentative.
+# repository = "https://github.com/jetpack-io/jetpack-python"
+# documentation = "https://www.jetpack.io/docs/reference/python-sdk/jetpack/"
+
+# Classifiers from https://pypi.org/classifiers/
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: Free To Use But Restricted",
+  "Operating System :: OS Independent",
+  "Topic :: Internet",
+  "Topic :: Software Development",
+]
+
+readme = "README.md"
+packages = [{ include = "jetpack", from = "src" }]
+include = ["**/*pb2*.py"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+schedule = "^1.1.0"
+jsonpickle = "^2.0.0"
+grpcio = "^1.43.0"
+protobuf = "^3.20.1"
+click = "^8.0.3"
+tblib = "^1.7.0"
+deprecation = "^2.1.0"
+pdoc3 = "^0.10.0"
+grpcio-reflection = "^1.46.3"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.2"
+ipython = "^7.24.1"
+# TODO: Unify linting, and formatting with git precommit hooks that do the same.
+flake8 = "^3.9.2"
+black = "^21.6b0"
+invoke = "^1.5.0"
+Sphinx = "^4.0.2"
+myst-parser = "^0.15.0"
+aiounittest = "^1.4.2"
+pytest-asyncio = "^0.19.0"
+
+[tool.poetry.scripts]
+jetpack-sdk = 'jetpack:run'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target-version = ['py38']

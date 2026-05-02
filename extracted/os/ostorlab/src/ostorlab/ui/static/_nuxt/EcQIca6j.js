@@ -1,0 +1,1 @@
+const r="X-Api-Key";class a{$axios;constructor(t){this.$axios=t}_createAuthorizationHeader(t){return{[r]:t.apiKey}}async post(t,o){if(t!=null)return await this.$axios.post(t.endpoint,o,{headers:this._createAuthorizationHeader(t)})}}function s(i,...t){let o="",e;for(e=0;e<t.length;e++)o+=i[e]+t[e];return o+=i[e],o}export{a as R,s as g};

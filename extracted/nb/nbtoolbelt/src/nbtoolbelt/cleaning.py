@@ -8,7 +8,6 @@ This software is made available under the terms of the MIT License.
 
 from argparse import Namespace
 from collections import defaultdict
-from typing import List, Dict
 
 from nbformat import NotebookNode
 
@@ -19,7 +18,7 @@ TEST = False
 # TODO split cleaning into smaller functions
 
 
-def clean_nb(nb: NotebookNode, args: Namespace) -> Dict:
+def clean_nb(nb: NotebookNode, args: Namespace) -> dict:
     """Clean fields and optionally output from notebook.
 
     If ``args`` is not ``None``, then the following arguments are used:
@@ -100,7 +99,7 @@ def clean_code_output(nb: NotebookNode) -> None:
             cell.execution_count = None
 
 
-def clean_code_metadata(nb: NotebookNode, clean: List[str]) -> None:
+def clean_code_metadata(nb: NotebookNode, clean: list[str]) -> None:
     """Clean metadata of code cells, by
     * removing collapsed and scrolled flags on code cells
     * removing ExecuteTime data on code cells

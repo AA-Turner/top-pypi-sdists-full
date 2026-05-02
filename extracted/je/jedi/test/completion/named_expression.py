@@ -1,7 +1,6 @@
 # For assignment expressions / named expressions / walrus operators / whatever
 # they are called.
 
-# python >= 3.8
 b = (a:=1, a)
 
 #? int()

@@ -74,6 +74,20 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetCloudComponentStorageResponse,
     GetCloudComponentVpcRequest,
     GetCloudComponentVpcResponse,
+    ListBindingClusterBackgroundPersistenceDeploymentRequest,
+    ListBindingClusterBackgroundPersistenceDeploymentResponse,
+    ListBindingClusterContainerRegistryRequest,
+    ListBindingClusterContainerRegistryResponse,
+    ListBindingClusterGatewayRequest,
+    ListBindingClusterGatewayResponse,
+    ListBindingClusterTelemetryDeploymentRequest,
+    ListBindingClusterTelemetryDeploymentResponse,
+    ListBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+    ListBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    ListBindingEnvironmentGatewayRequest,
+    ListBindingEnvironmentGatewayResponse,
+    ListBindingPrivateGatewayRequest,
+    ListBindingPrivateGatewayResponse,
     ListCloudComponentClusterRequest,
     ListCloudComponentClusterResponse,
     ListCloudComponentContainerRegistryRequest,
@@ -182,6 +196,10 @@ class CloudComponentsServiceStub:
         GetBindingClusterContainerRegistryRequest,
         GetBindingClusterContainerRegistryResponse,
     ]
+    ListBindingClusterContainerRegistry: UnaryUnaryMultiCallable[
+        ListBindingClusterContainerRegistryRequest,
+        ListBindingClusterContainerRegistryResponse,
+    ]
     DeleteBindingClusterContainerRegistry: UnaryUnaryMultiCallable[
         DeleteBindingClusterContainerRegistryRequest,
         DeleteBindingClusterContainerRegistryResponse,
@@ -193,6 +211,10 @@ class CloudComponentsServiceStub:
     GetBindingClusterGateway: UnaryUnaryMultiCallable[
         GetBindingClusterGatewayRequest,
         GetBindingClusterGatewayResponse,
+    ]
+    ListBindingClusterGateway: UnaryUnaryMultiCallable[
+        ListBindingClusterGatewayRequest,
+        ListBindingClusterGatewayResponse,
     ]
     DeleteBindingClusterGateway: UnaryUnaryMultiCallable[
         DeleteBindingClusterGatewayRequest,
@@ -206,6 +228,10 @@ class CloudComponentsServiceStub:
         GetBindingPrivateGatewayRequest,
         GetBindingPrivateGatewayResponse,
     ]
+    ListBindingPrivateGateway: UnaryUnaryMultiCallable[
+        ListBindingPrivateGatewayRequest,
+        ListBindingPrivateGatewayResponse,
+    ]
     DeleteBindingPrivateGateway: UnaryUnaryMultiCallable[
         DeleteBindingPrivateGatewayRequest,
         DeleteBindingPrivateGatewayResponse,
@@ -217,6 +243,10 @@ class CloudComponentsServiceStub:
     GetBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
         GetBindingClusterBackgroundPersistenceDeploymentRequest,
         GetBindingClusterBackgroundPersistenceDeploymentResponse,
+    ]
+    ListBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        ListBindingClusterBackgroundPersistenceDeploymentRequest,
+        ListBindingClusterBackgroundPersistenceDeploymentResponse,
     ]
     DeleteBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
         DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
@@ -230,6 +260,10 @@ class CloudComponentsServiceStub:
         GetBindingClusterTelemetryDeploymentRequest,
         GetBindingClusterTelemetryDeploymentResponse,
     ]
+    ListBindingClusterTelemetryDeployment: UnaryUnaryMultiCallable[
+        ListBindingClusterTelemetryDeploymentRequest,
+        ListBindingClusterTelemetryDeploymentResponse,
+    ]
     DeleteBindingClusterTelemetryDeployment: UnaryUnaryMultiCallable[
         DeleteBindingClusterTelemetryDeploymentRequest,
         DeleteBindingClusterTelemetryDeploymentResponse,
@@ -242,6 +276,10 @@ class CloudComponentsServiceStub:
         GetBindingEnvironmentGatewayRequest,
         GetBindingEnvironmentGatewayResponse,
     ]
+    ListBindingEnvironmentGateway: UnaryUnaryMultiCallable[
+        ListBindingEnvironmentGatewayRequest,
+        ListBindingEnvironmentGatewayResponse,
+    ]
     DeleteBindingEnvironmentGateway: UnaryUnaryMultiCallable[
         DeleteBindingEnvironmentGatewayRequest,
         DeleteBindingEnvironmentGatewayResponse,
@@ -253,6 +291,10 @@ class CloudComponentsServiceStub:
     GetBindingEnvironmentBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
         GetBindingEnvironmentBackgroundPersistenceDeploymentRequest,
         GetBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    ]
+    ListBindingEnvironmentBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        ListBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        ListBindingEnvironmentBackgroundPersistenceDeploymentResponse,
     ]
     DeleteBindingEnvironmentBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
         DeleteBindingEnvironmentBackgroundPersistenceDeploymentRequest,
@@ -387,6 +429,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetBindingClusterContainerRegistryResponse: ...
     @abstractmethod
+    def ListBindingClusterContainerRegistry(
+        self,
+        request: ListBindingClusterContainerRegistryRequest,
+        context: ServicerContext,
+    ) -> ListBindingClusterContainerRegistryResponse: ...
+    @abstractmethod
     def DeleteBindingClusterContainerRegistry(
         self,
         request: DeleteBindingClusterContainerRegistryRequest,
@@ -404,6 +452,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: GetBindingClusterGatewayRequest,
         context: ServicerContext,
     ) -> GetBindingClusterGatewayResponse: ...
+    @abstractmethod
+    def ListBindingClusterGateway(
+        self,
+        request: ListBindingClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> ListBindingClusterGatewayResponse: ...
     @abstractmethod
     def DeleteBindingClusterGateway(
         self,
@@ -423,6 +477,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetBindingPrivateGatewayResponse: ...
     @abstractmethod
+    def ListBindingPrivateGateway(
+        self,
+        request: ListBindingPrivateGatewayRequest,
+        context: ServicerContext,
+    ) -> ListBindingPrivateGatewayResponse: ...
+    @abstractmethod
     def DeleteBindingPrivateGateway(
         self,
         request: DeleteBindingPrivateGatewayRequest,
@@ -440,6 +500,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: GetBindingClusterBackgroundPersistenceDeploymentRequest,
         context: ServicerContext,
     ) -> GetBindingClusterBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def ListBindingClusterBackgroundPersistenceDeployment(
+        self,
+        request: ListBindingClusterBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> ListBindingClusterBackgroundPersistenceDeploymentResponse: ...
     @abstractmethod
     def DeleteBindingClusterBackgroundPersistenceDeployment(
         self,
@@ -459,6 +525,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetBindingClusterTelemetryDeploymentResponse: ...
     @abstractmethod
+    def ListBindingClusterTelemetryDeployment(
+        self,
+        request: ListBindingClusterTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> ListBindingClusterTelemetryDeploymentResponse: ...
+    @abstractmethod
     def DeleteBindingClusterTelemetryDeployment(
         self,
         request: DeleteBindingClusterTelemetryDeploymentRequest,
@@ -477,6 +549,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetBindingEnvironmentGatewayResponse: ...
     @abstractmethod
+    def ListBindingEnvironmentGateway(
+        self,
+        request: ListBindingEnvironmentGatewayRequest,
+        context: ServicerContext,
+    ) -> ListBindingEnvironmentGatewayResponse: ...
+    @abstractmethod
     def DeleteBindingEnvironmentGateway(
         self,
         request: DeleteBindingEnvironmentGatewayRequest,
@@ -494,6 +572,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: GetBindingEnvironmentBackgroundPersistenceDeploymentRequest,
         context: ServicerContext,
     ) -> GetBindingEnvironmentBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def ListBindingEnvironmentBackgroundPersistenceDeployment(
+        self,
+        request: ListBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> ListBindingEnvironmentBackgroundPersistenceDeploymentResponse: ...
     @abstractmethod
     def DeleteBindingEnvironmentBackgroundPersistenceDeployment(
         self,

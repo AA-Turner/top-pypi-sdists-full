@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: sprinklerspi-api
+Version: 0.0.4
+Summary: Python library to interface with Sprinkler PI
+Home-page: https://github.com/a-reda/sprinklerspi-api
+Author: Reda
+Author-email: reda@aissaoui.org
+License: UNKNOWN
+Description: # Sprinklers Pi Library
+        
+        ## Features
+        
+        - Get controller state
+        - Get zones
+        - Get all schedules
+        - Get single schedule
+        - Switch on/off all schedules
+        - Switch manually on/off single zone
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

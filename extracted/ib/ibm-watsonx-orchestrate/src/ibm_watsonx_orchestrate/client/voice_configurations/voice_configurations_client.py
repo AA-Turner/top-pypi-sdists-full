@@ -1,1 +1,0 @@
-from ibm_watsonx_orchestrate_clients.voice_configurations.voice_configurations_client import *

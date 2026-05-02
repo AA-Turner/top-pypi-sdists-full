@@ -81,6 +81,8 @@ set(PYTHON_BINDINGS ${PYTHON_BINDINGS}
   pybind11/games_pokerkit_wrapper.h
   pybind11/games_repeated_pokerkit.cc
   pybind11/games_repeated_pokerkit.h
+  pybind11/games_shogi.cc
+  pybind11/games_shogi.h
   pybind11/games_spades.cc
   pybind11/games_spades.h
   pybind11/games_tarok.cc
@@ -134,12 +136,30 @@ endif()
 add_library(pyspiel MODULE ${PYTHON_BINDINGS} ${OPEN_SPIEL_OBJECTS})
 target_link_directories(pyspiel PUBLIC ${Python3_LIBRARY_DIRS})
 
+# Explicitly link against Python and Abseil libraries. This is required on
+# Windows as symbols must be resolved at link time.
+if (WIN32)
+  target_link_libraries(pyspiel PRIVATE Python3::Module)
+endif()
+target_link_libraries(pyspiel PRIVATE
+  absl::algorithm
+  absl::flags
+  absl::flags_parse
+  absl::flat_hash_map
+  absl::optional
+  absl::random_random
+  absl::str_format
+  absl::strings
+  absl::time
+)
+
 # Without this, the binary is called `libpyspiel.so`
 set_target_properties(pyspiel PROPERTIES PREFIX "")
 if (WIN32)
   # Python does not seem able to import the module without this change.
   set_target_properties(pyspiel PROPERTIES SUFFIX ".pyd")
 endif()
+
 
 
 # Detect the Python ML frameworks.

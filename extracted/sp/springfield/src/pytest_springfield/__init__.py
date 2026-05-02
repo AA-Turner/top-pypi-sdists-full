@@ -1,0 +1,2 @@
+from __future__ import absolute_import
+from .assertrepr_compare import pytest_assertrepr_compare

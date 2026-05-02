@@ -1,0 +1,203 @@
+import functools
+import inspect
+from contextvars import ContextVar
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, Literal, ParamSpec, TypeVar
+
+from lamindb.base import deprecated
+
+from ..models import Run
+from ._context import Context, get_key_from_module
+from ._context import context as global_context
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+# Create a context variable to store the current tracked run
+current_tracked_run: ContextVar[Run | None] = ContextVar(
+    "current_tracked_run", default=None
+)
+
+
+def get_current_tracked_run() -> Run | None:
+    """Get the run object."""
+    run = current_tracked_run.get()
+    if run is None:
+        run = global_context.run
+    return run
+
+
+def _create_tracked_decorator(
+    uid: str | None = None,
+    is_flow: bool = True,
+    global_run: Literal["memorize", "clear", "none"] = "none",
+    track_arg_aliases: bool = False,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Internal helper to create tracked decorators.
+
+    Args:
+        uid: Persist the uid to identify this transform across renames.
+        is_flow: Triggered through @ln.flow(), otherwise @ln.step().
+    """
+
+    def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
+        # Get the original signature
+        sig = inspect.signature(func)
+
+        @functools.wraps(func)
+        def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
+            if global_context.run is None:
+                if not is_flow:
+                    raise RuntimeError(
+                        "Please track the global run context before using @ln.step(): ln.track() or @ln.flow()"
+                    )
+            else:
+                if is_flow:
+                    raise RuntimeError(
+                        "Please use @ln.step() or clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
+                    )
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            params = dict(bound_args.arguments)
+
+            initiated_by_run = get_current_tracked_run()
+            track_kwargs: dict = {}
+            if track_arg_aliases:
+                for key in ("project", "space", "branch", "plan", "initiated_by_run"):
+                    if key in params and params[key] is not None:
+                        track_kwargs[key] = params[key]
+                if "initiated_by_run" in track_kwargs:
+                    initiated_by_run = track_kwargs["initiated_by_run"]
+            path_raw = inspect.getsourcefile(func)
+            path = None
+            # do not pass path when function is defined in an ipython cell
+            if path_raw is not None and Path(path_raw).exists():
+                path = Path(path_raw)
+            source_code = inspect.getsource(func) if path is None else None
+            transform_kind: Literal["function", "script"] = (
+                "function" if path is None else "script"
+            )
+            caller_module = func.__module__
+            key = get_key_from_module(caller_module)
+            if (
+                key is None
+                and path is None
+                and caller_module in {"__main__", "__mp_main__"}
+            ):
+                key = f"{initiated_by_run.transform.key}"
+            context = Context(uid=uid, path=path)
+            context._track(
+                uid,
+                path=path,
+                key=key,
+                source_code=source_code,
+                kind=transform_kind,
+                entrypoint=func.__qualname__,
+                params=params,
+                new_run=True,
+                project=track_kwargs.get("project"),
+                space=track_kwargs.get("space"),
+                branch=track_kwargs.get("branch"),
+                plan=track_kwargs.get("plan"),
+                initiated_by_run=initiated_by_run,
+                stream_tracking=is_flow,
+            )
+            token = current_tracked_run.set(context.run)
+            if global_run in {"memorize", "clear"}:
+                global_context._run = context.run
+            try:
+                result = func(*args, **kwargs)
+                context._finish()
+                return result
+            except Exception as e:
+                run = context.run
+                run.finished_at = datetime.now(timezone.utc)
+                run._status_code = 1  # errored
+                run.save()
+                raise e
+            finally:
+                if (
+                    global_run == "clear"
+                    and global_context.run == current_tracked_run.get()
+                ):
+                    global_context._run = None
+                current_tracked_run.reset(token)
+
+        return wrapper_tracked
+
+    return decorator_tracked
+
+
+def flow(
+    uid: str | None = None,
+    global_run: Literal["memorize", "clear", "none"] = "clear",
+    track_arg_aliases: bool = True,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Use `@flow()` to track a function as a workflow.
+
+    You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
+
+    The decorator creates a :class:`~lamindb.Transform` with kind `"script"` that maps onto the file in
+    which the function is defined.
+    The function maps onto an entrypoint of the `transform`.
+    A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
+    If the function is defined in a notebook cell or another ephemeral context, the transform is created with kind `"function"`.
+
+    By default `@ln.flow()`, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
+
+    Args:
+        uid: Persist the uid to identify a transform across renames.
+        global_run: If `"clear"`, set the global run context `ln.context.run` and clear after the function completes.
+            If `"memorize"`, set the global run context and do not clear after the function completes.
+            Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
+        track_arg_aliases: If `True` (default), maps function arguments with names `project`, `space`, `branch`,
+            `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
+            for reproducibility. Pass `False` to disable this mapping.
+
+    Examples:
+
+        To sync a workflow with a file in a git repo, see: :ref:`sync-code-with-git`.
+
+        For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
+
+        .. literalinclude:: scripts/my_workflow.py
+            :language: python
+            :caption: my_workflow.py
+
+        .. literalinclude:: scripts/my_workflow_with_step.py
+            :language: python
+            :caption: my_workflow_with_step.py
+
+        .. literalinclude:: scripts/my_workflow_with_click.py
+            :language: python
+            :caption: my_workflow_with_click.py
+
+
+    """
+    return _create_tracked_decorator(
+        uid=uid,
+        is_flow=True,
+        global_run=global_run,
+        track_arg_aliases=track_arg_aliases,
+    )
+
+
+def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Use `@step()` to track a function as a step.
+
+    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow and does
+    not create a global run context.
+    It errors if no initiating run (either global or local run context) exists.
+
+    See :func:`~lamindb.flow()` for examples.
+
+    Args:
+        uid: Persist the uid to identify a transform across renames.
+    """
+    return _create_tracked_decorator(uid=uid, is_flow=False)
+
+
+@deprecated("step")
+def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    return step(uid)

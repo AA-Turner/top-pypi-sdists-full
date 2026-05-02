@@ -438,17 +438,6 @@ class AgentTask:
                 # task instruction.
                 instruction = self._maybe_append_sessions_block(instruction)
 
-            await write_audit_context(
-                info,
-                audited_mounts,
-                agent_image=self._agent.image,
-                default_display_name=self._display_name,
-                display_name=current_display_name,
-                watch_paths=list({mount.mount_path for mount in mounts}),
-                file_trigger_patterns=self._file_trigger_patterns,
-                trigger_server_url=self._trigger_server_url,
-            )
-
             run_agent_config = self._build_run_agent_config(info, mounts)
             workdir = mounts[0].agent_path if mounts else "/workspace"
 
@@ -463,6 +452,21 @@ class AgentTask:
                 task_attrs["plato.task.display_name"] = current_display_name
 
             with tracer.start_as_current_span("agent.task", attributes=task_attrs) as task_span:
+                # Write audit/tool-execution context with `agent.task` as the
+                # current span — out-of-band hooks (e.g. claude-code's
+                # PostToolUse) load this file and parent their spans to the
+                # captured span_id, so writing it inside the agent.task scope
+                # keeps those spans nested in the agent subtree.
+                await write_audit_context(
+                    info,
+                    audited_mounts,
+                    agent_image=self._agent.image,
+                    default_display_name=self._display_name,
+                    display_name=current_display_name,
+                    watch_paths=list({mount.mount_path for mount in mounts}),
+                    file_trigger_patterns=self._file_trigger_patterns,
+                    trigger_server_url=self._trigger_server_url,
+                )
                 attempt = 0
                 used_continuation_budget = 0.0
                 while True:

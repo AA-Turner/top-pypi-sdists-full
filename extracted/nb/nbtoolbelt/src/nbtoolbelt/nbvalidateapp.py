@@ -8,8 +8,8 @@ This software is made available under the terms of the MIT License.
 
 import sys
 from argparse import _ArgumentGroup
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -53,7 +53,7 @@ class ValidateTool(Tool):
         print('  Assert mode: {}'.format(getattr(self._args, 'assert')))
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return ValidateTool().main(cli_args)
 
 

@@ -1,9 +1,12 @@
 """Hook system for throttled-py."""
 
 import abc
-from collections.abc import Callable
+import logging
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .rate_limiter import RateLimitResult
@@ -68,7 +71,7 @@ class Hook(abc.ABC):
 
 
 def build_hook_chain(
-    hooks: list[Hook],
+    hooks: Sequence[Hook],
     do_limit: Callable[[], "RateLimitResult"],
     context: HookContext,
 ) -> Callable[[], "RateLimitResult"]:
@@ -79,7 +82,7 @@ def build_hook_chain(
 
     Exceptions raised in hooks are caught and the chain continues.
 
-    :param hooks: List of hooks to chain.
+    :param hooks: Sequence of hooks to chain.
     :param do_limit: The actual rate limit function to be wrapped.
     :param context: The hook context containing rate limit metadata.
     :return: A callable that executes the hook chain.
@@ -94,10 +97,10 @@ def build_hook_chain(
         def make_chain(
             h: Hook,
             next_fn: Callable[[], "RateLimitResult"],
-        ):
+        ) -> Callable[[], "RateLimitResult"]:
             def chain_fn() -> "RateLimitResult":
-                next_called = False
-                next_result = None
+                next_called: bool = False
+                next_result: RateLimitResult | None = None
 
                 def tracked_next() -> "RateLimitResult":
                     """Track whether call_next() was already invoked by the hook.
@@ -122,9 +125,9 @@ def build_hook_chain(
                 try:
                     return h.on_limit(tracked_next, context)
                 except Exception:
-                    # TODO - Logging strategy should be developed
+                    logger.exception("Hook %r raised during on_limit", h)
                     if next_called:
-                        return next_result
+                        return cast("RateLimitResult", next_result)
                     return next_fn()
 
             return chain_fn

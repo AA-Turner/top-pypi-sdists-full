@@ -1,0 +1,105 @@
+Metadata-Version: 2.2
+Name: keke
+Version: 0.2.0
+Summary: Easy profiling in chrome trace format
+Home-page: https://github.com/keke-tracing/keke
+Author: Tim Hatch
+Author-email: tim@timhatch.com
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: psutil; sys_platform == "win32"
+Provides-Extra: dev
+Requires-Dist: black==24.2.0; extra == "dev"
+Requires-Dist: checkdeps==0.9.0; extra == "dev"
+Requires-Dist: flake8==7.0.0; extra == "dev"
+Requires-Dist: mypy==1.15.0; extra == "dev"
+Requires-Dist: tox==4.12.1; extra == "dev"
+Requires-Dist: twine==4.0.2; extra == "dev"
+Requires-Dist: ufmt==2.5.1; extra == "dev"
+Requires-Dist: usort==1.0.7; extra == "dev"
+Requires-Dist: wheel==0.42.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage>=6; extra == "test"
+
+# keke
+
+This project is an extremely simple trace-event writer for Python.
+
+You can read the traces in Perfetto or chrome's `about:tracing`.  This only
+writes the consensus dialect that works in both, and is tiny enough to just
+vendor on the off-chance that you want tracing in the future.
+
+If your needs are more like a line profiler, you might want either pytracing
+(slightly abandoned, the git version does work in py3) or viztracer (unsuitable
+for vendoring in other projects due to size, but actively maintained).
+
+I drew inspiration from both in writing this.
+
+# Simple Example
+
+```py
+from __future__ import annotations  # for IO[str]
+
+from typing import IO, Optional
+import time
+
+import click
+
+@click.command()
+@click.option("--trace", type=click.File(mode="w"), help="Trace output filename")
+@click.option("--foo", help="This value gets logged")
+def main(trace: Optional[IO[str]], foo: Optional[str]) -> None:
+    with keke.TraceOutput(file=trace):
+        with kev("main", __name__, foo=foo):
+            sub()
+
+def sub():
+    with kev("sub1", __name__):
+        time.sleep(1)
+    with kev("sub2", __name__):
+        time.sleep(2)
+```
+# Overhead
+
+Very close to zero when not enabled.
+
+The easiest way to not-enable is call `TraceOutput(file=None)` which will do nothing.
+
+# Processes, or "how to get to distributed tracing"
+
+This approach avoids all magic.
+
+If you're calling another (trace-aware) program, then the simplest thing to do
+is come up with a unique name and pass that to the child in argv, then attempt
+to merge that yourself once it's done.
+
+If you're doing something like fork/spawn to continue python work, then the
+parent can control basic information (like the tmpdir to write to) and the child
+can open a unique file with its pid.
+
+If you're doing something more distributed, you might come up with a guid and
+pass that to the child instead, for the child to tag it for later log uploading.
+
+# What's with the name
+
+I was trying to come up with a short, memorable name and some of the rendered
+trace points were very pointy, which reminded me of the "bouba/kiki effect."
+The name "kiki" was taken but "keke" was not.
+
+# Version Compat
+
+Usage of this library should work back to 3.7, but development (and mypy
+compatibility) only on 3.10-3.12.  Linting requires 3.12 for full fidelity.
+
+# Versioning
+
+This library follows [meanver](https://meanver.org/) which basically means
+[semver](https://semver.org/) along with a promise to rename when the major
+version changes.
+
+# License
+
+keke is copyright [Tim Hatch](https://timhatch.com/), and licensed under
+the MIT license.  See the `LICENSE` file for details.

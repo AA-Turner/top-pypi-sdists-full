@@ -14,31 +14,26 @@ class Migration(migrations.Migration):
             name="system",
             field=models.BooleanField(default=False),
         ),
-        migrations.SeparateDatabaseAndState(
-            database_operations=[],
-            state_operations=[
-                migrations.AlterUniqueTogether(
-                    name="biguserobjectpermission",
-                    unique_together=None,
-                ),
-                migrations.RemoveField(
-                    model_name="biguserobjectpermission",
-                    name="content_type",
-                ),
-                migrations.RemoveField(
-                    model_name="biguserobjectpermission",
-                    name="permission",
-                ),
-                migrations.RemoveField(
-                    model_name="biguserobjectpermission",
-                    name="user",
-                ),
-                migrations.DeleteModel(
-                    name="BigGroupObjectPermission",
-                ),
-                migrations.DeleteModel(
-                    name="BigUserObjectPermission",
-                ),
-            ],
+        migrations.AlterUniqueTogether(
+            name="biguserobjectpermission",
+            unique_together=None,
+        ),
+        migrations.RemoveField(
+            model_name="biguserobjectpermission",
+            name="content_type",
+        ),
+        migrations.RemoveField(
+            model_name="biguserobjectpermission",
+            name="permission",
+        ),
+        migrations.RemoveField(
+            model_name="biguserobjectpermission",
+            name="user",
+        ),
+        migrations.DeleteModel(
+            name="BigGroupObjectPermission",
+        ),
+        migrations.DeleteModel(
+            name="BigUserObjectPermission",
         ),
     ]

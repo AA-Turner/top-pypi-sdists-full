@@ -1,0 +1,111 @@
+Metadata-Version: 2.4
+Name: ghga_service_commons
+Version: 7.0.1
+Summary: A library that contains common functionality used in services of GHGA
+Author-email: "German Human Genome Phenome Archive (GHGA)" <contact@ghga.de>
+License: Apache 2.0
+Project-URL: Repository, https://github.com/ghga-de/ghga-service-commons
+Classifier: Development Status :: 1 - Planning
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic<3,>=2
+Provides-Extra: api
+Requires-Dist: fastapi<1,>=0.128; extra == "api"
+Requires-Dist: uvicorn[standard]<1,>=0.40; extra == "api"
+Requires-Dist: ghga-service-commons[http,objectstorage]; extra == "api"
+Provides-Extra: http
+Requires-Dist: httpx<0.29,>=0.28; extra == "http"
+Provides-Extra: auth
+Requires-Dist: jwcrypto<2,>=1.5.6; extra == "auth"
+Requires-Dist: pydantic[email]<3,>=2; extra == "auth"
+Provides-Extra: crypt
+Requires-Dist: pynacl<2,>=1.6.2; extra == "crypt"
+Requires-Dist: crypt4gh<2,>=1.7; extra == "crypt"
+Provides-Extra: dev
+Requires-Dist: requests<3,>=2.32; extra == "dev"
+Provides-Extra: objectstorage
+Requires-Dist: hexkit>=8; extra == "objectstorage"
+Provides-Extra: transports
+Requires-Dist: hishel[async]<2,>=1.1.8; extra == "transports"
+Requires-Dist: tenacity<10,>=9.1.2; extra == "transports"
+Requires-Dist: ghga-service-commons[http]; extra == "transports"
+Provides-Extra: all
+Requires-Dist: ghga-service-commons[api,auth,crypt,dev,http,objectstorage,transports]; extra == "all"
+Dynamic: license-file
+
+![tests](https://github.com/ghga-de/ghga-service-commons/actions/workflows/tests.yaml/badge.svg)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/ghga_service_commons.svg)](https://pypi.python.org/pypi/ghga_service_commons/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/ghga_service_commons.svg)](https://pypi.python.org/pypi/ghga_service_commons/)
+[![Coverage Status](https://coveralls.io/repos/github/ghga-de/ghga-service-commons/badge.svg?branch=main)](https://coveralls.io/github/ghga-de/ghga-service-commons?branch=main)
+
+# ghga-service-commons
+This Python library serves as a collection of common utilities used by
+the microservices developed at German Human Genome-Phenome Archive (GHGA).
+
+It collects boilerplate code for common functionalities such as API server setup,
+authentication and authorization.
+
+This library is primarily intended for internal use at GHGA and should
+not be seen as a general-purpose microservice chassis.
+However, if this library matches your specific needs as well,
+please feel free to use it. It is open source.
+
+# Installation
+This package is available at PyPI:
+https://pypi.org/project/ghga_service_commons
+
+You can install it from there using:
+```
+pip install ghga_service_commons
+```
+
+Thereby, you may specify following extra(s):
+- `api`: dependencies needed to use the API server functionalities
+- `auth`: dependencies needed for dealing with authentication and authorization
+
+## Development
+For setting up the development environment, we rely on the
+[devcontainer feature](https://code.visualstudio.com/docs/remote/containers) of vscode.
+
+To use it, you have to have Docker as well as vscode with its "Remote - Containers"
+extension (`ms-vscode-remote.remote-containers`) installed.
+Then, you just have to open this repo in vscode and run the command
+`Remote-Containers: Reopen in Container` from the vscode "Command Palette".
+
+This will give you a full-fledged, pre-configured development environment including:
+- infrastructural dependencies of the service (databases, etc.)
+- all relevant vscode extensions pre-installed
+- pre-configured linting and auto-formatting
+- a pre-configured debugger
+- automatic license-header insertion
+
+Moreover, inside the devcontainer, there is following convenience command available
+(please type it in the integrated terminal of vscode):
+- `dev_install` - install the lib with all development dependencies and pre-commit hooks
+(please run that if you are starting the devcontainer for the first time
+or if added any python dependencies to the [`./pyproject.toml`](./pyproject.toml))
+
+If you prefer not to use vscode, you could get a similar setup (without the editor specific features)
+by running the following commands:
+``` bash
+# Execute in the repo's root dir:
+cd ./.devcontainer
+
+# build and run the environment with docker-compose
+docker build -t ghga-service-commons .
+docker run -it ghga-service-commons /bin/bash
+
+```
+
+## License
+This repository is free to use and modify according to the [Apache 2.0 License](./LICENSE).

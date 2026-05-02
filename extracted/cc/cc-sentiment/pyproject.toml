@@ -1,0 +1,147 @@
+[project]
+name = "cc-sentiment"
+version = "0.2.113"
+description = "Local Claude Code session scorer that contributes metrics to sentiments.cc"
+readme = "README.md"
+authors = [
+    { name = "Yasyf Mohamedali", email = "yasyfm@gmail.com" },
+]
+keywords = [
+    "claude-code",
+    "sentiment",
+    "mlx",
+    "apple-silicon",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "typer>=0.12",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "anyio>=4.4",
+    "rich>=13.0",
+    "sentry-sdk>=2.20",
+    "tenacity>=8.0",
+    "orjson>=3.10",
+    "textual>=3.0",
+    "python-gnupg>=0.5.4",
+    "spacy>=3.8",
+    "afinn>=0.1",
+    "zstandard>=0.25.0",
+    "mlx-lm>=0.31.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "asyncstdlib>=3.14.0",
+    "psutil>=6.0",
+]
+
+[project.license]
+text = "MIT"
+
+[project.scripts]
+cc-sentiment = "cc_sentiment.cli:entrypoint"
+
+[project.urls]
+Homepage = "https://sentiments.cc"
+Repository = "https://github.com/yasyf/cc-sentiment"
+Issues = "https://github.com/yasyf/cc-sentiment/issues"
+
+[build-system]
+requires = [
+    "setuptools>=68",
+    "setuptools-rust>=1.10",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = [
+    ".",
+]
+include = [
+    "cc_sentiment*",
+]
+
+[tool.setuptools.package-data]
+cc_sentiment = [
+    "*.pyi",
+    "py.typed",
+]
+"cc_sentiment.adapter" = [
+    "adapters.safetensors.zst",
+    "adapter_config.json",
+    "metadata.json",
+]
+
+[[tool.setuptools-rust.ext-modules]]
+target = "cc_sentiment._transcripts_rs"
+path = "crates/transcripts/Cargo.toml"
+optional = true
+debug = false
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
+addopts = [
+    "-m",
+    "not slow and not integration",
+]
+markers = [
+    "slow: opt-in MLX-backed smoke-eval (requires Apple Silicon and the shipped adapter)",
+    "integration: requires external services (mitmproxy, real API, real LLM); skipped by default, opt-in with -m integration",
+    "real_model_cache: tests that exercise the real ModelCache; opts out of the autouse network-warmup fixture mocks",
+]
+
+[tool.cibuildwheel]
+build = "cp313-*"
+skip = [
+    "*musllinux*",
+    "*-manylinux_i686",
+    "*-win32",
+]
+build-frontend = "build"
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+archs = [
+    "x86_64",
+    "aarch64",
+]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable"
+
+[tool.cibuildwheel.linux.environment]
+PATH = "$HOME/.cargo/bin:$PATH"
+
+[tool.cibuildwheel.macos]
+archs = [
+    "arm64",
+    "x86_64",
+]
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "11.0"
+
+[tool.cibuildwheel.windows]
+archs = [
+    "AMD64",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-anyio>=0.0.0",
+    "pytest-asyncio>=1.3.0",
+    "pytest-xdist>=3.6",
+]

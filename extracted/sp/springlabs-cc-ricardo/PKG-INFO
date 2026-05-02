@@ -1,0 +1,125 @@
+Metadata-Version: 2.1
+Name: springlabs_cc_ricardo
+Version: 0.1.1
+Summary: Springlabs Projects Django Standard(NO ES COPIA)
+Home-page: https://springlabs.ai/
+Author: Ricardo Romero
+Author-email: crrg1022@gmail.com
+License: UNKNOWN
+Project-URL: Source Code, https://gitlab.com/AlejandroBarcenas/springlabs-django-cli
+Description: # SpringLabs-Django_finalfinal_ahora_si_el_bueno
+        
+        [![N|Solid](https://media-exp1.licdn.com/dms/image/C510BAQFwuqeqniHBZA/company-logo_200_200/0?e=2159024400&v=beta&t=6NzQE2q0ajsrE0Sqk3wwduccebQ1GltG4_6FCIeVUrY)](https://springlabs.ai)
+        
+        Springlabs-Django is a CLI Application to manage Django projects with a defined structure to springlabs.
+          - Create version
+          - Create group
+          - Create api
+            - Model
+            - Open
+          - Create graph
+            - Model
+            - Open
+        
+        > Primero resuelve el problema,
+        > despues escribe el código.  — John Johnson
+        
+        ## Tech
+        NO ES UNA COPIA DEL DE DJANGO ;)
+        Springlabs-Django uses a number of open source projects to work properly:
+        * [Django] - high-level Python Web framework
+        * [DjangoRestFramework] - powerful and flexible toolkit for building Web APIs.
+        * [Graphene-Django] - provides some additional abstractions that make it easy to add GraphQL functionality to your Django project
+        
+        ## Installation
+        
+        Springlabs-Django requires [Python](https://www.python.org/downloads/release/python-3611/) v3.6+ to run.
+        
+        Install and update using [pip](https://pip.pypa.io/en/stable/quickstart/).
+        
+        ```sh
+        $ pip install -U springlabs-django
+        ```
+        Install latest version
+        ```sh
+        $ pip install springlabs-django
+        ```
+        Install specific version
+        ```sh
+        $ pip install springlabs-django==[version]
+        ```
+        ## Usage
+        ### Helpers
+        After install the library
+        Open your favorite Terminal and run these commands.
+        
+        Help:
+        ```sh
+        $ springlabs_django --help
+        ```
+        Console output
+        ~~~
+        Developing...
+        ~~~
+        Version:
+        ```sh
+        $ springlabs_django --version
+        ```
+        Console output
+        ~~~
+        Springlabs Django Manager, v[version]
+        ~~~
+        Create Version Help:
+        ```sh
+        $ springlabs_django create-version --help
+        ```
+        Console output
+        ~~~
+        Developing...
+        ~~~
+        Create Group Help:
+        ```sh
+        $ springlabs_django create-group --help
+        ```
+        Console output
+        ~~~
+        Developing...
+        ~~~
+        Create API Help:
+        ```sh
+        $ springlabs_django create-api --help
+        ```
+        Console output
+        ~~~
+        Developing...
+        ~~~
+        Create GraphQL Help:
+        ```sh
+        $ springlabs_django create-graph --help
+        ```
+        Console output
+        ~~~
+        Developing...
+        ~~~
+        
+        # Links
+        - Website https://springlabs.ai/
+        - Code https://gitlab.com/AlejandroBarcenas/springlabs-django-cli
+        - Releases https://pypi.org/project/springlabs-django/#history
+        
+        License
+        ----
+        MIT
+        
+        [//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
+           [Django]: <https://www.djangoproject.com/>
+           [DjangoRestFramework]: <https://www.django-rest-framework.org/>
+           [Graphene-Django]: <https://docs.graphene-python.org/projects/django/en/latest/>
+           [Python]: <https://www.python.org/downloads/release/python-3611/>
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

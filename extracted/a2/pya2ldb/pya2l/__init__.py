@@ -1,0 +1,277 @@
+#!/usr/bin/env python
+
+__copyright__ = """
+   pySART - Simplified AUTOSAR-Toolkit for Python.
+
+   (C) 2010-2025 by Christoph Schueler <cpu12.gems.googlemail.com>
+
+   All Rights Reserved
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+   s. FLOSS-EXCEPTION.txt
+"""
+__author__ = "Christoph Schueler"
+__version__ = "0.10.2"
+
+import re
+import sys
+import typing
+from io import TextIOWrapper
+
+
+try:
+    from rich.traceback import install
+
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+
+import pya2l.model as model
+from pya2l.a2lparser import A2LParser, path_components
+from pya2l.logger import Logger
+from pya2l.templates import doTemplateFromText
+
+
+if RICH_AVAILABLE:
+    install(show_locals=True, max_frames=3)  # Install custom exception handler.
+pyver = sys.version_info
+
+
+class InvalidA2LDatabase(Exception):
+    """"""
+
+    pass
+
+
+a2l_logger = Logger("A2LDB", "INFO")
+
+if pyver.major == 3 and pyver.minor <= 9:
+    import pkg_resources
+
+    A2L_TEMPLATE = str(pkg_resources.resource_string("pya2l.cgen.templates", "a2l.tmpl"), encoding="utf8")
+else:
+    import importlib.resources
+
+    with (importlib.resources.files("pya2l.cgen.templates") / "a2l.tmpl").open(encoding="utf8") as data:
+        A2L_TEMPLATE = data.read()
+
+
+_BLANK_BLOCKS = re.compile(r"(\r?\n)[ \t]*(\r?\n){2,}")
+
+
+def _render_a2l(session: model.SessionProxy, encoding: str) -> str:
+    """Render the in-memory session as A2L text with minimal blank blocks."""
+
+    namespace = dict(session=session, model=model)
+    rendered = doTemplateFromText(A2L_TEMPLATE, namespace, formatExceptions=False, encoding=encoding)
+    # Collapse runs of >=2 empty lines (with optional whitespace) to a single blank line.
+    return _BLANK_BLOCKS.sub(r"\1\1", rendered)
+
+
+def import_a2l(
+    file_name: str,
+    debug: bool = False,
+    in_memory: bool = False,
+    remove_existing: bool = False,
+    local: bool = False,
+    encoding: str = "latin-1",
+    loglevel: str = "INFO",
+    progress_bar: bool = True,
+) -> model.SessionProxy:
+    """Import `.a2l` file to `.a2ldb` database.
+
+
+    Parameters
+    ----------
+    file_name: str
+        Name of the A2L to be imported. If you don't specify an extension ``.a2l`` is added.
+
+    debug: bool
+        Additional debugging output.
+
+    in_memory: bool
+        Create non-persistent in-memory database.
+
+    remove_existing: bool
+        ** DANGER ZONE **: Remove existing database.
+
+    local: bool
+        If `True` create A2LDB in current working directory else in A2L source directory.
+
+    encoding: str
+        File encoding like "latin-1" or "utf-8" or None to auto-detect.
+
+    loglevel: str
+        "INFO" | "WARN" | "DEBUG" | "ERROR" | "CRITICAL"
+
+    progress_bar: bool
+        Disable progress bar.
+
+    Returns
+    -------
+    SQLAlchemy session object.
+
+    Raises
+    ------
+    OSError
+        If database already exists.
+
+    Note
+    ----
+    ``AML`` and ``IF_DATA`` sections are currently not processed.
+    """
+
+    a2l_parser = A2LParser()
+    db = a2l_parser.parse(
+        file_name=file_name,
+        local=local,
+        in_memory=in_memory,
+        encoding=encoding,
+        remove_existing=remove_existing,
+        loglevel=loglevel,
+        progress_bar=progress_bar,
+    )
+    session = db.session
+    session.commit()
+    session.setup_ifdata_parser(loglevel=loglevel)
+    session._a2l_db_owner = db  # Keep in-memory DB alive
+    return session
+
+
+def open_existing(file_name: str, loglevel: str = "INFO") -> model.SessionProxy:
+    """Open an existing `.a2ldb` database.
+
+    Parameters
+    ----------
+    file_name: str
+        Name of your database file, resulting from :meth:`import_a2l`.
+        Extension `.a2ldb` not needed.
+
+    Returns
+    -------
+    SQLAlchemy session object.
+
+    Raises
+    ------
+    OSError
+        If database already exists.
+    """
+    _, db_fn = path_components(in_memory=False, file_name=file_name)
+
+    if not db_fn.exists():
+        raise OSError(f"file {db_fn!r} does not exists.")
+    else:
+        db = model.A2LDatabase(str(db_fn))
+        session = db.session
+        res = session.query(model.MetaData).first()
+        if res:
+            session.setup_ifdata_parser(loglevel=loglevel)
+            return session
+        else:
+            # Attempt recovery: delete corrupted DB and re-import from corresponding A2L
+            a2l_fn, _ = path_components(in_memory=False, file_name=file_name)
+            try:
+                # Ensure the DB file is removed first
+                import os
+
+                try:
+                    session.close()
+                    db.close()
+                except Exception:
+                    pass  # nosec
+                if os.path.exists(db_fn):
+                    os.remove(db_fn)
+                # Re-import
+                return import_a2l(
+                    file_name=str(a2l_fn),
+                    local=False,
+                    in_memory=False,
+                    remove_existing=False,
+                    encoding="latin-1",
+                    loglevel=loglevel,
+                    progress_bar=True,
+                )
+            except Exception as e:
+                raise InvalidA2LDatabase(
+                    f"Database seems to be corrupted (no meta-data). Attempted auto-recovery failed: {e}"
+                ) from e
+        return session
+
+
+def open_create(file_name: str, local: bool = False, encoding: str = "latin-1", loglevel: str = "INFO") -> model.SessionProxy:
+    """Open or create an A2LDB."""
+
+    a2l_fn, db_fn = path_components(in_memory=False, file_name=file_name)
+    if not db_fn.exists():
+        return import_a2l(a2l_fn, local=local, encoding=encoding, loglevel=loglevel)
+    else:
+        return open_existing(db_fn, loglevel)
+
+
+def export_a2l(
+    db_name: str, output: typing.Union[TextIOWrapper, str, typing.Any] = sys.stdout, encoding: str = "latin1"
+) -> None:  # noqa: UP007
+    """
+    Parameters
+    ----------
+    file_name: str
+        Name of the A2L exported.
+
+    encoding: str
+        File encoding like "latin-1" or "utf-8".
+    """
+    session = open_existing(db_name)
+    data = _render_a2l(session, encoding)
+    if isinstance(output, TextIOWrapper):
+        output.write(data)
+    else:
+        with open(file=output, mode="w", encoding=encoding, newline="\n") as outf:
+            outf.write(data)
+
+
+class DB:
+    """"""
+
+    def __init__(self, loglevel: str = "") -> None:
+        if loglevel:
+            a2l_logger.setLevel(loglevel)
+
+    @staticmethod
+    def import_a2l(
+        file_name: str,
+        debug: bool = False,
+        in_memory: bool = False,
+        remove_existing: bool = False,
+        local: bool = False,
+        encoding: str = "latin-1",
+        loglevel: str = "INFO",
+        progress_bar: bool = True,
+    ) -> model.SessionProxy:
+        return import_a2l(file_name, debug, in_memory, remove_existing, local, encoding, loglevel, progress_bar)
+
+    @staticmethod
+    def open_existing(file_name: str, loglevel: str = "INFO") -> model.SessionProxy:
+        return open_existing(file_name, loglevel)
+
+    @staticmethod
+    def open_create(file_name: str, local: bool = False, encoding: str = "latin-1", loglevel: str = "INFO") -> model.SessionProxy:
+        return open_create(file_name, local, encoding, loglevel)
+
+    @staticmethod
+    def export_a2l(
+        db_name: str, output: typing.Union[TextIOWrapper, str, typing.Any] = sys.stdout, encoding: str = "latin1"  # noqa: UP007
+    ):
+        export_a2l(db_name, output, encoding)

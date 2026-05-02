@@ -1,0 +1,17 @@
+name: download Placer.ai data
+description: Download and Uncompress Placer.ai Data
+steps:
+  - DownloadFromS3:
+      credentials:
+        use_credentials: true
+        region_name: "AWS_REGION_NAME"
+        bucket: "AWS_PLACER_BUCKET"
+        aws_key: "AWS_ACCESS_KEY_ID"
+        aws_secret: "AWS_SECRET_ACCESS_KEY"
+      source:
+        file: "metrics_2024-12-09_0003.csv.gz"
+        directory: "placer-analytics/bulk-export/monthly-weekly/2024-12-09/metrics/"
+      destination:
+        directory: "/home/ubuntu/symbits/placerai/metrics"
+  - UnGzip:
+      delete_source: false

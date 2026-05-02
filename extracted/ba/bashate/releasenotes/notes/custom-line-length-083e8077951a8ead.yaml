@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds an option ``--max-line-length`` to specify the maximum length
-    of lines for check E006.

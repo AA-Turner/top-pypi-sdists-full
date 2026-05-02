@@ -80,6 +80,14 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     IndexDeploymentResponse,
     LintSourceRequest,
     LintSourceResponse,
+    ListClusterBackgroundPersistenceDeploymentsRequest,
+    ListClusterBackgroundPersistenceDeploymentsResponse,
+    ListClusterGatewaysRequest,
+    ListClusterGatewaysResponse,
+    ListClusterTimescaleDBsRequest,
+    ListClusterTimescaleDBsResponse,
+    ListTelemetryDeploymentsRequest,
+    ListTelemetryDeploymentsResponse,
     MigrateClusterTimescaleDBRequest,
     MigrateClusterTimescaleDBResponse,
     MigrateTelemetryDeploymentRequest,
@@ -195,9 +203,17 @@ class BuilderServiceStub:
         GetClusterTimescaleDBRequest,
         GetClusterTimescaleDBResponse,
     ]
+    ListClusterTimescaleDBs: UnaryUnaryMultiCallable[
+        ListClusterTimescaleDBsRequest,
+        ListClusterTimescaleDBsResponse,
+    ]
     GetClusterGateway: UnaryUnaryMultiCallable[
         GetClusterGatewayRequest,
         GetClusterGatewayResponse,
+    ]
+    ListClusterGateways: UnaryUnaryMultiCallable[
+        ListClusterGatewaysRequest,
+        ListClusterGatewaysResponse,
     ]
     GetClusterGatewayDefault: UnaryUnaryMultiCallable[
         GetClusterGatewayDefaultRequest,
@@ -206,6 +222,10 @@ class BuilderServiceStub:
     GetClusterBackgroundPersistence: UnaryUnaryMultiCallable[
         GetClusterBackgroundPersistenceRequest,
         GetClusterBackgroundPersistenceResponse,
+    ]
+    ListClusterBackgroundPersistenceDeployments: UnaryUnaryMultiCallable[
+        ListClusterBackgroundPersistenceDeploymentsRequest,
+        ListClusterBackgroundPersistenceDeploymentsResponse,
     ]
     CreateClusterTimescaleDB: UnaryUnaryMultiCallable[
         CreateClusterTimescaleDBRequest,
@@ -323,6 +343,10 @@ class BuilderServiceStub:
     GetTelemetryDeployment: UnaryUnaryMultiCallable[
         GetTelemetryDeploymentRequest,
         GetTelemetryDeploymentResponse,
+    ]
+    ListTelemetryDeployments: UnaryUnaryMultiCallable[
+        ListTelemetryDeploymentsRequest,
+        ListTelemetryDeploymentsResponse,
     ]
     CreateTelemetryDeployment: UnaryUnaryMultiCallable[
         CreateTelemetryDeploymentRequest,
@@ -460,11 +484,23 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetClusterTimescaleDBResponse: ...
     @abstractmethod
+    def ListClusterTimescaleDBs(
+        self,
+        request: ListClusterTimescaleDBsRequest,
+        context: ServicerContext,
+    ) -> ListClusterTimescaleDBsResponse: ...
+    @abstractmethod
     def GetClusterGateway(
         self,
         request: GetClusterGatewayRequest,
         context: ServicerContext,
     ) -> GetClusterGatewayResponse: ...
+    @abstractmethod
+    def ListClusterGateways(
+        self,
+        request: ListClusterGatewaysRequest,
+        context: ServicerContext,
+    ) -> ListClusterGatewaysResponse: ...
     @abstractmethod
     def GetClusterGatewayDefault(
         self,
@@ -477,6 +513,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetClusterBackgroundPersistenceRequest,
         context: ServicerContext,
     ) -> GetClusterBackgroundPersistenceResponse: ...
+    @abstractmethod
+    def ListClusterBackgroundPersistenceDeployments(
+        self,
+        request: ListClusterBackgroundPersistenceDeploymentsRequest,
+        context: ServicerContext,
+    ) -> ListClusterBackgroundPersistenceDeploymentsResponse: ...
     @abstractmethod
     def CreateClusterTimescaleDB(
         self,
@@ -650,6 +692,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetTelemetryDeploymentRequest,
         context: ServicerContext,
     ) -> GetTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def ListTelemetryDeployments(
+        self,
+        request: ListTelemetryDeploymentsRequest,
+        context: ServicerContext,
+    ) -> ListTelemetryDeploymentsResponse: ...
     @abstractmethod
     def CreateTelemetryDeployment(
         self,

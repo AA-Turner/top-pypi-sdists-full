@@ -1,42 +1,31 @@
 Metadata-Version: 2.4
 Name: django-modelcluster
-Version: 6.4.1
+Version: 6.5
 Summary: Django extension to allow working with 'clusters' of models as a single unit, independently of the database
-Home-page: https://github.com/wagtail/django-modelcluster
-Author: Matthew Westcott
-Author-email: matthew.westcott@torchbox.com
-License: BSD
+Author-email: Matthew Westcott <matthew.westcott@torchbox.com>, Wagtail Team <hello@wagtail.org>
+License-Expression: BSD-3-Clause
+Project-URL: Changelog, https://github.com/wagtail/django-modelcluster/blob/main/CHANGELOG.txt
+Project-URL: Homepage, https://github.com/wagtail/django-modelcluster
+Keywords: cluster,django,model
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Framework :: Django
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: django>=4.2
 Provides-Extra: taggit
 Requires-Dist: django-taggit>=3.1; extra == "taggit"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 django-modelcluster
 ===================
@@ -74,11 +63,11 @@ But what if you could? There are all sorts of scenarios where you might want to 
 **django-modelcluster** extends Django's foreign key relations to make this possible. It introduces a new type of relation, *ParentalKey*, where the related models are stored locally to the 'parent' model until the parent is explicitly saved. Up to that point, the related models can still be accessed through a subset of the QuerySet API:
 
 .. code-block:: python
- 
+
  from modelcluster.models import ClusterableModel
  from modelcluster.fields import ParentalKey
- 
- 
+
+
  class Band(ClusterableModel):
      name = models.CharField(max_length=255)
 

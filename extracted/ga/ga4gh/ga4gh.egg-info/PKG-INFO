@@ -1,0 +1,40 @@
+Metadata-Version: 1.1
+Name: ga4gh
+Version: 0.3.5
+Summary: A reference implementation of the GA4GH API
+Home-page: https://github.com/ga4gh/server
+Author: Global Alliance for Genomics and Health
+Author-email: theglobalalliance@genomicsandhealth.org
+License: Apache License 2.0
+Description: 
+        .. image:: http://genomicsandhealth.org/files/logo_ga.png
+        
+        ==============================
+        GA4GH Reference Implementation
+        ==============================
+        
+        This is the GA4GH reference implementation.
+        
+        Full documentation is available at `read-the-docs.org
+        <http://ga4gh-reference-implementation.readthedocs.org/en/stable>`_.
+        
+        - For a quick start with the GA4GH API, please see our
+          `demo <http://ga4gh-reference-implementation.readthedocs.org/en/stable/demo.html>`_.
+        - To configure and deploy the GA4GH server in production
+          please see the
+          `installation
+          <http://ga4gh-reference-implementation.readthedocs.org/en/stable/installation.html>`_
+          page.
+        - If you would like to contribute to the project, please see the
+          `development
+          <http://ga4gh-reference-implementation.readthedocs.org/en/stable/development.html>`_
+          page.
+        
+Keywords: genomics,reference
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics

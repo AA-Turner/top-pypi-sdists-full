@@ -1,0 +1,19 @@
+"""Shared CLI output formatting for MCP-migrated commands."""
+
+import json
+from typing import Any
+
+
+def format_output(result: dict[str, Any], *, as_json: bool = False) -> str:
+    """Format a handler result dict for terminal output."""
+    if as_json:
+        return json.dumps(result, indent=2, default=str)
+
+    lines: list[str] = []
+    for key, value in result.items():
+        if isinstance(value, (list, dict)):
+            lines.append(f"{key}:")
+            lines.append(json.dumps(value, indent=2, default=str))
+        else:
+            lines.append(f"{key}: {value}")
+    return "\n".join(lines)

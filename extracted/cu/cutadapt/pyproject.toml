@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools >= 78", "setuptools_scm[toml] >= 6.2", "Cython >= 0.29.20"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cutadapt"
+authors = [
+    {name = "Marcel Martin", email = "marcel.martin@scilifelab.se"}
+]
+description = "Adapter trimming and other preprocessing of high-throughput sequencing reads"
+readme = "README.rst"
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Cython",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics"
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = [
+    "dnaio >= 1.2.3",
+    "xopen >= 1.6.0",
+]
+
+[project.urls]
+"Homepage" = "https://cutadapt.readthedocs.io/"
+"Changelog" = "https://cutadapt.readthedocs.io/en/stable/changes.html"
+"Repository" = "https://github.com/marcelm/cutadapt/"
+
+[project.scripts]
+cutadapt = "cutadapt.cli:main_cli"
+
+[project.optional-dependencies]
+dev = [
+    "Cython",
+    "pytest",
+    "pytest-timeout",
+    "pytest-mock",
+    "sphinx",
+    "sphinx_issues",
+    "sphinx_better_subsection"
+]
+
+[tool.setuptools.exclude-package-data]
+cutadapt = ["*.pyx", "*.c", "*.h"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+]
+testpaths = ["tests"]
+xfail_strict = true
+timeout = 10
+
+[tool.setuptools_scm]
+write_to = "src/cutadapt/_version.py"
+
+[tool.mypy]
+warn_unused_configs = true
+
+[tool.cibuildwheel]
+environment = {"CFLAGS" = "-O3 -DNDEBUG", "PYTEST_ADDOPTS" = "--doctest-ignore-import-errors"}
+test-extras = ["dev"]
+test-command = ["pytest {project}"]
+build-verbosity = 1
+
+[tool.ruff]
+line-length = 130

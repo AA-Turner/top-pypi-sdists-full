@@ -1,0 +1,206 @@
+name: Sample NN payload
+description: Test Sample Payload For Netwok Ninja
+steps:
+  - NetworkNinja:
+      comment: Download Batch from NetworkNinja.
+      action: get_batch
+      batch_id: b14e7cdb-ca94-42f5-905e-52a3b7f032b6
+      avoid_acceptance: true
+  - NetworkNinja:
+      comment: Network Ninja Router for processing the payload.
+      action: process_payload
+      returning: form_data
+  - FilterRows:
+      filter_conditions:
+        drop_columns:
+          columns:
+            - store_is_active
+            - store_city
+            - store_zipcode
+            - district_id
+            - district_name
+            - market_id
+            - market_name
+            - manager_role
+            - position_id
+            - time_in_local
+            - time_out_local
+            - store
+            - user_id
+            - visitor_geography_timezone
+            - previous_form_id
+            - store_visits_category_name
+  - UniqueRows:
+      unique:
+        - formid
+        - form_id
+        - column_id
+        - column_name
+      keep: last
+  - TransformRows:
+      replace_columns: true
+      fields:
+        nn_store_id: store_number
+        creation_timestamp:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+        updated_timestamp:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+        time_in:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+        time_out:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+        time_in_local:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+              column: time_in
+              tz_column: store_timezone
+        time_out_local:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+              column: time_out
+              tz_column: store_timezone
+        visit_start_local:
+          value:
+            - drop_timezone
+            - column: time_in_local
+        visit_end_local:
+          value:
+            - drop_timezone
+            - column: time_out_local
+  - TransformRows:
+      fields:
+        visitor_email:
+          value:
+            - lowercase
+        created_date: creation_timestamp
+        updated_date: updated_timestamp
+        in_timestamp: time_in
+        out_timestamp: time_out
+        user_device: device_model
+        mid_timestamp:
+          value:
+            - middle_time
+            - columns:
+                - visit_start_local
+                - visit_end_local
+        in_time:
+          value:
+            - extract
+            - column: time_in
+              value: hour
+        out_time:
+          value:
+            - extract
+            - column: time_out
+              value: hour
+        in_time_local:
+          value:
+            - extract
+            - column: visit_start_local
+              value: hour
+        out_time_local:
+          value:
+            - extract
+            - column: visit_end_local
+              value: hour
+        visit_timestamp: visit_start_local
+        visit_date: visit_timestamp
+        in_dow:
+          value:
+            - extract
+            - column: visit_timestamp
+        time_mid:
+          value:
+            - middle_time
+            - columns:
+                - visit_start_local
+                - visit_end_local
+        mid_time:
+          value:
+            - extract
+            - column: time_mid
+              value: hour
+        created_hour:
+          value:
+            - extract
+            - column: visit_start_local
+              value: hour
+        created_dow:
+          value:
+            - extract
+            - column: visit_start_local
+              value: dow
+        updated_dow:
+          value:
+            - extract
+            - column: updated_timestamp
+              value: dow
+        day_of_week:
+          value:
+            - day_of_week
+            - column: visit_timestamp
+        visit_hour:
+          value:
+            - extract
+            - column: visit_timestamp
+              value: hour
+        visit_dow:
+          value:
+            - extract
+            - column: visit_timestamp
+              value: dow
+        visit_quarter:
+          value:
+            - extract
+            - column: visit_timestamp
+              value: quarter
+        visit_month:
+          value:
+            - extract
+            - column: visit_timestamp
+              value: month
+        visit_year:
+          value:
+            - extract
+            - column: visit_timestamp
+              value: year
+        visit_length:
+          value:
+            - duration
+            - columns:
+                - time_in
+                - time_out
+              unit: m
+        moment:
+          value:
+            - get_moment
+            - column: in_time_local
+        fully_geoloc:
+          value:
+            - fully_geoloc
+            - columns:
+              - [start_lat, start_lon]
+              - [end_lat, end_lon]
+        no_geoloc:
+          value:
+            - fully_geoloc
+            - columns:
+              - [start_lat, start_lon]
+              - [end_lat, end_lon]
+              inverse: true
+        geoloc:
+          value:
+            - any_tuple_valid
+            - columns:
+              - [start_lat, start_lon]
+              - [end_lat, end_lon]

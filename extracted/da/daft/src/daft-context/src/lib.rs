@@ -20,8 +20,8 @@ use crate::subscribers::{
     event_header,
     events::{
         ExecEndEvent, ExecStartEvent, OperatorEndEvent, OperatorMeta, OperatorStartEvent,
-        OptimizationCompleteEvent, OptimizationStartEvent, QueryEndEvent, QueryStartEvent,
-        ResultOutEvent, StatsEvent,
+        OptimizationCompleteEvent, OptimizationStartEvent, QueryEndEvent, QueryHeartbeatEvent,
+        QueryStartEvent, ResultOutEvent, StatsEvent,
     },
 };
 
@@ -147,6 +147,13 @@ impl DaftContext {
         self.dispatch_event(&event, "notify query start")
     }
 
+    pub fn notify_query_heartbeat(&self, query_id: QueryID) -> DaftResult<()> {
+        let event = Event::QueryHeartbeat(QueryHeartbeatEvent {
+            header: event_header(query_id),
+        });
+        self.dispatch_event(&event, "notify query heartbeat")
+    }
+
     pub fn notify_query_end(&self, query_id: QueryID, result: QueryResult) {
         let event = Event::QueryEnd(QueryEndEvent {
             header: event_header(query_id),
@@ -234,6 +241,10 @@ impl DaftContext {
         self.dispatch_event(&event, "notify exec emit stats")
     }
 
+    pub fn notify(&self, event: &Event) -> DaftResult<()> {
+        self.dispatch_event(event, "notify event")
+    }
+
     fn dispatch_event(&self, event: &Event, err_context: &'static str) -> DaftResult<()> {
         let subscribers = self.with_state(|state| {
             state
@@ -276,9 +287,26 @@ pub fn get_context() -> DaftContext {
     }
 }
 
+// Non-Python builds are only used in Rust-only test runs (`cargo test`).
+// Production always enables the python feature.
 #[cfg(not(feature = "python"))]
 pub fn get_context() -> DaftContext {
-    unimplemented!()
+    match DAFT_CONTEXT.get() {
+        Some(ctx) => ctx.clone(),
+        None => {
+            let state = ContextState {
+                config: Config::from_env(),
+                subscribers: HashMap::new(),
+            };
+            let state = RwLock::new(state);
+            let state = Arc::new(state);
+            let ctx = DaftContext { state };
+
+            // If another thread already set the context, use theirs.
+            let _ = DAFT_CONTEXT.set(ctx);
+            DAFT_CONTEXT.get().unwrap().clone()
+        }
+    }
 }
 
 #[cfg(feature = "python")]

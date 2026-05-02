@@ -1,0 +1,34 @@
+en:
+   verbs:
+     - place
+     - places
+     - assemble
+     - assembles
+     - pick
+     - pick up
+     - picks
+     - start
+     - starts
+     - end
+     - ends
+     - unload
+     - unloads
+     - sort
+     - sorts
+     - replenish
+     - replenishes
+     - move
+     - change
+   not verbs:
+     - chassi
+cs:
+   verbs:
+     - jede: jet
+     - být: být
+     - nebýt: nebýt
+     - -být: být
+   not verbs:
+     - inaktivní
+     - vynuť
+     - vynutit
+

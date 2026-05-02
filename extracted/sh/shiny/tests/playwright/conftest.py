@@ -2,10 +2,12 @@
 # such as examples/example_apps.py
 from __future__ import annotations
 
+import os
+from inspect import signature
 from pathlib import PurePath
 
 import pytest
-from playwright.sync_api import BrowserContext, Page
+from playwright.sync_api import BrowserContext, BrowserType, Page
 
 from shiny.pytest import ScopeName as ScopeName
 from shiny.pytest import create_app_fixture
@@ -53,6 +55,25 @@ def page(session_page: Page) -> Page:
     # Reset screen size to 1080p
     session_page.set_viewport_size({"width": 1920, "height": 1080})
     return session_page
+
+
+@pytest.fixture(scope="session")
+def connect_options() -> dict[str, str] | None:
+    ws_endpoint = os.getenv("PW_TEST_CONNECT_WS_ENDPOINT")
+    if not ws_endpoint:
+        return None
+
+    endpoint_arg = (
+        "endpoint"
+        if "endpoint" in signature(BrowserType.connect).parameters
+        else "ws_endpoint"
+    )
+    options = {endpoint_arg: ws_endpoint}
+    expose_network = os.getenv("PW_TEST_CONNECT_EXPOSE_NETWORK")
+    if expose_network:
+        options["expose_network"] = expose_network
+
+    return options
 
 
 def create_example_fixture(

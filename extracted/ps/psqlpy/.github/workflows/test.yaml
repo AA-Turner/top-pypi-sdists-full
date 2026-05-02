@@ -1,0 +1,71 @@
+name: 'Testing package'
+
+on:
+  pull_request:
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt
+        override: true
+    - name: Check code format
+      run: cargo fmt -- --check --config use_try_shorthand=true,imports_granularity=Crate
+
+  clippy:
+    permissions:
+      checks: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+        override: true
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: -p psqlpy --all-features -- -W clippy::all -W clippy::pedantic -D warnings
+  pytest:
+    name: ${{matrix.job.os}}-${{matrix.py_version}}-${{ matrix.postgres_version }}
+    strategy:
+      matrix:
+        py_version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        postgres_version: ["14", "15", "16", "17"]
+        job:
+            - os: ubuntu-latest
+              ssl_cmd: sudo apt-get update && sudo apt-get install libssl-dev openssl
+    runs-on: ${{matrix.job.os}}
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup Postgres
+      id: postgres
+      uses: ikalnytskyi/action-setup-postgres@v7
+      with:
+        username: postgres
+        password: postgres
+        database: psqlpy_test
+        ssl: true
+        postgres-version: ${{ matrix.postgres_version }}
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+        override: true
+    - name: Setup OpenSSL
+      run: ${{matrix.job.ssl_cmd}}
+    - name: Setup python for test ${{ matrix.py_version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.py_version }}
+    - name: Install tox
+      run: pip install "tox-gh>=1.2,<2"
+    - name: Run pytest
+      env:
+        POSTGRES_CERT_FILE: "${{ steps.postgres.outputs.certificate-path }}"
+      run: tox -v -c tox.ini

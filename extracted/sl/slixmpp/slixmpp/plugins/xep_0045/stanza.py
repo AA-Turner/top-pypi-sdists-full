@@ -183,8 +183,8 @@ class MUCInvite(ElementBase):
     name = 'invite'
     plugin_attrib = 'invite'
     namespace = NS_USER
-    interfaces = {'to', 'from', 'reason'}
-    sub_interfaces = {'reason'}
+    interfaces = {'to', 'from', 'reason', 'password'}
+    sub_interfaces = {'reason', 'password'}
 
     def get_to(self) -> JID:
         return JID(self._get_attr('to'))

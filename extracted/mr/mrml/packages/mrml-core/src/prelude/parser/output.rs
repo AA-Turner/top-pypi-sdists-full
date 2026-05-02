@@ -1,0 +1,77 @@
+pub struct ParseOutput<E> {
+    pub element: E,
+    pub warnings: Vec<Warning>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WarningKind {
+    UnexpectedAttribute,
+    InlineStyleUnsupported,
+}
+
+impl WarningKind {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::UnexpectedAttribute => "unexpected-attribute",
+            Self::InlineStyleUnsupported => "inline-style-unsupported",
+        }
+    }
+}
+
+impl std::fmt::Display for WarningKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedAttribute => f.write_str("unexpected attribute"),
+            Self::InlineStyleUnsupported => {
+                f.write_str("inlining styles is not supported in this build")
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Warning {
+    pub kind: WarningKind,
+    pub origin: super::Origin,
+    pub span: super::Span,
+}
+
+impl super::MrmlCursor<'_> {
+    pub(crate) fn add_warning<S: Into<super::Span>>(&mut self, kind: WarningKind, span: S) {
+        self.warnings.push(Warning {
+            kind,
+            origin: self.origin.clone(),
+            span: span.into(),
+        });
+    }
+
+    pub(crate) fn warnings(self) -> Vec<Warning> {
+        if self.source_offset > 0 {
+            let offset = self.source_offset;
+            self.warnings
+                .into_iter()
+                .map(|mut w| {
+                    w.span.start = w.span.start.saturating_sub(offset);
+                    w.span.end = w.span.end.saturating_sub(offset);
+                    w
+                })
+                .collect()
+        } else {
+            self.warnings
+        }
+    }
+
+    pub(crate) fn with_warnings(&mut self, others: Vec<Warning>) {
+        self.warnings.extend(others);
+    }
+}
+
+impl std::fmt::Display for Warning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} in {} at position {}",
+            self.kind, self.origin, self.span
+        )
+    }
+}

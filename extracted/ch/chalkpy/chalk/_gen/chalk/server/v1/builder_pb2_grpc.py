@@ -80,10 +80,20 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBResponse.FromString,
         )
+        self.ListClusterTimescaleDBs = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ListClusterTimescaleDBs",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterTimescaleDBsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterTimescaleDBsResponse.FromString,
+        )
         self.GetClusterGateway = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterGateway",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.FromString,
+        )
+        self.ListClusterGateways = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ListClusterGateways",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterGatewaysRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterGatewaysResponse.FromString,
         )
         self.GetClusterGatewayDefault = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterGatewayDefault",
@@ -94,6 +104,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/GetClusterBackgroundPersistence",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceResponse.FromString,
+        )
+        self.ListClusterBackgroundPersistenceDeployments = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ListClusterBackgroundPersistenceDeployments",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsResponse.FromString,
         )
         self.CreateClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/CreateClusterTimescaleDB",
@@ -234,6 +249,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/GetTelemetryDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentResponse.FromString,
+        )
+        self.ListTelemetryDeployments = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ListTelemetryDeployments",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsResponse.FromString,
         )
         self.CreateTelemetryDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/CreateTelemetryDeployment",
@@ -379,7 +399,19 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListClusterTimescaleDBs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListClusterGateways(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -392,6 +424,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetClusterBackgroundPersistence(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListClusterBackgroundPersistenceDeployments(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -569,6 +607,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListTelemetryDeployments(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def CreateTelemetryDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -703,10 +747,20 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBResponse.SerializeToString,
         ),
+        "ListClusterTimescaleDBs": grpc.unary_unary_rpc_method_handler(
+            servicer.ListClusterTimescaleDBs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterTimescaleDBsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterTimescaleDBsResponse.SerializeToString,
+        ),
         "GetClusterGateway": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterGateway,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.SerializeToString,
+        ),
+        "ListClusterGateways": grpc.unary_unary_rpc_method_handler(
+            servicer.ListClusterGateways,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterGatewaysRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterGatewaysResponse.SerializeToString,
         ),
         "GetClusterGatewayDefault": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterGatewayDefault,
@@ -717,6 +771,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.GetClusterBackgroundPersistence,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceResponse.SerializeToString,
+        ),
+        "ListClusterBackgroundPersistenceDeployments": grpc.unary_unary_rpc_method_handler(
+            servicer.ListClusterBackgroundPersistenceDeployments,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsResponse.SerializeToString,
         ),
         "CreateClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.CreateClusterTimescaleDB,
@@ -857,6 +916,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.GetTelemetryDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentResponse.SerializeToString,
+        ),
+        "ListTelemetryDeployments": grpc.unary_unary_rpc_method_handler(
+            servicer.ListTelemetryDeployments,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsResponse.SerializeToString,
         ),
         "CreateTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.CreateTelemetryDeployment,
@@ -1300,6 +1364,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def ListClusterTimescaleDBs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ListClusterTimescaleDBs",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterTimescaleDBsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterTimescaleDBsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetClusterGateway(
         request,
         target,
@@ -1318,6 +1411,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetClusterGateway",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListClusterGateways(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ListClusterGateways",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterGatewaysRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterGatewaysResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1376,6 +1498,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetClusterBackgroundPersistence",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterBackgroundPersistenceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListClusterBackgroundPersistenceDeployments(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ListClusterBackgroundPersistenceDeployments",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListClusterBackgroundPersistenceDeploymentsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2188,6 +2339,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetTelemetryDeployment",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListTelemetryDeployments(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ListTelemetryDeployments",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: nv-ingest-api
+Version: 26.3.0
+Summary: Python module with core document ingestion functions.
+Author-email: Jeremy Dyer <jdyer@nvidia.com>
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/NVIDIA/nv-ingest
+Project-URL: repository, https://github.com/NVIDIA/nv-ingest
+Project-URL: documentation, https://docs.nvidia.com/nv-ingest
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: backoff==2.2.1
+Requires-Dist: pandas>=2.0
+Requires-Dist: pydantic>2.0.0
+Requires-Dist: pydantic-settings>2.0.0
+Requires-Dist: fsspec>=2025.5.1
+Requires-Dist: universal_pathlib>=0.2.6
+Requires-Dist: ffmpeg-python==0.2.0
+Requires-Dist: tritonclient
+Requires-Dist: glom
+Requires-Dist: pypdfium2==4.30.0
+Provides-Extra: test
+Requires-Dist: moviepy==2.2.1; extra == "test"
+Dynamic: license-file
+
+# nv-ingest-api
+
+Provides a common set of
+
+- Pythonic Objects
+- Common Functions
+- Utilities
+- Core Logic
+
+Implemented in pure Python that can be imported and used directly or used as part of future frameworks and runtimes.

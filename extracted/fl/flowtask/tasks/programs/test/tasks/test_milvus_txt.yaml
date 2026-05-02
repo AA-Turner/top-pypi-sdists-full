@@ -1,0 +1,7 @@
+name: Test Load Milvus database
+description: Test Load Milvus database with DOCX files.
+steps:
+  - ParrotLoader:
+      path: "/home/jesuslara/proyectos/navigator/navigator-ai/docs/hr/benefits/Expenses/"
+      source_type: "Benefits-Expenses"
+      chunk_size: 2048

@@ -1,4 +1,3 @@
-from anymail.signals import inbound
 from django.apps import AppConfig
 from django.apps import apps as global_apps
 from django.db import DEFAULT_DB_ALIAS
@@ -13,6 +12,8 @@ class ImportExportConfig(AppConfig):
         """
         registered source from settings
         """
+        from anymail.signals import inbound
+
         # Implicitly connect a signal handlers decorated with @receiver.
         from wbcore.contrib.io.management import load_sources_from_settings
 

@@ -1,0 +1,266 @@
+"""
+Migration registry for version-based migrations.
+
+Migrations are registered by version and run automatically on first startup
+of that version. Each migration runs once and is tracked in state file.
+"""
+
+from collections.abc import Callable
+from typing import NamedTuple
+
+
+class Migration(NamedTuple):
+    """A migration definition."""
+
+    id: str  # Unique identifier (e.g., "5.6.91_async_hooks")
+    version: str  # Version this migration applies to
+    description: str  # Human-readable description
+    run: Callable[[], bool]  # Function that returns True on success
+
+
+def _run_async_hooks_migration() -> bool:
+    """Run the async hooks migration."""
+    from .migrate_async_hooks import migrate_all_settings
+
+    return migrate_all_settings()
+
+
+def _run_coauthor_email_migration() -> bool:
+    """Run the co-author email migration."""
+    from .migrate_coauthor_email import migrate_coauthor_email
+
+    return migrate_coauthor_email()
+
+
+def _run_remove_unsupported_hooks_migration() -> bool:
+    """Remove v2.1.47+ hook events from settings on older Claude Code installs."""
+    from .migrate_remove_unsupported_hooks import migrate_all_settings
+
+    return migrate_all_settings()
+
+
+def _run_binary_consolidation_migration() -> bool:
+    """Migrate .mcp.json to consolidated 'claude-mpm mcp serve' format."""
+    from .migrate_binary_consolidation import run_migration
+
+    return run_migration()
+
+
+def _run_core_skills_to_user_level_migration() -> bool:
+    """Move CORE mpm-* skills to user level, remove project-level duplicates."""
+    from .migrate_core_skills_to_user_level import run_migration
+
+    return run_migration()
+
+
+def _run_core_agents_to_user_level_migration() -> bool:
+    """Move CORE agents to user level, remove project-level duplicates."""
+    from .migrate_core_agents_to_user_level import run_migration
+
+    return run_migration()
+
+
+def _run_overlap_cleanup_migration() -> bool:
+    """Clean up agent/skill overlap between user-level and project-level."""
+    from pathlib import Path
+
+    from .cleanup_overlap import run_overlap_cleanup
+
+    result = run_overlap_cleanup(project_dir=Path.cwd())
+    # Consider it successful if there are no errors
+    total_errors = (
+        len(result["agents"]["errors"])
+        + len(result["skills"]["errors"])
+        + len(result["stale_agents"]["errors"])
+    )
+    return total_errors == 0
+
+
+def _run_native_agent_fields_migration() -> bool:  # pyright: ignore[unused-function]
+    """Add Claude Code native frontmatter fields to project agent files."""
+    from pathlib import Path
+
+    from .v6_3_0_native_agent_fields import run_migration
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_create_commands_dir_migration() -> bool:  # pyright: ignore[unused-function]
+    """Create .claude/commands/ with default slash command templates."""
+    from pathlib import Path
+
+    from .v6_3_0_create_commands_dir import run_migration
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_deploy_claude_assets_migration() -> bool:  # pyright: ignore[unused-function]
+    """Deploy statusline.sh and settings.json from package templates into .claude/."""
+    from pathlib import Path
+
+    from .v6_3_1_deploy_claude_assets import run_migration
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_agent_color_prompt_migration() -> bool:  # pyright: ignore[unused-function]
+    """Inject color field into project agent frontmatter."""
+    from pathlib import Path
+
+    from .v6_3_2_agent_color_prompt import (
+        run_migration,  # type: ignore[import-untyped]  # fmt: skip
+    )
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_additional_directories_migration() -> bool:  # pyright: ignore[unused-function]
+    """Add permissions.additionalDirectories to .claude/settings.json."""
+    from pathlib import Path
+
+    from .v6_3_2_additional_directories import (
+        run_migration,  # type: ignore[import-untyped]  # fmt: skip
+    )
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_permission_request_hook_migration() -> bool:  # pyright: ignore[unused-function]
+    """Add PermissionRequest hook to .claude/settings.json."""
+    from pathlib import Path
+
+    from .v6_3_2_permission_request_hook import (
+        run_migration,  # type: ignore[import-untyped]  # fmt: skip
+    )
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_statusline_autoconfig_migration() -> bool:
+    """Auto-configure the MPM statusline script and settings entry."""
+    from pathlib import Path
+
+    from .migrate_statusline_autoconfig import run_migration
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+def _run_statusline_user_level_migration() -> bool:
+    """Move legacy project-level statusline assets to ~/.claude/."""
+    from pathlib import Path
+
+    from .migrate_statusline_user_level import run_migration
+
+    return run_migration(installation_dir=Path.cwd())
+
+
+# Registry of all migrations, ordered by version
+MIGRATIONS: list[Migration] = [
+    Migration(
+        id="5.6.91_async_hooks",
+        version="5.6.91",
+        description="Migrate hooks to async execution mode",
+        run=_run_async_hooks_migration,
+    ),
+    Migration(
+        id="5.6.95_coauthor_email",
+        version="5.6.95",
+        description="Update Co-Authored-By to Claude MPM <https://github.com/bobmatnyc/claude-mpm>",
+        run=_run_coauthor_email_migration,
+    ),
+    Migration(
+        id="5.9.48_remove_unsupported_hooks",
+        version="5.9.48",
+        description="Remove unsupported v2.1.47+ hook events (WorktreeCreate, WorktreeRemove, TeammateIdle, TaskCompleted, ConfigChange) from Claude settings on older Claude Code installations",
+        run=_run_remove_unsupported_hooks_migration,
+    ),
+    Migration(
+        id="5.12.0_binary_consolidation",
+        version="5.12.0",
+        description="Migrate .mcp.json to consolidated 'claude-mpm mcp serve' format",
+        run=_run_binary_consolidation_migration,
+    ),
+    Migration(
+        id="6.1.0_core_skills_to_user_level",
+        version="6.1.0",
+        description="Move CORE mpm-* skills to user level, remove project-level duplicates",
+        run=_run_core_skills_to_user_level_migration,
+    ),
+    Migration(
+        id="6.2.0_core_agents_to_user_level",
+        version="6.2.0",
+        description="Move CORE agents to user level, remove project-level duplicates",
+        run=_run_core_agents_to_user_level_migration,
+    ),
+    Migration(
+        id="6.2.1_overlap_cleanup",
+        version="6.2.1",
+        description="Archive project-level duplicates of user-level agents/skills and stale -agent suffixed names",
+        run=_run_overlap_cleanup_migration,
+    ),
+    Migration(
+        id="6.3.0_native_agent_fields",
+        version="6.3.0",
+        description="Add Claude Code native frontmatter fields (permissionMode, maxTurns, memory) to project agent files",
+        run=_run_native_agent_fields_migration,
+    ),
+    Migration(
+        id="6.3.0_create_commands_dir",
+        version="6.3.0",
+        description="Create .claude/commands/ directory with default slash command templates",
+        run=_run_create_commands_dir_migration,
+    ),
+    Migration(
+        id="v6_3_1_deploy_claude_assets",
+        version="6.3.1",
+        description="Deploy statusline.sh and settings.json from package templates into .claude/",
+        run=_run_deploy_claude_assets_migration,
+    ),
+    Migration(
+        id="v6_3_2_agent_color_prompt",
+        version="6.3.2",
+        description="Inject color field into project agent frontmatter based on agent name patterns",
+        run=_run_agent_color_prompt_migration,
+    ),
+    Migration(
+        id="v6_3_2_additional_directories",
+        version="6.3.2",
+        description="Add permissions.additionalDirectories: [] to .claude/settings.json if missing",
+        run=_run_additional_directories_migration,
+    ),
+    Migration(
+        id="v6_3_2_permission_request_hook",
+        version="6.3.2",
+        description="Add PermissionRequest hook entry to .claude/settings.json hooks section",
+        run=_run_permission_request_hook_migration,
+    ),
+    Migration(
+        id="v6_2_35_statusline_autoconfig",
+        version="6.2.35",
+        description="Auto-configure MPM statusline script and statusLine entry in .claude/settings.json",
+        run=_run_statusline_autoconfig_migration,
+    ),
+    Migration(
+        id="v6_3_2_statusline_user_level",
+        version="6.3.2",
+        description="Move legacy project-level statusline.sh and settings entries to ~/.claude/",
+        run=_run_statusline_user_level_migration,
+    ),
+]
+
+
+def get_migrations_for_version(version: str) -> list[Migration]:
+    """Get all migrations that should run for a given version.
+
+    Args:
+        version: The target version (e.g., "5.6.91")
+
+    Returns:
+        List of migrations for that version
+    """
+    return [m for m in MIGRATIONS if m.version == version]
+
+
+def get_all_migrations() -> list[Migration]:
+    """Get all registered migrations."""
+    return MIGRATIONS.copy()

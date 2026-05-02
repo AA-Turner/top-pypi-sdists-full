@@ -30,7 +30,12 @@ from absl import logging
 from etils import epath
 import jax
 from orbax.checkpoint._src.testing.benchmarks.core import config_parsing
+try:
+  import pathwaysutils  # pylint: disable=g-import-not-at-top
 
+  _PATHWAYS_AVAILABLE = True
+except ImportError:
+  _PATHWAYS_AVAILABLE = False
 
 # Core Flags
 _CONFIG_FILE = flags.DEFINE_string(
@@ -55,6 +60,11 @@ _ENABLE_HLO_DUMP = flags.DEFINE_bool(
     False,
     'Enables HLO dumping to a subdirectory within --output_directory.',
 )
+_REMOVE_REPEATED_DIR = flags.DEFINE_bool(
+    'remove_repeated_dir',
+    False,
+    'Remove the generated repeat_* directories after execution.',
+)
 
 
 
@@ -63,30 +73,36 @@ def _init_jax_distributed():
   """Initializes JAX distributed system if not managed by XManager."""
 
   try:
-    jax_platforms = os.environ.get('JAX_PLATFORMS')
-    jax_coordinator_address = os.environ.get('JAX_COORDINATOR_ADDRESS')
-    jax_process_id = os.environ.get('JAX_PROCESS_ID')
-    jax_num_processes = os.environ.get('JAX_NUM_PROCESSES')
-    jax_coordinator_port = os.environ.get('JAX_COORDINATOR_PORT')
-    logging.info('JAX_PLATFORMS: %s', jax_platforms)
-    logging.info(
-        'JAX_COORDINATOR_ADDRESS: %s',
-        jax_coordinator_address,
-    )
-    logging.info('JAX_PROCESS_ID: %s', jax_process_id)
-    logging.info('JAX_NUM_PROCESSES: %s', jax_num_processes)
-    logging.info('JAX_COORDINATOR_PORT: %s', jax_coordinator_port)
-    if jax_num_processes is not None:
-      jax_num_processes = int(jax_num_processes)
-    if jax_process_id is not None:
-      jax_process_id = int(jax_process_id)
-    jax.distributed.initialize(
-        coordinator_address=jax_coordinator_address,
-        num_processes=jax_num_processes,
-        process_id=jax_process_id,
-        initialization_timeout=600,
-    )
-    logging.info('JAX distributed system initialized.')
+    if _PATHWAYS_AVAILABLE and pathwaysutils.is_pathways_backend_used():
+      pathwaysutils.initialize()
+      logging.info('Pathways initialized.')
+    else:
+      jax_platforms = os.environ.get('JAX_PLATFORMS')
+      jax_coordinator_address = os.environ.get('JAX_COORDINATOR_ADDRESS')
+      jax_process_id = os.environ.get('JAX_PROCESS_ID')
+      jax_num_processes = os.environ.get('JAX_NUM_PROCESSES')
+      jax_coordinator_port = os.environ.get('JAX_COORDINATOR_PORT')
+      logging.info('JAX_PLATFORMS: %s', jax_platforms)
+      logging.info(
+          'JAX_COORDINATOR_ADDRESS: %s',
+          jax_coordinator_address,
+      )
+      logging.info('JAX_PROCESS_ID: %s', jax_process_id)
+      logging.info('JAX_NUM_PROCESSES: %s', jax_num_processes)
+      logging.info('JAX_COORDINATOR_PORT: %s', jax_coordinator_port)
+      if jax_num_processes is not None:
+        jax_num_processes = int(jax_num_processes)
+      if jax_process_id is not None:
+        jax_process_id = int(jax_process_id)
+      jax.distributed.initialize(
+          coordinator_address=jax_coordinator_address,
+          num_processes=jax_num_processes,
+          process_id=jax_process_id,
+          initialization_timeout=600,
+      )
+      logging.info('JAX distributed system initialized.')
+      logging.info('Default JAX backend: %s', jax.default_backend())
+      logging.info('Available devices: %s', jax.devices())
   except Exception as e:  # pylint: disable=broad-exception-caught
     logging.warning(
         'Failed to initialize JAX distributed system: %s. '
@@ -96,8 +112,6 @@ def _init_jax_distributed():
         exc_info=True,
     )
 
-  logging.info('Default JAX backend: %s', jax.default_backend())
-  logging.info('Available devices: %s', jax.devices())
   logging.info('JAX process index: %d', jax.process_index())
   logging.info('JAX process count: %d', jax.process_count())
   logging.info('JAX device count: %d', jax.device_count())
@@ -126,7 +140,10 @@ def _configure_hlo_dump(output_directory: str):
 
 
 def _run_benchmarks(
-    config_file: str, output_directory: str, local_directory: str | None = None
+    config_file: str,
+    output_directory: str,
+    local_directory: str | None = None,
+    remove_repeated_dir: bool = False,
 ) -> None:
   """Runs Orbax checkpoint benchmarks based on a generator class and a config file.
 
@@ -135,6 +152,8 @@ def _run_benchmarks(
     output_directory: Directory to store benchmark results in.
     local_directory: Local directory for benchmark results. This is used for ECM
       benchmarks.
+    remove_repeated_dir: Whether to remove the generated repeat_* directories
+      after execution.
 
   Raises:
     RuntimeError: If any benchmark test fails.
@@ -155,6 +174,7 @@ def _run_benchmarks(
         config_file,
         output_dir=output_directory,
         local_directory=local_directory,
+        remove_repeated_dir=remove_repeated_dir,
     )
   except Exception as e:
     logging.error('Failed to create test suite from config: %s', e)
@@ -201,7 +221,10 @@ def main(argv: List[str]) -> None:
   logging.info('Set jax_enable_x64=True')
 
   _run_benchmarks(
-      _CONFIG_FILE.value, _OUTPUT_DIRECTORY.value, _LOCAL_DIRECTORY.value
+      _CONFIG_FILE.value,
+      _OUTPUT_DIRECTORY.value,
+      _LOCAL_DIRECTORY.value,
+      remove_repeated_dir=_REMOVE_REPEATED_DIR.value,
   )
 
   logging.info('run_benchmarks.py finished.')

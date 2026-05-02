@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.70.0
+Version: 1.71.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -17,12 +17,12 @@ Requires-Dist: click~=8.3.1
 Requires-Dist: clickdc~=0.1.1
 Requires-Dist: cryptography~=46.0.5
 Requires-Dist: Pygments~=2.19.2
-Requires-Dist: prompt_toolkit<4.0.0,>=3.0.6
+Requires-Dist: prompt_toolkit<4.0.0,>=3.0.41
 Requires-Dist: PyMySQL~=1.1.2
 Requires-Dist: sqlparse<0.6.0,>=0.3.0
 Requires-Dist: sqlglot[c]~=30.4.3
 Requires-Dist: configobj~=5.0.9
-Requires-Dist: cli_helpers[styles]~=2.12.0
+Requires-Dist: cli_helpers[styles]~=2.14.0
 Requires-Dist: wcwidth~=0.6.0
 Requires-Dist: pyperclip~=1.11.0
 Requires-Dist: pycryptodomex~=3.23.0

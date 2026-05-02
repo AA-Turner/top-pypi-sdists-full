@@ -57,7 +57,7 @@ class Poller(BasePoller):
     """Socket Read Poller using select.poll."""
 
     def __init__(self, fileno, exceptions):
-        super(Poller, self).__init__(fileno, exceptions)
+        super().__init__(fileno, exceptions)
         self.poller = select.poll()
         self.poller.register(self._fileno, select.POLLIN | select.POLLPRI)
 
@@ -258,26 +258,45 @@ class IO(object):
         :param socket.socket sock:
         :rtype: SSLSocket
         """
-        context = self._parameters['ssl_options'].get('context')
+        ssl_options = self._parameters.get('ssl_options', {})
+
+        context = ssl_options.get('context')
+        server_hostname = (
+            ssl_options.get('server_hostname') or self._parameters['hostname']
+        )
         if context is not None:
-            hostname = self._parameters['ssl_options'].get('server_hostname')
             return context.wrap_socket(
                 sock, do_handshake_on_connect=True,
-                server_hostname=hostname
+                server_hostname=server_hostname
             )
-        hostname = self._parameters['hostname']
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS)
-        context.check_hostname = self._parameters['ssl_options'].get(
-            'check_hostname', False
-        )
-        mode = self._parameters['ssl_options'].get('verify_mode', 'none')
-        if mode.lower() == 'required':
-            context.verify_mode = ssl.CERT_REQUIRED
-        else:
-            context.verify_mode = ssl.CERT_NONE
+
+        context = ssl.create_default_context()
+        verify_mode = ssl_options.get('verify_mode', ssl_options.get('cert_reqs'))
+        context.check_hostname = str(ssl_options.get(
+            'check_hostname', 'False'
+        )).strip().lower() in ('true', '1', 'yes', 'y', 'on')
+
+        if isinstance(verify_mode, ssl.VerifyMode):
+            context.verify_mode = verify_mode
+        elif verify_mode:
+            if verify_mode.lower() == 'required':
+                context.verify_mode = ssl.CERT_REQUIRED
+            elif verify_mode.lower() == 'optional':
+                context.verify_mode = ssl.CERT_OPTIONAL
+            elif verify_mode.lower() == 'none':
+                context.verify_mode = ssl.CERT_NONE
+
         context.load_default_certs()
+        ca_certs = ssl_options.get('ca_certs', ssl_options.get('cafile'))
+        if ca_certs:
+            context.load_verify_locations(cafile=ca_certs)
+        certfile = ssl_options.get('certfile')
+        keyfile = ssl_options.get('keyfile')
+        if certfile or keyfile:
+            context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+
         return context.wrap_socket(sock, do_handshake_on_connect=True,
-                                   server_hostname=hostname)
+                                   server_hostname=server_hostname)
 
     def _create_inbound_thread(self):
         """Internal Thread that handles all incoming traffic.

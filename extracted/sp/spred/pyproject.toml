@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spred"
+version = "0.1.1"
+description = "Splicing-regulatory Driver Genes Identification Tool"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {text = "MIT"}
+authors = [
+  {name = "Chenqing Zheng", email = "zhengchenqing@aliyun.com"}
+]
+requires-python = ">=3.10"
+dependencies = [
+  "click",
+  "pandas",
+  "numpy",
+  "scipy",
+  "statsmodels",
+  "pydeseq2 == 0.5.1",
+  "gseapy==1.1.6",
+  "seaborn == 0.13.2"
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/asge-demo"
+
+[project.scripts]
+spred = "spred.main:cli"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+  "click"  # 如测试 CLI
+]

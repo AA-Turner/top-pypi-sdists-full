@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-client
-Version: 3.6.28
+Version: 3.6.29
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -26,7 +26,7 @@ Requires-Dist: anyio<5.0.0,>=4.4.0
 Requires-Dist: asgi-lifespan<3.0,>=1.0
 Requires-Dist: cachetools<8.0,>=5.3
 Requires-Dist: cloudpickle<4.0,>=2.0
-Requires-Dist: coolname<5.0.0,>=1.0.4
+Requires-Dist: coolname<6.0.0,>=1.0.4
 Requires-Dist: dateparser<2.0.0,>=1.1.1
 Requires-Dist: exceptiongroup>=1.0.0
 Requires-Dist: fastapi<1.0.0,>=0.111.0
@@ -40,7 +40,7 @@ Requires-Dist: jsonpatch<2.0,>=1.32
 Requires-Dist: jsonschema<5.0.0,>=4.18.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
 Requires-Dist: orjson<4.0,>=3.7
-Requires-Dist: packaging<26.2,>=21.3
+Requires-Dist: packaging<26.3,>=21.3
 Requires-Dist: pathspec>=0.8.0
 Requires-Dist: pendulum<4,>=3.1.0; python_version < '3.13'
 Requires-Dist: prometheus-client>=0.20.0

@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: spreed-sql
+Version: 0.1.1
+Summary: SQL-like declarative schema definitions for Google Sheets
+Author: Kynto Team
+License: MIT
+Project-URL: Homepage, https://github.com/ArubikU/SpreedSQL
+Project-URL: Repository, https://github.com/ArubikU/SpreedSQL
+Keywords: google-sheets,spreadsheet,schema,gspread,declarative
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic>=2.0
+Requires-Dist: gspread>=5.0
+Requires-Dist: google-auth>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
+
+# SpreedSQL
+
+**SQL-like declarative schema definitions for Google Sheets.**
+
+SpreedSQL lets you define Google Sheets schemas the same way you define database schemas with SQL DDL, but for spreadsheets.
+
+## Quick Start
+
+```python
+from spreed_sql import Spreadsheet, Tab, Column, DataType, OnEdit, Filter, execute_schema
+
+schema = Spreadsheet(name_template="CRM_{name}")
+
+schema.tab("Clientes",
+    Column("Nombre", DataType.TEXT, required=True),
+    Column("Email", DataType.EMAIL),
+    Column("Estado", DataType.ENUM, values=["Activo", "Inactivo"]),
+    Column("Monto", DataType.CURRENCY),
+    triggers=[
+        OnEdit(column="Estado", webhook_url="https://api.example.com/webhook"),
+        OnSchedule(webhook_url="https://api.example.com/cron", cron_expression="0 9 * * *"),
+    ],
+    filter=Filter(enabled=True),
+)
+
+sheet_id, url, apps_script = execute_schema(schema, admin_email="admin@company.com", name="MiEmpresa")
+```
+
+## Features
+
+- **Declarative schemas** — Define tabs, columns, types, and validations in Python
+- **Auto-validation** — ENUM dropdowns, email/URL validation, required fields
+- **Formulas & computed columns** — ARRAYFORMULA, auto-timestamps, calculated fields
+- **Auto-filters & sorting** — Enable filters and default sorts per tab
+- **Pivot tables** — Define pivot tables that auto-generate via QUERY()
+- **Apps Script generation** — Auto-generate onEdit() triggers from schema
+- **Schema validation** — Lint existing sheets against your schema definition
+- **Format rules** — Conditional formatting (color cells by value)
+- **Hidden columns** — Internal IDs invisible to end users
+
+## Installation
+
+```bash
+pip install -e ../SpreedSQL
+```
+
+## API Reference
+
+See `spreed_sql/models.py` for all available classes and options.

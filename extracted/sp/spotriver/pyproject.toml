@@ -1,0 +1,63 @@
+[build-system]
+requires = ["scipy",
+            "setuptools>=61.0",
+            "graphviz",
+            "numpy",
+            "scikit-learn",
+            "matplotlib"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotriver"
+version = "0.4.4"
+authors = [
+  { name="T. Bartz-Beielstein", email="tbb@bartzundbartz.de" }
+]
+description = "spotriver - Sequential Parameter Optimization Interface to River"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+]
+# PEP 621 dependencies declaration
+dependencies = [
+  "lightning>=2.0.0rc0",
+  "matplotlib",
+  "numpy",
+  "nbformat",
+  "mkdocstrings-python",
+  "pandas",
+  "plotly",
+  "pytest",
+  "pytorch-lightning>=1.4",
+  "river>=0.21.2",
+  "scikit-learn",
+  "scipy",
+  "spotpython>=0.15.7",
+  "seaborn",
+  "tabulate",
+  "tensorboard",
+  "torch",
+  "torch-tb-profiler",
+  "torchmetrics",
+  "torchvision"
+]
+[project.urls]
+"Homepage" = "https://www.spotseven.de"
+
+[tool.setuptools]
+# ...
+# By default, include-package-data is true in pyproject.toml, so you do
+# NOT have to specify this line.
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+

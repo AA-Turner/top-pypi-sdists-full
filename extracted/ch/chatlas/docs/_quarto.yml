@@ -1,0 +1,229 @@
+project:
+  type: website
+  resources:
+    - objects.txt
+    - images/
+    - logos/
+  pre-render:
+    cp ../CHANGELOG.md CHANGELOG.md
+
+metadata-files:
+  - _sidebar.yml
+
+filters:
+  - "interlinks"
+
+interlinks:
+  fast: true
+  sources:
+    python:
+      url: https://docs.python.org/3/
+    pydantic:
+      url: https://docs.pydantic.dev/latest/
+    chatlas:
+      url: https://posit-dev.github.io/chatlas/
+      inv: objects.txt
+
+lightbox: auto
+
+website:
+  title: chatlas
+  page-navigation: true
+  site-url: https://posit-dev.github.io/chatlas/
+  description: Your friendly guide to building LLM chat apps in Python with less effort and more clarity.
+
+  bread-crumbs: true
+  open-graph: true
+  twitter-card: true
+  favicon: images/posit-logo.png
+  image: images/logo.png
+
+  repo-url: https://github.com/posit-dev/chatlas/
+  repo-actions: [issue, edit]
+  repo-subdir: docs
+
+  page-footer:
+    left: |
+      Proudly supported by
+      [![](https://posit.co/wp-content/uploads/2024/06/Posit-Logos-2024_horiz-full-color.svg){fig-alt="Posit" width=65px}](https://posit.co)
+
+  navbar:
+    background: "#E3F2FD"
+    search: true
+    title: '<img src="/logos/small/logo.png" height="40px" alt="chatlas website"/><span class="ms-3 fs-3 lead header" style="vertical-align:middle;">chatlas</span>'
+      
+    right:
+      - text: Reference
+        href: reference/index.qmd
+      - text: Changelog
+        href: /CHANGELOG.html
+      - icon: github
+        href: https://github.com/posit-dev/chatlas
+        aria-label: GitHub repository
+  sidebar:
+    - id: get-started
+      title: Get Started
+      style: floating
+      align: left
+      contents:
+        - index.qmd
+        - misc/vocabulary.qmd
+        - section: "Get started"
+          contents:
+            - get-started/models.qmd
+            - get-started/chat.qmd
+            - get-started/system-prompt.qmd
+            - get-started/tools.qmd
+            - get-started/stream.qmd
+            - get-started/structured-data.qmd
+            - get-started/async.qmd
+            - get-started/chatbots.qmd
+            - get-started/parameters.qmd
+            - get-started/debug.qmd
+            - get-started/monitor.qmd
+
+        - section: "Tool calling"
+          contents:
+            - tool-calling/how-it-works.qmd
+            - tool-calling/displays.qmd
+            - tool-calling/approval.qmd
+
+        - section: "Structured data"
+          contents:
+            - structured-data/article-summary.qmd
+            - structured-data/entity-recognition.qmd
+            - structured-data/sentiment-analysis.qmd
+            - structured-data/classification.qmd
+            - structured-data/multi-modal.qmd
+
+        - section: "Miscellaneous"
+          contents:
+            - misc/RAG.qmd
+            - misc/mcp-tools.qmd
+            - misc/evals.qmd
+
+
+format:
+  html:
+    include-in-header:
+      - "include-in-header.html"
+      - text: |
+          <script src="https://cdn.jsdelivr.net/gh/posit-dev/supported-by-posit/js/badge.min.js" data-light-bg="#404041" data-light-fg="#ffffff" data-dark-bg="#ffffff" data-dark-fg="#404041"></script>
+    theme:
+      - styles.scss
+    toc: true
+    toc-depth: 3
+
+quartodoc:
+  package: chatlas
+  render_interlinks: true
+  sidebar: _sidebar.yml
+  sections:
+    - title: Chat model providers
+      desc: Start a chat with a particular large language model (llm) provider.
+      contents:
+        - ChatAnthropic
+        - ChatAuto
+        - ChatAzureOpenAI
+        - ChatBedrockAnthropic
+        - ChatCloudflare
+        - ChatDatabricks
+        - ChatDeepSeek
+        - ChatGithub
+        - ChatGoogle
+        - ChatGroq
+        - ChatHuggingFace
+        - ChatMistral
+        - ChatOllama
+        - ChatOpenAI
+        - ChatOpenRouter
+        - ChatPerplexity
+        - ChatPortkey
+        - ChatSnowflake
+        - ChatVertex
+    - title: The chat object
+      desc: Methods and attributes available on a chat instance
+      contents:
+        - Chat
+    - title: Image input
+      desc: Submit image input to the chat
+      contents:
+        - content_image_file
+        - content_image_plot
+        - content_image_url
+    - title: PDF input
+      desc: Submit pdf input to the chat
+      contents:
+        - content_pdf_file
+        - content_pdf_url
+    - title: Tool calling
+      desc: Add context to python function before registering it as a tool.
+      contents:
+        - Tool
+        - ToolRejectError
+    - title: Built-in tools
+      desc: Provider-agnostic access to built-in web search and fetch capabilities.
+      contents:
+        - tool_web_search
+        - tool_web_fetch
+    - title: Parallel and batch chat
+      desc: Submit multiple chats in parallel (fast) or one batch (cheap)
+      contents:
+        - parallel_chat
+        - parallel_chat_text
+        - parallel_chat_structured
+        - batch_chat
+        - batch_chat_text
+        - batch_chat_structured
+        - batch_chat_completed
+    - title: Prompt interpolation
+      desc: Interpolate variables into prompt templates
+      contents:
+        - interpolate
+        - interpolate_file
+    - title: Turns
+      desc: A provider-agnostic representation of content generated during an assistant/user turn.
+      contents:
+        - AssistantTurn
+        - UserTurn
+        - SystemTurn
+        - Turn
+    - title: Query token usage
+      contents:
+        - token_usage
+    - title: Implement a model provider
+      contents:
+        - Provider
+    - title: User-facing types
+      contents:
+        - types.Content
+        - types.ContentImage
+        - types.ContentImageInline
+        - types.ContentImageRemote
+        - types.ContentJson
+        - types.ContentText
+        - types.ContentToolRequest
+        - types.ContentToolResult
+        - types.ContentToolRequestSearch
+        - types.ContentToolResponseSearch
+        - types.ContentToolRequestFetch
+        - types.ContentToolResponseFetch
+        - types.ChatResponse
+        - types.ChatResponseAsync
+        - types.ImageContentTypes
+        - types.MISSING_TYPE
+        - types.MISSING
+        - types.SubmitInputArgsT
+        - types.TokenUsage
+        - types.ToolAnnotations
+        - types.ToolInfo
+
+
+
+    
+
+editor:
+  render-on-save: true
+  markdown:
+    canonical: true
+    wrap: sentence

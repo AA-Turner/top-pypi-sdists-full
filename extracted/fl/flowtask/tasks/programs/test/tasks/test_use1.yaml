@@ -1,0 +1,5 @@
+name: Test Component
+description: Test a Component
+steps:
+  - Use1:
+      comments: "This is a Test using a Test Component"

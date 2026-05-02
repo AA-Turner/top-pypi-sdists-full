@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_ivs.type_defs import AudioConfigurationTypeDef
+    from types_aiobotocore_ivs.type_defs import MediaTailorPlaybackConfigurationTypeDef
 
-    data: AudioConfigurationTypeDef = ...
+    data: MediaTailorPlaybackConfigurationTypeDef = ...
     ```
 """
 
@@ -44,6 +44,8 @@ else:
     from typing_extensions import NotRequired, TypedDict
 
 __all__ = (
+    "AdConfigurationSummaryTypeDef",
+    "AdConfigurationTypeDef",
     "AudioConfigurationTypeDef",
     "BatchErrorTypeDef",
     "BatchGetChannelRequestTypeDef",
@@ -56,6 +58,8 @@ __all__ = (
     "BatchStartViewerSessionRevocationViewerSessionTypeDef",
     "ChannelSummaryTypeDef",
     "ChannelTypeDef",
+    "CreateAdConfigurationRequestTypeDef",
+    "CreateAdConfigurationResponseTypeDef",
     "CreateChannelRequestTypeDef",
     "CreateChannelResponseTypeDef",
     "CreatePlaybackRestrictionPolicyRequestTypeDef",
@@ -64,6 +68,7 @@ __all__ = (
     "CreateRecordingConfigurationResponseTypeDef",
     "CreateStreamKeyRequestTypeDef",
     "CreateStreamKeyResponseTypeDef",
+    "DeleteAdConfigurationRequestTypeDef",
     "DeleteChannelRequestTypeDef",
     "DeletePlaybackKeyPairRequestTypeDef",
     "DeletePlaybackRestrictionPolicyRequestTypeDef",
@@ -71,6 +76,8 @@ __all__ = (
     "DeleteStreamKeyRequestTypeDef",
     "DestinationConfigurationTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "GetAdConfigurationRequestTypeDef",
+    "GetAdConfigurationResponseTypeDef",
     "GetChannelRequestTypeDef",
     "GetChannelResponseTypeDef",
     "GetPlaybackKeyPairRequestTypeDef",
@@ -89,6 +96,11 @@ __all__ = (
     "ImportPlaybackKeyPairResponseTypeDef",
     "IngestConfigurationTypeDef",
     "IngestConfigurationsTypeDef",
+    "InsertAdBreakRequestTypeDef",
+    "InsertAdBreakResponseTypeDef",
+    "ListAdConfigurationsRequestPaginateTypeDef",
+    "ListAdConfigurationsRequestTypeDef",
+    "ListAdConfigurationsResponseTypeDef",
     "ListChannelsRequestPaginateTypeDef",
     "ListChannelsRequestTypeDef",
     "ListChannelsResponseTypeDef",
@@ -110,6 +122,7 @@ __all__ = (
     "ListStreamsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MediaTailorPlaybackConfigurationTypeDef",
     "MultitrackInputConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "PlaybackKeyPairSummaryTypeDef",
@@ -147,11 +160,14 @@ __all__ = (
     "VideoConfigurationTypeDef",
 )
 
+class MediaTailorPlaybackConfigurationTypeDef(TypedDict):
+    playbackConfigurationArn: NotRequired[str]
+
 class AudioConfigurationTypeDef(TypedDict):
-    channels: NotRequired[int]
     codec: NotRequired[str]
-    sampleRate: NotRequired[int]
     targetBitrate: NotRequired[int]
+    sampleRate: NotRequired[int]
+    channels: NotRequired[int]
     track: NotRequired[str]
 
 class BatchErrorTypeDef(TypedDict):
@@ -174,9 +190,9 @@ class BatchGetStreamKeyRequestTypeDef(TypedDict):
 
 class StreamKeyTypeDef(TypedDict):
     arn: NotRequired[str]
+    value: NotRequired[str]
     channelArn: NotRequired[str]
     tags: NotRequired[dict[str, str]]
-    value: NotRequired[str]
 
 class BatchStartViewerSessionRevocationErrorTypeDef(TypedDict):
     channelArn: str
@@ -193,22 +209,23 @@ ChannelSummaryTypeDef = TypedDict(
     "ChannelSummaryTypeDef",
     {
         "arn": NotRequired[str],
-        "authorized": NotRequired[bool],
-        "insecureIngest": NotRequired[bool],
-        "latencyMode": NotRequired[ChannelLatencyModeType],
         "name": NotRequired[str],
-        "playbackRestrictionPolicyArn": NotRequired[str],
-        "preset": NotRequired[TranscodePresetType],
+        "latencyMode": NotRequired[ChannelLatencyModeType],
+        "authorized": NotRequired[bool],
         "recordingConfigurationArn": NotRequired[str],
         "tags": NotRequired[dict[str, str]],
+        "insecureIngest": NotRequired[bool],
         "type": NotRequired[ChannelTypeType],
+        "preset": NotRequired[TranscodePresetType],
+        "playbackRestrictionPolicyArn": NotRequired[str],
+        "adConfigurationArn": NotRequired[str],
     },
 )
 
 class MultitrackInputConfigurationTypeDef(TypedDict):
     enabled: NotRequired[bool]
-    maximumResolution: NotRequired[MultitrackMaximumResolutionType]
     policy: NotRequired[MultitrackPolicyType]
+    maximumResolution: NotRequired[MultitrackMaximumResolutionType]
 
 class SrtTypeDef(TypedDict):
     endpoint: NotRequired[str]
@@ -222,9 +239,9 @@ class CreatePlaybackRestrictionPolicyRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 class PlaybackRestrictionPolicyTypeDef(TypedDict):
+    arn: str
     allowedCountries: list[str]
     allowedOrigins: list[str]
-    arn: str
     enableStrictOriginEnforcement: NotRequired[bool]
     name: NotRequired[str]
     tags: NotRequired[dict[str, str]]
@@ -232,6 +249,9 @@ class PlaybackRestrictionPolicyTypeDef(TypedDict):
 class CreateStreamKeyRequestTypeDef(TypedDict):
     channelArn: str
     tags: NotRequired[Mapping[str, str]]
+
+class DeleteAdConfigurationRequestTypeDef(TypedDict):
+    arn: str
 
 class DeleteChannelRequestTypeDef(TypedDict):
     arn: str
@@ -251,6 +271,9 @@ class DeleteStreamKeyRequestTypeDef(TypedDict):
 class S3DestinationConfigurationTypeDef(TypedDict):
     bucketName: str
 
+class GetAdConfigurationRequestTypeDef(TypedDict):
+    arn: str
+
 class GetChannelRequestTypeDef(TypedDict):
     arn: str
 
@@ -259,8 +282,8 @@ class GetPlaybackKeyPairRequestTypeDef(TypedDict):
 
 class PlaybackKeyPairTypeDef(TypedDict):
     arn: NotRequired[str]
-    fingerprint: NotRequired[str]
     name: NotRequired[str]
+    fingerprint: NotRequired[str]
     tags: NotRequired[dict[str, str]]
 
 class GetPlaybackRestrictionPolicyRequestTypeDef(TypedDict):
@@ -277,11 +300,11 @@ class GetStreamRequestTypeDef(TypedDict):
 
 class StreamTypeDef(TypedDict):
     channelArn: NotRequired[str]
-    health: NotRequired[StreamHealthType]
+    streamId: NotRequired[str]
     playbackUrl: NotRequired[str]
     startTime: NotRequired[datetime]
     state: NotRequired[StreamStateType]
-    streamId: NotRequired[str]
+    health: NotRequired[StreamHealthType]
     viewerCount: NotRequired[int]
 
 class GetStreamSessionRequestTypeDef(TypedDict):
@@ -294,33 +317,42 @@ class ImportPlaybackKeyPairRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 class VideoConfigurationTypeDef(TypedDict):
-    avcLevel: NotRequired[str]
     avcProfile: NotRequired[str]
+    avcLevel: NotRequired[str]
     codec: NotRequired[str]
     encoder: NotRequired[str]
-    level: NotRequired[str]
-    profile: NotRequired[str]
     targetBitrate: NotRequired[int]
     targetFramerate: NotRequired[int]
-    track: NotRequired[str]
     videoHeight: NotRequired[int]
     videoWidth: NotRequired[int]
+    level: NotRequired[str]
+    track: NotRequired[str]
+    profile: NotRequired[str]
+
+class InsertAdBreakRequestTypeDef(TypedDict):
+    channelArn: str
+    durationSeconds: int
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+class ListAdConfigurationsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
 class ListChannelsRequestTypeDef(TypedDict):
     filterByName: NotRequired[str]
-    filterByPlaybackRestrictionPolicyArn: NotRequired[str]
     filterByRecordingConfigurationArn: NotRequired[str]
-    maxResults: NotRequired[int]
+    filterByPlaybackRestrictionPolicyArn: NotRequired[str]
+    filterByAdConfigurationArn: NotRequired[str]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListPlaybackKeyPairsRequestTypeDef(TypedDict):
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class PlaybackKeyPairSummaryTypeDef(TypedDict):
     arn: NotRequired[str]
@@ -328,25 +360,25 @@ class PlaybackKeyPairSummaryTypeDef(TypedDict):
     tags: NotRequired[dict[str, str]]
 
 class ListPlaybackRestrictionPoliciesRequestTypeDef(TypedDict):
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class PlaybackRestrictionPolicySummaryTypeDef(TypedDict):
+    arn: str
     allowedCountries: list[str]
     allowedOrigins: list[str]
-    arn: str
     enableStrictOriginEnforcement: NotRequired[bool]
     name: NotRequired[str]
     tags: NotRequired[dict[str, str]]
 
 class ListRecordingConfigurationsRequestTypeDef(TypedDict):
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListStreamKeysRequestTypeDef(TypedDict):
     channelArn: str
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class StreamKeySummaryTypeDef(TypedDict):
     arn: NotRequired[str]
@@ -355,25 +387,25 @@ class StreamKeySummaryTypeDef(TypedDict):
 
 class ListStreamSessionsRequestTypeDef(TypedDict):
     channelArn: str
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class StreamSessionSummaryTypeDef(TypedDict):
+    streamId: NotRequired[str]
+    startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
     hasErrorEvent: NotRequired[bool]
-    startTime: NotRequired[datetime]
-    streamId: NotRequired[str]
 
 class StreamFiltersTypeDef(TypedDict):
     health: NotRequired[StreamHealthType]
 
 class StreamSummaryTypeDef(TypedDict):
     channelArn: NotRequired[str]
-    health: NotRequired[StreamHealthType]
-    startTime: NotRequired[datetime]
-    state: NotRequired[StreamStateType]
     streamId: NotRequired[str]
+    state: NotRequired[StreamStateType]
+    health: NotRequired[StreamHealthType]
     viewerCount: NotRequired[int]
+    startTime: NotRequired[datetime]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -388,9 +420,9 @@ class RenditionConfigurationOutputTypeDef(TypedDict):
 
 class ThumbnailConfigurationOutputTypeDef(TypedDict):
     recordingMode: NotRequired[RecordingModeType]
+    targetIntervalSeconds: NotRequired[int]
     resolution: NotRequired[ThumbnailConfigurationResolutionType]
     storage: NotRequired[list[ThumbnailConfigurationStorageType]]
-    targetIntervalSeconds: NotRequired[int]
 
 class RenditionConfigurationTypeDef(TypedDict):
     renditionSelection: NotRequired[RenditionConfigurationRenditionSelectionType]
@@ -407,10 +439,10 @@ class StopStreamRequestTypeDef(TypedDict):
 StreamEventTypeDef = TypedDict(
     "StreamEventTypeDef",
     {
-        "code": NotRequired[str],
-        "eventTime": NotRequired[datetime],
         "name": NotRequired[str],
         "type": NotRequired[str],
+        "eventTime": NotRequired[datetime],
+        "code": NotRequired[str],
     },
 )
 
@@ -420,9 +452,9 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class ThumbnailConfigurationTypeDef(TypedDict):
     recordingMode: NotRequired[RecordingModeType]
+    targetIntervalSeconds: NotRequired[int]
     resolution: NotRequired[ThumbnailConfigurationResolutionType]
     storage: NotRequired[Sequence[ThumbnailConfigurationStorageType]]
-    targetIntervalSeconds: NotRequired[int]
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -435,7 +467,28 @@ class UpdatePlaybackRestrictionPolicyRequestTypeDef(TypedDict):
     enableStrictOriginEnforcement: NotRequired[bool]
     name: NotRequired[str]
 
+class AdConfigurationSummaryTypeDef(TypedDict):
+    arn: str
+    mediaTailorPlaybackConfigurations: list[MediaTailorPlaybackConfigurationTypeDef]
+    name: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+
+class AdConfigurationTypeDef(TypedDict):
+    arn: str
+    mediaTailorPlaybackConfigurations: list[MediaTailorPlaybackConfigurationTypeDef]
+    name: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+
+class CreateAdConfigurationRequestTypeDef(TypedDict):
+    mediaTailorPlaybackConfigurations: Sequence[MediaTailorPlaybackConfigurationTypeDef]
+    name: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
 class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class InsertAdBreakResponseTypeDef(TypedDict):
+    adBreakId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -443,8 +496,15 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetStreamKeyResponseTypeDef(TypedDict):
-    errors: list[BatchErrorTypeDef]
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     streamKeys: list[StreamKeyTypeDef]
+    errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateStreamKeyResponseTypeDef(TypedDict):
@@ -456,6 +516,13 @@ class GetStreamKeyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchStartViewerSessionRevocationResponseTypeDef(TypedDict):
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     errors: list[BatchStartViewerSessionRevocationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -470,53 +537,56 @@ class ListChannelsResponseTypeDef(TypedDict):
 CreateChannelRequestTypeDef = TypedDict(
     "CreateChannelRequestTypeDef",
     {
-        "authorized": NotRequired[bool],
-        "containerFormat": NotRequired[ContainerFormatType],
-        "insecureIngest": NotRequired[bool],
-        "latencyMode": NotRequired[ChannelLatencyModeType],
-        "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
         "name": NotRequired[str],
-        "playbackRestrictionPolicyArn": NotRequired[str],
-        "preset": NotRequired[TranscodePresetType],
+        "latencyMode": NotRequired[ChannelLatencyModeType],
+        "type": NotRequired[ChannelTypeType],
+        "authorized": NotRequired[bool],
         "recordingConfigurationArn": NotRequired[str],
         "tags": NotRequired[Mapping[str, str]],
-        "type": NotRequired[ChannelTypeType],
+        "insecureIngest": NotRequired[bool],
+        "preset": NotRequired[TranscodePresetType],
+        "playbackRestrictionPolicyArn": NotRequired[str],
+        "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
+        "containerFormat": NotRequired[ContainerFormatType],
+        "adConfigurationArn": NotRequired[str],
     },
 )
 UpdateChannelRequestTypeDef = TypedDict(
     "UpdateChannelRequestTypeDef",
     {
         "arn": str,
-        "authorized": NotRequired[bool],
-        "containerFormat": NotRequired[ContainerFormatType],
-        "insecureIngest": NotRequired[bool],
-        "latencyMode": NotRequired[ChannelLatencyModeType],
-        "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
         "name": NotRequired[str],
-        "playbackRestrictionPolicyArn": NotRequired[str],
-        "preset": NotRequired[TranscodePresetType],
-        "recordingConfigurationArn": NotRequired[str],
+        "latencyMode": NotRequired[ChannelLatencyModeType],
         "type": NotRequired[ChannelTypeType],
+        "authorized": NotRequired[bool],
+        "recordingConfigurationArn": NotRequired[str],
+        "insecureIngest": NotRequired[bool],
+        "preset": NotRequired[TranscodePresetType],
+        "playbackRestrictionPolicyArn": NotRequired[str],
+        "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
+        "containerFormat": NotRequired[ContainerFormatType],
+        "adConfigurationArn": NotRequired[str],
     },
 )
 ChannelTypeDef = TypedDict(
     "ChannelTypeDef",
     {
         "arn": NotRequired[str],
-        "authorized": NotRequired[bool],
-        "containerFormat": NotRequired[ContainerFormatType],
-        "ingestEndpoint": NotRequired[str],
-        "insecureIngest": NotRequired[bool],
-        "latencyMode": NotRequired[ChannelLatencyModeType],
-        "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
         "name": NotRequired[str],
-        "playbackRestrictionPolicyArn": NotRequired[str],
-        "playbackUrl": NotRequired[str],
-        "preset": NotRequired[TranscodePresetType],
-        "recordingConfigurationArn": NotRequired[str],
-        "srt": NotRequired[SrtTypeDef],
-        "tags": NotRequired[dict[str, str]],
+        "latencyMode": NotRequired[ChannelLatencyModeType],
         "type": NotRequired[ChannelTypeType],
+        "recordingConfigurationArn": NotRequired[str],
+        "ingestEndpoint": NotRequired[str],
+        "playbackUrl": NotRequired[str],
+        "authorized": NotRequired[bool],
+        "tags": NotRequired[dict[str, str]],
+        "insecureIngest": NotRequired[bool],
+        "preset": NotRequired[TranscodePresetType],
+        "srt": NotRequired[SrtTypeDef],
+        "playbackRestrictionPolicyArn": NotRequired[str],
+        "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
+        "containerFormat": NotRequired[ContainerFormatType],
+        "adConfigurationArn": NotRequired[str],
     },
 )
 
@@ -548,17 +618,21 @@ class GetStreamResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class IngestConfigurationTypeDef(TypedDict):
-    audio: NotRequired[AudioConfigurationTypeDef]
     video: NotRequired[VideoConfigurationTypeDef]
+    audio: NotRequired[AudioConfigurationTypeDef]
 
 class IngestConfigurationsTypeDef(TypedDict):
-    audioConfigurations: list[AudioConfigurationTypeDef]
     videoConfigurations: list[VideoConfigurationTypeDef]
+    audioConfigurations: list[AudioConfigurationTypeDef]
+
+class ListAdConfigurationsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListChannelsRequestPaginateTypeDef(TypedDict):
     filterByName: NotRequired[str]
-    filterByPlaybackRestrictionPolicyArn: NotRequired[str]
     filterByRecordingConfigurationArn: NotRequired[str]
+    filterByPlaybackRestrictionPolicyArn: NotRequired[str]
+    filterByAdConfigurationArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPlaybackKeyPairsRequestPaginateTypeDef(TypedDict):
@@ -597,8 +671,8 @@ class ListStreamsRequestPaginateTypeDef(TypedDict):
 
 class ListStreamsRequestTypeDef(TypedDict):
     filterBy: NotRequired[StreamFiltersTypeDef]
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListStreamsResponseTypeDef(TypedDict):
     streams: list[StreamSummaryTypeDef]
@@ -612,7 +686,27 @@ ThumbnailConfigurationUnionTypeDef = Union[
     ThumbnailConfigurationTypeDef, ThumbnailConfigurationOutputTypeDef
 ]
 
+class ListAdConfigurationsResponseTypeDef(TypedDict):
+    adConfigurations: list[AdConfigurationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateAdConfigurationResponseTypeDef(TypedDict):
+    adConfiguration: AdConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAdConfigurationResponseTypeDef(TypedDict):
+    adConfiguration: AdConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class BatchGetChannelResponseTypeDef(TypedDict):
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     channels: list[ChannelTypeDef]
     errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -642,18 +736,18 @@ class RecordingConfigurationTypeDef(TypedDict):
     destinationConfiguration: DestinationConfigurationTypeDef
     state: RecordingConfigurationStateType
     name: NotRequired[str]
-    recordingReconnectWindowSeconds: NotRequired[int]
-    renditionConfiguration: NotRequired[RenditionConfigurationOutputTypeDef]
     tags: NotRequired[dict[str, str]]
     thumbnailConfiguration: NotRequired[ThumbnailConfigurationOutputTypeDef]
+    recordingReconnectWindowSeconds: NotRequired[int]
+    renditionConfiguration: NotRequired[RenditionConfigurationOutputTypeDef]
 
 class CreateRecordingConfigurationRequestTypeDef(TypedDict):
     destinationConfiguration: DestinationConfigurationTypeDef
     name: NotRequired[str]
-    recordingReconnectWindowSeconds: NotRequired[int]
-    renditionConfiguration: NotRequired[RenditionConfigurationUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
     thumbnailConfiguration: NotRequired[ThumbnailConfigurationUnionTypeDef]
+    recordingReconnectWindowSeconds: NotRequired[int]
+    renditionConfiguration: NotRequired[RenditionConfigurationUnionTypeDef]
 
 class ListRecordingConfigurationsResponseTypeDef(TypedDict):
     recordingConfigurations: list[RecordingConfigurationSummaryTypeDef]
@@ -669,13 +763,13 @@ class GetRecordingConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StreamSessionTypeDef(TypedDict):
-    channel: NotRequired[ChannelTypeDef]
+    streamId: NotRequired[str]
+    startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
+    channel: NotRequired[ChannelTypeDef]
     ingestConfiguration: NotRequired[IngestConfigurationTypeDef]
     ingestConfigurations: NotRequired[IngestConfigurationsTypeDef]
     recordingConfiguration: NotRequired[RecordingConfigurationTypeDef]
-    startTime: NotRequired[datetime]
-    streamId: NotRequired[str]
     truncatedEvents: NotRequired[list[StreamEventTypeDef]]
 
 class GetStreamSessionResponseTypeDef(TypedDict):

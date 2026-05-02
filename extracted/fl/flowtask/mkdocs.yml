@@ -1,0 +1,30 @@
+site_name: Flowtask
+
+theme:
+  name: "material"
+  features:
+    - content.code.copy
+    - content.code.select
+
+nav:
+  - Flowtask Documentation: index.md
+  - Features: features.md
+  - How To use Flowtask: how-to-guides.md
+  - Primer Tutorial: tutorial.md
+  - API Reference: reference.md
+  - Flowtask FAQ: faqs.md
+  - Flowtask About: about.md
+
+plugins:
+  - search:
+      lang: en
+  - mkdocstrings
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

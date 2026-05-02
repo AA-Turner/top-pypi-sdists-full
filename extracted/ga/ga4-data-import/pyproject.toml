@@ -1,0 +1,77 @@
+[project]
+name = "ga4_data_import"
+version = "0.1.66"
+description = "Google Analytics 4 Data Import pipeline"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+keywords = [
+    "Google Analytics 4",
+    "Data Import",
+    "SFTP",
+    "Google Cloud Storage"
+]
+
+authors = [
+    {name = "Max Ostapenko", email = "ga4_data_import@maxostapenko.com" }
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+
+    "Topic :: Internet :: File Transfer Protocol (FTP)",
+    "Topic :: Utilities"
+]
+
+dependencies = [
+    "google-cloud-compute",
+    "google-cloud-resource-manager",
+    "google-cloud-storage",
+    "google-cloud-workflows",
+    "google-cloud-scheduler",
+    "google-cloud-core"
+]
+
+[project.optional-dependencies]
+dev = [
+    "check-manifest",
+    "build",
+    "twine"
+    ]
+test = [
+    "coverage"
+    ]
+
+[project.urls]
+"Source" = "https://github.com/max-ostapenko/ga4_data_import/"
+"Modules Documentation" = "https://github.com/max-ostapenko/ga4_data_import/blob/main/docs/index.md"
+"Bug Reports" = "https://github.com/max-ostapenko/ga4_data_import/issues"
+"Project website" = "https://maxostapenko.com/projects/google_analytics_4_data_import/"
+
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ga4_data_import"]
+
+[[tool.pydoc-markdown.loaders]]
+type = "python"
+search_path = [ "./" ]
+[tool.pydoc-markdown.renderer]
+type = "markdown"
+filename = "./docs/index.md"
+render_toc = true
+[tool.pydoc-markdown.renderer.source_linker]
+type = "git"
+url_template = "https://github.com/max-ostapenko/ga4_data_import/blob/main/{path}#L{lineno}"
+
+[tool.pylint.main]
+disable = ["too-many-arguments"]

@@ -7,12 +7,12 @@ This software is made available under the terms of the MIT License.
 """
 
 from argparse import Namespace
-from typing import Any, Dict, Set
+from typing import Any
 
 DEFAULT_WIDTH = 10
 
 
-def print_set(s: Set[str], header: str = None, width: int = DEFAULT_WIDTH) -> None:
+def print_set(s: set[str], header: str | None = None, width: int = DEFAULT_WIDTH) -> None:
     """Print set s with section header.
 
     :param s: set to print
@@ -26,7 +26,7 @@ def print_set(s: Set[str], header: str = None, width: int = DEFAULT_WIDTH) -> No
             print('  {:>{}} {}'.format('', width, element))
 
 
-def print_dict(d: Dict[str, Any], header: str = None, width: int = DEFAULT_WIDTH) -> None:
+def print_dict(d: dict[str, Any], header: str | None = None, width: int = DEFAULT_WIDTH) -> None:
     """Print dictionary d with section header.
 
     :param d: dictionary to print
@@ -41,7 +41,7 @@ def print_dict(d: Dict[str, Any], header: str = None, width: int = DEFAULT_WIDTH
             print('  {:>{}} {}'.format(left, width, key))
 
 
-def print_namespace(ns: Namespace, header: str = None) -> None:
+def print_namespace(ns: Namespace, header: str | None = None) -> None:
     """Print namespace with header.
 
     :param ns: namespace to print

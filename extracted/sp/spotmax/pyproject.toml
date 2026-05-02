@@ -1,0 +1,95 @@
+[build-system]
+requires = [
+  "setuptools>=64",
+  "wheel",
+  "setuptools_scm[toml]>=8"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotmax"
+authors = [
+    { name = "Francesco Padovani", email = "francesco.padovani@helmholtz-munich.de" },
+]
+description = "Automatic 3D detection and quantification of fluorescent objects"
+keywords = [
+    "3D fluorescent signal analysis",
+    "image analysis",
+]
+license = "BSD-3-Clause"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML",
+]
+dynamic = [
+    "version",
+]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://github.com/ElpadoCan/SpotMAX"
+"Author contact" = "https://schmollerlab.com/francescopadovani"
+"Schmoller lab" = "https://schmollerlab.com/"
+
+[project.optional-dependencies]
+all = [
+    "cellacdc",
+    "numba",
+    "torch",
+    "pyyaml",
+    "pytorch3dunet-spotmax",
+    "wandb",
+    "bioimageio.core", 
+    "bioimageio.spec"
+]
+biio = [
+    "bioimageio.core", 
+    "bioimageio.spec"
+]
+
+[project.scripts]
+spotmax = "spotmax.__main__:run"
+smax = "spotmax.__main__:run"
+browseini = "spotmax.io:browse_last_used_ini_folderpath"
+spotmax_watch = "spotmax._process_watchdog:run"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+namespaces = false
+include = ["spotmax", "spotmax.*"]
+exclude = [
+    "spotmax/docs/source/images",
+]
+
+[tool.setuptools_scm]
+version_file = "spotmax/_version.py"
+
+# Ignore DeprecationWarnings
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]

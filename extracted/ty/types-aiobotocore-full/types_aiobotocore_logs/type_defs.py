@@ -1125,6 +1125,8 @@ class GetLookupTableRequestTypeDef(TypedDict):
 
 class GetQueryResultsRequestTypeDef(TypedDict):
     queryId: str
+    nextToken: NotRequired[str]
+    maxItems: NotRequired[int]
 
 
 class QueryStatisticsTypeDef(TypedDict):
@@ -1632,6 +1634,7 @@ class S3TableIntegrationSourceTypeDef(TypedDict):
     status: NotRequired[S3TableIntegrationSourceStatusType]
     statusReason: NotRequired[str]
     createdTimeStamp: NotRequired[int]
+    parentSourceIdentifier: NotRequired[str]
 
 
 class AssociateSourceToS3TableIntegrationResponseTypeDef(TypedDict):
@@ -2195,6 +2198,7 @@ class GetQueryResultsResponseTypeDef(TypedDict):
     status: QueryStatusType
     encryptionKey: str
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class PutLogEventsRequestTypeDef(TypedDict):

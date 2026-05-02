@@ -1,0 +1,122 @@
+[project]
+name = "reflex-enterprise"
+dynamic = ["version"]
+description = "Package containing the paid features for Reflex. [Pro/Team/Enterprise]"
+license = "LicenseRef-Proprietary"
+readme = "README.md"
+requires-python = ">=3.10, <4.0"
+keywords = ["reflex", "python", "reflex-enterprise"]
+authors = [
+    { name = "Nikhil Rao", email = "nikhil@reflex.dev" },
+    { name = "Alek Petuskey", email = "alek@reflex.dev" },
+    { name = "Masen Furer", email = "masen@reflex.dev" },
+    { name = "Thomas Brandého", email = "thomas@reflex.dev" },
+]
+dependencies = [
+    "reflex[db] >=0.8.23",
+    "asgiproxy >=0.2.0",
+    "joserfc",
+    "httpx",
+    "psutil",
+]
+
+[project.optional-dependencies]
+
+[project.urls]
+homepage = "https://reflex.dev/"
+documentation = "https://enterprise.reflex.dev"
+license = "https://raw.githubusercontent.com/reflex-dev/reflex/main/docs/enterprise/LICENSE"
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch]
+version.source = "uv-dynamic-versioning"
+build.hooks.custom = {}
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
+metadata = false
+
+[dependency-groups]
+dev = [
+    "codespell",
+    "pre-commit",
+    "pyright",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-playwright",
+    "pytest-retry",
+    "pytest-split",
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py310"
+output-format = "concise"
+lint.isort.split-on-trailing-comma = false
+lint.select = [
+    "ANN001",
+    "B",
+    "C4",
+    "D",
+    "E",
+    "ERA",
+    "F",
+    "FURB",
+    "I",
+    "N",
+    "PERF",
+    "PGH",
+    "PTH",
+    "RUF",
+    "SIM",
+    "T",
+    "TRY",
+    "W",
+]
+lint.ignore = [
+    "B008",
+    "D205",
+    "E501",
+    "F403",
+    "SIM115",
+    "RUF006",
+    "RUF008",
+    "RUF012",
+    "TRY0",
+]
+lint.pydocstyle.convention = "google"
+lint.allowed-confusables = ['’']
+
+[tool.ruff.lint.per-file-ignores]
+"*.pyi" = ["D301", "D415", "D417", "D418", "E742", "N", "PGH"]
+"**/alembic/*.py" = ["D", "ERA"]
+"tests/*.py" = ["ANN001", "D"]
+"demos/*.py" = ["ANN001", "D", "ERA"]
+".flexdown/*.py" = ["ANN001", "D", "F401"]
+"__init__.py" = ["ERA"]
+
+[tool.pyright]
+reportIncompatibleMethodOverride = false
+reportMissingImports = false
+reportInconsistentOverload = false
+reportIncompatibleVariableOverride = "warning"
+exclude = [
+    "**/alembic/*",
+    "demos/*",
+    "reflex_enterprise/components/mantine/*.pyi",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = "ignore:fields may not start with an underscore:RuntimeWarning"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.codespell]
+skip = "*.pyi, uv.lock"

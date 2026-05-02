@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "duckduckgo-mcp"
+version = "3.0.0"
+description = "DEPRECATED: This package has been renamed to web-forager. Install web-forager instead."
+readme = "README.md"
+authors = [
+    {name = "Eddie Pick", email = "eddie@pick.fr"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+]
+
+dependencies = [
+    "web-forager>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/CyranoB/web-forager"
+Repository = "https://github.com/CyranoB/web-forager"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["duckduckgo_mcp"]

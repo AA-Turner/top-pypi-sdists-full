@@ -1,0 +1,14 @@
+name: Ask a usage question
+description: Ask a usage question.
+labels:
+  - "usage question"
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Add a description
+      placeholder: |
+        This is a public repository!
+        Do not reveal any internal information.
+    validations:
+      required: true

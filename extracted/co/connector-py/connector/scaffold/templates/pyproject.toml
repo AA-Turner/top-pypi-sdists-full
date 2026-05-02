@@ -1,0 +1,117 @@
+[project]
+name = "connector-{hyphenated_name}"
+dynamic = ["version"]
+description = "A CLI Tool, HTTP server, and Package to Perform Actions on {title}"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+keywords = ["integrations"]
+authors = [
+    {{ name = "{author}", email = "{author_email}" }},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "connector-py",
+    "httpx~=0.28.1",
+]
+
+[project.optional-dependencies]
+fastapi = [
+    "connector-py[fastapi]"
+]
+dev = [
+    "pytest~=9.0.2",
+    "pytest-asyncio~=1.3.0",
+    "pytest-cases~=3.9.1",
+    "pytest-httpx~=0.36.0",
+    "pytest-cov~=7.0.0",
+    "coverage~=7.13.0",
+    "mypy~=1.10.1",
+]
+all = ["connector-{hyphenated_name}[dev,fastapi]"]
+
+[project.urls]
+Documentation = "https://github.com/teamlumos/connector#readme"
+Issues = "https://github.com/teamlumos/connector/issues"
+Source = "https://github.com/teamlumos/connector"
+
+[project.scripts]
+{hyphenated_name} = "{name}.main:main"
+
+[tool.poetry]
+version = {{ attr = "{name}.__about__.__version__" }}
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {{ attr = "{name}.__about__.__version__" }}
+
+[tool.setuptools.packages.find]
+exclude = ["logs"]
+
+[tool.coverage.run]
+source_pkgs = ["{name}", "tests"]
+branch = true
+parallel = true
+omit = [
+    "{name}/__about__.py",
+    "{name}/__main__.py",
+    "tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.paths]
+{hyphenated_name} = ["{name}"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+title = "{hyphenated_name} coverage report"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.mypy]
+# more places to look for types
+mypy_path = [
+    "$MYPY_CONFIG_FILE_DIR/../../../../projects/libs/python/connector-sdk/",
+    "$MYPY_CONFIG_FILE_DIR/../../../../projects/libs/python/connector-sdk-types/"
+]
+# Don't typecheck build artifacts
+exclude = [
+    "build",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "msgpack",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

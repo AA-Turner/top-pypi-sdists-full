@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: spotlight-sdk
+Version: 0.2.6
+Summary: Spotlight Python SDK
+Home-page: https://spotlight.dev
+Author: Spotlight
+Author-email: hello@spotlight.dev
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31.0
+Requires-Dist: aiohttp>=3.8.4
+Requires-Dist: pandas>=2.0.1
+Requires-Dist: duckdb>=0.7.1
+Requires-Dist: trycast>=1.0.0
+Requires-Dist: pydash>=7.0.3
+Requires-Dist: cachetools>=5.3.0
+Requires-Dist: pytz>=2022.1
+Requires-Dist: pydantic==1.10.17
+Requires-Dist: aiocache>=0.12.1
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: asyncstdlib>=3.10.7
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Spotlight: The OTC Commodity Research Platform
+
+## Overview
+
+**[Spotlight](https://spotlight.dev/)** is the world's first OTC commodity research platform. Stay on top of market
+trends, discover new product opportunities, and win more sales.
+
+The [Spotlight SDK](https://pypi.org/project/spotlight-sdk/) enables you to programmatically query dataset configurations and data.
+
+## Installation
+
+Set the following environment variables for your username and password for
+the [Spotlight platform](https://app.spotlight.dev/).
+
+```text
+SPOTLIGHT_USER=<username>
+SPOTLIGHT_PWD=<password>
+```
+
+## Support
+
+If you need help or have feedback, please email us at [support@spotlight.dev](mailto:support@spotlight.dev).

@@ -1,0 +1,1584 @@
+"""
+MCP server for djust framework.
+
+Provides tools for AI assistants to introspect djust projects, run system
+checks, and generate code scaffolding.
+
+Two modes:
+- **Framework-only** (no Django): Returns static schema (directives, lifecycle,
+  decorators). Works anywhere with ``python -m djust.mcp``.
+- **Full mode** (with Django): Also introspects live project — views, handlers,
+  routes, state. Requires ``python manage.py djust_mcp``.
+"""
+
+import json
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["create_server", "_django_ready"]
+
+# ---------------------------------------------------------------------------
+# Django availability detection
+# ---------------------------------------------------------------------------
+
+_django_ready = False
+
+
+def _ensure_django():
+    """Try to set up Django if not already configured."""
+    global _django_ready
+    if _django_ready:
+        return True
+    try:
+        import django
+        from django.conf import settings
+
+        if not settings.configured:
+            return False
+        django.setup()
+        _django_ready = True
+        return True
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Server factory
+# ---------------------------------------------------------------------------
+
+
+def create_server():
+    """Create and configure the djust MCP server with all tools."""
+    try:
+        from mcp.server.fastmcp import FastMCP
+    except ImportError:
+        logger.error("mcp package not installed. Install with: pip install 'mcp[cli]'")
+        sys.exit(1)
+
+    mcp = FastMCP(
+        "djust",
+        instructions=(
+            "djust MCP server — introspect djust projects, run system checks, "
+            "and scaffold LiveView code. Use get_framework_schema() first to "
+            "understand djust directives and patterns."
+        ),
+    )
+
+    # === Introspection tools ===
+
+    @mcp.tool()
+    def get_framework_schema() -> str:
+        """Get the complete djust framework schema.
+
+        Returns all template directives (dj-click, dj-model, etc.),
+        lifecycle methods (mount, get_context_data, etc.), decorators
+        (@event_handler, @debounce, etc.), and conventions.
+
+        This is the first tool to call — it gives you all the context
+        needed to write correct djust code.
+        """
+        from djust.schema import get_framework_schema as _get
+
+        return json.dumps(_get(), indent=2)
+
+    @mcp.tool()
+    def get_template_directives() -> str:
+        """Get all available dj-* template directives with usage examples.
+
+        Returns a focused list of just the template directives with their
+        parameters, DOM events, examples, and modifiers.
+        """
+        from djust.schema import DIRECTIVES
+
+        return json.dumps(DIRECTIVES, indent=2)
+
+    @mcp.tool()
+    def get_decorators() -> str:
+        """Get all available djust decorators with usage examples.
+
+        Returns @event_handler, @debounce, @throttle, @cache, @optimistic,
+        @client_state, @rate_limit, @permission_required, @reactive, state(),
+        and @computed with their parameters and import paths.
+        """
+        from djust.schema import DECORATORS
+
+        return json.dumps(DECORATORS, indent=2)
+
+    @mcp.tool()
+    def get_best_practices() -> str:
+        """Get djust best practices, patterns, and common pitfalls.
+
+        Returns comprehensive guidance for writing correct djust code:
+        setup, lifecycle flow, event handler rules, JIT serialization
+        patterns, form integration, security rules, template directive
+        examples, and the 8 most common pitfalls to avoid.
+
+        Call this before writing djust code to understand the correct
+        patterns. No Django required.
+        """
+        from djust.schema import BEST_PRACTICES
+
+        return json.dumps(BEST_PRACTICES, indent=2)
+
+    @mcp.tool()
+    def list_views() -> str:
+        """List all LiveView classes in the current Django project.
+
+        Returns each view with its template, mount params, event handlers,
+        exposed state variables, auth configuration, and mixins.
+
+        Requires Django to be configured (run via 'python manage.py djust_mcp').
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp' "
+                    "for project introspection.",
+                    "hint": "Use get_framework_schema() for framework-level info without Django.",
+                }
+            )
+
+        from djust.schema import get_project_schema
+
+        schema = get_project_schema()
+        return json.dumps(schema["views"], indent=2)
+
+    @mcp.tool()
+    def list_components() -> str:
+        """List all LiveComponent classes in the current Django project.
+
+        Returns each component with its props, slots, event handlers,
+        and template information.
+
+        Requires Django to be configured.
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        from djust.schema import get_project_schema
+
+        schema = get_project_schema()
+        return json.dumps(schema["components"], indent=2)
+
+    @mcp.tool()
+    def list_routes() -> str:
+        """List all URL routes mapped to LiveView classes.
+
+        Returns URL patterns, view class paths, and route names.
+
+        Requires Django to be configured.
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        from djust.schema import get_project_schema
+
+        schema = get_project_schema()
+        return json.dumps(schema["routes"], indent=2)
+
+    @mcp.tool()
+    def get_view_schema(view_name: str) -> str:
+        """Get the full schema for a specific LiveView class.
+
+        Args:
+            view_name: Class name (e.g., 'CounterView') or fully qualified
+                path (e.g., 'myapp.views.CounterView').
+
+        Returns state variables, event handlers with params, decorators,
+        template bindings, auth config, and mixins.
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        from djust.schema import get_project_schema
+
+        schema = get_project_schema()
+        # Search by class name or full path
+        for view in schema["views"] + schema["components"]:
+            if view["class"] == view_name or view["class"].endswith("." + view_name):
+                return json.dumps(view, indent=2)
+
+        return json.dumps(
+            {
+                "error": "View '%s' not found" % view_name,
+                "available": [v["class"] for v in schema["views"]],
+            }
+        )
+
+    @mcp.tool()
+    def seed_fixtures(fixture_paths: list[str]) -> str:
+        """Load Django fixtures into the dev database via `manage.py loaddata`.
+
+        Wraps `django-admin loaddata` so tests and regression fixtures can
+        depend on known DB state (users, sample records, feature flags)
+        without boilerplate.
+
+        Args:
+            fixture_paths: Absolute or relative paths to fixture files
+                (JSON, XML, YAML — whatever django-admin recognizes).
+                Relative paths are resolved against the Django project's
+                BASE_DIR (i.e. settings.BASE_DIR / path).
+
+        Returns JSON: {ok, loaded_count, stdout, stderr, returncode}.
+
+        Safety: runs the loaddata command in a subprocess so a bad
+        fixture can't disturb the MCP server process. Output is
+        captured and returned — no silent failures.
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        import os
+        import shlex
+        import subprocess
+        import sys
+
+        if not fixture_paths:
+            return json.dumps({"error": "fixture_paths must contain at least one entry"})
+
+        # Resolve relative paths against settings.BASE_DIR so the caller
+        # can say "fixtures/users.json" and it Just Works.
+        from django.conf import settings as dj_settings
+
+        base_dir = getattr(dj_settings, "BASE_DIR", None)
+        resolved = []
+        for p in fixture_paths:
+            if os.path.isabs(p):
+                candidate = os.path.realpath(p)
+            elif base_dir:
+                candidate = os.path.realpath(os.path.join(str(base_dir), p))
+            else:
+                candidate = os.path.realpath(p)
+            # Security: reject paths outside the project directory.
+            # Prevents ../../../etc/evil.json style traversal.
+            if base_dir and not candidate.startswith(os.path.realpath(str(base_dir))):
+                return json.dumps(
+                    {
+                        "error": f"fixture path '{p}' resolves outside the project directory",
+                        "resolved": candidate,
+                        "project_dir": str(base_dir),
+                    }
+                )
+            resolved.append(candidate)
+
+        # manage.py is the canonical entry point; fall back to -m if
+        # we can't find one (e.g. during tests).
+        manage_py = os.path.join(str(base_dir), "manage.py") if base_dir else None
+        if manage_py and os.path.isfile(manage_py):
+            cmd = [sys.executable, manage_py, "loaddata", *resolved]
+        else:
+            cmd = [sys.executable, "-m", "django", "loaddata", *resolved]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=str(base_dir) if base_dir else None,
+            )
+        except subprocess.TimeoutExpired:
+            return json.dumps(
+                {
+                    "error": "loaddata timed out after 60s",
+                    "command": " ".join(shlex.quote(x) for x in cmd),
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            return json.dumps(
+                {
+                    "error": f"subprocess failed to start: {e}",
+                    "command": " ".join(shlex.quote(x) for x in cmd),
+                }
+            )
+
+        return json.dumps(
+            {
+                "ok": result.returncode == 0,
+                "returncode": result.returncode,
+                "command": " ".join(shlex.quote(x) for x in cmd),
+                "stdout": result.stdout[-4000:],
+                "stderr": result.stderr[-4000:],
+                "fixture_paths": resolved,
+            },
+            indent=2,
+        )
+
+    @mcp.tool()
+    def find_handlers_for_template(template_path: str) -> str:
+        """List every view that uses a template, and which dj-* handlers
+        are wired in that template.
+
+        Args:
+            template_path: Either a logical template name (e.g.
+                'demos/counter.html' — what you'd pass to `render`) OR
+                an absolute filesystem path. Both are searched.
+
+        Returns JSON:
+          {
+            "template_path": "...",
+            "resolved_path": "/abs/path.html",
+            "dj_handlers_in_template": ["increment", "decrement", ...],
+            "views": [
+              {"class": "CounterView", "template_name": "...",
+               "matched_handlers": ["increment", "decrement"],
+               "handlers_in_view_not_in_template": [...],
+               "handlers_in_template_not_in_view": [...]}
+            ]
+          }
+
+        Pure static analysis — no framework hooks. Precursor to automated
+        refactoring ("renaming this handler, who's affected?").
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        import os
+        import re
+
+        from djust.schema import get_project_schema
+
+        # Resolve the template to an absolute path. Accept both logical
+        # names and absolute paths so callers can hand either form.
+        resolved_path: str | None = None
+        if os.path.isabs(template_path) and os.path.isfile(template_path):
+            resolved_path = template_path
+        else:
+            try:
+                from django.template.loader import get_template
+
+                tpl = get_template(template_path)
+                origin = getattr(tpl, "origin", None)
+                if origin and getattr(origin, "name", None):
+                    resolved_path = origin.name
+            except Exception as e:  # noqa: BLE001
+                return json.dumps(
+                    {
+                        "error": f"Could not resolve template '{template_path}': {e}",
+                        "hint": "Pass either a logical name (e.g. 'demos/counter.html') or an absolute filesystem path.",
+                    }
+                )
+
+        if not resolved_path or not os.path.isfile(resolved_path):
+            return json.dumps(
+                {
+                    "error": f"Template file not found for '{template_path}'",
+                    "resolved_path": resolved_path,
+                }
+            )
+
+        # Scan the template for dj-* handler references.
+        # Matches e.g. dj-click="increment" / dj-submit='add_todo'.
+        # Deliberately doesn't match dj-params / dj-id / dj-view / dj-loading
+        # etc. — only the event-wiring attrs.
+        dj_event_attr_re = re.compile(
+            r'\b(dj-(?:click|submit|change|input|keydown|keyup))\s*=\s*[\'"]([^\'"]+)[\'"]',
+            re.IGNORECASE,
+        )
+        with open(resolved_path, "r", encoding="utf-8", errors="replace") as f:
+            source = f.read()
+        handler_names_in_template = sorted({m.group(2) for m in dj_event_attr_re.finditer(source)})
+
+        # Match against the project's views. A view matches when its
+        # template_name maps to the same resolved path. Compare by basename
+        # + tail so both logical and absolute inputs can match.
+        schema = get_project_schema()
+        logical_tail = template_path.replace(os.sep, "/")
+        resolved_tail_components = resolved_path.replace(os.sep, "/").split("/")
+
+        matched_views = []
+        for view in schema["views"] + schema.get("components", []):
+            view_template = view.get("template_name") or ""
+            if not view_template:
+                continue
+            # Match on exact string, suffix, or resolving the view's
+            # template_name to the same path.
+            same = (
+                view_template == template_path
+                or view_template == logical_tail
+                or (logical_tail and view_template.endswith(logical_tail))
+                or resolved_tail_components[-1] == os.path.basename(view_template)
+            )
+            if not same:
+                continue
+
+            # Also try to resolve view_template through the loader — the
+            # strongest match. Skip if resolution fails.
+            view_resolved = None
+            try:
+                from django.template.loader import get_template
+
+                view_tpl = get_template(view_template)
+                view_origin = getattr(view_tpl, "origin", None)
+                if view_origin and getattr(view_origin, "name", None):
+                    view_resolved = view_origin.name
+            except Exception:  # noqa: BLE001
+                pass
+
+            if view_resolved and view_resolved != resolved_path:
+                # Different actual file despite similar names — skip.
+                continue
+
+            # Build handler-name set from the view's schema (these are
+            # Python-side handler method names).
+            view_handler_names = set()
+            for h in view.get("handlers", []):
+                name = h.get("name") if isinstance(h, dict) else h
+                if name:
+                    view_handler_names.add(name)
+
+            matched_set = view_handler_names & set(handler_names_in_template)
+            only_view = sorted(view_handler_names - set(handler_names_in_template))
+            only_template = sorted(set(handler_names_in_template) - view_handler_names)
+
+            matched_views.append(
+                {
+                    "class": view.get("class"),
+                    "template_name": view_template,
+                    "matched_handlers": sorted(matched_set),
+                    "handlers_in_view_not_in_template": only_view,
+                    "handlers_in_template_not_in_view": only_template,
+                }
+            )
+
+        return json.dumps(
+            {
+                "template_path": template_path,
+                "resolved_path": resolved_path,
+                "dj_handlers_in_template": handler_names_in_template,
+                "view_count": len(matched_views),
+                "views": matched_views,
+            },
+            indent=2,
+        )
+
+    # === Observability tools ===
+    #
+    # These call the dev server's /_djust/observability/ endpoints (installed
+    # in the project's urls.py as `djust.observability.urls`). Cross-process
+    # because djust MCP runs in a separate process from the Django server.
+    #
+    # The base URL defaults to http://127.0.0.1:8000 and can be overridden via
+    # the DJUST_DEV_SERVER_URL env var for non-standard ports.
+
+    @mcp.tool()
+    def get_view_assigns(session_id: str) -> str:
+        """Read the live LiveView's public state (self.* non-underscore attrs).
+
+        Args:
+            session_id: WebSocket session id from the connect frame's
+                `session_id` field. Persistent per WS connection.
+
+        Returns JSON: {session_id, view_class, view_module, assigns} where
+        `assigns` is the serializable {attr: value} dict of the view.
+
+        Requires djust.observability.urls included in the project's urls.py
+        with DEBUG=True. Complements the client-side `djust_state_diff`
+        from djust-browser-mcp — this reads the actual server-side source
+        of truth rather than inferred client state.
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/view_assigns/"
+        try:
+            r = requests.get(url, params={"session_id": session_id}, timeout=5)
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": (
+                        f"Is the dev server running? Tried {url}. Set "
+                        "DJUST_DEV_SERVER_URL env var for non-8000 ports."
+                    ),
+                }
+            )
+        if r.status_code == 404:
+            return json.dumps(
+                {
+                    "error": f"session {session_id} not registered or endpoint disabled",
+                    "status": 404,
+                    "hint": (
+                        "Check that (a) settings.DEBUG=True, (b) the project "
+                        "urls.py includes `path('_djust/observability/', "
+                        "include('djust.observability.urls'))`, and (c) a "
+                        "WebSocket connection is open for this session."
+                    ),
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    @mcp.tool()
+    def eval_handler(
+        session_id: str,
+        handler_name: str,
+        params: dict | None = None,
+        dry_run: bool = False,
+        dry_run_block: bool = True,
+    ) -> str:
+        """Dry-run a handler against a live view's current state.
+
+        Runs `view.<handler_name>(**params)` against the registered
+        view and returns the state delta + handler return value.
+
+        **dry_run mode (v2):** monkey-patches ORM writes (Model.save /
+        Model.delete), emails (send_mail / send_mass_mail), and outbound
+        HTTP (requests.*, urllib.request.urlopen) for the duration of
+        the handler call. By default, the first side-effect attempt
+        raises and the response includes `blocked_side_effect` with
+        kind/target/details. Set `dry_run_block=False` to *record*
+        attempts without blocking (still commits — useful for
+        instrumentation, not sandboxing).
+
+        Limitations that remain:
+        - Sync handlers only (async returns 400).
+        - No render/patch push — client doesn't see mutations.
+        - dry_run is serialized process-wide via a lock; one at a time.
+
+        Args:
+            session_id: WebSocket session id.
+            handler_name: method name on the mounted view.
+            params: kwargs dict passed to the handler.
+            dry_run: if True, install side-effect blockers for the call.
+            dry_run_block: if True (default), first violation raises;
+                if False, violations are recorded but not blocked.
+
+        Returns JSON: {view_class, handler_name, params, before_assigns,
+        after_assigns, delta, result, dry_run?, blocked_side_effect?,
+        recorded_side_effects?}.
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/eval_handler/?session_id={session_id}"
+        body: dict = {"handler_name": handler_name, "params": params or {}}
+        if dry_run:
+            body["dry_run"] = True
+            body["dry_run_block"] = bool(dry_run_block)
+        try:
+            r = requests.post(url, json=body, timeout=10)
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": f"Is the dev server running? Tried {url}.",
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    @mcp.tool()
+    def reset_view_state(session_id: str) -> str:
+        """Replay `view.mount()` on the registered instance — resets all
+        public attrs back to their post-mount defaults without a page
+        reload.
+
+        Useful between regression-fixture replays: you want the counter
+        at 0 again without closing the WebSocket or losing the login
+        session.
+
+        Does NOT push a fresh render to the client. The caller must
+        trigger one (the next user click re-renders with the reset
+        state).
+
+        Args:
+            session_id: WebSocket session id.
+
+        Returns JSON: {session_id, view_class, assigns_after_reset}.
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/reset_view_state/?session_id={session_id}"
+        try:
+            # csrf_exempt on the endpoint — POST with no body is fine.
+            r = requests.post(url, timeout=5)
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": f"Is the dev server running? Tried {url}.",
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    @mcp.tool()
+    def get_handler_timings(handler_name: str = "", since_ms: int = 0) -> str:
+        """Per-handler percentile stats over the rolling sample window.
+
+        Args:
+            handler_name: Filter to one handler name. If multiple views
+                expose the same handler name, each view appears as its
+                own row. Empty string = no filter.
+            since_ms: Only include samples with timestamp > since_ms.
+                Default 0 = whole rolling window (last 100 samples per
+                handler).
+
+        Returns JSON: {count, stats:[{view_class, handler_name, count,
+        min_ms, max_ms, avg_ms, p50_ms, p90_ms, p99_ms}]}.
+
+        Rows sorted by p90 descending, so the slowest handlers surface
+        first. Catches "this handler got slow" regressions without
+        running a load test.
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/handler_timings/"
+        params = {}
+        if handler_name:
+            params["handler_name"] = handler_name
+        if since_ms:
+            params["since_ms"] = since_ms
+        try:
+            r = requests.get(url, params=params, timeout=5)
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": f"Is the dev server running? Tried {url}.",
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    @mcp.tool()
+    def get_sql_queries_since(
+        since_ms: int = 0,
+        session_id: str = "",
+        handler_name: str = "",
+        limit: int = 500,
+    ) -> str:
+        """Captured SQL queries, scoped to an event handler when filtered.
+
+        Each query is tagged with the session_id + handler_name that fired
+        it, so you can ask "what SQL did the increment handler just run?"
+        and get a clean answer — including N+1 patterns that are almost
+        always the reason a handler got slow.
+
+        Args:
+            since_ms: only queries with timestamp > since_ms.
+            session_id: filter to one session.
+            handler_name: filter to one handler.
+            limit: max rows (default + cap: 500).
+
+        Returns JSON: {count, since_ms, entries:[{timestamp_ms, sql,
+        params, duration_ms, stack_top, session_id, handler_name, ...}]}.
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/sql_queries/"
+        params = {"since_ms": since_ms, "limit": limit}
+        if session_id:
+            params["session_id"] = session_id
+        if handler_name:
+            params["handler_name"] = handler_name
+        try:
+            r = requests.get(url, params=params, timeout=5)
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": f"Is the dev server running? Tried {url}.",
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    @mcp.tool()
+    def tail_server_log(since_ms: int = 0, level: str = "INFO", limit: int = 500) -> str:
+        """Read buffered Django/djust log records from the dev server.
+
+        Args:
+            since_ms: Only entries with timestamp > since_ms. Default: entire
+                buffer (500 most recent entries).
+            level: Minimum severity — DEBUG / INFO / WARNING / ERROR / CRITICAL.
+                Default INFO.
+            limit: Cap on entries returned (default + max: 500).
+
+        Returns JSON: {count, since_ms, level, entries:[{timestamp_ms,
+        level, logger_name, message, pathname, lineno, exc_type?,
+        exc_message?}]}.
+
+        djust.* loggers capture at DEBUG+; django.* captures at WARNING+
+        only (keeps signal:noise reasonable). Replaces "can you check the
+        terminal?" for most log-reading tasks.
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/log/"
+        try:
+            r = requests.get(
+                url,
+                params={"since_ms": since_ms, "level": level, "limit": limit},
+                timeout=5,
+            )
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": f"Is the dev server running? Tried {url}.",
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    @mcp.tool()
+    def get_last_traceback(n: int = 1) -> str:
+        """Read the most-recent captured server-side Python exceptions.
+
+        Args:
+            n: How many entries to return (newest first). Defaults to 1,
+                capped at 50 (ring-buffer size).
+
+        Returns JSON: {count, entries: [{timestamp_ms, exception_type,
+        message, view_class, event_name, traceback, ...}]}.
+
+        Captures flow through djust's single `handle_exception()` entry
+        point — every handler / mount / render error lands in the ring
+        buffer. Single biggest lever for blind debugging: eliminates
+        "can you check the terminal for a traceback?".
+        """
+        import os
+
+        try:
+            import requests
+        except ImportError:
+            return json.dumps({"error": "`requests` package not installed in the MCP environment"})
+
+        base = os.environ.get("DJUST_DEV_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        url = f"{base}/_djust/observability/last_traceback/"
+        try:
+            r = requests.get(url, params={"n": n}, timeout=5)
+        except requests.RequestException as e:
+            return json.dumps(
+                {
+                    "error": f"request failed: {e}",
+                    "hint": f"Is the dev server running? Tried {url}.",
+                }
+            )
+        if r.status_code != 200:
+            return json.dumps({"error": r.text, "status": r.status_code})
+        return r.text
+
+    # === Runtime tools ===
+
+    @mcp.tool()
+    def run_system_checks(category: str = "") -> str:
+        """Run djust system checks and return structured results.
+
+        Args:
+            category: Optional filter — 'config', 'liveview', 'security',
+                'templates', or 'quality'. Empty string runs all checks.
+
+        Returns JSON with check results including IDs, severity, messages,
+        hints, and fix suggestions. Use this after generating code to
+        validate it.
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        try:
+            import djust.checks  # noqa: F401 — ensure checks are registered
+        except ImportError:
+            pass  # djust.checks may not be importable if Django isn't fully configured
+
+        from django.core.checks import Error, Warning, run_checks
+
+        all_checks = run_checks(tags=["djust"])
+
+        if category:
+            _prefixes = {
+                "config": ("C0",),
+                "liveview": ("V0",),
+                "security": ("S0",),
+                "templates": ("T0",),
+                "quality": ("Q0",),
+            }
+            prefixes = _prefixes.get(category, ())
+            if prefixes:
+                all_checks = [
+                    c
+                    for c in all_checks
+                    if any((c.id or "").replace("djust.", "").startswith(p) for p in prefixes)
+                ]
+
+        results = []
+        for check in all_checks:
+            if isinstance(check, Error) or check.level >= 40:
+                severity = "error"
+            elif isinstance(check, Warning) or check.level >= 30:
+                severity = "warning"
+            else:
+                severity = "info"
+
+            result = {
+                "id": check.id,
+                "severity": severity,
+                "message": str(check.msg),
+                "hint": check.hint or "",
+            }
+            # Include enhanced fields if available (from Initiative 5)
+            if hasattr(check, "fix_hint"):
+                result["fix_hint"] = check.fix_hint
+            if hasattr(check, "file_path"):
+                result["file_path"] = check.file_path
+            if hasattr(check, "line_number"):
+                result["line_number"] = check.line_number
+
+            results.append(result)
+
+        return json.dumps(
+            {
+                "checks": results,
+                "summary": {
+                    "total": len(results),
+                    "errors": sum(1 for r in results if r["severity"] == "error"),
+                    "warnings": sum(1 for r in results if r["severity"] == "warning"),
+                    "info": sum(1 for r in results if r["severity"] == "info"),
+                },
+            },
+            indent=2,
+        )
+
+    @mcp.tool()
+    def run_audit(app_label: str = "") -> str:
+        """Run a security audit on all LiveViews and return structured results.
+
+        Args:
+            app_label: Optional Django app to audit (e.g., 'myapp'). Empty
+                string audits all apps.
+
+        Returns comprehensive audit: exposed state, auth config, handler
+        signatures, decorator protections, and mixins for each view.
+        """
+        if not _ensure_django():
+            return json.dumps(
+                {
+                    "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
+                }
+            )
+
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        kwargs = {"json_output": True, "stdout": out}
+        if app_label:
+            kwargs["app_label"] = app_label
+
+        call_command("djust_audit", **kwargs)
+        return out.getvalue()
+
+    @mcp.tool()
+    def validate_view(code: str) -> str:
+        """Validate a LiveView class definition without running it.
+
+        Args:
+            code: Python source code of a LiveView class to validate.
+
+        Checks for common issues:
+        - Missing @event_handler decorators on handler-like methods
+        - Missing **kwargs in handler signatures
+        - Public QuerySet attributes (should be _private)
+        - Missing mount() method
+        - Security issues (mark_safe with f-strings, etc.)
+
+        Returns list of issues found with severity and fix suggestions.
+        """
+        import ast as _ast
+        import re
+
+        issues = []
+
+        try:
+            tree = _ast.parse(code)
+        except SyntaxError as e:
+            return json.dumps(
+                [
+                    {
+                        "severity": "error",
+                        "message": "Syntax error: %s" % e,
+                        "fix_hint": "Fix the syntax error at line %s" % e.lineno,
+                    }
+                ]
+            )
+
+        handler_pattern = re.compile(
+            r"^(handle_|on_|toggle_|select_|update_|delete_|"
+            r"create_|add_|remove_|save_|cancel_|submit_|close_|open_)"
+        )
+
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.ClassDef):
+                continue
+
+            _has_mount = False
+            has_template = False
+
+            for item in node.body:
+                # Check class attributes
+                if isinstance(item, _ast.Assign):
+                    for target in item.targets:
+                        if isinstance(target, _ast.Name):
+                            if target.id in ("template_name", "template"):
+                                has_template = True
+
+                # Check methods
+                if isinstance(item, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                    if item.name == "mount":
+                        _has_mount = True
+                        # Check mount signature
+                        args = item.args
+                        arg_names = [a.arg for a in args.args]
+                        if "request" not in arg_names:
+                            issues.append(
+                                {
+                                    "severity": "error",
+                                    "message": "mount() missing 'request' parameter",
+                                    "line": item.lineno,
+                                    "fix_hint": "Change signature to: def mount(self, request, **kwargs):",
+                                }
+                            )
+                        if not args.kwarg:
+                            issues.append(
+                                {
+                                    "severity": "warning",
+                                    "message": "mount() should accept **kwargs",
+                                    "line": item.lineno,
+                                    "fix_hint": "Add **kwargs to mount() signature",
+                                }
+                            )
+                        continue
+
+                    # Check handler-like methods
+                    if handler_pattern.match(item.name):
+                        has_handler_decorator = False
+                        for dec in item.decorator_list:
+                            if isinstance(dec, _ast.Name) and dec.id == "event_handler":
+                                has_handler_decorator = True
+                            elif isinstance(dec, _ast.Call):
+                                func = dec.func
+                                if isinstance(func, _ast.Name) and func.id == "event_handler":
+                                    has_handler_decorator = True
+                        if not has_handler_decorator:
+                            issues.append(
+                                {
+                                    "severity": "warning",
+                                    "message": "Method '%s' looks like an event handler "
+                                    "but lacks @event_handler decorator" % item.name,
+                                    "line": item.lineno,
+                                    "fix_hint": "Add @event_handler() above the method",
+                                }
+                            )
+
+                    # Check **kwargs on event handlers
+                    for dec in item.decorator_list:
+                        is_handler = False
+                        if isinstance(dec, _ast.Name) and dec.id == "event_handler":
+                            is_handler = True
+                        elif isinstance(dec, _ast.Call):
+                            func = dec.func
+                            if isinstance(func, _ast.Name) and func.id == "event_handler":
+                                is_handler = True
+                        if is_handler and not item.args.kwarg:
+                            issues.append(
+                                {
+                                    "severity": "warning",
+                                    "message": "Event handler '%s' should accept **kwargs"
+                                    % item.name,
+                                    "line": item.lineno,
+                                    "fix_hint": "Add **kwargs to the handler signature",
+                                }
+                            )
+
+            if not has_template:
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "message": "Class '%s' has no template_name or template attribute"
+                        % node.name,
+                        "line": node.lineno,
+                        "fix_hint": "Add template_name = 'myapp/template.html' to the class",
+                    }
+                )
+
+        # Check for security issues
+        if "mark_safe(f'" in code or 'mark_safe(f"' in code:
+            issues.append(
+                {
+                    "severity": "error",
+                    "message": "SECURITY: mark_safe() with f-string — XSS vulnerability",
+                    "fix_hint": "Use format_html() instead of mark_safe(f'...')",
+                }
+            )
+
+        # Check for service instance patterns stored in state
+        _service_patterns = [
+            ("Service(", "service instantiation"),
+            (".client(", "client instantiation"),
+            ("Session(", "session instantiation"),
+            ("boto3.", "AWS SDK usage"),
+            ("requests.", "requests library usage"),
+            ("httpx.", "httpx library usage"),
+        ]
+        for node in _ast.walk(tree):
+            if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                continue
+            # Only check mount() and handler-like methods
+            if node.name not in ("mount", "connected") and not handler_pattern.match(node.name):
+                continue
+            for stmt in _ast.walk(node):
+                if isinstance(stmt, _ast.Assign):
+                    for target in stmt.targets:
+                        if (
+                            isinstance(target, _ast.Attribute)
+                            and isinstance(target.value, _ast.Name)
+                            and target.value.id == "self"
+                            and not target.attr.startswith("_")
+                        ):
+                            # Check the source code around this assignment
+                            try:
+                                source_segment = _ast.get_source_segment(code, stmt.value)
+                            except Exception:
+                                source_segment = None
+                            source_text = source_segment or ""
+                            for pattern_str, desc in _service_patterns:
+                                if pattern_str in source_text:
+                                    issues.append(
+                                        {
+                                            "severity": "error",
+                                            "message": (
+                                                "Service instance stored in state: self.%s "
+                                                "(%s). Non-serializable objects cannot be "
+                                                "stored as view attributes." % (target.attr, desc)
+                                            ),
+                                            "line": stmt.lineno,
+                                            "fix_hint": (
+                                                "Use helper method pattern: define "
+                                                "def _get_%s(self) that creates the instance "
+                                                "on demand. See: docs/guides/services.md"
+                                                % target.attr
+                                            ),
+                                        }
+                                    )
+                                    break
+
+        return json.dumps(issues, indent=2)
+
+    @mcp.tool()
+    def detect_common_issues(code: str) -> str:
+        """Detect common djust anti-patterns in LiveView code.
+
+        Checks for:
+        - Service instance assignments (Issue #292)
+        - Missing **kwargs in event handlers
+        - Public QuerySet attributes (should be private with _)
+        - Missing @event_handler decorators on handler-like methods
+
+        Returns JSON with detected issues and pattern suggestions.
+        """
+        import ast as _ast
+        import re
+
+        issues = []
+
+        try:
+            tree = _ast.parse(code)
+        except SyntaxError as e:
+            return json.dumps(
+                {
+                    "issues": [
+                        {
+                            "type": "syntax_error",
+                            "severity": "error",
+                            "message": "Syntax error: %s" % e,
+                            "line": e.lineno,
+                        }
+                    ],
+                    "summary": {"total": 1, "errors": 1, "warnings": 0},
+                }
+            )
+
+        handler_pattern = re.compile(
+            r"^(handle_|on_|toggle_|select_|update_|delete_|"
+            r"create_|add_|remove_|save_|cancel_|submit_|close_|open_)"
+        )
+
+        _service_module_names = {"boto3", "requests", "httpx", "redis", "paramiko"}
+
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.ClassDef):
+                continue
+
+            # Track which methods have @event_handler
+            decorated_handlers = set()
+
+            for item in node.body:
+                if not isinstance(item, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                    continue
+
+                # --- Check: handler-like methods without @event_handler ---
+                is_decorated_handler = False
+                for dec in item.decorator_list:
+                    if isinstance(dec, _ast.Name) and dec.id == "event_handler":
+                        is_decorated_handler = True
+                    elif isinstance(dec, _ast.Call):
+                        func = dec.func
+                        if isinstance(func, _ast.Name) and func.id == "event_handler":
+                            is_decorated_handler = True
+
+                if is_decorated_handler:
+                    decorated_handlers.add(item.name)
+
+                    # --- Check: missing **kwargs on decorated handlers ---
+                    if not item.args.kwarg:
+                        issues.append(
+                            {
+                                "type": "missing_kwargs",
+                                "severity": "warning",
+                                "message": (
+                                    "Event handler '%s' missing **kwargs parameter" % item.name
+                                ),
+                                "line": item.lineno,
+                                "fix": (
+                                    "Add **kwargs to the method signature:\n"
+                                    "def %s(self, ..., **kwargs):" % item.name
+                                ),
+                            }
+                        )
+                elif handler_pattern.match(item.name) and item.name != "mount":
+                    issues.append(
+                        {
+                            "type": "missing_decorator",
+                            "severity": "warning",
+                            "message": (
+                                "Method '%s' looks like an event handler but lacks "
+                                "@event_handler decorator" % item.name
+                            ),
+                            "line": item.lineno,
+                            "fix": (
+                                "Add @event_handler() decorator:\n"
+                                "@event_handler()\n"
+                                "def %s(self, ..., **kwargs):" % item.name
+                            ),
+                        }
+                    )
+
+                # --- Check: service instance assignments ---
+                for stmt in _ast.walk(item):
+                    if not isinstance(stmt, _ast.Assign):
+                        continue
+                    for target in stmt.targets:
+                        if not (
+                            isinstance(target, _ast.Attribute)
+                            and isinstance(target.value, _ast.Name)
+                            and target.value.id == "self"
+                        ):
+                            continue
+                        attr_name = target.attr
+
+                        # Detect service-like attribute names
+                        is_service = False
+                        service_desc = ""
+
+                        if attr_name in (
+                            "service",
+                            "client",
+                            "session",
+                            "connection",
+                            "conn",
+                            "api",
+                            "sdk",
+                        ):
+                            is_service = True
+                            service_desc = "service-like attribute name '%s'" % attr_name
+
+                        # Detect known service module calls
+                        if not is_service:
+                            try:
+                                source_segment = _ast.get_source_segment(code, stmt.value)
+                            except Exception:
+                                source_segment = None
+                            if source_segment:
+                                for mod in _service_module_names:
+                                    if mod in source_segment:
+                                        is_service = True
+                                        service_desc = "%s usage in assignment to self.%s" % (
+                                            mod,
+                                            attr_name,
+                                        )
+                                        break
+
+                        if is_service and not attr_name.startswith("_"):
+                            issues.append(
+                                {
+                                    "type": "service_in_state",
+                                    "severity": "error",
+                                    "message": (
+                                        "Service instance stored in state: %s. "
+                                        "Non-serializable objects cannot be stored as "
+                                        "view attributes." % service_desc
+                                    ),
+                                    "line": stmt.lineno,
+                                    "fix": (
+                                        "Use helper method pattern:\n"
+                                        "\n"
+                                        "# Instead of self.%s = ...\n"
+                                        "def _get_%s(self):\n"
+                                        "    return ...  # create instance on demand\n"
+                                        "\n"
+                                        "See: docs/guides/services.md" % (attr_name, attr_name)
+                                    ),
+                                }
+                            )
+
+                        # --- Check: public QuerySet attribute ---
+                        if not attr_name.startswith("_") and isinstance(stmt.value, _ast.Call):
+                            # Check for Model.objects.filter/all/etc
+                            call_node = stmt.value
+                            if isinstance(call_node.func, _ast.Attribute):
+                                func_attr = call_node.func
+                                if isinstance(func_attr.value, _ast.Attribute):
+                                    if func_attr.value.attr == "objects":
+                                        issues.append(
+                                            {
+                                                "type": "public_queryset",
+                                                "severity": "warning",
+                                                "message": (
+                                                    "Public QuerySet attribute 'self.%s': "
+                                                    "QuerySets should be stored in private "
+                                                    "variables (self._%s) and assigned to "
+                                                    "public in get_context_data()."
+                                                    % (attr_name, attr_name)
+                                                ),
+                                                "line": stmt.lineno,
+                                                "fix": (
+                                                    "Rename to self._%s and assign to "
+                                                    "self.%s in get_context_data():\n"
+                                                    "\n"
+                                                    "def _refresh(self):\n"
+                                                    "    self._%s = Model.objects.filter(...)  # private\n"
+                                                    "\n"
+                                                    "def get_context_data(self, **kwargs):\n"
+                                                    "    self.%s = self._%s  # public (JIT here)\n"
+                                                    "    return super().get_context_data(**kwargs)"
+                                                    % (
+                                                        attr_name,
+                                                        attr_name,
+                                                        attr_name,
+                                                        attr_name,
+                                                        attr_name,
+                                                    )
+                                                ),
+                                            }
+                                        )
+
+        summary = {
+            "total": len(issues),
+            "errors": sum(1 for i in issues if i["severity"] == "error"),
+            "warnings": sum(1 for i in issues if i["severity"] == "warning"),
+        }
+
+        return json.dumps({"issues": issues, "summary": summary}, indent=2)
+
+    # === Code generation tools ===
+
+    @mcp.tool()
+    def scaffold_view(
+        name: str,
+        features: str = "",
+    ) -> str:
+        """Generate a LiveView class with specified features.
+
+        Args:
+            name: View class name (e.g., 'ProductListView')
+            features: Comma-separated features: 'search', 'crud', 'pagination',
+                'form', 'presence', 'streaming', 'auth'
+
+        Returns complete Python code for a LiveView with the requested features.
+        """
+        feature_set = {f.strip().lower() for f in features.split(",") if f.strip()}
+
+        # Build imports
+        imports = ["from djust import LiveView"]
+        decorator_imports = ["event_handler"]
+        if "search" in feature_set:
+            decorator_imports.append("debounce")
+        if "auth" in feature_set:
+            decorator_imports.append("permission_required")
+
+        imports.append("from djust.decorators import %s" % ", ".join(decorator_imports))
+
+        if "form" in feature_set:
+            imports.append("from djust.forms import FormMixin")
+        if "presence" in feature_set:
+            imports.append("from djust.presence import PresenceMixin")
+
+        # Build class bases
+        bases = []
+        if "form" in feature_set:
+            bases.append("FormMixin")
+        if "presence" in feature_set:
+            bases.append("PresenceMixin")
+        bases.append("LiveView")
+        bases_str = ", ".join(bases)
+
+        # Template name from class name
+        # ProductListView -> products/list.html (approximate)
+        snake = ""
+        for i, c in enumerate(name):
+            if c.isupper() and i > 0:
+                snake += "_"
+            snake += c.lower()
+        snake = snake.replace("_view", "")
+        template_name = "myapp/%s.html" % snake
+
+        lines = []
+        lines.extend(imports)
+        lines.append("")
+        lines.append("")
+        lines.append("class %s(%s):" % (name, bases_str))
+        lines.append("    template_name = '%s'" % template_name)
+
+        if "auth" in feature_set:
+            lines.append("    login_required = True")
+
+        lines.append("")
+        lines.append("    def mount(self, request, **kwargs):")
+
+        # Mount body
+        if "search" in feature_set:
+            lines.append("        self.search_query = ''")
+        if "pagination" in feature_set:
+            lines.append("        self.page = 1")
+            lines.append("        self.per_page = 20")
+        if "crud" in feature_set:
+            lines.append("        self.selected_item = None")
+            lines.append("        self.editing = False")
+
+        lines.append("        self._refresh()")
+
+        # _refresh method
+        lines.append("")
+        lines.append("    def _refresh(self):")
+        lines.append("        # TODO: Replace with your model")
+        lines.append("        qs = Item.objects.all()")
+        if "search" in feature_set:
+            lines.append("        if self.search_query:")
+            lines.append("            qs = qs.filter(name__icontains=self.search_query)")
+        if "pagination" in feature_set:
+            lines.append("        start = (self.page - 1) * self.per_page")
+            lines.append("        self._total_count = qs.count()")
+            lines.append("        qs = qs[start:start + self.per_page]")
+        lines.append("        self._items = qs")
+
+        # Event handlers
+        if "search" in feature_set:
+            lines.append("")
+            lines.append("    @event_handler()")
+            lines.append("    @debounce(wait=0.3)")
+            lines.append("    def search(self, value: str = '', **kwargs):")
+            lines.append("        self.search_query = value")
+            lines.append("        self.page = 1" if "pagination" in feature_set else "")
+            lines.append("        self._refresh()")
+
+        if "crud" in feature_set:
+            lines.append("")
+            lines.append("    @event_handler()")
+            lines.append("    def select_item(self, item_id: int = 0, **kwargs):")
+            lines.append("        self.selected_item = Item.objects.filter(pk=item_id).first()")
+            lines.append("")
+            lines.append("    @event_handler()")
+            lines.append("    def delete_item(self, item_id: int = 0, **kwargs):")
+            lines.append("        Item.objects.filter(pk=item_id).delete()")
+            lines.append("        self._refresh()")
+
+        if "pagination" in feature_set:
+            lines.append("")
+            lines.append("    @event_handler()")
+            lines.append("    def go_to_page(self, page: int = 1, **kwargs):")
+            lines.append("        self.page = page")
+            lines.append("        self._refresh()")
+
+        if "streaming" in feature_set:
+            lines.append("")
+            lines.append("    @event_handler()")
+            lines.append("    def stream_update(self, content: str = '', **kwargs):")
+            lines.append("        self.stream_to('output', content)")
+
+        # get_context_data
+        lines.append("")
+        lines.append("    def get_context_data(self, **kwargs):")
+        lines.append("        ctx = super().get_context_data(**kwargs)")
+        lines.append("        ctx['items'] = self._items")
+        if "pagination" in feature_set:
+            lines.append(
+                "        ctx['total_pages'] = (self._total_count + self.per_page - 1) // self.per_page"
+            )
+        lines.append("        return ctx")
+        lines.append("")
+
+        # Clean up empty lines from conditional blocks
+        code = "\n".join(line for line in lines if line is not None)
+        return code
+
+    @mcp.tool()
+    def scaffold_component(name: str, props: str = "") -> str:
+        """Generate a LiveComponent class with specified props.
+
+        Args:
+            name: Component class name (e.g., 'UserCard')
+            props: Comma-separated prop names (e.g., 'user,show_avatar,editable')
+
+        Returns complete Python code for a LiveComponent.
+        """
+        prop_list = [p.strip() for p in props.split(",") if p.strip()]
+
+        lines = [
+            "from djust.components.base import LiveComponent",
+            "",
+            "",
+            "class %s(LiveComponent):" % name,
+        ]
+
+        # Template name
+        snake = ""
+        for i, c in enumerate(name):
+            if c.isupper() and i > 0:
+                snake += "_"
+            snake += c.lower()
+        lines.append("    template_name = 'components/%s.html'" % snake)
+        lines.append("")
+
+        # Mount with props
+        if prop_list:
+            lines.append("    def mount(self, request, **kwargs):")
+            for prop in prop_list:
+                lines.append("        self.%s = kwargs.get('%s')" % (prop, prop))
+            lines.append("")
+
+        lines.append("")
+        return "\n".join(lines)
+
+    @mcp.tool()
+    def add_event_handler(
+        handler_name: str,
+        params: str = "",
+        decorators: str = "",
+    ) -> str:
+        """Generate an event handler method to add to an existing view.
+
+        Args:
+            handler_name: Method name (e.g., 'delete_item')
+            params: Comma-separated params with types (e.g., 'item_id: int = 0, confirm: bool = False')
+            decorators: Comma-separated decorators (e.g., 'debounce(wait=0.3), rate_limit(rate=5)')
+
+        Returns Python code for the handler method (paste into your LiveView class).
+        """
+        lines = []
+
+        # Add decorators
+        if decorators:
+            for dec in decorators.split(","):
+                dec = dec.strip()
+                if dec:
+                    lines.append("    @%s" % dec)
+
+        lines.append("    @event_handler()")
+
+        # Build signature
+        if params:
+            lines.append("    def %s(self, %s, **kwargs):" % (handler_name, params))
+        else:
+            lines.append("    def %s(self, **kwargs):" % handler_name)
+
+        lines.append("        # TODO: implement")
+        lines.append("        self._refresh()")
+        lines.append("")
+
+        return "\n".join(lines)
+
+    return mcp
+
+
+# ---------------------------------------------------------------------------
+# Entry point for running without Django
+# ---------------------------------------------------------------------------
+
+
+def main():
+    """Run the MCP server with stdio transport."""
+    server = create_server()
+    server.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,112 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    # Run for PRs only if they come from a forked repo (avoids duplicate runs)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+        toxenv: [flake8, mypy, docs, black]
+    steps:
+    - uses: actions/checkout@v5
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install tox
+      run: pip install tox
+    - name: Run tox ${{ matrix.toxenv }}
+      run: tox -e ${{ matrix.toxenv }}
+
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # required for setuptools_scm
+    - name: Build sdist and temporary wheel
+      run: pipx run build
+    - uses: actions/upload-artifact@v4
+      with:
+        name: sdist
+        path: dist/*.tar.gz
+
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+    - uses: actions/checkout@v5
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install tox
+      run: pip install tox
+    - name: Test
+      run: tox -e py$(echo ${{ matrix.python-version }} | tr -d .)
+    - name: Upload coverage report
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  wheels:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [lint, build, test]
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0  # required for setuptools_scm
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v3.2.1
+      env:
+        CIBW_BUILD: "cp*-manylinux_x86_64 cp3*-win_amd64 cp3*-macosx_x86_64 cp3*-macosx_arm64"
+        CIBW_SKIP: "cp314*"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: wheels-${{ matrix.os }}
+        path: wheelhouse/*.whl
+
+  publish:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [build, wheels]
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v5
+      with:
+        name: sdist
+        path: dist/
+    - uses: actions/download-artifact@v5
+      with:
+        pattern: wheels-*
+        path: dist/
+        merge-multiple: true
+    - name: Publish alpha release to test PyPI
+      if: contains(github.ref_name, 'a')
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.test_pypi_password }}
+        repository-url: https://test.pypi.org/legacy/
+    - name: Publish to PyPI
+      if: "!contains(github.ref_name, '.dev') && !contains(github.ref_name, 'a')"
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.pypi_password }}

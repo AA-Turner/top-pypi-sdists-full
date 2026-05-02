@@ -1,0 +1,29 @@
+name: Sentiment Analysis by File
+description: Sentiment Analysis for Reviews.
+steps:
+  - OpenWithPandas:
+      mime: "application/vnd.ms-excel"
+      trim: true
+      filename:
+        pattern: reviews_{today}.xlsx
+        today:
+            - today
+            - mask: "%Y%m%d"
+      directory: "/home/ubuntu/symbits/troc/files/sentiment_analysis"
+  - SentimentAnalysis:
+      text_column: review
+      sentiment_model: "tabularisai/robust-sentiment-analysis"
+      sentiment_levels: 5
+      emotions_model: "bhadresh-savani/distilbert-base-uncased-emotion"
+  - TransformRows:
+      fields:
+        created_date:
+          value:
+            - to_excel_date
+  - PandasToFile:
+      filename: /home/ubuntu/symbits/sentiment-product-reviews-{today}.xlsx
+      mime: application/vnd.ms-excel
+      masks:
+        today:
+          - today
+          - mask: "%m%d%Y"

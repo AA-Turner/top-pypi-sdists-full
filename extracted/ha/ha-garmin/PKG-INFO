@@ -1,0 +1,237 @@
+Metadata-Version: 2.4
+Name: ha-garmin
+Version: 0.1.15
+Summary: Python client for Garmin Connect API
+Author-email: Ron Klinkien <ron@cyberjunky.nl>
+License: MIT
+Project-URL: Homepage, https://github.com/cyberjunky/ha-garmin
+Project-URL: Repository, https://github.com/cyberjunky/ha-garmin
+Project-URL: Documentation, https://github.com/cyberjunky/ha-garmin#readme
+Project-URL: Issues, https://github.com/cyberjunky/ha-garmin/issues
+Project-URL: Changelog, https://github.com/cyberjunky/ha-garmin/releases
+Keywords: garmin,garmin-connect,fitness,api,health
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: curl_cffi>=0.7.4
+Requires-Dist: requests>=2.28.0
+Provides-Extra: ua
+Requires-Dist: ua-generator>=1.0.0; extra == "ua"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: types-requests>=2.28.0; extra == "dev"
+Requires-Dist: build>=1.0.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Dynamic: license-file
+
+# ha-garmin
+
+Python client for Garmin Connect API, designed for Home Assistant integration.
+
+## Features
+
+- **Native Garmin Connect API** integration
+- **Robust authentication** with multiple login strategies and automatic fallbacks
+- **MFA support** with automatic endpoint fallback
+- **Token persistence** - save and restore sessions to avoid re-login
+- **Automatic token refresh** - proactively refreshes before expiry
+- **Retry with backoff** for rate limits (429) and server errors (5xx)
+- **Midnight fallback** - automatically uses yesterday's data when today isn't ready yet
+- **Coordinator-based fetch** - optimized data fetching for Home Assistant multi-coordinator pattern
+- **Data transformations** - automatic unit conversions (seconds→minutes, grams→kg)
+
+## Installation
+
+```bash
+pip install ha-garmin
+```
+
+Optional: install with improved browser UA generation:
+
+```bash
+pip install ha-garmin[ua]
+```
+
+## Usage
+
+### Standalone script
+
+Authentication is synchronous; data fetches run in a thread pool and are awaited.
+
+```python
+import asyncio
+from datetime import date
+from ha_garmin import GarminAuth, GarminClient, GarminMFARequired
+
+# Auth is synchronous
+auth = GarminAuth()
+
+if not auth.load_session(".garmin_tokens.json"):
+    try:
+        auth.login("email@example.com", "password")
+    except GarminMFARequired:
+        mfa_code = input("Enter MFA code: ")
+        auth.complete_mfa(mfa_code)
+    auth.save_session(".garmin_tokens.json")
+
+client = GarminClient(auth)
+
+
+async def fetch_all():
+    today = date.today()
+    core_data     = await client.fetch_core_data(today)      # Steps, HR, sleep, stress
+    body_data     = await client.fetch_body_data(today)      # Weight, body composition, fitness age
+    activity_data = await client.fetch_activity_data(today)  # Activities, workouts
+    training_data = await client.fetch_training_data(today)  # HRV, training status
+    goals_data    = await client.fetch_goals_data()          # Goals, badges
+    gear_data     = await client.fetch_gear_data()           # Gear, device alarms
+
+
+asyncio.run(fetch_all())
+```
+
+### Home Assistant integration
+
+Set up auth during `async_setup_entry` and pass the client to your coordinators.
+
+```python
+from datetime import date, timedelta
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from ha_garmin import GarminAuth, GarminClient
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    auth = GarminAuth()
+
+    token_path = hass.config.path(".storage/garmin_tokens.json")
+    if not auth.load_session(token_path):
+        # Initial login must have been completed via the config flow
+        raise ConfigEntryAuthFailed("No valid Garmin session")
+
+    client = GarminClient(auth)
+
+    coordinator = GarminCoreCoordinator(hass, client)
+    await coordinator.async_config_entry_first_refresh()
+
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    return True
+
+
+class GarminCoreCoordinator(DataUpdateCoordinator):
+    def __init__(self, hass: HomeAssistant, client: GarminClient) -> None:
+        super().__init__(hass, logger=_LOGGER, name="Garmin core", update_interval=timedelta(minutes=15))
+        self._client = client
+
+    async def _async_update_data(self) -> dict:
+        return await self._client.fetch_core_data(date.today())
+```
+
+## Coordinator Fetch Methods
+
+Optimized methods that group related API calls for Home Assistant coordinators:
+
+| Method | API Calls | Data Returned |
+| ------ | --------- | ------------- |
+| `fetch_core_data()` | 3 | Steps, distance, calories, HR, stress, sleep, body battery, SPO2 |
+| `fetch_body_data()` | 3 | Weight, BMI, body fat, hydration, fitness age |
+| `fetch_activity_data()` | 4+ | Activities, workouts, HR zones, polylines |
+| `fetch_training_data()` | 7 | Training readiness, status, HRV, lactate, endurance/hill scores |
+| `fetch_goals_data()` | 4 | Goals (active/future/history), badges, user level |
+| `fetch_gear_data()` | 4+ | Gear items, stats, device alarms |
+| `fetch_blood_pressure_data()` | 1 | Blood pressure measurements |
+| `fetch_menstrual_data()` | 2 | Menstrual cycle data |
+
+## Write / Action Methods
+
+Methods for logging data back to Garmin Connect, suitable for Home Assistant services:
+
+| Method | Description |
+| ------ | ----------- |
+| `add_nutrition_log(calories, carbs, protein, fat, name)` | Log a Quick Add nutrition entry (requires Connect+) |
+| `set_hydration(value_in_ml)` | Log hydration intake |
+| `set_blood_pressure(systolic, diastolic, pulse)` | Log a blood pressure measurement |
+| `add_body_composition(weight, percent_fat, ...)` | Log weight / body composition via FIT upload |
+| `create_activity(name, type, start, duration_min)` | Create a manual activity |
+| `upload_activity(file_path)` | Upload a FIT / GPX / TCX file |
+| `set_active_gear(activity_type, setting, gear_uuid)` | Set default gear for an activity type |
+| `add_gear_to_activity(gear_uuid, activity_id)` | Associate gear with an activity |
+
+### Nutrition logging
+
+Requires a **Garmin Connect+** subscription and initial setup through the Garmin Connect app (the app creates the meal slots that the API needs).
+
+```python
+await client.add_nutrition_log(
+    calories=500,
+    carbs=60,       # optional, grams
+    protein=30,     # optional, grams
+    fat=15,         # optional, grams
+    name="Lunch",   # optional label
+)
+```
+
+The method automatically fetches the correct meal slot ID and time for the day. If no meal slots are configured yet, open the Garmin Connect app and set up your nutrition plan first.
+
+## Individual API Methods
+
+| Method | Description |
+| ------ | ----------- |
+| `get_user_profile()` | User profile info |
+| `get_user_summary()` | Daily summary (steps, HR, stress, body battery) |
+| `get_daily_steps()` | Steps for date range |
+| `get_body_composition()` | Weight, BMI, body fat |
+| `get_fitness_age()` | Fitness age metrics |
+| `get_hydration_data()` | Daily hydration |
+| `get_activities_by_date()` | Activities in date range |
+| `get_activity_details()` | Detailed activity with polyline |
+| `get_activity_hr_in_timezones()` | HR time in zones |
+| `get_workouts()` | Scheduled workouts |
+| `get_training_readiness()` | Training readiness score |
+| `get_training_status()` | Training status |
+| `get_morning_training_readiness()` | Morning readiness |
+| `get_endurance_score()` | Endurance score |
+| `get_hill_score()` | Hill score |
+| `get_lactate_threshold()` | Lactate threshold |
+| `get_hrv_data()` | Heart rate variability |
+| `get_goals()` | User goals by status |
+| `get_earned_badges()` | Earned badges |
+| `get_gear()` | User gear items |
+| `get_gear_stats()` | Gear statistics |
+| `get_gear_defaults()` | Default gear settings |
+| `get_devices()` | Connected devices |
+| `get_device_alarms()` | Device alarms |
+| `get_device_settings()` | Device settings |
+| `get_blood_pressure()` | Blood pressure data |
+| `get_menstrual_data()` | Menstrual cycle data |
+| `get_menstrual_calendar()` | Menstrual calendar |
+
+## Data Transformations
+
+The library automatically adds computed fields for convenience:
+
+- **Time conversions**: `sleepTimeSeconds` → `sleepTimeMinutes`
+- **Activity time**: `highlyActiveSeconds` → `highlyActiveMinutes`
+- **Weight**: `weight` (grams) → `weightKg`
+- **Stress**: `stressQualifier` → `stressQualifierText` (capitalized)
+- **Nested flattening**: HRV status, training readiness, scores
+
+## License
+
+MIT

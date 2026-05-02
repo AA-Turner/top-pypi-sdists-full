@@ -1,0 +1,110 @@
+name: Push
+on:
+  push:
+    branches: [master]
+jobs:
+  Lint:
+    runs-on: ubuntu-latest
+    if: |
+      (github.repository == 'PolicyEngine/policyengine-core')
+      && (github.event.head_commit.message == 'Update PolicyEngine Core')
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Check formatting
+        run: uvx ruff format --check .
+  versioning:
+    name: Update versioning
+    if: |
+      (github.repository == 'PolicyEngine/policyengine-core')
+      && !(github.event.head_commit.message == 'Update PolicyEngine Core')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Build changelog
+        run: |
+          uv pip install --system towncrier
+          python .github/bump_version.py
+          towncrier build --yes --version $(python -c "import re; print(re.search(r'version = \"(.+?)\"', open('pyproject.toml').read()).group(1))")
+      - name: Preview changelog update
+        run: ".github/get-changelog-diff.sh"
+      - name: Update changelog
+        uses: EndBug/add-and-commit@v10
+        with:
+          add: "."
+          committer_name: Github Actions[bot]
+          author_name: Github Actions[bot]
+          message: Update PolicyEngine Core
+          github_token: ${{ steps.app-token.outputs.token }}
+          fetch: false
+  Test:
+    runs-on: ubuntu-latest
+    if: |
+      (github.repository == 'PolicyEngine/policyengine-core')
+      && (github.event.head_commit.message == 'Update PolicyEngine Core')
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Install package
+        run: make install
+      - name: Run tests
+        run: make test
+      - uses: codecov/codecov-action@v6
+      - name: Generate documentation
+        run: make documentation
+      - name: Deploy documentation
+        if: matrix.os == 'ubuntu-latest'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages # The branch the action should deploy to.
+          FOLDER: docs/_build/html # The folder the action should deploy.
+  Publish:
+    runs-on: ubuntu-latest
+    if: |
+      (github.repository == 'PolicyEngine/policyengine-core')
+      && (github.event.head_commit.message == 'Update PolicyEngine Core')
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Publish a git tag
+        run: ".github/publish-git-tag.sh || true"
+      - name: Install package
+        run: make install
+      - name: Build package
+        run: make build
+      - name: Publish a Python distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI }}
+          skip_existing: true

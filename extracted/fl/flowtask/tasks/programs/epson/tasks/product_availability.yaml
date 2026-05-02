@@ -1,0 +1,55 @@
+name: Epson Product Availability
+description: Getting Product Availability for Epson Stores using Best Buy API.
+steps:
+  - FileRead:
+      file: single_store.json
+      as_dataframe: true
+      is_json: true
+  - FileRead:
+      file: single_product.json
+      as_dataframe: true
+      is_json: true
+  - tMerge:
+      depends:
+        - FileRead_1
+        - FileRead_2
+      type: cross
+  - BestBuy:
+      type: availability
+      product_info: False
+      use_proxies: true
+      paid_proxy: true
+      brand: HP
+  - TransformRows:
+      fields:
+        availability_timestamp:
+          value:
+            - fill_current_date_midnight
+  - TransformRows:
+      fields:
+        availability_date:
+          value:
+            - datetime_format
+            - column: availability_timestamp
+            - format: "%Y%m%d"
+        availability_info_key:
+          value:
+            - concat
+            - columns:
+                - location_code
+                - sku
+                - brand
+                - availability_date
+              separator: "_"
+  - TransformRows:
+      fields:
+        availability_timestamp:
+          value:
+            - to_excel_date
+  - PandasToFile:
+      filename: /home/ubuntu/symbits/epson/product_availability-epson-{today}.xlsx
+      mime: application/vnd.ms-excel
+      masks:
+        today:
+          - today
+          - mask: "%m%d%Y"

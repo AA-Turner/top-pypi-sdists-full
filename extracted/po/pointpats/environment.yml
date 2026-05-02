@@ -1,0 +1,13 @@
+name: pointpats
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - geopandas
+  - libpysal
+  - matplotlib
+  - numpy
+  - pandas
+  - scipy
+  - shapley

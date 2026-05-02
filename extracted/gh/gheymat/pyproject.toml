@@ -1,0 +1,20 @@
+[project]
+name = "gheymat"
+version = "0.3.8"
+description = "کتابخانه‌ای برای دریافت قیمت ارزها و طلا و..."
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+  {name = "Ali Heydari", email = "imrrobat@gmail.com"}
+]
+dependencies = [
+  "requests",
+  "beautifulsoup4"
+]
+[project.urls]
+"Homepage" = "https://github.com/imrrobat/gheymat"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -8,7 +8,6 @@ from time import sleep
 from pamqp import exceptions as pamqp_exception
 from pamqp import frame as pamqp_frame
 from pamqp import header as pamqp_header
-from pamqp import specification
 
 from amqpstorm import compatibility
 from amqpstorm.base import IDLE_WAIT
@@ -45,8 +44,8 @@ class Connection(Stateful):
         ssl_options = {
             'context': ssl.create_default_context(cafile='ca_certificate.pem'),
             'server_hostname': 'rmq.eandersson.net',
-            'check_hostname': True,        # New 2.8.0, default is False
-            'verify_mode': 'required',     # New 2.8.0, default is 'none'
+            'check_hostname': True,
+            'verify_mode': ssl.CERT_REQUIRED,
         }
         connection = amqpstorm.Connection(
             'rmq.eandersson.net', 'guest', 'guest', port=5671,
@@ -64,6 +63,7 @@ class Connection(Stateful):
     :param dict ssl_options: SSL kwargs
     :param dict client_properties: None or dict of client properties
     :param str poller: Either "select" or "poll". If you encounter file descriptor errors, consider switching to "poll".
+    :param str locale: Locale used during connection negotiation. Defaults to "en_US".
     :param bool lazy: Lazy initialize the connection
 
     :raises AMQPConnectionError: Raises if the connection
@@ -88,6 +88,7 @@ class Connection(Stateful):
             'ssl_options': kwargs.get('ssl_options', {}),
             'client_properties': kwargs.get('client_properties', {}),
             'poller': kwargs.get('poller', 'select'),
+            'locale': kwargs.get('locale', 'en_US'),
         }
         self._validate_parameters()
         self._io = IO(self.parameters, exceptions=self._exceptions,
@@ -326,7 +327,7 @@ class Connection(Stateful):
             return data_in[byte_count:], channel_id, frame_in
         except pamqp_exception.UnmarshalingException:
             pass
-        except specification.AMQPFrameError as why:
+        except pamqp_exception.AMQPFrameError as why:
             LOGGER.error('AMQPFrameError: %r', why, exc_info=True)
         except ValueError as why:
             LOGGER.error(why, exc_info=True)

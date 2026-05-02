@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.13.0
+Version: 1.14.0
 License: Apache-2.0
-Project-URL: Documentation, https://mozilla-ai.github.io/any-llm/
+Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
 Project-URL: Source, https://github.com/mozilla-ai/any-llm
 Requires-Python: >=3.11
@@ -14,16 +14,16 @@ Requires-Dist: openresponses-types>=2.3.0.post1
 Requires-Dist: anthropic>=0.83.0
 Requires-Dist: rich
 Requires-Dist: httpx
-Requires-Dist: typing_extensions>=4.4.0
+Requires-Dist: typing_extensions>=4.5.0
 Provides-Extra: all
-Requires-Dist: any-llm-sdk[anthropic,azure,azureanthropic,azureopenai,bedrock,cerebras,cohere,databricks,deepseek,fireworks,gateway,gemini,groq,huggingface,inception,llama,llamacpp,llamafile,lmstudio,minimax,mistral,moonshot,mzai,nebius,ollama,openai,openrouter,perplexity,platform,portkey,sagemaker,sambanova,together,vertexai,vertexaianthropic,vllm,voyage,watsonx,xai,zai]; extra == "all"
+Requires-Dist: any-llm-sdk[anthropic,azure,azureanthropic,azureopenai,bedrock,cerebras,cohere,dashscope,databricks,deepinfra,deepseek,fireworks,gateway,gemini,groq,huggingface,inception,llama,llamacpp,llamafile,lmstudio,minimax,mistral,moonshot,mzai,nebius,ollama,openai,openrouter,perplexity,platform,portkey,qiniu,sagemaker,sambanova,together,vertexai,vertexaianthropic,vllm,voyage,watsonx,xai,zai]; extra == "all"
 Provides-Extra: platform
 Requires-Dist: any-llm-platform-client>=0.3.0; extra == "platform"
-Requires-Dist: opentelemetry-sdk>=1.40.0; extra == "platform"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.40.0; extra == "platform"
+Requires-Dist: opentelemetry-sdk>=1.30.0; extra == "platform"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == "platform"
 Provides-Extra: perplexity
 Provides-Extra: mistral
-Requires-Dist: mistralai>=1.9.3; extra == "mistral"
+Requires-Dist: mistralai>=2.0.0; extra == "mistral"
 Provides-Extra: anthropic
 Provides-Extra: gemini
 Requires-Dist: google-genai; extra == "gemini"
@@ -71,6 +71,7 @@ Provides-Extra: nebius
 Provides-Extra: openai
 Provides-Extra: openrouter
 Provides-Extra: portkey
+Provides-Extra: qiniu
 Provides-Extra: sambanova
 Provides-Extra: minimax
 Provides-Extra: mzai
@@ -87,11 +88,13 @@ Requires-Dist: python-dotenv>=1.0.0; extra == "gateway"
 Requires-Dist: psycopg2-binary>=2.9.9; extra == "gateway"
 Requires-Dist: prometheus-client>=0.20.0; extra == "gateway"
 Provides-Extra: zai
+Provides-Extra: dashscope
+Provides-Extra: deepinfra
 Dynamic: license-file
 
 <p align="center">
   <picture>
-    <img src="https://raw.githubusercontent.com/mozilla-ai/any-llm/refs/heads/main/docs/public/images/any-llm-logo-mark.png" width="20%" alt="Project logo"/>
+    <img src="https://raw.githubusercontent.com/mozilla-ai/any-llm/refs/heads/main/docs/images/any-llm-logo-mark.png" width="20%" alt="Project logo"/>
   </picture>
 </p>
 
@@ -116,7 +119,7 @@ Dynamic: license-file
 **Communicate with any LLM provider using a single, unified interface.**
 Switch between OpenAI, Anthropic, Mistral, Ollama, and more without changing your code.
 
-[Documentation](https://mozilla-ai.github.io/any-llm/) | [Platform (Beta)](https://any-llm.ai/) | [Try the Demos](#-try-it) | [Contributing](#-contributing)
+[Documentation](https://docs.mozilla.ai/any-llm/) | [Platform (Beta)](https://any-llm.ai/) | [Try the Demos](#-try-it) | [Contributing](#-contributing)
 
 </div>
 
@@ -142,6 +145,25 @@ print(response.choices[0].message.content)
 **That's it!** Change the provider name and add provider-specific keys to switch between LLM providers.
 
 
+> **Coming from LiteLLM?** Your API keys and environment variables carry over unchanged. Install the SDK with extras for the providers you need, then update your import and model strings:
+>
+> ```bash
+> pip install 'any-llm-sdk[openai,anthropic]'  # or [all] for everything
+> ```
+> ```python
+> # before
+> from litellm import completion
+> response = completion(model="openai/gpt-4o", messages=[...])
+>
+> # after
+> from any_llm import completion
+> response = completion(model="openai:gpt-4o", messages=[...])
+> ```
+>
+> See [Supported Providers](https://docs.mozilla.ai/any-llm/providers/) to map your existing model strings.
+
+That's the full migration — no proxy, no extra config.
+
 ## Installation
 
 ### Requirements
@@ -159,7 +181,7 @@ pip install 'any-llm-sdk[mistral,ollama]'   # Multiple providers
 pip install 'any-llm-sdk[all]'              # All supported providers
 ```
 
-See our [list of supported providers](https://mozilla-ai.github.io/any-llm/providers/) to choose which ones you need.
+See our [list of supported providers](https://docs.mozilla.ai/any-llm/providers/) to choose which ones you need.
 
 ### Setting Up API Keys
 
@@ -178,6 +200,9 @@ Alternatively, pass API keys directly in your code (see [Usage](#usage) examples
 
 
 ## any-llm-gateway
+
+> **Deprecation Notice:** The gateway bundled with any-llm is deprecated and will be removed on May 18, 2026.
+> Please migrate to the standalone gateway at [github.com/mozilla-ai/gateway](https://github.com/mozilla-ai/gateway).
 
 any-llm-gateway is an **optional** FastAPI-based proxy server that adds enterprise-grade features on top of the core library:
 
@@ -216,7 +241,7 @@ docker run \
 |Learning and testing |Virtual API key management |
 | |Production deployments with governance |
 
-See the [Gateway Documentation](https://mozilla-ai.github.io/any-llm/gateway/overview/) for complete setup and deployment instructions.
+See the [Gateway Documentation](https://docs.mozilla.ai/any-llm/gateway/overview/) for complete setup and deployment instructions.
 
 ## Why choose `any-llm`?
 
@@ -286,7 +311,7 @@ Both approaches support identical features: streaming, tools, responses API, etc
 
 ### Responses API
 
-For providers that implement the OpenAI-style Responses API, use [`responses`](https://mozilla-ai.github.io/any-llm/api/responses/) or `aresponses`:
+For providers that implement the OpenAI-style Responses API, use [`responses`](https://docs.mozilla.ai/any-llm/api/responses/) or `aresponses`:
 
 ```python
 from any_llm import responses
@@ -307,7 +332,7 @@ print(result.output_text)
 
 ### Finding the Right Model
 
-The `provider_id` should match our [supported provider names](https://mozilla-ai.github.io/any-llm/providers/).
+The `provider_id` should match our [supported provider names](https://docs.mozilla.ai/any-llm/providers/).
 
 The `model_id` is passed directly to the provider. To find available models:
 - Check the provider's documentation
@@ -328,9 +353,9 @@ The landscape of LLM provider interfaces is fragmented. While OpenAI's API has b
 `any-llm` addresses these challenges by leveraging official SDKs when available, maintaining framework-agnostic design, and requiring no proxy servers.
 
 ## Documentation
-- **[Full Documentation](https://mozilla-ai.github.io/any-llm/)** - Complete guides and API reference
-- **[Supported Providers](https://mozilla-ai.github.io/any-llm/providers/)** - List of all supported LLM providers
-- **[Cookbook Examples](https://mozilla-ai.github.io/any-llm/cookbook/)** - In-depth usage examples
+- **[Full Documentation](https://docs.mozilla.ai/any-llm/)** - Complete guides and API reference
+- **[Supported Providers](https://docs.mozilla.ai/any-llm/providers/)** - List of all supported LLM providers
+- **[Cookbook Examples](https://docs.mozilla.ai/any-llm/cookbooks/any-llm-getting-started)** - In-depth usage examples
 - **[any-llm Platform (Beta)](https://any-llm.ai/)** - Hosted control plane for key management, usage tracking, and cost visibility
 
 

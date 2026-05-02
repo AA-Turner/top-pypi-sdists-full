@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acceldata_sdk"
+dynamic = ["version"]
+
+description = "Acceldata SDK"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.7"
+
+authors = [
+    { name = "acceldata", email = "apisupport@acceldata.io" }
+]
+
+license = "MIT"
+license-files = ["LICENSE"]
+
+keywords = ["acceldata-sdk"]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    "requests",
+    "requests-toolbelt",
+    "semantic-version",
+    'dataclasses; python_version < "3.7"',
+    'typing; python_version < "3.5"',
+]
+
+[tool.setuptools.dynamic]
+version = { file = ["VERSION"] }
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests*","docs*"]

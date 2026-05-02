@@ -141,6 +141,10 @@ default-features = false
 path = "src/daft-functions-utf8"
 default-features = false
 
+[dependencies.daft-geo]
+path = "src/daft-geo"
+default-features = false
+
 [dependencies.daft-hash]
 path = "src/daft-hash"
 default-features = false
@@ -179,6 +183,10 @@ default-features = false
 
 [dependencies.daft-parquet]
 path = "src/daft-parquet"
+default-features = false
+
+[dependencies.daft-partition-refs]
+path = "src/daft-partition-refs"
 default-features = false
 
 [dependencies.daft-runners]
@@ -236,7 +244,7 @@ optional = true
 workspace = true
 
 [features]
-python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file-formats/python", "common-system-info/python", "common-metrics/python", "daft-ai/python", "daft-catalog/python", "daft-cli/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-text/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-scan/python", "daft-sql/python", "daft-session/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
+python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file-formats/python", "common-system-info/python", "common-metrics/python", "daft-ai/python", "daft-catalog/python", "daft-checkpoint/python", "daft-checkpoint/s3", "daft-cli/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-text/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-partition-refs/python", "daft-scan/python", "daft-sql/python", "daft-session/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -245,7 +253,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.9"
+version = "0.7.10"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -271,6 +279,9 @@ inherits = "release"
 lto = "thin"
 strip = "none"
 
+[profile.release.package.daft-parquet]
+opt-level = 2
+
 [profile.release-lto]
 codegen-units = 1
 inherits = "release"
@@ -294,7 +305,7 @@ version = "0.6.0"
 features = ["disable_initial_exec_tls"]
 
 [workspace]
-members = ["src/common/daft-config", "src/common/display", "src/common/error", "src/common/io-config", "src/common/macros", "src/common/pattern", "src/common/partitioning", "src/common/system-info", "src/common/treenode", "src/common/metrics", "src/daft-ai", "src/daft-algebra", "src/daft-catalog", "src/daft-checkpoint", "src/daft-context", "src/daft-core", "src/daft-groupby", "src/daft-csv", "src/daft-dashboard", "src/daft-dsl", "src/daft-ext", "src/daft-ext-internal", "src/daft-ext-macros", "src/daft-file", "src/daft-functions", "src/daft-functions-binary", "src/daft-functions-json", "src/daft-functions-list", "src/daft-functions-uri", "src/daft-functions-tokenize", "src/daft-functions-utf8", "src/daft-functions-temporal", "src/daft-hash", "src/daft-image", "src/daft-io", "src/daft-json", "src/daft-local-execution", "src/daft-local-plan", "src/daft-logical-plan", "src/daft-micropartition", "src/daft-parquet", "src/daft-runners", "src/daft-scan", "src/daft-session", "src/daft-shuffles", "src/daft-sketch", "src/daft-sql", "src/daft-recordbatch", "src/daft-warc", "src/daft-writers", "src/hyperloglog", "src/daft-cli", "src/daft-text"]
+members = ["src/common/checkpoint-config", "src/common/daft-config", "src/common/display", "src/common/error", "src/common/io-config", "src/common/macros", "src/common/pattern", "src/common/partitioning", "src/common/system-info", "src/common/treenode", "src/common/metrics", "src/daft-ai", "src/daft-algebra", "src/daft-catalog", "src/daft-checkpoint", "src/daft-context", "src/daft-core", "src/daft-groupby", "src/daft-csv", "src/daft-dashboard", "src/daft-dsl", "src/daft-ext", "src/daft-ext-internal", "src/daft-ext-macros", "src/daft-file", "src/daft-functions", "src/daft-functions-binary", "src/daft-functions-json", "src/daft-functions-list", "src/daft-functions-uri", "src/daft-functions-tokenize", "src/daft-functions-utf8", "src/daft-functions-temporal", "src/daft-hash", "src/daft-image", "src/daft-io", "src/daft-json", "src/daft-local-execution", "src/daft-local-plan", "src/daft-logical-plan", "src/daft-micropartition", "src/daft-parquet", "src/daft-partition-refs", "src/daft-runners", "src/daft-scan", "src/daft-session", "src/daft-shuffles", "src/daft-sketch", "src/daft-sql", "src/daft-recordbatch", "src/daft-warc", "src/daft-writers", "src/hyperloglog", "src/daft-cli", "src/daft-text"]
 exclude = ["examples/hello"]
 
 [workspace.dependencies]
@@ -563,7 +574,7 @@ features = ["std", "fmt", "ansi", "env-filter", "json"]
 
 [workspace.dependencies.uuid]
 version = "1.19.0"
-features = ["v4"]
+features = ["v4", "serde"]
 
 [workspace.dependencies.xxhash-rust]
 version = "0.8.15"
@@ -687,4 +698,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.9"
+version = "0.7.10"

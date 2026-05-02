@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: spotml
+Version: 0.0.11
+Summary: Automate ML training on spot instances easily.
+Home-page: https://spotml.io/
+Author: Vishnu
+Author-email: vishnu@spotml.io
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=3.6.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+
+[SpotML](https://www.spotml.io/) is a command-line tool that lets you manage ML training on spot instances.
+
+* Train entirely on spot instances to maximize savings 
+* Or mix and match on-demand instances to meet your deadlines.
+* Handles all infrastructure so that training is as easy as running it locally.
+
+See [documentation](https://docs.spotml.io/).
+
+
+

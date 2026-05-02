@@ -1,0 +1,1072 @@
+"""
+Lexer/Tokenizer for DAZZLE DSL.
+
+Converts raw DSL text into a stream of tokens with source location tracking.
+Handles indentation-based blocks (Python-style) with INDENT/DEDENT tokens.
+"""
+
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+
+from .errors import make_parse_error
+
+
+class TokenType(Enum):
+    """Token types in the DAZZLE DSL."""
+
+    # Literals
+    IDENTIFIER = "IDENTIFIER"
+    STRING = "STRING"
+    NUMBER = "NUMBER"
+
+    # Keywords
+    MODULE = "module"
+    USE = "use"
+    AS = "as"
+    APP = "app"
+    ENTITY = "entity"
+    SURFACE = "surface"
+    EXPERIENCE = "experience"
+    SERVICE = "service"
+    FOREIGN_MODEL = "foreign_model"
+    INTEGRATION = "integration"
+    FROM = "from"
+    USES = "uses"
+    MODE = "mode"
+    SECTION = "section"
+    RELATED = "related"
+    FIELD = "field"
+    ACTION = "action"
+    STEP = "step"
+    KIND = "kind"
+    START = "start"
+    AT = "at"
+    ON = "on"
+    WHEN = "when"
+    CALL = "call"
+    WITH = "with"
+    MAP = "map"
+    RESPONSE = "response"
+    INTO = "into"
+    MATCH = "match"
+    SYNC = "sync"
+    SCHEDULE = "schedule"
+    SPEC = "spec"
+    AUTH_PROFILE = "auth_profile"
+    OWNER = "owner"
+    KEY = "key"
+    CONSTRAINT = "constraint"
+    UNIQUE = "unique"
+    INDEX = "index"
+    URL = "url"
+    INLINE = "inline"
+    SUBMITTED = "submitted"
+
+    # Experience Orchestration Keywords
+    CONTEXT = "context"
+    PREFILL = "prefill"
+    SAVES_TO = "saves_to"
+    CREATES = "creates"
+    FIELDS = "fields"
+
+    # Integration Keywords
+    OPERATION = "operation"
+    MAPPING = "mapping"
+    RULES = "rules"
+    SCHEDULED = "scheduled"
+    EVENT_DRIVEN = "event_driven"
+    FOREIGN = "foreign"
+
+    # Test DSL Keywords
+    TEST = "test"
+    SETUP = "setup"
+    DATA = "data"
+    EXPECT = "expect"
+    STATUS = "status"
+    CREATED = "created"
+    FILTER = "filter"
+    SEARCH = "search"
+    ORDER_BY = "order_by"
+    COUNT = "count"
+    ERROR_MESSAGE = "error_message"
+    FIRST = "first"
+    LAST = "last"
+    QUERY = "query"
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    GET = "get"
+    TRUE = "true"
+    FALSE = "false"
+
+    # Access Control Keywords
+    ANONYMOUS = "anonymous"
+    PERMISSIONS = "permissions"
+    ACCESS = "access"
+    READ = "read"
+    WRITE = "write"
+    PERMIT = "permit"
+    FORBID = "forbid"
+    AUDIT = "audit"
+
+    # UX Semantic Layer Keywords
+    UX = "ux"
+    PURPOSE = "purpose"
+    SHOW = "show"
+    SORT = "sort"
+    EMPTY = "empty"
+    ATTENTION = "attention"
+    CRITICAL = "critical"
+    WARNING = "warning"
+    NOTICE = "notice"
+    INFO = "info"
+    MESSAGE = "message"
+    FOR = "for"
+    SCOPE = "scope"
+    HIDE = "hide"
+    SHOW_AGGREGATE = "show_aggregate"
+    ACTION_PRIMARY = "action_primary"
+    READ_ONLY = "read_only"
+    SEARCH_FIRST = "search_first"
+    ALL = "all"
+    WORKSPACE = "workspace"
+    SOURCE = "source"
+    LIMIT = "limit"
+    DISPLAY = "display"
+    AGGREGATE = "aggregate"
+    DELTA = "delta"  # v0.61.25: Period-over-period delta for summary tiles (#884)
+    REFERENCE_LINES = "reference_lines"  # v0.61.26: Horizontal markers on line/area charts (#883)
+    REFERENCE_BANDS = "reference_bands"  # v0.61.26: Shaded bands on line/area charts (#883)
+    OVERLAY_SERIES = "overlay_series"  # v0.61.33: Additional series on line/area charts (#883)
+    BINS = "bins"  # v0.61.27: Histogram bin count — int or "auto" (#882)
+    SHOW_OUTLIERS = "show_outliers"  # v0.61.29: Box plot outlier toggle (#881)
+    BULLET_LABEL = "bullet_label"  # v0.61.30: Bullet chart row label column (#880)
+    BULLET_ACTUAL = "bullet_actual"  # v0.61.30: Bullet chart bar value column (#880)
+    BULLET_TARGET = "bullet_target"  # v0.61.30: Bullet chart target tick column (#880)
+    CSS_CLASS = "class"  # v0.61.52: region-level class hook for project CSS (#894)
+    TRACK_MAX = "track_max"  # v0.61.53 (#893): bar_track fill denominator
+    TRACK_FORMAT = "track_format"  # v0.61.53 (#893): bar_track value format spec
+    ACTIONS = "actions"  # v0.61.54 (#891): action_grid card list
+    TONE = "tone"  # v0.61.54 (#891): action_grid card palette token
+    COUNT_AGGREGATE = "count_aggregate"  # v0.61.54 (#891): action_grid per-card count
+    AVATAR_FIELD = "avatar_field"  # v0.61.55 (#892): profile_card avatar source
+    PRIMARY = "primary"  # v0.61.55 (#892): profile_card primary identity field
+    SECONDARY = "secondary"  # v0.61.55 (#892): profile_card meta line (interpolated)
+    STATS = "stats"  # v0.61.55 (#892): profile_card stat grid block
+    FACTS = "facts"  # v0.61.55 (#892): profile_card key-facts list (interpolated)
+    CAPTION = "caption"  # v0.61.56 (#890): pipeline_steps stage sub-text
+    EYEBROW = "eyebrow"  # v0.61.60: region kicker line above the title
+    WIDTH = "width"  # v0.61.83 (#914): region grid-column span (1..12)
+    HELP = "help"  # v0.61.88 (#918): field-level help text below the label
+    # NOTE and LAYOUT tokens already exist further down in this enum.
+    TONES = "tones"  # v0.61.65: per-metric tone palette tokens for `display: metrics`
+    ENTRIES = "entries"  # v0.61.69 (#3): status_list entry block keyword
+    STATE = "state"  # v0.61.69 (#3): status_list entry pill state token
+    CONFIRMATIONS = "confirmations"  # v0.61.72 (#6): confirm_action_panel checklist block
+    STATE_FIELD = "state_field"  # v0.61.72 (#6): entity field driving panel visual mode
+    REVOKE = "revoke"  # v0.61.72 (#6): action surface for revoke / disable transition
+    LIST = "list"
+    GRID = "grid"
+    TIMELINE = "timeline"
+    DETAIL = "detail"  # v0.3.1
+
+    # Additional v0.2 keywords
+    DEFAULTS = "defaults"
+    FOCUS = "focus"
+    GROUP_BY = "group_by"
+    WHERE = "where"
+    FILTER_MAP = "filter_map"  # v0.33.0: Per-source filters in multi-source regions
+
+    # v0.34.0 Platform Capability Keywords
+    SOFT_DELETE = "soft_delete"
+    DISPLAY_FIELD = "display_field"
+    SEARCHABLE = "searchable"
+    BULK = "bulk"
+    IMPORT = "import"
+    EXPORT = "export"
+    NOTIFICATION = "notification"
+    NOTIFY = "notify"
+    CHANNELS = "channels"
+    IN_APP = "in_app"
+    SMS = "sms"
+    SLACK = "slack"
+    PREFERENCES = "preferences"
+    DATE_RANGE = "date_range"
+    TIME_BUCKET = "time_bucket"
+    DATE_FIELD = "date_field"
+
+    # v0.44.0 Heatmap / Progress / Activity Feed region keywords
+    ACTIVITY_FEED = "activity_feed"
+    TREE = "tree"
+    ROWS = "rows"
+    COLUMNS = "columns"
+    VALUE = "value"
+    THRESHOLDS = "thresholds"
+    STAGES = "stages"
+    COMPLETE_AT = "complete_at"
+
+    # v0.3.1 keywords
+    ENGINE_HINT = "engine_hint"  # Deprecated: use STAGE instead
+    STAGE = "stage"  # v0.8.0: Workspace layout stage (replaces engine_hint)
+
+    # v0.5.0 Domain Service Keywords
+    INPUT = "input"
+    OUTPUT = "output"
+    GUARANTEES = "guarantees"
+    STUB = "stub"
+
+    # v0.7.0 State Machine Keywords
+    TRANSITIONS = "transitions"
+    REQUIRES = "requires"
+    AUTO = "auto"
+    AFTER = "after"
+    ROLE = "role"
+    MANUAL = "manual"
+    # v0.29.0 Expression Guard Keywords
+    GUARD = "guard"
+    DAYS = "days"
+    HOURS = "hours"
+    MINUTES = "minutes"
+    # v0.10.2 Date Arithmetic Keywords
+    TODAY = "today"
+    NOW = "now"
+    WEEKS = "weeks"
+    MONTHS = "months"
+    YEARS = "years"
+    DURATION_LITERAL = "DURATION_LITERAL"  # e.g., 7d, 24h, 30min
+
+    # Computed Field Keywords
+    COMPUTED = "computed"
+    SUM = "sum"
+    AVG = "avg"
+    MIN = "min"
+    MAX = "max"
+    DAYS_UNTIL = "days_until"
+    DAYS_SINCE = "days_since"
+
+    # Invariant Keywords
+    INVARIANT = "invariant"
+    CODE = "code"
+
+    # v0.9.5 App Config Keywords
+    DESCRIPTION = "description"
+    MULTI_TENANT = "multi_tenant"
+    AUDIT_TRAIL = "audit_trail"
+    SECURITY_PROFILE = "security_profile"  # v0.11.0
+    THEME = "theme"  # v0.61.43: app-shell theme name (#design-system Phase B Patch 2)
+
+    # v0.9.5 Field Type Keywords
+    MONEY = "money"
+    FILE_TYPE = "file"  # FILE conflicts with built-in, use FILE_TYPE
+    VIA = "via"  # For many-to-many relationships through junction tables
+
+    # v0.7.1 LLM Cognition Keywords
+    INTENT = "intent"
+    EXAMPLES = "examples"
+    DOMAIN = "domain"
+    PATTERNS = "patterns"
+    EXTENDS = "extends"
+    ARCHETYPE = "archetype"
+    HAS_MANY = "has_many"
+    HAS_ONE = "has_one"
+    EMBEDS = "embeds"
+    BELONGS_TO = "belongs_to"
+    CASCADE = "cascade"
+    RESTRICT = "restrict"
+    NULLIFY = "nullify"
+    READONLY = "readonly"
+    DENY = "deny"
+    SCENARIOS = "scenarios"
+    GIVEN = "given"
+    THEN = "then"
+
+    # Persona & Scenario Keywords
+    SCENARIO = "scenario"
+    DEMO = "demo"
+    PERSONA = "persona"
+    GOALS = "goals"
+    PROFICIENCY = "proficiency"
+    SEED = "seed"
+    SEED_SCRIPT = "seed_script"
+    START_ROUTE = "start_route"
+
+    # v0.22.0 Story DSL Keywords
+    STORY = "story"
+    ACTOR = "actor"
+    TRIGGER = "trigger"
+    UNLESS = "unless"
+
+    # v0.39.0 Rhythm DSL Keywords
+    RHYTHM = "rhythm"
+    PHASE = "phase"
+    SCENE = "scene"
+
+    # v0.41.0 Convergent BDD Keywords
+    RULE = "rule"
+    QUESTION_DECL = "question"
+
+    # v0.42.0 Grant Schema Keywords
+    GRANT_SCHEMA = "grant_schema"
+
+    # v0.25.0 Top-Level Construct Keywords
+    ENUM = "enum"
+    WEBHOOK = "webhook"
+    APPROVAL = "approval"
+    SLA = "sla"
+    ISLAND = "island"
+    # VIEW already defined in Flow/E2E Test Keywords
+    # Sub-keywords for v0.25.0 constructs (events, payload, include, secret,
+    # method, approver_role, quorum, threshold, escalation, auto_approve,
+    # starts_when, pauses_when, completes_when, tiers, business_hours,
+    # on_breach, notify) are parsed as identifiers to avoid conflicts
+    # with existing DSL usage.
+
+    # v0.24.0 TigerBeetle Ledger Keywords
+    LEDGER = "ledger"
+    TRANSACTION = "transaction"
+    TRANSFER = "transfer"
+    DEBIT = "debit"
+    CREDIT = "credit"
+    AMOUNT = "amount"
+    ACCOUNT_CODE = "account_code"
+    LEDGER_ID = "ledger_id"
+    ACCOUNT_TYPE = "account_type"
+    CURRENCY = "currency"
+    FLAGS = "flags"
+    SYNC_TO = "sync_to"
+    IDEMPOTENCY_KEY = "idempotency_key"
+    VALIDATION = "validation"
+    EXECUTION = "execution"
+    PRIORITY = "priority"
+    PENDING_ID = "pending_id"
+    USER_DATA = "user_data"
+    TENANT_SCOPED = "tenant_scoped"
+    METADATA_MAPPING = "metadata_mapping"
+
+    # v0.23.0 Process Workflow Keywords
+    # Note: Many tokens already defined elsewhere:
+    #   SCHEDULE, INPUT, OUTPUT, SERVICE, CHANNEL, STEP, MAPPING,
+    #   CRON, RETRY, WAIT, MAX_ATTEMPTS, BACKOFF, TIMEOUT, STEPS
+    PROCESS = "process"
+    IMPLEMENTS = "implements"
+    PARALLEL = "parallel"
+    COMPENSATIONS = "compensations"
+    COMPENSATE = "compensate"
+    ON_SUCCESS = "on_success"
+    ON_FAILURE = "on_failure"
+    ON_ANY_FAILURE = "on_any_failure"
+    OVERLAP = "overlap"
+    CATCH_UP = "catch_up"
+    GOTO = "goto"
+    SUBPROCESS = "subprocess"
+    HUMAN_TASK = "human_task"
+    ASSIGNEE = "assignee"
+    ASSIGNEE_ROLE = "assignee_role"
+    INTERVAL = "interval"
+    TIMEZONE = "timezone"
+    EFFECTS = "effects"
+    SETS = "sets"
+    CONFIRM = "confirm"
+    INPUTS = "inputs"
+    CONDITION = "condition"
+    ON_TRUE = "on_true"
+    ON_FALSE = "on_false"
+
+    # v0.18.0 Event-First Architecture Keywords
+    EVENT_MODEL = "event_model"
+    PUBLISH = "publish"
+    SUBSCRIBE = "subscribe"
+    PROJECT = "project"
+    TOPIC = "topic"
+    RETENTION = "retention"
+    # v0.18.0 Governance Keywords (Issue #25)
+    POLICIES = "policies"
+    TENANCY = "tenancy"
+    INTERFACES = "interfaces"
+    DATA_PRODUCTS = "data_products"
+    CLASSIFY = "classify"
+    ERASURE = "erasure"
+    DATA_PRODUCT = "data_product"
+
+    # v0.19.0 HLESS (High-Level Event Semantics) Keywords
+    # RecordKind types (INTENT already exists in v0.7.1 LLM Cognition)
+    FACT = "FACT"
+    OBSERVATION = "OBSERVATION"
+    DERIVATION = "DERIVATION"
+    # Stream specification keywords
+    PARTITION_KEY = "partition_key"
+    ORDERING_SCOPE = "ordering_scope"
+    IDEMPOTENCY = "idempotency"
+    OUTCOMES = "outcomes"
+    DERIVES_FROM = "derives_from"
+    EMITS = "emits"
+    SIDE_EFFECTS = "side_effects"
+    ALLOWED = "allowed"
+    SCHEMA = "schema"
+    NOTE = "note"
+    # Time semantics
+    T_EVENT = "t_event"
+    T_LOG = "t_log"
+    T_PROCESS = "t_process"
+    # HLESS pragma
+    HLESS = "hless"
+    STRICT = "strict"
+    WARN = "warn"
+    OFF = "off"
+
+    # v0.21.0 LLM Jobs as First-Class Events (Issue #33)
+    LLM_MODEL = "llm_model"
+    LLM_CONFIG = "llm_config"
+    LLM_INTENT = "llm_intent"
+    TIER = "tier"
+    MAX_TOKENS = "max_tokens"
+    COST_PER_1K_INPUT = "cost_per_1k_input"
+    COST_PER_1K_OUTPUT = "cost_per_1k_output"
+    MODEL_ID = "model_id"
+    ARTIFACT_STORE = "artifact_store"
+    LOGGING = "logging"
+    LOG_PROMPTS = "log_prompts"
+    LOG_COMPLETIONS = "log_completions"
+    REDACT_PII = "redact_pii"
+    RATE_LIMITS = "rate_limits"
+    DEFAULT_MODEL = "default_model"
+    PROMPT = "prompt"
+    OUTPUT_SCHEMA = "output_schema"
+    TIMEOUT = "timeout"
+    RETRY = "retry"
+    PII = "pii"
+    MAX_ATTEMPTS = "max_attempts"
+    BACKOFF = "backoff"
+    INITIAL_DELAY_MS = "initial_delay_ms"
+    MAX_DELAY_MS = "max_delay_ms"
+    SCAN = "scan"
+    DEFAULT_PROVIDER = "default_provider"
+    BUDGET_ALERT_USD = "budget_alert_usd"
+    VISION = "vision"
+    # Note: 'model' is NOT a keyword - it's a common field name.
+    # Within llm_intent blocks, 'model:' is parsed as an identifier.
+    # Note: PIIAction values (warn, redact, reject) and RetryBackoff values
+    # (linear, exponential) are parsed as identifiers, not keywords
+
+    # v0.9.0 Messaging Channel Keywords
+    # Note: MESSAGE already defined above in UX keywords
+    CHANNEL = "channel"
+    SEND = "send"
+    RECEIVE = "receive"
+    PROVIDER = "provider"
+    CONFIG = "config"
+    PROVIDER_CONFIG = "provider_config"
+    DELIVERY_MODE = "delivery_mode"
+    OUTBOX = "outbox"
+    DIRECT = "direct"
+    THROTTLE = "throttle"
+    PER_RECIPIENT = "per_recipient"
+    PER_ENTITY = "per_entity"
+    PER_CHANNEL = "per_channel"
+    WINDOW = "window"
+    MAX_MESSAGES = "max_messages"
+    ON_EXCEED = "on_exceed"
+    DROP = "drop"
+    LOG = "log"
+    QUEUE = "queue"
+    STREAM = "stream"
+    EMAIL = "email"
+    ASSET = "asset"
+    DOCUMENT = "document"
+    TEMPLATE = "template"
+    SUBJECT = "subject"
+    BODY = "body"
+    HTML_BODY = "html_body"
+    ATTACHMENTS = "attachments"
+    ASSET_REF = "asset_ref"
+    DOCUMENT_REF = "document_ref"
+    ENTITY_ARG = "entity_arg"
+    FILENAME = "filename"
+    FOR_ENTITY = "for_entity"
+    FORMAT = "format"
+    LAYOUT = "layout"
+    PATH = "path"
+    CHANGED = "changed"
+    TO = "to"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    EVERY = "every"
+    CRON = "cron"
+    UPSERT = "upsert"
+    REGEX = "regex"
+
+    # Flow/E2E Test Keywords (v0.3.2)
+    # Note: Only include keywords that don't conflict with common DSL usage
+    # Words like 'high', 'medium', 'low', 'priority', 'status' are NOT keywords
+    # because they're commonly used as enum values or field names.
+    FLOW = "flow"
+    STEPS = "steps"
+    NAVIGATE = "navigate"
+    CLICK = "click"
+    FILL = "fill"
+    WAIT = "wait"
+    SNAPSHOT = "snapshot"
+    PRECONDITIONS = "preconditions"
+    AUTHENTICATED = "authenticated"
+    PUBLIC = "public"
+    USER_ROLE = "user_role"
+    FIXTURES = "fixtures"
+    VIEW = "view"
+    ENTITY_EXISTS = "entity_exists"
+    ENTITY_NOT_EXISTS = "entity_not_exists"
+    VALIDATION_ERROR = "validation_error"
+    VISIBLE = "visible"
+    NOT_VISIBLE = "not_visible"
+    TEXT_CONTAINS = "text_contains"
+    REDIRECTS_TO = "redirects_to"
+    FIELD_VALUE = "field_value"
+    # PRIORITY, HIGH, MEDIUM, LOW are handled as identifiers
+    TAGS = "tags"
+
+    # v0.38.0 Workspace Navigation Keywords
+    NAV_GROUP = "nav_group"
+    ICON = "icon"
+    COLLAPSED = "collapsed"
+    CONTEXT_SELECTOR = "context_selector"
+
+    # v0.61.95 (#926) Shared nav definitions — top-level `nav <name>:`
+    # blocks reusable across workspaces via `uses nav <name>`.
+    NAV = "nav"
+    GROUP = "group"
+
+    # v0.61.102 (#923, Part D of #918) — companion regions on
+    # create/edit surfaces. Declarative read-only panels rendered
+    # at top, bottom, or below a named section of a form surface.
+    COMPANION = "companion"
+    POSITION = "position"
+    BELOW_SECTION = "below_section"
+
+    # v0.39.0 Transition Side Effects
+    ON_TRANSITION = "on_transition"
+
+    # ADR-0020 Lifecycle evidence predicates
+    LIFECYCLE = "lifecycle"
+
+    # Agent-Led Fitness v1 — per-entity repr_fields block
+    FITNESS = "fitness"
+
+    # v0.43.0 External Action Links
+    EXTERNAL = "external"
+
+    # v0.44.0 Runtime Parameters
+    PARAM = "param"
+
+    # Feedback Widget
+    FEEDBACK_WIDGET = "feedback_widget"
+
+    # v0.61.0 Analytics / Privacy / Compliance
+    SUBPROCESSOR = "subprocessor"
+    ANALYTICS = "analytics"
+
+    # v0.46.0 Graph Semantics Keywords (#619)
+    GRAPH_EDGE = "graph_edge"
+    GRAPH_NODE = "graph_node"
+    TARGET = "target"
+    WEIGHT = "weight"
+    DIRECTED = "directed"
+    ACYCLIC = "acyclic"
+    EDGES = "edges"
+
+    # Comparison operators (for condition expressions)
+    DOUBLE_EQUALS = "=="
+    NOT_EQUALS = "!="
+    GREATER_THAN = ">"
+    LESS_THAN = "<"
+    GREATER_EQUAL = ">="
+    LESS_EQUAL = "<="
+    IN = "in"
+    NOT = "not"
+    IS = "is"
+    AND = "and"
+    OR = "or"
+
+    # Additional tokens for expressions
+    ASC = "asc"
+    DESC = "desc"
+
+    # Operators
+    COLON = ":"
+    ARROW = "->"
+    LARROW = "<-"
+    BIARROW = "<->"
+    COMMA = ","
+    LPAREN = "("
+    RPAREN = ")"
+    LBRACKET = "["
+    RBRACKET = "]"
+    EQUALS = "="
+    DOT = "."
+    SLASH = "/"
+    QUESTION = "?"
+    DOLLAR = "$"
+    # v0.61.113 (#941) — pipe used by `storage=foo|bar` to bind a `file`
+    # field to multiple `[storage.<name>]` blocks (shared+private fan-in).
+    PIPE = "|"
+
+    # Arithmetic operators (for aggregate expressions)
+    PLUS = "+"
+    MINUS = "-"
+    STAR = "*"
+    PERCENT = "%"
+
+    # Special
+    NEWLINE = "NEWLINE"
+    INDENT = "INDENT"
+    DEDENT = "DEDENT"
+    EOF = "EOF"
+
+
+# Token types that are NOT keywords (literals, operators, special tokens)
+_NON_KEYWORD_TOKENS = frozenset(
+    {
+        # Literals
+        TokenType.IDENTIFIER,
+        TokenType.STRING,
+        TokenType.NUMBER,
+        TokenType.DURATION_LITERAL,
+        # Operators and punctuation
+        TokenType.DOUBLE_EQUALS,
+        TokenType.NOT_EQUALS,
+        TokenType.GREATER_THAN,
+        TokenType.LESS_THAN,
+        TokenType.GREATER_EQUAL,
+        TokenType.LESS_EQUAL,
+        TokenType.COLON,
+        TokenType.ARROW,
+        TokenType.LARROW,
+        TokenType.BIARROW,
+        TokenType.COMMA,
+        TokenType.LPAREN,
+        TokenType.RPAREN,
+        TokenType.LBRACKET,
+        TokenType.RBRACKET,
+        TokenType.EQUALS,
+        TokenType.DOT,
+        TokenType.SLASH,
+        TokenType.QUESTION,
+        TokenType.DOLLAR,
+        TokenType.PLUS,
+        TokenType.MINUS,
+        TokenType.STAR,
+        TokenType.PERCENT,
+        # Special tokens
+        TokenType.NEWLINE,
+        TokenType.INDENT,
+        TokenType.DEDENT,
+        TokenType.EOF,
+    }
+)
+
+# Auto-generate KEYWORDS from TokenType enum
+# Keywords are all token types except literals, operators, and special tokens
+KEYWORDS = frozenset({token.value for token in TokenType if token not in _NON_KEYWORD_TOKENS})
+
+
+@dataclass
+class Token:
+    """
+    A single token in the DSL.
+
+    Attributes:
+        type: Type of token
+        value: String value of the token
+        line: Line number (1-indexed)
+        column: Column number (1-indexed)
+    """
+
+    type: TokenType
+    value: str
+    line: int
+    column: int
+
+    def __repr__(self) -> str:
+        return f"Token({self.type.value}, {self.value!r}, {self.line}:{self.column})"
+
+
+class Lexer:
+    """
+    Lexer for DAZZLE DSL.
+
+    Converts source text into a stream of tokens with indentation tracking.
+    """
+
+    def __init__(self, text: str, file: Path):
+        """
+        Initialize lexer.
+
+        Args:
+            text: Source text to tokenize
+            file: Source file path (for error reporting)
+        """
+        self.text = text
+        self.file = file
+        self.pos = 0
+        self.line = 1
+        self.column = 1
+        self.tokens: list[Token] = []
+        self.indent_stack = [0]  # Stack of indentation levels
+
+    def current_char(self) -> str | None:
+        """Get current character or None if at end."""
+        if self.pos >= len(self.text):
+            return None
+        return self.text[self.pos]
+
+    def peek_char(self, offset: int = 1) -> str | None:
+        """Peek ahead at character."""
+        pos = self.pos + offset
+        if pos >= len(self.text):
+            return None
+        return self.text[pos]
+
+    def advance(self) -> None:
+        """Move to next character, updating line/column."""
+        if self.pos < len(self.text):
+            if self.text[self.pos] == "\n":
+                self.line += 1
+                self.column = 1
+            else:
+                self.column += 1
+            self.pos += 1
+
+    def skip_whitespace(self, skip_newlines: bool = False) -> None:
+        """Skip whitespace characters."""
+        while self.current_char() in (" ", "\t", "\r") or (
+            skip_newlines and self.current_char() == "\n"
+        ):
+            self.advance()
+
+    def skip_comment(self) -> None:
+        """Skip comment (from # to end of line)."""
+        if self.current_char() == "#":
+            while self.current_char() and self.current_char() != "\n":
+                self.advance()
+
+    def read_string(self) -> str:
+        """Read a quoted string."""
+        start_line = self.line
+        start_col = self.column
+        quote = self.current_char()  # " or '
+        self.advance()  # skip opening quote
+
+        chars = []
+        while True:
+            current = self.current_char()
+            if not current or current == quote:
+                break
+
+            if current == "\\":
+                self.advance()
+                # Handle escape sequences
+                escape_char = self.current_char()
+                if escape_char == "n":
+                    chars.append("\n")
+                elif escape_char == "t":
+                    chars.append("\t")
+                elif escape_char == "\\":
+                    chars.append("\\")
+                elif escape_char and escape_char == quote:
+                    chars.append(quote if quote else "")
+                elif escape_char:
+                    chars.append(escape_char)
+                self.advance()
+            else:
+                chars.append(current)
+                self.advance()
+
+        if self.current_char() != quote:
+            raise make_parse_error(
+                "Unterminated string literal",
+                self.file,
+                start_line,
+                start_col,
+            )
+
+        self.advance()  # skip closing quote
+        return "".join(chars)
+
+    def read_number(self) -> tuple[str, bool]:
+        """
+        Read a number (integer or decimal), optionally followed by duration suffix.
+
+        Returns:
+            Tuple of (value, is_duration_literal)
+            Duration suffixes: min, h, d, w, m, y (e.g., 7d, 24h, 30min)
+        """
+        chars = []
+        current = self.current_char()
+        while current and (current.isdigit() or current == "."):
+            chars.append(current)
+            self.advance()
+            current = self.current_char()
+
+        number_str = "".join(chars)
+
+        # Check for duration suffix (compact syntax: 7d, 24h, 30min, 2w, 3m, 1y)
+        # Only for integers (not decimals)
+        if "." not in number_str and current and current.isalpha():
+            suffix_start = self.pos
+            suffix_chars = []
+            while current and current.isalpha():
+                suffix_chars.append(current)
+                self.advance()
+                current = self.current_char()
+
+            suffix = "".join(suffix_chars)
+            # Valid duration suffixes
+            if suffix in ("min", "h", "d", "w", "m", "y"):
+                return f"{number_str}{suffix}", True
+            else:
+                # Not a duration, reset position to after number
+                self.pos = suffix_start
+                self.column -= len(suffix_chars)  # Approximate column reset
+
+        return number_str, False
+
+    def read_identifier(self) -> str:
+        """Read an identifier or keyword."""
+        chars = []
+        current = self.current_char()
+        while current and (current.isalnum() or current == "_"):
+            chars.append(current)
+            self.advance()
+            current = self.current_char()
+        return "".join(chars)
+
+    def handle_indentation(self, indent_level: int) -> None:
+        """Generate INDENT/DEDENT tokens based on indentation level."""
+        current_indent = self.indent_stack[-1]
+
+        if indent_level > current_indent:
+            self.indent_stack.append(indent_level)
+            self.tokens.append(Token(TokenType.INDENT, "", self.line, 1))
+
+        elif indent_level < current_indent:
+            while self.indent_stack and self.indent_stack[-1] > indent_level:
+                self.indent_stack.pop()
+                self.tokens.append(Token(TokenType.DEDENT, "", self.line, 1))
+
+            if self.indent_stack[-1] != indent_level:
+                raise make_parse_error(
+                    f"Inconsistent indentation (expected "
+                    f"{self.indent_stack[-1]} spaces, got {indent_level})",
+                    self.file,
+                    self.line,
+                    1,
+                )
+
+    def _handle_line_start(self) -> bool:
+        """
+        Process indentation at the start of a line.
+
+        Reads leading whitespace, skips blank lines/comments, emits INDENT/DEDENT.
+
+        Returns:
+            True if the line was blank/comment (caller should ``continue``),
+            False if a real token follows and ``at_line_start`` should be cleared.
+        """
+        indent_level = 0
+        while self.current_char() in (" ", "\t"):
+            if self.current_char() == " ":
+                indent_level += 1
+            else:  # "\t"
+                indent_level += 4  # Treat tab as 4 spaces
+            self.advance()
+
+        # Skip blank lines and comments
+        if self.current_char() in ("\n", "#"):
+            if self.current_char() == "#":
+                self.skip_comment()
+            if self.current_char() == "\n":
+                self.tokens.append(Token(TokenType.NEWLINE, "\\n", self.line, self.column))
+                self.advance()
+            return True  # blank/comment line — caller should continue
+
+        # Handle indentation changes for real content lines
+        if self.current_char() is not None:
+            self.handle_indentation(indent_level)
+        return False
+
+    def _tokenize_string(self, token_line: int, token_col: int) -> None:
+        """Read a quoted string and append a STRING token."""
+        value = self.read_string()
+        self.tokens.append(Token(TokenType.STRING, value, token_line, token_col))
+
+    def _tokenize_number(self, token_line: int, token_col: int) -> None:
+        """Read a numeric literal (or duration) and append the appropriate token."""
+        value, is_duration = self.read_number()
+        if is_duration:
+            self.tokens.append(Token(TokenType.DURATION_LITERAL, value, token_line, token_col))
+        else:
+            self.tokens.append(Token(TokenType.NUMBER, value, token_line, token_col))
+
+    def _tokenize_identifier(self, token_line: int, token_col: int) -> None:
+        """Read an identifier or keyword and append the appropriate token."""
+        value = self.read_identifier()
+        token_type = TokenType(value) if value in KEYWORDS else TokenType.IDENTIFIER
+        self.tokens.append(Token(token_type, value, token_line, token_col))
+
+    def _tokenize_operator(self, ch: str, token_line: int, token_col: int) -> None:
+        """
+        Consume one operator character (or multi-char sequence) and append a token.
+
+        Raises:
+            ParseError: for invalid single-char operators (``!`` without ``=``).
+        """
+        # Single-character operators with no lookahead needed
+        _simple: dict[str, TokenType] = {
+            ":": TokenType.COLON,
+            ",": TokenType.COMMA,
+            "(": TokenType.LPAREN,
+            ")": TokenType.RPAREN,
+            "[": TokenType.LBRACKET,
+            "]": TokenType.RBRACKET,
+            ".": TokenType.DOT,
+            "?": TokenType.QUESTION,
+            "/": TokenType.SLASH,
+            "+": TokenType.PLUS,
+            "*": TokenType.STAR,
+            "%": TokenType.PERCENT,
+            "$": TokenType.DOLLAR,
+            "|": TokenType.PIPE,
+        }
+        if ch in _simple:
+            self.advance()
+            self.tokens.append(Token(_simple[ch], ch, token_line, token_col))
+            return
+
+        if ch == "=":
+            if self.peek_char() == "=":
+                self.advance()
+                self.advance()
+                self.tokens.append(Token(TokenType.DOUBLE_EQUALS, "==", token_line, token_col))
+            else:
+                self.advance()
+                self.tokens.append(Token(TokenType.EQUALS, "=", token_line, token_col))
+
+        elif ch == "!":
+            if self.peek_char() == "=":
+                self.advance()
+                self.advance()
+                self.tokens.append(Token(TokenType.NOT_EQUALS, "!=", token_line, token_col))
+            else:
+                raise make_parse_error(
+                    f"Unexpected character: {ch!r}", self.file, token_line, token_col
+                )
+
+        elif ch == ">":
+            if self.peek_char() == "=":
+                self.advance()
+                self.advance()
+                self.tokens.append(Token(TokenType.GREATER_EQUAL, ">=", token_line, token_col))
+            else:
+                self.advance()
+                self.tokens.append(Token(TokenType.GREATER_THAN, ">", token_line, token_col))
+
+        elif ch == "-":
+            if self.peek_char() == ">":
+                self.advance()
+                self.advance()
+                self.tokens.append(Token(TokenType.ARROW, "->", token_line, token_col))
+            else:
+                self.advance()
+                self.tokens.append(Token(TokenType.MINUS, "-", token_line, token_col))
+
+        elif ch == "<":
+            if self.peek_char() == "-":
+                if self.peek_char(2) == ">":
+                    self.advance()
+                    self.advance()
+                    self.advance()
+                    self.tokens.append(Token(TokenType.BIARROW, "<->", token_line, token_col))
+                else:
+                    self.advance()
+                    self.advance()
+                    self.tokens.append(Token(TokenType.LARROW, "<-", token_line, token_col))
+            elif self.peek_char() == "=":
+                self.advance()
+                self.advance()
+                self.tokens.append(Token(TokenType.LESS_EQUAL, "<=", token_line, token_col))
+            else:
+                self.advance()
+                self.tokens.append(Token(TokenType.LESS_THAN, "<", token_line, token_col))
+
+        else:
+            raise make_parse_error(
+                f"Unexpected character: {ch!r}", self.file, token_line, token_col
+            )
+
+    def tokenize(self) -> list[Token]:
+        """
+        Tokenize the entire source text.
+
+        Returns:
+            List of tokens including INDENT/DEDENT and EOF
+
+        Raises:
+            ParseError: If syntax error encountered
+        """
+        at_line_start = True
+
+        while self.pos < len(self.text):
+            # Handle line start (indentation)
+            if at_line_start:
+                if self._handle_line_start():
+                    continue
+                at_line_start = False
+
+            # Skip whitespace (but not newlines)
+            self.skip_whitespace(skip_newlines=False)
+
+            ch = self.current_char()
+            if ch is None:
+                break
+
+            token_line = self.line
+            token_col = self.column
+
+            if ch == "#":
+                self.skip_comment()
+            elif ch == "\n":
+                self.tokens.append(Token(TokenType.NEWLINE, "\\n", token_line, token_col))
+                self.advance()
+                at_line_start = True
+            elif ch in ('"', "'"):
+                self._tokenize_string(token_line, token_col)
+            elif ch.isdigit():
+                self._tokenize_number(token_line, token_col)
+            elif ch.isalpha() or ch == "_":
+                self._tokenize_identifier(token_line, token_col)
+            else:
+                self._tokenize_operator(ch, token_line, token_col)
+
+        # Emit remaining DEDENTs
+        while len(self.indent_stack) > 1:
+            self.indent_stack.pop()
+            self.tokens.append(Token(TokenType.DEDENT, "", self.line, self.column))
+
+        # Add EOF token
+        self.tokens.append(Token(TokenType.EOF, "", self.line, self.column))
+
+        return self.tokens
+
+
+def tokenize(text: str, file: Path) -> list[Token]:
+    """
+    Convenience function to tokenize DSL text.
+
+    Args:
+        text: Source text
+        file: Source file path
+
+    Returns:
+        List of tokens
+    """
+    lexer = Lexer(text, file)
+    return lexer.tokenize()

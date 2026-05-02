@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: skan
+Version: 0.13.1
+Summary: Skeleton analysis in Python
+Author-email: Juan Nunez-Iglesias <juan.nunez-iglesias@monash.edu>
+License: BSD 3-Clause
+Project-URL: Source, https://github.com/jni/skan
+Project-URL: Bug_Tracker, https://github.com/jni//issues
+Project-URL: Documentation, https://skeleton-analysis.org/stable/
+Keywords: image processing,skeletons
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Classifier: Framework :: napari
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: imageio>=2.10.1
+Requires-Dist: matplotlib>=3.4
+Requires-Dist: networkx>=2.7
+Requires-Dist: numba>=0.58
+Requires-Dist: numpy>=1.25
+Requires-Dist: pandas>=2.0.2
+Requires-Dist: openpyxl>=2.6
+Requires-Dist: scikit-image>=0.17.1
+Requires-Dist: scipy>=1.7
+Requires-Dist: toolz>=0.10.0
+Requires-Dist: tqdm>=4.57.0
+Provides-Extra: all
+Requires-Dist: scikit-image[data]; extra == "all"
+Provides-Extra: gui
+Requires-Dist: magicgui>=0.7.3; extra == "gui"
+Provides-Extra: testing
+Requires-Dist: coverage; extra == "testing"
+Requires-Dist: hypothesis; extra == "testing"
+Requires-Dist: napari[pyqt5]>=0.4.19rc1; extra == "testing"
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: pytest-qt; extra == "testing"
+Requires-Dist: seaborn<1.0; extra == "testing"
+Requires-Dist: tifffile; extra == "testing"
+Provides-Extra: docs
+Requires-Dist: napari[all]>=0.4.19rc1; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: jupyter; extra == "docs"
+Requires-Dist: jupytext; extra == "docs"
+Requires-Dist: notebook; extra == "docs"
+Requires-Dist: seaborn<1.0,>=0.13; extra == "docs"
+Requires-Dist: sphinx-toggleprompt; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
+Requires-Dist: myst-nb; extra == "docs"
+Requires-Dist: zarr>=3.1.0; extra == "docs"
+Requires-Dist: pydata-sphinx-theme<1.0; extra == "docs"
+Dynamic: license-file
+
+# skan: skeleton analysis in Python
+Python module to analyse skeleton (thin object) images
+
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/jni/skan/main?filepath=doc%2Fgetting_started.ipynb)
+[![Coverage Status](https://coveralls.io/repos/github/jni/skan/badge.svg?branch=main)](https://coveralls.io/github/jni/skan?branch=master)
+
+See the documentation at [https://skeleton-analysis.org](https://skeleton-analysis.org).

@@ -123,6 +123,8 @@ from .type_defs import (
     DescribeContainerFleetOutputTypeDef,
     DescribeContainerGroupDefinitionInputTypeDef,
     DescribeContainerGroupDefinitionOutputTypeDef,
+    DescribeContainerGroupPortMappingsInputTypeDef,
+    DescribeContainerGroupPortMappingsOutputTypeDef,
     DescribeEC2InstanceLimitsInputTypeDef,
     DescribeEC2InstanceLimitsOutputTypeDef,
     DescribeFleetAttributesInputTypeDef,
@@ -746,6 +748,16 @@ class GameLiftClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_container_group_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_container_group_definition)
+        """
+
+    async def describe_container_group_port_mappings(
+        self, **kwargs: Unpack[DescribeContainerGroupPortMappingsInputTypeDef]
+    ) -> DescribeContainerGroupPortMappingsOutputTypeDef:
+        """
+        <b>This API works with the following fleet types:</b> Container.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_container_group_port_mappings.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_container_group_port_mappings)
         """
 
     async def describe_ec2_instance_limits(

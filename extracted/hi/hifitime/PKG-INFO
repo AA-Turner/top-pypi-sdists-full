@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: hifitime
+Version: 4.3.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Intended Audience :: Science/Research
+License-File: LICENSE.txt
+Home-Page: https://nyxspace.com/
+License-Expression: MPL-2.0
+Requires-Python: >=3.9

@@ -1,0 +1,208 @@
+from __future__ import annotations
+
+import inspect
+import sys
+import textwrap
+import warnings
+from collections.abc import Generator
+from contextlib import AbstractContextManager, contextmanager
+from types import FunctionType, GenericAlias
+from typing import Literal, Self
+
+import dotenv
+from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+
+from ._utils import copy_func
+
+
+def _type_str(cls: type, field: FieldInfo) -> str:
+    if isinstance(field.annotation, GenericAlias) or not isinstance(field.annotation, type):
+        return str(field.annotation)
+    if field.annotation.__module__ in {"builtins", cls.__module__}:
+        return field.annotation.__qualname__
+    return f"{field.annotation.__module__}.{field.annotation.__qualname__}"
+
+
+_docstring_template = """Allows users to customize settings for the `{package}` package.
+
+Settings here will generally be for advanced use-cases and should be used with caution.
+
+For setting an option use :func:`~{package}.{name}.override` (local) or set the attributes directly (global)
+i.e., `{package}.{name}.my_setting = foo`. For assignment by environment variable, use the variable name in
+all caps with `{env_prefix}` as the prefix before import of `{package}`.
+"""
+
+
+class Settings(BaseSettings):
+    '''Base class for package settings.
+
+    This class can be subclassed by individual packages to get package-specific settings handling.
+    Settings will be validated on assignment thanks to Pydantic. The class requires the arguments
+    `exported_object_name` and `docstring_style`, which will be used to construct a suitable
+    docstring (see the examples).
+
+    Both a settings instance and its `override` method should be added to the package documentation.
+
+    Thanks to Pydantic Settings, settings values will also be loaded from environment variables or `.env`
+    files. Environment variables must be prefixex with `$PACKAGE_NAME_` to take effect, where `$PACKAGE_NAME`
+    is the name of the package of the subclass. This can be overridden by passing `env_prefix=CUSTOMPREFIX`
+    as class argument.
+
+    Examples:
+        >>> from typing import Annotated
+        ... from pydantic import Field
+        ... from scverse_misc import Settings
+        ...
+        ...
+        ... class MySettings(Settings, exported_object_name="settings", docstring_style="numpy"):
+        ...     eps: Annotated[float, Field(gt=0, lt=1)] = 1e-8
+        ...     """Small epsilon for numerical stability."""
+        ...
+        ...     use_optional_feature: bool = False
+        ...     """Whether to use the optional feature."""
+        ...
+        ...
+        ... settings = MySettings()
+    '''
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return init_settings, env_settings, dotenv_settings
+
+    @staticmethod
+    def _get_packagename(subcls: type[Settings]) -> str:
+        package_name = subcls.__module__
+        dotidx = package_name.find(".")
+        if dotidx > -1:
+            package_name = package_name[:dotidx]
+        return package_name
+
+    def __init_subclass__(subcls, *, exported_object_name: str, docstring_style: Literal["google", "numpy", "scverse"]):
+        if (config := subcls.__dict__.get("model_config")) is not None:
+            if not config.get("validate_assignment", True):
+                warnings.warn("`validate_assignment=False` is not supported, overriding.", RuntimeWarning, stacklevel=2)
+            if not config.get("use_attribute_docstrings", True):
+                warnings.warn(
+                    "`use_attribute_docstrings=False` is not supported, overriding.", RuntimeWarning, stacklevel=2
+                )
+            if config.get("env_file") is not None:
+                warnings.warn(
+                    "Setting a custom env_file location is not supported, overriding.", RuntimeWarning, stacklevel=2
+                )
+        else:
+            config = SettingsConfigDict()
+
+        config["validate_assignment"] = True
+        config["use_attribute_docstrings"] = True
+        config["env_file"] = dotenv.find_dotenv()
+
+        if not config.get("env_prefix"):
+            config["env_prefix"] = f"{__class__._get_packagename(subcls)}_"  # type: ignore[name-defined] # https://github.com/python/mypy/issues/4177
+        subcls.model_config = config
+
+        super().__init_subclass__()
+
+    @contextmanager
+    def override(self, **kwargs: object) -> Generator[None]:
+        """Context manager for local setting overrides.
+
+        Subclasses will get a version with a docstring detailing the available parameters.
+        """
+        oldsettings = {argname: getattr(self, argname) for argname in kwargs.keys()}
+        try:
+            for argname, argval in kwargs.items():
+                setattr(self, argname, argval)
+            yield
+        finally:
+            for argname, argval in reversed(oldsettings.items()):
+                setattr(self, argname, argval)
+
+    @classmethod
+    def __pydantic_init_subclass__(  # type: ignore[override]
+        subcls: type[Self], *, exported_object_name: str, docstring_style: Literal["google", "numpy", "scverse"]
+    ) -> None:
+        subcls.__doc__ = (
+            _docstring_template.format(
+                package=__class__._get_packagename(subcls),  # type: ignore[name-defined] # https://github.com/python/mypy/issues/4177
+                name=exported_object_name,
+                env_prefix=subcls.model_config["env_prefix"].upper(),
+            )
+            + "\n\nThe following options are available:\n"
+        )
+        override_doc = "Provides local override via keyword arguments as a context manager.\n\n"
+        if docstring_style == "google":
+            override_doc += "Args:\n"
+        else:
+            override_doc += "Parameters\n----------\n"
+        for fname, field in subcls.model_fields.items():
+            subcls.__doc__ += f"""
+.. attribute:: {exported_object_name}.{fname}
+   :type: {_type_str(subcls, field)}\n"""
+            if field.default is not PydanticUndefined:
+                subcls.__doc__ += f"   :value: {field.default!r}\n"
+
+            description = ""
+            if field.description is not None:
+                subcls.__doc__ += f"\n{textwrap.indent(field.description, '   ')}\n"
+                description += field.description
+
+            if docstring_style == "google":
+                override_doc += (
+                    f"""    {fname} ({_type_str(subcls, field)}): {textwrap.indent(description, "        ")}\n"""
+                )
+            else:
+                annot = "" if docstring_style == "scverse" else f" : {_type_str(subcls, field)}"
+                override_doc += f"""\
+{fname}{annot}
+{textwrap.indent(description, "    ")}\n"""
+
+        subcls.override = _copy_override(  # type: ignore[method-assign,type-var]
+            subcls, subcls.override, override_doc, return_annotation=AbstractContextManager[None]
+        )
+
+
+class CustomRepr(str):
+    def __repr__(self) -> str:
+        return self
+
+
+def _copy_override[F: FunctionType](cls: type[Settings], func: F, doc: str, return_annotation: object) -> F:
+    from ._utils import Overrides
+
+    parameters = [
+        inspect.Parameter("self", inspect.Parameter.POSITIONAL_ONLY),
+        *[
+            inspect.Parameter(
+                n, inspect.Parameter.KEYWORD_ONLY, default=CustomRepr("<no change>"), annotation=f.annotation
+            )
+            for n, f in cls.model_fields.items()
+        ],
+    ]
+    overrides = Overrides(
+        __doc__=doc,
+        __module__=cls.__module__,
+        __qualname__=f"{cls.__qualname__}.{func.__name__}",
+        __signature__=inspect.Signature(parameters, return_annotation=return_annotation),
+        __annotations__={
+            **{name: field.annotation for name, field in cls.model_fields.items()},
+            "return": return_annotation,
+        },
+    )
+    if sys.version_info >= (3, 14):
+        from annotationlib import Format
+
+        str_annotations = {n: _type_str(cls, f) for n, f in cls.model_fields.items()}
+        overrides["__annotate__"] = lambda fmt: (
+            overrides["__annotations__"] if fmt != Format.STRING else str_annotations
+        )
+
+    return copy_func(func, **overrides)

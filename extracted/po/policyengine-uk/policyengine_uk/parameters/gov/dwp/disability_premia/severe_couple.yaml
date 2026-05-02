@@ -1,0 +1,9 @@
+description: Severe disability premium for a couple where both are eligible
+values:
+  2015-04-01: 133.9
+metadata:
+  period: week
+  unit: currency-GBP
+  label: Legacy benefit severe disability premium (couple)
+  uprating: gov.benefit_uprating_cpi
+  reference: https://www.gov.uk/disability-premiums/what-youll-get

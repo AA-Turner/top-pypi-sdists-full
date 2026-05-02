@@ -1,2 +1,0 @@
-import{o as e}from"./vendor-codemirror-CPtRGrRG.js";import{A as t}from"./vendor-radix-D9JArpoL.js";import{f as n}from"./utils-BL-OKo2J.js";var r=e();function i({className:e,...i}){return(0,r.jsx)(t,{"data-slot":`label`,className:n(`flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50`,e),...i})}export{i as t};
-//# sourceMappingURL=label-BLvZjC4x.js.map

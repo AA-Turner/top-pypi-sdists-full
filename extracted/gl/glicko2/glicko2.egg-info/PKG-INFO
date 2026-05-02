@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: glicko2
+Version: 2.1.0
+Summary: Python implementation of glicko2
+Home-page: https://github.com/deepy/glicko2
+Author: Alexander Nordlund
+Author-email: deep.alexander@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 6 - Mature
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+glicko2
+=======
+
+This is my fork of lmeyerov's update to Ryan Kirkman's pyglicko2
+[![Build Status](https://travis-ci.org/deepy/glicko2.png?branch=master)](https://travis-ci.org/deepy/glicko2)

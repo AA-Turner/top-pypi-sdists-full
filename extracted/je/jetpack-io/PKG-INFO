@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: jetpack-io
+Version: 0.5.1.dev202208201660993532
+Summary: Python SDK for Jetpack.io
+Home-page: https://www.jetpack.io
+License: Jetpack Community License
+Author: jetpack.io
+Author-email: hello@jetpack.io
+Requires-Python: >=3.8,<4.0
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: Free To Use But Restricted
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development
+Requires-Dist: click (>=8.0.3,<9.0.0)
+Requires-Dist: deprecation (>=2.1.0,<3.0.0)
+Requires-Dist: grpcio (>=1.43.0,<2.0.0)
+Requires-Dist: grpcio-reflection (>=1.46.3,<2.0.0)
+Requires-Dist: jsonpickle (>=2.0.0,<3.0.0)
+Requires-Dist: pdoc3 (>=0.10.0,<0.11.0)
+Requires-Dist: protobuf (>=3.20.1,<4.0.0)
+Requires-Dist: schedule (>=1.1.0,<2.0.0)
+Requires-Dist: tblib (>=1.7.0,<2.0.0)
+Description-Content-Type: text/markdown
+
+## Jetpack SDK
+

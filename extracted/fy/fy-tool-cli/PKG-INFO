@@ -1,0 +1,23 @@
+Metadata-Version: 2.3
+Name: fy_tool_cli
+Version: 0.5.21
+Summary: 
+Author: Vinko Buble
+Author-email: vinkobuble@gmail.com
+Requires-Python: >=3.10,<3.14
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: fy_library (==0.5.21)
+Description-Content-Type: text/markdown
+
+# fy CLI tool
+
+Usage:
+
+```shell
+poetry run fy <path to folder with fy files>
+```
+

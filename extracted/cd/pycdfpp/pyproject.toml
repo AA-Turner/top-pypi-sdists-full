@@ -1,0 +1,58 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python>=0.14.0', 'numpy']
+
+[project]
+name = "pycdfpp"
+description="A modern C++ header only cdf library"
+authors = [{name="Alexis Jeandet", email="alexis.jeandet@member.fsf.org"}]
+summary = "A simple to use CDF files reader"
+requires-python=">=3.9"
+license = {file="COPYING"}
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ['numpy', 'pyyaml']
+dynamic = [
+  'version',
+]
+[project.urls]
+homepage = "https://github.com/SciQLop/CDFpp"
+documentation = "https://pycdfpp.readthedocs.io/en/latest/"
+repository = "https://github.com/SciQLop/CDFpp"
+
+[tool.meson-python.args]
+install = ['--tags=runtime,python-runtime']
+setup = ['-Doptimization=3', '-Dcpp_std=c++20', '--force-fallback-for=libdeflate,fmt,pybind11', '--vsenv']
+
+
+[tool.cibuildwheel]
+archs = ["auto"]
+build-frontend = "default"
+enable="cpython-freethreading"
+
+[tool.cibuildwheel.windows]
+before-build = "python -m pip install delvewheel"
+repair-wheel-command = "python -m delvewheel repair -v --add-path C:/Windows/System32 -w {dest_dir} {wheel}"
+
+
+[tool.bumpversion]
+current_version = "0.9.3"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+
+
+[[tool.bumpversion.files]]
+filename = "version.txt"

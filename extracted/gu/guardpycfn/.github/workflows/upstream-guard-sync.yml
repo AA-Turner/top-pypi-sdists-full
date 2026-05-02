@@ -1,0 +1,71 @@
+name: Sync upstream Guard
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily
+  workflow_dispatch: {}
+
+jobs:
+  check-and-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Fetch latest Guard release
+        id: fetch
+        run: |
+          python - << 'PY'
+          import json, urllib.request
+          url = 'https://api.github.com/repos/aws-cloudformation/cloudformation-guard/releases/latest'
+          with urllib.request.urlopen(url) as r:
+              data = json.load(r)
+          tag = data['tag_name']
+          print(f"tag={tag}")
+          with open("$GITHUB_OUTPUT", "a") as f:
+              f.write(f"tag={tag}\n")
+          PY
+
+      - name: Read current upstream version
+        id: current
+        run: |
+          if [ -f vendor/UPSTREAM_GUARD_VERSION ]; then
+            echo "current=$(cat vendor/UPSTREAM_GUARD_VERSION)" >> $GITHUB_OUTPUT
+          else
+            echo "current=none" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update vendored repo if new
+        if: steps.fetch.outputs.tag != steps.current.outputs.current
+        run: |
+          set -euo pipefail
+          rm -rf vendor/cloudformation-guard || true
+          git clone --depth 1 --branch "${{ steps.fetch.outputs.tag }}" https://github.com/aws-cloudformation/cloudformation-guard vendor/cloudformation-guard
+          echo "${{ steps.fetch.outputs.tag }}" > vendor/UPSTREAM_GUARD_VERSION
+          git config user.email "bot@example.com"
+          git config user.name "guard-sync-bot"
+          git checkout -b chore/sync-guard-${{ steps.fetch.outputs.tag }}
+          git add vendor
+          git commit -m "chore: sync cloudformation-guard to ${{ steps.fetch.outputs.tag }}"
+          git push -u origin HEAD
+
+      - name: Open PR
+        if: steps.fetch.outputs.tag != steps.current.outputs.current
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: sync cloudformation-guard to ${{ steps.fetch.outputs.tag }}"
+          branch: "chore/sync-guard-${{ steps.fetch.outputs.tag }}"
+          title: "chore: sync cloudformation-guard to ${{ steps.fetch.outputs.tag }}"
+          body: |
+            Updates vendored Guard to `${{ steps.fetch.outputs.tag }}`.
+          labels: "chore, dependencies"
+
+

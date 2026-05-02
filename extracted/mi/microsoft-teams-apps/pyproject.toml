@@ -1,0 +1,52 @@
+[project]
+name = "microsoft-teams-apps"
+dynamic = ["version"]
+description = "The app package for a Microsoft Teams agent"
+authors = [{ name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }]
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+license = "MIT"
+
+dependencies = [
+    "fastapi>=0.115.13",
+    "microsoft-teams-api",
+    "microsoft-teams-common",
+    "uvicorn>=0.34.3",
+    "cryptography>=3.4.0",
+    "pyjwt[crypto]>=2.12.0",
+    "dependency-injector>=4.48.1",
+    "msal>=1.33.0",
+    "python-dotenv>=1.0.0",
+    "pydantic-settings>=2.11.0",
+]
+
+[project.optional-dependencies]
+graph = [
+    "microsoft-teams-graph",
+]
+
+[dependency-groups]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-teams-build"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "teams-build"
+
+[tool.hatch.metadata.hooks.teams-build]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft_teams", "src/microsoft"]
+
+[tool.uv.sources]
+microsoft-teams-common = { workspace = true }
+microsoft-teams-api = { workspace = true }
+microsoft-teams-graph = { workspace = true }

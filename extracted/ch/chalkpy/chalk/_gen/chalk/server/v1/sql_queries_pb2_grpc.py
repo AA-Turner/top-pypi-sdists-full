@@ -25,6 +25,11 @@ class SqlQueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryResponse.FromString,
         )
+        self.GetSqlQueryPlan = channel.unary_unary(
+            "/chalk.server.v1.SqlQueriesService/GetSqlQueryPlan",
+            request_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryPlanRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryPlanResponse.FromString,
+        )
         self.GetSqlQuerySignedUrls = channel.unary_unary(
             "/chalk.server.v1.SqlQueriesService/GetSqlQuerySignedUrls",
             request_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsRequest.SerializeToString,
@@ -47,6 +52,12 @@ class SqlQueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSqlQueryPlan(self, request, context):
+        """Get the persisted SQL query plan artifact for a specific query by ID."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetSqlQuerySignedUrls(self, request, context):
         """Get signed URLs for SQL query results"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -65,6 +76,11 @@ def add_SqlQueriesServiceServicer_to_server(servicer, server):
             servicer.GetSqlQuery,
             request_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryResponse.SerializeToString,
+        ),
+        "GetSqlQueryPlan": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSqlQueryPlan,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryPlanRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryPlanResponse.SerializeToString,
         ),
         "GetSqlQuerySignedUrls": grpc.unary_unary_rpc_method_handler(
             servicer.GetSqlQuerySignedUrls,
@@ -128,6 +144,35 @@ class SqlQueriesService(object):
             "/chalk.server.v1.SqlQueriesService/GetSqlQuery",
             chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSqlQueryPlan(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SqlQueriesService/GetSqlQueryPlan",
+            chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryPlanRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryPlanResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,0 +1,10 @@
+[files]
+extend-exclude = [
+    "benchmark/data/bench.yaml",
+    "tests/yaml-test-suite/",
+    "ruff.toml",
+]
+
+[default.extend-words]
+# For line: `56enmleECcgggoBADs=`
+ba = "ba"

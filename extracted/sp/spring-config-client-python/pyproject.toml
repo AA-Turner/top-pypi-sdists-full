@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling >= 1.26", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spring-config-client-python"
+dynamic = ["version"]
+authors = [
+  { name="Gleb Tcivie", email="gleb@tcivie.com" },
+]
+description = "Lightweight Spring Cloud Config client for Python"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+dependencies = [
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spring_config_client"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[project.urls]
+Homepage = "https://github.com/tcivie/spring-config-client-python"
+Issues = "https://github.com/tcivie/spring-config-client-python/issues"

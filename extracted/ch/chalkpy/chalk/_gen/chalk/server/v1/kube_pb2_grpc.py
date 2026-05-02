@@ -15,6 +15,11 @@ class KubeServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetPodVenvSize = channel.unary_unary(
+            "/chalk.server.v1.KubeService/GetPodVenvSize",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetPodVenvSizeRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetPodVenvSizeResponse.FromString,
+        )
         self.GetPodStackTraceDump = channel.unary_unary(
             "/chalk.server.v1.KubeService/GetPodStackTraceDump",
             request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetPodStackTraceDumpRequest.SerializeToString,
@@ -74,6 +79,12 @@ class KubeServiceStub(object):
 
 class KubeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def GetPodVenvSize(self, request, context):
+        """GetPodVenvSize runs `du -sh` on the venv site-packages directory inside the pod"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def GetPodStackTraceDump(self, request, context):
         """GetPodStackTraceDump gets the stack trace dump from a single process running in a pod
@@ -148,6 +159,11 @@ class KubeServiceServicer(object):
 
 def add_KubeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "GetPodVenvSize": grpc.unary_unary_rpc_method_handler(
+            servicer.GetPodVenvSize,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetPodVenvSizeRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetPodVenvSizeResponse.SerializeToString,
+        ),
         "GetPodStackTraceDump": grpc.unary_unary_rpc_method_handler(
             servicer.GetPodStackTraceDump,
             request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetPodStackTraceDumpRequest.FromString,
@@ -211,6 +227,35 @@ def add_KubeServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class KubeService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetPodVenvSize(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeService/GetPodVenvSize",
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetPodVenvSizeRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetPodVenvSizeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def GetPodStackTraceDump(

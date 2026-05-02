@@ -54,6 +54,7 @@ __all__ = [
     "AppleRuntimeConfig",
     "RuntimeConfig",
     "Secret",
+    "VMResources",
     "VMRuntimeConfig",
     # Base
     "BaseAgent",
@@ -95,5 +96,6 @@ from plato.otel import (
 from plato.runtimes.config import (
     AppleRuntimeConfig,
     RuntimeConfig,
+    VMResources,
     VMRuntimeConfig,
 )

@@ -1,0 +1,253 @@
+use std::borrow::Cow;
+use std::convert::TryFrom;
+
+use crate::helper::size::{Pixel, Size};
+use crate::mj_head::MjHead;
+use crate::prelude::hash::{Map, Set};
+
+pub(crate) fn parse_font_families(value: &str) -> impl Iterator<Item = &str> + '_ {
+    let mut in_quote: Option<char> = None;
+    value
+        .split(move |c: char| match (in_quote, c) {
+            (None, ',') => true,
+            (None, '\'' | '"') => {
+                in_quote = Some(c);
+                false
+            }
+            (Some(q), c) if q == c => {
+                in_quote = None;
+                false
+            }
+            _ => false,
+        })
+        .map(str::trim)
+        .map(unwrap_quotes)
+        .filter(|token| !token.is_empty())
+}
+
+fn unwrap_quotes(token: &str) -> &str {
+    for quote in ['\'', '"'] {
+        if let Some(inner) = token
+            .strip_prefix(quote)
+            .and_then(|s| s.strip_suffix(quote))
+        {
+            return inner;
+        }
+    }
+    token
+}
+
+#[cfg(test)]
+mod parse_font_families_tests {
+    use super::parse_font_families;
+
+    #[test]
+    fn unquoted_comma_separated_list() {
+        assert_eq!(
+            parse_font_families("Roboto, Arial, sans-serif").collect::<Vec<_>>(),
+            vec!["Roboto", "Arial", "sans-serif"]
+        );
+    }
+
+    #[test]
+    fn single_quoted_name_containing_comma_is_one_token() {
+        assert_eq!(
+            parse_font_families("'Open, Sans', Ubuntu, sans-serif").collect::<Vec<_>>(),
+            vec!["Open, Sans", "Ubuntu", "sans-serif"]
+        );
+    }
+
+    #[test]
+    fn double_quoted_name_containing_comma_is_one_token() {
+        assert_eq!(
+            parse_font_families("\"Open, Sans\", Ubuntu").collect::<Vec<_>>(),
+            vec!["Open, Sans", "Ubuntu"]
+        );
+    }
+
+    #[test]
+    fn single_quotes_are_stripped_from_names_without_commas() {
+        assert_eq!(
+            parse_font_families("'Source Sans 3', Helvetica, Arial, sans-serif")
+                .collect::<Vec<_>>(),
+            vec!["Source Sans 3", "Helvetica", "Arial", "sans-serif"]
+        );
+    }
+
+    #[test]
+    fn empty_tokens_are_filtered() {
+        assert_eq!(
+            parse_font_families("Roboto, , Arial").collect::<Vec<_>>(),
+            vec!["Roboto", "Arial"]
+        );
+    }
+
+    #[test]
+    fn empty_input_yields_no_tokens() {
+        assert!(parse_font_families("").next().is_none());
+        assert!(parse_font_families("   ").next().is_none());
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct VariableHeader {
+    used_font_families: Set<String>,
+    media_queries: Map<String, Size>,
+    styles: Set<Cow<'static, str>>,
+    #[cfg(feature = "css-inline")]
+    inline_styles: Set<Cow<'static, str>>,
+}
+
+impl Default for VariableHeader {
+    fn default() -> Self {
+        Self {
+            used_font_families: Default::default(),
+            media_queries: Map::new(),
+            styles: Set::new(),
+            #[cfg(feature = "css-inline")]
+            inline_styles: Set::new(),
+        }
+    }
+}
+
+impl VariableHeader {
+    pub fn used_font_families(&self) -> &Set<String> {
+        &self.used_font_families
+    }
+
+    pub fn add_used_font_family(&mut self, value: &str) {
+        self.used_font_families.insert(value.to_string());
+    }
+
+    pub fn add_font_families<T: AsRef<str>>(&mut self, value: T) {
+        for name in parse_font_families(value.as_ref()) {
+            self.add_used_font_family(name);
+        }
+    }
+
+    pub fn maybe_add_font_families<T: AsRef<str>>(&mut self, value: Option<T>) {
+        if let Some(value) = value {
+            self.add_font_families(value);
+        }
+    }
+
+    pub fn media_queries(&self) -> &Map<String, Size> {
+        &self.media_queries
+    }
+
+    pub fn add_media_query(&mut self, classname: String, size: Size) {
+        self.media_queries.insert(classname, size);
+    }
+
+    pub fn styles(&self) -> &Set<Cow<'static, str>> {
+        &self.styles
+    }
+
+    pub fn add_style<V: Into<Cow<'static, str>>>(&mut self, value: V) {
+        self.styles.insert(value.into());
+    }
+
+    pub fn maybe_add_style<V: Into<Cow<'static, str>>>(&mut self, value: Option<V>) {
+        if let Some(value) = value {
+            self.add_style(value);
+        }
+    }
+
+    #[cfg(feature = "css-inline")]
+    pub fn inline_styles(&self) -> &Set<Cow<'static, str>> {
+        &self.inline_styles
+    }
+
+    #[cfg(feature = "css-inline")]
+    pub fn add_inline_style<V: Into<Cow<'static, str>>>(&mut self, value: V) {
+        self.inline_styles.insert(value.into());
+    }
+}
+
+pub(crate) struct Header<'h> {
+    attributes_all: Map<&'h str, &'h str>,
+    attributes_class: Map<&'h str, Map<&'h str, &'h str>>,
+    attributes_element: Map<&'h str, Map<&'h str, &'h str>>,
+    breakpoint: Pixel,
+    font_families: Map<&'h str, &'h str>,
+    preview: Option<String>,
+    title: Option<String>,
+    lang: &'h str,
+    dir: &'h str,
+}
+
+impl<'h> Header<'h> {
+    pub(crate) fn new(head: Option<&'h MjHead>, lang: &'h str, dir: &'h str) -> Self {
+        Self {
+            attributes_all: head
+                .as_ref()
+                .map(|h| h.build_attributes_all())
+                .unwrap_or_default(),
+            attributes_class: head
+                .as_ref()
+                .map(|h| h.build_attributes_class())
+                .unwrap_or_default(),
+            attributes_element: head
+                .as_ref()
+                .map(|h| h.build_attributes_element())
+                .unwrap_or_default(),
+            breakpoint: head
+                .as_ref()
+                .and_then(|h| h.breakpoint())
+                .and_then(|s| Pixel::try_from(s.value()).ok())
+                .unwrap_or_else(|| Pixel::new(480.0)),
+            font_families: head
+                .as_ref()
+                .map(|h| h.build_font_families())
+                .unwrap_or_default(),
+            preview: head.and_then(|h| h.preview().map(|t| t.content())),
+            title: head
+                .and_then(|h| h.title())
+                .map(|t| t.content().to_string()),
+            lang,
+            dir,
+        }
+    }
+
+    pub fn attribute_all(&self, key: &str) -> Option<&str> {
+        self.attributes_all.get(key).copied()
+    }
+
+    pub fn attribute_class(&self, name: &str, key: &str) -> Option<&str> {
+        self.attributes_class
+            .get(name)
+            .and_then(|class_map| class_map.get(key))
+            .copied()
+    }
+
+    pub fn attribute_element(&self, name: &str, key: &str) -> Option<&str> {
+        self.attributes_element
+            .get(name)
+            .and_then(|elt| elt.get(key))
+            .copied()
+    }
+
+    pub fn breakpoint(&self) -> &Pixel {
+        &self.breakpoint
+    }
+
+    pub fn font_families(&self) -> &Map<&str, &str> {
+        &self.font_families
+    }
+
+    pub fn lang(&self) -> &str {
+        self.lang
+    }
+
+    pub fn dir(&self) -> &str {
+        self.dir
+    }
+
+    pub fn preview(&self) -> Option<&str> {
+        self.preview.as_deref()
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+}

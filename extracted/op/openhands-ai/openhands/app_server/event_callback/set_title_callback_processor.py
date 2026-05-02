@@ -18,6 +18,9 @@ from openhands.app_server.event_callback.event_callback_result_models import (
 )
 from openhands.app_server.services.injector import InjectorState
 from openhands.app_server.user.specifiy_user_context import ADMIN, USER_CONTEXT_ATTR
+
+# TODO(OpenHands/evaluation#418): import from openhands.sdk.utils.redact
+from openhands.app_server.utils._redact_compat import redact_text_secrets
 from openhands.app_server.utils.docker_utils import (
     replace_localhost_hostname_for_docker,
 )
@@ -49,17 +52,23 @@ async def _poll_for_title(
     for _ in range(_NUM_POLL_ATTEMPTS):
         await asyncio.sleep(_POLL_DELAY_S)
         try:
+            headers = (
+                {
+                    'X-Session-API-Key': session_api_key,
+                }
+                if session_api_key
+                else {}
+            )
             response = await httpx_client.get(
                 url,
-                headers={
-                    'X-Session-API-Key': session_api_key,
-                },
+                headers=headers,
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
             # Transient agent-server failures are acceptable; retry later.
             _logger.warning(
                 'Title poll failed for conversation %s: %s',
+                url,
                 exc,
             )
         else:
@@ -88,7 +97,11 @@ class SetTitleCallbackProcessor(EventCallbackProcessor):
             get_httpx_client,
         )
 
-        _logger.info(f'Callback {callback.id} Invoked for event {event}')
+        _logger.info(
+            'Callback %s Invoked for event %s',
+            callback.id,
+            redact_text_secrets(str(event)),
+        )
 
         state = InjectorState()
         setattr(state, USER_CONTEXT_ATTR, ADMIN)

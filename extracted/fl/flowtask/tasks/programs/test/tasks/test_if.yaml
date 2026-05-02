@@ -1,0 +1,19 @@
+name: Test IF
+description: Test for IF component functionality
+steps:
+    - FileRead:
+        file: sample_recap.json
+        is_json: True
+    - IF:
+        condition: "$.metadata.type == 'recapDefinition'"
+        true_component: PrintMessage_3
+        false_component: PrintMessage_4
+    - PrintMessage:
+        message: "Condition was True"
+        level: "INFO"
+    - PrintMessage:
+        message: "Condition was False"
+        level: "WARN"
+    - PrintMessage:
+        message: "This is the end of the test"
+        level: "WARN"

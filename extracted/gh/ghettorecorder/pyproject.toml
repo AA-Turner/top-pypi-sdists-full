@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools >= 42.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "GhettoRecorder"
+version = "3.1"
+description = "multiprocessor capable internet radio grabber"
+authors = [{name = "René Horn", email = "rene_horn@gmx.net" }]
+keywords = ['internet radio grabber']
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.7"
+
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 5 - Production/Stable",
+    "Topic :: Multimedia :: Sound/Audio :: Capture/Recording",
+]
+dependencies = [
+	"aacRepair",
+	"certifi",
+	"configparser",
+]
+
+[project.urls]
+homepage = "https://github.com/44xtc44"
+documentation = "https://GhettoRecorder.readthedocs.io/"
+repository = "https://github.com/44xtc44/GhettoRecorder"
+
+[project.scripts]
+ghetto_url = "ghettorecorder.__main__:main"
+ghetto_cmd = "ghettorecorder.cmd:main"

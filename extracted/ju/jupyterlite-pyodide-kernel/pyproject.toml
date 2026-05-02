@@ -1,0 +1,175 @@
+[build-system]
+requires = [
+    "hatchling >=1.28.0",
+    "jupyterlab >=4.5.5,<4.6.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyterlite-pyodide-kernel"
+dynamic = ["version"]
+readme = "README.md"
+description = "Python kernel for JupyterLite powered by Pyodide"
+authors = [
+    { name = "JupyterLite Contributors" },
+]
+keywords = [
+    "jupyterlite",
+    "jupyter",
+    "jupyterlab",
+    "notebook",
+    "browser",
+    "pyodide",
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+classifiers = [
+    "Framework :: Jupyter",
+    "Framework :: Jupyter :: JupyterLab",
+    "Framework :: Jupyter :: JupyterLab :: 4",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "jupyterlite-core >=0.7.3,<0.8.0",
+    "pkginfo"
+]
+
+[project.urls]
+Homepage = "https://jupyterlite-pyodide-kernel.readthedocs.io"
+Documentation = "https://jupyterlite-pyodide-kernel.readthedocs.io"
+Source = "https://github.com/jupyterlite/pyodide-kernel"
+Issues = "https://github.com/jupyterlite/pyodide-kernel/issues"
+PyPI = "https://pypi.org/project/jupyterlite-pyodide-kernel"
+
+[project.scripts]
+jupyter-piplite = "jupyterlite_pyodide_kernel.app:main"
+
+[project.entry-points."jupyterlite.addon.v0"]
+jupyterlite-pyodide-kernel-piplite = "jupyterlite_pyodide_kernel.addons.piplite:PipliteAddon"
+jupyterlite-pyodide-kernel-pyodide = "jupyterlite_pyodide_kernel.addons.pyodide:PyodideAddon"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "hatch",
+    "jupyterlab >=4.5.5,<4.6.0",
+]
+
+lint = [
+    "ruff >=0.3.0",
+]
+
+test = [
+    "pytest-console-scripts >=1.4.0",
+    "pytest-cov <7",
+    "pytest-html",
+    "pytest",
+]
+
+docs = [
+    "ipywidgets >=8.1.3,<9",
+    "jupyterlab-language-pack-fr-FR",
+    "jupyterlab-language-pack-zh-CN",
+    "myst-parser",
+    "pydata-sphinx-theme",
+    "sphinx-copybutton",
+    "jupyter-server-mathjax",
+    "libarchive-c"
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+path = "jupyterlite_pyodide_kernel/_version.py"
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["jupyterlite_pyodide_kernel/labextension"]
+exclude = [
+    ".github",
+    "/jupyterlite_pyodide_kernel/tests/fixtures/.pyodide"
+]
+include = [
+    "/*.md",
+    "/install.json",
+    "/jupyterlite_pyodide_kernel",
+    "/package.json",
+    "/ts*.json",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "/jupyterlite_pyodide_kernel",
+]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"jupyterlite_pyodide_kernel/labextension" = "share/jupyter/labextensions/@jupyterlite/pyodide-kernel-extension"
+"install.json" = "share/jupyter/labextensions/@jupyterlite/pyodide-kernel-extension/install.json"
+
+[tool.jupyter-releaser.options]
+version_cmd = "python scripts/bump-version.py"
+
+[tool.jupyter-releaser.hooks]
+before-bump-version = [
+    "python -m pip install 'jupyterlab~=4.5.5'",
+    "jlpm"
+]
+before-build-npm = [
+    "python -m pip install 'jupyterlab~=4.5.5' hatch",
+    "python -m pip install -e .[dev]",
+    "jlpm",
+    "jlpm build:prod",
+]
+before-build-python = [
+    "jlpm",
+    "jlpm build:prod",
+]
+
+# non-build tools, sorted by name
+[tool.check-wheel-contents]
+ignore = ["W002"]
+
+[tool.coverage.paths]
+source = [
+    "jupyterlite_pyodide_kernel/",
+    "*/site-packages/jupyterlite_pyodide_kernel/"
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--pyargs",
+    "jupyterlite_pyodide_kernel",
+    "-vv",
+    "--tb=long",
+    "--color=yes",
+    # pytest-console-scripts
+    "--script-launch-mode=subprocess",
+    # cov
+    "--cov=jupyterlite_pyodide_kernel",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html:build/reports/htmlcov",
+    "--cov-branch",
+    "--cov-fail-under=95",
+    "--no-cov-on-fail",
+    # html
+    "--html=build/reports/pytest.html",
+    "--self-contained-html",
+]
+
+[tool.ruff]
+cache-dir = "build/.cache/ruff"
+extend-include = ["*.ipynb"]
+include = [
+    "setup.py",
+    "scripts/**/*.py",
+    "jupyterlite_pyodide_kernel/**/*.py",
+    "packages/pyodide-kernel/py/**/*.py",
+    "examples/**/*.ipynb"
+]

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "numpy>=1.21.5", "librosa>=0.9.1", "onnxruntime>=1.10.0",
+"tqdm", "pandas", ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speechmos"
+version = "0.0.1.1"
+authors = [{name="Marju Purin", email="marjupurin@microsoft.com"},
+{name="AEC Challenge Organizers", email="aec_challenge@microsoft.com"},  
+]
+maintainers = [{name="AEC Challenge Organizers", email="aec_challenge@microsoft.com"},
+{name="Marju Purin", email="marjupurin@microsoft.com"},
+]
+description = "MOS (Mean Opinion Score) models for evaluating audio quality."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+keywords = ["aecmos", "dnsmos", "plcmos",
+    "acoustic echo cancellation", "noise suppression", "packet loss concealment",
+    "audio evaluation", "speech evaluation", "mean opinion score", "MOS",
+    "audio quality", "speech quality",
+]
+
+[project.urls]
+"AEC (acoustic echo cancellation)" = "https://github.com/microsoft/AEC-Challenge"
+"DNS (deep noise suppression)" = "https://github.com/microsoft/DNS-Challenge"
+"PLC (packet loss concealment)" = "https://github.com/microsoft/PLC-Challenge"
+
+[tool.setuptools]
+# ...
+# By default, include-package-data is true in pyproject.toml, so you do
+# NOT have to specify this line.
+include-package-data = true
+
+[tool.setuptools.packages.find]
+# scanning for namespace packages is true by default in pyproject.toml, so
+# you need NOT include the following line.
+namespaces = true
+where = ["src"]

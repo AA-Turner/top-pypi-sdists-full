@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_sagemaker.type_defs import AcceleratorPartitionConfigTypeDef
+    from types_aiobotocore_sagemaker.type_defs import AIBenchmarkInferenceComponentTypeDef
 
-    data: AcceleratorPartitionConfigTypeDef = ...
+    data: AIBenchmarkInferenceComponentTypeDef = ...
     ```
 """
 
@@ -27,6 +27,12 @@ from .literals import (
     ActivationStateType,
     AdditionalS3DataSourceDataTypeType,
     AggregationTransformationValueType,
+    AIBenchmarkJobStatusType,
+    AIRecommendationInferenceFrameworkType,
+    AIRecommendationInstanceTypeType,
+    AIRecommendationJobStatusType,
+    AIRecommendationMetricType,
+    AIRecommendationOptimizationTypeType,
     AlgorithmSortByType,
     AlgorithmStatusType,
     AppImageConfigSortKeyType,
@@ -168,6 +174,9 @@ from .literals import (
     LastUpdateStatusValueType,
     LifecycleManagementType,
     LineageTypeType,
+    ListAIBenchmarkJobsSortByType,
+    ListAIRecommendationJobsSortByType,
+    ListAIWorkloadConfigsSortByType,
     ListCompilationJobsSortByType,
     ListDeviceFleetsSortByType,
     ListEdgeDeploymentPlansSortByType,
@@ -354,6 +363,49 @@ else:
 
 
 __all__ = (
+    "AIBenchmarkEndpointOutputTypeDef",
+    "AIBenchmarkEndpointTypeDef",
+    "AIBenchmarkInferenceComponentTypeDef",
+    "AIBenchmarkJobSummaryTypeDef",
+    "AIBenchmarkNetworkConfigOutputTypeDef",
+    "AIBenchmarkNetworkConfigTypeDef",
+    "AIBenchmarkNetworkConfigUnionTypeDef",
+    "AIBenchmarkOutputConfigTypeDef",
+    "AIBenchmarkOutputResultTypeDef",
+    "AIBenchmarkTargetOutputTypeDef",
+    "AIBenchmarkTargetTypeDef",
+    "AIBenchmarkTargetUnionTypeDef",
+    "AICapacityReservationConfigOutputTypeDef",
+    "AICapacityReservationConfigTypeDef",
+    "AICloudWatchLogsTypeDef",
+    "AIDatasetConfigOutputTypeDef",
+    "AIDatasetConfigTypeDef",
+    "AIDatasetConfigUnionTypeDef",
+    "AIModelSourceS3TypeDef",
+    "AIModelSourceTypeDef",
+    "AIRecommendationComputeSpecOutputTypeDef",
+    "AIRecommendationComputeSpecTypeDef",
+    "AIRecommendationComputeSpecUnionTypeDef",
+    "AIRecommendationConstraintTypeDef",
+    "AIRecommendationDeploymentConfigurationTypeDef",
+    "AIRecommendationDeploymentS3ChannelTypeDef",
+    "AIRecommendationInferenceSpecificationTypeDef",
+    "AIRecommendationInstanceDetailTypeDef",
+    "AIRecommendationJobSummaryTypeDef",
+    "AIRecommendationModelDetailsTypeDef",
+    "AIRecommendationOptimizationDetailTypeDef",
+    "AIRecommendationOutputConfigTypeDef",
+    "AIRecommendationOutputResultTypeDef",
+    "AIRecommendationPerformanceMetricTypeDef",
+    "AIRecommendationPerformanceTargetOutputTypeDef",
+    "AIRecommendationPerformanceTargetTypeDef",
+    "AIRecommendationPerformanceTargetUnionTypeDef",
+    "AIRecommendationTypeDef",
+    "AIWorkloadConfigSummaryTypeDef",
+    "AIWorkloadConfigsTypeDef",
+    "AIWorkloadDataSourceTypeDef",
+    "AIWorkloadInputDataConfigTypeDef",
+    "AIWorkloadS3DataSourceTypeDef",
     "AcceleratorPartitionConfigTypeDef",
     "ActionSourceTypeDef",
     "ActionSummaryTypeDef",
@@ -587,6 +639,12 @@ __all__ = (
     "ContinuousParameterRangeSpecificationTypeDef",
     "ContinuousParameterRangeTypeDef",
     "ConvergenceDetectedTypeDef",
+    "CreateAIBenchmarkJobRequestTypeDef",
+    "CreateAIBenchmarkJobResponseTypeDef",
+    "CreateAIRecommendationJobRequestTypeDef",
+    "CreateAIRecommendationJobResponseTypeDef",
+    "CreateAIWorkloadConfigRequestTypeDef",
+    "CreateAIWorkloadConfigResponseTypeDef",
     "CreateActionRequestTypeDef",
     "CreateActionResponseTypeDef",
     "CreateAlgorithmInputTypeDef",
@@ -757,6 +815,12 @@ __all__ = (
     "DefaultSpaceSettingsTypeDef",
     "DefaultSpaceSettingsUnionTypeDef",
     "DefaultSpaceStorageSettingsTypeDef",
+    "DeleteAIBenchmarkJobRequestTypeDef",
+    "DeleteAIBenchmarkJobResponseTypeDef",
+    "DeleteAIRecommendationJobRequestTypeDef",
+    "DeleteAIRecommendationJobResponseTypeDef",
+    "DeleteAIWorkloadConfigRequestTypeDef",
+    "DeleteAIWorkloadConfigResponseTypeDef",
     "DeleteActionRequestTypeDef",
     "DeleteActionResponseTypeDef",
     "DeleteAlgorithmInputTypeDef",
@@ -841,6 +905,12 @@ __all__ = (
     "DeploymentStageTypeDef",
     "DeregisterDevicesRequestTypeDef",
     "DerivedInformationTypeDef",
+    "DescribeAIBenchmarkJobRequestTypeDef",
+    "DescribeAIBenchmarkJobResponseTypeDef",
+    "DescribeAIRecommendationJobRequestTypeDef",
+    "DescribeAIRecommendationJobResponseTypeDef",
+    "DescribeAIWorkloadConfigRequestTypeDef",
+    "DescribeAIWorkloadConfigResponseTypeDef",
     "DescribeActionRequestTypeDef",
     "DescribeActionResponseTypeDef",
     "DescribeAlgorithmInputTypeDef",
@@ -1247,6 +1317,15 @@ __all__ = (
     "LastUpdateStatusTypeDef",
     "LineageGroupSummaryTypeDef",
     "LineageMetadataTypeDef",
+    "ListAIBenchmarkJobsRequestPaginateTypeDef",
+    "ListAIBenchmarkJobsRequestTypeDef",
+    "ListAIBenchmarkJobsResponseTypeDef",
+    "ListAIRecommendationJobsRequestPaginateTypeDef",
+    "ListAIRecommendationJobsRequestTypeDef",
+    "ListAIRecommendationJobsResponseTypeDef",
+    "ListAIWorkloadConfigsRequestPaginateTypeDef",
+    "ListAIWorkloadConfigsRequestTypeDef",
+    "ListAIWorkloadConfigsResponseTypeDef",
     "ListActionsRequestPaginateTypeDef",
     "ListActionsRequestTypeDef",
     "ListActionsResponseTypeDef",
@@ -1889,6 +1968,10 @@ __all__ = (
     "StartPipelineExecutionResponseTypeDef",
     "StartSessionRequestTypeDef",
     "StartSessionResponseTypeDef",
+    "StopAIBenchmarkJobRequestTypeDef",
+    "StopAIBenchmarkJobResponseTypeDef",
+    "StopAIRecommendationJobRequestTypeDef",
+    "StopAIRecommendationJobResponseTypeDef",
     "StopAutoMLJobRequestTypeDef",
     "StopCompilationJobRequestTypeDef",
     "StopEdgeDeploymentStageRequestTypeDef",
@@ -2099,9 +2182,120 @@ __all__ = (
     "WorkforceTypeDef",
     "WorkforceVpcConfigRequestTypeDef",
     "WorkforceVpcConfigResponseTypeDef",
+    "WorkloadSpecTypeDef",
     "WorkspaceSettingsTypeDef",
     "WorkteamTypeDef",
 )
+
+
+class AIBenchmarkInferenceComponentTypeDef(TypedDict):
+    Identifier: str
+
+
+class AIBenchmarkJobSummaryTypeDef(TypedDict):
+    AIBenchmarkJobName: str
+    AIBenchmarkJobArn: str
+    AIBenchmarkJobStatus: AIBenchmarkJobStatusType
+    CreationTime: datetime
+    EndTime: NotRequired[datetime]
+    AIWorkloadConfigName: NotRequired[str]
+
+
+class VpcConfigOutputTypeDef(TypedDict):
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
+
+
+class VpcConfigTypeDef(TypedDict):
+    SecurityGroupIds: Sequence[str]
+    Subnets: Sequence[str]
+
+
+class AIBenchmarkOutputConfigTypeDef(TypedDict):
+    S3OutputLocation: str
+
+
+class AICloudWatchLogsTypeDef(TypedDict):
+    LogGroupArn: NotRequired[str]
+    LogStreamName: NotRequired[str]
+
+
+class AICapacityReservationConfigOutputTypeDef(TypedDict):
+    CapacityReservationPreference: NotRequired[Literal["capacity-reservations-only"]]
+    MlReservationArns: NotRequired[list[str]]
+
+
+class AICapacityReservationConfigTypeDef(TypedDict):
+    CapacityReservationPreference: NotRequired[Literal["capacity-reservations-only"]]
+    MlReservationArns: NotRequired[Sequence[str]]
+
+
+class AIModelSourceS3TypeDef(TypedDict):
+    S3Uri: NotRequired[str]
+
+
+class AIRecommendationConstraintTypeDef(TypedDict):
+    Metric: AIRecommendationMetricType
+
+
+class AIRecommendationDeploymentS3ChannelTypeDef(TypedDict):
+    ChannelName: NotRequired[str]
+    Uri: NotRequired[str]
+
+
+class AIRecommendationInferenceSpecificationTypeDef(TypedDict):
+    Framework: NotRequired[AIRecommendationInferenceFrameworkType]
+
+
+class AIRecommendationInstanceDetailTypeDef(TypedDict):
+    InstanceType: NotRequired[AIRecommendationInstanceTypeType]
+    InstanceCount: NotRequired[int]
+    CopyCountPerInstance: NotRequired[int]
+
+
+class AIRecommendationJobSummaryTypeDef(TypedDict):
+    AIRecommendationJobName: str
+    AIRecommendationJobArn: str
+    AIRecommendationJobStatus: AIRecommendationJobStatusType
+    CreationTime: datetime
+    EndTime: NotRequired[datetime]
+
+
+class AIRecommendationOptimizationDetailTypeDef(TypedDict):
+    OptimizationType: AIRecommendationOptimizationTypeType
+    OptimizationConfig: NotRequired[dict[str, str]]
+
+
+class AIRecommendationOutputConfigTypeDef(TypedDict):
+    S3OutputLocation: NotRequired[str]
+    ModelPackageGroupIdentifier: NotRequired[str]
+
+
+class AIRecommendationOutputResultTypeDef(TypedDict):
+    S3OutputLocation: str
+    ModelPackageGroupIdentifier: NotRequired[str]
+
+
+class AIRecommendationPerformanceMetricTypeDef(TypedDict):
+    Metric: str
+    Value: str
+    Stat: NotRequired[str]
+    Unit: NotRequired[str]
+
+
+class AIWorkloadConfigSummaryTypeDef(TypedDict):
+    AIWorkloadConfigName: str
+    AIWorkloadConfigArn: str
+    CreationTime: datetime
+
+
+class WorkloadSpecTypeDef(TypedDict):
+    Inline: NotRequired[str]
+
+
+class AIWorkloadS3DataSourceTypeDef(TypedDict):
+    S3Uri: str
+
 
 AcceleratorPartitionConfigTypeDef = TypedDict(
     "AcceleratorPartitionConfigTypeDef",
@@ -2354,16 +2548,6 @@ class TabularResolvedAttributesTypeDef(TypedDict):
 
 class TextGenerationResolvedAttributesTypeDef(TypedDict):
     BaseModelName: NotRequired[str]
-
-
-class VpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: list[str]
-    Subnets: list[str]
-
-
-class VpcConfigTypeDef(TypedDict):
-    SecurityGroupIds: Sequence[str]
-    Subnets: Sequence[str]
 
 
 class AutoParameterTypeDef(TypedDict):
@@ -3460,6 +3644,18 @@ class DefaultEbsStorageSettingsTypeDef(TypedDict):
     MaximumEbsVolumeSizeInGb: int
 
 
+class DeleteAIBenchmarkJobRequestTypeDef(TypedDict):
+    AIBenchmarkJobName: str
+
+
+class DeleteAIRecommendationJobRequestTypeDef(TypedDict):
+    AIRecommendationJobName: str
+
+
+class DeleteAIWorkloadConfigRequestTypeDef(TypedDict):
+    AIWorkloadConfigName: str
+
+
 class DeleteActionRequestTypeDef(TypedDict):
     ActionName: str
 
@@ -3745,6 +3941,18 @@ class DeregisterDevicesRequestTypeDef(TypedDict):
 
 class DerivedInformationTypeDef(TypedDict):
     DerivedDataInputConfig: NotRequired[str]
+
+
+class DescribeAIBenchmarkJobRequestTypeDef(TypedDict):
+    AIBenchmarkJobName: str
+
+
+class DescribeAIRecommendationJobRequestTypeDef(TypedDict):
+    AIRecommendationJobName: str
+
+
+class DescribeAIWorkloadConfigRequestTypeDef(TypedDict):
+    AIWorkloadConfigName: str
 
 
 class DescribeActionRequestTypeDef(TypedDict):
@@ -5859,6 +6067,14 @@ class StartSessionRequestTypeDef(TypedDict):
     ResourceIdentifier: str
 
 
+class StopAIBenchmarkJobRequestTypeDef(TypedDict):
+    AIBenchmarkJobName: str
+
+
+class StopAIRecommendationJobRequestTypeDef(TypedDict):
+    AIRecommendationJobName: str
+
+
 class StopAutoMLJobRequestTypeDef(TypedDict):
     AutoMLJobName: str
 
@@ -6097,6 +6313,125 @@ class WorkforceVpcConfigResponseTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
 
 
+class AIBenchmarkEndpointOutputTypeDef(TypedDict):
+    Identifier: str
+    TargetContainerHostname: NotRequired[str]
+    InferenceComponents: NotRequired[list[AIBenchmarkInferenceComponentTypeDef]]
+
+
+class AIBenchmarkEndpointTypeDef(TypedDict):
+    Identifier: str
+    TargetContainerHostname: NotRequired[str]
+    InferenceComponents: NotRequired[Sequence[AIBenchmarkInferenceComponentTypeDef]]
+
+
+class AIBenchmarkNetworkConfigOutputTypeDef(TypedDict):
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class AutoMLSecurityConfigOutputTypeDef(TypedDict):
+    VolumeKmsKeyId: NotRequired[str]
+    EnableInterContainerTrafficEncryption: NotRequired[bool]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class LabelingJobResourceConfigOutputTypeDef(TypedDict):
+    VolumeKmsKeyId: NotRequired[str]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class MonitoringNetworkConfigOutputTypeDef(TypedDict):
+    EnableInterContainerTrafficEncryption: NotRequired[bool]
+    EnableNetworkIsolation: NotRequired[bool]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class NetworkConfigOutputTypeDef(TypedDict):
+    EnableInterContainerTrafficEncryption: NotRequired[bool]
+    EnableNetworkIsolation: NotRequired[bool]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class AIBenchmarkNetworkConfigTypeDef(TypedDict):
+    VpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+class AutoMLSecurityConfigTypeDef(TypedDict):
+    VolumeKmsKeyId: NotRequired[str]
+    EnableInterContainerTrafficEncryption: NotRequired[bool]
+    VpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+class LabelingJobResourceConfigTypeDef(TypedDict):
+    VolumeKmsKeyId: NotRequired[str]
+    VpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+class MonitoringNetworkConfigTypeDef(TypedDict):
+    EnableInterContainerTrafficEncryption: NotRequired[bool]
+    EnableNetworkIsolation: NotRequired[bool]
+    VpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+class NetworkConfigTypeDef(TypedDict):
+    EnableInterContainerTrafficEncryption: NotRequired[bool]
+    EnableNetworkIsolation: NotRequired[bool]
+    VpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
+
+
+class AIBenchmarkOutputResultTypeDef(TypedDict):
+    S3OutputLocation: str
+    CloudWatchLogs: NotRequired[list[AICloudWatchLogsTypeDef]]
+
+
+class AIRecommendationComputeSpecOutputTypeDef(TypedDict):
+    InstanceTypes: NotRequired[list[AIRecommendationInstanceTypeType]]
+    CapacityReservationConfig: NotRequired[AICapacityReservationConfigOutputTypeDef]
+
+
+class AIRecommendationComputeSpecTypeDef(TypedDict):
+    InstanceTypes: NotRequired[Sequence[AIRecommendationInstanceTypeType]]
+    CapacityReservationConfig: NotRequired[AICapacityReservationConfigTypeDef]
+
+
+class AIModelSourceTypeDef(TypedDict):
+    S3: NotRequired[AIModelSourceS3TypeDef]
+
+
+class AIRecommendationPerformanceTargetOutputTypeDef(TypedDict):
+    Constraints: list[AIRecommendationConstraintTypeDef]
+
+
+class AIRecommendationPerformanceTargetTypeDef(TypedDict):
+    Constraints: Sequence[AIRecommendationConstraintTypeDef]
+
+
+class AIRecommendationDeploymentConfigurationTypeDef(TypedDict):
+    S3: NotRequired[list[AIRecommendationDeploymentS3ChannelTypeDef]]
+    ImageUri: NotRequired[str]
+    InstanceType: NotRequired[AIRecommendationInstanceTypeType]
+    InstanceCount: NotRequired[int]
+    CopyCountPerInstance: NotRequired[int]
+    EnvironmentVariables: NotRequired[dict[str, str]]
+
+
+class AIRecommendationModelDetailsTypeDef(TypedDict):
+    ModelPackageArn: NotRequired[str]
+    InferenceSpecificationName: NotRequired[str]
+    InstanceDetails: NotRequired[list[AIRecommendationInstanceDetailTypeDef]]
+
+
+class AIWorkloadConfigsTypeDef(TypedDict):
+    WorkloadSpec: WorkloadSpecTypeDef
+
+
+class AIWorkloadDataSourceTypeDef(TypedDict):
+    S3DataSource: NotRequired[AIWorkloadS3DataSourceTypeDef]
+
+
 class ComputeQuotaResourceConfigTypeDef(TypedDict):
     InstanceType: ClusterInstanceTypeType
     Count: NotRequired[int]
@@ -6135,6 +6470,21 @@ class AttachClusterNodeVolumeResponseTypeDef(TypedDict):
     AttachTime: datetime
     Status: VolumeAttachmentStatusType
     DeviceName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAIBenchmarkJobResponseTypeDef(TypedDict):
+    AIBenchmarkJobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAIRecommendationJobResponseTypeDef(TypedDict):
+    AIRecommendationJobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateAIWorkloadConfigResponseTypeDef(TypedDict):
+    AIWorkloadConfigArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6464,6 +6814,21 @@ class CreateWorkteamResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteAIBenchmarkJobResponseTypeDef(TypedDict):
+    AIBenchmarkJobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteAIRecommendationJobResponseTypeDef(TypedDict):
+    AIRecommendationJobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteAIWorkloadConfigResponseTypeDef(TypedDict):
+    AIWorkloadConfigArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteActionResponseTypeDef(TypedDict):
     ActionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6626,6 +6991,24 @@ class ImportHubContentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListAIBenchmarkJobsResponseTypeDef(TypedDict):
+    AIBenchmarkJobs: list[AIBenchmarkJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListAIRecommendationJobsResponseTypeDef(TypedDict):
+    AIRecommendationJobs: list[AIRecommendationJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListAIWorkloadConfigsResponseTypeDef(TypedDict):
+    AIWorkloadConfigs: list[AIWorkloadConfigSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListAliasesResponseTypeDef(TypedDict):
     SageMakerImageVersionAliases: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6676,6 +7059,16 @@ class StartSessionResponseTypeDef(TypedDict):
     SessionId: str
     StreamUrl: str
     TokenValue: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopAIBenchmarkJobResponseTypeDef(TypedDict):
+    AIBenchmarkJobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopAIRecommendationJobResponseTypeDef(TypedDict):
+    AIRecommendationJobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7188,55 +7581,6 @@ class AutoMLJobSummaryTypeDef(TypedDict):
 class AutoMLProblemTypeResolvedAttributesTypeDef(TypedDict):
     TabularResolvedAttributes: NotRequired[TabularResolvedAttributesTypeDef]
     TextGenerationResolvedAttributes: NotRequired[TextGenerationResolvedAttributesTypeDef]
-
-
-class AutoMLSecurityConfigOutputTypeDef(TypedDict):
-    VolumeKmsKeyId: NotRequired[str]
-    EnableInterContainerTrafficEncryption: NotRequired[bool]
-    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-
-class LabelingJobResourceConfigOutputTypeDef(TypedDict):
-    VolumeKmsKeyId: NotRequired[str]
-    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-
-class MonitoringNetworkConfigOutputTypeDef(TypedDict):
-    EnableInterContainerTrafficEncryption: NotRequired[bool]
-    EnableNetworkIsolation: NotRequired[bool]
-    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-
-class NetworkConfigOutputTypeDef(TypedDict):
-    EnableInterContainerTrafficEncryption: NotRequired[bool]
-    EnableNetworkIsolation: NotRequired[bool]
-    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
-
-
-class AutoMLSecurityConfigTypeDef(TypedDict):
-    VolumeKmsKeyId: NotRequired[str]
-    EnableInterContainerTrafficEncryption: NotRequired[bool]
-    VpcConfig: NotRequired[VpcConfigTypeDef]
-
-
-class LabelingJobResourceConfigTypeDef(TypedDict):
-    VolumeKmsKeyId: NotRequired[str]
-    VpcConfig: NotRequired[VpcConfigTypeDef]
-
-
-class MonitoringNetworkConfigTypeDef(TypedDict):
-    EnableInterContainerTrafficEncryption: NotRequired[bool]
-    EnableNetworkIsolation: NotRequired[bool]
-    VpcConfig: NotRequired[VpcConfigTypeDef]
-
-
-class NetworkConfigTypeDef(TypedDict):
-    EnableInterContainerTrafficEncryption: NotRequired[bool]
-    EnableNetworkIsolation: NotRequired[bool]
-    VpcConfig: NotRequired[VpcConfigTypeDef]
-
-
-VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 
 
 class BatchAddClusterNodesResponseTypeDef(TypedDict):
@@ -8034,6 +8378,67 @@ class UpdatePipelineRequestTypeDef(TypedDict):
 class InferenceExperimentScheduleTypeDef(TypedDict):
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
+
+
+class ListAIBenchmarkJobsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[AIBenchmarkJobStatusType]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ListAIBenchmarkJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAIBenchmarkJobsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[AIBenchmarkJobStatusType]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ListAIBenchmarkJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+
+
+class ListAIRecommendationJobsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[AIRecommendationJobStatusType]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ListAIRecommendationJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAIRecommendationJobsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[AIRecommendationJobStatusType]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ListAIRecommendationJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+
+
+class ListAIWorkloadConfigsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ListAIWorkloadConfigsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAIWorkloadConfigsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    NameContains: NotRequired[str]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ListAIWorkloadConfigsSortByType]
+    SortOrder: NotRequired[SortOrderType]
 
 
 class ListActionsRequestPaginateTypeDef(TypedDict):
@@ -10926,6 +11331,60 @@ class WorkforceTypeDef(TypedDict):
     IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
 
+class AIBenchmarkTargetOutputTypeDef(TypedDict):
+    Endpoint: NotRequired[AIBenchmarkEndpointOutputTypeDef]
+
+
+class AIBenchmarkTargetTypeDef(TypedDict):
+    Endpoint: NotRequired[AIBenchmarkEndpointTypeDef]
+
+
+class LabelingJobAlgorithmsConfigOutputTypeDef(TypedDict):
+    LabelingJobAlgorithmSpecificationArn: str
+    InitialActiveLearningModelArn: NotRequired[str]
+    LabelingJobResourceConfig: NotRequired[LabelingJobResourceConfigOutputTypeDef]
+
+
+AIBenchmarkNetworkConfigUnionTypeDef = Union[
+    AIBenchmarkNetworkConfigTypeDef, AIBenchmarkNetworkConfigOutputTypeDef
+]
+AutoMLSecurityConfigUnionTypeDef = Union[
+    AutoMLSecurityConfigTypeDef, AutoMLSecurityConfigOutputTypeDef
+]
+
+
+class LabelingJobAlgorithmsConfigTypeDef(TypedDict):
+    LabelingJobAlgorithmSpecificationArn: str
+    InitialActiveLearningModelArn: NotRequired[str]
+    LabelingJobResourceConfig: NotRequired[LabelingJobResourceConfigTypeDef]
+
+
+MonitoringNetworkConfigUnionTypeDef = Union[
+    MonitoringNetworkConfigTypeDef, MonitoringNetworkConfigOutputTypeDef
+]
+NetworkConfigUnionTypeDef = Union[NetworkConfigTypeDef, NetworkConfigOutputTypeDef]
+AIRecommendationComputeSpecUnionTypeDef = Union[
+    AIRecommendationComputeSpecTypeDef, AIRecommendationComputeSpecOutputTypeDef
+]
+AIRecommendationPerformanceTargetUnionTypeDef = Union[
+    AIRecommendationPerformanceTargetTypeDef, AIRecommendationPerformanceTargetOutputTypeDef
+]
+
+
+class AIRecommendationTypeDef(TypedDict):
+    RecommendationDescription: NotRequired[str]
+    OptimizationDetails: NotRequired[list[AIRecommendationOptimizationDetailTypeDef]]
+    ModelDetails: NotRequired[AIRecommendationModelDetailsTypeDef]
+    DeploymentConfiguration: NotRequired[AIRecommendationDeploymentConfigurationTypeDef]
+    AIBenchmarkJobArn: NotRequired[str]
+    ExpectedPerformance: NotRequired[list[AIRecommendationPerformanceMetricTypeDef]]
+
+
+class AIWorkloadInputDataConfigTypeDef(TypedDict):
+    ChannelName: str
+    DataSource: AIWorkloadDataSourceTypeDef
+
+
 class ResourceSharingConfigOutputTypeDef(TypedDict):
     Strategy: ResourceSharingStrategyType
     BorrowLimit: NotRequired[int]
@@ -11035,6 +11494,14 @@ class AsyncInferenceConfigTypeDef(TypedDict):
     ClientConfig: NotRequired[AsyncInferenceClientConfigTypeDef]
 
 
+class AutoMLJobConfigOutputTypeDef(TypedDict):
+    CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
+    SecurityConfig: NotRequired[AutoMLSecurityConfigOutputTypeDef]
+    CandidateGenerationConfig: NotRequired[AutoMLCandidateGenerationConfigOutputTypeDef]
+    DataSplitConfig: NotRequired[AutoMLDataSplitConfigTypeDef]
+    Mode: NotRequired[AutoMLModeType]
+
+
 class TabularJobConfigOutputTypeDef(TypedDict):
     TargetAttributeName: str
     CandidateGenerationConfig: NotRequired[CandidateGenerationConfigOutputTypeDef]
@@ -11056,6 +11523,14 @@ class TimeSeriesForecastingJobConfigOutputTypeDef(TypedDict):
     Transformations: NotRequired[TimeSeriesTransformationsOutputTypeDef]
     HolidayConfig: NotRequired[list[HolidayConfigAttributesTypeDef]]
     CandidateGenerationConfig: NotRequired[CandidateGenerationConfigOutputTypeDef]
+
+
+class AutoMLJobConfigTypeDef(TypedDict):
+    CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
+    SecurityConfig: NotRequired[AutoMLSecurityConfigTypeDef]
+    CandidateGenerationConfig: NotRequired[AutoMLCandidateGenerationConfigTypeDef]
+    DataSplitConfig: NotRequired[AutoMLDataSplitConfigTypeDef]
+    Mode: NotRequired[AutoMLModeType]
 
 
 class TabularJobConfigTypeDef(TypedDict):
@@ -11107,45 +11582,6 @@ class AutoMLResolvedAttributesTypeDef(TypedDict):
     AutoMLJobObjective: NotRequired[AutoMLJobObjectiveTypeDef]
     CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
     AutoMLProblemTypeResolvedAttributes: NotRequired[AutoMLProblemTypeResolvedAttributesTypeDef]
-
-
-class AutoMLJobConfigOutputTypeDef(TypedDict):
-    CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
-    SecurityConfig: NotRequired[AutoMLSecurityConfigOutputTypeDef]
-    CandidateGenerationConfig: NotRequired[AutoMLCandidateGenerationConfigOutputTypeDef]
-    DataSplitConfig: NotRequired[AutoMLDataSplitConfigTypeDef]
-    Mode: NotRequired[AutoMLModeType]
-
-
-class LabelingJobAlgorithmsConfigOutputTypeDef(TypedDict):
-    LabelingJobAlgorithmSpecificationArn: str
-    InitialActiveLearningModelArn: NotRequired[str]
-    LabelingJobResourceConfig: NotRequired[LabelingJobResourceConfigOutputTypeDef]
-
-
-class AutoMLJobConfigTypeDef(TypedDict):
-    CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
-    SecurityConfig: NotRequired[AutoMLSecurityConfigTypeDef]
-    CandidateGenerationConfig: NotRequired[AutoMLCandidateGenerationConfigTypeDef]
-    DataSplitConfig: NotRequired[AutoMLDataSplitConfigTypeDef]
-    Mode: NotRequired[AutoMLModeType]
-
-
-AutoMLSecurityConfigUnionTypeDef = Union[
-    AutoMLSecurityConfigTypeDef, AutoMLSecurityConfigOutputTypeDef
-]
-
-
-class LabelingJobAlgorithmsConfigTypeDef(TypedDict):
-    LabelingJobAlgorithmSpecificationArn: str
-    InitialActiveLearningModelArn: NotRequired[str]
-    LabelingJobResourceConfig: NotRequired[LabelingJobResourceConfigTypeDef]
-
-
-MonitoringNetworkConfigUnionTypeDef = Union[
-    MonitoringNetworkConfigTypeDef, MonitoringNetworkConfigOutputTypeDef
-]
-NetworkConfigUnionTypeDef = Union[NetworkConfigTypeDef, NetworkConfigOutputTypeDef]
 
 
 class ModelMetricsTypeDef(TypedDict):
@@ -12436,6 +12872,71 @@ class UpdateWorkforceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeAIBenchmarkJobResponseTypeDef(TypedDict):
+    AIBenchmarkJobName: str
+    AIBenchmarkJobArn: str
+    AIBenchmarkJobStatus: AIBenchmarkJobStatusType
+    FailureReason: str
+    BenchmarkTarget: AIBenchmarkTargetOutputTypeDef
+    OutputConfig: AIBenchmarkOutputResultTypeDef
+    AIWorkloadConfigIdentifier: str
+    RoleArn: str
+    NetworkConfig: AIBenchmarkNetworkConfigOutputTypeDef
+    CreationTime: datetime
+    StartTime: datetime
+    EndTime: datetime
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+AIBenchmarkTargetUnionTypeDef = Union[AIBenchmarkTargetTypeDef, AIBenchmarkTargetOutputTypeDef]
+LabelingJobAlgorithmsConfigUnionTypeDef = Union[
+    LabelingJobAlgorithmsConfigTypeDef, LabelingJobAlgorithmsConfigOutputTypeDef
+]
+
+
+class CreateAIRecommendationJobRequestTypeDef(TypedDict):
+    AIRecommendationJobName: str
+    ModelSource: AIModelSourceTypeDef
+    OutputConfig: AIRecommendationOutputConfigTypeDef
+    AIWorkloadConfigIdentifier: str
+    PerformanceTarget: AIRecommendationPerformanceTargetUnionTypeDef
+    RoleArn: str
+    InferenceSpecification: NotRequired[AIRecommendationInferenceSpecificationTypeDef]
+    OptimizeModel: NotRequired[bool]
+    ComputeSpec: NotRequired[AIRecommendationComputeSpecUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class DescribeAIRecommendationJobResponseTypeDef(TypedDict):
+    AIRecommendationJobName: str
+    AIRecommendationJobArn: str
+    AIRecommendationJobStatus: AIRecommendationJobStatusType
+    FailureReason: str
+    ModelSource: AIModelSourceTypeDef
+    OutputConfig: AIRecommendationOutputResultTypeDef
+    InferenceSpecification: AIRecommendationInferenceSpecificationTypeDef
+    AIWorkloadConfigIdentifier: str
+    OptimizeModel: bool
+    PerformanceTarget: AIRecommendationPerformanceTargetOutputTypeDef
+    Recommendations: list[AIRecommendationTypeDef]
+    RoleArn: str
+    ComputeSpec: AIRecommendationComputeSpecOutputTypeDef
+    CreationTime: datetime
+    StartTime: datetime
+    EndTime: datetime
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AIDatasetConfigOutputTypeDef(TypedDict):
+    InputDataConfig: NotRequired[list[AIWorkloadInputDataConfigTypeDef]]
+
+
+class AIDatasetConfigTypeDef(TypedDict):
+    InputDataConfig: NotRequired[Sequence[AIWorkloadInputDataConfigTypeDef]]
+
+
 class ComputeQuotaConfigOutputTypeDef(TypedDict):
     ComputeQuotaResources: NotRequired[list[ComputeQuotaResourceConfigTypeDef]]
     ResourceSharingConfig: NotRequired[ResourceSharingConfigOutputTypeDef]
@@ -12548,18 +13049,15 @@ class AutoMLProblemTypeConfigOutputTypeDef(TypedDict):
     TextGenerationJobConfig: NotRequired[TextGenerationJobConfigOutputTypeDef]
 
 
+AutoMLJobConfigUnionTypeDef = Union[AutoMLJobConfigTypeDef, AutoMLJobConfigOutputTypeDef]
+
+
 class AutoMLProblemTypeConfigTypeDef(TypedDict):
     ImageClassificationJobConfig: NotRequired[ImageClassificationJobConfigTypeDef]
     TextClassificationJobConfig: NotRequired[TextClassificationJobConfigTypeDef]
     TimeSeriesForecastingJobConfig: NotRequired[TimeSeriesForecastingJobConfigTypeDef]
     TabularJobConfig: NotRequired[TabularJobConfigTypeDef]
     TextGenerationJobConfig: NotRequired[TextGenerationJobConfigTypeDef]
-
-
-AutoMLJobConfigUnionTypeDef = Union[AutoMLJobConfigTypeDef, AutoMLJobConfigOutputTypeDef]
-LabelingJobAlgorithmsConfigUnionTypeDef = Union[
-    LabelingJobAlgorithmsConfigTypeDef, LabelingJobAlgorithmsConfigOutputTypeDef
-]
 
 
 class PipelineExecutionStepTypeDef(TypedDict):
@@ -13057,6 +13555,7 @@ class ModelPackageContainerDefinitionOutputTypeDef(TypedDict):
     Framework: NotRequired[str]
     FrameworkVersion: NotRequired[str]
     NearestModelName: NotRequired[str]
+    AdditionalModelDataSources: NotRequired[list[AdditionalModelDataSourceTypeDef]]
     AdditionalS3DataSource: NotRequired[AdditionalS3DataSourceTypeDef]
     ModelDataETag: NotRequired[str]
     IsCheckpoint: NotRequired[bool]
@@ -13075,6 +13574,7 @@ class ModelPackageContainerDefinitionTypeDef(TypedDict):
     Framework: NotRequired[str]
     FrameworkVersion: NotRequired[str]
     NearestModelName: NotRequired[str]
+    AdditionalModelDataSources: NotRequired[Sequence[AdditionalModelDataSourceTypeDef]]
     AdditionalS3DataSource: NotRequired[AdditionalS3DataSourceTypeDef]
     ModelDataETag: NotRequired[str]
     IsCheckpoint: NotRequired[bool]
@@ -13524,6 +14024,29 @@ class TransformJobTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
+class CreateAIBenchmarkJobRequestTypeDef(TypedDict):
+    AIBenchmarkJobName: str
+    BenchmarkTarget: AIBenchmarkTargetUnionTypeDef
+    OutputConfig: AIBenchmarkOutputConfigTypeDef
+    AIWorkloadConfigIdentifier: str
+    RoleArn: str
+    NetworkConfig: NotRequired[AIBenchmarkNetworkConfigUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class DescribeAIWorkloadConfigResponseTypeDef(TypedDict):
+    AIWorkloadConfigName: str
+    AIWorkloadConfigArn: str
+    DatasetConfig: AIDatasetConfigOutputTypeDef
+    AIWorkloadConfigs: AIWorkloadConfigsTypeDef
+    Tags: list[TagTypeDef]
+    CreationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+AIDatasetConfigUnionTypeDef = Union[AIDatasetConfigTypeDef, AIDatasetConfigOutputTypeDef]
+
+
 class ComputeQuotaSummaryTypeDef(TypedDict):
     ComputeQuotaArn: str
     ComputeQuotaId: str
@@ -13635,11 +14158,6 @@ class DescribeAutoMLJobV2ResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-AutoMLProblemTypeConfigUnionTypeDef = Union[
-    AutoMLProblemTypeConfigTypeDef, AutoMLProblemTypeConfigOutputTypeDef
-]
-
-
 class CreateAutoMLJobRequestTypeDef(TypedDict):
     AutoMLJobName: str
     InputDataConfig: Sequence[AutoMLChannelTypeDef]
@@ -13651,6 +14169,11 @@ class CreateAutoMLJobRequestTypeDef(TypedDict):
     GenerateCandidateDefinitionsOnly: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ModelDeployConfig: NotRequired[ModelDeployConfigTypeDef]
+
+
+AutoMLProblemTypeConfigUnionTypeDef = Union[
+    AutoMLProblemTypeConfigTypeDef, AutoMLProblemTypeConfigOutputTypeDef
+]
 
 
 class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
@@ -14250,6 +14773,13 @@ class ModelPackageValidationProfileOutputTypeDef(TypedDict):
 class ModelPackageValidationProfileTypeDef(TypedDict):
     ProfileName: str
     TransformJobDefinition: TransformJobDefinitionTypeDef
+
+
+class CreateAIWorkloadConfigRequestTypeDef(TypedDict):
+    AIWorkloadConfigName: str
+    DatasetConfig: NotRequired[AIDatasetConfigUnionTypeDef]
+    AIWorkloadConfigs: NotRequired[AIWorkloadConfigsTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class ListComputeQuotasResponseTypeDef(TypedDict):

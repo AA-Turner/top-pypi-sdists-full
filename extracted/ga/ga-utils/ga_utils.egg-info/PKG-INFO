@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: ga-utils
+Version: 1.0.6
+Summary: 通过GA协议获取数据，用于调试GA控件树
+Home-page: https://git.woa.com/janeajian/ga-util
+Author: janeluck
+Author-email: janeluck158@outlook.com
+License: MIT
+Description: 
+        通过GA协议获取数据，用于调试GA控件树，示例：``ga-utils get 300 --port 2004``
+        
+        ##安装
+        
+        ``$ pip install ga-utils``
+        
+        ##使用
+        
+        ``ga-utils get CMD --port PORT``
+        
+        ##示例
+        
+        - 获取控件树： ``ga-utils get 300 --port 2004``
+        - 获取控件的位置信息：``ga-utils get 103 --port 2004``
+        
+        ##说明
+        
+        port为GA服务的本地端口号，可用adb forward命令到本地。示例：``adb forward tcp:2004 tcp:27019``。
+        
+        请求的日志会存在当前目录的ga-utils.yyyy-MM-DD.log。
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

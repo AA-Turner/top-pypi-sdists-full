@@ -471,6 +471,7 @@ __all__ = (
     "SpanMessageValuePaginatorTypeDef",
     "SpanMessageValueTypeDef",
     "SpanPaginatorTypeDef",
+    "SpanReasoningValueTypeDef",
     "SpanTextValueTypeDef",
     "SpanToolResultValuePaginatorTypeDef",
     "SpanToolResultValueTypeDef",
@@ -1454,6 +1455,9 @@ class SpanCitationTypeDef(TypedDict):
     title: NotRequired[str]
     knowledgeBaseId: NotRequired[str]
     knowledgeBaseArn: NotRequired[str]
+
+class SpanReasoningValueTypeDef(TypedDict):
+    value: str
 
 class SpanToolResultValuePaginatorTypeDef(TypedDict):
     toolUseId: str
@@ -2528,11 +2532,13 @@ class SpanMessageValuePaginatorTypeDef(TypedDict):
     text: NotRequired[SpanTextValueTypeDef]
     toolUse: NotRequired[SpanToolUseValueTypeDef]
     toolResult: NotRequired[SpanToolResultValuePaginatorTypeDef]
+    reasoning: NotRequired[SpanReasoningValueTypeDef]
 
 class SpanMessageValueTypeDef(TypedDict):
     text: NotRequired[SpanTextValueTypeDef]
     toolUse: NotRequired[SpanToolUseValueTypeDef]
     toolResult: NotRequired[SpanToolResultValueTypeDef]
+    reasoning: NotRequired[SpanReasoningValueTypeDef]
 
 class MessageTemplateAttributesOutputTypeDef(TypedDict):
     systemAttributes: NotRequired[SystemAttributesTypeDef]
@@ -3029,6 +3035,7 @@ class SpanAttributesPaginatorTypeDef(TypedDict):
     promptType: NotRequired[AIPromptTypeType]
     promptName: NotRequired[str]
     promptVersion: NotRequired[int]
+    timeToFirstTokenMs: NotRequired[int]
 
 class SpanAttributesTypeDef(TypedDict):
     operationName: NotRequired[str]
@@ -3065,6 +3072,7 @@ class SpanAttributesTypeDef(TypedDict):
     promptType: NotRequired[AIPromptTypeType]
     promptName: NotRequired[str]
     promptVersion: NotRequired[int]
+    timeToFirstTokenMs: NotRequired[int]
 
 class RenderMessageTemplateRequestTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -3210,6 +3218,7 @@ class SpanPaginatorTypeDef(TypedDict):
     requestId: str
     attributes: SpanAttributesPaginatorTypeDef
     parentSpanId: NotRequired[str]
+    statusDescription: NotRequired[str]
     originRequestId: NotRequired[str]
 
 class SpanTypeDef(TypedDict):
@@ -3224,6 +3233,7 @@ class SpanTypeDef(TypedDict):
     requestId: str
     attributes: SpanAttributesTypeDef
     parentSpanId: NotRequired[str]
+    statusDescription: NotRequired[str]
     originRequestId: NotRequired[str]
 
 class MessageInputTypeDef(TypedDict):

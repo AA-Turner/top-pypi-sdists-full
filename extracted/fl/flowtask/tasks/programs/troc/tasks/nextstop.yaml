@@ -1,0 +1,10 @@
+name: NextStop Agent
+description: Run a NextStop Agent Query.
+steps:
+  - QueryToPandas:
+      use_taskstorage: true
+      file_sql: nextstop_employees.sql
+  - NextStopAgent:
+      use_taskstorage: true
+      type: "nextstop_employee"
+      # query: "What is the weather like in Paris?"

@@ -102,6 +102,28 @@ def _compile_datetime(element: sa.DateTime | sa.TIMESTAMP | sa.DATETIME, compile
         return "TIMESTAMP_NTZ"
 
 
+def _orjson_variant_default(obj: Any) -> str:
+    """orjson `default` callback for Snowflake VARIANT/ARRAY/OBJECT bind processors.
+
+    orjson handles top-level `datetime.datetime`/`date` natively, but **not** when those
+    types are nested inside list/struct values (orjson uses exact-type matching, and
+    `pd.Timestamp` is a subclass of `datetime.datetime` — so it falls through here).
+
+    We `isoformat()` any datetime subclass so values like `pd.Timestamp` produced by
+    `pyarrow.compute_chunked.as_py()` on nested timestamp columns get serialized as
+    ISO strings (matching how datetimes are stored as ISO in Snowflake VARIANT today).
+    """
+    if isinstance(obj, bytes):
+        # Convert bytes to uppercase hex string for JSON serialization (matches Snowflake COPY INTO behavior)
+        return obj.hex().upper()
+    if isinstance(obj, datetime.datetime):
+        # Catches pd.Timestamp via subclass (orjson's exact-type check rejects it)
+        return obj.isoformat()
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    raise TypeError
+
+
 class ArrayType(ARRAY):
     def get_dbapi_type(self, dbapi: Any):
         return dbapi.ARRAY
@@ -109,13 +131,7 @@ class ArrayType(ARRAY):
     def bind_processor(self, dialect: Dialect, **kw: Any):
         # Convert any python values into a json string when serializing
         # Using orjson instead of json for performance and to coerce nan/+inf/-inf to null values
-        def default(obj: Any) -> str:
-            if isinstance(obj, bytes):
-                # Convert bytes to uppercase hex string for JSON serialization (matches Snowflake COPY INTO behavior)
-                return obj.hex().upper()
-            raise TypeError
-
-        return lambda x: orjson.dumps(x, default=default).decode("utf8")
+        return lambda x: orjson.dumps(x, default=_orjson_variant_default).decode("utf8")
 
     def result_processor(self, dialect: Dialect, coltype: Any):
         def _result_processor(val: str | None):
@@ -133,13 +149,7 @@ class ObjectType(OBJECT):
     def bind_processor(self, dialect: Dialect, **kw: Any):
         # Convert any python values into a json string when serializing
         # Using orjson instead of json for performance and to coerce nan/+inf/-inf to null values
-        def default(obj: Any) -> str:
-            if isinstance(obj, bytes):
-                # Convert bytes to uppercase hex string for JSON serialization (matches Snowflake COPY INTO behavior)
-                return obj.hex().upper()
-            raise TypeError
-
-        return lambda x: orjson.dumps(x, default=default).decode("utf8")
+        return lambda x: orjson.dumps(x, default=_orjson_variant_default).decode("utf8")
 
     def result_processor(self, dialect: Dialect, coltype: Any):
         def _result_processor(val: str | None):

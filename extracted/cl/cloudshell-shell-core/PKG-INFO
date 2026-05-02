@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: cloudshell-shell-core
+Version: 6.0.2
+Summary: Core package for all CloudShell Shells. This package contains the basic driver interfaces and metadata definitions as well as utilities and helpers created specifically for Shells
+Home-page: https://github.com/QualiSystems/cloudshell-shell-core
+Author: Quali
+Author-email: info@quali.com
+License: Apache 2.0
+Keywords: sandbox cloud cmp cloudshell
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: ~=3.7
+Requires-Dist: setuptools
+Requires-Dist: jsonpickle
+Requires-Dist: cloudshell-automation-api>2021
+Requires-Dist: cloudshell-logging~=2.0
+Requires-Dist: cloudshell-rest-api~=9.0
+
+Core package for all CloudShell Shells. This package contains the basic driver interfaces and metadata definitions as well as utilities and helpers created specifically for Shells

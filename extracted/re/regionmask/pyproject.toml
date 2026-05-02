@@ -1,0 +1,59 @@
+[build-system]
+requires = [
+  "setuptools>=42",
+  "setuptools-scm>=7",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+fallback_version = "999"
+version_scheme = "no-guess-dev"
+
+[tool.ruff]
+# also check notebooks
+extend-include = ["*.ipynb"]
+target-version = "py310"
+
+[tool.ruff.lint]
+# E402: module level import not at top of file
+# E501: line too long - let the formatter worry about this
+# E731: do not assign a lambda expression, use a def
+ignore = [
+  "E402",
+  "E501",
+  "E731",
+]
+select = [
+  "F", # Pyflakes
+  "E", # Pycodestyle
+  "W", # warnings
+  "I", # isort
+  "UP", # Pyupgrade
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["regionmask"]
+
+[tool.mypy]
+exclude = [
+  'build', "dist"
+]
+files = "regionmask"
+
+show_error_context = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = [
+  "affine.*",
+  "cartopy.*",
+  "geopandas.*",
+  "pooch.*",
+  "pyogrio.*",
+  "rasterio.*",
+  "shapely.*",
+]

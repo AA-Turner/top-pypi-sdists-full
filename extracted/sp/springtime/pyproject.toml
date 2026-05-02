@@ -1,0 +1,108 @@
+[build-system]
+requires = ["hatchling", "hatch-requirements-txt"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/springtime"]
+
+[project]
+name = "springtime"
+description = "Spatiotemporal phenology research with interpretable models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+keywords = [
+  "phenology",
+]
+authors = [
+  { name = "Peter Kalverla", email = "peter.kalverla@gmx.com" },
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python",
+  "Intended Audience :: Science/Research",
+]
+dependencies = [
+  "xarray==2023.8.0",  # https://github.com/phenology/springtime/issues/198
+  "cftime",
+  "pyyaml",
+  "pandas",
+  "requests",
+  "pydantic==2.*",
+  "click",
+  "geopandas",
+  "dask",  # needed for xarray.open_mfdataset()
+  "netCDF4",
+  "xdg-base-dirs",
+  "scikit-learn"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+  "black",
+  "mypy",
+  "pytest",
+  "ruff",
+  "types-pyyaml", # https://github.com/python/mypy/issues/10632
+  "types-requests",
+]
+docs = [
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocs-jupyter",
+  "mkdocs-gen-files",
+  "mkdocs-include-markdown-plugin",
+  "mkdocstrings[python]",
+  "mkdocstrings-python",
+  "mkdocs-literate-nav",
+  "mkdocs-section-index",
+]
+extras = [
+  "dumme",  # for modelling notebooks
+  "pycaret[models]",  # for modelling notebooks
+  "ipykernel",  # for running notebooks
+  "pyphenology",
+]
+
+[project.urls]
+Documentation = "https://springtime.readthedocs.io/en/latest/"
+Issues = "https://github.com/phenology/springtime/issues"
+Source = "https://github.com/phenology/springtime"
+
+[project.scripts]
+springtime = "springtime.main:cli"
+
+[tool.hatch.version]
+path = "src/springtime/__init__.py"
+
+[tool.hatch.envs.default]
+features = ["dev", "docs", "extras"]
+
+[tool.hatch.envs.default.scripts]
+quality-checks = [
+  "black src tests",
+  "ruff check src tests --fix",
+  "mypy src tests",
+]
+doctest = "pytest --doctest-modules --doctest-report none {args}"
+
+[tool.mypy]
+ignore_missing_imports = true
+plugins = "pydantic.mypy"
+
+[tool.hatch.metadata]
+allow-direct-references = true

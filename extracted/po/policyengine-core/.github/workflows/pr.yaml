@@ -1,0 +1,103 @@
+name: Pull request
+on:
+  pull_request:
+    branches: [master]
+jobs:
+  Lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Check formatting
+        run: uvx ruff format --check .
+  check-changelog:
+    name: Check changelog fragment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check for changelog fragment
+        run: |
+          FRAGMENTS=$(find changelog.d -type f ! -name '.gitkeep' | wc -l)
+          if [ "$FRAGMENTS" -eq 0 ]; then
+            echo "::error::No changelog fragment found in changelog.d/"
+            echo "Add one with: echo 'Description.' > changelog.d/\$(git branch --show-current).<type>.md"
+            echo "Types: added, changed, fixed, removed, breaking"
+            exit 1
+          fi
+  Test:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+      - name: Enable long paths in Git (Windows only)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+      - name: Enable Win32 long paths via registry (Windows only)
+        if: runner.os == 'Windows'
+        run: reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /t REG_DWORD /d 1 /f
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Install package
+        run: make install
+      - name: Run tests
+        run: make test
+      - uses: codecov/codecov-action@v6
+      - name: Build package
+        run: make build
+      - name: Test documentation builds
+        run: make documentation
+  SmokeTestForMultipleVersions:
+    name: Test Core and country packages (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    needs: Lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+      - name: Install -core package
+        run: |
+          uv pip install --system .
+          uv pip install --system "pytest-rerunfailures>=10,<15"
+      - name: Verify pytest plugins
+        run: python -m pytest --version
+      - name: Install -us package from PyPI
+        run: |
+          if [[ "${{ matrix.python-version }}" == "3.13" || "${{ matrix.python-version }}" == "3.14" ]]; then
+            # For Python 3.13+, install newer tables first and ignore conflicts
+            uv pip install --system "tables>=3.11.0"
+            uv pip install --system policyengine-us --no-deps
+            # Install remaining dependencies manually (skip pytest-dependency which has build issues)
+            uv pip install --system click pathlib synthimpute tabulate spm-calculator
+            uv pip install --system policyengine-us-data --no-deps
+          else
+            uv pip install --system policyengine-us
+          fi
+        shell: bash
+      - name: Install -uk package from PyPI
+        run: uv pip install --system policyengine-uk
+        shell: bash
+      - name: Run smoke tests only
+        run: python -m pytest -m smoke --reruns 2 --reruns-delay 5 -v -s
+        env:
+          RUN_SMOKE_TESTS: "0"
+          POLICYENGINE_GITHUB_MICRODATA_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

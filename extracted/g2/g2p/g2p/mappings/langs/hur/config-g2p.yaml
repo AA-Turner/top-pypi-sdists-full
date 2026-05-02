@@ -1,0 +1,27 @@
+<<: &shared
+  language_name: Halkomelem
+mappings:
+  - display_name: Halkomelem APA to Hul’q’umi’num’ (Island) practical orthography
+    in_lang: hur-apa
+    out_lang: hur
+    authors:
+      - Zack Gilkison
+    type: mapping
+    rules_path: hur_apa_to_hur_orthog.json
+    prevent_feeding: false
+    rule_ordering: apply-longest-first
+    case_sensitive: false
+    norm_form: NFD
+    # <<: &shared
+  - display_name: Hul’q’umi’num’ (Island) practical orthography to Halkomelem APA
+    in_lang: hur
+    out_lang: hur-apa
+    authors:
+      - Zack Gilkison
+    type: mapping
+    rules_path: hur_orthog_to_hur_apa.json
+    prevent_feeding: true
+    rule_ordering: apply-longest-first
+    case_sensitive: false
+    norm_form: NFD
+    language_name: Halkomelem

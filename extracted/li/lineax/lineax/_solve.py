@@ -33,17 +33,29 @@ from ._misc import inexact_asarray, strip_weak_dtype
 from ._operator import (
     AbstractLinearOperator,
     conj,
+    FunctionLinearOperator,
+    has_unit_diagonal,
     IdentityLinearOperator,
     is_diagonal,
     is_lower_triangular,
     is_negative_semidefinite,
     is_positive_semidefinite,
+    is_symmetric,
     is_tridiagonal,
     is_upper_triangular,
     linearise,
     TangentLinearOperator,
 )
 from ._solution import RESULTS, Solution
+from ._tags import (
+    diagonal_tag,
+    lower_triangular_tag,
+    negative_semidefinite_tag,
+    positive_semidefinite_tag,
+    symmetric_tag,
+    unit_diagonal_tag,
+    upper_triangular_tag,
+)
 
 
 #
@@ -717,11 +729,15 @@ def linear_solve(
         [`lineax.CG`][] allows for specifying a preconditioner. See each individual
         solver's documentation for more details. Keyword only argument.
 
-    - `state`: If performing multiple linear solves with the same operator, then it is
-        possible to save re-use some computation between these solves, and to pass the
-        result of any intermediate computation in as this argument. See
-        [`lineax.AbstractLinearSolver.init`][] for more details. Keyword only
-        argument.
+    - `state`: If performing multiple linear solves with the same operator, then some
+        computation can be saved by recording and reusing some information; for example
+        the matrix factorisation of the operator. This value should be the result of
+        calling [`lineax.AbstractLinearSolver.init`][] on the provided `operator`.
+
+        If provided, then the underlying `operator` must still be passed to
+        `linear_solve`.
+
+        Keyword only argument.
 
     - `throw`: How to report any failures. (E.g. an iterative solver running out of
         steps, or a well-posed-only solver being run with a singular operator.)
@@ -767,12 +783,15 @@ def linear_solve(
             stats={},
         )
     if state == sentinel:
-        state = solver.init(operator, options)
-        dynamic_state, static_state = eqx.partition(state, eqx.is_array)
-        dynamic_state = lax.stop_gradient(dynamic_state)
-        state = eqx.combine(dynamic_state, static_state)
+        dynamic_operator, static_operator = eqx.partition(operator, eqx.is_array)
+        stopped_operator = eqx.combine(
+            lax.stop_gradient(dynamic_operator), static_operator
+        )
+        state = solver.init(stopped_operator, options)
 
-    state = eqxi.nondifferentiable(state, name="`lineax.linear_solve(..., state=...)`")
+    dynamic_state, static_state = eqx.partition(state, eqx.is_array)
+    dynamic_state = lax.stop_gradient(dynamic_state)
+    state = eqx.combine(dynamic_state, static_state)
     options = eqxi.nondifferentiable(
         options, name="`lineax.linear_solve(..., options=...)`"
     )
@@ -785,6 +804,71 @@ def linear_solve(
     # TODO: prevent forward-mode autodiff through stats
     stats = eqxi.nondifferentiable_backward(stats)
     return Solution(value=solution, result=result, state=state, stats=stats)
+
+
+def invert(
+    operator: AbstractLinearOperator,
+    solver: AbstractLinearSolver = AutoLinearSolver(well_posed=True),
+    *,
+    options: dict[str, Any] | None = None,
+    throw: bool = True,
+) -> FunctionLinearOperator:
+    r"""Returns a [`lineax.FunctionLinearOperator`][] representing the
+    (pseudo)inverse of `operator`.
+
+    `invert(A).mv(v)` is equivalent to `linear_solve(A, v, solver).value`.
+    See [`lineax.linear_solve`][] for details on how the solution is defined
+    for square, overdetermined, and underdetermined systems.
+
+    The returned operator fully supports AD (both forward and reverse mode),
+    `vmap`, and composition with other operators.
+
+    **Arguments:**
+
+    - `operator`: the linear operator to invert.
+    - `solver`: the linear solver to use. Defaults to
+        `AutoLinearSolver(well_posed=True)`.
+    - `options`: additional options passed to the solver. Defaults to `None`.
+    - `throw`: as [`lineax.linear_solve`][]. Defaults to `True`.
+
+    **Returns:**
+
+    A [`lineax.FunctionLinearOperator`][] whose `mv` solves `operator @ x = v`.
+    """
+    if options is None:
+        options = {}
+
+    state = solver.init(operator, options)
+
+    def solve_fn(vector):
+        return linear_solve(
+            operator,
+            vector,
+            solver,
+            state=state,
+            options=options,
+            throw=throw,
+        ).value
+
+    tags = {
+        tag
+        for check, tag in [
+            (is_symmetric, symmetric_tag),
+            (is_diagonal, diagonal_tag),
+            (is_lower_triangular, lower_triangular_tag),
+            (is_upper_triangular, upper_triangular_tag),
+            (is_positive_semidefinite, positive_semidefinite_tag),
+            (is_negative_semidefinite, negative_semidefinite_tag),
+        ]
+        if check(operator)
+    }
+    if has_unit_diagonal(operator) and (
+        is_diagonal(operator)
+        or is_lower_triangular(operator)
+        or is_upper_triangular(operator)
+    ):
+        tags.add(unit_diagonal_tag)
+    return FunctionLinearOperator(solve_fn, operator.out_structure(), frozenset(tags))
 
 
 # Work around JAX issue #22011,

@@ -17,6 +17,7 @@ from pyshexc.ShExC import ShExC
 
 # Repository to validate against
 from tests import schemas_base
+from tests.utils.shape_decl_wrapper import rewrap_shape_decls
 
 shexTestRepository = schemas_base
 
@@ -44,7 +45,7 @@ for k in list(skip.keys()):
         del skip[k]
 
 
-class TestFile(NamedTuple):
+class ExampleTestFile(NamedTuple):
     fullpath: str
     filename: str
 
@@ -83,6 +84,12 @@ def validate_shexc_json(json_str: str, input_fname: str) -> bool:
 
     # Convert the ShExC back into ShExJ
     output_shex_obj = ShExC(shexc_str).schema
+
+    # This rewrap is put here because shexc does not have the direct concept of ShapeDecl, so as a result when
+    # converting back to shexj it is collapsed as ShapeDecl is missing. This line adds it back so the json can
+    # be properly compared.
+
+    output_shex_obj = rewrap_shape_decls(output_shex_obj)
     if output_shex_obj is None:
         for number, line in enumerate(shexc_str.split('\n')):
             print(f"{number + 1}: {line}")
@@ -108,7 +115,7 @@ class Stats:
                "*** Skip Reasons ***\n" + '\n'.join(f"\t{r} : {self.skipreasons[r]}" for r in self.skipreasons.keys())
 
 
-def validate_file(file: TestFile, stats: Stats) -> bool:
+def validate_file(file: ExampleTestFile, stats: Stats) -> bool:
     """Download the file in download_url and validate it using the supplied module
 
     :param file: path and name of file to download
@@ -159,7 +166,7 @@ def validate_shex_schemas() -> bool:
     """
     stats = Stats()
     if not testShexFile:
-        test_list: List[TestFile] = enumerate_http_files(shexTestRepository) if ':' in shexTestRepository else \
+        test_list: List[ExampleTestFile] = enumerate_http_files(shexTestRepository) if ':' in shexTestRepository else \
             enumerate_directory(shexTestRepository)
         if test_list is None:
             rval = True
@@ -168,28 +175,28 @@ def validate_shex_schemas() -> bool:
         else:
             rval = all([validate_file(e, stats) for e in test_list if e.filename.endswith('.json')])
     else:
-        rval = validate_file(TestFile(os.path.join(shexTestRepository, testShexFile), testShexFile), stats)
+        rval = validate_file(ExampleTestFile(os.path.join(shexTestRepository, testShexFile), testShexFile), stats)
     print(str(stats))
     return rval
 
 
-def enumerate_http_files(url) -> List[TestFile]:
+def enumerate_http_files(url) -> List[ExampleTestFile]:
     resp = requests.get(url)
     if resp.ok:
         for f in resp.json():
-            yield TestFile(f['download_url'], f['name'])
+            yield ExampleTestFile(f['download_url'], f['name'])
     else:
         print("Error {}: {}".format(resp.status_code, resp.reason), file=sys.stderr)
 
 
-def enumerate_directory(dir_) -> List[TestFile]:
+def enumerate_directory(dir_) -> List[ExampleTestFile]:
     for fname in os.listdir(dir_):
         fpath = os.path.join(dir_, fname)
         if os.path.isfile(fpath):
-            yield TestFile(fpath, fname)
+            yield ExampleTestFile(fpath, fname)
 
 
-class ShExCValidationTestCase(unittest.TestCase):
+class TestShExCValidation():
     """ 1) Convert the contents of the shexTest/schema's directory into ShExJSG
         2) Convert the ShExJSG into ShExC
         3) Parse the ShExC back into ShExJSG
@@ -197,8 +204,4 @@ class ShExCValidationTestCase(unittest.TestCase):
     """
 
     def test_shex_schema(self):
-        self.assertTrue(validate_shex_schemas())
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert validate_shex_schemas()

@@ -1,0 +1,22 @@
+name: Test IMAP
+description: Test IMAP
+steps:
+  - DownloadFromIMAP:
+      credentials:
+        host: email_host
+        port: email_port
+        user: email_host_user
+        password: email_host_password
+        use_ssl: true
+      search_terms:
+        "ON": "{search_today}"
+        "SUBJECT": "Custom Punch with Pay Codes - Excel"
+        "FROM": "eet_application@adp.com"
+      overwrite: true
+      attachments:
+        directory: "/home/ubuntu/symbits/troc/files/worked_hours/"
+      masks:
+        "{search_today}":
+          - today
+          - mask: "%d-%b-%Y"
+            tz: "America/New_York"

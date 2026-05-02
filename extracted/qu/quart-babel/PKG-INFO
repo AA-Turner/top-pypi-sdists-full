@@ -1,0 +1,69 @@
+Metadata-Version: 2.1
+Name: quart_babel
+Version: 1.0.7
+Summary: Implements i18n and l10n support for Quart.
+Home-page: https://github.com/Quart-Addons/quart-babel
+License: MIT
+Author: Chris Rood
+Author-email: quart.addons@gmail.com
+Requires-Python: >=3.8
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: Babel (>=2.11)
+Requires-Dist: pytz (>=2023.3)
+Requires-Dist: quart (>=0.19)
+Requires-Dist: types-pytz (>=2024.1.0.20240417)
+Project-URL: Documentation, https://quart-babel.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/Quart-Addons/quart-babel
+Description-Content-Type: text/markdown
+
+# Quart Babel
+
+![Quart Uploads Logo](logos/logo.png)
+
+Implements i18n and l10n support for Quart.  This is based on the Python
+[babel][] module as well as [pytz][] both of which are installed automatically
+for you if you install this library.
+
+The original code for this extension was taken from Flask-Babel and can be 
+found [here][flask-babel]
+
+# Installation 
+
+Install the extension with the following command:
+
+    $ pip3 install quart-babel
+
+# Usage
+
+To use the extension simply import the class wrapper and pass the Quart app 
+object back to here. Do so like this:
+
+    from quart import Quart
+    from quart_babel import Babel 
+
+    app = Quart(__name__)
+    babel = Babel(app)
+
+
+# Documentation
+
+The for Quart-Babel and is available [here][docs].
+
+[babel]: https://github.com/python-babel/babel
+[pytz]: https://pypi.python.org/pypi/pytz/
+[flask-babel]: https://flask-babel.tkte.ch/
+[docs]: https://quart-babel.readthedocs.io
+

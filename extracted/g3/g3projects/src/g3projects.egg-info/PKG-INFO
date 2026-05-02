@@ -1,0 +1,36 @@
+Metadata-Version: 2.4
+Name: g3projects
+Version: 0.2.14
+Summary: System G3 Project PLC files generator
+Author: Elektroline a.s.
+License-Expression: MIT
+Project-URL: Homepage, https://gitlab.elektroline.cz/plc/systemg3-py/SystemG3ProjectBuilder
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENCE
+Requires-Dist: jinja2
+Requires-Dist: g3core
+Requires-Dist: g3elements
+Requires-Dist: g3hardware
+Requires-Dist: g3tables
+Dynamic: license-file
+
+# System G3 Project PLC files generator
+
+## Installation
+
+```sh
+pip install g3projects
+```
+
+## Usage
+
+```python
+# TODO
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

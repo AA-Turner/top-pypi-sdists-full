@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghostlogic-demo"
+version = "1.6.0"
+description = "Replay 642K real forensic events from an APT breach through GhostLogic Blackbox in 20 minutes"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [{name = "Adam Scott Thomas", email = "adam@mcmkg.com"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Security",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[tool.setuptools.package-data]
+ghostlogic_demo = ["dataset.json.gz"]
+
+[project.scripts]
+ghostlogic-demo = "ghostlogic_demo.__main__:main"

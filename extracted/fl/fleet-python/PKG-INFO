@@ -1,0 +1,145 @@
+Metadata-Version: 2.4
+Name: fleet-python
+Version: 0.2.125
+Summary: Python SDK for Fleet environments
+Author-email: Fleet AI <nic@fleet.so>
+License: Apache-2.0
+Project-URL: Homepage, https://fleetai.com
+Project-URL: Documentation, https://docs.fleetai.com
+Project-URL: Repository, https://github.com/fleet-ai/fleet-sdk
+Project-URL: Issues, https://github.com/fleet-ai/fleet-sdk/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: httpx-retries>=0.4.0
+Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: modulegraph2>=0.2.0
+Requires-Dist: cloudpickle==3.1.1
+Provides-Extra: cli
+Requires-Dist: typer>=0.9.0; extra == "cli"
+Requires-Dist: rich>=10.0.0; extra == "cli"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: black>=22.0.0; extra == "dev"
+Requires-Dist: isort>=5.0.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: unasync>=0.6.0; extra == "dev"
+Requires-Dist: python-dotenv>=1.1.1; extra == "dev"
+Requires-Dist: typer>=0.9.0; extra == "dev"
+Requires-Dist: rich>=10.0.0; extra == "dev"
+Provides-Extra: playwright
+Requires-Dist: playwright>=1.40.0; extra == "playwright"
+Provides-Extra: eval
+Requires-Dist: aiohttp>=3.9.0; extra == "eval"
+Requires-Dist: google-genai>=1.0.0; extra == "eval"
+Requires-Dist: mcp==1.24.0; python_version >= "3.10" and extra == "eval"
+Dynamic: license-file
+
+# Fleet SDK
+
+[![PyPI version](https://img.shields.io/pypi/v/fleet-python.svg)](https://pypi.org/project/fleet-python/)
+[![Python versions](https://img.shields.io/pypi/pyversions/fleet-python.svg)](https://pypi.org/project/fleet-python/)
+[![License](https://img.shields.io/pypi/l/fleet-python.svg)](https://pypi.org/project/fleet-python/)
+
+The Fleet Python SDK provides programmatic access to Fleet's environment infrastructure.
+
+## Installation
+
+Install the Fleet SDK using pip:
+
+```bash
+pip install fleet-python
+```
+
+### Alpha/Pre-release Versions
+
+To install the latest alpha or pre-release version:
+
+```bash
+pip install --pre fleet-python
+```
+
+To install a specific alpha version:
+
+```bash
+pip install fleet-python==0.2.64-alpha1
+```
+
+## API Key Setup
+
+Fleet requires an API key for authentication. You can obtain one from the [Fleet Platform](https://fleetai.com/dashboard/api-keys).
+
+Set your API key as an environment variable:
+
+```bash
+export FLEET_API_KEY="sk_your_key_here"
+```
+
+## Basic Usage
+
+```python
+import fleet
+import datetime
+
+# Create environment by key
+env = fleet.env.make("fira")
+
+# Reset environment with seed and options
+env.reset(
+    seed=42,
+    timestamp=int(datetime.datetime.now().timestamp())
+)
+
+# Access environment state ('current' is the resource id for a sqlite database)
+sql = env.state("sqlite://current")
+sql.exec("UPDATE customers SET status = 'active' WHERE id = 123")
+
+# Clean up
+env.close()
+```
+
+## Environment Management
+
+### Creating Instances
+
+```python
+# Create environment instance with explicit version
+env = fleet.env.make("fira:v1.2.5")
+
+# Create environment instance with default (latest) version
+env = fleet.env.make("fira")
+
+```
+
+### Connecting to Existing Instances
+
+```python
+# Connect to a running instance
+env = fleet.env.get("env_instance_id")
+
+# List all running instances
+instances = fleet.env.list_instances()
+for instance in instances:
+    print(f"Instance: {instance.instance_id}")
+    print(f"Type: {instance.environment_type}")
+    print(f"Status: {instance.status}")
+
+# Filter instances by status (running, pending, stopped, error)
+running_instances = fleet.env.list_instances(status_filter="running")
+
+# List available environment types
+available_envs = fleet.env.list_envs()
+```

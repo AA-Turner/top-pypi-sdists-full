@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: spring_centralized_config_client
+Version: 2.0
+Summary: A library to fetch spring centralized config in decrypted flat format.
+Author-email: Himanshu Verma <himanshu.v09@gmail.com>
+Project-URL: Homepage, https://github.com/himanshuverma09/spring-centralized-config-client
+Project-URL: Bug Tracker, https://github.com/himanshuverma09/spring-centralized-config-client/issues
+Keywords: spring,config,client,centralized,decrypted
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Java Libraries
+Requires-Python: >=3
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests>=2.26.0
+
+A Python client to fetch configuration from [Spring Config Server](https://spring.io/projects/spring-cloud-config).
+
+This package relies on [requests](https://pypi.org/project/requests/) library.
+
+## Installation
+
+```shell
+pip install spring-centralized-config-client
+```
+
+## General Usage
+
+```python
+from spring_centralized_config_client.client import SpringCentralizedConfigClient
+
+client = SpringCentralizedConfigClient(
+          app_name="app-name", # Required App Name
+          profile="dev", # Optional, Default=dev
+          branch="main", # Optional, Default=main
+          url="http://localhost:9000", # Optional, Default=http://localhost:9000
+          auth_required=True, # Optional, Enable basic authentication, Default=False
+          username="username", # Optional, Required if Auth Required is True, Default=Empty String
+          password="password", # Optional, Required if Auth Required is True, Default=Empty String
+          decrypt=True, # Optional, If you want to decrypt configuration, Default = False
+        )
+
+print(client.get_config())
+```
+
+## TODO
+
+- [x] Add support for Decryption 
+- [ ] Make decryption call in parallel
+

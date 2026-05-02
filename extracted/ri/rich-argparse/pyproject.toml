@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rich-argparse"
-version = "1.7.2"
+version = "1.8.0"
 description = "Rich help formatters for argparse and optparse"
 authors = [
   {name="Ali Hamdan", email="ali.hamdan.dev@gmail.com"},
@@ -15,9 +15,7 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -30,7 +28,7 @@ keywords = ["argparse", "rich", "help-formatter", "optparse"]
 dependencies = [
   "rich >= 11.0.0",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 [project.urls]
 Homepage = "https://github.com/hamdanal/rich-argparse"
@@ -65,9 +63,10 @@ isort.extra-standard-library = ["typing_extensions"]
 flake8-tidy-imports.ban-relative-imports = "all"
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 strict = true
 local_partial_types = true
+allow_redefinition_new = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

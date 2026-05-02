@@ -77,6 +77,14 @@ class ConcurrencyPolicy(_message.Message):
     key: str
     def __init__(self, max_concurrent: _Optional[int] = ..., key: _Optional[str] = ...) -> None: ...
 
+class QueuePolicy(_message.Message):
+    __slots__ = ("max_items", "key")
+    MAX_ITEMS_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    max_items: int
+    key: str
+    def __init__(self, max_items: _Optional[int] = ..., key: _Optional[str] = ...) -> None: ...
+
 class FunctionConfig(_message.Message):
     __slots__ = (
         "serialization_format",
@@ -86,6 +94,7 @@ class FunctionConfig(_message.Message):
         "retry_policy",
         "rate_limit",
         "concurrency",
+        "queue",
     )
     class OptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -102,6 +111,7 @@ class FunctionConfig(_message.Message):
     RETRY_POLICY_FIELD_NUMBER: _ClassVar[int]
     RATE_LIMIT_FIELD_NUMBER: _ClassVar[int]
     CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    QUEUE_FIELD_NUMBER: _ClassVar[int]
     serialization_format: SerializationFormat
     options: _containers.ScalarMap[str, str]
     max_buffer_duration: int
@@ -109,6 +119,7 @@ class FunctionConfig(_message.Message):
     retry_policy: RetryPolicy
     rate_limit: RateLimitPolicy
     concurrency: ConcurrencyPolicy
+    queue: QueuePolicy
     def __init__(
         self,
         serialization_format: _Optional[_Union[SerializationFormat, str]] = ...,
@@ -118,6 +129,7 @@ class FunctionConfig(_message.Message):
         retry_policy: _Optional[_Union[RetryPolicy, _Mapping]] = ...,
         rate_limit: _Optional[_Union[RateLimitPolicy, _Mapping]] = ...,
         concurrency: _Optional[_Union[ConcurrencyPolicy, _Mapping]] = ...,
+        queue: _Optional[_Union[QueuePolicy, _Mapping]] = ...,
     ) -> None: ...
 
 class ExternalFunctionVersion(_message.Message):

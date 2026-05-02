@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "spotify-utils"
+version = "2.0.1"
+description = "An awesome and easy-to-use CLI for various Spotify® utility tasks"
+license = "Apache-2.0"
+authors = ["Fabian Eulitz <dev@sustineo.de>"]
+repository = "https://github.com/fabieu/spotify-utils"
+keywords = ["spotify", "CLI", "utilities"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10, <4.0.0"
+spotipy = ">=2.25.2, <3.0.0"
+typer = ">=0.24.1, <1.0.0"
+tabulate = ">=0.9.0, <1.0.0"
+Jinja2 = ">=3.1.6, <4.0.0"
+dynaconf = ">=3.2.12, <4.0.0"
+textual = ">=8.0.0, <9.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=9.0.2, <10.0.0"
+
+[tool.poetry.scripts]
+spotify-utils = "spotify_utils.main:app"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-dotenv = "~=2.8"
+poetry-plugin-shell = "~=1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

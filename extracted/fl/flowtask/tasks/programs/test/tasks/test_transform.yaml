@@ -1,0 +1,35 @@
+name: Sample NN payload
+description: Test Sample Payload For Netwok Ninja
+steps:
+  - FileRead:
+      file: form_data.json
+      use_taskstorage: true
+      is_json: True
+      as_dataframe: True
+  - TransformRows:
+      replace_columns: true
+      fields:
+        time_in:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+        time_out:
+          value:
+            - convert_timezone
+            - from_tz: UTC
+        creation_timestamp:
+          - - convert_timezone
+            - from_tz: UTC
+          - - convert_to_datetime
+        updated_timestamp:
+          - - convert_timezone
+            - from_tz: UTC
+          - - convert_to_datetime
+        start_lat:
+          convert_to_numeric:
+            remove_nan: true
+          to_integer:
+        start_lon:
+          convert_to_numeric:
+            remove_nan: true
+          to_integer:

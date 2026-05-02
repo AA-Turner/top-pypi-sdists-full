@@ -1,0 +1,79 @@
+Metadata-Version: 2.1
+Name: spotify-to-musi
+Version: 2.0.1
+Summary: Transfer Spotify playlists to Musi.
+Home-page: https://github.com/hexiro/spotify-to-musi
+License: MIT
+Keywords: spotify,music,musi,transfer,cli
+Author: Hexiro
+Author-email: mail@hexiro.me
+Requires-Python: >=3.9,<4.0
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries 
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: aiofiles (>=23.1.0,<24.0.0)
+Requires-Dist: async-cache (>=1.1.1,<2.0.0)
+Requires-Dist: httpx (>=0.23.0,<=0.25.0)
+Requires-Dist: pydantic (>=2.0.2,<3.0.0)
+Requires-Dist: pyfy (>=2.2.0,<3.0.0)
+Requires-Dist: rich (>=12.6.0,<15.0.0)
+Requires-Dist: rich-click (>=1.6.1,<2.0.0)
+Requires-Dist: sanic (>=23.3.0,<24.0.0)
+Requires-Dist: typing-extensions (>=4.7.1,<5.0.0) ; python_version < "3.11"
+Requires-Dist: uvloop (>=0.17.0,<0.18.0) ; sys_platform == "linux"
+Project-URL: Bug Tracker, https://github.com/hexiro/spotify-to-musi/issues
+Project-URL: Repository, https://github.com/hexiro/spotify-to-musi
+Description-Content-Type: text/markdown
+
+# spotify-to-musi
+
+> Transfer your [Spotify](https://spotify.com) playlists to [Musi](https://feelthemusi.com).
+
+![banner](./.github/assets/banner.png)
+
+# Why Musi?
+
+Musi allows you to listen to any song (video) from YouTube without being interrupted with ads like with Spotify.
+As someone who doesn't have a music streaming subscription I prefer to use Spotify on Desktop and Musi on mobile,
+so I created this app to transfer songs between the two.
+
+# Spotify Credentials Setup
+
+1. Navigate to https://developer.spotify.com/dashboard \
+   ![Dashboard](./.github/assets/dashboard.png)
+2. Create an app with the name & description of your choice.
+   Make sure the callback URL is set to http://localhost:5000/callback/spotify \
+   ![Create App](./.github/assets/create-an-app.png)
+3. Open Settings \
+    ![Open Settings](./.github/assets/open-settings.png)
+4. View Client ID and Client Secret and store them in a safe place. \
+   ![View Client Credentials](./.github/assets/view-client-credentials.png)
+5. Initialize setup script with `spotify-to-musi setup` & enter Client ID and Client Secret \
+   ![Setup](./.github/assets/setup.png)
+6. Open the link (http://localhost:5000/callback/spotify) in your browser and authorize with Spotify \
+   ![Authorize](./.github/assets/authorize.png)
+7. Return to your terminal, and you should be successfully authorized! :3 \
+    ![Successfully Authorized](./.github/assets/successfully-authorized.png)
+
+
+
+# PyCharm Usage
+
+If you're running pycharm, make sure `emulate terminal in output console` is enabled<br>
+
+references:
+
+- https://youtrack.jetbrains.com/issue/PY-43860
+- https://rich.readthedocs.io/en/latest/introductin.html
+

@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: acceldata_sdk
+Version: 26.4.0
+Summary: Acceldata SDK
+Author-email: acceldata <apisupport@acceldata.io>
+License-Expression: MIT
+Keywords: acceldata-sdk
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: requests
+Requires-Dist: requests-toolbelt
+Requires-Dist: semantic-version
+Requires-Dist: dataclasses; python_version < "3.7"
+Requires-Dist: typing; python_version < "3.5"
+
+# acceldata SDK
+
+Acceldata SDK for instrumenting support in [ADOC](https://docs.acceldata.io/documentation/adoc-architecture-an-overview).
+
+Refer to the [documentation](https://docs.acceldata.io/documentation/python) for details.
+---
+
+## Changelog
+
+<!-- BEGIN CHANGELOG -->
+
+Version Log
+========================
+
+26.4.0 (11/04/2026)
+------------------
+- Released **acceldata_sdk** version 26.4.0.
+- Includes improvements and fixes for core SDK functionality.
+
+<!-- END CHANGELOG -->
+

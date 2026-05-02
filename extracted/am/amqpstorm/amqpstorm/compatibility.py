@@ -1,7 +1,5 @@
 """Python 2/3 Compatibility layer."""
 
-import sys
-
 try:
     import ssl
 except ImportError:
@@ -12,22 +10,12 @@ try:
 except ImportError:
     import json  # noqa
 
-try:
-    import urlparse  # noqa
-except ImportError:
-    import urllib.parse as urlparse  # noqa
 
-try:
-    from urllib import quote  # noqa
-except ImportError:
-    from urllib.parse import quote  # noqa
+import urllib.parse as urlparse  # noqa
+from urllib.parse import quote  # noqa
 
-PYTHON3 = sys.version_info >= (3, 0, 0)
 
-if PYTHON3:
-    RANGE = range
-else:
-    RANGE = xrange
+RANGE = range
 
 
 class DummyException(Exception):
@@ -45,9 +33,9 @@ SSL_OPTIONS = [
     'keyfile',
     'certfile',
     'cert_reqs',
-    'ssl_version',
     'ca_certs',
     'server_hostname',
+    'check_hostname',
 ]
 
 
@@ -68,12 +56,6 @@ def get_default_ssl_version():
 DEFAULT_SSL_VERSION = get_default_ssl_version()
 SSL_SUPPORTED = DEFAULT_SSL_VERSION is not None
 if SSL_SUPPORTED:
-    if hasattr(ssl, 'PROTOCOL_TLSv1_2'):
-        SSL_VERSIONS['protocol_tlsv1_2'] = ssl.PROTOCOL_TLSv1_2
-    if hasattr(ssl, 'PROTOCOL_TLSv1_1'):
-        SSL_VERSIONS['protocol_tlsv1_1'] = ssl.PROTOCOL_TLSv1_1
-    SSL_VERSIONS['protocol_tlsv1'] = ssl.PROTOCOL_TLSv1
-
     SSL_CERT_MAP = {
         'cert_none': ssl.CERT_NONE,
         'cert_optional': ssl.CERT_OPTIONAL,
@@ -90,11 +72,7 @@ def is_string(obj):
     :param object obj:
     :rtype: bool
     """
-    if PYTHON3:
-        str_type = (bytes, str)
-    else:
-        str_type = (bytes, str, unicode)
-    return isinstance(obj, str_type)
+    return isinstance(obj, (bytes, str))
 
 
 def is_integer(obj):
@@ -103,22 +81,7 @@ def is_integer(obj):
     :param object obj:
     :return:
     """
-    if PYTHON3:
-        return isinstance(obj, int)
-    return isinstance(obj, (int, long))
-
-
-def is_unicode(obj):
-    """Is this a unicode string.
-
-        This always returns False if running Python 3.x.
-
-    :param object obj:
-    :rtype: bool
-    """
-    if PYTHON3:
-        return False
-    return isinstance(obj, unicode)
+    return isinstance(obj, int)
 
 
 def try_utf8_decode(value):
@@ -129,9 +92,7 @@ def try_utf8_decode(value):
     """
     if not value or not is_string(value):
         return value
-    elif PYTHON3 and not isinstance(value, bytes):
-        return value
-    elif not PYTHON3 and not isinstance(value, unicode):
+    elif not isinstance(value, bytes):
         return value
 
     try:

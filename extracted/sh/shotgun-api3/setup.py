@@ -1,0 +1,47 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2019 Shotgun Software Inc.
+#
+# CONFIDENTIAL AND PROPRIETARY
+#
+# This work is provided "AS IS" and subject to the Shotgun Pipeline Toolkit
+# Source Code License included in this distribution package. See LICENSE.
+# By accessing, using, copying or modifying this work you indicate your
+# agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
+# not expressly granted therein are reserved by Shotgun Software Inc.
+
+import sys
+from setuptools import setup, find_packages
+
+f = open("README.md")
+readme = f.read().strip()
+
+f = open("LICENSE")
+license = f.read().strip()
+
+setup(
+    name="shotgun_api3",
+    version="3.10.0",
+    description="Flow Production Tracking Python API",
+    long_description=readme,
+    long_description_content_type="text/markdown",
+    author="Autodesk",
+    url="https://github.com/shotgunsoftware/python-api",
+    license=license,
+    packages=find_packages(exclude=("tests",)),
+    script_args=sys.argv[1:],
+    include_package_data=True,
+    package_data={"": ["cacerts.txt", "cacert.pem", "py.typed"]},
+    zip_safe=False,
+    python_requires=">=3.9.0",
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Operating System :: OS Independent",
+    ],
+)

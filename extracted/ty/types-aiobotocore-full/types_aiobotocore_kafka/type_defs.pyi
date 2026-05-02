@@ -28,8 +28,10 @@ from .literals import (
     ClusterStateType,
     ClusterTypeType,
     ConfigurationStateType,
+    ConsumerGroupOffsetSyncModeType,
     CustomerActionStatusType,
     EnhancedMonitoringType,
+    KafkaClusterSaslScramMechanismType,
     KafkaVersionStatusType,
     NetworkTypeType,
     RebalancingStatusType,
@@ -50,6 +52,7 @@ else:
 
 __all__ = (
     "AmazonMskClusterTypeDef",
+    "ApacheKafkaClusterTypeDef",
     "BatchAssociateScramSecretRequestTypeDef",
     "BatchAssociateScramSecretResponseTypeDef",
     "BatchDisassociateScramSecretRequestTypeDef",
@@ -147,10 +150,13 @@ __all__ = (
     "IamTypeDef",
     "JmxExporterInfoTypeDef",
     "JmxExporterTypeDef",
+    "KafkaClusterClientAuthenticationTypeDef",
     "KafkaClusterClientVpcConfigOutputTypeDef",
     "KafkaClusterClientVpcConfigTypeDef",
     "KafkaClusterClientVpcConfigUnionTypeDef",
     "KafkaClusterDescriptionTypeDef",
+    "KafkaClusterEncryptionInTransitTypeDef",
+    "KafkaClusterSaslScramAuthenticationTypeDef",
     "KafkaClusterSummaryTypeDef",
     "KafkaClusterTypeDef",
     "KafkaVersionTypeDef",
@@ -195,6 +201,7 @@ __all__ = (
     "ListVpcConnectionsRequestPaginateTypeDef",
     "ListVpcConnectionsRequestTypeDef",
     "ListVpcConnectionsResponseTypeDef",
+    "LogDeliveryTypeDef",
     "LoggingInfoTypeDef",
     "MutableClusterInfoTypeDef",
     "NodeExporterInfoTypeDef",
@@ -221,6 +228,10 @@ __all__ = (
     "ReplicationStartingPositionTypeDef",
     "ReplicationStateInfoTypeDef",
     "ReplicationTopicNameConfigurationTypeDef",
+    "ReplicatorCloudWatchLogsTypeDef",
+    "ReplicatorFirehoseTypeDef",
+    "ReplicatorLogDeliveryTypeDef",
+    "ReplicatorS3TypeDef",
     "ReplicatorSummaryTypeDef",
     "ResponseMetadataTypeDef",
     "S3TypeDef",
@@ -290,6 +301,10 @@ __all__ = (
 
 class AmazonMskClusterTypeDef(TypedDict):
     MskClusterArn: str
+
+class ApacheKafkaClusterTypeDef(TypedDict):
+    ApacheKafkaClusterId: str
+    BootstrapBrokerString: str
 
 class BatchAssociateScramSecretRequestTypeDef(TypedDict):
     ClusterArn: str
@@ -404,12 +419,14 @@ class ConsumerGroupReplicationOutputTypeDef(TypedDict):
     ConsumerGroupsToExclude: NotRequired[list[str]]
     DetectAndCopyNewConsumerGroups: NotRequired[bool]
     SynchroniseConsumerGroupOffsets: NotRequired[bool]
+    ConsumerGroupOffsetSyncMode: NotRequired[ConsumerGroupOffsetSyncModeType]
 
 class ConsumerGroupReplicationTypeDef(TypedDict):
     ConsumerGroupsToReplicate: Sequence[str]
     ConsumerGroupsToExclude: NotRequired[Sequence[str]]
     DetectAndCopyNewConsumerGroups: NotRequired[bool]
     SynchroniseConsumerGroupOffsets: NotRequired[bool]
+    ConsumerGroupOffsetSyncMode: NotRequired[ConsumerGroupOffsetSyncModeType]
 
 class ConsumerGroupReplicationUpdateTypeDef(TypedDict):
     ConsumerGroupsToExclude: Sequence[str]
@@ -531,6 +548,10 @@ class JmxExporterInfoTypeDef(TypedDict):
 class JmxExporterTypeDef(TypedDict):
     EnabledInBroker: bool
 
+class KafkaClusterSaslScramAuthenticationTypeDef(TypedDict):
+    Mechanism: KafkaClusterSaslScramMechanismType
+    SecretArn: str
+
 class KafkaClusterClientVpcConfigOutputTypeDef(TypedDict):
     SubnetIds: list[str]
     SecurityGroupIds: NotRequired[list[str]]
@@ -538,6 +559,10 @@ class KafkaClusterClientVpcConfigOutputTypeDef(TypedDict):
 class KafkaClusterClientVpcConfigTypeDef(TypedDict):
     SubnetIds: Sequence[str]
     SecurityGroupIds: NotRequired[Sequence[str]]
+
+class KafkaClusterEncryptionInTransitTypeDef(TypedDict):
+    EncryptionType: Literal["TLS"]
+    RootCaCertificate: NotRequired[str]
 
 class KafkaVersionTypeDef(TypedDict):
     Version: NotRequired[str]
@@ -668,6 +693,19 @@ ReplicationTopicNameConfigurationTypeDef = TypedDict(
     },
 )
 
+class ReplicatorCloudWatchLogsTypeDef(TypedDict):
+    Enabled: bool
+    LogGroup: NotRequired[str]
+
+class ReplicatorFirehoseTypeDef(TypedDict):
+    Enabled: bool
+    DeliveryStream: NotRequired[str]
+
+class ReplicatorS3TypeDef(TypedDict):
+    Enabled: bool
+    Bucket: NotRequired[str]
+    Prefix: NotRequired[str]
+
 class ScramTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
@@ -733,6 +771,7 @@ class VpcConnectivityScramTypeDef(TypedDict):
 
 class KafkaClusterSummaryTypeDef(TypedDict):
     AmazonMskCluster: NotRequired[AmazonMskClusterTypeDef]
+    ApacheKafkaCluster: NotRequired[ApacheKafkaClusterTypeDef]
     KafkaClusterAlias: NotRequired[str]
 
 class CreateClusterResponseTypeDef(TypedDict):
@@ -1123,10 +1162,8 @@ class EncryptionInfoTypeDef(TypedDict):
 class ServerlessSaslTypeDef(TypedDict):
     Iam: NotRequired[IamTypeDef]
 
-class KafkaClusterDescriptionTypeDef(TypedDict):
-    AmazonMskCluster: NotRequired[AmazonMskClusterTypeDef]
-    KafkaClusterAlias: NotRequired[str]
-    VpcConfig: NotRequired[KafkaClusterClientVpcConfigOutputTypeDef]
+class KafkaClusterClientAuthenticationTypeDef(TypedDict):
+    SaslScram: KafkaClusterSaslScramAuthenticationTypeDef
 
 KafkaClusterClientVpcConfigUnionTypeDef = Union[
     KafkaClusterClientVpcConfigTypeDef, KafkaClusterClientVpcConfigOutputTypeDef
@@ -1173,19 +1210,16 @@ class TopicReplicationTypeDef(TypedDict):
     TopicNameConfiguration: NotRequired[ReplicationTopicNameConfigurationTypeDef]
     TopicsToExclude: NotRequired[Sequence[str]]
 
+class ReplicatorLogDeliveryTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[ReplicatorCloudWatchLogsTypeDef]
+    Firehose: NotRequired[ReplicatorFirehoseTypeDef]
+    S3: NotRequired[ReplicatorS3TypeDef]
+
 class SaslTypeDef(TypedDict):
     Scram: NotRequired[ScramTypeDef]
     Iam: NotRequired[IamTypeDef]
 
 TlsUnionTypeDef = Union[TlsTypeDef, TlsOutputTypeDef]
-
-class UpdateReplicationInfoRequestTypeDef(TypedDict):
-    CurrentVersion: str
-    ReplicatorArn: str
-    SourceKafkaClusterArn: str
-    TargetKafkaClusterArn: str
-    ConsumerGroupReplication: NotRequired[ConsumerGroupReplicationUpdateTypeDef]
-    TopicReplication: NotRequired[TopicReplicationUpdateTypeDef]
 
 class VpcConnectionInfoServerlessTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
@@ -1244,9 +1278,20 @@ class ListConfigurationsResponseTypeDef(TypedDict):
 class ServerlessClientAuthenticationTypeDef(TypedDict):
     Sasl: NotRequired[ServerlessSaslTypeDef]
 
+class KafkaClusterDescriptionTypeDef(TypedDict):
+    AmazonMskCluster: NotRequired[AmazonMskClusterTypeDef]
+    ApacheKafkaCluster: NotRequired[ApacheKafkaClusterTypeDef]
+    KafkaClusterAlias: NotRequired[str]
+    VpcConfig: NotRequired[KafkaClusterClientVpcConfigOutputTypeDef]
+    ClientAuthentication: NotRequired[KafkaClusterClientAuthenticationTypeDef]
+    EncryptionInTransit: NotRequired[KafkaClusterEncryptionInTransitTypeDef]
+
 class KafkaClusterTypeDef(TypedDict):
-    AmazonMskCluster: AmazonMskClusterTypeDef
-    VpcConfig: KafkaClusterClientVpcConfigUnionTypeDef
+    AmazonMskCluster: NotRequired[AmazonMskClusterTypeDef]
+    ApacheKafkaCluster: NotRequired[ApacheKafkaClusterTypeDef]
+    VpcConfig: NotRequired[KafkaClusterClientVpcConfigUnionTypeDef]
+    ClientAuthentication: NotRequired[KafkaClusterClientAuthenticationTypeDef]
+    EncryptionInTransit: NotRequired[KafkaClusterEncryptionInTransitTypeDef]
 
 class OpenMonitoringInfoTypeDef(TypedDict):
     Prometheus: PrometheusInfoTypeDef
@@ -1262,6 +1307,9 @@ class ReplicationInfoDescriptionTypeDef(TypedDict):
     TopicReplication: NotRequired[TopicReplicationOutputTypeDef]
 
 TopicReplicationUnionTypeDef = Union[TopicReplicationTypeDef, TopicReplicationOutputTypeDef]
+
+class LogDeliveryTypeDef(TypedDict):
+    ReplicatorLogDelivery: NotRequired[ReplicatorLogDeliveryTypeDef]
 
 class ClientAuthenticationOutputTypeDef(TypedDict):
     Sasl: NotRequired[SaslTypeDef]
@@ -1308,6 +1356,15 @@ class UpdateMonitoringRequestTypeDef(TypedDict):
     OpenMonitoring: NotRequired[OpenMonitoringInfoTypeDef]
     LoggingInfo: NotRequired[LoggingInfoTypeDef]
 
+class ReplicationInfoTypeDef(TypedDict):
+    ConsumerGroupReplication: ConsumerGroupReplicationUnionTypeDef
+    TargetCompressionType: TargetCompressionTypeType
+    TopicReplication: TopicReplicationUnionTypeDef
+    SourceKafkaClusterArn: NotRequired[str]
+    SourceKafkaClusterId: NotRequired[str]
+    TargetKafkaClusterArn: NotRequired[str]
+    TargetKafkaClusterId: NotRequired[str]
+
 class DescribeReplicatorResponseTypeDef(TypedDict):
     CreationTime: datetime
     CurrentVersion: str
@@ -1322,14 +1379,19 @@ class DescribeReplicatorResponseTypeDef(TypedDict):
     ServiceExecutionRoleArn: str
     StateInfo: ReplicationStateInfoTypeDef
     Tags: dict[str, str]
+    LogDelivery: LogDeliveryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ReplicationInfoTypeDef(TypedDict):
-    ConsumerGroupReplication: ConsumerGroupReplicationUnionTypeDef
-    SourceKafkaClusterArn: str
-    TargetCompressionType: TargetCompressionTypeType
-    TargetKafkaClusterArn: str
-    TopicReplication: TopicReplicationUnionTypeDef
+class UpdateReplicationInfoRequestTypeDef(TypedDict):
+    CurrentVersion: str
+    ReplicatorArn: str
+    ConsumerGroupReplication: NotRequired[ConsumerGroupReplicationUpdateTypeDef]
+    SourceKafkaClusterArn: NotRequired[str]
+    SourceKafkaClusterId: NotRequired[str]
+    TargetKafkaClusterArn: NotRequired[str]
+    TargetKafkaClusterId: NotRequired[str]
+    TopicReplication: NotRequired[TopicReplicationUpdateTypeDef]
+    LogDelivery: NotRequired[LogDeliveryTypeDef]
 
 ClientAuthenticationUnionTypeDef = Union[
     ClientAuthenticationTypeDef, ClientAuthenticationOutputTypeDef
@@ -1345,6 +1407,7 @@ class CreateReplicatorRequestTypeDef(TypedDict):
     ServiceExecutionRoleArn: str
     Description: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+    LogDelivery: NotRequired[LogDeliveryTypeDef]
 
 class UpdateSecurityRequestTypeDef(TypedDict):
     ClusterArn: str

@@ -54,8 +54,7 @@ class HTTPClient(object):
             return self._request('get', path, params=params)
 
         results = list()
-        current_page = 1
-        params['page'] = current_page
+        params['page'] = 1
         params['page_size'] = page_size
         params['pagination'] = True
         first_result = self._request('get', path, params=params)
@@ -63,15 +62,12 @@ class HTTPClient(object):
         current_page = first_result.get('page', 1)
         results.extend(first_result['items'])
 
-        while num_pages > current_page:
+        while current_page < num_pages:
             params['page'] = current_page + 1
             next_result = self._request('get', path, params=params)
             current_page = next_result['page']
             num_pages = next_result['page_count']
-            items = next_result.get('items')
-            if not items:
-                break
-            results.extend(items)
+            results.extend(next_result.get('items', []))
 
         return results
 

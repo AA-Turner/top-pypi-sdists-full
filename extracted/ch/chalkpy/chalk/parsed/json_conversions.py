@@ -4,7 +4,7 @@ import collections
 import dataclasses
 import json
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, List, Optional, Type, TypeVar, Union, cast, overload
+from typing import Any, List, Optional, Type, TypeVar, Union, cast, overload
 
 from chalk import Resolver, Windowed
 from chalk.features import DataFrame, Feature, Features, Filter, serialize_dtype
@@ -37,7 +37,6 @@ from chalk.parsed.duplicate_input_gql import (
     UpsertSinkResolverGQL,
     UpsertStreamResolverGQL,
     UpsertStreamResolverParamGQL,
-    UpsertStreamResolverParamKeyedStateGQL,
     UpsertStreamResolverParamMessageGQL,
     UpsertWindowMaterializationGQL,
     VersionInfoGQL,
@@ -45,31 +44,13 @@ from chalk.parsed.duplicate_input_gql import (
 from chalk.queries.named_query import NamedQuery
 from chalk.queries.scheduled_query import ScheduledQuery
 from chalk.sql._internal.sql_source import BaseSQLSource, TableIngestMixIn
-from chalk.streams.types import (
-    StreamResolverParam,
-    StreamResolverParamKeyedState,
-    StreamResolverParamMessage,
-    StreamResolverParamMessageWindow,
-)
+from chalk.streams.types import StreamResolverParam, StreamResolverParamMessage, StreamResolverParamMessageWindow
 from chalk.utils import paths
 from chalk.utils.collections import get_unique_item, unwrap_optional_and_annotated_if_needed
 from chalk.utils.duration import CronTab, Duration, timedelta_to_duration
 from chalk.utils.json import JSON
-from chalk.utils.pydanticutil.pydantic_compat import (
-    get_pydantic_model_json,
-    get_pydantic_output_structure,
-    is_pydantic_basemodel,
-    is_pydantic_basemodel_instance,
-)
+from chalk.utils.pydanticutil.pydantic_compat import get_pydantic_output_structure, is_pydantic_basemodel
 from chalk.utils.string import to_snake_case
-
-if TYPE_CHECKING:
-    import pydantic
-else:
-    try:
-        import pydantic.v1 as pydantic
-    except ImportError:
-        import pydantic
 
 T = TypeVar("T")
 
@@ -364,29 +345,7 @@ def convert_type_to_gql(
                     typeName=converted_type.name,
                     bases=converted_type.bases,
                     schema=schema,
-                ),
-                state=None,
-            )
-        elif isinstance(t, StreamResolverParamKeyedState):
-            converted_type = _convert_type(t.typ, is_windowed=False)
-            default_value = None
-            schema = None
-            if dataclasses.is_dataclass(t.default_value):
-                default_value = json.loads(json.dumps(dataclasses.asdict(cast(Any, t.default_value))))
-                schema = pydantic.dataclasses.dataclass(t.typ).__pydantic_model__.schema()
-            elif is_pydantic_basemodel_instance(t.default_value):
-                assert is_pydantic_basemodel(t.typ)
-                default_value = json.loads(get_pydantic_model_json(t.default_value))
-                schema = get_pydantic_output_structure(t.typ)
-            return UpsertStreamResolverParamGQL(
-                state=UpsertStreamResolverParamKeyedStateGQL(
-                    name=t.name,
-                    defaultValue=default_value,
-                    typeName=converted_type.name,
-                    bases=converted_type.bases,
-                    schema=schema,
-                ),
-                message=None,
+                )
             )
 
     if isinstance(t, ScheduledQuery):

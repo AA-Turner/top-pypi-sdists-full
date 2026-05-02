@@ -1,0 +1,71 @@
+[build-system]
+requires = [
+    "wheel",
+    "setuptools >= 61.0.0",
+    "setuptools_scm[toml]>=6.2",
+    "numpy>=2.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seisbench"
+dynamic = ["version"]
+description = "The seismological machine learning benchmark collection"
+readme = "README.md"
+license = { text = "GPLv3" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Jack Woolam", email = "jack.woollam@kit.edu" },
+    { name = "Jannes Münchmeyer", email = "munchmej@gfz-potsdam.de" },
+]
+maintainers = [
+    { name = "Jack Woolam", email = "jack.woollam@kit.edu" },
+    { name = "Jannes Münchmeyer", email = "munchmej@gfz-potsdam.de" },
+]
+keywords = ["seismology", "machine learning", "signal processing", "earthquake"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3.9",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+dependencies = [
+    "numpy>=1.21.6",
+    "pandas>=1.1",
+    "h5py>=3.1",
+    "obspy>=1.3.1",
+    "tqdm>=4.52",
+    "torch>=1.10.0",
+    "scipy>=1.9",
+    "nest_asyncio>=1.5.3",
+    "bottleneck>=1.3",
+    "typing_extensions>=4.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["seisbench*"]
+
+[project.optional-dependencies]
+das = ["xdas>=0.2.3", "pyarrow"]
+dev = ["ruff", "pre-commit"]
+tests = ["pytest", "pytest-asyncio>=0.26.0", "pytest-benchmark"]
+
+[tool.setuptools_scm]
+
+[project.urls]
+GitHub = "https://github.com/seisbench/seisbench"
+Documentation = "https://seisbench.readthedocs.io/en/latest/"
+Issues = "https://github.com/seisbench/seisbench/issues"
+
+[tool.pytest.ini_options]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+
+[tool.cibuildwheel]
+test-requires = ["seisbench[tests]", "seisbench[das]"]  # Ensure optional dependencies are available
+test-command = "pytest --durations=10 {project}/tests/"
+# Disable free-threading builds on all platforms
+# h5py does not support thread-free wheels for now, so we don't build them
+# See: https://docs.h5py.org/en/latest/threads.html
+# Skip musllinux because of lacking wheels for pytorch
+skip = ["cp3??t-*", "*musllinux*"]

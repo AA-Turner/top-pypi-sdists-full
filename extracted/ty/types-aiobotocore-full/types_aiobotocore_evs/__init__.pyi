@@ -12,9 +12,11 @@ Usage::
     from types_aiobotocore_evs import (
         Client,
         EVSClient,
+        ListEnvironmentConnectorsPaginator,
         ListEnvironmentHostsPaginator,
         ListEnvironmentVlansPaginator,
         ListEnvironmentsPaginator,
+        ListVmEntitlementsPaginator,
     )
 
     session = get_session()
@@ -23,17 +25,21 @@ Usage::
         ...
 
 
+    list_environment_connectors_paginator: ListEnvironmentConnectorsPaginator = client.get_paginator("list_environment_connectors")
     list_environment_hosts_paginator: ListEnvironmentHostsPaginator = client.get_paginator("list_environment_hosts")
     list_environment_vlans_paginator: ListEnvironmentVlansPaginator = client.get_paginator("list_environment_vlans")
     list_environments_paginator: ListEnvironmentsPaginator = client.get_paginator("list_environments")
+    list_vm_entitlements_paginator: ListVmEntitlementsPaginator = client.get_paginator("list_vm_entitlements")
     ```
 """
 
 from .client import EVSClient
 from .paginator import (
+    ListEnvironmentConnectorsPaginator,
     ListEnvironmentHostsPaginator,
     ListEnvironmentsPaginator,
     ListEnvironmentVlansPaginator,
+    ListVmEntitlementsPaginator,
 )
 
 Client = EVSClient
@@ -41,7 +47,9 @@ Client = EVSClient
 __all__ = (
     "Client",
     "EVSClient",
+    "ListEnvironmentConnectorsPaginator",
     "ListEnvironmentHostsPaginator",
     "ListEnvironmentVlansPaginator",
     "ListEnvironmentsPaginator",
+    "ListVmEntitlementsPaginator",
 )

@@ -1,0 +1,165 @@
+Metadata-Version: 2.4
+Name: spring-config-client-python
+Version: 0.1.3
+Summary: Lightweight Spring Cloud Config client for Python
+Project-URL: Homepage, https://github.com/tcivie/spring-config-client-python
+Project-URL: Issues, https://github.com/tcivie/spring-config-client-python/issues
+Author-email: Gleb Tcivie <gleb@tcivie.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Requires-Dist: requests>=2.31.0
+Provides-Extra: dev
+Requires-Dist: pytest-cov>=4.1.0; extra == 'dev'
+Requires-Dist: pytest>=7.4.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# Spring Config Client for Python
+
+A lightweight Python client for [Spring Cloud Config Server](https://spring.io/projects/spring-cloud-config). Load your centralized configuration into Python applications at startup.
+
+## Why This Exists
+
+Spring Cloud Config Server is great for centralized configuration management, but Python clients were either outdated or overcomplicated. This library does one thing well: fetch configuration from your Spring Config Server and load it into your application's environment.
+
+## Installation
+
+```bash
+pip install spring-config-client-python
+```
+
+## Quick Start
+
+```python
+from spring_config_client import SpringConfigClient
+import os
+
+# Initialize and load config at application startup
+client = SpringConfigClient(
+    server_url="https://config.example.com",
+    app_name="my-python-service",
+    profile="production",
+    username="config-admin",  # optional, for basic auth
+    password="secret"          # optional
+)
+
+# Fetch and load all configuration into os.environ
+config = client.fetch_and_load()
+
+# Access your configuration
+db_host = os.environ.get('DB_HOST')
+api_key = os.environ.get('API_KEY')
+```
+
+## How It Works
+
+1. **Fetches** configuration from Spring Config Server using the standard API endpoint: `/{application}/{profile}`
+2. **Merges** multiple property sources with correct precedence (profile-specific overrides defaults)
+3. **Interpolates** property placeholders like `${DB_HOST}` from existing environment variables
+4. **Loads** everything into `os.environ` as-is (including dotted keys like `spring.datasource.url`)
+
+## Configuration Keys
+
+Your Spring Config Server can return keys in any format:
+- Environment variable style: `DATABASE_URL`, `API_KEY`
+- Spring property style: `spring.datasource.url`, `logging.level.root`
+- Mixed: Whatever you configure in your `.properties` or `.yml` files
+
+All keys are loaded as-is into `os.environ`. No transformation, no magic.
+
+## Property Interpolation
+
+The client supports Spring-style property placeholders:
+
+```properties
+# In your Spring Config Server
+DATABASE_URL=postgresql://${DB_HOST}:${DB_PORT}/mydb
+```
+
+The client will resolve `${DB_HOST}` and `${DB_PORT}` from your existing environment variables.
+
+## Features
+
+- ✅ Loads configuration at startup (no runtime refresh)
+- ✅ Basic authentication support
+- ✅ Property placeholder interpolation (`${VAR}`)
+- ✅ Correct property source precedence
+- ✅ Zero dependencies except `requests`
+- ✅ Works with Spring Cloud Config Server 2025.0.0
+
+## What This Library Does NOT Do
+
+- ❌ Runtime configuration refresh - load once at startup only
+- ❌ Encryption/decryption - use Spring Config Server's encryption features
+- ❌ Advanced retry logic - fails fast if server is unreachable
+- ❌ Configuration validation - that's your application's responsibility
+
+This is intentional. Keep it simple.
+
+## Example with Docker
+
+```dockerfile
+FROM python:3.11-slim
+
+ENV CONFIG_SERVER_URL=https://config.example.com
+ENV CONFIG_APP_NAME=my-service
+ENV CONFIG_PROFILE=production
+
+COPY . /app
+WORKDIR /app
+
+RUN pip install spring-config-client-python
+
+CMD python app.py
+```
+
+```python
+# app.py
+import os
+from spring_config_client import SpringConfigClient
+
+# Load config from environment
+client = SpringConfigClient(
+    server_url=os.environ['CONFIG_SERVER_URL'],
+    app_name=os.environ['CONFIG_APP_NAME'],
+    profile=os.environ['CONFIG_PROFILE']
+)
+
+client.fetch_and_load()
+
+# Your application code here
+```
+
+## Error Handling
+
+The client fails fast if the config server is unreachable. This is by design - your service shouldn't start without proper configuration.
+
+```python
+try:
+    client.fetch_and_load()
+except requests.RequestException as e:
+    print(f"Failed to load configuration: {e}")
+    sys.exit(1)
+```
+
+## Requirements
+
+- Python 3.9+
+- Spring Cloud Config Server 2025.0.0 (or compatible versions)
+
+## License
+
+MIT
+
+## Contributing
+
+Found a bug? Have a feature request? Open an issue on [GitHub](https://github.com/tcivie/spring-config-client-python).
+
+Keep it simple. This library does one thing well and that's enough.

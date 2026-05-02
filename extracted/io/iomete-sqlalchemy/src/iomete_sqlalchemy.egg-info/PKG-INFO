@@ -1,0 +1,120 @@
+Metadata-Version: 2.4
+Name: iomete-sqlalchemy
+Version: 1.0.22
+Summary: SQLAlchemy dialect for IOMETE via Arrow Flight SQL
+License: Apache-2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: sqlalchemy>=2.0.30
+Requires-Dist: adbc-driver-flightsql>=1.1.0
+Requires-Dist: pyarrow>=16.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: python-dotenv; extra == "dev"
+Dynamic: license-file
+
+# iomete-sqlalchemy
+
+A SQLAlchemy dialect for [IOMETE](https://iomete.com) using Arrow Flight SQL (`adbc-driver-flightsql`).
+
+All reflection methods are implemented and relational stubs (PK, FK, indexes) return graceful empty results instead of raising `NotImplementedError`, making it compatible with schema inspection tools and data catalog integrations.
+
+---
+
+## Requirements
+
+- `Python 3.9+`
+- `sqlalchemy >= 2.0.30`
+- `adbc-driver-flightsql >= 1.1.0`
+- `pyarrow >= 16.0`
+
+---
+
+## Installation
+
+```bash
+pip install iomete-sqlalchemy
+```
+
+---
+
+## Connection URL
+
+```
+iomete://<user>:<password>@<host>:<port>/<catalog>/<schema>
+    ?cluster=<cluster>
+    &data_plane=<data_plane>
+    [&tls=true]
+    [&max_msg_size=134217728]
+```
+
+| Parameter | Description | Default |
+|---|---|---|
+| `host` | IOMETE host | — |
+| `port` | gRPC port | `443` |
+| `catalog` | Top-level catalog (e.g. `spark_catalog`) | — |
+| `schema` | Schema / database inside the catalog | — |
+| `cluster` | IOMETE compute cluster name | — |
+| `data_plane` | IOMETE data plane name | — |
+| `tls` | Use `grpc+tls` transport | `true` |
+| `max_msg_size` | Max gRPC message size in bytes | `134217728` (128 MB) |
+
+### Example
+
+```python
+from sqlalchemy import create_engine, inspect, text
+
+HOST       = "dev.iomete.cloud"
+PORT       = 443
+USERNAME   = "your-username"
+PASSWORD   = "your-password"
+CATALOG    = "spark_catalog"
+SCHEMA     = "default"
+CLUSTER    = "your-cluster"
+DATA_PLANE = "your-data-plane"
+
+engine = create_engine(
+    f"iomete://{USERNAME}:{PASSWORD}@{HOST}:{PORT}"
+    f"/{CATALOG}/{SCHEMA}"
+    f"?cluster={CLUSTER}&data_plane={DATA_PLANE}"
+)
+
+# Check connection
+with engine.connect() as conn:
+    print(conn.execute(text("SELECT 1")).scalar())  # → 1
+
+# Reflect schema
+inspector = inspect(engine)
+print(inspector.get_schema_names())
+print(inspector.get_table_names(schema=f"{CATALOG}.{SCHEMA}"))
+```
+
+---
+
+## Supported Type Mappings
+
+| Spark / Iceberg type | SQLAlchemy type |
+|---|---|
+| `boolean` | `Boolean` |
+| `tinyint`, `smallint` | `SmallInteger` |
+| `int`, `integer` | `Integer` |
+| `bigint` | `BigInteger` |
+| `float`, `real` | `Float(24)` |
+| `double` | `Float(53)` |
+| `decimal(p, s)` | `Numeric(p, s)` |
+| `char(n)` | `CHAR(n)` |
+| `varchar(n)` | `VARCHAR(n)` |
+| `string`, `text` | `Text` |
+| `binary` | `LargeBinary` |
+| `date` | `Date` |
+| `timestamp`, `timestamp_ntz` | `DateTime` |
+| `array<…>`, `map<…>`, `struct<…>` | `JSON` |
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture overview, codebase layout, and how to run tests.

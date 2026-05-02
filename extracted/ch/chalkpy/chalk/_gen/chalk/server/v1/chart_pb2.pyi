@@ -1,6 +1,7 @@
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
+from chalk._gen.chalk.server.v1 import incident_pb2 as _incident_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -395,10 +396,16 @@ class GetChartRequest(_message.Message):
     def __init__(self, chart_id: _Optional[str] = ...) -> None: ...
 
 class GetChartResponse(_message.Message):
-    __slots__ = ("chart",)
+    __slots__ = ("chart", "active_incidents")
     CHART_FIELD_NUMBER: _ClassVar[int]
+    ACTIVE_INCIDENTS_FIELD_NUMBER: _ClassVar[int]
     chart: _chart_pb2.Chart
-    def __init__(self, chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...) -> None: ...
+    active_incidents: _containers.RepeatedCompositeFieldContainer[_incident_pb2.MetricIncident]
+    def __init__(
+        self,
+        chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...,
+        active_incidents: _Optional[_Iterable[_Union[_incident_pb2.MetricIncident, _Mapping]]] = ...,
+    ) -> None: ...
 
 class GetChartOptionsRequest(_message.Message):
     __slots__ = ()

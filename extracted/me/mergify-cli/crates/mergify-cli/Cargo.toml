@@ -14,7 +14,11 @@ name = "mergify"
 path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4.5", features = ["derive"] }
+mergify-config = { path = "../mergify-config" }
 mergify-core = { path = "../mergify-core" }
+mergify-py-shim = { path = "../mergify-py-shim" }
+tokio = { version = "1", default-features = false, features = ["macros", "rt", "time"] }
 
 [lints]
 workspace = true

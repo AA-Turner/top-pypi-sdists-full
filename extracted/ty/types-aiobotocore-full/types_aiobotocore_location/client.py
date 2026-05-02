@@ -35,6 +35,7 @@ from .paginator import (
     ListDevicePositionsPaginator,
     ListGeofenceCollectionsPaginator,
     ListGeofencesPaginator,
+    ListJobsPaginator,
     ListKeysPaginator,
     ListMapsPaginator,
     ListPlaceIndexesPaginator,
@@ -60,6 +61,8 @@ from .type_defs import (
     CalculateRouteMatrixResponseTypeDef,
     CalculateRouteRequestTypeDef,
     CalculateRouteResponseTypeDef,
+    CancelJobRequestTypeDef,
+    CancelJobResponseTypeDef,
     CreateGeofenceCollectionRequestTypeDef,
     CreateGeofenceCollectionResponseTypeDef,
     CreateKeyRequestTypeDef,
@@ -99,6 +102,8 @@ from .type_defs import (
     GetDevicePositionResponseTypeDef,
     GetGeofenceRequestTypeDef,
     GetGeofenceResponseTypeDef,
+    GetJobRequestTypeDef,
+    GetJobResponseTypeDef,
     GetMapGlyphsRequestTypeDef,
     GetMapGlyphsResponseTypeDef,
     GetMapSpritesRequestTypeDef,
@@ -115,6 +120,8 @@ from .type_defs import (
     ListGeofenceCollectionsResponseTypeDef,
     ListGeofencesRequestTypeDef,
     ListGeofencesResponseTypeDef,
+    ListJobsRequestTypeDef,
+    ListJobsResponseTypeDef,
     ListKeysRequestTypeDef,
     ListKeysResponseTypeDef,
     ListMapsRequestTypeDef,
@@ -137,6 +144,8 @@ from .type_defs import (
     SearchPlaceIndexForSuggestionsResponseTypeDef,
     SearchPlaceIndexForTextRequestTypeDef,
     SearchPlaceIndexForTextResponseTypeDef,
+    StartJobRequestTypeDef,
+    StartJobResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateGeofenceCollectionRequestTypeDef,
@@ -154,6 +163,7 @@ from .type_defs import (
     VerifyDevicePositionRequestTypeDef,
     VerifyDevicePositionResponseTypeDef,
 )
+from .waiter import JobCompletedWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
@@ -304,6 +314,16 @@ class LocationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/calculate_route_matrix.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#calculate_route_matrix)
+        """
+
+    async def cancel_job(
+        self, **kwargs: Unpack[CancelJobRequestTypeDef]
+    ) -> CancelJobResponseTypeDef:
+        """
+        <code>CancelJob</code> cancels a job that is currently running or pending.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/cancel_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#cancel_job)
         """
 
     async def create_geofence_collection(
@@ -543,6 +563,16 @@ class LocationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_geofence)
         """
 
+    async def get_job(self, **kwargs: Unpack[GetJobRequestTypeDef]) -> GetJobResponseTypeDef:
+        """
+        <code>GetJob</code> retrieves detailed information about a specific job,
+        including its current status, configuration, and error information if the job
+        failed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_job)
+        """
+
     async def get_map_glyphs(
         self, **kwargs: Unpack[GetMapGlyphsRequestTypeDef]
     ) -> GetMapGlyphsResponseTypeDef:
@@ -624,6 +654,15 @@ class LocationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/list_geofences.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#list_geofences)
+        """
+
+    async def list_jobs(self, **kwargs: Unpack[ListJobsRequestTypeDef]) -> ListJobsResponseTypeDef:
+        """
+        <code>ListJobs</code> retrieves a list of jobs with optional filtering and
+        pagination support.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/list_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#list_jobs)
         """
 
     async def list_keys(self, **kwargs: Unpack[ListKeysRequestTypeDef]) -> ListKeysResponseTypeDef:
@@ -738,6 +777,14 @@ class LocationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/search_place_index_for_text.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#search_place_index_for_text)
+        """
+
+    async def start_job(self, **kwargs: Unpack[StartJobRequestTypeDef]) -> StartJobResponseTypeDef:
+        """
+        <code>StartJob</code> starts a new asynchronous bulk processing job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/start_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#start_job)
         """
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -889,6 +936,17 @@ class LocationServiceClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_jobs"]
+    ) -> ListJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_keys"]
     ) -> ListKeysPaginator:
         """
@@ -951,6 +1009,16 @@ class LocationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_paginator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_paginator)
+        """
+
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["job_completed"]
+    ) -> JobCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/client/#get_waiter)
         """
 
     async def __aenter__(self) -> Self:

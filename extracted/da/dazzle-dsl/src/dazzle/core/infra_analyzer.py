@@ -1,0 +1,269 @@
+"""
+Infrastructure requirements analyzer for DAZZLE.
+
+Analyzes AppSpec IR to infer infrastructure needs without requiring
+explicit infrastructure declarations in the DSL.
+"""
+
+from __future__ import annotations  # required: forward reference
+
+from dataclasses import dataclass
+
+from . import ir
+
+
+@dataclass
+class InfraRequirements:
+    """
+    Infrastructure requirements inferred from AppSpec.
+
+    This represents what infrastructure components are needed based on
+    the application's domain model, services, and integrations.
+    """
+
+    # Core infrastructure
+    needs_database: bool = False
+    needs_cache: bool = False
+    needs_queue: bool = False
+    needs_workers: bool = False
+    needs_webhooks: bool = False
+    needs_storage: bool = False
+
+    # TigerBeetle ledger infrastructure (v0.24.0)
+    needs_tigerbeetle: bool = False
+    tigerbeetle_ledger_count: int = 0
+    tigerbeetle_transaction_count: int = 0
+    tigerbeetle_currencies: list[str] | None = None
+    tigerbeetle_ledger_names: list[str] | None = None
+
+    # Type specifications
+    database_type: str = "postgres"
+    cache_type: str = "redis"
+    queue_type: str = "redis"  # or "sqs", "pubsub"
+    storage_type: str = "s3"  # or "gcs", "blob"
+
+    # Detailed requirements
+    entity_count: int = 0
+    service_count: int = 0
+    integration_count: int = 0
+    experience_count: int = 0
+    surface_count: int = 0
+
+    # Specific needs
+    entity_names: list[str] | None = None
+    webhook_service_names: list[str] | None = None
+    async_service_names: list[str] | None = None
+
+    def __post_init__(self) -> None:
+        """Initialize lists if None."""
+        if self.entity_names is None:
+            self.entity_names = []
+        if self.webhook_service_names is None:
+            self.webhook_service_names = []
+        if self.async_service_names is None:
+            self.async_service_names = []
+        if self.tigerbeetle_currencies is None:
+            self.tigerbeetle_currencies = []
+        if self.tigerbeetle_ledger_names is None:
+            self.tigerbeetle_ledger_names = []
+
+    def has_any_infra_needs(self) -> bool:
+        """Check if any infrastructure is needed."""
+        return (
+            self.needs_database
+            or self.needs_cache
+            or self.needs_queue
+            or self.needs_workers
+            or self.needs_webhooks
+            or self.needs_storage
+            or self.needs_tigerbeetle
+        )
+
+
+def analyze_infra_requirements(appspec: ir.AppSpec) -> InfraRequirements:
+    """
+    Analyze AppSpec IR to determine infrastructure requirements.
+
+    Logic:
+    - Entities → database required
+    - Services with integrations → cache recommended
+    - Experiences or async patterns → queue + workers
+    - Webhook services → inbound routing
+    - File/media fields → object storage
+
+    Args:
+        appspec: The application specification from IR
+
+    Returns:
+        InfraRequirements describing needed infrastructure
+    """
+    requirements = InfraRequirements()
+
+    # Analyze entities
+    if appspec.domain.entities:
+        requirements.needs_database = True
+        requirements.entity_count = len(appspec.domain.entities)
+        requirements.entity_names = [e.name for e in appspec.domain.entities]
+
+        # Check for file/media fields that need storage
+        for entity in appspec.domain.entities:
+            for field in entity.fields:
+                # Check if field type suggests file storage
+                field_type_str = str(field.type).lower()
+                if any(
+                    keyword in field_type_str for keyword in ["file", "media", "image", "document"]
+                ):
+                    requirements.needs_storage = True
+                    break
+
+    # Analyze external APIs
+    requirements.service_count = len(appspec.apis)
+    if appspec.apis:
+        for api in appspec.apis:
+            service_type = getattr(api, "spec_url", "").lower() if hasattr(api, "spec_url") else ""
+
+            # Webhook APIs need inbound routing
+            if "webhook" in service_type:
+                requirements.needs_webhooks = True
+                if requirements.webhook_service_names is not None:
+                    requirements.webhook_service_names.append(api.name)
+
+            # Async/background APIs need queue + workers
+            if any(keyword in service_type for keyword in ["async", "background", "queue", "job"]):
+                requirements.needs_queue = True
+                requirements.needs_workers = True
+                if requirements.async_service_names is not None:
+                    requirements.async_service_names.append(api.name)
+
+    # Analyze integrations
+    requirements.integration_count = len(appspec.integrations)
+    if appspec.integrations:
+        # Integrations benefit from caching
+        requirements.needs_cache = True
+
+        # Many integrations suggest async processing
+        if len(appspec.integrations) > 2:
+            requirements.needs_queue = True
+            requirements.needs_workers = True
+
+    # Analyze experiences (multi-step workflows)
+    requirements.experience_count = len(appspec.experiences)
+    if appspec.experiences:
+        # Experiences often need session/state caching
+        requirements.needs_cache = True
+
+        # Complex experiences may need async processing
+        if len(appspec.experiences) > 1:
+            requirements.needs_queue = True
+            requirements.needs_workers = True
+
+    # Analyze surfaces (for counting)
+    requirements.surface_count = len(appspec.surfaces)
+
+    # Analyze ledgers (TigerBeetle integration)
+    if appspec.ledgers:
+        requirements.needs_tigerbeetle = True
+        requirements.tigerbeetle_ledger_count = len(appspec.ledgers)
+        requirements.tigerbeetle_transaction_count = len(appspec.transactions)
+        requirements.tigerbeetle_ledger_names = [ledger.name for ledger in appspec.ledgers]
+
+        # Collect unique currencies
+        currencies = list({ledger.currency for ledger in appspec.ledgers})
+        requirements.tigerbeetle_currencies = currencies
+
+        # TigerBeetle transactions often benefit from async processing
+        if appspec.transactions:
+            has_async_transactions = any(
+                tx.execution.value == "async" for tx in appspec.transactions
+            )
+            if has_async_transactions:
+                requirements.needs_queue = True
+                requirements.needs_workers = True
+
+    return requirements
+
+
+def get_required_env_vars(requirements: InfraRequirements) -> list[str]:
+    """
+    Get list of environment variables needed based on requirements.
+
+    Args:
+        requirements: Infrastructure requirements
+
+    Returns:
+        List of environment variable names
+    """
+    env_vars = []
+
+    if requirements.needs_database:
+        env_vars.extend(
+            [
+                "DATABASE_URL",
+                "DATABASE_HOST",
+                "DATABASE_PORT",
+                "DATABASE_NAME",
+                "DATABASE_USER",
+                "DATABASE_PASSWORD",
+            ]
+        )
+
+    if requirements.needs_cache:
+        env_vars.extend(
+            [
+                "REDIS_URL",
+                "REDIS_HOST",
+                "REDIS_PORT",
+            ]
+        )
+
+    if requirements.needs_queue:
+        env_vars.extend(
+            [
+                "QUEUE_URL",
+                "WORKER_CONCURRENCY",
+            ]
+        )
+
+    if requirements.needs_storage:
+        env_vars.extend(
+            [
+                "STORAGE_BUCKET",
+                "STORAGE_REGION",
+                "STORAGE_ACCESS_KEY",
+                "STORAGE_SECRET_KEY",
+            ]
+        )
+
+    if requirements.needs_webhooks:
+        env_vars.extend(
+            [
+                "WEBHOOK_SECRET",
+                "WEBHOOK_URL",
+            ]
+        )
+
+    if requirements.needs_tigerbeetle:
+        env_vars.extend(
+            [
+                "TIGERBEETLE_CLUSTER_ID",
+                "TIGERBEETLE_ADDRESSES",
+            ]
+        )
+
+    # Always include common vars
+    env_vars.extend(
+        [
+            "APP_ENV",
+            "APP_DEBUG",
+            "SECRET_KEY",
+        ]
+    )
+
+    return env_vars
+
+
+__all__ = [
+    "InfraRequirements",
+    "analyze_infra_requirements",
+    "get_required_env_vars",
+]

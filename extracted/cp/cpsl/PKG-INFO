@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: cpsl
+Version: 0.3.79
+Summary: Capsule SDK and CLI
+Requires-Python: >=3.10
+Requires-Dist: grpcio>=1.69.0
+Requires-Dist: grpclib>=0.4.7
+Requires-Dist: protobuf>=4.25.0
+Requires-Dist: betterproto-beta9==2.0.1
+Requires-Dist: click>=8.1.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: requests
+Requires-Dist: watchdog>=3.0.0

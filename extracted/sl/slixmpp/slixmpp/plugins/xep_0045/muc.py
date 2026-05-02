@@ -61,6 +61,22 @@ AFFILIATIONS = ('outcast', 'member', 'admin', 'owner', 'none')
 ROLES = ('moderator', 'participant', 'visitor', 'none')
 
 
+class BadPfromUsage(Exception):
+    """Exception raised when the pfrom parameter usage is wrong"""
+    def __init__(self, is_set: bool):
+        if is_set:
+            message = (
+                '"pfrom" parameter is set, but self.multi_from is False.'
+                'This is likely an error.'
+            )
+        else:
+            message = (
+                '"pfrom" parameter is not set, but self.multi_from is True.'
+                'This is likely an error.'
+            )
+        super().__init__(message)
+
+
 class XEP_0045(BasePlugin):
 
     """
@@ -289,6 +305,18 @@ class XEP_0045(BasePlugin):
             return
         self.xmpp.event('groupchat_subject', msg)
         self.xmpp.event('muc::%s::groupchat_subject' % msg['from'].bare, msg)
+
+    def _raise_wrong_pfrom_usage(self, pfrom: JID | None) -> None:
+        """Signal that there is a programming error in pfrom
+        usage."""
+        # If a client or a component acting like a client sets a pfrom=,
+        # it is certainly an error.
+        if not self.multi_from and pfrom is not None:
+            raise BadPfromUsage(is_set=True)
+        # If a component acting like multiple clients does not set a pfrom, it
+        # is also certainly an error.
+        elif self.multi_from and pfrom is None:
+            raise BadPfromUsage(is_set=False)
 
     def make_join_stanza(self, room: JID, nick: str, *,
                          password: str | None = None,
@@ -818,6 +846,9 @@ class XEP_0045(BasePlugin):
         :param room: Room to check.
         :param jid: full JID to check.
         """
+        self._raise_wrong_pfrom_usage(pfrom)
+        if not self.multi_from:
+            pfrom = None
         bare_match = False
         rooms = self.rooms.get(pfrom, {})
         room = rooms.get(room, {})
@@ -844,6 +875,9 @@ class XEP_0045(BasePlugin):
         :param room: Room to inspect.
         :param jid: FULL JID whose nick to return.
         """
+        self._raise_wrong_pfrom_usage(pfrom)
+        if not self.multi_from:
+            pfrom = None
         bare_match = None
         rooms = self.rooms.get(pfrom, {})
         room = rooms.get(room, {})
@@ -868,11 +902,17 @@ class XEP_0045(BasePlugin):
         """Get the list of rooms we sent a join presence to
         and did not explicitly leave.
         """
+        self._raise_wrong_pfrom_usage(pfrom)
+        if not self.multi_from:
+            pfrom = None
         return list(self.rooms.get(pfrom, {}).keys())
 
     def get_our_jid_in_room(self, room_jid: JID, pfrom: JID | None = None) -> str:
         """ Return the jid we're using in a room.
         """
+        self._raise_wrong_pfrom_usage(pfrom)
+        if not self.multi_from:
+            pfrom = None
         return "%s/%s" % (room_jid, self.our_nicks[pfrom][room_jid])
 
     def get_jid_property(self, room: JID, nick: str,
@@ -885,6 +925,9 @@ class XEP_0045(BasePlugin):
         :param nick: Which nickname information to get.
         :param jid_property: Property to fetch.
         """
+        self._raise_wrong_pfrom_usage(pfrom)
+        if not self.multi_from:
+            pfrom = None
         rooms = self.rooms.get(pfrom, {})
         room_dict = rooms.get(room, {})
         nick_dict = room_dict.get(nick, {})
@@ -896,6 +939,9 @@ class XEP_0045(BasePlugin):
 
         :param room: Room to list nicks from.
         """
+        self._raise_wrong_pfrom_usage(pfrom)
+        if not self.multi_from:
+            pfrom = None
         rooms = self.rooms.get(pfrom, {})
         if room not in rooms:
             raise ValueError("Room %s is not joined" % room)

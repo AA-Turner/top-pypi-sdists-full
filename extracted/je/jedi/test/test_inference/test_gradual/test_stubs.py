@@ -43,8 +43,8 @@ from test.helpers import root_dir
     ])
 def test_infer_and_goto(Script, code, full_name, has_stub, has_python, way,
                         kwargs, type_, options, environment):
-    if type_ == 'infer' and full_name == 'typing.Sequence' and environment.version_info >= (3, 7):
-        # In Python 3.7+ there's not really a sequence definition, there's just
+    if type_ == 'infer' and full_name == 'typing.Sequence':
+        # Since Python 3.7+ there's not really a sequence definition, there's just
         # a name that leads nowhere.
         has_python = False
 

@@ -1,0 +1,19 @@
+cs:
+  robot:
+      - robota
+      - robotu
+      - robotem
+  stůl:
+      - stole
+      - stolem
+      - stolu
+      - stoly
+  kostka:
+      - kostky
+  díl:
+      - dílu
+  inaktivní:
+      - inaktivní
+en:
+  put:
+      - putting

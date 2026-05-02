@@ -256,6 +256,7 @@ from .literals import (
     MacModificationTaskTypeType,
     MacSystemIntegrityProtectionSettingStatusType,
     ManagedByType,
+    ManagedResourceDefaultVisibilityType,
     MarketTypeType,
     MembershipTypeType,
     MetadataDefaultHttpTokensStateType,
@@ -375,6 +376,7 @@ from .literals import (
     TransitGatewayAssociationStateType,
     TransitGatewayAttachmentResourceTypeType,
     TransitGatewayAttachmentStateType,
+    TransitGatewayAttachmentStatusTypeType,
     TransitGatewayConnectPeerStateType,
     TransitGatewayMeteringPayerTypeType,
     TransitGatewayMeteringPolicyEntryStateType,
@@ -445,6 +447,8 @@ __all__ = (
     "AcceptCapacityReservationBillingOwnershipResultTypeDef",
     "AcceptReservedInstancesExchangeQuoteRequestTypeDef",
     "AcceptReservedInstancesExchangeQuoteResultTypeDef",
+    "AcceptTransitGatewayClientVpnAttachmentRequestTypeDef",
+    "AcceptTransitGatewayClientVpnAttachmentResultTypeDef",
     "AcceptTransitGatewayMulticastDomainAssociationsRequestTypeDef",
     "AcceptTransitGatewayMulticastDomainAssociationsResultTypeDef",
     "AcceptTransitGatewayPeeringAttachmentRequestTypeDef",
@@ -1095,6 +1099,8 @@ __all__ = (
     "DeleteTrafficMirrorSessionResultTypeDef",
     "DeleteTrafficMirrorTargetRequestTypeDef",
     "DeleteTrafficMirrorTargetResultTypeDef",
+    "DeleteTransitGatewayClientVpnAttachmentRequestTypeDef",
+    "DeleteTransitGatewayClientVpnAttachmentResultTypeDef",
     "DeleteTransitGatewayConnectPeerRequestTypeDef",
     "DeleteTransitGatewayConnectPeerResultTypeDef",
     "DeleteTransitGatewayConnectRequestTypeDef",
@@ -2078,6 +2084,8 @@ __all__ = (
     "GetManagedPrefixListEntriesRequestPaginateTypeDef",
     "GetManagedPrefixListEntriesRequestTypeDef",
     "GetManagedPrefixListEntriesResultTypeDef",
+    "GetManagedResourceVisibilityRequestTypeDef",
+    "GetManagedResourceVisibilityResultTypeDef",
     "GetNetworkInsightsAccessScopeAnalysisFindingsRequestPaginateTypeDef",
     "GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef",
     "GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef",
@@ -2420,6 +2428,7 @@ __all__ = (
     "MacSystemIntegrityProtectionConfigurationTypeDef",
     "MaintenanceDetailsTypeDef",
     "ManagedPrefixListTypeDef",
+    "ManagedResourceVisibilitySettingsTypeDef",
     "MediaAcceleratorInfoTypeDef",
     "MediaDeviceInfoTypeDef",
     "MediaDeviceMemoryInfoTypeDef",
@@ -2501,6 +2510,8 @@ __all__ = (
     "ModifyLocalGatewayRouteResultTypeDef",
     "ModifyManagedPrefixListRequestTypeDef",
     "ModifyManagedPrefixListResultTypeDef",
+    "ModifyManagedResourceVisibilityRequestTypeDef",
+    "ModifyManagedResourceVisibilityResultTypeDef",
     "ModifyNetworkInterfaceAttributeRequestNetworkInterfaceModifyAttributeTypeDef",
     "ModifyNetworkInterfaceAttributeRequestTypeDef",
     "ModifyPrivateDnsNameOptionsRequestTypeDef",
@@ -2739,6 +2750,8 @@ __all__ = (
     "RegisteredInstanceTypeDef",
     "RejectCapacityReservationBillingOwnershipRequestTypeDef",
     "RejectCapacityReservationBillingOwnershipResultTypeDef",
+    "RejectTransitGatewayClientVpnAttachmentRequestTypeDef",
+    "RejectTransitGatewayClientVpnAttachmentResultTypeDef",
     "RejectTransitGatewayMulticastDomainAssociationsRequestTypeDef",
     "RejectTransitGatewayMulticastDomainAssociationsResultTypeDef",
     "RejectTransitGatewayPeeringAttachmentRequestTypeDef",
@@ -3025,6 +3038,9 @@ __all__ = (
     "TransitGatewayAttachmentBgpConfigurationTypeDef",
     "TransitGatewayAttachmentPropagationTypeDef",
     "TransitGatewayAttachmentTypeDef",
+    "TransitGatewayClientVpnAttachmentTypeDef",
+    "TransitGatewayConfigurationDescribeEndpointStructureTypeDef",
+    "TransitGatewayConfigurationInputStructureTypeDef",
     "TransitGatewayConnectOptionsTypeDef",
     "TransitGatewayConnectPeerConfigurationTypeDef",
     "TransitGatewayConnectPeerTypeDef",
@@ -3217,6 +3233,18 @@ class AcceptCapacityReservationBillingOwnershipRequestTypeDef(TypedDict):
 class TargetConfigurationRequestTypeDef(TypedDict):
     OfferingId: str
     InstanceCount: NotRequired[int]
+
+class AcceptTransitGatewayClientVpnAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    DryRun: NotRequired[bool]
+
+class TransitGatewayClientVpnAttachmentTypeDef(TypedDict):
+    TransitGatewayAttachmentId: NotRequired[str]
+    TransitGatewayId: NotRequired[str]
+    ClientVpnEndpointId: NotRequired[str]
+    ClientVpnOwnerId: NotRequired[str]
+    State: NotRequired[TransitGatewayAttachmentStatusTypeType]
+    CreationTime: NotRequired[str]
 
 class AcceptTransitGatewayMulticastDomainAssociationsRequestTypeDef(TypedDict):
     TransitGatewayMulticastDomainId: NotRequired[str]
@@ -3454,9 +3482,11 @@ class AssociateCapacityReservationBillingOwnerRequestTypeDef(TypedDict):
 
 class AssociateClientVpnTargetNetworkRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
-    SubnetId: str
+    SubnetId: NotRequired[str]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
 
 class AssociationStatusTypeDef(TypedDict):
     Code: NotRequired[AssociationStatusCodeType]
@@ -4037,6 +4067,12 @@ class ConnectionLogResponseOptionsTypeDef(TypedDict):
     CloudwatchLogGroup: NotRequired[str]
     CloudwatchLogStream: NotRequired[str]
 
+class TransitGatewayConfigurationDescribeEndpointStructureTypeDef(TypedDict):
+    TransitGatewayId: NotRequired[str]
+    TransitGatewayAttachmentId: NotRequired[str]
+    AvailabilityZones: NotRequired[list[str]]
+    AvailabilityZoneIds: NotRequired[list[str]]
+
 class ClientVpnRouteStatusTypeDef(TypedDict):
     Code: NotRequired[ClientVpnRouteStatusCodeType]
     Message: NotRequired[str]
@@ -4143,10 +4179,15 @@ class ReservationFleetInstanceSpecificationTypeDef(TypedDict):
     EbsOptimized: NotRequired[bool]
     Priority: NotRequired[int]
 
+class TransitGatewayConfigurationInputStructureTypeDef(TypedDict):
+    TransitGatewayId: NotRequired[str]
+    AvailabilityZones: NotRequired[Sequence[str]]
+    AvailabilityZoneIds: NotRequired[Sequence[str]]
+
 class CreateClientVpnRouteRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
     DestinationCidrBlock: str
-    TargetVpcSubnetId: str
+    TargetVpcSubnetId: NotRequired[str]
     Description: NotRequired[str]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
@@ -4882,6 +4923,10 @@ class DeleteTrafficMirrorTargetRequestTypeDef(TypedDict):
     TrafficMirrorTargetId: str
     DryRun: NotRequired[bool]
 
+class DeleteTransitGatewayClientVpnAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    DryRun: NotRequired[bool]
+
 class DeleteTransitGatewayConnectPeerRequestTypeDef(TypedDict):
     TransitGatewayConnectPeerId: str
     DryRun: NotRequired[bool]
@@ -5375,24 +5420,6 @@ class DescribeVolumeAttributeRequestVolumeDescribeAttributeTypeDef(TypedDict):
     Attribute: VolumeAttributeNameType
     DryRun: NotRequired[bool]
 
-class VolumeModificationTypeDef(TypedDict):
-    VolumeId: NotRequired[str]
-    ModificationState: NotRequired[VolumeModificationStateType]
-    StatusMessage: NotRequired[str]
-    TargetSize: NotRequired[int]
-    TargetIops: NotRequired[int]
-    TargetVolumeType: NotRequired[VolumeTypeType]
-    TargetThroughput: NotRequired[int]
-    TargetMultiAttachEnabled: NotRequired[bool]
-    OriginalSize: NotRequired[int]
-    OriginalIops: NotRequired[int]
-    OriginalVolumeType: NotRequired[VolumeTypeType]
-    OriginalThroughput: NotRequired[int]
-    OriginalMultiAttachEnabled: NotRequired[bool]
-    Progress: NotRequired[int]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-
 class DescribeVpcAttributeRequestTypeDef(TypedDict):
     Attribute: VpcAttributeNameType
     VpcId: str
@@ -5778,6 +5805,7 @@ class EbsInstanceBlockDeviceSpecificationTypeDef(TypedDict):
 class OperatorResponseTypeDef(TypedDict):
     Managed: NotRequired[bool]
     Principal: NotRequired[str]
+    HiddenByDefault: NotRequired[bool]
 
 class EbsStatusDetailsTypeDef(TypedDict):
     ImpairedSince: NotRequired[datetime]
@@ -6290,6 +6318,12 @@ class GetManagedPrefixListEntriesRequestTypeDef(TypedDict):
 class PrefixListEntryTypeDef(TypedDict):
     Cidr: NotRequired[str]
     Description: NotRequired[str]
+
+class GetManagedResourceVisibilityRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+
+class ManagedResourceVisibilitySettingsTypeDef(TypedDict):
+    DefaultVisibility: NotRequired[ManagedResourceDefaultVisibilityType]
 
 class GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef(TypedDict):
     NetworkInsightsAccessScopeAnalysisId: str
@@ -7135,6 +7169,10 @@ class ModifyLocalGatewayRouteRequestTypeDef(TypedDict):
 class RemovePrefixListEntryTypeDef(TypedDict):
     Cidr: str
 
+class ModifyManagedResourceVisibilityRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    DefaultVisibility: NotRequired[ManagedResourceDefaultVisibilityType]
+
 class NetworkInterfaceAttachmentChangesTypeDef(TypedDict):
     DefaultEnaQueueCount: NotRequired[bool]
     EnaQueueCount: NotRequired[int]
@@ -7666,6 +7704,10 @@ class TransitGatewayMulticastRegisteredGroupSourcesTypeDef(TypedDict):
 
 class RejectCapacityReservationBillingOwnershipRequestTypeDef(TypedDict):
     CapacityReservationId: str
+    DryRun: NotRequired[bool]
+
+class RejectTransitGatewayClientVpnAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
     DryRun: NotRequired[bool]
 
 class RejectTransitGatewayMulticastDomainAssociationsRequestTypeDef(TypedDict):
@@ -9110,6 +9152,18 @@ class GetReservedInstancesExchangeQuoteRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     TargetConfigurations: NotRequired[Sequence[TargetConfigurationRequestTypeDef]]
 
+class AcceptTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
+    TransitGatewayClientVpnAttachment: TransitGatewayClientVpnAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
+    TransitGatewayClientVpnAttachment: TransitGatewayClientVpnAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RejectTransitGatewayClientVpnAttachmentResultTypeDef(TypedDict):
+    TransitGatewayClientVpnAttachment: TransitGatewayClientVpnAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class AccountAttributeTypeDef(TypedDict):
     AttributeName: NotRequired[str]
     AttributeValues: NotRequired[list[AccountAttributeValueTypeDef]]
@@ -9941,6 +9995,8 @@ class TargetNetworkTypeDef(TypedDict):
     ClientVpnEndpointId: NotRequired[str]
     Status: NotRequired[AssociationStatusTypeDef]
     SecurityGroups: NotRequired[list[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    AvailabilityZoneIds: NotRequired[list[str]]
 
 class AssociateIamInstanceProfileRequestTypeDef(TypedDict):
     IamInstanceProfile: IamInstanceProfileSpecificationTypeDef
@@ -10523,6 +10579,7 @@ ClientVpnRouteTypeDef = TypedDict(
         "Origin": NotRequired[str],
         "Status": NotRequired[ClientVpnRouteStatusTypeDef],
         "Description": NotRequired[str],
+        "TransitGatewayAttachmentId": NotRequired[str],
     },
 )
 
@@ -11550,6 +11607,7 @@ class DescribeInstanceSqlHaStatesRequestTypeDef(TypedDict):
 
 class DescribeInstanceStatusRequestPaginateTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -11559,6 +11617,7 @@ class DescribeInstanceStatusRequestTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -11606,12 +11665,14 @@ class DescribeInstanceTypesRequestTypeDef(TypedDict):
 
 class DescribeInstancesRequestPaginateTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeInstancesRequestTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -11766,6 +11827,7 @@ class DescribeLaunchTemplateVersionsRequestPaginateTypeDef(TypedDict):
     MaxVersion: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     ResolveAlias: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeLaunchTemplateVersionsRequestTypeDef(TypedDict):
@@ -11779,12 +11841,14 @@ class DescribeLaunchTemplateVersionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     ResolveAlias: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
 
 class DescribeLaunchTemplatesRequestPaginateTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     LaunchTemplateIds: NotRequired[Sequence[str]]
     LaunchTemplateNames: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeLaunchTemplatesRequestTypeDef(TypedDict):
@@ -11794,6 +11858,7 @@ class DescribeLaunchTemplatesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
 
 class DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsRequestPaginateTypeDef(
     TypedDict
@@ -12034,6 +12099,7 @@ class DescribeNetworkInterfacePermissionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 class DescribeNetworkInterfacesRequestPaginateTypeDef(TypedDict):
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -12042,6 +12108,7 @@ class DescribeNetworkInterfacesRequestPaginateTypeDef(TypedDict):
 class DescribeNetworkInterfacesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -12667,6 +12734,7 @@ class DescribeVerifiedAccessTrustProvidersRequestTypeDef(TypedDict):
 
 class DescribeVolumeStatusRequestPaginateTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -12675,12 +12743,14 @@ class DescribeVolumeStatusRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 class DescribeVolumeStatusRequestVolumeDescribeStatusTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
@@ -12699,12 +12769,14 @@ class DescribeVolumesModificationsRequestTypeDef(TypedDict):
 
 class DescribeVolumesRequestPaginateTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeVolumesRequestTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13272,6 +13344,7 @@ class DescribeInstanceStatusRequestWaitExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -13281,6 +13354,7 @@ class DescribeInstanceStatusRequestWaitTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     IncludeAllInstances: NotRequired[bool]
@@ -13288,6 +13362,7 @@ class DescribeInstanceStatusRequestWaitTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitExtraExtraExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13296,6 +13371,7 @@ class DescribeInstancesRequestWaitExtraExtraExtraTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitExtraExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13304,6 +13380,7 @@ class DescribeInstancesRequestWaitExtraExtraTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitExtraTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13312,6 +13389,7 @@ class DescribeInstancesRequestWaitExtraTypeDef(TypedDict):
 
 class DescribeInstancesRequestWaitTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13353,6 +13431,7 @@ class DescribeNatGatewaysRequestWaitTypeDef(TypedDict):
 class DescribeNetworkInterfacesRequestWaitTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -13449,6 +13528,7 @@ class DescribeSubnetsRequestWaitTypeDef(TypedDict):
 
 class DescribeVolumesRequestWaitExtraExtraTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13457,6 +13537,7 @@ class DescribeVolumesRequestWaitExtraExtraTypeDef(TypedDict):
 
 class DescribeVolumesRequestWaitExtraTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13465,6 +13546,7 @@ class DescribeVolumesRequestWaitExtraTypeDef(TypedDict):
 
 class DescribeVolumesRequestWaitTypeDef(TypedDict):
     VolumeIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -13646,15 +13728,6 @@ class DescribeTagsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class DescribeVolumesModificationsResultTypeDef(TypedDict):
-    VolumesModifications: list[VolumeModificationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class ModifyVolumeResultTypeDef(TypedDict):
-    VolumeModification: VolumeModificationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -13788,6 +13861,7 @@ class ModifyClientVpnEndpointRequestTypeDef(TypedDict):
     ClientLoginBannerOptions: NotRequired[ClientLoginBannerOptionsTypeDef]
     ClientRouteEnforcementOptions: NotRequired[ClientRouteEnforcementOptionsTypeDef]
     DisconnectOnSessionTimeout: NotRequired[bool]
+    TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
 
 class EbsInfoTypeDef(TypedDict):
     EbsOptimizedSupport: NotRequired[EbsOptimizedSupportType]
@@ -13835,6 +13909,25 @@ class PlacementGroupTypeDef(TypedDict):
     GroupArn: NotRequired[str]
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
+    Operator: NotRequired[OperatorResponseTypeDef]
+
+class VolumeModificationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    ModificationState: NotRequired[VolumeModificationStateType]
+    StatusMessage: NotRequired[str]
+    TargetSize: NotRequired[int]
+    TargetIops: NotRequired[int]
+    TargetVolumeType: NotRequired[VolumeTypeType]
+    TargetThroughput: NotRequired[int]
+    TargetMultiAttachEnabled: NotRequired[bool]
+    OriginalSize: NotRequired[int]
+    OriginalIops: NotRequired[int]
+    OriginalVolumeType: NotRequired[VolumeTypeType]
+    OriginalThroughput: NotRequired[int]
+    OriginalMultiAttachEnabled: NotRequired[bool]
+    Progress: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
     Operator: NotRequired[OperatorResponseTypeDef]
 
 class VolumeRecycleBinInfoTypeDef(TypedDict):
@@ -14087,6 +14180,14 @@ class GetManagedPrefixListEntriesResultTypeDef(TypedDict):
     Entries: list[PrefixListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class GetManagedResourceVisibilityResultTypeDef(TypedDict):
+    Visibility: ManagedResourceVisibilitySettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyManagedResourceVisibilityResultTypeDef(TypedDict):
+    Visibility: ManagedResourceVisibilitySettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ReservedInstanceReservationValueTypeDef(TypedDict):
     ReservationValue: NotRequired[ReservationValueTypeDef]
@@ -16368,6 +16469,9 @@ class ClientVpnEndpointTypeDef(TypedDict):
     DisconnectOnSessionTimeout: NotRequired[bool]
     EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
     TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
+    TransitGatewayConfiguration: NotRequired[
+        TransitGatewayConfigurationDescribeEndpointStructureTypeDef
+    ]
 
 class DescribeClientVpnConnectionsResultTypeDef(TypedDict):
     Connections: list[ClientVpnConnectionTypeDef]
@@ -16642,6 +16746,15 @@ class CreatePlacementGroupResultTypeDef(TypedDict):
 
 class DescribePlacementGroupsResultTypeDef(TypedDict):
     PlacementGroups: list[PlacementGroupTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeVolumesModificationsResultTypeDef(TypedDict):
+    VolumesModifications: list[VolumeModificationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyVolumeResultTypeDef(TypedDict):
+    VolumeModification: VolumeModificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVolumesInRecycleBinResultTypeDef(TypedDict):
@@ -17994,6 +18107,7 @@ class VolumeStatusItemTypeDef(TypedDict):
     AttachmentStatuses: NotRequired[list[VolumeStatusAttachmentStatusTypeDef]]
     InitializationStatusDetails: NotRequired[InitializationStatusDetailsTypeDef]
     AvailabilityZoneId: NotRequired[str]
+    Operator: NotRequired[OperatorResponseTypeDef]
 
 class AssociateVpcCidrBlockResultTypeDef(TypedDict):
     Ipv6CidrBlockAssociation: VpcIpv6CidrBlockAssociationTypeDef
@@ -18212,6 +18326,7 @@ class CreateClientVpnEndpointRequestTypeDef(TypedDict):
     DisconnectOnSessionTimeout: NotRequired[bool]
     EndpointIpAddressType: NotRequired[EndpointIpAddressTypeType]
     TrafficIpAddressType: NotRequired[TrafficIpAddressTypeType]
+    TransitGatewayConfiguration: NotRequired[TransitGatewayConfigurationInputStructureTypeDef]
 
 class CreateCoipPoolRequestTypeDef(TypedDict):
     LocalGatewayRouteTableId: str

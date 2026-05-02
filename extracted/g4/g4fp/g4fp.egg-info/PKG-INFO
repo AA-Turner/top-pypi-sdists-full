@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: g4fp
+Version: 1.2.3
+Summary: A library for unlimited use of LLM through g4f, using a proxy
+Home-page: https://github.com/Leolox228/g4fp
+Author: Leonid
+Author-email: leo.gladkikh2@gmail.com
+License: GPL-3.0
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: g4f
+
+# g4fp
+This is a library for unlimited use of LLM through g4f, using a proxy
+# Installation:
+```
+pip install g4fp
+```
+# Now you can pass debug (bool) ClientProxy and AsyncClientProxy
+Usage example (async):
+```py
+import asyncio
+from g4fp import AsyncClientProxy
+
+async def main():
+    client = await AsyncClientProxy(debug=False, proxy_fetch_url="https://proxyleet.com/proxy/type=http&speed=479&key=<api_key>")
+    messages = [
+        {"role": "user", "content": "Hello!"}
+    ]
+    response = await client.chat.completions.create(
+        model="o3-mini",
+        messages=messages,
+    )
+    print(response.choices[0].message.content)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+Usage example (sync):
+```py
+from g4fp import ClientProxy
+
+client = ClientProxy(debug=True, proxy_fetch_url="https://proxyleet.com/proxy/type=http&speed=479&key=<api_key>")
+messages = [
+    {"role": "user", "content": "Hello!"}
+]
+response = client.chat.completions.create(
+    model="o3-mini",
+    messages=messages,
+)
+print(response.choices[0].message.content)
+```

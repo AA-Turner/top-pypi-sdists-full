@@ -1,7 +1,5 @@
-
-import unittest
-
 from tests.utils.simple_shex_test import SimpleShexTestCase
+import pytest
 
 shexc = """
 <J>
@@ -959,12 +957,8 @@ shexj = """{
 """
 
 
-class OnShapeExpressionTestCase(SimpleShexTestCase):
-    @unittest.skipIf(True, "ON shapexpression not in 2.1 release")
+class TestOnShapeExpression(SimpleShexTestCase):
+    @pytest.mark.skip(reason="ON shapexpression not in 2.1 release")
     def test_erics_example(self):
         self.shex_test(shexc, shexj,
                        base="https://rawgit.com/shexSpec/shex.js/on-shape-expression/examples/inheritance/")
-
-
-if __name__ == '__main__':
-    unittest.main()

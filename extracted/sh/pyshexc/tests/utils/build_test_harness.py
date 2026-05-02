@@ -1,46 +1,21 @@
-import unittest
+import pytest
 import sys
-from typing import Tuple, Optional, Dict, Callable
+from typing import Callable, Generator, Any
 
 import os
 import requests
 
 
-class ValidationTestCase(unittest.TestCase):
-    longMessage = True
-
-    repo_url: str = None            #
-    file_suffix: str = None         # file suffix (e.g. ".shex")
-    start_at: Optional[str] = ""    # Start at or after this
-    skip: Dict[str, str] = dict()   # Filename / reason array
-    validation_function: Callable[[str, str], bool] = None      #
-    single_file: bool = False       # True means process exactly one file
-
-    @classmethod
-    def make_test_function(cls, url):
-        def test(self):
-            self.assertTrue(cls.validation_function(url))
-        return test
-
-    @classmethod
-    def build_test_harness(cls) -> None:
-        started = not bool(cls.start_at)
-        for fname, fpath in \
-                (cls.enumerate_http_files(cls.repo_url) if ':' in cls.repo_url else
-                    cls.enumerate_directory(cls.repo_url)):
-            if fname.endswith(cls.file_suffix):
-                if started or fname.startswith(cls.start_at):
-                    if fname not in cls.skip:
-                        started = True
-                        test_func = cls.make_test_function(fpath)
-                        setattr(cls, 'test_{0}'.format(fname.rsplit('.', 1)[0]), test_func)
-                        if cls.single_file:
-                            break
-                    else:
-                        print(f"***** Skipped: {fname} - {cls.skip[fname]}")
+class ValidationTestConfig:
+    repo_url: str = None
+    file_suffix: str = None  # file suffix (e.g. ".shex")
+    start_at: str | None = ""  # Start at or after this
+    skip: dict[str, str] = dict()  # Filename / reason arra
+    validation_function: Callable[[str], bool] = None
+    single_file: bool = False  # True means process exactly one file
 
     @staticmethod
-    def enumerate_http_files(url) -> Tuple[str, str]:
+    def enumerate_http_files(url) -> Generator[tuple[str, str], Any, None]:
         resp = requests.get(url)
         if resp.ok:
             for f in resp.json():
@@ -49,11 +24,32 @@ class ValidationTestCase(unittest.TestCase):
             print("Error {}: {}".format(resp.status_code, resp.reason), file=sys.stderr)
 
     @staticmethod
-    def enumerate_directory(dir_) -> Tuple[str, str]:
+    def enumerate_directory(dir_) -> Generator[tuple[str, str], Any, None]:
         for fname in os.listdir(dir_):
             fpath = os.path.join(dir_, fname)
             if os.path.isfile(fpath):
                 yield fname, fpath
 
-    def blank_test(self):
-        self.assertTrue(True)
+    @classmethod
+    def get_files(cls):
+        if ':' in cls.repo_url:
+            return cls.enumerate_http_files(cls.repo_url)
+        return cls.enumerate_directory(cls.repo_url)
+
+    @classmethod
+    def build_test_harness(cls):
+        started = not bool(cls.start_at)
+        cases = []
+        files = (cls.enumerate_http_files(cls.repo_url) if ':' in cls.repo_url
+                 else cls.enumerate_directory(cls.repo_url))
+        for fname, fpath in files:
+            if fname.endswith(cls.file_suffix):
+                if started or fname.startswith(cls.start_at):
+                    if fname not in cls.skip:
+                        started = True
+                        cases.append(pytest.param(fpath, id=fname.rsplit('.', 1)[0]))
+                        if cls.single_file:
+                            break
+                    else:
+                        print(f"***** Skipped: {fname} - {cls.skip[fname]}")
+        return cases

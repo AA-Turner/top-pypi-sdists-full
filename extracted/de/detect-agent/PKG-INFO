@@ -1,0 +1,118 @@
+Metadata-Version: 2.4
+Name: detect_agent
+Version: 0.2.0
+Summary: Detect if code is running in an AI agent or automated development environment
+Project-URL: Homepage, https://github.com/togethercomputer/detect_agent
+Project-URL: Repository, https://github.com/togethercomputer/detect_agent
+Project-URL: Changelog, https://github.com/togethercomputer/detect_agent/blob/main/CHANGELOG.md
+Requires-Python: >=3.9
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == 'dev'
+Requires-Dist: ruff>=0.8.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# detect_agent
+
+> This is a Python Port of Vercels NPM package
+
+A lightweight utility for detecting if code is being executed by an AI agent or automated development environment.
+
+## Installation
+
+```bash
+uv add detect_agent
+```
+
+## Usage
+
+```python
+from detect_agent import determine_agent
+
+result = determine_agent()
+
+if result["is_agent"]:
+  print(f"Running in {result["agent"]["name"]} environment");
+```
+
+## Supported Agents
+
+This package can detect the following AI agents and development environments:
+
+- **Custom agents** via `AI_AGENT` environment variable
+- **Cursor** (cursor editor and cursor-cli)
+- **Claude Code** (Anthropic's Claude)
+- **Devin** (Cognition Labs)
+- **Gemini CLI** (Google)
+- **Codex** (OpenAI)
+- **Antigravity** (Google DeepMind)
+- **GitHub Copilot** (via `AI_AGENT=github-copilot|github-copilot-cli`, `COPILOT_MODEL`, `COPILOT_ALLOW_ALL`, or `COPILOT_GITHUB_TOKEN`)
+- **Replit** (online IDE)
+
+## The AI_AGENT Standard
+
+We're promoting `AI_AGENT` as a universal environment variable standard for AI development tools. This allows any tool or library to easily detect when it's running in an AI-driven environment.
+
+### For AI Tool Developers
+
+Set the `AI_AGENT` environment variable to identify your tool:
+
+```bash
+export AI_AGENT="your-tool-name"
+# or
+AI_AGENT="your-tool-name" your-command
+```
+
+### Recommended Naming Convention
+
+- Use lowercase with hyphens for multi-word names
+- Include version information if needed, separated by an `@` symbol
+- Examples: `claude-code`, `cursor-cli`, `devin@1`, `custom-agent@2.0`
+
+## Development
+
+```bash
+uv sync --extra dev
+uv run pytest
+# Lint and format check (CI)
+uv run ruff check . && uv run ruff format --check .
+# Fix and format
+uv run ruff check . --fix && uv run ruff format .
+```
+
+## Use Cases
+
+### Adaptive Behavior
+
+```python
+from detect_agent import determine_agent
+import os
+
+def setup_environment():
+  result = determine_agent()
+
+  if (result["is_agent"]) {
+    # Running in AI environment - adjust behavior
+    os.environ.setdefault("TOGETHER_LOG", "debug")
+    print(f"🤖 Detected AI agent: {result["agent"]["name"]}");
+```
+
+### Telemetry and Analytics
+
+```python
+from detect_agent import determine_agent
+
+def track_usage(event: string):
+  result = determine_agent();
+
+  analytics.track(event, {
+    "agent": result["agent"]["name"] if result["is_agent"] else "human",
+  })
+```
+### Adding New Agent Support
+
+To add support for a new AI agent:
+
+1. Add detection logic to `main.py`
+2. Add comprehensive test cases in `test.py`
+3. Update this README with the new agent information
+4. Follow the existing priority order pattern

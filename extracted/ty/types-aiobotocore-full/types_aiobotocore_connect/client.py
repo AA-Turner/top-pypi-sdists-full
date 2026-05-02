@@ -33,6 +33,7 @@ from .paginator import (
     GetMetricDataPaginator,
     ListAgentStatusesPaginator,
     ListApprovedOriginsPaginator,
+    ListAttachedFilesConfigurationsPaginator,
     ListAuthenticationProfilesPaginator,
     ListBotsPaginator,
     ListChildHoursOfOperationsPaginator,
@@ -273,6 +274,8 @@ from .type_defs import (
     DeleteWorkspaceRequestTypeDef,
     DescribeAgentStatusRequestTypeDef,
     DescribeAgentStatusResponseTypeDef,
+    DescribeAttachedFilesConfigurationRequestTypeDef,
+    DescribeAttachedFilesConfigurationResponseTypeDef,
     DescribeAuthenticationProfileRequestTypeDef,
     DescribeAuthenticationProfileResponseTypeDef,
     DescribeContactEvaluationRequestTypeDef,
@@ -401,6 +404,8 @@ from .type_defs import (
     ListApprovedOriginsResponseTypeDef,
     ListAssociatedContactsRequestTypeDef,
     ListAssociatedContactsResponseTypeDef,
+    ListAttachedFilesConfigurationsRequestTypeDef,
+    ListAttachedFilesConfigurationsResponseTypeDef,
     ListAuthenticationProfilesRequestTypeDef,
     ListAuthenticationProfilesResponseTypeDef,
     ListBotsRequestTypeDef,
@@ -631,6 +636,8 @@ from .type_defs import (
     UntagContactRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAgentStatusRequestTypeDef,
+    UpdateAttachedFilesConfigurationRequestTypeDef,
+    UpdateAttachedFilesConfigurationResponseTypeDef,
     UpdateAuthenticationProfileRequestTypeDef,
     UpdateContactAttributesRequestTypeDef,
     UpdateContactEvaluationRequestTypeDef,
@@ -1874,6 +1881,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_agent_status)
         """
 
+    async def describe_attached_files_configuration(
+        self, **kwargs: Unpack[DescribeAttachedFilesConfigurationRequestTypeDef]
+    ) -> DescribeAttachedFilesConfigurationResponseTypeDef:
+        """
+        Describes the attached files configuration for the specified Amazon Connect
+        instance and attachment scope.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_attached_files_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_attached_files_configuration)
+        """
+
     async def describe_authentication_profile(
         self, **kwargs: Unpack[DescribeAuthenticationProfileRequestTypeDef]
     ) -> DescribeAuthenticationProfileResponseTypeDef:
@@ -2620,6 +2638,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_associated_contacts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_associated_contacts)
+        """
+
+    async def list_attached_files_configurations(
+        self, **kwargs: Unpack[ListAttachedFilesConfigurationsRequestTypeDef]
+    ) -> ListAttachedFilesConfigurationsResponseTypeDef:
+        """
+        Provides summary information about the attached files configurations for the
+        specified Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_attached_files_configurations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_attached_files_configurations)
         """
 
     async def list_authentication_profiles(
@@ -3909,6 +3938,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_agent_status)
         """
 
+    async def update_attached_files_configuration(
+        self, **kwargs: Unpack[UpdateAttachedFilesConfigurationRequestTypeDef]
+    ) -> UpdateAttachedFilesConfigurationResponseTypeDef:
+        """
+        Updates the attached files configuration for the specified Amazon Connect
+        instance and attachment scope.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_attached_files_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_attached_files_configuration)
+        """
+
     async def update_authentication_profile(
         self, **kwargs: Unpack[UpdateAuthenticationProfileRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -4575,6 +4615,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_approved_origins"]
     ) -> ListApprovedOriginsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_attached_files_configurations"]
+    ) -> ListAttachedFilesConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

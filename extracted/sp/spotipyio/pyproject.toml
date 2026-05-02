@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "spotipyio"
+version = "1.1.1"
+description = ""
+authors = ["nirgodin <70273595+nirgodin@users.noreply.github.com>"]
+readme = "README.md"
+packages = [
+    { include = "spotipyio" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.13"
+aiohttp = ">=3.9.0,<4"
+asyncio-pool = ">=0.6,<1.0"
+tqdm = ">=4.65,<5.0"
+pillow = ">=10.1,<11.0"
+certifi = ">=2023.11,<2024.0"
+pytest-httpserver = { version = ">=1.0.12,<1.1", optional = true }
+redis = { version = ">=5.0.3,<5.1", optional = true }
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.0.2,<9.0"
+pytest-asyncio = ">=0.21.1,<0.22"
+pytest-cov = ">=5.0.0,<6"
+testcontainers = ">=3.7.1,<4.0"
+testcontainers-redis = { version = "0.0.1rc1" }
+black = ">=24.8.0,<25"
+ruff = ">=0.6.8,<1"
+
+[tool.poetry.extras]
+testing = ["pytest-httpserver"]
+redis = ["redis"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+markers = ["asyncio: mark a test as an asyncio coroutine"]
+addopts = "--asyncio-mode=auto"
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+lint.ignore = [
+    "E501",  # line too long
+    "W291",  # trailing whitespaces
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

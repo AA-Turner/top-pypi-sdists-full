@@ -41,6 +41,7 @@ from .literals import (
     OtaTaskExecutionStatusType,
     OtaTypeType,
     ProtocolTypeType,
+    ProvisioningProfileStatusType,
     ProvisioningStatusType,
     ProvisioningTypeType,
     RetryCriteriaFailureTypeType,
@@ -718,6 +719,7 @@ class ProvisioningProfileSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
     ProvisioningType: NotRequired[ProvisioningTypeType]
+    Status: NotRequired[ProvisioningProfileStatusType]
 
 ListSchemaVersionsRequestTypeDef = TypedDict(
     "ListSchemaVersionsRequestTypeDef",
@@ -972,6 +974,7 @@ class CreateProvisioningProfileResponseTypeDef(TypedDict):
     Name: str
     ProvisioningType: ProvisioningTypeType
     Id: str
+    Status: ProvisioningProfileStatusType
     ClaimCertificate: str
     ClaimCertificatePrivateKey: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1070,6 +1073,7 @@ class GetProvisioningProfileResponseTypeDef(TypedDict):
     Name: str
     ProvisioningType: ProvisioningTypeType
     Id: str
+    Status: ProvisioningProfileStatusType
     ClaimCertificate: str
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef

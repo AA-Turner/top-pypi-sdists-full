@@ -1,0 +1,148 @@
+# Copyright 2020 Silicon Compiler Authors. All Rights Reserved.
+import sys
+
+import os.path
+
+from siliconcompiler import Project, Design
+from siliconcompiler.apps._common import pick_manifest
+
+
+def main():
+    progname = "sc-show"
+    description = """
+    --------------------------------------------------------------
+    Restricted SC app that displays the layout of a design
+    based on a file provided or tries to display the final
+    layout based on loading the json manifest from:
+    build/<design>/job0/<design>.pkg.json
+
+    Examples:
+
+    sc-show
+    (displays build/adder/job0/write.gds/0/outputs/adder.gds)
+
+    sc-show -design adder
+    (displays build/adder/job0/write.gds/0/outputs/adder.gds)
+
+    sc-show -design adder -arg_step floorplan
+    (displays build/adder/job0/floorplan/0/outputs/adder.def)
+
+    sc-show -design adder -arg_step place -arg_index 1
+    (displays build/adder/job0/place/1/outputs/adder.def)
+
+    sc-show -design adder -jobname rtl2gds
+    (displays build/adder/rtl2gds/write.gds/0/outputs/adder.gds)
+
+    sc-show build/adder/rtl2gds/adder.pkg.json
+    (displays build/adder/rtl2gds/write.gds/0/outputs/adder.gds)
+
+    sc-show -design adder -ext odb
+    (displays build/adder/job0/write.views/0/outputs/adder.odb)
+
+    sc-show -design adder -tool klayout
+    (displays build/adder/job0/write.gds/0/outputs/adder.gds using klayout)
+
+    sc-show -design adder -ext odb -tool openroad
+    (displays build/adder/job0/write.views/0/outputs/adder.odb using openroad)
+
+    sc-show -design adder -tool klayout/show
+    (displays build/adder/job0/write.gds/0/outputs/adder.gds using klayout in show mode)
+
+    sc-show -design adder -ext def -tool openroad/show
+    (displays build/adder/job0/write.views/0/outputs/adder.def using openroad in show mode)
+
+    sc-show build/adder/job0/route/1/outputs/adder.def
+    (displays build/adder/job0/route/1/outputs/adder.def)
+    """
+
+    class ShowProject(Project):
+        def __init__(self):
+            super().__init__()
+
+            self._add_commandline_argument(
+                "cfg", "file", "configuration manifest")
+            self._add_commandline_argument(
+                "extension", "str", "Specify the extension of the file to show.",
+                "-ext <str>")
+            self._add_commandline_argument(
+                "screenshot", "bool", "Generate a screenshot and exit.")
+            self._add_commandline_argument(
+                "tool", "str", "Tool to use for showing the file.")
+
+    show = ShowProject.create_cmdline(
+        progname,
+        description=description,
+        switchlist=[
+            '-design',
+            '-arg_step',
+            '-arg_index',
+            '-jobname',
+            '-cfg',
+            '-ext',
+            '-screenshot',
+            '-tool'])
+
+    manifest = None
+    filename = None
+    if show.get("cmdarg", "input"):
+        for file in show.get("cmdarg", "input"):
+            if not manifest and file.lower().endswith(".pkg.json"):
+                manifest = file
+            elif not filename:
+                filename = file
+    if manifest and show.get("cmdarg", "cfg"):
+        show.logger.error("Cannot specify both a manifest file and configuration file.")
+        return 1
+    if show.get("cmdarg", "cfg"):
+        manifest = show.get("cmdarg", "cfg")
+
+    # Attempt to load a manifest
+    if not manifest:
+        manifest = pick_manifest(show, src_file=filename)
+
+    if not manifest:
+        if not filename:
+            show.logger.error("Unable to find manifest")
+            return 1
+
+    if manifest:
+        show.logger.info(f'Loading manifest: {manifest}')
+        try:
+            project = Project.from_manifest(filepath=manifest)
+        except FileNotFoundError:
+            show.logger.error(f'Manifest file not found: {manifest}')
+            return 1
+    else:
+        project = Project()
+        # Setup faux project
+        designname = show.option.get_design()
+        design = Design(designname)
+        with design.active_fileset("show"):
+            design.set_topmodule(designname)
+            design.add_file(filename)
+        project.set_design(design)
+        project.add_fileset("show")
+
+    # Read in file
+    if filename:
+        project.logger.info(f"Displaying {filename}")
+
+    if not project.find_files('option', 'builddir', missing_ok=True):
+        project.logger.warning("Unable to access original build directory "
+                               f"\"{project.option.get_builddir()}\", using \"build\" instead")
+        project.option.set_builddir('build')
+
+    success = project.show(filename,
+                           extension=show.get("cmdarg", "extension"),
+                           screenshot=show.get("cmdarg", "screenshot"),
+                           tool=show.get("cmdarg", "tool"))
+
+    if success and os.path.isfile(success) and show.get("cmdarg", "screenshot"):
+        project.logger.info(f'Screenshot file: {success}')
+
+    return 0
+
+
+#########################
+if __name__ == "__main__":
+    sys.exit(main())

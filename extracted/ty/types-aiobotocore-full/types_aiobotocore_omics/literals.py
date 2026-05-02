@@ -141,6 +141,7 @@ AnnotationTypeType = Literal[
 ]
 BatchStatusType = Literal[
     "CANCELLED",
+    "CREATING",
     "FAILED",
     "INPROGRESS",
     "PENDING",

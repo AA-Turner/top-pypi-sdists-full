@@ -51,7 +51,6 @@ def validate_all_from_registries(
     - Error[42]: Bad foreign key types (type mismatch)
     - Error[43]: Multi-namespace joins
     - Error[51]: Multiple primary features (versioned primary keys)
-    - Error[119]: State type validation (stream resolvers)
     - Error[135]: Unrecognized feature reference
 
     Parameters
@@ -155,13 +154,7 @@ def validate_all_from_registries(
             if not LSPErrorBuilder.promote_exception(e):
                 raise
 
-        # --------------------------------------------------------------------
-        # Error[119]: State type validation (stream resolvers)
-        # --------------------------------------------------------------------
-        # Accessing resolver state and default_args triggers validation
-        # that default state values match their type annotations.
         try:
-            _ = resolver.state
             _ = resolver.default_args
         except Exception as e:
             if not LSPErrorBuilder.promote_exception(e):

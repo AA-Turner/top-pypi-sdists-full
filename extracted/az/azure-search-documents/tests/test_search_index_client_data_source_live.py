@@ -8,7 +8,7 @@ import pytest
 
 from azure.core import MatchConditions
 from azure.core.exceptions import HttpResponseError
-from devtools_testutils import AzureRecordedTestCase, recorded_by_proxy
+from devtools_testutils import AzureRecordedTestCase, recorded_by_proxy, get_credential
 
 from search_service_preparer import SearchEnvVarPreparer, search_decorator
 from azure.search.documents.indexes.models import (
@@ -29,9 +29,9 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
     @SearchEnvVarPreparer()
     @search_decorator(schema="hotel_schema.json", index_batch="hotel_small.json")
     @recorded_by_proxy
-    def test_data_source(self, endpoint, api_key, **kwargs):
+    def test_data_source(self, endpoint, **kwargs):
         storage_cs = kwargs.get("search_storage_connection_string")
-        client = SearchIndexerClient(endpoint, api_key, retry_backoff_factor=60)
+        client = SearchIndexerClient(endpoint, get_credential(), retry_backoff_factor=60)
         self._test_create_datasource(client, storage_cs)
         self._test_delete_datasource(client, storage_cs)
         self._test_get_datasource(client, storage_cs)
@@ -39,22 +39,17 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
         self._test_create_or_update_datasource(client, storage_cs)
         self._test_create_or_update_datasource_if_unchanged(client, storage_cs)
         self._test_delete_datasource_if_unchanged(client, storage_cs)
-        self._test_delete_datasource_string_if_unchanged(client, storage_cs)
 
     def _test_create_datasource(self, client, storage_cs):
         ds_name = "create"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
+        data_source_connection = self._create_data_source_connection(storage_cs, ds_name)
         result = client.create_data_source_connection(data_source_connection)
         assert result.name == ds_name
         assert result.type == "azureblob"
 
     def _test_delete_datasource(self, client, storage_cs):
         ds_name = "delete"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
+        data_source_connection = self._create_data_source_connection(storage_cs, ds_name)
         client.create_data_source_connection(data_source_connection)
         expected_count = len(client.get_data_source_connections()) - 1
         client.delete_data_source_connection(ds_name)
@@ -62,33 +57,23 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
 
     def _test_get_datasource(self, client, storage_cs):
         ds_name = "get"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
+        data_source_connection = self._create_data_source_connection(storage_cs, ds_name)
         client.create_data_source_connection(data_source_connection)
         result = client.get_data_source_connection(ds_name)
         assert result.name == ds_name
 
     def _test_list_datasources(self, client, storage_cs):
-        data_source_connection1 = self._create_data_source_connection(
-            storage_cs, "list"
-        )
-        data_source_connection2 = self._create_data_source_connection(
-            storage_cs, "list2"
-        )
+        data_source_connection1 = self._create_data_source_connection(storage_cs, "list")
+        data_source_connection2 = self._create_data_source_connection(storage_cs, "list2")
         client.create_data_source_connection(data_source_connection1)
         client.create_data_source_connection(data_source_connection2)
         result = client.get_data_source_connections()
         assert isinstance(result, list)
-        assert set(x.name for x in result).intersection(set(["list", "list2"])) == set(
-            ["list", "list2"]
-        )
+        assert set(x.name for x in result).intersection(set(["list", "list2"])) == set(["list", "list2"])
 
     def _test_create_or_update_datasource(self, client, storage_cs):
         ds_name = "cou"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
+        data_source_connection = self._create_data_source_connection(storage_cs, ds_name)
         client.create_data_source_connection(data_source_connection)
         expected_count = len(client.get_data_source_connections())
         data_source_connection.description = "updated"
@@ -100,9 +85,7 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
 
     def _test_create_or_update_datasource_if_unchanged(self, client, storage_cs):
         ds_name = "couunch"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
+        data_source_connection = self._create_data_source_connection(storage_cs, ds_name)
         created = client.create_data_source_connection(data_source_connection)
         etag = created.e_tag
 
@@ -111,9 +94,7 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
         client.create_or_update_data_source_connection(data_source_connection)
 
         # prepare data source connection
-        data_source_connection.e_tag = (
-            etag  # reset to the original data source connection
-        )
+        data_source_connection.e_tag = etag  # reset to the original data source connection
         data_source_connection.description = "changed"
         with pytest.raises(HttpResponseError):
             client.create_or_update_data_source_connection(
@@ -122,9 +103,7 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
 
     def _test_delete_datasource_if_unchanged(self, client, storage_cs):
         ds_name = "delunch"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
+        data_source_connection = self._create_data_source_connection(storage_cs, ds_name)
         created = client.create_data_source_connection(data_source_connection)
         etag = created.e_tag
 
@@ -133,32 +112,6 @@ class TestSearchClientDataSources(AzureRecordedTestCase):
         client.create_or_update_data_source_connection(data_source_connection)
 
         # prepare data source connection
-        data_source_connection.e_tag = (
-            etag  # reset to the original data source connection
-        )
+        data_source_connection.e_tag = etag  # reset to the original data source connection
         with pytest.raises(HttpResponseError):
-            client.delete_data_source_connection(
-                data_source_connection, match_condition=MatchConditions.IfNotModified
-            )
-
-    def _test_delete_datasource_string_if_unchanged(self, client, storage_cs):
-        ds_name = "delstrunch"
-        data_source_connection = self._create_data_source_connection(
-            storage_cs, ds_name
-        )
-        created = client.create_data_source_connection(data_source_connection)
-        etag = created.e_tag
-
-        # Now update the data source connection
-        data_source_connection.description = "updated"
-        client.create_or_update_data_source_connection(data_source_connection)
-
-        # prepare data source connection
-        data_source_connection.e_tag = (
-            etag  # reset to the original data source connection
-        )
-        with pytest.raises(ValueError):
-            client.delete_data_source_connection(
-                data_source_connection.name,
-                match_condition=MatchConditions.IfNotModified,
-            )
+            client.delete_data_source_connection(data_source_connection, match_condition=MatchConditions.IfNotModified)

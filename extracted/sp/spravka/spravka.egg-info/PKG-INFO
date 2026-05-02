@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: spravka
+Version: 0.0.14
+Summary: Autogen for your python project
+Home-page: https://github.com/prestonbrodus/spravka
+Author: Bilenko Olexiy
+Author-email: bilenko_ol@ukr.net
+License: UNKNOWN
+Description: # Spravka
+        ![](logo.svg)
+        
+        ## Config example 
+        
+            dir:
+              test_dir:
+                - test_module
+                - test_module2
+            django:
+              DJANGO_SETTINGS_MODULE: local
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown

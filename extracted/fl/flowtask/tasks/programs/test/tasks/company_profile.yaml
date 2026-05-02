@@ -1,0 +1,25 @@
+name: Company Profile
+description: Company Profile from LeadIQ and ZoomInfo
+steps:
+  - OpenWithPandas:
+      mime: "text/csv"
+      trim: true
+      filename: failed_stores.csv
+      directory: "/home/ubuntu/symbits/marketing/companies"
+  - CompanyScraper:
+      use_proxies: true
+      paid_proxy: true
+      column_name: "Company Name"
+      concurrently: false
+      scrappers:
+        - leadiq
+        - rocketreach
+        - siccode
+        - explorium
+  - PandasToFile:
+      filename: /home/ubuntu/symbits/marketing/companies/rest-companies-{today}.xlsx
+      mime: application/vnd.ms-excel
+      masks:
+        today:
+          - today
+          - mask: "%m%d%Y"

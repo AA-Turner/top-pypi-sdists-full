@@ -22,12 +22,10 @@ shexj = """{
    ]
 }"""
 
-class SingleReferenceTestCase(unittest.TestCase):
+class TestSingleReference():
     """ Test to determine what this parser does with a single reference """
     def test_shex(self):
         schema = parse(shex)
-        self.assertEqual(shexj, as_json(schema))
+        assert shexj == as_json(schema)
 
 
-if __name__ == '__main__':
-    unittest.main()

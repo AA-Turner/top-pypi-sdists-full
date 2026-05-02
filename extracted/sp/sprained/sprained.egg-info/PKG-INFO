@@ -1,0 +1,40 @@
+Metadata-Version: 1.1
+Name: sprained
+Version: 0.008
+Summary: An integration of the spread toolkit, (http://spread.org), with twisted.
+Home-page: http://packages.python.org/sprained
+Author: K. Richard Pixley
+Author-email: rich@noir.com
+License: MIT
+Description: Welcome to sprained!
+        
+        Sprained is an integration between the spread toolkit,
+        (http://spread.org), which provides an implementation of group
+        messaging based on virtual synchrony and twisted,
+        (http://twistedmatrix.com), which provides a single threaded
+        asynchronous programming structure.
+        
+        Please note that sprained has nothing to do with spreadsheets nor does
+        it have anything to do with the other twisted project with the
+        unfortunate name of "spread", (which has nothing to do with either
+        spreadsheets nor virtual synchrony).
+        
+Keywords: twisted spread
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Framework :: Twisted
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
+Requires: collections
+Requires: metaserializer
+Requires: os
+Requires: spread
+Requires: twisted.internet
+Requires: zope.interface
+Provides: sprained

@@ -9,7 +9,6 @@ Parts of this code are reworked from the rendernb checklet for Momotor <momotor.
 """
 
 from argparse import Namespace
-from typing import Any, Dict
 
 from nbconvert import HTMLExporter
 from nbformat import NotebookNode
@@ -41,7 +40,7 @@ from .inline_attachments import InlineAttachmentsPreprocessor
 #     """)
 
 
-def render_nb(notebook: NotebookNode, args: Namespace) -> Dict[str, Any]:
+def render_nb(notebook: NotebookNode, args: Namespace) -> str:
     """Render notebook as html.
     Uses ``args.template`` as template name.
 

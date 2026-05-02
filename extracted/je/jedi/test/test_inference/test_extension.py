@@ -31,7 +31,9 @@ def test_get_signatures_stdlib(Script):
     assert len(sigs[0].params) == 1
 
 
-# Check only on linux 64 bit platform and Python3.8.
+# TODO This is currently only checked on linux 64 bit platform and Python3.8,
+# which we don't support anymore, this test should be rewritten (or the
+# extension recreated).
 @pytest.mark.parametrize('load_unsafe_extensions', [False, True])
 @pytest.mark.skipif(
     'sys.platform != "linux" or sys.maxsize <= 2**32 or sys.version_info[:2] != (3, 8)',
@@ -48,7 +50,8 @@ def test_init_extension_module(Script, load_unsafe_extensions):
     `__init__.cpython-38m.so` by compiling it (create a virtualenv and run
     `setup.py install`.
 
-    This is also why this test only runs on certain systems and Python 3.8.
+    This is also why this test only runs on certain systems and a specific
+    Python version.
     """
 
     project = jedi.Project(get_example_dir(), load_unsafe_extensions=load_unsafe_extensions)

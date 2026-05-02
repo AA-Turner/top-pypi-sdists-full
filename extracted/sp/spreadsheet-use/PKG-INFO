@@ -1,0 +1,130 @@
+Metadata-Version: 2.4
+Name: spreadsheet-use
+Version: 0.1.2
+Summary: Spreadsheet Use: Alias package for univer-use
+Project-URL: Homepage, https://github.com/dream-num/univer-use
+Project-URL: Repository, https://github.com/dream-num/univer-use
+Project-URL: Issues, https://github.com/dream-num/univer-use/issues
+Author: Univer Team
+License: MIT License
+        
+        Copyright (c) 2025 Univer Team
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+License-File: LICENSE
+Keywords: agents,langchain,langgraph,mcp,spreadsheet,univer
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: <4.0,>=3.11
+Requires-Dist: univer-use==0.1.2
+Description-Content-Type: text/markdown
+
+Univer Use
+==========
+
+LangGraph-powered agent utilities and tools for Univer spreadsheets. This library provides a ready-to-use graph entrypoint and helper tools to build agents that operate against Univer via [Univer-MCP](https://github.com/dream-num/univer-mcp).
+
+## Features
+- LangGraph graph entrypoint: `univer_use/graph.py:build_graph`
+- Spreadsheet action agent with MCP tools
+- Prompt templates packaged with the library
+
+## Install
+You can install this package using either name (both are the same package):
+
+**Option 1: univer-use**
+- pip: `pip install univer-use`
+- uv: `uv add univer-use`
+- Poetry: `poetry add univer-use`
+
+**Option 2: spreadsheet-use**
+- pip: `pip install spreadsheet-use`
+- uv: `uv add spreadsheet-use`
+- Poetry: `poetry add spreadsheet-use`
+
+> Note: Both `univer-use` and `spreadsheet-use` provide identical functionality. Choose whichever name you prefer.
+
+## Requirements
+- Python 3.11+
+- Credentials via environment or `.env` (python-dotenv):
+  - `OPENROUTER_API_KEY` – API key for your OpenRouter-compatible provider
+  - `OPENROUTER_ENDPOINT` – Base URL for the provider endpoint
+  - `UNIVER_API_KEY` – Univer API key (if required by your MCP setup)
+
+## Quickstart
+
+First, Initialize Univer Instance (refer to [Univer-MCP](https://github.com/dream-num/univer-mcp#start-univer-instance) for more details).
+You can simply use [Univer-MCP Playground](https://console.univer.ai/playground).
+
+Then, run the minimal example to compile and run the graph once:
+
+```python
+import asyncio
+# Both imports work the same way:
+# from spreadsheet_use import build_graph
+from univer_use import build_graph
+
+async def main():
+    graph = await build_graph()
+    # Provide initial state. At minimum, include a conversation_id.
+    messages = [
+        {
+            "role": "user",
+            "content": "Build a modern salary calculator.",
+        }
+    ]
+    state = {
+        "messages": messages,
+        "conversation_id": "default",
+    }
+    result = await graph.ainvoke(state)
+    print(result)
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+    asyncio.run(main())
+```
+
+For more details, see [examples/sheet_edit](examples/sheet_edit).
+
+More examples will be added soon.
+
+This uses the graph at `univer_use/graph.py:build_graph`. Set env vars in `.env` or your shell before running. See `examples/sheet_edit/.env` for an example.
+
+## Contributing
+
+Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+**Available Make Commands**
+Run `make help` to see all available commands for development.
+
+**Package Architecture**
+- `univer-use`: The main package containing all functionality
+- `spreadsheet-use`: A lightweight alias package that depends on `univer-use`
+
+## License
+
+MIT. See `LICENSE`.

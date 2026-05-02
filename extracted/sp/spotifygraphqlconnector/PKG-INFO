@@ -1,0 +1,314 @@
+Metadata-Version: 2.3
+Name: spotifygraphqlconnector
+Version: 0.5.2
+Summary: Spotify GraphQL Connector for Podcast Data
+Author: Open Podcast
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: requests>=2.32.5
+Requires-Dist: tenacity>=9.1.4
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+
+# Spotify GraphQL Connector
+
+[![PyPI](https://img.shields.io/pypi/v/spotifygraphqlconnector)](https://pypi.org/project/spotifygraphqlconnector/)
+
+An unofficial Python connector for the [Spotify Creators](https://creators.spotify.com)
+GraphQL API - the backend that powers the Spotify Creators dashboard (formerly Anchor).
+
+> **Disclaimer:** This connector uses an undocumented, internal API that may change at
+> any time without notice. Use at your own risk.
+
+---
+
+## Does it work for Anchor? For Spotify?
+
+**Anchor (primary use case): Supported **
+
+Anchor was rebranded to Spotify for Podcasters and then Spotify Creators. The dashboard
+at `creators.spotify.com` is now the only interface for managing Anchor-hosted podcasts.
+This connector talks directly to the GraphQL API behind that dashboard - it is the
+**direct replacement for the [`anchor-connector`](https://github.com/openpodcast/anchor-connector)**, which stopped working when Spotify migrated its backend to GraphQL.
+
+Shows hosted on Anchor/Spotify for Podcasters appear as `hostingProvider: "S4P"` and
+have full analytics access across all endpoints.
+
+**Non-Anchor Spotify shows: Partial Support**
+
+Shows hosted elsewhere (Apple, Megaphone, RSS feeds, etc.) appear as `NonHostedShow`
+with `hostingProvider: "OTHER_THIRD_PARTY"` or `"MEGAPHONE"`. These shows are visible
+in the dashboard and return data from some endpoints (metadata, impressions, geo stats),
+but deep analytics like performance curves and consumption data are only available for
+S4P-hosted shows.
+
+**In short:** if you were using `anchor-connector`, replace it with this connector.
+
+---
+
+## Features
+
+- **Single credential** - only `sp_dc` and `sp_key` session cookies are required.
+  Show URI and station ID are resolved automatically from your account.
+- **Auto-authentication** - performs the full PKCE OAuth 2.0 flow used by the Spotify
+  Creators web app and transparently refreshes the bearer token before expiry.
+- **Auto-pagination** - `get_all_episodes()` fetches every page automatically.
+- **Retry logic** - exponential back-off on transient errors (429, 502, 503, 504)
+  and automatic token refresh on 401.
+- **Type-safe** - fully annotated with a recursive `JsonDict` type alias; zero `Any`.
+- **Native response shape** - responses are returned exactly as the API sends them
+  so consumers can adapt to the real data without a lossy mapping layer.
+- **`uv`-powered** - dependency management and packaging via
+  [uv](https://docs.astral.sh/uv/).
+- **24 operations** covering the full Spotify Creators analytics surface.
+
+---
+
+## Requirements
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+---
+
+## Installation
+
+```bash
+# As a library in your own project
+uv add spotifygraphqlconnector
+
+# Clone for development
+git clone https://github.com/openpodcast/spotify-connector-graphql
+cd spotify-connector-graphql/spotifygraphqlconnector
+uv sync --all-groups
+```
+
+---
+
+## Credentials
+
+You need two cookies from an active Spotify session: `sp_dc` and `sp_key`.
+
+### How to obtain them
+
+1. Open [https://creators.spotify.com](https://creators.spotify.com) in your browser
+   and log in.
+2. Open **DevTools** (`F12` / `⌘ ⌥ I`) → **Application** → **Cookies** →
+   `https://accounts.spotify.com`.
+3. Copy the values of the `sp_dc` and `sp_key` cookies.
+
+These cookies are typically valid for several months. When they expire you will see a
+`CredentialsExpired` exception - just grab fresh cookie values from your browser.
+
+---
+
+## Configuration
+
+All configuration is via environment variables:
+
+| Variable               | Required | Default | Description                                                                                                                 |
+| ---------------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `SPOTIFY_SP_DC`        | **Yes**  | -       | `sp_dc` cookie from a Spotify session                                                                                       |
+| `SPOTIFY_SP_KEY`       | **Yes**  | -       | `sp_key` cookie from a Spotify session                                                                                      |
+| `SPOTIFY_SHOW_URI`     | No       | auto    | Spotify show URI, e.g. `spotify:show:1HaFboRBVORs2VCpNACYLn`. Auto-resolved from the first S4P-hosted show on your account. |
+| `SPOTIFY_STATION_ID`   | No       | auto    | **Deprecated.** Numeric Anchor/Spotify station ID. No longer used by `WebGetIndexedEpisodeList` (Spotify migrated to `showUri` in April 2026). Still accepted for backwards compatibility but ignored by `get_episode_list()` / `get_all_episodes()`. Use `SPOTIFY_SHOW_URI` instead. |
+| `SPOTIFY_EPISODE_URI`  | No       | auto    | Episode URI for per-episode analytics in the CLI. Auto-resolved from the first episode.                                     |
+| `SPOTIFY_COUNTRY_CODE` | No       | `US`    | ISO 3166-1 alpha-2 country code for the registration endpoint.                                                              |
+
+```bash
+cp .env.sample .env
+# edit .env and fill in SPOTIFY_SP_DC and SPOTIFY_SP_KEY
+source .env
+```
+
+---
+
+## Usage
+
+### CLI
+
+```bash
+source .env && uv run spotifygraphqlconnector
+```
+
+Runs every supported endpoint in sequence and logs the full JSON responses via loguru.
+
+### Library
+
+```python
+from spotifygraphqlconnector import SpotifyGraphQLConnector
+
+connector = SpotifyGraphQLConnector(
+    sp_dc="your_sp_dc_value",
+    sp_key="your_sp_key_value",
+    # Optional - resolved automatically when omitted:
+    # show_uri="spotify:show:1HaFboRBVORs2VCpNACYLn",
+    # station_id="6248789",
+)
+
+# --- User / account ---
+user        = connector.get_user_metadata()
+shows       = connector.get_user_shows()           # basic: uri, name, stationId
+shows_rich  = connector.get_shows_for_user()       # + authorName, category, description
+user_shows  = connector.get_user_and_shows()
+reg         = connector.get_user_registration(country_code="DE")
+
+# --- Show metadata (show_uri auto-resolved) ---
+show_type   = connector.get_show_type()
+overview    = connector.get_show_overview_stats()
+clips       = connector.get_show_clips()
+
+# --- Show analytics ---
+plays       = connector.get_show_spotify_stats(date_range_window="WINDOW_LAST_THIRTY_DAYS")
+geo         = connector.get_show_geo_stats()                   # country breakdown
+geo_city    = connector.get_show_geo_stats(result_geo="GEO_CITY")
+demo        = connector.get_show_demographics_stats()          # age + gender
+platform    = connector.get_show_platform_stats()              # app + device
+impressions = connector.get_show_impressions_trend()           # daily + total
+sources     = connector.get_show_impressions_sources()         # by source
+discovery   = connector.get_show_audience_discovery()          # funnel + audience size
+top_ep      = connector.get_show_top_episodes()                # all-time plays per episode
+
+# --- Episode list (station_id auto-resolved) ---
+page        = connector.get_episode_list(current_page=1, page_size=25)
+all_eps     = connector.get_all_episodes()                     # auto-paginates
+
+# --- Episode analytics ---
+ep_uri = "spotify:episode:4fndadZdKayBwmsRQJ8rNR"
+meta        = connector.get_episode_metadata_for_analytics(ep_uri)
+perf        = connector.get_episode_performance_all_time(ep_uri)
+streams     = connector.get_episode_streams_and_downloads(ep_uri)
+plays_daily = connector.get_episode_plays_daily(ep_uri)
+impressions = connector.get_episode_impressions_faceted(ep_uri)
+consumption = connector.get_episode_consumption_all_time(ep_uri)
+audience    = connector.get_episode_audience_size_all_time(ep_uri)
+```
+
+All methods return `dict[str, JsonValue]` in the **native Spotify API response shape**.
+
+---
+
+## Supported Endpoints (24)
+
+### User / Account
+
+| Method                      | Operation                 | Description                                                                      |
+| --------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| `get_user_metadata()`       | `getUserMetadata`         | Authenticated user name and avatar                                               |
+| `get_user_shows()`          | `WebGetUserShows`         | All shows: uri, name, stationId, permissions                                     |
+| `get_shows_for_user()`      | `getShowsForUser`         | All shows with rich metadata: authorName, category, description, hostingProvider |
+| `get_user_and_shows()`      | `WebGetUserAndShows`      | User profile + shows combined                                                    |
+| `get_user_registration()`   | `WebGetUserRegistration`  | TOS / onboarding state                                                           |
+| `get_external_partner_id()` | `WebGetExternalPartnerId` | External partner ID (e.g. for mParticle/Braze)                                   |
+
+### Show Metadata
+
+| Method                               | Operation                          | Description                                      |
+| ------------------------------------ | ---------------------------------- | ------------------------------------------------ |
+| `get_show_type()`                    | `WebGetShowTypeByUri`              | Show type: PODCAST, AUDIOBOOK, ...               |
+| `get_show_overview_stats()`          | `getShowOverviewStatsNRT`          | Near-real-time aggregate streams/downloads total |
+| `get_show_clips()`                   | `getShowClips`                     | Short-form video clips for a show                |
+| `get_monetization_lifecycle_state()` | `WebGetMonetizationLifecycleState` | Monetisation state (S4P shows only)              |
+
+### Show Analytics
+
+All analytics methods accept `date_range_window`:
+`"WINDOW_LAST_SEVEN_DAYS"` · `"WINDOW_LAST_THIRTY_DAYS"` · `"WINDOW_LAST_NINETY_DAYS"` · `"WINDOW_ALL_TIME"`
+
+| Method                           | Operation                             | Replaces (anchor-connector)                 |
+| -------------------------------- | ------------------------------------- | ------------------------------------------- |
+| `get_show_spotify_stats()`       | `getShowOnSpotifyStats`               | `plays()`, `total_plays()`                  |
+| `get_show_geo_stats()`           | `getShowAudienceAllPlatformsGeoStats` | `plays_by_geo()`, `plays_by_geo_city()`     |
+| `get_show_demographics_stats()`  | `getShowAudienceDemographicsStats`    | `plays_by_age_range()`, `plays_by_gender()` |
+| `get_show_platform_stats()`      | `getShowAudienceAllPlatformsStats`    | `plays_by_app()`, `plays_by_device()`       |
+| `get_show_impressions_trend()`   | `getShowImpressionsTrendStats`        | `impressions()`                             |
+| `get_show_impressions_sources()` | `getShowImpressionsSourcesStats`      | n/a                                         |
+| `get_show_audience_discovery()`  | `getShowAudienceDiscoveryStats`       | `audience_size()`, `unique_listeners()`     |
+| `get_show_top_episodes()`        | `getShowTopEpisodes`                  | `total_plays_by_episode()` ¹                |
+
+¹ All-time only - Spotify does not expose a time-range parameter for this endpoint.
+Per-episode plays within a window: call `get_episode_plays_daily(episode_uri)` per episode.
+
+### Episode List
+
+| Method               | Operation                  | Description                                         |
+| -------------------- | -------------------------- | --------------------------------------------------- |
+| `get_episode_list()` | `WebGetIndexedEpisodeList` | Paginated, searchable episode list with sort/filter |
+| `get_all_episodes()` | `WebGetIndexedEpisodeList` | All episodes auto-paginated                         |
+
+### Episode Analytics
+
+| Method                                 | Operation                        | Replaces (anchor-connector)                                 |
+| -------------------------------------- | -------------------------------- | ----------------------------------------------------------- |
+| `get_episode_metadata_for_analytics()` | `getEpisodeMetadataForAnalytics` | `episode_metadata()`                                        |
+| `get_episode_performance_all_time()`   | `getEpisodePerformanceAllTime`   | `episode_performance()`, `episode_aggregated_performance()` |
+| `get_episode_streams_and_downloads()`  | `getEpisodeStreamsAndDownloads`  | `episode_plays()`                                           |
+| `get_episode_plays_daily()`            | `getEpisodePlaysDaily`           | `episode_plays()`                                           |
+| `get_episode_impressions_faceted()`    | `getEpisodeImpressionsFaceted`   | n/a                                                         |
+| `get_episode_consumption_all_time()`   | `getEpisodeConsumptionAllTime`   | n/a                                                         |
+| `get_episode_audience_size_all_time()` | `getEpisodeAudienceSizeAllTime`  | `audience_size()` (episode level)                           |
+
+---
+
+## Error Handling
+
+```python
+from spotifygraphqlconnector import (
+    SpotifyGraphQLConnector,
+    CredentialsExpired,
+    AuthenticationError,
+    MaxRetriesException,
+)
+
+try:
+    data = connector.get_show_spotify_stats()
+except CredentialsExpired:
+    # sp_dc / sp_key have expired - get fresh values from your browser
+    print("Please update SPOTIFY_SP_DC and SPOTIFY_SP_KEY.")
+except AuthenticationError as e:
+    # Unexpected auth page structure - Spotify may have changed their flow
+    print(f"Auth error: {e}")
+except MaxRetriesException as e:
+    # All retry attempts exhausted (network issues, persistent 5xx)
+    print(f"Request failed after all retries: {e}")
+```
+
+---
+
+## Development
+
+```bash
+make install     # uv sync --all-groups
+make check       # lint + typecheck + test (all at once)
+make lint        # ruff check
+make typecheck   # pyright
+make test        # pytest
+make fmt         # ruff format + ruff check --fix
+make run         # run the CLI (requires .env sourced)
+```
+
+### Adding a new operation
+
+1. Find the `operationName` and `sha256Hash` in your browser DevTools:
+   DevTools → Network → filter by `graph-pq` → click a request → Payload tab.
+2. Add the entry to `OPERATION_HASHES` in `types.py`.
+3. Add a method in `connector.py` calling `self._query("YourOperationName", ...)`.
+4. Add a call in `__main__.py` and a test in `tests/test_connector.py`.
+
+---
+
+## Relationship to other connectors
+
+This connector is part of the [OpenPodcast](https://github.com/openpodcast) project:
+
+| Connector                                                             | API                                                     | Auth                            | Status                                      |
+| --------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------- | ------------------------------------------- |
+| [spotify-connector](https://github.com/openpodcast/spotify-connector) | Spotify REST (`generic.wg.spotify.com`)                 | PKCE OAuth (`sp_dc` + `sp_key`) | Active                                      |
+| [anchor-connector](https://github.com/openpodcast/anchor-connector)   | Anchor REST (`podcasters.spotify.com`)                  | Session cookie (`anchorpw_s`)   | ⚠️ Deprecated - Spotify migrated to GraphQL |
+| **spotify-connector-graphql** (this)                                  | Spotify Creators GraphQL (`creators-graph.spotify.com`) | PKCE OAuth (`sp_dc` + `sp_key`) | ✅ Active - Anchor replacement              |
+
+---
+
+## License
+
+MIT

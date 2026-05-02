@@ -1,0 +1,176 @@
+Metadata-Version: 2.1
+Name: springlabs_python
+Version: 0.8.6
+Summary: Springlabs Projects Python Standard
+Home-page: https://springlabs.ai/
+Author: Alejandro Barcenas
+Author-email: barcenas.r.2510@gmail.com
+License: UNKNOWN
+Project-URL: Source Code, https://gitlab.com/AlejandroBarcenas/springlabs-python-cli
+Description: # SpringLabs-Python
+        
+        [![N|Solid](https://media-exp1.licdn.com/dms/image/C510BAQFwuqeqniHBZA/company-logo_200_200/0?e=2159024400&v=beta&t=6NzQE2q0ajsrE0Sqk3wwduccebQ1GltG4_6FCIeVUrY)](https://springlabs.ai)
+        
+        Springlabs-Python is a CLI Application to create python projects with a defined struture to springlabs.
+        
+          - Create projects Django (logical or physical)
+            - PostgreSQL
+            - MySQL
+          - Create projects Flask (logical)
+            - MongoDB
+        
+        You can also:
+          - Import and save files from GitHub, Dropbox, Google Drive and One Drive
+          - Drag and drop markdown and HTML files into Dillinger
+          - Export documents as Markdown, HTML and PDF
+        
+        > Primero resuelve el problema,
+        > despues escribe el código.  — John Johnson
+        
+        ## Tech
+        
+        Springlabs-Python uses a number of open source projects to work properly:
+        * [Django] - high-level Python Web framework
+        * [DjangoRestFramework] - powerful and flexible toolkit for building Web APIs.
+        * [Flask] - powerful and flexible microframework for building Web APIs.
+        * [Click] - package for creating beautiful command line interfaces
+        
+        ## Installation
+        
+        Springlabs-Python requires [Python](https://www.python.org/downloads/release/python-3611/) v3.6+ to run.
+        
+        Install and update using [pip](https://pip.pypa.io/en/stable/quickstart/).
+        
+        ```sh
+        $ pip install -U springlabs-python
+        ```
+        Install latest version
+        ```sh
+        $ pip install springlabs-python
+        ```
+        Install specific version
+        ```sh
+        $ pip install springlabs-python==[version]
+        ```
+        ## Usage
+        ### Helpers
+        After install the library
+        Open your favorite Terminal and run these commands.
+        
+        Help:
+        ```sh
+        $ springlabs_python --help
+        ```
+        Console output
+        ~~~
+        Usage: springlabs_python [OPTIONS] COMMAND [ARGS]...
+        
+          Springlabs Manager projects.
+        
+        Options:
+          --version  Show the version and exit.
+          --help     Show this message and exit.
+        
+        Commands:
+          create-project  Create a new Python project
+        ~~~
+        Version:
+        ```sh
+        $ springlabs_python --version
+        ```
+        Console output
+        ~~~
+        Springlabs Manager, v[version]
+        ~~~
+        Create Project Help:
+        ```sh
+        $ springlabs_python create-project --help
+        ```
+        Console output
+        ~~~
+        Usage: springlabs_python create-project [OPTIONS]
+        
+          Create a new Python project
+        
+        Options:
+          -fw, --framework [Django|Flask]
+                                          Python Framework to use  [default: Django]
+          -db, --database [postgres|mysql|mongo]
+                                          Database engine to use  [default: postgres]
+          -d, --diseno [logico|fisico]    Database design to use  [default: logico]
+          -n, --name TEXT                 Project Name
+          --help                          Show this message and exit.
+        ~~~
+        ### Create Project
+        **Create project with interactive CLI**
+        ```sh
+        $ springlabs_python create-project
+        ```
+        Console output
+        ~~~
+        Framework a utilizar (Django, Flask) [Django]: django
+        Database a utilizar (postgres, mysql, mongo) [postgres]: postgres
+        Diseño de database a utilizar (logico, fisico) [logico]: logico
+        Project Name: project_test
+        Se creó proyecto Django-postgres(logico) [project_test] correctamente
+        ~~~
+        **Create project shortcut**
+        To create a project simple shortcut use the options --flag send the value after flag
+        Example:
+        ```sh
+        $ springlabs_python create-project --framework django --database mysql --diseno fisico --name project_test
+        ```
+        Console output
+        ~~~
+        Se creó proyecto Django-postgres(logico) [project_test] correctamente
+        ~~~
+        Alternative use -flag instead of --flag send the value after flag
+        Example:
+        ```sh
+        $ springlabs_python create-project -fw django -db mysql -d fisico -n project_test
+        ```
+        Console output
+        ~~~
+        Se creó proyecto Django-postgres(logico) [project_test] correctamente
+        ~~~
+        ## Commands
+        **springlabs_python**
+        
+        | Command | Short |    Long   |
+        |:-------:|:-----:|:---------:|
+        |   Help  |       |   --help  |
+        | Version |       | --version |
+        
+        **springlabs_python create-project**
+        
+        |  Command  | Short |     Long    |
+        |:---------:|:-----:|:-----------:|
+        |    Help   |       |    --help   |
+        |  Version  |       |  --version  |
+        | Framework |  -fw  | --framework |
+        |  Database |  -db  |  --database |
+        |   Design  |   -d  |   --diseno  |
+        |    Name   |   -n  |    --name   |
+        
+        # Links
+        - Website https://springlabs.ai/
+        - Code https://gitlab.com/AlejandroBarcenas/springlabs-python-cli
+        - Releases https://pypi.org/project/springlabs-python/#history
+        
+        License
+        ----
+        MIT
+        
+        [//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
+           [Django]: <https://www.djangoproject.com/>
+           [DjangoRestFramework]: <https://www.django-rest-framework.org/>
+           [Flask]: <https://flask.palletsprojects.com/en/1.1.x/>
+           [Click]: <https://palletsprojects.com/p/click/>
+           [Python]: <https://www.python.org/downloads/release/python-3611/>
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

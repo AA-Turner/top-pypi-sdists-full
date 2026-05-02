@@ -9,9 +9,9 @@ import click
 import uvicorn
 from uvicorn.config import logger
 
-from any_llm.gateway.config import load_config
+from any_llm.gateway.core.config import load_config
 from any_llm.gateway.log_config import setup_logger
-from any_llm.gateway.server import create_app
+from any_llm.gateway.main import create_app
 
 
 @click.group()
@@ -152,6 +152,11 @@ def migrate(config: str | None, database_url: str | None, revision: str) -> None
 
 def main() -> None:
     """Entry point for the CLI."""
+    click.echo(
+        "WARNING: The gateway bundled in any-llm is deprecated and will be removed "
+        "on May 18, 2026. Migrate to https://github.com/mozilla-ai/gateway",
+        err=True,
+    )
     cli()
 
 

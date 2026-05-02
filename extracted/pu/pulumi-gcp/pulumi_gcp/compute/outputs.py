@@ -285,6 +285,7 @@ __all__ = [
     'InstanceTemplateShieldedInstanceConfig',
     'InstantSnapshotIamBindingCondition',
     'InstantSnapshotIamMemberCondition',
+    'InstantSnapshotParams',
     'InterconnectApplicationAwareInterconnect',
     'InterconnectApplicationAwareInterconnectBandwidthPercentagePolicy',
     'InterconnectApplicationAwareInterconnectBandwidthPercentagePolicyBandwidthPercentage',
@@ -323,6 +324,7 @@ __all__ = [
     'MachineImageIamBindingCondition',
     'MachineImageIamMemberCondition',
     'MachineImageMachineImageEncryptionKey',
+    'MachineImageParams',
     'ManagedSslCertificateManaged',
     'MangedSslCertificateManaged',
     'NetworkAttachmentConnectionEndpoint',
@@ -771,6 +773,7 @@ __all__ = [
     'SnapshotSourceDiskEncryptionKey',
     'StoragePoolIamBindingCondition',
     'StoragePoolIamMemberCondition',
+    'StoragePoolParams',
     'StoragePoolResourceStatus',
     'StoragePoolStatus',
     'SubnetworkIAMBindingCondition',
@@ -1268,6 +1271,7 @@ __all__ = [
     'GetSecurityPolicyRuleRedirectOptionResult',
     'GetSnapshotSnapshotEncryptionKeyResult',
     'GetSnapshotSourceDiskEncryptionKeyResult',
+    'GetStoragePoolParamResult',
     'GetStoragePoolResourceStatusResult',
     'GetStoragePoolStatusResult',
     'GetStoragePoolTypesDeprecatedResult',
@@ -11492,17 +11496,14 @@ class InstanceAttachedDisk(dict):
         :param _builtins.str source: The name or self_link of the disk to attach to this instance.
         :param _builtins.str device_name: Name with which the attached disk will be accessible
                under `/dev/disk/by-id/google-*`
-        :param _builtins.str disk_encryption_key_raw: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str disk_encryption_key_raw: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
                may be set.
-        :param _builtins.str disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
+        :param _builtins.str disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
                may be set.
         :param _builtins.str disk_encryption_key_sha256: The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-               encoded SHA-256 hash of the [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+               encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         :param _builtins.str disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
         :param _builtins.bool force_attach: Whether to force attach the regional disk even if it's currently attached to another instance. If you try to force attach a zonal disk to an instance, you will receive an error. Setting this parameter cause VM recreation.
         :param _builtins.str kms_key_self_link: The self_link of the encryption key that is
@@ -11552,8 +11553,7 @@ class InstanceAttachedDisk(dict):
     @pulumi.getter(name="diskEncryptionKeyRaw")
     def disk_encryption_key_raw(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
         may be set.
@@ -11564,8 +11564,7 @@ class InstanceAttachedDisk(dict):
     @pulumi.getter(name="diskEncryptionKeyRsa")
     def disk_encryption_key_rsa(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
         may be set.
         """
         return pulumi.get(self, "disk_encryption_key_rsa")
@@ -11575,8 +11574,7 @@ class InstanceAttachedDisk(dict):
     def disk_encryption_key_sha256(self) -> Optional[_builtins.str]:
         """
         The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-        encoded SHA-256 hash of the [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+        encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         return pulumi.get(self, "disk_encryption_key_sha256")
 
@@ -11674,16 +11672,13 @@ class InstanceBootDisk(dict):
                is deleted. Defaults to true.
         :param _builtins.str device_name: Name with which attached disk will be accessible.
                On the instance, this device will be `/dev/disk/by-id/google-{{device_name}}`.
-        :param _builtins.str disk_encryption_key_raw: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str disk_encryption_key_raw: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
                may be set.
-        :param _builtins.str disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
+        :param _builtins.str disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
         :param _builtins.str disk_encryption_key_sha256: The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-               encoded SHA-256 hash of the [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+               encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         :param _builtins.str disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
         :param _builtins.bool force_attach: boolean field that determines whether to force attach the regional
                disk even if it's currently attached to another instance. If you try to force attach a zonal
@@ -11752,8 +11747,7 @@ class InstanceBootDisk(dict):
     @pulumi.getter(name="diskEncryptionKeyRaw")
     def disk_encryption_key_raw(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
         may be set.
@@ -11764,8 +11758,7 @@ class InstanceBootDisk(dict):
     @pulumi.getter(name="diskEncryptionKeyRsa")
     def disk_encryption_key_rsa(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to encrypt this disk. Only one of `kms_key_self_link`, `disk_encryption_key_rsa` and `disk_encryption_key_raw`
         """
         return pulumi.get(self, "disk_encryption_key_rsa")
 
@@ -11774,8 +11767,7 @@ class InstanceBootDisk(dict):
     def disk_encryption_key_sha256(self) -> Optional[_builtins.str]:
         """
         The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-        encoded SHA-256 hash of the [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+        encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         return pulumi.get(self, "disk_encryption_key_sha256")
 
@@ -12153,8 +12145,7 @@ class InstanceBootDiskInitializeParamsSourceImageEncryptionKey(dict):
         :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
         :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
         :param _builtins.str sha256: The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-               encoded SHA-256 hash of the [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+               encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         if kms_key_self_link is not None:
             pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
@@ -12204,8 +12195,7 @@ class InstanceBootDiskInitializeParamsSourceImageEncryptionKey(dict):
     def sha256(self) -> Optional[_builtins.str]:
         """
         The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-        encoded SHA-256 hash of the [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+        encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         return pulumi.get(self, "sha256")
 
@@ -12246,17 +12236,14 @@ class InstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey(dict):
                stored in Google Cloud KMS to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
         :param _builtins.str kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
-        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to decrypt the given snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
-        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
         :param _builtins.str sha256: The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-               encoded SHA-256 hash of the [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+               encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         if kms_key_self_link is not None:
             pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
@@ -12291,8 +12278,7 @@ class InstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey(dict):
     @pulumi.getter(name="rawKey")
     def raw_key(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to decrypt the given snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
@@ -12303,8 +12289,7 @@ class InstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey(dict):
     @pulumi.getter(name="rsaEncryptedKey")
     def rsa_encrypted_key(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
         """
         return pulumi.get(self, "rsa_encrypted_key")
@@ -12314,8 +12299,7 @@ class InstanceBootDiskInitializeParamsSourceSnapshotEncryptionKey(dict):
     def sha256(self) -> Optional[_builtins.str]:
         """
         The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-        encoded SHA-256 hash of the [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
+        encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         return pulumi.get(self, "sha256")
 
@@ -20502,13 +20486,11 @@ class InstanceTemplateDiskSourceImageEncryptionKey(dict):
         :param _builtins.str kms_key_service_account: The service account being used for the
                encryption request for the given KMS key. If absent, the Compute Engine
                default service account is used.
-        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
-        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
         """
         if kms_key_self_link is not None:
@@ -20544,8 +20526,7 @@ class InstanceTemplateDiskSourceImageEncryptionKey(dict):
     @pulumi.getter(name="rawKey")
     def raw_key(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
@@ -20556,8 +20537,7 @@ class InstanceTemplateDiskSourceImageEncryptionKey(dict):
     @pulumi.getter(name="rsaEncryptedKey")
     def rsa_encrypted_key(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
         """
         return pulumi.get(self, "rsa_encrypted_key")
@@ -20600,13 +20580,11 @@ class InstanceTemplateDiskSourceSnapshotEncryptionKey(dict):
         :param _builtins.str kms_key_service_account: The service account being used for the
                encryption request for the given KMS key. If absent, the Compute Engine
                default service account is used.
-        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
-        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
         """
         if kms_key_self_link is not None:
@@ -20642,8 +20620,7 @@ class InstanceTemplateDiskSourceSnapshotEncryptionKey(dict):
     @pulumi.getter(name="rawKey")
     def raw_key(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
@@ -20654,8 +20631,7 @@ class InstanceTemplateDiskSourceSnapshotEncryptionKey(dict):
     @pulumi.getter(name="rsaEncryptedKey")
     def rsa_encrypted_key(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
         """
         return pulumi.get(self, "rsa_encrypted_key")
@@ -22198,6 +22174,46 @@ class InstantSnapshotIamMemberCondition(dict):
         consider it to be an entirely different resource and will treat it as such.
         """
         return pulumi.get(self, "description")
+
+
+@pulumi.output_type
+class InstantSnapshotParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InstantSnapshotParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InstantSnapshotParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InstantSnapshotParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the instant snapshot. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the instant snapshot. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type
@@ -24391,6 +24407,46 @@ class MachineImageMachineImageEncryptionKey(dict):
         customer-supplied encryption key that protects this resource.
         """
         return pulumi.get(self, "sha256")
+
+
+@pulumi.output_type
+class MachineImageParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MachineImageParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MachineImageParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MachineImageParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the machine image. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the machine image. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type
@@ -35743,13 +35799,11 @@ class RegionInstanceTemplateDiskSourceImageEncryptionKey(dict):
         :param _builtins.str kms_key_service_account: The service account being used for the
                encryption request for the given KMS key. If absent, the Compute Engine
                default service account is used.
-        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
-        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
         """
         if kms_key_self_link is not None:
@@ -35785,8 +35839,7 @@ class RegionInstanceTemplateDiskSourceImageEncryptionKey(dict):
     @pulumi.getter(name="rawKey")
     def raw_key(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
@@ -35797,8 +35850,7 @@ class RegionInstanceTemplateDiskSourceImageEncryptionKey(dict):
     @pulumi.getter(name="rsaEncryptedKey")
     def rsa_encrypted_key(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt the given image. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
         """
         return pulumi.get(self, "rsa_encrypted_key")
@@ -35841,13 +35893,11 @@ class RegionInstanceTemplateDiskSourceSnapshotEncryptionKey(dict):
         :param _builtins.str kms_key_service_account: The service account being used for the
                encryption request for the given KMS key. If absent, the Compute Engine
                default service account is used.
-        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        :param _builtins.str raw_key: A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
                encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
                to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
-        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-               (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
                may be set.
         """
         if kms_key_self_link is not None:
@@ -35883,8 +35933,7 @@ class RegionInstanceTemplateDiskSourceSnapshotEncryptionKey(dict):
     @pulumi.getter(name="rawKey")
     def raw_key(self) -> Optional[_builtins.str]:
         """
-        A 256-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
+        A 256-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption),
         encoded in [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
         to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
@@ -35895,8 +35944,7 @@ class RegionInstanceTemplateDiskSourceSnapshotEncryptionKey(dict):
     @pulumi.getter(name="rsaEncryptedKey")
     def rsa_encrypted_key(self) -> Optional[_builtins.str]:
         """
-        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key]
-        (https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) to decrypt this snapshot. Only one of `kms_key_self_link`, `rsa_encrypted_key` and `raw_key`
         may be set.
         """
         return pulumi.get(self, "rsa_encrypted_key")
@@ -53076,7 +53124,7 @@ class RouterRoutePolicyTerm(dict):
         """
         :param 'RouterRoutePolicyTermMatchArgs' match: CEL expression evaluated against a route to determine if this term applies (see Policy Language).
                Structure is documented below.
-        :param _builtins.int priority: The evaluation priority for this term, which must be between 0 (inclusive) and 231 (exclusive), and unique within the list.
+        :param _builtins.int priority: The evaluation priority for this term, which must be between 0 (inclusive) and 2147483648 (exclusive), and unique within the list.
         :param Sequence['RouterRoutePolicyTermActionArgs'] actions: 'CEL expressions to evaluate to modify a route when this term matches.'\\
                Structure is documented below.
         """
@@ -53098,7 +53146,7 @@ class RouterRoutePolicyTerm(dict):
     @pulumi.getter
     def priority(self) -> _builtins.int:
         """
-        The evaluation priority for this term, which must be between 0 (inclusive) and 231 (exclusive), and unique within the list.
+        The evaluation priority for this term, which must be between 0 (inclusive) and 2147483648 (exclusive), and unique within the list.
         """
         return pulumi.get(self, "priority")
 
@@ -56931,6 +56979,54 @@ class StoragePoolIamMemberCondition(dict):
 
 
 @pulumi.output_type
+class StoragePoolParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StoragePoolParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StoragePoolParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StoragePoolParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the storage pool. Tag keys and values have the
+               same definition as resource manager tags. Keys and values can be either in numeric format,
+               such as tagKeys/{tag_key_id} and tagValues/{tag_value_id} or in namespaced format such as
+               {org_id|projectId}/{tag_key_short_name} and {tag_value_short_name}. The field is ignored when empty.
+               The field is immutable and causes resource replacement when mutated. This field is only
+               set at create time and modifying this field after creation will trigger recreation.
+               To apply tags to an existing resource, see the tags.TagBinding resource.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the storage pool. Tag keys and values have the
+        same definition as resource manager tags. Keys and values can be either in numeric format,
+        such as tagKeys/{tag_key_id} and tagValues/{tag_value_id} or in namespaced format such as
+        {org_id|projectId}/{tag_key_short_name} and {tag_value_short_name}. The field is ignored when empty.
+        The field is immutable and causes resource replacement when mutated. This field is only
+        set at create time and modifying this field after creation will trigger recreation.
+        To apply tags to an existing resource, see the tags.TagBinding resource.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
 class StoragePoolResourceStatus(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -57841,8 +57937,7 @@ class URLMapDefaultRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapDefaultRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapDefaultRouteActionWeightedBackendService']] = None):
         """
-        :param 'URLMapDefaultRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
-               Specifies the cache policy configuration for matched traffic. Available
+        :param 'URLMapDefaultRouteActionCachePolicyArgs' cache_policy: Specifies the cache policy configuration for matched traffic. Available
                only for Global EXTERNAL_MANAGED load balancer schemes. At least one
                property must be specified. This policy cannot be specified if any target
                backend has Identity-Aware Proxy enabled.
@@ -57906,7 +58001,6 @@ class URLMapDefaultRouteAction(dict):
     @pulumi.getter(name="cachePolicy")
     def cache_policy(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicy']:
         """
-        (Optional, Beta)
         Specifies the cache policy configuration for matched traffic. Available
         only for Global EXTERNAL_MANAGED load balancer schemes. At least one
         property must be specified. This policy cannot be specified if any target
@@ -60445,8 +60539,7 @@ class URLMapPathMatcherDefaultRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapPathMatcherDefaultRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapPathMatcherDefaultRouteActionWeightedBackendService']] = None):
         """
-        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
-               Specifies the cache policy configuration for matched traffic. Available
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyArgs' cache_policy: Specifies the cache policy configuration for matched traffic. Available
                only for Global EXTERNAL_MANAGED load balancer schemes. At least one
                property must be specified. This policy cannot be specified if any target
                backend has Identity-Aware Proxy enabled.
@@ -60510,7 +60603,6 @@ class URLMapPathMatcherDefaultRouteAction(dict):
     @pulumi.getter(name="cachePolicy")
     def cache_policy(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicy']:
         """
-        (Optional, Beta)
         Specifies the cache policy configuration for matched traffic. Available
         only for Global EXTERNAL_MANAGED load balancer schemes. At least one
         property must be specified. This policy cannot be specified if any target
@@ -62901,8 +62993,7 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapPathMatcherPathRuleRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapPathMatcherPathRuleRouteActionWeightedBackendService']] = None):
         """
-        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
-               Specifies the cache policy configuration for matched traffic. Available
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyArgs' cache_policy: Specifies the cache policy configuration for matched traffic. Available
                only for Global EXTERNAL_MANAGED load balancer schemes. At least one
                property must be specified. This policy cannot be specified if any target
                backend has Identity-Aware Proxy enabled.
@@ -62972,7 +63063,6 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
     @pulumi.getter(name="cachePolicy")
     def cache_policy(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicy']:
         """
-        (Optional, Beta)
         Specifies the cache policy configuration for matched traffic. Available
         only for Global EXTERNAL_MANAGED load balancer schemes. At least one
         property must be specified. This policy cannot be specified if any target
@@ -66196,8 +66286,7 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapPathMatcherRouteRuleRouteActionWeightedBackendService']] = None):
         """
-        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
-               Specifies the cache policy configuration for matched traffic. Available
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyArgs' cache_policy: Specifies the cache policy configuration for matched traffic. Available
                only for Global EXTERNAL_MANAGED load balancer schemes. At least one
                property must be specified. This policy cannot be specified if any target
                backend has Identity-Aware Proxy enabled.
@@ -66267,7 +66356,6 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
     @pulumi.getter(name="cachePolicy")
     def cache_policy(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicy']:
         """
-        (Optional, Beta)
         Specifies the cache policy configuration for matched traffic. Available
         only for Global EXTERNAL_MANAGED load balancer schemes. At least one
         property must be specified. This policy cannot be specified if any target
@@ -73546,8 +73634,7 @@ class GetInstanceAttachedDiskResult(dict):
         :param _builtins.str disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set.
         :param _builtins.str disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set.
         :param _builtins.str disk_encryption_key_sha256: The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-               encoded SHA-256 hash of the [customer-supplied encryption key]
-               (<https://cloud.google.com/compute/docs/disks/customer-supplied-encryption>) that protects this resource.
+               encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         :param _builtins.str disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used
         :param _builtins.bool force_attach: Whether to force attach the regional disk even if it's currently attached to another instance. If you try to force attach a zonal disk to an instance, you will receive an error. Setting this parameter cause VM recreation.
         :param _builtins.str kms_key_self_link: The self_link of the encryption key that is stored in Google Cloud KMS to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_rsa and disk_encryption_key_raw may be set.
@@ -73594,8 +73681,7 @@ class GetInstanceAttachedDiskResult(dict):
     def disk_encryption_key_sha256(self) -> _builtins.str:
         """
         The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-        encoded SHA-256 hash of the [customer-supplied encryption key]
-        (<https://cloud.google.com/compute/docs/disks/customer-supplied-encryption>) that protects this resource.
+        encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         return pulumi.get(self, "disk_encryption_key_sha256")
 
@@ -73663,8 +73749,7 @@ class GetInstanceBootDiskResult(dict):
         :param _builtins.str disk_encryption_key_raw: A 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to encrypt this disk. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set.
         :param _builtins.str disk_encryption_key_rsa: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, disk_encryption_key_raw and disk_encryption_key_rsa may be set.
         :param _builtins.str disk_encryption_key_sha256: The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-               encoded SHA-256 hash of the [customer-supplied encryption key]
-               (<https://cloud.google.com/compute/docs/disks/customer-supplied-encryption>) that protects this resource.
+               encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         :param _builtins.str disk_encryption_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used
         :param _builtins.bool force_attach: Whether to force attach the regional disk even if it's currently attached to another instance. If you try to force attach a zonal disk to an instance, you will receive an error. Setting this parameter cause VM recreation.
         :param Sequence[_builtins.str] guest_os_features: A list of features to enable on the guest operating system. Applicable only for bootable images.
@@ -73727,8 +73812,7 @@ class GetInstanceBootDiskResult(dict):
     def disk_encryption_key_sha256(self) -> _builtins.str:
         """
         The [RFC 4648 base64](https://tools.ietf.org/html/rfc4648#section-4)
-        encoded SHA-256 hash of the [customer-supplied encryption key]
-        (<https://cloud.google.com/compute/docs/disks/customer-supplied-encryption>) that protects this resource.
+        encoded SHA-256 hash of the [customer-supplied encryption key](https://cloud.google.com/compute/docs/disks/customer-supplied-encryption) that protects this resource.
         """
         return pulumi.get(self, "disk_encryption_key_sha256")
 
@@ -76541,7 +76625,7 @@ class GetInstanceTemplateNetworkInterfaceResult(dict):
         :param Sequence['GetInstanceTemplateNetworkInterfaceAccessConfigArgs'] access_configs: Access configurations, i.e. IPs via which this
                instance can be accessed via the Internet. Omit to ensure that the instance
                is not accessible from the Internet (this means that ssh provisioners will
-               not work unless you are running the provider can send traffic to the instance's
+               not work unless you can send traffic to the instance's
                network (e.g. via tunnel or because it is running on another cloud instance
                on that network). This block can be repeated multiple times. Structure documented below.
         :param Sequence['GetInstanceTemplateNetworkInterfaceAliasIpRangeArgs'] alias_ip_ranges: An
@@ -76596,7 +76680,7 @@ class GetInstanceTemplateNetworkInterfaceResult(dict):
         Access configurations, i.e. IPs via which this
         instance can be accessed via the Internet. Omit to ensure that the instance
         is not accessible from the Internet (this means that ssh provisioners will
-        not work unless you are running the provider can send traffic to the instance's
+        not work unless you can send traffic to the instance's
         network (e.g. via tunnel or because it is running on another cloud instance
         on that network). This block can be repeated multiple times. Structure documented below.
         """
@@ -88877,6 +88961,36 @@ class GetSnapshotSourceDiskEncryptionKeyResult(dict):
         RFC 4648 base64 to either encrypt or decrypt this resource.
         """
         return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class GetStoragePoolParamResult(dict):
+    def __init__(__self__, *,
+                 resource_manager_tags: Mapping[str, _builtins.str]):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the storage pool. Tag keys and values have the
+               same definition as resource manager tags. Keys and values can be either in numeric format,
+               such as tagKeys/{tag_key_id} and tagValues/{tag_value_id} or in namespaced format such as
+               {org_id|projectId}/{tag_key_short_name} and {tag_value_short_name}. The field is ignored when empty.
+               The field is immutable and causes resource replacement when mutated. This field is only
+               set at create time and modifying this field after creation will trigger recreation.
+               To apply tags to an existing resource, see the tags.TagBinding resource.
+        """
+        pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Resource manager tags to be bound to the storage pool. Tag keys and values have the
+        same definition as resource manager tags. Keys and values can be either in numeric format,
+        such as tagKeys/{tag_key_id} and tagValues/{tag_value_id} or in namespaced format such as
+        {org_id|projectId}/{tag_key_short_name} and {tag_value_short_name}. The field is ignored when empty.
+        The field is immutable and causes resource replacement when mutated. This field is only
+        set at create time and modifying this field after creation will trigger recreation.
+        To apply tags to an existing resource, see the tags.TagBinding resource.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type

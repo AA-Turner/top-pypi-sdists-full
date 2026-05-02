@@ -1,24 +1,19 @@
 import asyncio
 
 from opentelemetry.metrics import get_meter
-from throttled.asyncio import Throttled, rate_limiter
+from throttled.asyncio import Throttled
 from throttled.asyncio.contrib.otel import OTelHook
 
 # Create OTelHook with a meter from the OTel API.
 # The actual metrics backend (e.g., Prometheus, OTLP) is configured separately
 # via opentelemetry-sdk or your framework's setup.
 meter = get_meter("throttled-example")
-hook = OTelHook(meter)
 
 # Create an async rate limiter with OTelHook attached.
-throttle = Throttled(
-    key="/api/ping",
-    quota=rate_limiter.per_min(5),
-    hooks=[hook],
-)
+throttle = Throttled(key="/api/ping", quota="5/m", hooks=[OTelHook(meter)])
 
 
-async def main():
+async def main() -> None:
     # First 5 requests are allowed.
     for i in range(5):
         result = await throttle.limit("/api/ping")

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["detect_agent"]
+
+[project]
+name = "detect_agent"
+version = "0.2.0"
+description = "Detect if code is running in an AI agent or automated development environment"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+packages = ["detect_agent"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.8.0"]
+
+[project.urls]
+Homepage = "https://github.com/togethercomputer/detect_agent"
+Repository = "https://github.com/togethercomputer/detect_agent"
+Changelog = "https://github.com/togethercomputer/detect_agent/blob/main/CHANGELOG.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = [
+  "error"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]  # allow assert in tests

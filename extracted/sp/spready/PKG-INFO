@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: spready
+Version: 1.12
+Summary: Spready APP
+Home-page: https://muthupandian.in
+Author: muthugit
+Author-email: base.muthupandian@gmail.com
+Requires: redis
+Requires: rq
+Requires: typer
+Requires: pyjwt
+Requires: requests
+Requires: loguru
+
+Spready distributed API

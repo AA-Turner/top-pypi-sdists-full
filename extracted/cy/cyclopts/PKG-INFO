@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyclopts
-Version: 4.11.0
+Version: 4.11.1
 Summary: Intuitive, easy CLIs based on type hints.
 Project-URL: Homepage, https://github.com/BrianPugh/cyclopts
 Project-URL: Repository, https://github.com/BrianPugh/cyclopts
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: attrs>=23.1.0
 Requires-Dist: docstring-parser<4.0,>=0.15
@@ -27,6 +28,7 @@ Requires-Dist: line-profiler>=3.5.1; extra == 'debug'
 Provides-Extra: dev
 Requires-Dist: coverage[toml]>=5.1; extra == 'dev'
 Requires-Dist: mkdocs>=1.4.0; extra == 'dev'
+Requires-Dist: pexpect>=4.9.0; (sys_platform != 'win32') and extra == 'dev'
 Requires-Dist: pre-commit>=2.16.0; extra == 'dev'
 Requires-Dist: pydantic<3.0.0,>=2.11.2; extra == 'dev'
 Requires-Dist: pytest-cov>=3.0.0; extra == 'dev'

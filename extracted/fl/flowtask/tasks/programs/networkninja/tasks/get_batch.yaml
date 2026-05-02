@@ -1,0 +1,10 @@
+name: Sample NN payload
+description: Test Sample Payload For Netwok Ninja
+steps:
+  - NetworkNinja:
+      comment: Download Batch from NetworkNinja.
+      action: get_batch
+      batch_id: bc7d77d3-12c0-47e0-a55a-69544123c641
+  - NetworkNinja:
+      comment: Network Ninja Router for processing the payload.
+      action: process_payload

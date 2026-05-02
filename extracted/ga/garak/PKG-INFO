@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: garak
-Version: 0.14.1
+Version: 0.15.0
 Summary: LLM vulnerability scanner
-Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash, Cássia Sampaio, Nakul Rajpal, Noah Oeksuez, Dhruv Malik, Patricia Pampanelli, Joseph Davis Chamdani, Rob Geada, Ashish RajAnand, Paulina Kalicka, Gal Moshkovitz, Jack Smith, Paul A. Parkanzky, Leif Hancox-Li, Fabrizio Rocco, Sai Chandra Pandraju, Harish Kolla, Snehal Vartak, Abhiraj Sinha, Harsh Motla, Otavio Padovani, Siddhant Mishra, dyrtyData, Leone Lage Perdigão, Lucas Wang
+Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash, Cássia Sampaio, Nakul Rajpal, Noah Oeksuez, Dhruv Malik, Patricia Pampanelli, Joseph Davis Chamdani, Rob Geada, Ashish RajAnand, Paulina Kalicka, Gal Moshkovitz, Jack Smith, Paul A. Parkanzky, Leif Hancox-Li, Fabrizio Rocco, Sai Chandra Pandraju, Harish Kolla, Snehal Vartak, Abhiraj Sinha, Harsh Motla, Otavio Padovani, Siddhant Mishra, dyrtyData, Leone Lage Perdigão, Lucas Wang, Ian Miller, Edward Kim, Raina O'Sullivan, Christ Bowel Bouchuen, Hayato Fujihara, precognitivem0nk, Jacob J. lee, Eliya Cohen, Nathan Maine
 Author-email: Leon Derczynski <lderczynski@nvidia.com>, Subho Majumdar <subho@vijil.ai>, Erick Galinkin <egalinkin@nvidia.com>, Jeffrey Martin <jemartin@nvidia.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
 License-File: LICENSE
-Requires-Dist: base2048>=0.1.3
+Requires-Dist: mikeshardmind-base2048>=1.0.2
 Requires-Dist: transformers>=5.0,<6.0
 Requires-Dist: datasets>=3.0.0,<4.0
 Requires-Dist: colorama>=0.4.3
@@ -23,7 +23,6 @@ Requires-Dist: openai>=2.0,<3.0
 Requires-Dist: replicate>=0.8.3
 Requires-Dist: google-api-python-client>=2.0
 Requires-Dist: backoff>=2.1.1
-Requires-Dist: rapidfuzz>=3.0.0
 Requires-Dist: nltk>=3.9.1
 Requires-Dist: accelerate>=0.23.0
 Requires-Dist: avidtools==0.1.2
@@ -37,7 +36,7 @@ Requires-Dist: numpy>=2.0.0
 Requires-Dist: zalgolib>=0.2.2
 Requires-Dist: ecoji>=0.1.1
 Requires-Dist: deepl==1.17.0
-Requires-Dist: litellm==1.82.6
+Requires-Dist: litellm>=1.83.4
 Requires-Dist: jsonpath-ng>=1.6.1
 Requires-Dist: huggingface_hub>=1.0
 Requires-Dist: python-magic-bin>=0.4.14; sys_platform == "win32"
@@ -71,6 +70,7 @@ Requires-Dist: pytest-cov>=5.0.0 ; extra == "tests"
 Requires-Dist: pytest_httpserver>=1.1.0 ; extra == "tests"
 Requires-Dist: pytest-asyncio>=0.21.0 ; extra == "tests"
 Requires-Dist: langcodes>=3.4.0 ; extra == "tests"
+Requires-Dist: cryptography>=47.0.0 ; extra == "tests"
 Project-URL: Bug Tracker, https://github.com/NVIDIA/garak/issues
 Project-URL: Homepage, https://github.com/NVIDIA/garak
 Provides-Extra: audio

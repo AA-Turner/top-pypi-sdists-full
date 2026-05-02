@@ -5,12 +5,10 @@ json-ld conversions can often involve hundreds of thousands of JSON objects, eac
 horribly inefficient to fetch the context for each go-around.  This function caches contexts.
 """
 
-from typing import Dict
-
 from rdflib.parser import URLInputSource
 from rdflib_jsonld import util
 
-context_cache: Dict[str, dict] = {}
+context_cache: dict[str, dict] = {}
 
 util_fcn = util.source_to_json
 

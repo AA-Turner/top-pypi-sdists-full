@@ -721,6 +721,11 @@ class ChecksumTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     ChecksumType: NotRequired[ChecksumTypeType]
 
 
@@ -777,6 +782,11 @@ class CompletedPartTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     PartNumber: NotRequired[int]
 
 
@@ -794,6 +804,11 @@ class CopyObjectResultTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
 
 
 class CopyPartResultTypeDef(TypedDict):
@@ -804,6 +819,11 @@ class CopyPartResultTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
 
 
 LocationInfoTypeDef = TypedDict(
@@ -1171,6 +1191,11 @@ class ObjectPartTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
 
 
 class GetObjectAttributesRequestTypeDef(TypedDict):
@@ -1439,6 +1464,11 @@ class PartTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
 
 
 class ListPartsRequestTypeDef(TypedDict):
@@ -1644,6 +1674,11 @@ class CompleteMultipartUploadOutputTypeDef(TypedDict):
     ChecksumCRC64NVME: str
     ChecksumSHA1: str
     ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
     ChecksumType: ChecksumTypeType
     ServerSideEncryption: ServerSideEncryptionType
     VersionId: str
@@ -1739,6 +1774,11 @@ class GetObjectOutputTypeDef(TypedDict):
     ChecksumCRC64NVME: str
     ChecksumSHA1: str
     ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
     ChecksumType: ChecksumTypeType
     MissingMeta: int
     VersionId: str
@@ -1795,6 +1835,11 @@ class HeadObjectOutputTypeDef(TypedDict):
     ChecksumCRC64NVME: str
     ChecksumSHA1: str
     ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
     ChecksumType: ChecksumTypeType
     ETag: str
     MissingMeta: int
@@ -1852,6 +1897,11 @@ class PutObjectOutputTypeDef(TypedDict):
     ChecksumCRC64NVME: str
     ChecksumSHA1: str
     ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
     ChecksumType: ChecksumTypeType
     ServerSideEncryption: ServerSideEncryptionType
     VersionId: str
@@ -1894,6 +1944,11 @@ class UploadPartOutputTypeDef(TypedDict):
     ChecksumCRC64NVME: str
     ChecksumSHA1: str
     ChecksumSHA256: str
+    ChecksumSHA512: str
+    ChecksumMD5: str
+    ChecksumXXHASH64: str
+    ChecksumXXHASH3: str
+    ChecksumXXHASH128: str
     SSECustomerAlgorithm: str
     SSECustomerKeyMD5: str
     SSEKMSKeyId: str
@@ -2332,6 +2387,11 @@ class PutObjectRequestBucketPutObjectTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     Expires: NotRequired[TimestampTypeDef]
     IfMatch: NotRequired[str]
     IfNoneMatch: NotRequired[str]
@@ -2373,6 +2433,11 @@ class PutObjectRequestObjectPutTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     Expires: NotRequired[TimestampTypeDef]
     IfMatch: NotRequired[str]
     IfNoneMatch: NotRequired[str]
@@ -2414,6 +2479,11 @@ class PutObjectRequestObjectSummaryPutTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     Expires: NotRequired[TimestampTypeDef]
     IfMatch: NotRequired[str]
     IfNoneMatch: NotRequired[str]
@@ -2457,6 +2527,11 @@ class PutObjectRequestTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     Expires: NotRequired[TimestampTypeDef]
     IfMatch: NotRequired[str]
     IfNoneMatch: NotRequired[str]
@@ -2492,6 +2567,11 @@ class UploadPartRequestMultipartUploadPartUploadTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     SSECustomerAlgorithm: NotRequired[str]
     SSECustomerKey: NotRequired[str | bytes]
     RequestPayer: NotRequired[Literal["requester"]]
@@ -2512,6 +2592,11 @@ class UploadPartRequestTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     SSECustomerAlgorithm: NotRequired[str]
     SSECustomerKey: NotRequired[str | bytes]
     RequestPayer: NotRequired[Literal["requester"]]
@@ -2538,6 +2623,11 @@ class WriteGetObjectResponseRequestTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     DeleteMarker: NotRequired[bool]
     ETag: NotRequired[str]
     Expires: NotRequired[TimestampTypeDef]
@@ -3435,6 +3525,11 @@ class CompleteMultipartUploadRequestMultipartUploadCompleteTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     ChecksumType: NotRequired[ChecksumTypeType]
     MpuObjectSize: NotRequired[int]
     RequestPayer: NotRequired[Literal["requester"]]
@@ -3455,6 +3550,11 @@ class CompleteMultipartUploadRequestTypeDef(TypedDict):
     ChecksumCRC64NVME: NotRequired[str]
     ChecksumSHA1: NotRequired[str]
     ChecksumSHA256: NotRequired[str]
+    ChecksumSHA512: NotRequired[str]
+    ChecksumMD5: NotRequired[str]
+    ChecksumXXHASH64: NotRequired[str]
+    ChecksumXXHASH3: NotRequired[str]
+    ChecksumXXHASH128: NotRequired[str]
     ChecksumType: NotRequired[ChecksumTypeType]
     MpuObjectSize: NotRequired[int]
     RequestPayer: NotRequired[Literal["requester"]]

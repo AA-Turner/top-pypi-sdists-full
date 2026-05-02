@@ -1,0 +1,478 @@
+r'''
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.82.0
+
+HashiCorp made the decision to stop publishing new versions of prebuilt [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.82.0) bindings for [CDK for Terraform](https://cdk.tf) on December 10, 2025. As such, this repository has been archived and is no longer supported in any way by HashiCorp. Previously-published versions of this prebuilt provider will still continue to be available on their respective package managers (e.g. npm, PyPi, Maven, NuGet), but these will not be compatible with new releases of `cdktf` past `0.21.0` and are no longer eligible for commercial support.
+
+As a reminder, you can continue to use the `DataDog/datadog` provider in your CDK for Terraform (CDKTF) projects, even with newer versions of CDKTF, but you will need to generate the bindings locally. The easiest way to do so is to use the [`provider add` command](https://developer.hashicorp.com/terraform/cdktf/cli-reference/commands#provider-add), optionally with the `--force-local` flag enabled:
+
+`cdktf provider add DataDog/datadog --force-local`
+
+For more information and additional examples, check out our documentation on [generating provider bindings manually](https://cdk.tf/imports).
+
+## Deprecated Packages
+
+### NPM
+
+The npm package is available at [https://www.npmjs.com/package/@cdktf/provider-datadog](https://www.npmjs.com/package/@cdktf/provider-datadog).
+
+`npm install @cdktf/provider-datadog`
+
+### PyPI
+
+The PyPI package is available at [https://pypi.org/project/cdktf-cdktf-provider-datadog](https://pypi.org/project/cdktf-cdktf-provider-datadog).
+
+`pipenv install cdktf-cdktf-provider-datadog`
+
+### Nuget
+
+The Nuget package is available at [https://www.nuget.org/packages/HashiCorp.Cdktf.Providers.Datadog](https://www.nuget.org/packages/HashiCorp.Cdktf.Providers.Datadog).
+
+`dotnet add package HashiCorp.Cdktf.Providers.Datadog`
+
+### Maven
+
+The Maven package is available at [https://mvnrepository.com/artifact/com.hashicorp/cdktf-provider-datadog](https://mvnrepository.com/artifact/com.hashicorp/cdktf-provider-datadog).
+
+```
+<dependency>
+    <groupId>com.hashicorp</groupId>
+    <artifactId>cdktf-provider-datadog</artifactId>
+    <version>[REPLACE WITH DESIRED VERSION]</version>
+</dependency>
+```
+
+### Go
+
+The go package is generated into the [`github.com/cdktf/cdktf-provider-datadog-go`](https://github.com/cdktf/cdktf-provider-datadog-go) package.
+
+`go get github.com/cdktf/cdktf-provider-datadog-go/datadog/<version>`
+
+Where `<version>` is the version of the prebuilt provider you would like to use e.g. `v11`. The full module name can be found
+within the [go.mod](https://github.com/cdktf/cdktf-provider-datadog-go/blob/main/datadog/go.mod#L1) file.
+
+## Docs
+
+Find auto-generated docs for this provider here:
+
+* [Typescript](./docs/API.typescript.md)
+* [Python](./docs/API.python.md)
+* [Java](./docs/API.java.md)
+* [C#](./docs/API.csharp.md)
+* [Go](./docs/API.go.md)
+
+You can also visit a hosted version of the documentation on [constructs.dev](https://constructs.dev/packages/@cdktf/provider-datadog).
+'''
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
+import abc
+import builtins
+import datetime
+import enum
+import typing
+
+import jsii
+import publication
+import typing_extensions
+
+import typeguard
+from importlib.metadata import version as _metadata_package_version
+TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+
+def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
+    if TYPEGUARD_MAJOR_VERSION <= 2:
+        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
+    else:
+        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
+           pass
+        else:
+            if TYPEGUARD_MAJOR_VERSION == 3:
+                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
+                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
+            else:
+                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
+
+from ._jsii import *
+
+__all__ = [
+    "action_connection",
+    "agentless_scanning_aws_scan_options",
+    "agentless_scanning_gcp_scan_options",
+    "api_key",
+    "apm_retention_filter",
+    "apm_retention_filter_order",
+    "app_builder_app",
+    "app_key_registration",
+    "application_key",
+    "appsec_waf_custom_rule",
+    "appsec_waf_exclusion_filter",
+    "authn_mapping",
+    "aws_cur_config",
+    "azure_uc_config",
+    "child_organization",
+    "cloud_configuration_rule",
+    "cloud_workload_security_agent_rule",
+    "compliance_custom_framework",
+    "compliance_resource_evaluation_filter",
+    "cost_budget",
+    "csm_threats_agent_rule",
+    "csm_threats_policy",
+    "custom_allocation_rule",
+    "custom_allocation_rules",
+    "dashboard",
+    "dashboard_json",
+    "dashboard_list",
+    "data_datadog_action_connection",
+    "data_datadog_api_key",
+    "data_datadog_apm_retention_filters_order",
+    "data_datadog_app_builder_app",
+    "data_datadog_application_key",
+    "data_datadog_aws_cur_config",
+    "data_datadog_azure_uc_config",
+    "data_datadog_cloud_workload_security_agent_rules",
+    "data_datadog_cost_budget",
+    "data_datadog_csm_threats_agent_rules",
+    "data_datadog_csm_threats_policies",
+    "data_datadog_custom_allocation_rule",
+    "data_datadog_dashboard",
+    "data_datadog_dashboard_list",
+    "data_datadog_gcp_uc_config",
+    "data_datadog_hosts",
+    "data_datadog_incident_notification_rule",
+    "data_datadog_incident_notification_template",
+    "data_datadog_incident_type",
+    "data_datadog_integration_aws_available_logs_services",
+    "data_datadog_integration_aws_available_namespaces",
+    "data_datadog_integration_aws_external_id",
+    "data_datadog_integration_aws_iam_permissions",
+    "data_datadog_integration_aws_iam_permissions_standard",
+    "data_datadog_integration_aws_logs_services",
+    "data_datadog_integration_aws_namespace_rules",
+    "data_datadog_ip_ranges",
+    "data_datadog_logs_archives_order",
+    "data_datadog_logs_indexes",
+    "data_datadog_logs_indexes_order",
+    "data_datadog_logs_pipelines",
+    "data_datadog_logs_pipelines_order",
+    "data_datadog_metric_active_tags_and_aggregations",
+    "data_datadog_metric_metadata",
+    "data_datadog_metric_tags",
+    "data_datadog_metrics",
+    "data_datadog_monitor",
+    "data_datadog_monitor_config_policies",
+    "data_datadog_monitors",
+    "data_datadog_permissions",
+    "data_datadog_powerpack",
+    "data_datadog_reference_table",
+    "data_datadog_reference_table_rows",
+    "data_datadog_role",
+    "data_datadog_role_users",
+    "data_datadog_roles",
+    "data_datadog_rum_application",
+    "data_datadog_rum_retention_filters",
+    "data_datadog_security_monitoring_filters",
+    "data_datadog_security_monitoring_rules",
+    "data_datadog_security_monitoring_suppressions",
+    "data_datadog_sensitive_data_scanner_group_order",
+    "data_datadog_sensitive_data_scanner_standard_pattern",
+    "data_datadog_service_account",
+    "data_datadog_service_level_objective",
+    "data_datadog_service_level_objectives",
+    "data_datadog_software_catalog",
+    "data_datadog_synthetics_global_variable",
+    "data_datadog_synthetics_locations",
+    "data_datadog_synthetics_test",
+    "data_datadog_tag_pipeline_ruleset",
+    "data_datadog_team",
+    "data_datadog_team_hierarchy_links",
+    "data_datadog_team_memberships",
+    "data_datadog_teams",
+    "data_datadog_user",
+    "data_datadog_users",
+    "data_datadog_workflow_automation",
+    "dataset",
+    "domain_allowlist",
+    "downtime",
+    "downtime_schedule",
+    "gcp_uc_config",
+    "incident_notification_rule",
+    "incident_notification_template",
+    "incident_type",
+    "integration_aws",
+    "integration_aws_account",
+    "integration_aws_event_bridge",
+    "integration_aws_external_id",
+    "integration_aws_lambda_arn",
+    "integration_aws_log_collection",
+    "integration_aws_tag_filter",
+    "integration_azure",
+    "integration_cloudflare_account",
+    "integration_confluent_account",
+    "integration_confluent_resource",
+    "integration_fastly_account",
+    "integration_fastly_service",
+    "integration_gcp",
+    "integration_gcp_sts",
+    "integration_ms_teams_tenant_based_handle",
+    "integration_ms_teams_workflows_webhook_handle",
+    "integration_opsgenie_service_object",
+    "integration_pagerduty",
+    "integration_pagerduty_service_object",
+    "integration_slack_channel",
+    "ip_allowlist",
+    "logs_archive",
+    "logs_archive_order",
+    "logs_custom_destination",
+    "logs_custom_pipeline",
+    "logs_index",
+    "logs_index_order",
+    "logs_integration_pipeline",
+    "logs_metric",
+    "logs_pipeline_order",
+    "metric_metadata",
+    "metric_tag_configuration",
+    "monitor",
+    "monitor_config_policy",
+    "monitor_json",
+    "monitor_notification_rule",
+    "observability_pipeline",
+    "on_call_escalation_policy",
+    "on_call_schedule",
+    "on_call_team_routing_rules",
+    "openapi_api",
+    "org_connection",
+    "organization_settings",
+    "powerpack",
+    "provider",
+    "reference_table",
+    "restriction_policy",
+    "role",
+    "rum_application",
+    "rum_metric",
+    "rum_retention_filter",
+    "rum_retention_filters_order",
+    "security_monitoring_default_rule",
+    "security_monitoring_filter",
+    "security_monitoring_rule",
+    "security_monitoring_rule_json",
+    "security_monitoring_suppression",
+    "security_notification_rule",
+    "sensitive_data_scanner_group",
+    "sensitive_data_scanner_group_order",
+    "sensitive_data_scanner_rule",
+    "service_account",
+    "service_account_application_key",
+    "service_definition_yaml",
+    "service_level_objective",
+    "slo_correction",
+    "software_catalog",
+    "spans_metric",
+    "synthetics_concurrency_cap",
+    "synthetics_global_variable",
+    "synthetics_private_location",
+    "synthetics_test",
+    "tag_pipeline_ruleset",
+    "tag_pipeline_rulesets",
+    "team",
+    "team_hierarchy_links",
+    "team_link",
+    "team_membership",
+    "team_permission_setting",
+    "user",
+    "user_role",
+    "webhook",
+    "webhook_custom_variable",
+    "workflow_automation",
+]
+
+publication.publish()
+
+# Loading modules to ensure their types are registered with the jsii runtime library
+from . import action_connection
+from . import agentless_scanning_aws_scan_options
+from . import agentless_scanning_gcp_scan_options
+from . import api_key
+from . import apm_retention_filter
+from . import apm_retention_filter_order
+from . import app_builder_app
+from . import app_key_registration
+from . import application_key
+from . import appsec_waf_custom_rule
+from . import appsec_waf_exclusion_filter
+from . import authn_mapping
+from . import aws_cur_config
+from . import azure_uc_config
+from . import child_organization
+from . import cloud_configuration_rule
+from . import cloud_workload_security_agent_rule
+from . import compliance_custom_framework
+from . import compliance_resource_evaluation_filter
+from . import cost_budget
+from . import csm_threats_agent_rule
+from . import csm_threats_policy
+from . import custom_allocation_rule
+from . import custom_allocation_rules
+from . import dashboard
+from . import dashboard_json
+from . import dashboard_list
+from . import data_datadog_action_connection
+from . import data_datadog_api_key
+from . import data_datadog_apm_retention_filters_order
+from . import data_datadog_app_builder_app
+from . import data_datadog_application_key
+from . import data_datadog_aws_cur_config
+from . import data_datadog_azure_uc_config
+from . import data_datadog_cloud_workload_security_agent_rules
+from . import data_datadog_cost_budget
+from . import data_datadog_csm_threats_agent_rules
+from . import data_datadog_csm_threats_policies
+from . import data_datadog_custom_allocation_rule
+from . import data_datadog_dashboard
+from . import data_datadog_dashboard_list
+from . import data_datadog_gcp_uc_config
+from . import data_datadog_hosts
+from . import data_datadog_incident_notification_rule
+from . import data_datadog_incident_notification_template
+from . import data_datadog_incident_type
+from . import data_datadog_integration_aws_available_logs_services
+from . import data_datadog_integration_aws_available_namespaces
+from . import data_datadog_integration_aws_external_id
+from . import data_datadog_integration_aws_iam_permissions
+from . import data_datadog_integration_aws_iam_permissions_standard
+from . import data_datadog_integration_aws_logs_services
+from . import data_datadog_integration_aws_namespace_rules
+from . import data_datadog_ip_ranges
+from . import data_datadog_logs_archives_order
+from . import data_datadog_logs_indexes
+from . import data_datadog_logs_indexes_order
+from . import data_datadog_logs_pipelines
+from . import data_datadog_logs_pipelines_order
+from . import data_datadog_metric_active_tags_and_aggregations
+from . import data_datadog_metric_metadata
+from . import data_datadog_metric_tags
+from . import data_datadog_metrics
+from . import data_datadog_monitor
+from . import data_datadog_monitor_config_policies
+from . import data_datadog_monitors
+from . import data_datadog_permissions
+from . import data_datadog_powerpack
+from . import data_datadog_reference_table
+from . import data_datadog_reference_table_rows
+from . import data_datadog_role
+from . import data_datadog_role_users
+from . import data_datadog_roles
+from . import data_datadog_rum_application
+from . import data_datadog_rum_retention_filters
+from . import data_datadog_security_monitoring_filters
+from . import data_datadog_security_monitoring_rules
+from . import data_datadog_security_monitoring_suppressions
+from . import data_datadog_sensitive_data_scanner_group_order
+from . import data_datadog_sensitive_data_scanner_standard_pattern
+from . import data_datadog_service_account
+from . import data_datadog_service_level_objective
+from . import data_datadog_service_level_objectives
+from . import data_datadog_software_catalog
+from . import data_datadog_synthetics_global_variable
+from . import data_datadog_synthetics_locations
+from . import data_datadog_synthetics_test
+from . import data_datadog_tag_pipeline_ruleset
+from . import data_datadog_team
+from . import data_datadog_team_hierarchy_links
+from . import data_datadog_team_memberships
+from . import data_datadog_teams
+from . import data_datadog_user
+from . import data_datadog_users
+from . import data_datadog_workflow_automation
+from . import dataset
+from . import domain_allowlist
+from . import downtime
+from . import downtime_schedule
+from . import gcp_uc_config
+from . import incident_notification_rule
+from . import incident_notification_template
+from . import incident_type
+from . import integration_aws
+from . import integration_aws_account
+from . import integration_aws_event_bridge
+from . import integration_aws_external_id
+from . import integration_aws_lambda_arn
+from . import integration_aws_log_collection
+from . import integration_aws_tag_filter
+from . import integration_azure
+from . import integration_cloudflare_account
+from . import integration_confluent_account
+from . import integration_confluent_resource
+from . import integration_fastly_account
+from . import integration_fastly_service
+from . import integration_gcp
+from . import integration_gcp_sts
+from . import integration_ms_teams_tenant_based_handle
+from . import integration_ms_teams_workflows_webhook_handle
+from . import integration_opsgenie_service_object
+from . import integration_pagerduty
+from . import integration_pagerduty_service_object
+from . import integration_slack_channel
+from . import ip_allowlist
+from . import logs_archive
+from . import logs_archive_order
+from . import logs_custom_destination
+from . import logs_custom_pipeline
+from . import logs_index
+from . import logs_index_order
+from . import logs_integration_pipeline
+from . import logs_metric
+from . import logs_pipeline_order
+from . import metric_metadata
+from . import metric_tag_configuration
+from . import monitor
+from . import monitor_config_policy
+from . import monitor_json
+from . import monitor_notification_rule
+from . import observability_pipeline
+from . import on_call_escalation_policy
+from . import on_call_schedule
+from . import on_call_team_routing_rules
+from . import openapi_api
+from . import org_connection
+from . import organization_settings
+from . import powerpack
+from . import provider
+from . import reference_table
+from . import restriction_policy
+from . import role
+from . import rum_application
+from . import rum_metric
+from . import rum_retention_filter
+from . import rum_retention_filters_order
+from . import security_monitoring_default_rule
+from . import security_monitoring_filter
+from . import security_monitoring_rule
+from . import security_monitoring_rule_json
+from . import security_monitoring_suppression
+from . import security_notification_rule
+from . import sensitive_data_scanner_group
+from . import sensitive_data_scanner_group_order
+from . import sensitive_data_scanner_rule
+from . import service_account
+from . import service_account_application_key
+from . import service_definition_yaml
+from . import service_level_objective
+from . import slo_correction
+from . import software_catalog
+from . import spans_metric
+from . import synthetics_concurrency_cap
+from . import synthetics_global_variable
+from . import synthetics_private_location
+from . import synthetics_test
+from . import tag_pipeline_ruleset
+from . import tag_pipeline_rulesets
+from . import team
+from . import team_hierarchy_links
+from . import team_link
+from . import team_membership
+from . import team_permission_setting
+from . import user
+from . import user_role
+from . import webhook
+from . import webhook_custom_variable
+from . import workflow_automation

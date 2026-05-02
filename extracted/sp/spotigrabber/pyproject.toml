@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotigrabber"
+version = "0.1.0"
+authors = [
+  { name="bebissig", email="bebissig@gmail.com" },
+]
+description = "Grabber your spotify playlists and recently played songs."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "async-timeout",
+    "certifi",
+    "charset-normalizer",
+    "et-xmlfile",
+    "idna",
+    "importlib-metadata",
+    "numpy",
+    "openpyxl",
+    "pandas",
+    "python-dateutil",
+    "pytz",
+    "redis",
+    "requests",
+    "six",
+    "spotipy",
+    "typing-extensions",
+    "urllib3",
+    "zipp"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/bebissig/spotify_grab_current_playlists"

@@ -11,14 +11,14 @@ import jedi
 from ..helpers import test_dir
 
 try:
-    import numpydoc  # NOQA
+    import numpydoc  # type: ignore[import-not-found]  # NOQA
 except ImportError:
     numpydoc_unavailable = True
 else:
     numpydoc_unavailable = False
 
 try:
-    import numpy  # NOQA
+    import numpy  # type: ignore[import-not-found]  # NOQA
 except ImportError:
     numpy_unavailable = True
 else:
@@ -60,7 +60,7 @@ def test_instance_doc(Script):
         '''Docstring of `TestClass`.'''
     tc = TestClass()
     tc""").infer()
-    assert defs[0].docstring() == 'Docstring of `TestClass`.'
+    assert defs[0].docstring() == 'TestClass()\n\nDocstring of `TestClass`.'
 
 
 def test_multiple_docstrings(Script):

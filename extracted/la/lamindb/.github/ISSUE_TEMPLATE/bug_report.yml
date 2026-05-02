@@ -1,0 +1,15 @@
+name: Report a bug
+description: Report a bug.
+labels:
+  - ":bug: bug"
+body:
+  - type: textarea
+    id: report
+    attributes:
+      label: Add a description
+      placeholder: |
+        Describe and consider providing version information. Please ensure you're on the latest version of lamindb.
+        This is a public repository!
+        Do not reveal any internal information.
+    validations:
+      required: true

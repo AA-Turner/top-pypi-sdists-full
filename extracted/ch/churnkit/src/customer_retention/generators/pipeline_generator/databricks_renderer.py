@@ -1325,6 +1325,19 @@ def merge_sources(bronze_outputs):
             continue
         df = bronze_outputs[meta["name"]]
         for step in kr_steps:
+            # Codegen guard (closes GR12 / patch 14): when the bronze
+            # aggregator already pre-resolved the source_key upstream
+            # (rolling up to ACCOUNT_ID grain), the join column is no
+            # longer present on the bronze output. Skip the now-redundant
+            # join — the resolve_column is already on `df` and the
+            # downstream merger picks it up unchanged.
+            if step["source_key"] not in df.columns:
+                print(
+                    f"  silver merge: skipping kr_step for source={meta['name']!r}, "
+                    f"source_key={step['source_key']!r} not in bronze output "
+                    f"(already pre-resolved upstream — resolve_column={step['resolve_column']!r})"
+                )
+                continue
             bridge_subset = bronze_outputs[step["bridge_dataset"]].select(
                 step["bridge_key"], step["resolve_column"]
             ).dropDuplicates([step["bridge_key"]])
@@ -1921,7 +1934,24 @@ _vector_schema = StructType([
     StructField("label", DoubleType(), True),
 ])
 {% if config.training and config.training.exploration_feature_profile %}
-_EXPLORATION_PROFILE = {{ config.training.exploration_feature_profile | py_source }}
+# Exploration feature profile is loaded from a sibling JSON file written
+# next to this script by the renderer (PipelineGeneratorBase._write_training).
+# This avoids embedding a 1-5 MB Python dict literal in the source — the
+# inline form was a JVM-heap-pressure risk on shared clusters during cell-4
+# parse and made the rendered file unreadable to humans.
+_EXPLORATION_PROFILE = None
+_ep_candidates = []
+try:
+    _ep_candidates.append(Path(__file__).parent / "exploration_profile.json")
+except NameError:
+    pass
+_ep_candidates.append(Path.cwd() / "training" / "exploration_profile.json")
+_ep_candidates.append(Path.cwd() / "exploration_profile.json")
+for _ep_candidate in _ep_candidates:
+    if _ep_candidate.exists():
+        with open(_ep_candidate) as _ep_f:
+            _EXPLORATION_PROFILE = json.load(_ep_f)
+        break
 {% else %}
 _EXPLORATION_PROFILE = None
 {% endif %}

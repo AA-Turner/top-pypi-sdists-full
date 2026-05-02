@@ -1,0 +1,206 @@
+Metadata-Version: 2.4
+Name: aegis-ag
+Version: 1.0.0.dev20260420063247
+Summary: Aegis CLI-first persistent agent runtime.
+Author: Agentic Intelligence Lab
+Project-URL: Homepage, https://aegis.agentic-in.ai
+Project-URL: Documentation, https://aegis.agentic-in.ai/docs/
+Project-URL: Repository, https://github.com/agentic-in/aegis
+Project-URL: Issues, https://github.com/agentic-in/aegis/issues
+Keywords: aegis,agent,cli,persistent-ai,memory,automation
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Utilities
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: discord.py<3,>=2.6
+Requires-Dist: prompt_toolkit<4,>=3.0
+Requires-Dist: rich<15,>=13
+Requires-Dist: lark-oapi<2,>=1.5.3
+Requires-Dist: playwright<2,>=1.51
+
+<p align="center">
+  <img src="apps/site/static/assets/brand/evolution-stage-0.svg" alt="Aegis growth stage 0" width="36" />
+  <img src="apps/site/static/assets/brand/evolution-stage-1.svg" alt="Aegis growth stage 1" width="60" />
+  <img src="apps/site/static/assets/brand/evolution-stage-2.svg" alt="Aegis growth stage 2" width="72" />
+  <img src="apps/site/static/assets/brand/evolution-stage-3.svg" alt="Aegis growth stage 3" width="90" />
+  <img src="apps/site/static/assets/brand/aegis-logo-stage4-form-a.svg" alt="Aegis guardian final form A" width="95" />
+</p>
+
+<h1 align="center">Aegis</h1>
+
+<p align="center">
+  <strong>Your own persistent AI.</strong><br />
+  An agent that remembers, reasons, and endures across time.
+</p>
+
+Aegis is building toward a personal AI agent that does not lose the thread when
+a single chat ends. The goal is not just tool calling or session orchestration,
+but continuity: an agent that becomes more useful as it accumulates the right
+history, goals, and context.
+
+## Positioning
+
+Aegis is for long-running work that should survive interruption.
+
+- It should remember what matters.
+- It should reason across longer horizons than the current turn.
+- It should recover the right context instead of collapsing when the window fills.
+
+In product terms, Aegis is aiming at a persistent personal AI, not a disposable
+chat session.
+
+## Why Aegis Exists
+
+Most current agents fail in three predictable ways:
+
+- **Amnesia:** decisions, preferences, and project state disappear when the session ends.
+- **Myopia:** current-turn optimization wins over next-week usefulness.
+- **Overflow:** context windows fill up, and naive truncation replaces structured memory and retrieval.
+
+The product thesis behind Aegis is that a useful agent should behave more like a
+persistent collaborator: it should remember, plan, and recover the right
+context when work resumes.
+
+<p align="center">
+  <img src="apps/site/static/assets/brand/aegis-logo-stage4-form-a.svg" alt="Aegis guardian final form A" width="82" />
+  <img src="apps/site/static/assets/brand/aegis-logo-stage4-form-b.svg" alt="Aegis guardian final form B" width="82" />
+  <img src="apps/site/static/assets/brand/aegis-logo-stage4-form-c.svg" alt="Aegis guardian final form C" width="82" />
+  <img src="apps/site/static/assets/brand/aegis-logo-stage4-form-d.svg" alt="Aegis guardian final form D" width="82" />
+</p>
+
+## Thesis
+
+- **Long-term memory:** durable episodic, semantic, and procedural memory instead of session-only state.
+- **Long-horizon decision making:** persistent goals, task decomposition, and deadline-aware planning.
+- **Long-context understanding:** layered context management, compression, and retrieval instead of naive truncation.
+
+## Quickstart
+
+Aegis is used from the terminal. The path is simple: install it, run `aegis`,
+let it prepare your first named clone, and continue directly into `wake`. Use
+`aegis clone <name>` only when you want another Aegis individual, and give that
+new thread its first durable goal right away.
+
+### Install from remote
+
+```bash
+curl -fsSL https://aegis.agentic-in.ai/install.sh | bash
+```
+
+This installs the public `aegis` launcher into `~/.local/bin` and prepares the
+default durable runtime under `~/.aegis`. The public installer now tracks the
+latest published development package by default. If you want the latest stable
+package instead:
+
+```bash
+curl -fsSL https://aegis.agentic-in.ai/install.sh | bash -s -- --channel stable
+```
+
+### Install from source
+
+```bash
+git clone https://github.com/agentic-in/aegis.git
+cd aegis
+bash scripts/install.sh
+```
+
+This creates a local launcher and the default durable layout:
+
+- `AEGIS_HOME`
+- `AEGIS_STATE_DIR`
+- `AEGIS_GATEWAY_STATE_DIR`
+- `AEGIS_PROFILE_DIR`
+
+If `~/.local/bin` is not already on `PATH`, use the launcher path printed by the
+install script directly.
+
+### CLI overview
+
+```bash
+aegis
+aegis init
+aegis wake
+aegis clone nova --initial-goal "Own the release readiness thread"
+aegis clones
+aegis status
+aegis skills
+aegis gateway setup --default-clone-id demo
+aegis gateway doctor
+aegis gateway describe
+aegis gateway feishu start --transport long-connection --detach
+aegis gateway feishu status
+aegis gateway feishu logs ops-feishu --follow
+aegis gateway feishu restart
+aegis gateway discord setup --account-id ops-discord --bot-token ...
+aegis gateway discord start --transport gateway
+aegis gateway discord doctor
+aegis dashboard --dry-run
+aegis wake --message "Who are you?"
+```
+
+The CLI surface stays intentionally small:
+
+- `aegis` is the default entry: on the first run it routes into `init`, and later it re-enters `wake` directly or asks which clone to open.
+- `aegis init` persists identity and provider posture, asks for the first durable goal, prepares the first clone, and now surfaces the IM chooser before wake resumes.
+- `aegis wake` is the normal way back in and enters the current live clone directly when one exists.
+- `aegis wake --message "..."` runs a single turn without staying in the TUI.
+- `aegis skills ...` mirrors the skill-hub and install controls outside chat when you want to inspect, search, install, or toggle skills before opening `wake`.
+- `aegis gateway ...` is the IM setup/runtime surface: use `aegis gateway setup` for the interactive chooser, `aegis gateway doctor` and `aegis gateway describe` for whole-surface inspection, and provider-specific commands such as `aegis gateway feishu ...` or `aegis gateway discord ...` for account setup and runtime control.
+- `aegis dashboard` launches against the live CLI state database: repo checkouts build the dashboard once before Vite starts, while PyPI installs serve the prebuilt dashboard assets shipped in the wheel; pass `--reuse-api` only when you intentionally want to attach to an existing healthy API.
+- `aegis status` checks whether the current Aegis runtime is ready to wake.
+- `aegis clone <name>` creates another named Aegis individual only when you want a second continuity line, and requires a first durable goal either from `--initial-goal` or the interactive prompt.
+- `aegis clones` lists known clones.
+- `aegis clones bye <name>` retires one clone.
+- `aegis clones bye --all` clears every clone.
+- `aegis wake --clone-id <name>` opens one clone directly.
+
+Inside `wake`, the conversation stays primary. Slash commands such as `/status`,
+`/profile`, `/activity`, `/memory`, `/procedure`, `/audit`, `/skills`, and `/help`
+are there when you need to inspect or steer continuity without leaving the
+session.
+
+## Shipped Capability Overview
+
+Aegis already ships these core runtime surfaces on `main`:
+
+- Durable memory, planning, and context recovery backing the normal `wake` path.
+- Persistent clones with isolated continuity, personality, and canonical identity state.
+- A dedicated `aegis provider` surface for configuring provider, model, reasoning effort, and context window together.
+- Provider onboarding and a pluggable catalog covering `openai-compatible`, `openai`, `openai-codex`, `openrouter`, `copilot`, `anthropic`, `claude-code`, `google`, `google-gemini-cli`, `groq`, `deepseek`, `xai`, `mistral`, `together`, `fireworks`, `moonshot`, `qwen-oauth`, `minimax`, `minimax-cn`, `zai`, `alibaba`, `xiaomi`, `huggingface`, `opencode-zen`, `opencode-go`, `kilocode`, `ollama`, and `vllm`.
+- Provider discovery now reuses configured profiles, encrypted local secrets, environment variables, local endpoint probes, and imported external auth sources such as Codex, GitHub Copilot, Qwen, and Hermes auth state.
+- Provider setup and model selection now surface reasoning-effort choices for supported models instead of treating every runtime as flat chat completion.
+- Built-in tools now ship as a curated runtime catalog:
+<!-- BEGIN:GENERATED_BUILTIN_TOOL_SUMMARY -->
+- `terminal`: `tool.terminal.exec`
+- `process`: `tool.process.manage`
+- `file`: `tool.file.read`, `tool.file.write`, `tool.file.patch`, `tool.file.search`
+- `web`: `tool.web.search`, `tool.web.read`, `tool.web.extract`
+- `browser`: `tool.browser.navigate`, `tool.browser.snapshot`, `tool.browser.click`, `tool.browser.type`, `tool.browser.scroll`, `tool.browser.back`, `tool.browser.press`, `tool.browser.images`, `tool.browser.vision`, `tool.browser.console`
+- `clarify`: `tool.clarify`
+- `cron`: `tool.cron.manage`
+- `code_execution`: `tool.code.execute`
+- `memory`: `tool.memory.recall`, `tool.memory.upload`
+- `messaging`: `tool.message.send`
+- `todo`: `tool.todo.manage`
+- `skills`: `tool.skill.list`, `tool.skill.view`, `tool.skill.manage`
+- `sub_agents`: `tool.sub_agents`
+- `continuity-native`: `tool.profile.manage`, `tool.activity.manage`, `tool.procedure.inspect`, `tool.procedure.manage`
+<!-- END:GENERATED_BUILTIN_TOOL_SUMMARY -->
+- Built-in skills for shell, workspace search, web search/read, continuity, cron scheduling, and voice reply guidance.
+- Local skill-hub search/install plus Aegis-authored skill creation inside the shared shelf.
+- Durable agent-run checkpoints for resumable multi-step tool loops and long-horizon follow-up.
+
+The public docs now cover the supported operator path plus the currently shipped
+provider, capability, automation, and extension surfaces. Internal design docs
+under `docs/system-design/` still describe the broader target architecture.
+
+## Contributors
+<p align="center">
+  <img src="docs/paper/assets/logo_AIL.png" alt="Aegis growth stage 0" width="150" />
+</p>

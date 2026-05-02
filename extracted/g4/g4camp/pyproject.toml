@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "g4camp"
+description = 'g4camp is a Pyhton module based on Geant4 framework and geant4_pybind pythonization. It simulates propagation of particles in a water volume and produces Cherenkov photons. g4camp simulated cascade development with production of secondary particles (e+/e- and gamma for EM cascades) and emission of Cherenkov photons.'
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Yury Malyshkin", email = "yum@jinr.ru" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ['numpy', 'h5py', 'geant4_pybind', 'configargparse']
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "http://malyshkin.pages.jinr.ru/g4camp/"
+Issues = "https://git.jinr.ru/malyshkin/g4camp/issues"
+Source = "https://git.jinr.ru/malyshkin/g4camp"
+
+[tool.hatch.version]
+path = "g4camp/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "pytest",
+  "pytest-cov",
+]
+[tool.hatch.envs.default.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=g4camp --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["37", "38", "39", "310", "311"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+  "g4camp/__about__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.coverage.paths]
+ntsim = ["g4camp"]
+tests = ["tests"]
+
+[tool.hatch.build.targets.sdist]
+exclude = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["g4camp"]

@@ -1,0 +1,210 @@
+[build-system]
+requires = [
+    "setuptools>=67.6.1",
+    "setuptools_scm[toml]>=6.0",
+    "Cython==3.0.11",
+    "wheel>=0.44.0"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flowtask"
+dynamic = ["version"]
+description = "Framework for Task orchestration"
+authors = [
+    {name = "Jesus Lara", email = "jesuslarag@gmail.com"}
+]
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11,<3.14"
+keywords = ["Flowtask", "Data Integration", "Task Orchestration", "Task-Runner", "Pipelines"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Framework :: AsyncIO",
+]
+
+dependencies = [
+    "borax==3.5.0",
+    "PyDrive==1.3.1",
+    "chardet==5.2.0",
+    "aiohttp-jinja2==1.6",
+    "asyncssh[bcrypt,fido2,libnacl,pkcs11,pyOpenSSL]>=2.18.0",
+    "pyxlsb==1.0.10",
+    "python-calamine==0.2.3",
+    "pyecharts==2.0.8",
+    "selenium>=4.35.0",
+    "snapshot-selenium==0.0.2",
+    "httpx[socks,http2]>=0.26.0",
+    "urllib3[socks]>=2.3.0",
+    "requests==2.32.4",
+    "h2>=4.2.0",
+    "blinker>=1.9.0",
+    "webdriver-manager==4.0.2",
+    "aioimaplib==1.1.0",
+    "adal==1.2.7",
+    "xlrd>=2.0.2",
+    "xmltodict==1.0.2",
+    "zeep[async]==4.3.2",
+    "nltk>=3.9.3",
+    "jdcal==1.4.1",
+    "html5lib==1.1",
+    "shapely==2.0.6",
+    "tzwhere==3.0.3",
+    "tabulate==0.9.0",
+    "python-magic==0.4.27",
+    "pytomlpp==1.0.13",
+    "psutil==6.0.0",
+    "networkx>=3.4.1",
+    "gitpython==3.1.43",
+    "watchdog>=6.0.0",
+    "hachiko==0.4.0",
+    "paramiko==3.4.0",
+    "jira==3.10.5",
+    "datatable==1.1.0",
+    "imageio==2.37.0",
+    "decorator>=5.1.1",
+    "emoji==2.14.1",
+    "caio==0.9.24",
+    "Wand==0.6.13",
+    "pylibdmtx==0.1.10",
+    "aiofile>=3.9.0",
+    "filetype==1.2.0",
+    "proxylists>=0.14.0",
+    "aioftp==0.23.1",
+    "py7zr==0.22.0",
+    "rarfile==4.2",
+    "python-pptx==1.0.2",
+    "gspread==6.2.0",
+    "oauth2client>=4.1.3",
+    "google-auth>=2.35.0",
+    "google-cloud-language>=2.15.0",
+    "googlemaps==4.10.0",
+    "fastavro==1.9.7",
+    "pgpy==0.6.0",
+    "dropbox==12.0.2",
+    "dask-expr==1.1.13",
+    "jsonpath_ng==1.7.0",
+    "ortools>=9.11.4210,<=9.14.6206",
+    "gmqtt==0.7.0",
+    "selectorlib==0.16.0",
+    "playwright==1.52.0",
+    "fuzzywuzzy==0.18.0",
+    "praw==7.8.1",
+    "prawcore==2.4.0",
+    "osmnx==2.0.1",
+    "osmium==4.0.2",
+    "python-Levenshtein==0.26.1",
+    "undetected_chromedriver==3.5.5",
+    "duckduckgo-search==8.1.1",
+    "numba>=0.62.1",
+    "APScheduler>=3.11.0,<3.12.0",
+    "google-cloud-bigquery>=3.30.0",
+    "pyheif==0.8.0",
+    "filetype==1.2.0",
+    "exif==1.6.1",
+    "pillow-avif-plugin==1.5.2",
+    "pillow-heif==0.22.0",
+    "pgvector==0.4.1",
+    # NAV libraries - using compatible versions
+    "proxylists>=0.14.0",
+    "async-notify[all]>=1.4.0",
+    "querysource>=3.17.0",
+    "asyncdb[all]>=2.11.7",
+    "navconfig[uvloop,default]>=1.7.13",
+    "navigator-auth>=0.15.8",
+    "navigator-api[uvloop,locale]>=2.12.22",
+    "ai-parrot[llms]>=0.17.4",
+    "msal>=1.30.0",
+    "azure-core==1.38.0",
+    "azure-identity==1.20.0",
+    "microsoft-kiota-authentication-azure==1.9.6",
+    "msgraph-sdk==1.22.0",
+    "zendriver>=0.15.2",
+]
+
+
+
+[project.optional-dependencies]
+ai = [
+    "ai-parrot[llms,agents,scheduler,embeddings,images,integrations]>=0.20.4",
+    "ai-parrot-loaders[youtube,audio,pdf,web,ebook,video,document,scraping,ml]>=0.1.0",
+    "ai-parrot-tools[jira,pdf,slack,aws,docker,git,analysis,excel,sandbox,codeinterpreter,pulumi,sitesearch,scraping,finance,db,flowtask,google,arxiv,wikipedia,weather,messaging]>=0.1.0",
+    "ai-parrot-pipelines>=0.1.0",
+]
+
+dev = [
+    "pytest>=5.4.0",
+    "coverage",
+    "pytest-asyncio==0.23.8",
+    "pytest-xdist==3.3.1",
+    "pytest-assume==2.4.3"
+]
+
+[project.scripts]
+di = "flowtask.__main__:main"
+task = "flowtask.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/phenobarbital/flowtask"
+Source = "https://github.com/phenobarbital/flowtask"
+Funding = "https://paypal.me/phenobarbital"
+"Say Thanks!" = "https://saythanks.io/to/phenobarbital"
+
+[tool.setuptools_scm]
+write_to = "flowtask/_version.py"
+
+[tool.setuptools.dynamic]
+version = {attr = "flowtask.__version__"}
+
+[tool.setuptools.packages.find]
+exclude = ["contrib", "bin", "settings", "examples", "tests", "plugins"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+]
+filterwarnings = [
+    "error",
+    'ignore:The loop argument is deprecated since Python 3\.8, and scheduled for removal in Python 3\.10:DeprecationWarning:asyncio',
+]
+
+[tool.uv]
+override-dependencies = [
+    "pgvector==0.4.1",
+    "numba==0.62.1",
+    "numpy>=2.0.0,<2.4",
+    "cython<3.0.0",
+    "emoji==2.14.1",
+    "babel>=2.16.0",
+]
+
+[tool.mypy]
+files = ["flowtask", "tests"]
+check_untyped_defs = false
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disable_error_code = "annotation-unchecked"
+
+
+[tool.uv.sources]
+ai-parrot = { path = "../../navigator/ai-parrot/packages/ai-parrot", editable = true }
+ai-parrot-tools = { path = "../../navigator/ai-parrot/packages/ai-parrot-tools", editable = true }
+ai-parrot-loaders = { path = "../../navigator/ai-parrot/packages/ai-parrot-loaders", editable = true }
+ai-parrot-pipelines = { path = "../../navigator/ai-parrot/packages/ai-parrot-pipelines", editable = true }

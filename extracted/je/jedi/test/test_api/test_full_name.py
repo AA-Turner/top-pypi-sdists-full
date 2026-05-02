@@ -15,6 +15,7 @@ There are three kinds of test:
 
 import textwrap
 from unittest import TestCase
+from typing import Any
 
 import pytest
 
@@ -22,6 +23,8 @@ import jedi
 
 
 class MixinTestFullName(object):
+    assertEqual: Any
+
     operation = None
 
     @pytest.fixture(autouse=True)
@@ -49,7 +52,7 @@ class TestFullNameWithGotoDefinitions(MixinTestFullName, TestCase):
         self.check("""
         import re
         any_re = re.compile('.*')
-        any_re""", 'typing.Pattern')
+        any_re""", 're.Pattern')
 
     def test_from_import(self):
         self.check('from os import path', 'os.path')

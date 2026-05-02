@@ -28,6 +28,14 @@ def check_dependencies():
     except FileNotFoundError:
         missing.append("twine")
 
+    # Check for MCPB CLI
+    try:
+        result = subprocess.run(["mcpb", "--version"], capture_output=True, text=True)
+        if result.returncode != 0:
+            missing.append("mcpb")
+    except FileNotFoundError:
+        missing.append("mcpb")
+
     if missing:
         print("❌ Error: Required dependencies are missing:", file=sys.stderr)
         for dep in missing:
@@ -36,6 +44,9 @@ def check_dependencies():
         print("  uv pip install --extra dev", file=sys.stderr)
         print("or:", file=sys.stderr)
         print("  uv sync --extra dev", file=sys.stderr)
+        if "mcpb" in missing:
+            print("and:", file=sys.stderr)
+            print("  npm install -g @anthropic-ai/mcpb", file=sys.stderr)
         sys.exit(1)
 
 
@@ -48,7 +59,7 @@ PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 SERVER_JSON_PATH = REPO_ROOT / "server.json"
 README_PATH = REPO_ROOT / "README.md"
 DIST_DIR = REPO_ROOT / "dist"
-DXT_SAFE_PACK = REPO_ROOT / "dxt-safe-pack.sh"
+MCPB_SAFE_PACK = REPO_ROOT / "mcpb-safe-pack.sh"
 
 # --- Helper Functions ---
 
@@ -172,20 +183,20 @@ def update_manifest_version(new_version):
     print(f"✅ Version updated to {new_version} in manifest.json")
 
 
-def build_dxt(new_version):
-    """Builds the DXT extension using the safe pack script."""
-    if not DXT_SAFE_PACK.exists():
+def build_mcpb(new_version):
+    """Builds the MCPB bundle using the safe pack script."""
+    if not MCPB_SAFE_PACK.exists():
         print(
-            f"❌ Error: {DXT_SAFE_PACK} not found. Cannot build DXT package.",
+            f"❌ Error: {MCPB_SAFE_PACK} not found. Cannot build MCPB bundle.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    dxt_output = DIST_DIR / f"workspace-mcp-{new_version}.dxt"
+    mcpb_output = DIST_DIR / f"workspace-mcp-{new_version}.mcpb"
     DIST_DIR.mkdir(parents=True, exist_ok=True)
-    run_command([str(DXT_SAFE_PACK), str(dxt_output)])
-    print(f"✅ DXT extension built: {dxt_output}")
-    return dxt_output
+    run_command([str(MCPB_SAFE_PACK), str(mcpb_output)])
+    print(f"✅ MCPB bundle built: {mcpb_output}")
+    return mcpb_output
 
 
 def get_next_versions(current_version):
@@ -278,9 +289,9 @@ def main():
     run_command(["uv", "build"])
     print(f"✅ Project built successfully in {DIST_DIR}")
 
-    # 4b. Build DXT extension (git-tracked files only)
-    print("\n--- 4b. Building DXT Extension (safe pack) ---")
-    dxt_path = build_dxt(new_version)
+    # 4b. Build MCPB bundle (git-tracked files only)
+    print("\n--- 4b. Building MCPB Bundle (safe pack) ---")
+    build_mcpb(new_version)
 
     # 5. Git commit and tag
     print("\n--- 5. Committing and Tagging ---")
@@ -299,7 +310,7 @@ def main():
     run_command(["git", "push", "--force", "origin", "HEAD", "--follow-tags"])
     print("✅ Pushed commit and tags to origin.")
 
-    # 7. Upload to PyPI (only wheels and tarballs, not .dxt)
+    # 7. Upload to PyPI (only wheels and tarballs, not .mcpb)
     print("\n--- 7. Uploading to PyPI ---")
     print("🔑 You may be prompted to enter your PyPI API token.")
     pypi_files = list(DIST_DIR.glob("*.whl")) + list(DIST_DIR.glob("*.tar.gz"))
@@ -329,7 +340,7 @@ def main():
     dist_files = (
         list(DIST_DIR.glob("*.whl"))
         + list(DIST_DIR.glob("*.tar.gz"))
-        + list(DIST_DIR.glob("*.dxt"))
+        + list(DIST_DIR.glob("*.mcpb"))
     )
     dist_file_paths = [str(f) for f in dist_files]
 

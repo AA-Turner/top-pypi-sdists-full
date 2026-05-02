@@ -22,6 +22,7 @@ bitflags! {
         const LIMIT_HEAP = 0x0004;
         const RELAXED_BLS = 0x0008;
         const LIMITS = 0x0010;
+        const ENABLE_GC = 0x0020;
         const ENABLE_KECCAK_OPS_OUTSIDE_GUARD = 0x0100;
         const DISABLE_OP = 0x0200;
         const ENABLE_SHA256_TREE = 0x0400;
@@ -49,6 +50,11 @@ bitflags! {
 
         /// Limit the number of spends per block.
         const LIMIT_SPENDS = 0x200_0000;
+
+        /// After the generator-identity hard fork, generators must be validated from
+        /// the INTERNED (canonical) tree so atom/pair limits and cost apply to the same
+        /// structure independent of serialization.
+        const INTERNED_GENERATOR = 0x0800_0000;
     }
 }
 
@@ -73,6 +79,9 @@ impl ConsensusFlags {
         }
         if clvm.contains(ClvmFlags::LIMITS) {
             out = out.union(ConsensusFlags::LIMITS);
+        }
+        if clvm.contains(ClvmFlags::ENABLE_GC) {
+            out = out.union(ConsensusFlags::ENABLE_GC);
         }
         if clvm.contains(ClvmFlags::ENABLE_KECCAK_OPS_OUTSIDE_GUARD) {
             out = out.union(ConsensusFlags::ENABLE_KECCAK_OPS_OUTSIDE_GUARD);
@@ -111,6 +120,9 @@ impl ConsensusFlags {
         }
         if self.contains(ConsensusFlags::LIMITS) {
             out.insert(ClvmFlags::LIMITS);
+        }
+        if self.contains(ConsensusFlags::ENABLE_GC) {
+            out.insert(ClvmFlags::ENABLE_GC);
         }
         if self.contains(ConsensusFlags::ENABLE_KECCAK_OPS_OUTSIDE_GUARD) {
             out.insert(ClvmFlags::ENABLE_KECCAK_OPS_OUTSIDE_GUARD);

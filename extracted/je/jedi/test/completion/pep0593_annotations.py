@@ -1,5 +1,3 @@
-# python >= 3.9
-
 from typing import Annotated
 
 # This is just a dummy and very meaningless thing to use with to the Annotated

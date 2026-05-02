@@ -1,0 +1,34 @@
+name: Test Component
+description: Test a Component
+events:
+  publish: true
+  done:
+    - TeamsMessage:
+        channel: MS_TEAMS_NAVIGATOR_ALERTS
+        channel_name: Alerts
+        type: card
+        title: "Test Component: {today}"
+        text: "This is a Test using a Test Component sent on {today}"
+        masks:
+          today:
+            - today
+            - mask: "%m%d%Y"
+              tz: America/New_York
+    - Notify:
+        type: "email"
+        recipients:
+          - name: "Jesus Lara"
+            account:
+              address: "jlara@trocglobal.com"
+        message:
+          subject: "Test Component: {today}"
+          body: "This is a Test using a Test Component sent on {today}"
+        masks:
+          today:
+            - today
+            - mask: "%m%d%Y"
+              tz: America/New_York
+steps:
+  - TestComponent:
+      comments: "This is a Test using a Test Component"
+      service: "This is a Service Name"

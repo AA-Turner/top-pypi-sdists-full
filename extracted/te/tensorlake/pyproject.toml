@@ -1,0 +1,64 @@
+[project]
+name = "tensorlake"
+version = "0.5.6"
+description = "Tensorlake SDK for agent sandboxes and sandbox-native orchestration"
+readme = "README.md"
+authors = [{ name = "Tensorlake Inc.", email = "support@tensorlake.ai" }]
+requires-python = ">=3.10"
+dependencies = [
+    "httpx[http2]>=0.27.2,<1.0",
+    "websocket-client>=1.8.0,<2.0",
+    "pydantic>=2.0,<3.0",
+    "grpcio>=1.76.0,<2.0.0",
+    "protobuf>=6.31.1,<7.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/tensorlakeai/tensorlake"
+Repository = "https://github.com/tensorlakeai/tensorlake"
+
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+bindings = "bin"
+manifest-path = "crates/cli/Cargo.toml"
+module-name = "tensorlake"
+python-source = "src"
+data = "tensorlake.data"
+include = [
+    { path = "LICENSE", format = "sdist" },
+    { path = "src/tensorlake/_cloud_sdk*.so", format = "wheel" },
+    { path = "src/tensorlake/_cloud_sdk*.pyd", format = "wheel" },
+]
+
+[tool.black]
+target-version = ["py310"]
+extend-exclude = '''
+/(
+  vendor
+  | crates
+)/
+'''
+
+[tool.isort]
+profile = "black"
+extend_skip = ["vendor", "crates"]
+
+[tool.poetry.group.dev.dependencies]
+black = "26.3.1"
+parameterized = "^0.9.0"
+respx = "^0.22.0"
+psutil = "^7.2.2"
+isort = "^8.0.0"
+pre-commit = "^4.5.1"
+# grpcio is forward compatible within the major version. The minimum version
+# must match GRPC_GENERATED_VERSION in the committed proto stubs so that
+# `make build_proto` regenerates stubs that are compatible with what users
+# install at runtime (>=1.76.0 per the runtime dependency).
+grpcio = "^1.76.0"
+grpcio-tools = "^1.76.0"
+protobuf = "^6.31.1"
+setuptools = "^69.0.0"
+maturin = ">=1.9,<2.0"

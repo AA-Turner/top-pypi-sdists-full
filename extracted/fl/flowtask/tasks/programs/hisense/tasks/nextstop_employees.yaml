@@ -1,0 +1,26 @@
+name: NextStop Employees Report
+description: Using NextStop Agent to generate reports for employees
+steps:
+  - QueryToPandas:
+      file_sql: get_nextstop_employees.sql
+  - NextStopAgent:
+      report: for_employee
+      program: hisense
+  - FilterRows:
+      drop_columns:
+        columns:
+          - status
+          - transcript
+          - store_id
+          - script_path
+  - TableOutput:
+      flavor: postgres
+      schema: troc
+      tablename: nextstop_responses
+      pk:
+        - employee_id
+        - agent_name
+        - program_slug
+        - kind
+        - request_date
+      if_exists: append

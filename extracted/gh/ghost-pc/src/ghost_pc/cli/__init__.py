@@ -1,0 +1,1 @@
+"""GhostPC CLI package."""

@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: spotler-sdk
+Version: 0.3.2
+Summary: 
+Author: Gustav Ebbers
+Author-email: gueb01@gmail.com
+Requires-Python: >=3.12,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: loguru (>=0.7.3,<0.8.0)
+Requires-Dist: pydantic (>=2.10.5,<3.0.0)
+Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0)

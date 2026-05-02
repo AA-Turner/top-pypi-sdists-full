@@ -1,0 +1,140 @@
+name: Live Test
+
+on:
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  store-data:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write  # Required for creating/updating issues
+      contents: read # Required for checkout
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        
+    - name: Generate and store random data
+      run: |
+        python - <<EOF
+        from gh_store.core.store import GitHubStore
+        import random
+        from datetime import datetime, timezone
+        import os
+
+        # Initialize store with GitHub token
+        store = GitHubStore(
+            token=os.environ["GITHUB_TOKEN"],
+            repo=os.environ["GITHUB_REPOSITORY"]
+        )
+
+        # Generate random data
+        data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metrics": {
+                "temperature": round(random.uniform(15.0, 25.0), 2),
+                "humidity": round(random.uniform(40.0, 60.0), 2),
+                "pressure": round(random.uniform(980.0, 1020.0), 2),
+            },
+            "counters": {
+                "visitors": random.randint(100, 1000),
+                "actions": random.randint(500, 5000),
+                "errors": random.randint(0, 50)
+            },
+            "status": random.choice(["green", "yellow", "red"])
+        }
+
+        # Create or update the object
+        try:
+            # Try to update if exists
+            store.update("daily-metrics123", data)
+        except:
+            # Create new if doesn't exist
+            store.create("daily-metrics123", data)
+
+        print("Successfully stored random data")
+        EOF
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  test-public-mode:
+    needs: store-data
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Only need read permissions
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install TypeScript client
+      run: |
+        cd typescript
+        npm install
+        npm run build
+        
+    - name: Run public mode retrieval test
+      run: |
+        cd typescript
+        cat > test-public-mode.cjs << 'EOF'
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Dynamically import the ESM module
+        async function main() {
+          // Use dynamic import to load the ESM module
+          const { GitHubStoreClient } = await import('./dist/index.mjs');
+          
+          try {
+            // Initialize client with null token (public mode)
+            const client = new GitHubStoreClient(null, process.env.GITHUB_REPOSITORY);
+            
+            console.log('Running in public mode:', client.isPublic());
+            
+            // Try to retrieve the object we just created/updated
+            const object = await client.getObject('daily-metrics123');
+            
+            console.log('Successfully retrieved object:');
+            console.log('Object ID:', object.meta.objectId);
+            console.log('Created at:', object.meta.createdAt);
+            console.log('Version:', object.meta.version);
+            console.log('Data sample:', JSON.stringify(object.data).substring(0, 200) + '...');
+            
+            // Try to get object history
+            const history = await client.getObjectHistory('daily-metrics123');
+            console.log('History entries:', history.length);
+            
+            // Validate we received data
+            if (!object.data || !object.meta) {
+              throw new Error('Retrieved object is missing data or metadata');
+            }
+            
+            console.log('Public mode retrieval test passed!');
+            process.exit(0);
+          } catch (error) {
+            console.error('Public mode test failed:', error);
+            process.exit(1);
+          }
+        }
+        
+        main().catch(err => {
+          console.error(err);
+          process.exit(1);
+        });
+        EOF
+        
+        node --experimental-vm-modules test-public-mode.cjs

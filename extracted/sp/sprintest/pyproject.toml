@@ -1,0 +1,117 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sprintest"
+version = "1.1.1"
+description = "A C/S architecture test runner for heavy AI projects."
+authors = [
+    { name = "QingGo", email = "zyqingjohn@qq.com" },
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn>=0.30.0",
+    "pytest",
+    "tomli>=2.0.0; python_version < '3.11'",
+    "httpx>=0.28.1",
+    "psutil",
+]
+keywords = ["testing", "pytest", "ai", "preloading", "hot-reload"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+]
+
+[project.urls]
+Repository = "https://github.com/QingGo/sprintest"
+Issues = "https://github.com/QingGo/sprintest/issues"
+
+[project.scripts]
+stest = "sprintest.cli:main"
+sprintest = "sprintest.cli:main"
+stest-daemon = "sprintest.daemon:run"
+sprintest-daemon = "sprintest.daemon:run"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["sprintest"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+exclude = ["\\.venv", "build", "dist"]
+
+[[tool.mypy.overrides]]
+module = [
+    "uvicorn.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+# E: pycodestyle
+# F: Pyflakes
+# I: isort
+# B: flake8-bugbear
+# TCH: flake8-type-checking
+# PLC: pylint-convention
+# UP: pyupgrade
+# S: flake8-bandit (包含 S110: try-except-pass)
+# BLE: flake8-blind-except
+select = ["E", "F", "I", "B", "TCH", "PLC", "UP", "S", "BLE"]
+# E501: Line too long
+# S104: Possible binding to all interfaces (needed for daemon)
+# S113: httpx call with timeout set to None (needed for long-running tests)
+ignore = ["E501", "S104", "S113"]
+
+[tool.ruff.lint.per-file-ignores]
+# F811: Redefinition of unused name
+# F401: Module imported but unused
+# B011: Do not call assert False
+# S101: Use of assert detected (allowed in tests)
+# S110: try-except-pass (allowed in tests)
+# S603, S607: subprocess security checks (allowed in tests)
+# BLE001: blind except (allowed in tests)
+"tests/*" = ["F811", "F401", "B011", "PLC0415", "S101", "S110", "S603", "S607", "BLE001"]
+# Scratch scripts: allow asserts and blind exceptions
+"scratch/*" = ["S101", "BLE001"]
+# Examples: allow asserts for demonstration
+"examples/*" = ["S101"]
+
+[tool.pyright]
+include = ["src/sprintest"]
+exclude = ["tests"]
+reportMissingTypeStubs = false
+reportAny = false
+reportGeneralTypeIssues = false
+executionEnvironments = [
+  { root = "tests", reportArgumentType = false, reportGeneralTypeIssues = false, reportMissingImports = false, reportAny = false }
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.10.0",
+    "ruff>=0.15.11",
+    "httpx",
+    "twine>=6.2.0",
+    "torch==2.2.2",
+    "transformers<4.40",
+    "types-psutil>=7.2.2.20260408",
+    "numpy<2.0",
+]

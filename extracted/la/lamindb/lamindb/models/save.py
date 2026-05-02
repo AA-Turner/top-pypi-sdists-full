@@ -1,0 +1,526 @@
+# ruff: noqa: TC004
+from __future__ import annotations
+
+import os
+import shutil
+import traceback
+from collections import defaultdict
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from django.db import IntegrityError, transaction
+from django.utils.functional import partition
+from lamin_utils import logger
+from lamindb_setup.core.upath import LocalPathClasses, UPath
+
+from ..core._settings import settings
+from .sqlrecord import (
+    UNIQUE_FIELD_NAMES,
+    SQLRecord,
+    parse_violated_field_from_error_message,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from .artifact import Artifact
+
+
+def save(
+    records: Iterable[SQLRecord],
+    ignore_conflicts: bool | None = False,
+    batch_size: int = 10000,
+) -> None:
+    """Bulk save records.
+
+    Note:
+
+        This is a much faster than saving records using ``record.save()``.
+
+    Warning:
+
+        Bulk saving neither automatically creates related records nor updates
+        existing records! Use ``record.save()`` for these use cases.
+
+    Args:
+        records: Multiple :class:`~lamindb.models.SQLRecord` objects.
+        ignore_conflicts: If `True`, do not error if some records violate a unique or another constraint.
+            However, it won't inplace update the id fields of records.
+            If you need records with ids, you need to query them from the database.
+        batch_size: Number of records to process in each batch.
+            Large batch sizes can improve performance but may lead to memory issues.
+
+    Examples:
+
+        Save a list of records:
+
+        >>> labels = [ln.ULabel(f"Label {i}") for i in range(10)]
+        >>> ln.save(projects)
+
+        For a single record, use ``record.save()``:
+
+        >>> transform = ln.Transform(key="My pipeline")
+        >>> transform.save()
+
+        Update a single existing record:
+
+        >>> transform = ln.Transform.get("0Cb86EZj")
+        >>> transform.description = "New description"
+        >>> transform.save()
+
+    """
+    from .artifact import Artifact
+
+    if isinstance(records, SQLRecord):
+        raise ValueError("Please use record.save() if saving a single record.")
+
+    # previously, this was all set based,
+    # but models without primary keys aren't hashable
+    # we distinguish between artifacts and non-artifacts
+    # for artifacts, we want to bulk-upload rather than upload one-by-one
+    non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
+    if non_artifacts:
+        non_artifacts_old, non_artifacts_new = partition(
+            lambda r: r._state.adding or r.pk is None, non_artifacts
+        )
+        bulk_create(
+            non_artifacts_new, ignore_conflicts=ignore_conflicts, batch_size=batch_size
+        )
+        if non_artifacts_old:
+            bulk_update(non_artifacts_old, batch_size=batch_size)
+        non_artifacts_with_parents = [
+            r for r in non_artifacts_new if hasattr(r, "_parents")
+        ]
+        if len(non_artifacts_with_parents) > 0:
+            # this can only happen within bionty right now!!
+            # we might extend to core lamindb later
+            from bionty.core import add_ontology
+
+            add_ontology(non_artifacts_with_parents)
+        records_with_lazy_features = [
+            record
+            for record in non_artifacts
+            if record.__class__.__name__ == "Record" and hasattr(record, "_features")
+        ]
+        if records_with_lazy_features:
+            from ._feature_manager import bulk_set_features_in_records
+
+            bulk_set_features_in_records(records_with_lazy_features)
+
+    if artifacts:
+        with transaction.atomic():
+            for record in artifacts:
+                # will switch to True after the successful upload / saving
+                if getattr(record, "_local_filepath", None) is not None and getattr(
+                    record, "_to_store", False
+                ):
+                    record._storage_ongoing = True
+                record._save_skip_storage()
+        using_key = settings._using_key
+        store_artifacts(artifacts, using_key=using_key)
+
+    # this function returns None as potentially 10k records might be saved
+    # refreshing all of them from the DB would mean a severe performance penalty
+    # 2nd reason: consistency with Django Model.save(), which also returns None
+    return None
+
+
+def bulk_create(
+    records: Iterable[SQLRecord],
+    ignore_conflicts: bool | None = False,
+    batch_size: int = 10000,
+):
+    """Create records in batches for safety and performance.
+
+    Args:
+        records: Iterable of SQLRecord objects to create
+        ignore_conflicts: Whether to ignore conflicts during creation
+        batch_size: Number of records to process in each batch.
+    """
+    records_by_orm = defaultdict(list)
+    for record in records:
+        records_by_orm[record.__class__].append(record)
+
+    for registry, records_list in records_by_orm.items():
+        total_records = len(records_list)
+        model_name = registry.__name__
+        if total_records > batch_size:
+            logger.important(
+                f"starting creation of {total_records} {model_name} records in batches of {batch_size}"
+            )
+
+        # Process records in batches
+        for i in range(0, len(records_list), batch_size):
+            batch = records_list[i : i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_records + batch_size - 1) // batch_size
+
+            if total_records > batch_size:
+                logger.info(
+                    f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                )
+            try:
+                registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
+            # handle unique constraint violations due to non-default branches
+            except IntegrityError as e:
+                error_msg = str(e)
+                if any(field in error_msg for field in UNIQUE_FIELD_NAMES) and (
+                    "UNIQUE constraint failed" in error_msg
+                    or "duplicate key value violates unique constraint" in error_msg
+                ):
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
+
+                    # Build tuples of unique field values for each record
+                    unique_field_values = [
+                        tuple(getattr(r, field) for field in unique_fields)
+                        for r in batch
+                    ]
+
+                    # Build Q objects for multi-field lookup
+                    from django.db.models import Q
+
+                    q_objects = Q()
+                    for values in unique_field_values:
+                        field_kwargs = {
+                            unique_fields[i]: values[i]
+                            for i in range(len(unique_fields))
+                        }
+                        q_objects |= Q(**field_kwargs)
+
+                    # Query against non-default branches
+                    pre_existing_records_not_main_branch = registry.objects.filter(
+                        q_objects
+                    ).exclude(branch_id=1)
+
+                    # Get the unique field value tuples that already exist
+                    pre_existing_value_tuples = {
+                        tuple(getattr(rec, field) for field in unique_fields)
+                        for rec in pre_existing_records_not_main_branch
+                    }
+
+                    # Records that can be saved normally (not in non-default branches)
+                    records_main_branch = [
+                        r
+                        for r in batch
+                        if tuple(getattr(r, field) for field in unique_fields)
+                        not in pre_existing_value_tuples
+                    ]
+                    save(records_main_branch)
+
+                    # Now move the pre-existing records to the main branch
+                    if pre_existing_value_tuples:
+                        unique_fields_str = ", ".join(unique_fields)
+                        logger.warning(
+                            f"some {model_name} records with the same ({unique_fields_str}) already exist in non-default branches - moving them to the default branch"
+                        )
+                        pre_existing_records_to_move = [
+                            r
+                            for r in batch
+                            if tuple(getattr(r, field) for field in unique_fields)
+                            in pre_existing_value_tuples
+                        ]
+                        for record in pre_existing_records_to_move:
+                            record.save()
+                else:
+                    raise e
+
+
+def bulk_update(
+    records: Iterable[SQLRecord],
+    ignore_conflicts: bool | None = False,
+    batch_size: int = 10000,
+):
+    """Update records in batches for safety and performance.
+
+    Args:
+        records: Iterable of SQLRecord objects to update
+        ignore_conflicts: Whether to ignore conflicts during update (currently unused but kept for consistency)
+        batch_size: Number of records to process in each batch. If None, processes all at once.
+    """
+    records_by_orm = defaultdict(list)
+    for record in records:
+        records_by_orm[record.__class__].append(record)
+
+    for registry, records_list in records_by_orm.items():
+        total_records = len(records_list)
+        model_name = registry.__name__
+        if total_records > batch_size:
+            logger.warning(
+                f"starting update for {total_records} {model_name} records in batches of {batch_size}"
+            )
+
+        field_names = [
+            field.name
+            for field in registry._meta.fields
+            if (field.name != "created_at" and field.name != "id")
+        ]
+
+        # Process records in batches
+        for i in range(0, len(records_list), batch_size):
+            batch = records_list[i : i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_records + batch_size - 1) // batch_size
+
+            if total_records > batch_size:
+                logger.info(
+                    f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                )
+            registry.objects.bulk_update(batch, field_names)
+
+
+# This is also used within Artifact.save()
+def check_and_attempt_upload(
+    artifact: Artifact,
+    using_key: str | None = None,
+    access_token: str | None = None,
+    print_progress: bool = True,
+    **kwargs,
+) -> Exception | None:
+    # kwargs are propagated to .upload_from in the end
+    # if Artifact object is either newly instantiated or replace() was called on
+    # a local env it will have a _local_filepath and needs to be uploaded
+    if getattr(artifact, "_local_filepath", None) is not None:
+        try:
+            storage_path, cache_path = upload_artifact(
+                artifact,
+                using_key,
+                access_token=access_token,
+                print_progress=print_progress,
+                **kwargs,
+            )
+        except Exception as exception:
+            logger.warning(f"could not upload artifact: {artifact}")
+            # clear dangling storages if we were actually uploading or saving
+            if getattr(artifact, "_to_store", False):
+                # avoid root-level import of core.storage module
+                from ..core.storage import paths
+
+                artifact._clear_storagekey = paths.auto_storage_key_from_artifact(
+                    artifact
+                )  # type: ignore
+            return exception
+        # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
+        if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
+            # this happens only after the actual upload was performed
+            # we avoid failing here in case any problems happen in copy_or_move_to_cache
+            # because the cache copying or cleanup is not absolutely necessary
+            try:
+                copy_or_move_to_cache(artifact, storage_path, cache_path)
+            except Exception as e:
+                if not str(e).startswith(
+                    "[WinError 32] The process cannot access the file "
+                    "because it is being used by another process"
+                ):
+                    # ignore WinError 32 error, this just means that the file is still open on save
+                    # it is saved at this point, so not a big deal if copy or move to cache fails
+                    # this mostly happens for run logs
+                    # just ignore without a warning
+                    logger.warning(f"A problem with cache on saving: {e}")
+        # after successful upload, we should remove the attribute so that another call
+        # call to save won't upload again, the user should call replace() then
+        del artifact._local_filepath
+    # returning None means proceed (either success or no action needed)
+    return None
+
+
+def copy_or_move_to_cache(
+    artifact: Artifact, storage_path: UPath, cache_path: UPath | None
+):
+    local_path = artifact._local_filepath
+
+    # in-memory cases
+    if local_path is None or not local_path.exists():
+        return None
+
+    local_path = local_path.resolve()
+    is_dir = local_path.is_dir()
+    cache_dir = settings.cache_dir
+
+    # just delete from the cache dir if storage_path is local
+    if cache_path is None:
+        if (
+            local_path.as_posix() != storage_path.as_posix()
+            and cache_dir in local_path.parents
+        ):
+            if is_dir:
+                shutil.rmtree(local_path)
+            else:
+                local_path.unlink()
+        return None
+    # non-local storage_path further
+    if local_path != cache_path:
+        if cache_path.exists():
+            logger.important_hint(
+                f"replacing the existing cache path {cache_path.as_posix()}"
+            )
+            if cache_path.is_dir():
+                shutil.rmtree(cache_path)
+            else:
+                cache_path.unlink()
+        else:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+        if cache_dir in local_path.parents:
+            local_path.replace(cache_path)
+        else:
+            if is_dir:
+                shutil.copytree(local_path, cache_path)
+            else:
+                shutil.copy(local_path, cache_path)
+    # make sure that the cached version is older than the cloud one
+    mts = datetime.now().timestamp() + 1.0
+    if is_dir:
+        files = (file for file in cache_path.rglob("*") if file.is_file())
+        for file in files:
+            os.utime(file, times=(mts, mts))
+    else:
+        os.utime(cache_path, times=(mts, mts))
+
+
+# This is also used within Artifact.save()
+def check_and_attempt_clearing(
+    artifact: Artifact,
+    raise_file_not_found_error: bool = True,
+    using_key: str | None = None,
+) -> Exception | None:
+    # this is a clean-up operation after replace() was called
+    # or if there was an exception during upload
+    if hasattr(artifact, "_clear_storagekey"):
+        try:
+            if artifact._clear_storagekey is not None:  # type: ignore
+                # avoid root-level import of core.storage module
+                from ..core.storage import paths
+
+                delete_msg = paths.delete_storage_using_key(
+                    artifact,
+                    artifact._clear_storagekey,  # type: ignore
+                    raise_file_not_found_error=raise_file_not_found_error,
+                    using_key=using_key,
+                )
+                if delete_msg != "did-not-delete":
+                    logger.success(
+                        f"deleted stale object at storage key {artifact._clear_storagekey}"  # type: ignore
+                    )
+                artifact._clear_storagekey = None  # type: ignore
+        except Exception as exception:
+            return exception
+    # returning None means proceed (either success or no action needed)
+    return None
+
+
+def store_artifacts(
+    artifacts: Iterable[Artifact], using_key: str | None = None
+) -> None:
+    """Upload artifacts in a list of database-committed artifacts to storage.
+
+    If any upload fails, subsequent artifacts are cleaned up from the DB.
+    """
+    from .artifact import Artifact
+
+    exception: Exception | None = None
+    # because uploads might fail, we need to maintain a new list of the succeeded uploads
+    stored_artifacts = []
+
+    # upload new local artifacts
+    for artifact in artifacts:
+        # failure here sets ._clear_storagekey
+        # for cleanup below
+        exception = check_and_attempt_upload(artifact, using_key)
+        if exception is not None:
+            break
+
+        stored_artifacts += [artifact]
+        # update to show successful saving
+        # only update if _storage_ongoing was set to True before
+        # this should be a single transaction for the updates of all the artifacts
+        # but then it would just abort all artifacts, even those successfully stored before
+        # TODO: there should also be some kind of exception handling here
+        # but this requires refactoring
+        if artifact._storage_ongoing:
+            artifact._storage_ongoing = False
+            # each .save() is a separate transaction below
+            super(Artifact, artifact).save()
+        # if check_and_attempt_upload was successful
+        # then this can have only ._clear_storagekey from .replace
+        exception = check_and_attempt_clearing(
+            artifact, raise_file_not_found_error=True, using_key=using_key
+        )
+        if exception is not None:
+            logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
+            break
+
+    if exception is not None:
+        # clean up metadata for artifacts not uploaded to storage
+        with transaction.atomic():
+            for artifact in artifacts:
+                if artifact not in stored_artifacts:
+                    artifact._delete_skip_storage()
+                    # clean up storage after failure in check_and_attempt_upload
+                    exception_clear = check_and_attempt_clearing(
+                        artifact, raise_file_not_found_error=False, using_key=using_key
+                    )
+                    if exception_clear is not None:
+                        logger.warning(
+                            f"clean up of {artifact._clear_storagekey} after the upload error failed"  # type: ignore
+                        )
+        error_message = prepare_error_message(artifacts, stored_artifacts, exception)
+        # this is bad because we're losing the original traceback
+        # needs to be refactored - also, the orginal error should be raised
+        raise RuntimeError(error_message)
+    return None
+
+
+def prepare_error_message(records, stored_artifacts, exception) -> str:
+    if len(stored_artifacts) == 0:
+        error_message = (
+            "No entries were uploaded or committed"
+            " to the database. See error message:\n\n"
+        )
+    else:
+        error_message = (
+            "The following entries have been"
+            " successfully uploaded and committed to the database:\n"
+        )
+        for record in stored_artifacts:
+            error_message += (
+                f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
+            )
+        error_message += "\nSee error message:\n\n"
+    error_message += f"{str(exception)}\n\n{traceback.format_exc()}"
+    return error_message
+
+
+def upload_artifact(
+    artifact,
+    using_key: str | None = None,
+    access_token: str | None = None,
+    print_progress: bool = True,
+    **kwargs,
+) -> tuple[UPath, UPath | None]:
+    """Store and add file and its linked entries."""
+    # kwargs are propagated to .upload_from in the end
+    # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
+    # avoid root-level import of core.storage module
+    from ..core.storage import paths
+
+    storage_key = paths.auto_storage_key_from_artifact(artifact)
+    storage_path, storage_settings = paths.attempt_accessing_path(
+        artifact, storage_key, using_key=using_key, access_token=access_token
+    )
+    if getattr(artifact, "_to_store", False):
+        logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
+        paths.store_file_or_folder(
+            artifact._local_filepath,
+            storage_path,
+            print_progress=print_progress,
+            **kwargs,
+        )
+
+    if isinstance(storage_path, LocalPathClasses):
+        cache_path = None
+    else:
+        cache_key = paths._cache_key_from_artifact_storage(artifact, storage_settings)
+        cache_path = storage_settings.cloud_to_local_no_update(
+            storage_path, cache_key=cache_key
+        )
+
+    return storage_path, cache_path

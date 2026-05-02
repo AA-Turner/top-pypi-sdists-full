@@ -39,6 +39,7 @@ from firebirdsql.utils import *     # noqa
 from firebirdsql.wireprotocol import WireProtocol, get_crypt
 from firebirdsql.aio.stream import AsyncSocketStream
 from firebirdsql.xsqlvar import calc_blr, parse_xsqlda
+from firebirdsql.aio.xsqlvar import async_parse_xsqlda
 from firebirdsql import srp
 try:
     from Crypto.Cipher import ARC4
@@ -147,7 +148,7 @@ class AsyncStatement(Statement):
             ln = bytes_to_int(buf[i+1:i+3])
             self.plan = self.trans.connection.bytes_to_str(buf[i+3:i+3+ln])
             i += 3 + ln
-        self.stmt_type, self.xsqlda = parse_xsqlda(buf[i:], self.trans.connection, self.handle)
+        self.stmt_type, self.xsqlda = await async_parse_xsqlda(buf[i:], self.trans.connection, self.handle)
         if self.stmt_type == isc_info_sql_stmt_select:
             self._is_open = True
 
@@ -270,6 +271,14 @@ class AsyncCursor(Cursor):
         try:
             await self._execute(query, params)
             self.rowcount = await self._rowcount()
+            # DML with RETURNING returns a phantom row of NULLs when no rows
+            # are affected. Clear it so fetchone()/fetchall() return nothing,
+            # matching PEP 249. Don't clear for EXECUTE PROCEDURE statements.
+            if (self.rowcount == 0 and self._callproc_result is not None
+                    and self.stmt and self.stmt.xsqlda
+                    and self.stmt.stmt_type == isc_info_sql_stmt_exec_procedure
+                    and not self._is_execute_procedure_query()):
+                self._callproc_result = None
             return self
         finally:
             self.transaction.is_dirty = True
@@ -889,7 +898,7 @@ class AsyncConnection(ConnectionBase, AsyncConnectionResponseMixin):
         if self._transaction is None:
             self._transaction = AsyncTransaction(self, self._autocommit)
             await self._transaction.begin()
-        self._transaction.check_trans_handle()
+        await self._transaction.check_trans_handle()
         self._op_exec_immediate(
             self._transaction.trans_handle, query=query)
         (h, oid, buf) = await self._async_op_response()

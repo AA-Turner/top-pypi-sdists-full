@@ -1,0 +1,407 @@
+/*------------------------------------------------------------------------------
+-- The MIT License (MIT)
+--
+-- Copyright © 2024, Laboratory of Plasma Physics- CNRS
+--
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the “Software”), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-- of the Software, and to permit persons to whom the Software is furnished to do
+-- so, subject to the following conditions:
+--
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+--
+-- THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+-- INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+-- PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+-- HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+-- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+-- SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#pragma once
+#include "cdf-debug.hpp"
+#include "cdf-enums.hpp"
+#include "cdf-helpers.hpp"
+#include "cdf-io/endianness.hpp"
+#include "no_init_vector.hpp"
+#include <algorithm>
+#include <cstdint>
+#include <functional>
+#include <stdint.h>
+#include <string>
+#include <variant>
+#include <vector>
+
+namespace cdf
+{
+
+struct cdf_none
+{
+    bool operator==([[maybe_unused]] const cdf_none& other) const { return true; }
+    inline void* data() { return nullptr; }
+};
+
+using cdf_values_t = std::variant<cdf_none, no_init_vector<char>, no_init_vector<uint8_t>,
+    no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>,
+    no_init_vector<int16_t>, no_init_vector<int32_t>, no_init_vector<int64_t>,
+    no_init_vector<float>, no_init_vector<double>, no_init_vector<tt2000_t>, no_init_vector<epoch>,
+    no_init_vector<epoch16>>;
+
+struct data_t
+{
+
+    template <CDF_Types _type>
+    decltype(auto) get();
+
+    template <CDF_Types _type>
+    decltype(auto) get() const;
+
+    template <typename _type>
+    decltype(auto) get();
+
+    template <typename _type>
+    decltype(auto) get() const;
+
+    const char* bytes_ptr() const;
+    char* bytes_ptr();
+
+    [[nodiscard]] std::size_t size() const noexcept;
+    [[nodiscard]] std::size_t bytes() const noexcept;
+
+    [[nodiscard]] CDF_Types type() const noexcept { return p_type; }
+
+    [[nodiscard]] cdf_values_t& values() noexcept { return p_values; }
+    [[nodiscard]] const cdf_values_t& values() const noexcept { return p_values; }
+
+    data_t& operator=(data_t&& other);
+    data_t& operator=(const data_t& other);
+
+    inline bool operator==(const data_t& other) const
+    {
+        return other.p_type == p_type && other.p_values == p_values;
+    }
+
+    data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } { }
+    data_t(const data_t& other) = default;
+    data_t(data_t&& other) = default;
+
+
+    template <typename T>
+        requires(!std::is_same_v<std::remove_reference_t<T>, data_t>)
+    explicit data_t(T&& values)
+            : p_values { std::forward<T>(values) }
+            , p_type { to_cdf_type<typename std::remove_reference_t<T>::value_type>() }
+    {
+    }
+
+    data_t(const cdf_values_t& values, CDF_Types type) : p_values { values }, p_type { type } { }
+    data_t(cdf_values_t&& values, CDF_Types type) : p_values { std::move(values) }, p_type { type }
+    {
+    }
+
+    template <typename... Ts>
+    friend auto visit(data_t& data, Ts... lambdas);
+    template <typename... Ts>
+    friend auto visit(const data_t& data, Ts... lambdas);
+
+    template <typename T, typename type>
+    friend decltype(auto) _get_impl(T* self);
+
+private:
+    cdf_values_t p_values;
+    CDF_Types p_type;
+};
+
+struct lazy_data
+{
+    lazy_data() = default;
+    lazy_data(std::function<data_t(void)>&& loader, CDF_Types type)
+            : p_loader { std::move(loader) }, p_type { type }
+    {
+    }
+    lazy_data(const lazy_data&) = default;
+    lazy_data(lazy_data&&) = default;
+    lazy_data& operator=(const lazy_data&) = default;
+    lazy_data& operator=(lazy_data&&) = default;
+
+    [[nodiscard]] inline data_t load() { return p_loader(); }
+
+    [[nodiscard]] inline CDF_Types type() const noexcept { return p_type; }
+
+private:
+    std::function<data_t(void)> p_loader;
+    CDF_Types p_type;
+};
+
+template <typename... Ts>
+auto visit(data_t& data, Ts... lambdas)
+{
+    return std::visit(helpers::Visitor { lambdas... }, data.p_values);
+}
+
+template <typename... Ts>
+auto visit(const data_t& data, Ts... lambdas)
+{
+    return std::visit(helpers::Visitor { lambdas... }, data.p_values);
+}
+
+template <CDF_Types type, typename endianness_t>
+auto load_values(data_t& data);
+
+data_t load_values(data_t& data, cdf_encoding encoding);
+
+
+/*=================================================================================
+ Implementation
+===================================================================================*/
+
+
+template <CDF_Types _type>
+inline decltype(auto) data_t::get()
+{
+    return std::get<no_init_vector<from_cdf_type_t<_type>>>(this->p_values);
+}
+
+template <CDF_Types _type>
+inline decltype(auto) data_t::get() const
+{
+    return std::get<no_init_vector<from_cdf_type_t<_type>>>(this->p_values);
+}
+
+
+template <typename T, typename _type>
+decltype(auto) _get_impl(T* self)
+{
+    return std::get<no_init_vector<_type>>(self->p_values);
+}
+
+template <typename T>
+inline decltype(auto) data_t::get()
+{
+    return _get_impl<data_t, T>(this);
+}
+
+template <typename T>
+inline decltype(auto) data_t::get() const
+{
+    return _get_impl<const data_t, T>(this);
+}
+
+
+inline data_t& data_t::operator=(data_t&& other)
+{
+    std::swap(this->p_values, other.p_values);
+    std::swap(this->p_type, other.p_type);
+    return *this;
+}
+inline data_t& data_t::operator=(const data_t& other)
+{
+    this->p_values = other.p_values;
+    this->p_type = other.p_type;
+    return *this;
+}
+
+// https://bjoern.hoehrmann.de/utf-8/decoder/dfa/
+
+[[nodiscard]] auto inline decode(uint32_t state, uint32_t codep, uint32_t byte)
+{
+    // clang-format off
+    static const uint8_t utf8d[] = {
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 40..5f
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 60..7f
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9, // 80..9f
+        7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7, // a0..bf
+        8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, // c0..df
+        0xa,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x4,0x3,0x3, // e0..ef
+        0xb,0x6,0x6,0x6,0x5,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8, // f0..ff
+        0x0,0x1,0x2,0x3,0x5,0x8,0x7,0x1,0x1,0x1,0x4,0x6,0x1,0x1,0x1,0x1, // s0..s0
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1, // s1..s2
+        1,2,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1, // s3..s4
+        1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,3,1,1,1,1,1,1, // s5..s6
+        1,3,1,1,1,1,1,3,1,3,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1, // s7..s8
+    };
+    // clang-format on
+    uint32_t type = utf8d[byte];
+
+    codep = (state != 0) ? (byte & 0x3fu) | (codep << 6) : (0xff >> type) & (byte);
+
+    state = utf8d[256 + state * 16 + type];
+    return std::tuple{ state, codep };
+}
+
+// switch to SIMD later together with XSIMD integration
+[[nodiscard]] inline bool is_valid_utf8(const char* buffer, std::size_t buffer_size)
+{
+    uint32_t state = 0;
+    uint32_t codepoint = 0;
+    for (std::size_t i = 0; i < buffer_size; ++i)
+    {
+        std::tie(state, codepoint) = decode(state, codepoint, static_cast<uint8_t>(buffer[i]));
+    }
+    return state == 0;
+}
+
+// https://stackoverflow.com/questions/4059775/convert-iso-8859-1-strings-to-utf-8-in-c-c
+template <typename T>
+[[nodiscard]] T iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
+{
+    T out;
+    out.reserve(buffer_size);
+    std::for_each(buffer, buffer + buffer_size,
+        [&out](const uint8_t c)
+        {
+            if (c < 0x80)
+            {
+                out.push_back(c);
+            }
+            else
+            {
+                out.push_back(0xc0 | c >> 6);
+                out.push_back(0x80 | (c & 0x3f));
+            }
+        });
+    return out;
+}
+
+template <typename T>
+[[nodiscard]] T ensure_utf8(const char* buffer, std::size_t buffer_size)
+{
+    if (is_valid_utf8(buffer, buffer_size))
+    {
+        return T { buffer, buffer + buffer_size };
+    }
+    else
+    {
+        return iso_8859_1_to_utf8<T>(buffer, buffer_size);
+    }
+}
+
+
+template <CDF_Types _type, typename endianness_t, bool latin1_to_utf8_conv>
+[[nodiscard]] inline data_t load_values(data_t&& data) noexcept
+{
+
+    if constexpr (_type == CDF_Types::CDF_CHAR
+        || _type == CDF_Types::CDF_UCHAR) // special case for strings
+    {
+        if constexpr (latin1_to_utf8_conv)
+        {
+            return data_t { cdf_values_t {
+                                ensure_utf8<no_init_vector<from_cdf_type_t<_type>>>(
+                                    data.bytes_ptr(), data.bytes()) },
+                _type };
+        }
+        else
+        {
+            return std::move(data);
+        }
+    }
+    else
+    {
+        if (std::size(data) != 0UL)
+            endianness::decode_v<endianness_t>(
+                reinterpret_cast<from_cdf_type_t<_type>*>(data.bytes_ptr()), data.size());
+        return std::move(data);
+    }
+}
+
+template <bool iso_8859_1_to_utf8>
+[[nodiscard]] inline data_t load_values(data_t&& data, cdf_encoding encoding) noexcept
+{
+    if (data.type() == CDF_Types::CDF_NONE)
+        return {};
+    return cdf_type_dispatch(data.type(),
+        [&]<CDF_Types t>()
+        {
+            if (endianness::is_big_endian_encoding(encoding))
+                return load_values<t, endianness::big_endian_t, iso_8859_1_to_utf8>(
+                    std::move(data));
+            return load_values<t, endianness::little_endian_t, iso_8859_1_to_utf8>(
+                std::move(data));
+        });
+}
+
+template <CDF_Types _type>
+[[nodiscard]] cdf_values_t new_cdf_values_container(std::size_t len)
+{
+    using raw_type = from_cdf_type_t<_type>;
+    std::size_t size = len / sizeof(raw_type);
+    return cdf_values_t { no_init_vector<raw_type>(size) };
+}
+
+
+[[nodiscard]] inline data_t new_data_container(std::size_t bytes_len, CDF_Types _type)
+{
+    if (_type == CDF_Types::CDF_NONE)
+        return {};
+    return cdf_type_dispatch(_type,
+        [&]<CDF_Types t>()
+        { return data_t { new_cdf_values_container<t>(bytes_len), t }; });
+}
+
+
+inline const char* data_t::bytes_ptr() const
+{
+    return std::visit(
+        [](const auto& v) -> const char*
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return nullptr;
+            else
+                return reinterpret_cast<const char*>(v.data());
+        },
+        p_values);
+}
+
+inline char* data_t::bytes_ptr()
+{
+    return std::visit(
+        [](auto& v) -> char*
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return nullptr;
+            else
+                return reinterpret_cast<char*>(v.data());
+        },
+        p_values);
+}
+
+inline std::size_t data_t::size() const noexcept
+{
+    return std::visit(
+        [](const auto& v) -> std::size_t
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return 0;
+            else
+                return std::size(v);
+        },
+        p_values);
+}
+
+inline std::size_t data_t::bytes() const noexcept
+{
+    return std::visit(
+        [](const auto& v) -> std::size_t
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return 0;
+            else
+                return std::size(v) * sizeof(typename std::decay_t<decltype(v)>::value_type);
+        },
+        p_values);
+}
+
+[[nodiscard]] constexpr bool is_string(const CDF_Types type)
+{
+    return type == CDF_Types::CDF_CHAR or type == CDF_Types::CDF_UCHAR;
+}
+
+}

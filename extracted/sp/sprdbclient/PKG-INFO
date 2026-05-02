@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: sprdbclient
+Version: 0.13
+Summary: 用于连接sprdb数据库。
+Home-page: https://github.com/asxez/SprDB
+Author: ASXE
+Author-email: 2973918177@qq.com
+License: GPLv3
+License-File: LICENSE

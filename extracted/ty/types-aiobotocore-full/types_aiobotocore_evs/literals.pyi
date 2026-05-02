@@ -24,13 +24,19 @@ else:
 __all__ = (
     "CheckResultType",
     "CheckTypeType",
+    "ConnectorStateType",
+    "ConnectorTypeType",
     "EVSServiceName",
+    "EntitlementStatusType",
+    "EntitlementTypeType",
     "EnvironmentStateType",
     "HostStateType",
     "InstanceTypeType",
+    "ListEnvironmentConnectorsPaginatorName",
     "ListEnvironmentHostsPaginatorName",
     "ListEnvironmentVlansPaginatorName",
     "ListEnvironmentsPaginatorName",
+    "ListVmEntitlementsPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
@@ -39,15 +45,33 @@ __all__ = (
 )
 
 CheckResultType = Literal["FAILED", "PASSED", "UNKNOWN"]
-CheckTypeType = Literal["HOST_COUNT", "KEY_COVERAGE", "KEY_REUSE", "REACHABILITY"]
+CheckTypeType = Literal[
+    "HOST_COUNT",
+    "KEY_COVERAGE",
+    "KEY_REUSE",
+    "REACHABILITY",
+    "VCENTER_REACHABILITY",
+    "VCENTER_VM_EVENT",
+    "VCENTER_VM_SYNC",
+]
+ConnectorStateType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
+ConnectorTypeType = Literal["VCENTER"]
+EntitlementStatusType = Literal[
+    "AT_RISK", "CREATED", "CREATE_FAILED", "CREATING", "DELETED", "ENTITLEMENT_REMOVED"
+]
+EntitlementTypeType = Literal["WINDOWS_SERVER"]
 EnvironmentStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
 HostStateType = Literal[
     "CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-InstanceTypeType = Literal["i4i.metal"]
+InstanceTypeType = Literal["i4i.metal", "i7i.metal-24xl"]
+ListEnvironmentConnectorsPaginatorName = Literal["list_environment_connectors"]
 ListEnvironmentHostsPaginatorName = Literal["list_environment_hosts"]
 ListEnvironmentVlansPaginatorName = Literal["list_environment_vlans"]
 ListEnvironmentsPaginatorName = Literal["list_environments"]
+ListVmEntitlementsPaginatorName = Literal["list_vm_entitlements"]
 VcfVersionType = Literal["VCF-5.2.1", "VCF-5.2.2"]
 VlanStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
 EVSServiceName = Literal["evs"]
@@ -479,4 +503,10 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_environment_hosts", "list_environment_vlans", "list_environments"]
+PaginatorName = Literal[
+    "list_environment_connectors",
+    "list_environment_hosts",
+    "list_environment_vlans",
+    "list_environments",
+    "list_vm_entitlements",
+]

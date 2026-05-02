@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nowfy"
+version = "1.4.66"
+description = "Nowfy unified plugin package with integrated runtime core and services"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "AGeekApple" }
+]
+dependencies = [
+  "requests>=2.31.0",
+  "ytmusicapi>=1.8.0",
+  "yt-dlp>=2025.1.0",
+  "musicbrainzngs"
+]
+
+[tool.setuptools]
+py-modules = ["nowfycore"]
+
+[tool.setuptools.package-data]
+nowfy = ["assets/png/*.png", "assets/png/*.gif", "assets/png_manifest.json", "assets/icons/*.png", "assets/icons/*.json", "nowfycore_translations.pack.json"]
+
+[tool.setuptools.packages.find]
+include = ["nowfy*"]
+exclude = ["dist*", "scripts*", "__pycache__*"]
+
+
+
+
+
+

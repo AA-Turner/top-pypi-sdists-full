@@ -1,0 +1,143 @@
+Metadata-Version: 2.1
+Name: cwe2
+Version: 3.0.0
+Summary: cwe2 is a CWE common weakness enumeration library for Python
+Home-page: https://github.com/nexB/cwe2
+Author: Ziad Hany, nexB. Inc. and others. Originally based on Julian Nash cwe.
+Author-email: info@aboutcode.org
+License: MIT and LicenseRef-scancode-cwe-tou
+Keywords: utilities,CWE,weakness,CVE,vulnerabilities
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+License-File: mit.LICENSE
+License-File: cwe-tou.LICENSE
+License-File: CHANGELOG.rst
+Requires-Dist: importlib_resources>=5.10.2
+Provides-Extra: testing
+Requires-Dist: pytest!=7.0.0,>=6; extra == "testing"
+Requires-Dist: pytest-xdist>=2; extra == "testing"
+Requires-Dist: aboutcode-toolkit>=6.0.0; extra == "testing"
+Requires-Dist: pycodestyle>=2.8.0; extra == "testing"
+Requires-Dist: black>=22.3.0; extra == "testing"
+Requires-Dist: isort>=5.10.1; extra == "testing"
+Requires-Dist: doc8>=0.11.1; extra == "testing"
+Provides-Extra: docs
+Requires-Dist: Sphinx>=5.0.2; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "docs"
+Requires-Dist: sphinx-reredirects>=0.1.2; extra == "docs"
+Requires-Dist: doc8>=0.11.2; extra == "docs"
+
+=====================================================================
+cwe2: CWE / Common weakness enumeration library for Python
+=====================================================================
+
+cwe2 is a library to handle CWE in Python. CWE are weakness categories for
+vulnerabilities.
+
+Homepage and support: https://github.com/nexB/cwe2
+
+See https://cwe.mitre.org/index.html for details on CWE.
+This is a maintainer fork of https://github.com/Julian-Nash/cwe
+
+It contains a vendored copy of the CWE data.
+
+Copyright (c) Julian-Nash, Ziad Hany, nexB. Inc. and others. 
+SPDX-License-Identifier: MIT and LicenseRef-scancode-cwe-tou
+
+The CWE data has this notice:
+
+    Use of the Common Weakness Enumeration (CWE) and the associated references from
+    this website are subject to the Terms of Use. CWE is sponsored by the U.S.
+    Department of Homeland Security (DHS) Cybersecurity and Infrastructure Security
+    Agency (CISA) and managed by the Homeland Security Systems Engineering and
+    Development Institute (HSSEDI) which is operated by The MITRE Corporation (MITRE).
+    Copyright © 2006–2022, The MITRE Corporation. CWE, CWSS, CWRAF, and the CWE logo
+    are trademarks of The MITRE Corporation.
+    See cwe-tou.LICENSE for details
+
+Installation
+-----------------
+
+Install with pip::
+
+    pip install cwe2
+
+Usage
+-----------
+
+- Get a CWE by ID::
+
+    >>> from cwe2.database import Database
+    >>> db = Database()
+    >>> db.get(15)
+    Weakness(cwe_id=15, name='External Control of System or Configuration Setting', weakness_abstraction='Base', status='Incomplete', description='One or more system settings or configuration elements can be externally controlled by a user.', extended_description='Allowing external control of system settings can disrupt service or cause an application to behave in unexpected, and potentially malicious ways.', related_weaknesses='::NATURE:ChildOf:CWE ID:642:VIEW ID:1000:ORDINAL:Primary::NATURE:ChildOf:CWE ID:610:VIEW ID:1000::NATURE:ChildOf:CWE ID:20:VIEW ID:700:ORDINAL:Primary::', weakness_ordinalities=nan, applicable_platforms=nan, background_details=nan, alternate_terms=nan, modes_of_introduction='::PHASE:Implementation:NOTE:Setting manipulation vulnerabilities occur when an attacker can control values that govern the behavior of the system, manage specific resources, or in some way affect the functionality of the application.::PHASE:Implementation:NOTE:REALIZATION: This weakness is caused during implementation of an architectural security tactic.::', exploitation_factors=nan, likelihood_of_exploit=nan, common_consequences='::SCOPE:Other:IMPACT:Varies by Context::', detection_methods=nan, potential_mitigations='::PHASE:Architecture and Design:STRATEGY:Separation of Privilege:DESCRIPTION:Compartmentalize the system to have safe areas where trust boundaries can be unambiguously drawn. Do not allow sensitive data to go outside of the trust boundary and always be careful when interfacing with a compartment outside of the safe area. Ensure that appropriate compartmentalization is built into the system design, and the compartmentalization allows for and reinforces privilege separation functionality. Architects and designers should rely on the principle of least privilege to decide the appropriate time to use privileges and the time to drop privileges.::PHASE:Implementation Architecture and Design:DESCRIPTION:Because setting manipulation covers a diverse set of functions, any attempt at illustrating it will inevitably be incomplete. Rather than searching for a tight-knit relationship between the functions addressed in the setting manipulation category, take a step back and consider the sorts of system values that an attacker should not be allowed to control.::PHASE:Implementation Architecture and Design:DESCRIPTION:In general, do not allow user-provided or otherwise untrusted data to control sensitive values. The leverage that an attacker gains by controlling these values is not always immediately obvious, but do not underestimate the creativity of the attacker.::', observed_examples=nan, functional_areas=nan, affected_resources=nan, taxonomy_mappings='::TAXONOMY NAME:7 Pernicious Kingdoms:ENTRY NAME:Setting Manipulation::TAXONOMY NAME:Software Fault Patterns:ENTRY ID:SFP25:ENTRY NAME:Tainted input to variable::', related_attack_patterns='::13::146::176::203::270::271::69::76::77::', notes=nan)
+
+- Access attributes of the Weakness using dot notation::
+
+    >>> weakness = db.get("15")
+    >>> weakness.description
+    'One or more system settings or configuration elements can be externally controlled by a user.'
+
+- Or use the weakness `get` method::
+
+    >>> weakness.get("status")
+    'Incomplete'
+
+- Get a dictionary of the weakness (Truncated for this example)::
+
+    >>> weakness.__dict__
+    {'cwe_id': 15, 'name': 'External Control of System or Configuration Setting', 'weakness_abstraction': 'Base', 'status': 'Incomplete', 'description': 'One or more system settings or configuration elements can be externally controlled by a user.', 'extended_description': 'Allowing external control of system settings can disrupt service or cause an application to behave in unexpected, and potentially malicious ways.', 'related_weaknesses': '::NATURE:ChildOf:CWE ID:642:VIEW ID:1000:ORDINAL:Primary::NATURE:ChildOf:CWE ID:610:VIEW ID:1000::NATURE:ChildOf:CWE ID:20:VIEW ID:700:ORDINAL:Primary::', 'weakness_ordinalities': nan, 'applicable_platforms': nan, 'background_details': nan, 'alternate_terms': nan, 'modes_of_introduction': '::PHASE:Implementation:NOTE:Setting manipulation vulnerabilities occur when an attacker can control values that govern the behavior of the system, manage specific resources, or in some way affect the functionality of the application.::PHASE:Implementation:NOTE:REALIZATION: This weakness is caused during implementation of an architectural security tactic.::', 'exploitation_factors': nan, 'likelihood_of_exploit': nan, 'common_consequences': '::SCOPE:Other:IMPACT:Varies by Context::', 'detection_methods': nan, 'potential_mitigations': '::PHASE:Architecture and Design:STRATEGY:Separation of Privilege:DESCRIPTION:Compartmentalize the system to have safe areas where trust boundaries can be unambiguously drawn. Do not allow sensitive data to go outside of the trust boundary and always be careful when interfacing with a compartment outside of the safe area. Ensure that appropriate compartmentalization is built into the system design, and the compartmentalization allows for and reinforces privilege separation functionality. Architects and designers should rely on the principle of least privilege to decide the appropriate time to use privileges and the time to drop privileges.::PHASE:Implementation Architecture and Design:DESCRIPTION:Because setting manipulation covers a diverse set of functions, any attempt at illustrating it will inevitably be incomplete. Rather than searching for a tight-knit relationship between the functions addressed in the setting manipulation category, take a step back and consider the sorts of system values that an attacker should not be allowed to control.::PHASE:Implementation Architecture and Design:DESCRIPTION:In general, do not allow user-provided or otherwise untrusted data to control sensitive values. The leverage that an attacker gains by controlling these values is not always immediately obvious, but do not underestimate the creativity of the attacker.::', 'observed_examples': nan, 'functional_areas': nan, 'affected_resources': nan, 'taxonomy_mappings': '::TAXONOMY NAME:7 Pernicious Kingdoms:ENTRY NAME:Setting Manipulation::TAXONOMY NAME:Software Fault Patterns:ENTRY ID:SFP25:ENTRY NAME:Tainted input to variable::', 'related_attack_patterns': '::13::146::176::203::270::271::69::76::77::', 'notes': nan}
+
+
+Extra functions:
+
+- Get the top 25 weaknesses `db.get_top_25_cwe()`
+- Get the top ten OWASP 2021 weaknesses `db.get_owasp_top_ten_2021()`
+- Get the weaknesses used by nvd `db.get_weaknesses_used_by_nvd()`
+- Is in a CWE Top 25 (2022) `db.is_cwe_top_25(20)`
+- Is weaknesses used by nvd `db.is_weaknesses_used_by_nvd(352)`
+- Is in a OWASP Top Ten (2021) `db.is_owasp_top_ten_2021(11)`
+
+
+Weakness attributes
+---------------------------------
+
+The following weakness object attributes can accessed:
+
+- `cwe_id`
+- `name`
+- `weakness_abstraction`
+- `status`
+- `description`
+- `extended_description`
+- `related_weaknesses`
+- `weakness_ordinalities`
+- `applicable_platforms`
+- `background_details`
+- `alternate_terms`
+- `modes_of_introduction`
+- `exploitation_factors`
+- `likelihood_of_exploit`
+- `common_consequences`
+- `detection_methods`
+- `potential_mitigations`
+- `observed_examples`
+- `functional_areas`
+- `affected_resources`
+- `taxonomy_mappings`
+- `related_attack_patterns`
+- `notes`
+
+Tests
+----------------------
+
+Run the tests with::
+
+    make test
+

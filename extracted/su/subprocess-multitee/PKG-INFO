@@ -1,0 +1,137 @@
+Metadata-Version: 2.4
+Name: subprocess-multitee
+Version: 0.2.1
+Summary: A small `tee` function for splitting stdout/stderr in subprocess, and a `subprocess.Popen` convenience wrapper
+Project-URL: Homepage, https://github.com/JasonGross/subprocess-multitee
+Project-URL: Bug Tracker, https://github.com/JasonGross/subprocess-multitee/issues
+Author-email: Jason Gross <jgross@mit.edu>
+License-File: LICENSE
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+# subprocess-multitee
+
+Multiplex subprocess stdout/stderr to multiple destinations simultaneously.
+
+```python
+from subprocess_multitee import Popen, tee, PIPE
+import sys
+
+# Capture output AND print to terminal in real-time
+proc = Popen(['make'], stdout=tee(PIPE, sys.stdout))
+output = proc.stdout.read()
+proc.wait()
+```
+
+## Installation
+
+```bash
+pip install subprocess-multitee
+```
+
+## Why?
+
+Standard `subprocess` forces a choice: either capture output (`stdout=PIPE`) or display it (`stdout=sys.stdout`). This library lets you do both—plus log to files, discard with `DEVNULL`, or any combination.
+
+The `tee()` function creates a pipe that spawns a background thread reading one byte at a time and writing to all destinations, ensuring real-time output even for line-buffered programs.
+
+## Usage
+
+### Basic: Capture + Display
+
+```python
+from subprocess_multitee import Popen, tee, PIPE
+import sys
+
+proc = Popen(['python', 'train.py'], stdout=tee(PIPE, sys.stdout))
+output = proc.stdout.read()  # Full output captured
+proc.wait()                   # Terminal saw it in real-time
+```
+
+### Log to File + Display + Capture
+
+```python
+with open('build.log', 'wb') as log:
+    proc = Popen(['make', '-j4'],
+                 stdout=tee(PIPE, sys.stdout, log),
+                 stderr=tee(PIPE, sys.stderr, log))
+    stdout, stderr = proc.communicate()
+```
+
+### With `run()` Helper
+
+```python
+from subprocess_multitee import run, tee, PIPE
+import sys
+
+result = run(['pytest', '-v'], stdout=tee(PIPE, sys.stdout), check=True)
+print(f"Captured {len(result.stdout)} bytes")
+```
+
+### Discard + Capture (silent but recorded)
+
+```python
+from subprocess_multitee import Popen, tee, PIPE, DEVNULL
+
+proc = Popen(['noisy-command'], stdout=tee(DEVNULL, PIPE))
+output = proc.stdout.read()  # Captured, but nothing printed
+```
+
+### With stdlib Popen (manual cleanup)
+
+```python
+import subprocess
+from subprocess_multitee import tee, PIPE
+
+t = tee(PIPE, open('log.txt', 'wb'))
+proc = subprocess.Popen(['cmd'], stdout=t)
+proc.wait()
+t.close()  # Required with stdlib Popen
+output = t.pipes[0].read()
+```
+
+## API
+
+### `tee(*destinations) -> _Tee`
+
+Creates a tee object for use as `stdout` or `stderr` in `Popen`.
+
+**Destinations** can be any combination of:
+- `PIPE` — creates a readable pipe (accessible via `.pipes` list or `Popen.stdout`)
+- `DEVNULL` — discard output (no-op, skipped efficiently)
+- File objects — anything with `.write()` (binary mode recommended)
+- File descriptors — raw `int` fds
+- Text-mode files — automatically uses `.buffer` if available
+
+**Not supported:** `STDOUT` (use `stderr=tee(...)` separately)
+
+### `Popen`
+
+Drop-in subclass of `subprocess.Popen` with tee integration:
+- Automatically closes parent's write fd after fork
+- Exposes first `PIPE` destination as `.stdout`/`.stderr`
+- Joins tee threads on context manager exit
+
+### `run()`, `call()`, `check_call()`, `check_output()`
+
+Drop-in replacements using the enhanced `Popen`.
+
+## How It Works
+
+1. `tee()` creates an `os.pipe()`
+2. Returns a object with `fileno()` pointing to the write end
+3. Spawns a daemon thread that reads 1 byte at a time and writes to all destinations
+4. `Popen` passes the fd to the subprocess, then closes the parent's copy
+5. When subprocess exits, the pipe closes, thread sees EOF and exits
+
+## Alternatives
+
+- **[subprocess-tee](https://pypi.org/project/subprocess-tee/)** — Drop-in replacement for `subprocess.run` that prints output in real-time while capturing. Simple API (`tee=False` to disable), but implies `universal_newlines=True` (text mode only) and doesn't support multiple arbitrary destinations.
+
+- **[tee-subprocess](https://pypi.org/project/tee-subprocess/)** — Also replaces `subprocess.run` with tee support, but adds async/await support via `asyncio`. Automatically detects async context. Supports redirecting tee output to file objects. Better static typing. More complex internals.
+
+**subprocess-multitee** takes a different approach: a composable `tee(*destinations)` primitive that works with any number of destinations (multiple files, PIPE, DEVNULL, etc.) and a minimal `Popen` subclass. This gives more flexibility at the cost of slightly more verbose usage.
+
+## License
+
+MIT

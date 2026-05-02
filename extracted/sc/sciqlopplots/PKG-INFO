@@ -1,0 +1,261 @@
+Metadata-Version: 2.1
+Name: SciQLopPlots
+Version: 0.22.0
+Summary: SciQLop plot API based on QCustomPlot
+Author-Email: Alexis Jeandet <alexis.jeandet@member.fsf.org>
+License: GNU GENERAL PUBLIC LICENSE
+                               Version 3, 29 June 2007
+         
+             An easy to use ISTP loader package.
+             Copyright (C) 2022  Alexis Jeandet
+         
+             This program is free software: you can redistribute it and/or modify
+             it under the terms of the GNU General Public License as published by
+             the Free Software Foundation, either version 3 of the License, or
+             (at your option) any later version.
+         
+             This program is distributed in the hope that it will be useful,
+             but WITHOUT ANY WARRANTY; without even the implied warranty of
+             MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+             GNU General Public License for more details.
+         
+             You should have received a copy of the GNU General Public License
+             along with this program.  If not, see <http://www.gnu.org/licenses/>.
+         
+         Also add information on how to contact you by electronic and paper mail.
+         
+           You should also get your employer (if you work as a programmer) or school,
+         if any, to sign a "copyright disclaimer" for the program, if necessary.
+         For more information on this, and how to apply and follow the GNU GPL, see
+         <http://www.gnu.org/licenses/>.
+         
+           The GNU General Public License does not permit incorporating your program
+         into proprietary programs.  If your program is a subroutine library, you
+         may consider it more useful to permit linking proprietary applications with
+         the library.  If this is what you want to do, use the GNU Lesser General
+         Public License instead of this License.  But first, please read
+         <http://www.gnu.org/philosophy/why-not-lgpl.html>.
+         
+         
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Project-URL: homepage, https://github.com/SciQLop/SciQLopPlots
+Requires-Python: <3.15,>=3.10
+Requires-Dist: numpy
+Requires-Dist: pyside6==6.10.2
+Requires-Dist: shiboken6==6.10.2
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-qt; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: hypothesis; extra == "test"
+Requires-Dist: python-dateutil; extra == "test"
+Requires-Dist: numpy; extra == "test"
+Description-Content-Type: text/markdown
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![C++20](https://img.shields.io/badge/Language-C++20-blue.svg)]()
+[![PyPi](https://img.shields.io/pypi/v/sciqlopplots.svg)](https://pypi.python.org/pypi/sciqlopplots)
+[![Coverage](https://codecov.io/gh/SciQLop/SciQLopPlots/coverage.svg?branch=main)](https://codecov.io/gh/SciQLop/SciQLopPlots/branch/main)
+
+# SciQLopPlots
+
+A high-performance scientific plotting library built on C++20/Qt6 with Python bindings via Shiboken6 (PySide6). Designed for the [SciQLop](https://github.com/SciQLop/SciQLop) data analysis platform but usable standalone.
+
+## Features
+
+- **Async resampling** — render millions of points smoothly; data is downsampled in background threads via [NeoQCP](https://github.com/SciQLop/NeoQCP) pipelines
+- **Multiple plot types** — time series (line graphs), spectrograms (color maps), 2D histograms, parametric curves, N-D projection curves
+- **Interactive** — pan, zoom, data-driven callbacks, vertical/horizontal/rectangular spans, tracers, straight lines, text, shapes, pixmaps
+- **Multi-plot panels** — synchronized axes, aligned margins, drag-and-drop from product trees
+- **Reactive pipelines** — connect plot properties with `>>` to build live data flows
+- **Export** — PDF (vector), PNG, JPG, BMP for both individual plots and panels
+- **Busy indicator** — visual feedback when data is loading or being processed
+- **Runtime inspector** — tree model/view for inspecting and editing plot properties
+- **Cross-platform** — Linux, macOS, Windows
+
+## Architecture
+
+```mermaid
+graph TD
+    subgraph Python["Python Layer"]
+        PY[SciQLopPlots package]
+        SB[Shiboken6 bindings]
+    end
+
+    subgraph Plots["Plot Hierarchy"]
+        PI[SciQLopPlotInterface<br/><i>QFrame</i>]
+        SP[SciQLopPlot]
+        TSP[SciQLopTimeSeriesPlot]
+        NDP[SciQLopNDProjectionPlot]
+    end
+
+    subgraph Plotables["Plotables"]
+        PTI[SciQLopPlottableInterface<br/><i>QObject</i>]
+        GI[SciQLopGraphInterface]
+        CMI[SciQLopColorMapInterface]
+        LG[SciQLopLineGraph]
+        SLG[SciQLopSingleLineGraph]
+        CRV[SciQLopCurve]
+        CMB[SciQLopColorMapBase]
+        CM[SciQLopColorMap]
+        H2D[SciQLopHistogram2D]
+    end
+
+    subgraph Items["Overlay Items"]
+        VS[VerticalSpan]
+        HS[HorizontalSpan]
+        RS[RectangularSpan]
+        TR[Tracer]
+        SL[StraightLine]
+    end
+
+    subgraph MultiPlot["Multi-Plot"]
+        PPI[SciQLopPlotPanelInterface]
+        MPP[SciQLopMultiPlotPanel]
+        AX[AxisSynchronizer]
+        VA[VPlotsAlign]
+    end
+
+    PY --> SB --> PI
+
+    PI --> SP
+    PI --> NDP
+    SP --> TSP
+
+    PTI --> GI
+    PTI --> CMI
+    GI --> LG
+    GI --> SLG
+    GI --> CRV
+    CMI --> CMB
+    CMB --> CM
+    CMB --> H2D
+
+    PPI --> MPP
+    MPP --> AX
+    MPP --> VA
+
+    SP -.->|contains| PTI
+    SP -.->|contains| Items
+    MPP -.->|contains| SP
+```
+
+### Data flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Plot as SciQLopPlot
+    participant Resampler as Resampler<br/>(worker thread)
+    participant NeoQCP as NeoQCP
+
+    User->>Plot: pan / zoom
+    Plot->>Resampler: new visible range
+    Resampler->>Resampler: downsample data
+    Resampler->>NeoQCP: resampled points
+    NeoQCP->>Plot: render
+```
+
+For callback-driven data, the plot invokes a Python callable with `(start, stop)` on range change, and the returned arrays flow through the same resampling pipeline.
+
+## Quick start
+
+```bash
+pip install SciQLopPlots
+```
+
+```python
+import numpy as np
+from PySide6.QtWidgets import QApplication
+from SciQLopPlots import SciQLopPlot
+
+app = QApplication([])
+plot = SciQLopPlot()
+
+# Static data
+x = np.arange(0, 1000, dtype=np.float64)
+y = np.sin(x / 100) * np.cos(x / 10)
+plot.plot(x, y, labels=["signal"])
+
+# Data callback (called on pan/zoom with visible range)
+def get_data(start, stop):
+    x = np.arange(start, stop, dtype=np.float64)
+    y = np.column_stack([np.sin(x / 100), np.cos(x / 100)])
+    return x, y
+
+plot.plot(get_data, labels=["sin", "cos"])
+
+plot.show()
+app.exec()
+```
+
+### Reactive pipelines
+
+Connect plot properties with the `>>` operator to build live data pipelines:
+
+```python
+from SciQLopPlots import SciQLopPlot
+
+plot = SciQLopPlot()
+graph = plot.plot(lambda start, stop: ..., labels=["signal"])
+
+# Axis range changes automatically feed a transform, which pushes data to the graph
+plot.x_axis.on.range >> get_data >> graph.on.data
+
+# Direct property forwarding (no transform)
+span.on.range >> plot.x_axis.on.range
+
+# Chain multiple steps
+source.on.range >> transform >> target.on.data
+```
+
+Run the gallery for a full feature showcase:
+
+```bash
+python tests/manual-tests/gallery.py
+```
+
+## Building from source
+
+Requires Qt6, PySide6 == 6.10.2, a C++20 compiler, and Meson.
+
+```bash
+# Development build
+meson setup build --buildtype=debug
+meson compile -C build
+
+# Install as editable Python package
+pip install -e . --no-build-isolation
+```
+
+### Build options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `trace_refcount` | bool | false | Enable reference count tracing |
+| `tracy_enable` | bool | false | Enable Tracy profiling |
+| `with_opengl` | bool | true | Enable OpenGL support |
+
+## Contributing
+
+Fork the repository, make your changes and submit a pull request.
+Bug reports and feature requests are welcome.
+
+## Credits
+
+Development is supported by [CDPP](http://www.cdpp.eu/).
+We acknowledge support from [Plas@Par](https://www.plasapar.sorbonne-universite.fr).
+
+## Thanks
+
+- [PySide6](https://doc.qt.io/qtforpython-6/index.html) — Qt bindings and Shiboken6 binding generator
+- [NeoQCP](https://github.com/SciQLop/NeoQCP) — fork of [QCustomPlot](https://www.qcustomplot.com/) with async pipelines, multi-dtype support, and QRhi rendering

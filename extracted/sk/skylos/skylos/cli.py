@@ -5,7 +5,8 @@ import sys
 import re
 import logging
 import os
-import secrets
+import secrets as secrets_lib
+import shutil
 import tempfile
 from types import SimpleNamespace
 from skylos.constants import (
@@ -2328,7 +2329,7 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Strict gate: fail if ANY issue is found",
+        help="Fail if ANY issue is found; with --gate, use strict gate rules",
     )
     parser.add_argument(
         "--tui",
@@ -2362,6 +2363,13 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
         action="store_true",
         help="Output LLM-optimized report (structured findings with code context for AI agents to fix)",
     )
+    parser.add_argument(
+        "--format",
+        choices=("rich", "json", "llm", "github", "concise"),
+        default="rich",
+        help="Output format. Use 'concise' for IDE-friendly file:line findings only.",
+    )
+    parser.set_defaults(concise=False)
     parser.add_argument(
         "--comment-out",
         action="store_true",
@@ -2540,6 +2548,34 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
     return parser
 
 
+def _apply_main_output_format(parser, args):
+    output_format = getattr(args, "format", "rich")
+    flag_by_format = {
+        "json": "json",
+        "llm": "llm",
+        "github": "github",
+    }
+    selected_flags = [
+        name for name in ("json", "llm", "github") if bool(getattr(args, name, False))
+    ]
+
+    if output_format != "rich":
+        matching_flag = flag_by_format.get(output_format)
+        conflicts = [name for name in selected_flags if name != matching_flag]
+        if conflicts:
+            parser.error(
+                f"--format {output_format} cannot be combined with "
+                + ", ".join(f"--{name}" for name in conflicts)
+            )
+
+        if output_format in flag_by_format:
+            setattr(args, flag_by_format[output_format], True)
+        elif output_format == "concise":
+            args.concise = True
+
+    return args
+
+
 def _parse_main_cli_args(parser, argv):
     effective_argv = list(argv)
     addopts = _load_addopts()
@@ -2557,11 +2593,11 @@ def _parse_main_cli_args(parser, argv):
     if cmd_argv:
         args, extra = parser.parse_known_args(main_argv)
         args.command = cmd_argv + (extra or [])
-        return args
+        return _apply_main_output_format(parser, args)
 
     args = parser.parse_args(main_argv)
     args.command = []
-    return args
+    return _apply_main_output_format(parser, args)
 
 
 def _resolve_main_project_root(paths):
@@ -2615,7 +2651,109 @@ def _build_main_scan_context(args):
         logger=logger,
         console=console,
         final_exclude_folders=final_exclude_folders,
+        config=project_cfg,
     )
+
+
+def _formatted_output_gate_exit_code(
+    result: dict,
+    config: dict,
+    args,
+    *,
+    provenance=None,
+) -> int:
+    """Evaluate --gate for output modes that must not print gate UI."""
+    from skylos.gatekeeper import build_summary_markdown, check_gate, write_github_summary
+
+    config = config or {}
+    gate_cfg = config.get("gate") or {}
+    strict = bool(getattr(args, "strict", False) or gate_cfg.get("strict", False))
+    passed, reasons = check_gate(result, config, strict=strict, provenance=provenance)
+
+    if bool(getattr(args, "summary", False)):
+        write_github_summary(build_summary_markdown(result, passed, reasons))
+
+    if passed or bool(getattr(args, "force", False)):
+        return 0
+    return 1
+
+
+def _concise_scan_exit_code(result: dict, config: dict, args, *, provenance=None) -> int:
+    if bool(getattr(args, "gate", False)):
+        return _formatted_output_gate_exit_code(
+            result,
+            config,
+            args,
+            provenance=provenance,
+        )
+
+    if not bool(getattr(args, "force", False)):
+        from skylos.gatekeeper import check_gate
+
+        passed, _reasons = check_gate(result, {}, strict=True)
+        return 0 if passed else 1
+
+    return 0
+
+
+def _concise_line(item: dict, label: str, root_path=None) -> str:
+    file_path = item.get("file") or item.get("file_path") or "?"
+    line = item.get("line") or item.get("line_number") or 1
+    try:
+        line = max(1, int(line))
+    except (TypeError, ValueError):
+        line = 1
+    return f"{_shorten_path(file_path, root_path)}:{line}  {label}"
+
+
+def _format_concise_results(result: dict, *, root_path=None, limit=None) -> str:
+    lines: list[str] = []
+    categories = (
+        ("unused_functions", "unused function"),
+        ("unused_imports", "unused import"),
+        ("unused_classes", "unused class"),
+        ("unused_variables", "unused variable"),
+        ("unused_parameters", "unused parameter"),
+        ("unused_files", "unused file"),
+        ("unused_fixtures", "unused fixture"),
+        ("danger", "security issue"),
+        ("quality", "quality issue"),
+        ("secrets", "secret"),
+        ("custom_rules", "custom rule"),
+        ("dependency_vulnerabilities", "dependency vulnerability"),
+    )
+
+    for category, fallback_label in categories:
+        items = list(result.get(category, []) or [])
+        if limit is not None:
+            items = items[:limit]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            label = (
+                item.get("message")
+                or item.get("msg")
+                or item.get("detail")
+                or fallback_label
+            )
+            lines.append(_concise_line(item, str(label), root_path=root_path))
+
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n"
+
+
+def _strict_scan_exit_code(result: dict, args) -> int:
+    """Evaluate --strict when it is used without --gate."""
+    if not bool(getattr(args, "strict", False)):
+        return 0
+    if bool(getattr(args, "gate", False)) or bool(getattr(args, "force", False)):
+        return 0
+
+    from skylos.gatekeeper import check_gate
+
+    passed, _reasons = check_gate(result, {}, strict=True)
+    return 0 if passed else 1
 
 
 def _apply_config_driven_analysis_flags(args, project_cfg, console):
@@ -2636,7 +2774,11 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
             args.quality = True
             enabled_from_policy.append("quality")
 
-        if enabled_from_policy and not getattr(args, "json", False):
+        if (
+            enabled_from_policy
+            and not getattr(args, "json", False)
+            and not getattr(args, "concise", False)
+        ):
             console.print(
                 "[brand]Using synced/local Skylos policy:[/brand] enabling "
                 + ", ".join(enabled_from_policy)
@@ -2648,7 +2790,7 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
     # always run danger analysis so the contracts cannot be silently skipped.
     if not getattr(args, "danger", False) and security_contracts_configured:
         args.danger = True
-        if not getattr(args, "json", False):
+        if not getattr(args, "json", False) and not getattr(args, "concise", False):
             console.print(
                 "[brand]Security contracts configured:[/brand] enabling danger analysis automatically."
             )
@@ -2659,7 +2801,7 @@ def _print_main_scan_banner(args, console, final_exclude_folders):
         _print_default_excludes(console)
         return True
 
-    if args.json:
+    if args.json or getattr(args, "concise", False):
         return False
 
     banner = (
@@ -2688,9 +2830,10 @@ def _print_main_scan_banner(args, console, final_exclude_folders):
 
 def _run_pre_analysis_steps(args, project_root, console):
     pytest_fixtures_ok = None
+    quiet_output = bool(args.json or getattr(args, "concise", False))
 
     if args.coverage:
-        if not args.json:
+        if not quiet_output:
             console.print("[brand]Running tests with coverage...[/brand]")
 
         cmd = ["coverage", "run", "-m", "pytest", "-q"]
@@ -2710,7 +2853,7 @@ def _run_pre_analysis_steps(args, project_root, console):
         )
 
         if pytest_result.returncode != 0:
-            if not args.json:
+            if not quiet_output:
                 console.print("[warn]pytest failed, trying unittest...[/warn]")
             subprocess.run(
                 ["coverage", "run", "-m", "unittest", "discover"],
@@ -2718,11 +2861,11 @@ def _run_pre_analysis_steps(args, project_root, console):
                 capture_output=True,
             )
 
-        if not args.json:
+        if not quiet_output:
             console.print("[good]Coverage data collected[/good]")
 
     if args.trace:
-        if not args.json:
+        if not quiet_output:
             console.print("[brand]Running tests with call tracing...[/brand]")
 
         trace_script = textwrap.dedent(f"""\
@@ -2762,7 +2905,7 @@ sys.exit(ret)
 
         trace_file = project_root / ".skylos_trace"
 
-        if trace_result.returncode != 0 and not args.json:
+        if trace_result.returncode != 0 and not quiet_output:
             if trace_file.exists() and trace_file.stat().st_size > 0:
                 console.print(
                     "[warn]Tests had failures, but trace data was collected.[/warn]"
@@ -2773,11 +2916,11 @@ sys.exit(ret)
                 )
                 if trace_result.stderr:
                     console.print(trace_result.stderr)
-        elif not args.json:
+        elif not quiet_output:
             console.print("[good]Trace data collected[/good]")
 
     if args.pytest_fixtures and (not args.coverage) and (not args.trace):
-        if not args.json:
+        if not quiet_output:
             console.print(
                 "[brand]Running tests to detect unused pytest fixtures...[/brand]"
             )
@@ -2803,7 +2946,7 @@ sys.exit(ret)
 
         pytest_fixtures_ok = fixture_result.returncode == 0
 
-        if not args.json:
+        if not quiet_output:
             if pytest_fixtures_ok:
                 console.print("[good]Unused fixture report collected[/good]")
             else:
@@ -2812,7 +2955,7 @@ sys.exit(ret)
                 )
 
     custom_rules_data = None
-    if not args.json:
+    if not quiet_output:
         try:
             from skylos.sync import get_custom_rules, get_token
 
@@ -2841,18 +2984,18 @@ sys.exit(ret)
                 changed_files = set()
                 for line in diff_result.stdout.strip().splitlines():
                     changed_files.add(str((project_root / line).resolve()))
-                if not args.json:
+                if not quiet_output:
                     console.print(
                         f"[brand]--diff-base:[/brand] {len(changed_files)} changed files "
                         f"(full scan on changed, defs/refs-only on rest)"
                     )
-            elif not args.json:
+            elif not quiet_output:
                 console.print(
                     f"[warn]git diff failed: {diff_result.stderr.strip()}. "
                     f"Running full analysis.[/warn]"
                 )
         except FileNotFoundError:
-            if not args.json:
+            if not quiet_output:
                 console.print("[warn]git not found. Running full analysis.[/warn]")
 
     return SimpleNamespace(
@@ -3792,7 +3935,7 @@ def main() -> None:
             if cmd == "serve":
                 from skylos.agent_service import create_agent_service
 
-                token = agent_args.token or secrets.token_urlsafe(24)
+                token = agent_args.token or secrets_lib.token_urlsafe(24)
                 server = create_agent_service(
                     agent_args.path,
                     host=agent_args.host,
@@ -3860,12 +4003,11 @@ def main() -> None:
                 )
                 sys.exit(1)
 
+        agent_project_cfg = load_config(getattr(agent_args, "path", Path.cwd()))
         agent_exclude_folders = list(
             parse_exclude_folders(
                 use_defaults=True,
-                config_exclude_folders=load_config(
-                    getattr(agent_args, "path", Path.cwd())
-                ).get("exclude"),
+                config_exclude_folders=agent_project_cfg.get("exclude"),
             )
         )
 
@@ -3926,6 +4068,8 @@ def main() -> None:
                     provider=provider,
                     base_url=base_url,
                     quiet=getattr(agent_args, "quiet", False),
+                    prompt_templates=agent_project_cfg.get("templates"),
+                    prompt_template_root=path if path.is_dir() else path.parent,
                 )
                 analyzer = SkylosLLM(config)
                 taskflow = run_security_taskflow(
@@ -4003,7 +4147,7 @@ def main() -> None:
                 elif source == "static+llm":
                     both += 1
 
-            console.print(f"\n[brand]Results:[/brand]")
+            console.print("\n[brand]Results:[/brand]")
             console.print(f"  Total findings: {len(merged_findings)}")
             console.print(f"  [green]HIGH confidence (both agree):[/green] {both}")
             console.print(f"  [yellow]MEDIUM (static only):[/yellow] {static_only}")
@@ -4269,7 +4413,7 @@ def main() -> None:
                                 console.print(f"  [yellow]! {err}[/yellow]")
 
                         summary = generate_fix_summary(patches)
-                        console.print(f"\n[brand]Fix Plan:[/brand]")
+                        console.print("\n[brand]Fix Plan:[/brand]")
                         console.print(f"  Patches: {summary['total_patches']}")
                         console.print(f"  Files affected: {summary['files_affected']}")
                         console.print(
@@ -4561,6 +4705,7 @@ def main() -> None:
     logger = context.logger
     console = context.console
     final_exclude_folders = context.final_exclude_folders
+    config = context.config
 
     if _print_main_scan_banner(args, console, final_exclude_folders):
         return
@@ -4588,8 +4733,16 @@ def main() -> None:
                 enable_sca=bool(args.sca),
             )
 
-        if args.json:
-            result_json = run_main_analysis()
+        if args.json or args.concise:
+            analyzer_logger = logging.getLogger("Skylos")
+            analyzer_logger_level = analyzer_logger.level
+            if args.concise:
+                analyzer_logger.setLevel(logging.WARNING)
+            try:
+                result_json = run_main_analysis()
+            finally:
+                if args.concise:
+                    analyzer_logger.setLevel(analyzer_logger_level)
         else:
             with Progress(
                 SpinnerColumn(style="brand"),
@@ -4701,12 +4854,12 @@ def main() -> None:
                             items, changed_ranges
                         )
                 result_json = json.dumps(result)
-                if not args.json:
+                if not args.json and not args.concise:
                     console.print(
                         f"[brand]--diff:[/brand] filtered to {len(changed_ranges)} changed line ranges "
                         f"from {base_ref}"
                     )
-            elif not args.json:
+            elif not args.json and not args.concise:
                 console.print(
                     f"[warn]--diff: no changed lines found vs {base_ref}[/warn]"
                 )
@@ -4740,7 +4893,7 @@ def main() -> None:
                 except Exception as e:
                     result["unused_fixtures"] = []
                     result["unused_fixtures_counts"] = {}
-                    if args.verbose and not args.json:
+                    if args.verbose and not args.json and not args.concise:
                         console.print(
                             f"[warn]Could not read unused fixture report: {e}[/warn]"
                         )
@@ -4748,7 +4901,7 @@ def main() -> None:
                 result["unused_fixtures"] = []
                 result["unused_fixtures_counts"] = {}
 
-        if args.verify and (not args.json):
+        if args.verify and (not args.json) and (not args.concise):
             try:
                 from skylos.api import verify_report
 
@@ -4765,7 +4918,9 @@ def main() -> None:
 
         prov_report = None
         result["provenance"] = None
-        _skip_provenance = getattr(args, "no_provenance", False)
+        _skip_provenance = getattr(args, "no_provenance", False) or getattr(
+            args, "concise", False
+        )
         if not _skip_provenance:
             try:
                 from skylos.provenance import (
@@ -4818,7 +4973,7 @@ def main() -> None:
 
                 result_json = json.dumps(result)
 
-                if not args.json:
+                if not args.json and not args.concise:
                     ai_count = ai_stats["ai_authored_findings"]
                     ai_pct = ai_stats["ai_authored_pct"]
                     if ai_count > 0:
@@ -4946,6 +5101,54 @@ def main() -> None:
                 if passed is False and not args.force:
                     raise SystemExit(1)
 
+            if args.gate:
+                exit_code = _formatted_output_gate_exit_code(
+                    result,
+                    config,
+                    args,
+                    provenance=prov_report,
+                )
+                if exit_code:
+                    raise SystemExit(exit_code)
+
+            strict_exit_code = _strict_scan_exit_code(result, args)
+            if strict_exit_code:
+                raise SystemExit(strict_exit_code)
+
+            return
+
+        if args.concise:
+            display_result = result
+            _cli_severity = getattr(args, "severity", None)
+            _cli_category = getattr(args, "category", None)
+            _cli_file_filter = getattr(args, "file_filter", None)
+            _cli_limit = getattr(args, "limit", None)
+            if _cli_severity or _cli_category or _cli_file_filter:
+                display_result = _apply_display_filters(
+                    result,
+                    severity=_cli_severity,
+                    category=_cli_category,
+                    file_filter=_cli_file_filter,
+                )
+
+            concise_output = _format_concise_results(
+                display_result,
+                root_path=project_root,
+                limit=_cli_limit,
+            )
+            if args.output:
+                pathlib.Path(args.output).write_text(concise_output, encoding="utf-8")
+            elif concise_output:
+                print(concise_output, end="")
+
+            exit_code = _concise_scan_exit_code(
+                result,
+                config,
+                args,
+                provenance=prov_report,
+            )
+            if exit_code:
+                raise SystemExit(exit_code)
             return
 
         if args.llm:
@@ -4956,17 +5159,42 @@ def main() -> None:
                     console.print(f"[good]LLM report written to {args.output}[/good]")
             else:
                 print(llm_report)
+
+            if args.gate:
+                exit_code = _formatted_output_gate_exit_code(
+                    result,
+                    config,
+                    args,
+                    provenance=prov_report,
+                )
+                if exit_code:
+                    raise SystemExit(exit_code)
+
+            strict_exit_code = _strict_scan_exit_code(result, args)
+            if strict_exit_code:
+                raise SystemExit(strict_exit_code)
             return
 
         if args.github:
             _emit_github_annotations(result)
+            if args.gate:
+                exit_code = _formatted_output_gate_exit_code(
+                    result,
+                    config,
+                    args,
+                    provenance=prov_report,
+                )
+                if exit_code:
+                    raise SystemExit(exit_code)
+
+            strict_exit_code = _strict_scan_exit_code(result, args)
+            if strict_exit_code:
+                raise SystemExit(strict_exit_code)
             return
 
     except Exception as e:
         logger.error(f"Error during analysis: {e}")
         sys.exit(1)
-
-    config = load_config(project_root)
 
     if args.gate:
         should_upload_gate = bool(getattr(args, "upload", False)) and not bool(
@@ -5036,7 +5264,7 @@ def main() -> None:
                         proceed = True
 
                     if proceed:
-                        console.print(f"[warn]Applying changes…[/warn]")
+                        console.print("[warn]Applying changes…[/warn]")
                         for func in selected_functions:
                             ok = action_func_fn(
                                 func["file"], func["name"], func["line"]
@@ -5060,11 +5288,11 @@ def main() -> None:
                                 console.print(
                                     f"[bad] x Failed to {action_verb} import:[/bad] {imp['name']}"
                                 )
-                        console.print(f"[good]Cleanup complete![/good]")
+                        console.print("[good]Cleanup complete![/good]")
                     else:
-                        console.print(f"[warn]Operation cancelled.[/warn]")
+                        console.print("[warn]Operation cancelled.[/warn]")
                 else:
-                    console.print(f"[warn]Dry run — no files modified.[/warn]")
+                    console.print("[warn]Dry run — no files modified.[/warn]")
             else:
                 console.print("[muted]No items selected.[/muted]")
 
@@ -5113,6 +5341,10 @@ def main() -> None:
         quality_enabled=bool(quality_count),
         quality_count=quality_count,
     )
+
+    strict_exit_code = _strict_scan_exit_code(result, args)
+    if strict_exit_code:
+        raise SystemExit(strict_exit_code)
 
     if (not args.json) and _is_tty() and (not args.upload):
         total_findings = 0
@@ -5297,7 +5529,7 @@ def main() -> None:
                 process.wait()
 
             if process.returncode == 0:
-                console.print(f"[bold green]✓ Deployment Successful[/bold green]")
+                console.print("[bold green]✓ Deployment Successful[/bold green]")
                 sys.exit(0)
             else:
                 console.print(

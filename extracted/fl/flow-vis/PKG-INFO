@@ -1,0 +1,17 @@
+Metadata-Version: 1.2
+Name: flow_vis
+Version: 0.1
+Summary: Easy optical flow visualisation in Python.
+Home-page: https://github.com/tomrunia/OpticalFlow_Visualization
+Author: Tom Runia
+Author-email: firstname.lastname@gmail.com
+License: MIT
+Download-URL: https://github.com/tomrunia/OpticalFlow_Visualization/archive/0.1.tar.gz
+Description: Python port of the optical flow visualization: https://people.csail.mit.edu/celiu/OpticalFlow/
+Keywords: optical flow,visualization,motion
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6

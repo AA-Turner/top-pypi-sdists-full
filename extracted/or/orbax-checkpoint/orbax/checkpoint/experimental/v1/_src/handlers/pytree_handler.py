@@ -29,6 +29,7 @@ from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.handlers import base_pytree_checkpoint_handler
 from orbax.checkpoint._src.metadata import array_metadata_store as array_metadata_store_lib
+from orbax.checkpoint._src.serialization import type_handlers as type_handlers_v0
 from orbax.checkpoint._src.serialization import types as v0_serialization_types
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.context import options as options_lib
@@ -36,6 +37,7 @@ from orbax.checkpoint.experimental.v1._src.handlers import types as handler_type
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.serialization import compatibility
+from orbax.checkpoint.experimental.v1._src.serialization import options_resolution
 from orbax.checkpoint.experimental.v1._src.serialization import protocol_utils
 from orbax.checkpoint.experimental.v1._src.serialization import registry
 from orbax.checkpoint.experimental.v1._src.serialization import scalar_leaf_handler
@@ -69,32 +71,19 @@ def _get_remaining_timeout(
 
 def _get_v0_save_args(
     checkpointable: PyTree,
-    array_storage_options: options_lib.ArrayOptions.Saving.StorageOptions,
-    create_array_storage_options_fn: (
-        options_lib.PyTreeOptions.Saving.CreateArrayStorageOptionsFn | None
-    ),
+    array_saving_options: options_lib.ArrayOptions.Saving,
 ) -> PyTree:
   """Returns save args that are compatible with the V0 API."""
-
   def _leaf_get_v0_save_args(k, v):
-    if create_array_storage_options_fn:
-      individual_array_storage_options = create_array_storage_options_fn(k, v)
-      save_dtype = (
-          np.dtype(individual_array_storage_options.dtype)
-          if individual_array_storage_options.dtype
-          else None
-      )
-      return v0_serialization_types.SaveArgs(
-          dtype=save_dtype,
-          chunk_byte_size=individual_array_storage_options.chunk_byte_size,
-          shard_axes=individual_array_storage_options.shard_axes,
-      )
-    return v0_serialization_types.SaveArgs(
-        dtype=np.dtype(array_storage_options.dtype)
-        if array_storage_options.dtype
+    resolved_options = options_resolution.resolve_storage_options(
+        k, v, array_saving_options
+    )
+    return type_handlers_v0.SaveArgs(
+        dtype=np.dtype(resolved_options.dtype)
+        if resolved_options.dtype is not None
         else None,
-        chunk_byte_size=array_storage_options.chunk_byte_size,
-        shard_axes=array_storage_options.shard_axes,
+        chunk_byte_size=resolved_options.chunk_byte_size,
+        shard_axes=resolved_options.shard_axes,
     )
 
   return jax.tree.map_with_path(_leaf_get_v0_save_args, checkpointable)
@@ -137,8 +126,7 @@ def create_v0_save_args(
       item=checkpointable,
       save_args=_get_v0_save_args(
           checkpointable,
-          context.array_options.saving.storage_options,
-          context.pytree_options.saving.create_array_storage_options_fn,
+          context.array_options.saving,
       ),
       ocdbt_target_data_file_size=context.array_options.saving.ocdbt_target_data_file_size,
   )
@@ -397,7 +385,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
       self, directory: path_types.PathAwaitingCreation, checkpointable: PyTree
   ) -> Awaitable[None]:
     start_time = time.time()
-    self._validate_leaves_handleable(checkpointable)
+    self.validate_leaves_handleable(checkpointable)
 
     commit_futures = await self._handler_impl.async_save(
         directory.path,
@@ -453,7 +441,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
       A awaitable which can be awaited to complete the load operation and
       obtain a PyTree.
     """
-    self._validate_abstract_leaves_handleable(abstract_checkpointable)
+    self.validate_abstract_leaves_handleable(abstract_checkpointable)
     return self._background_load(directory, abstract_checkpointable)
 
   async def metadata(
@@ -468,7 +456,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
 
     return jax.tree.map(_unwrap, v0_metadata)
 
-  def _validate_leaves_handleable(self, checkpointable: PyTree):
+  def validate_leaves_handleable(self, checkpointable: PyTree):
     missing_leaf_types = set()
 
     def _validate_handleable_leaf(leaf: Any):
@@ -485,14 +473,14 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     )
 
     if missing_leaf_types:
-      raise ValueError(
+      raise registry.UnregisteredTypeError(
           'The following leaf types are not registered in the'
           f' `LeafHandlerRegistry`: [{missing_leaf_types}]. Please register a'
           ' `LeafHandler` for each type in the `LeafHandlerRegistry` and'
           ' assign it into the `PyTreeOptions` in the `Context`.'
       )
 
-  def _validate_abstract_leaves_handleable(
+  def validate_abstract_leaves_handleable(
       self, abstract_checkpointable: PyTree
   ):
     missing_abstract_leaf_types = set()
@@ -511,7 +499,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     )
 
     if missing_abstract_leaf_types:
-      raise ValueError(
+      raise registry.UnregisteredTypeError(
           'The following abstract leaf types are not registered in the'
           f' `LeafHandlerRegistry`: [{missing_abstract_leaf_types}]. Please'
           ' register a `LeafHandler` for each type in the'
@@ -521,9 +509,11 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
 
   def is_handleable(self, checkpointable: Any) -> bool:
     try:
-      # If it's a leaf or an empty pytree container, it's not handleable.
-      return not jax.tree_util.treedef_is_leaf(
-          jax.tree.structure(checkpointable)
+      # If it's a leaf it's not handleable.
+      tree_structure = jax.tree.structure(checkpointable)
+      return not (
+          jax.tree_util.treedef_is_leaf(tree_structure)
+          and tree_structure.num_leaves == 1
       )
     except Exception:  # pylint: disable=broad-exception-caught
       return False

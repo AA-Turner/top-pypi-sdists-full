@@ -73,9 +73,9 @@ class XEP_0199(BasePlugin):
 
         if self.keepalive:
             self.xmpp.add_event_handler('session_start',
-                                        self.enable_keepalive)
+                                        lambda x: self.enable_keepalive())
             self.xmpp.add_event_handler('session_resumed',
-                                        self.enable_keepalive)
+                                        lambda x: self.enable_keepalive())
             self.xmpp.add_event_handler('disconnected',
                                         self.disable_keepalive)
 

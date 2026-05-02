@@ -31,6 +31,7 @@ from .literals import (
     AnsweringMachineDetectionStatusType,
     ApplicationTypeType,
     ArtifactStatusType,
+    AttachmentScopeType,
     AutoEvaluationStatusType,
     BehaviorTypeType,
     BooleanComparisonTypeType,
@@ -204,6 +205,7 @@ __all__ = (
     "AiAgentInfoTypeDef",
     "AliasConfigurationTypeDef",
     "AllowedCapabilitiesTypeDef",
+    "AllowedExtensionTypeDef",
     "AnalyticsDataAssociationResultTypeDef",
     "AnalyticsDataSetsResultTypeDef",
     "AnswerMachineDetectionConfigTypeDef",
@@ -240,6 +242,8 @@ __all__ = (
     "AssociatedContactSummaryTypeDef",
     "AttachedFileErrorTypeDef",
     "AttachedFileTypeDef",
+    "AttachedFilesConfigurationSummaryTypeDef",
+    "AttachedFilesConfigurationTypeDef",
     "AttachmentReferenceTypeDef",
     "AttendeeTypeDef",
     "AttributeAndConditionTypeDef",
@@ -484,6 +488,8 @@ __all__ = (
     "DeleteWorkspaceRequestTypeDef",
     "DescribeAgentStatusRequestTypeDef",
     "DescribeAgentStatusResponseTypeDef",
+    "DescribeAttachedFilesConfigurationRequestTypeDef",
+    "DescribeAttachedFilesConfigurationResponseTypeDef",
     "DescribeAuthenticationProfileRequestTypeDef",
     "DescribeAuthenticationProfileResponseTypeDef",
     "DescribeContactEvaluationRequestTypeDef",
@@ -696,6 +702,9 @@ __all__ = (
     "ExpressionPaginatorTypeDef",
     "ExpressionTypeDef",
     "ExpressionUnionTypeDef",
+    "ExtensionConfigurationOutputTypeDef",
+    "ExtensionConfigurationTypeDef",
+    "ExtensionConfigurationUnionTypeDef",
     "ExternalInvocationConfigurationTypeDef",
     "FailedBatchAssociationSummaryTypeDef",
     "FailedRequestTypeDef",
@@ -804,6 +813,9 @@ __all__ = (
     "ListApprovedOriginsResponseTypeDef",
     "ListAssociatedContactsRequestTypeDef",
     "ListAssociatedContactsResponseTypeDef",
+    "ListAttachedFilesConfigurationsRequestPaginateTypeDef",
+    "ListAttachedFilesConfigurationsRequestTypeDef",
+    "ListAttachedFilesConfigurationsResponseTypeDef",
     "ListAuthenticationProfilesRequestPaginateTypeDef",
     "ListAuthenticationProfilesRequestTypeDef",
     "ListAuthenticationProfilesResponseTypeDef",
@@ -1361,6 +1373,8 @@ __all__ = (
     "UntagContactRequestTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAgentStatusRequestTypeDef",
+    "UpdateAttachedFilesConfigurationRequestTypeDef",
+    "UpdateAttachedFilesConfigurationResponseTypeDef",
     "UpdateAuthenticationProfileRequestTypeDef",
     "UpdateCaseActionDefinitionOutputTypeDef",
     "UpdateCaseActionDefinitionTypeDef",
@@ -1632,6 +1646,10 @@ class AiAgentInfoTypeDef(TypedDict):
 
 class AliasConfigurationTypeDef(TypedDict):
     EmailAddressId: str
+
+
+class AllowedExtensionTypeDef(TypedDict):
+    Extension: str
 
 
 class AnalyticsDataAssociationResultTypeDef(TypedDict):
@@ -2757,6 +2775,11 @@ class DescribeAgentStatusRequestTypeDef(TypedDict):
     AgentStatusId: str
 
 
+class DescribeAttachedFilesConfigurationRequestTypeDef(TypedDict):
+    InstanceId: str
+    AttachmentScope: AttachmentScopeType
+
+
 class DescribeAuthenticationProfileRequestTypeDef(TypedDict):
     AuthenticationProfileId: str
     InstanceId: str
@@ -3560,6 +3583,12 @@ class ListApprovedOriginsRequestTypeDef(TypedDict):
 class ListAssociatedContactsRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListAttachedFilesConfigurationsRequestTypeDef(TypedDict):
+    InstanceId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -5740,6 +5769,14 @@ class EmailAddressMetadataTypeDef(TypedDict):
     AliasConfigurations: NotRequired[list[AliasConfigurationTypeDef]]
 
 
+class ExtensionConfigurationOutputTypeDef(TypedDict):
+    AllowedExtensions: list[AllowedExtensionTypeDef]
+
+
+class ExtensionConfigurationTypeDef(TypedDict):
+    AllowedExtensions: Sequence[AllowedExtensionTypeDef]
+
+
 class ListAnalyticsDataAssociationsResponseTypeDef(TypedDict):
     Results: list[AnalyticsDataAssociationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6801,6 +6838,11 @@ class ListAgentStatusRequestPaginateTypeDef(TypedDict):
 
 
 class ListApprovedOriginsRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAttachedFilesConfigurationsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -7950,6 +7992,35 @@ class SearchEmailAddressesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class AttachedFilesConfigurationSummaryTypeDef(TypedDict):
+    InstanceId: str
+    AttachmentScope: AttachmentScopeType
+    MaximumSizeLimitInBytes: NotRequired[int]
+    ExtensionConfiguration: NotRequired[ExtensionConfigurationOutputTypeDef]
+
+
+class AttachedFilesConfigurationTypeDef(TypedDict):
+    InstanceId: str
+    AttachmentScope: AttachmentScopeType
+    MaximumSizeLimitInBytes: NotRequired[int]
+    ExtensionConfiguration: NotRequired[ExtensionConfigurationOutputTypeDef]
+    LastModifiedTime: NotRequired[datetime]
+
+
+class UpdateAttachedFilesConfigurationResponseTypeDef(TypedDict):
+    InstanceId: str
+    AttachmentScope: AttachmentScopeType
+    MaximumSizeLimitInBytes: int
+    ExtensionConfiguration: ExtensionConfigurationOutputTypeDef
+    LastModifiedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ExtensionConfigurationUnionTypeDef = Union[
+    ExtensionConfigurationTypeDef, ExtensionConfigurationOutputTypeDef
+]
+
+
 class ListBotsResponseTypeDef(TypedDict):
     LexBots: list[LexBotConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8918,6 +8989,24 @@ class ExpressionPaginatorTypeDef(TypedDict):
 
 
 MatchCriteriaUnionTypeDef = Union[MatchCriteriaTypeDef, MatchCriteriaOutputTypeDef]
+
+
+class ListAttachedFilesConfigurationsResponseTypeDef(TypedDict):
+    AttachedFilesConfigurations: list[AttachedFilesConfigurationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeAttachedFilesConfigurationResponseTypeDef(TypedDict):
+    AttachedFilesConfiguration: AttachedFilesConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAttachedFilesConfigurationRequestTypeDef(TypedDict):
+    InstanceId: str
+    AttachmentScope: AttachmentScopeType
+    MaximumSizeLimitInBytes: NotRequired[int]
+    ExtensionConfiguration: NotRequired[ExtensionConfigurationUnionTypeDef]
 
 
 class UserSearchFilterTypeDef(TypedDict):

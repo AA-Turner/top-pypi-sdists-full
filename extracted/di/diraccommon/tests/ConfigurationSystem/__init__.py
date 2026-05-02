@@ -1,3 +1,0 @@
-"""
-DIRACCommon.ConfigurationSystem tests
-"""

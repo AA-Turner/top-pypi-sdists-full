@@ -45,9 +45,3 @@ class StreamResolverParamMessageWindow(StreamResolverParam):
 class StreamResolverSignature:
     params: Sequence[StreamResolverParam]
     output_feature_fqns: Set[str]
-
-
-@dataclasses.dataclass
-class StreamResolverParamKeyedState(StreamResolverParam):
-    typ: "Union[Type[BaseModel], Type[AnyDataclass]]"
-    default_value: Any

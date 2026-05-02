@@ -1,0 +1,102 @@
+Metadata-Version: 2.4
+Name: pytest-beartype-tests
+Version: 2026.4.26
+Summary: Pytest plugin that applies @beartype to every collected test function.
+Author-email: Adam Dangoor <adamdangoor@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2026 Adam Dangoor
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Source, https://github.com/adamtheturtle/pytest-beartype-tests
+Keywords: beartype,pytest,type-checking
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Pytest
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: beartype>=0.18
+Requires-Dist: pytest>=8
+Provides-Extra: dev
+Requires-Dist: actionlint-py==1.7.12.24; extra == "dev"
+Requires-Dist: check-manifest==0.51; extra == "dev"
+Requires-Dist: deptry==0.25.1; extra == "dev"
+Requires-Dist: interrogate==1.7.0; extra == "dev"
+Requires-Dist: mypy[faster-cache]==1.20.2; extra == "dev"
+Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
+Requires-Dist: prek==0.3.10; extra == "dev"
+Requires-Dist: pylint==4.0.5; extra == "dev"
+Requires-Dist: pylint-per-file-ignores==3.2.1; extra == "dev"
+Requires-Dist: pyproject-fmt==2.21.1; extra == "dev"
+Requires-Dist: pyrefly==0.62.0; extra == "dev"
+Requires-Dist: pyright==1.1.409; extra == "dev"
+Requires-Dist: pyroma==5.0.1; extra == "dev"
+Requires-Dist: pytest-cov==7.1.0; extra == "dev"
+Requires-Dist: ruff==0.15.12; extra == "dev"
+Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
+Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
+Requires-Dist: ty==0.0.31; extra == "dev"
+Requires-Dist: vulture==2.16; extra == "dev"
+Requires-Dist: yamlfix==1.19.1; extra == "dev"
+Requires-Dist: zizmor==1.24.1; extra == "dev"
+Provides-Extra: release
+Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
+Dynamic: license-file
+
+pytest-beartype-tests
+=====================
+
+A tiny pytest plugin that applies `beartype <https://github.com/beartype/beartype>`_ to every collected test function, giving you runtime type-checking of test signatures and any locally-typed variables inside the test body.
+
+This is distinct from `pytest-beartype <https://pypi.org/project/pytest-beartype/>`_, which beartypes your *source* packages. This plugin beartypes the *tests themselves*.
+
+.. note::
+
+   This plugin is a temporary workaround until `pytest-beartype <https://pypi.org/project/pytest-beartype/>`_ 0.3.0 is released, which is expected to provide this functionality natively (see https://github.com/beartype/pytest-beartype/issues/22). Once that release is available, you can migrate off this plugin.
+
+Install
+-------
+
+.. code-block:: sh
+
+   uv add --dev pytest-beartype-tests
+
+The plugin auto-registers via the ``pytest11`` entry point — there is no configuration.
+
+What it does
+------------
+
+Equivalent to writing this hook in your ``conftest.py``:
+
+.. code-block:: python
+
+   import pytest
+   from beartype import beartype
+
+
+   def pytest_collection_modifyitems(items: list[pytest.Function]) -> None:
+       for item in items:
+           item.obj = beartype(obj=item.obj)

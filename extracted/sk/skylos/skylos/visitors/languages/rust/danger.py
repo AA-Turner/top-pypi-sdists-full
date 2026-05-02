@@ -21,10 +21,27 @@ _FILE_SINKS = {
     "create",
 }
 
+_PATH_MUTATION_SINKS = {
+    "push",
+    "set_extension",
+    "set_file_name",
+}
+
 _SANITIZER_HINTS = {
     "canonicalize",
     "file_name",
     "strip_prefix",
+}
+
+_TAINT_SOURCE_HINTS = {
+    "std::env::args",
+    "std::env::args_os",
+    "std::env::var",
+    "std::env::var_os",
+    "env::args",
+    "env::args_os",
+    "env::var",
+    "env::var_os",
 }
 
 
@@ -87,6 +104,17 @@ def scan_danger(root_node, file_path: str, source: bytes) -> list[dict]:
             return False
         return any(is_tainted_expr(child, tainted_vars) for child in node.children)
 
+    def is_taint_source_expr(node) -> bool:
+        if node is None:
+            return False
+        expr_text = node_text(node)
+        return any(source_hint in expr_text for source_hint in _TAINT_SOURCE_HINTS)
+
+    def is_tainted_or_source(node, tainted_vars: set[str]) -> bool:
+        if node is None or is_sanitized_expr(node):
+            return False
+        return is_tainted_expr(node, tainted_vars) or is_taint_source_expr(node)
+
     def add_finding(rule_id: str, message: str, node) -> None:
         findings.append(
             {
@@ -144,7 +172,7 @@ def scan_danger(root_node, file_path: str, source: bytes) -> list[dict]:
         if lhs is None or rhs is None or lhs.type != "identifier":
             return
         name = node_text(lhs).strip()
-        if is_tainted_expr(rhs, tainted_vars):
+        if is_tainted_expr(rhs, tainted_vars) or is_taint_source_expr(rhs):
             tainted_vars.add(name)
         else:
             tainted_vars.discard(name)
@@ -157,7 +185,14 @@ def scan_danger(root_node, file_path: str, source: bytes) -> list[dict]:
             r'Command::new\(\s*"(?:sh|bash|zsh|cmd|powershell)"\s*\)', call_text
         ):
             return False
-        if not re.search(r'\.arg\(\s*"-c"\s*\)', call_text):
+        shell_switch = r'(?:"-c"|"/C"|"-Command")'
+        has_single_switch = re.search(
+            rf"\.arg\(\s*{shell_switch}\s*\)", call_text
+        )
+        has_args_switch = re.search(
+            rf"\.args\([^)]*{shell_switch}", call_text, re.S
+        )
+        if not has_single_switch and not has_args_switch:
             return False
         return is_tainted_expr(call_node, tainted_vars)
 
@@ -171,7 +206,7 @@ def scan_danger(root_node, file_path: str, source: bytes) -> list[dict]:
             if (
                 first_arg is not None
                 and not is_string_literal(first_arg)
-                and is_tainted_expr(first_arg, tainted_vars)
+                and is_tainted_or_source(first_arg, tainted_vars)
             ):
                 add_finding(
                     "SKY-D212",
@@ -189,10 +224,19 @@ def scan_danger(root_node, file_path: str, source: bytes) -> list[dict]:
             return
 
         if name_tail in _FILE_SINKS and first_arg is not None:
-            if is_tainted_expr(first_arg, tainted_vars):
+            if is_tainted_or_source(first_arg, tainted_vars):
                 add_finding(
                     "SKY-D215",
                     "Tainted path-like input reaches a filesystem sink without canonicalization.",
+                    node,
+                )
+                return
+
+        if name_tail in _PATH_MUTATION_SINKS and first_arg is not None:
+            if is_tainted_or_source(first_arg, tainted_vars):
+                add_finding(
+                    "SKY-D215",
+                    "Tainted path-like input is appended to a filesystem path without canonicalization.",
                     node,
                 )
 

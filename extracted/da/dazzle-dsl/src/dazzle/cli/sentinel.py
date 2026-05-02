@@ -1,0 +1,250 @@
+"""CLI sub-app for Sentinel failure-mode detection."""
+
+import json
+from pathlib import Path
+
+import typer
+
+sentinel_app = typer.Typer(
+    help="SaaS Sentinel — failure-mode detection for Dazzle applications.",
+    no_args_is_help=True,
+)
+
+
+def _resolve_root(manifest: str) -> Path:
+    root = Path(manifest).resolve().parent
+    if not (root / "dazzle.toml").exists():
+        typer.echo(f"No dazzle.toml found in {root}", err=True)
+        raise typer.Exit(code=1)
+    return root
+
+
+@sentinel_app.command("scan")
+def sentinel_scan(
+    manifest: str = typer.Option("dazzle.toml", "--manifest", "-m"),
+    format_: str = typer.Option("table", "--format", "-f"),
+    agent: list[str] = typer.Option([], "--agent", "-a"),
+    severity: str = typer.Option("info", "--severity", "-s"),
+) -> None:
+    """Run a sentinel scan against the project DSL."""
+    from dazzle.mcp.server.handlers.sentinel import scan_handler
+
+    root = _resolve_root(manifest)
+    args: dict[str, object] = {
+        "severity_threshold": severity,
+        "detail": "full",
+    }
+    if agent:
+        args["agents"] = agent
+
+    try:
+        from dazzle.cli.activity import cli_activity
+
+        with cli_activity(root, "sentinel", "scan") as progress:
+            args["_progress"] = progress
+            raw = scan_handler(root, args)
+        data = json.loads(raw)
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if data.get("error"):
+        typer.echo(f"Error: {data['error']}", err=True)
+        raise typer.Exit(code=1)
+
+    if format_ == "json":
+        typer.echo(json.dumps(data, indent=2))
+    else:
+        summary = data.get("summary", {})
+        total = summary.get("total_findings", 0)
+        by_sev = summary.get("by_severity", {})
+
+        typer.secho(f"\nSentinel Scan: {total} findings", bold=True)
+        for sev in ("critical", "high", "medium", "low", "info"):
+            count = by_sev.get(sev, 0)
+            if count == 0:
+                continue
+            color = {
+                "critical": typer.colors.RED,
+                "high": typer.colors.RED,
+                "medium": typer.colors.YELLOW,
+                "low": typer.colors.CYAN,
+                "info": typer.colors.WHITE,
+            }.get(sev, typer.colors.WHITE)
+            typer.secho(f"  {sev}: {count}", fg=color)
+
+        findings = data.get("findings", [])
+        for f in findings:
+            sev = f.get("severity", "info")
+            color = {
+                "critical": typer.colors.RED,
+                "high": typer.colors.RED,
+                "medium": typer.colors.YELLOW,
+            }.get(sev, typer.colors.WHITE)
+            hid = f.get("heuristic_id", "?")
+            title = f.get("title", "")
+            entity = f.get("entity_name", "")
+            loc = f" [{entity}]" if entity else ""
+            typer.secho(f"  {hid} {title}{loc}", fg=color)
+
+        typer.echo()
+
+    # Exit code 1 if any critical findings
+    findings = data.get("findings", [])
+    if any(f.get("severity") == "critical" for f in findings):
+        raise typer.Exit(code=1)
+
+
+@sentinel_app.command("findings")
+def sentinel_findings(
+    manifest: str = typer.Option("dazzle.toml", "--manifest", "-m"),
+    agent: str = typer.Option(None, "--agent", "-a"),
+    format_: str = typer.Option("table", "--format", "-f"),
+) -> None:
+    """Show findings from the latest scan."""
+    from dazzle.mcp.server.handlers.sentinel import findings_handler
+
+    root = _resolve_root(manifest)
+    args: dict[str, object] = {}
+    if agent:
+        args["agent"] = agent
+
+    from dazzle.cli.activity import cli_activity
+
+    with cli_activity(root, "sentinel", "findings") as progress:
+        args["_progress"] = progress
+        raw = findings_handler(root, args)
+    data = json.loads(raw)
+
+    if format_ == "json":
+        typer.echo(json.dumps(data, indent=2))
+        return
+
+    findings = data.get("findings", [])
+    typer.secho(f"\n{len(findings)} findings", bold=True)
+    for f in findings:
+        hid = f.get("heuristic_id", "?")
+        title = f.get("title", "")
+        sev = f.get("severity", "info")
+        typer.echo(f"  [{sev.upper():8s}] {hid} {title}")
+    typer.echo()
+
+
+@sentinel_app.command("suppress")
+def sentinel_suppress(
+    finding_id: str = typer.Argument(..., help="Finding ID to suppress"),
+    reason: str = typer.Option(..., "--reason", "-r", help="Reason for suppression"),
+    manifest: str = typer.Option("dazzle.toml", "--manifest", "-m"),
+) -> None:
+    """Suppress a finding as a false positive."""
+    from dazzle.mcp.server.handlers.sentinel import suppress_handler
+
+    root = _resolve_root(manifest)
+    raw = suppress_handler(root, {"finding_id": finding_id, "reason": reason})
+    data = json.loads(raw)
+
+    if data.get("error"):
+        typer.echo(f"Error: {data['error']}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Suppressed: {finding_id}")
+
+
+@sentinel_app.command("status")
+def sentinel_status(
+    manifest: str = typer.Option("dazzle.toml", "--manifest", "-m"),
+) -> None:
+    """Show sentinel status: available agents and last scan."""
+    from dazzle.mcp.server.handlers.sentinel import status_handler
+
+    root = _resolve_root(manifest)
+    raw = status_handler(root, {})
+    data = json.loads(raw)
+
+    typer.secho("\nSentinel Status", bold=True)
+    for a in data.get("agents", []):
+        typer.echo(f"  Agent {a['id']}: {a['heuristics']} heuristics")
+
+    last = data.get("last_scan")
+    if last:
+        typer.echo(
+            f"\n  Last scan: {last.get('timestamp', '?')} ({last.get('total_findings', 0)} findings)"
+        )
+    else:
+        typer.echo("\n  No scans yet")
+    typer.echo()
+
+
+@sentinel_app.command("fuzz")
+def sentinel_fuzz(
+    samples: int = typer.Option(100, "--samples", "-n", help="Samples per layer"),
+    layer: str = typer.Option(None, "--layer", "-l", help="Layer to run: llm, mutate, or all"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Generate inputs without classifying"),
+    timeout: float = typer.Option(5.0, "--timeout", "-t", help="Parser timeout in seconds"),
+    output: str = typer.Option(None, "--output", "-o", help="Save report to file"),
+) -> None:
+    """Run parser fuzz campaign to discover error surface gaps."""
+    from dazzle.testing.fuzzer import Classification, generate_report, run_campaign
+
+    # Find examples directory
+    examples_dir = Path.cwd() / "examples"
+    if not examples_dir.exists():
+        import dazzle
+
+        pkg_root = Path(dazzle.__file__).resolve().parents[1]
+        examples_dir = pkg_root / "examples"
+
+    if not examples_dir.exists():
+        typer.echo("No examples/ directory found for seed corpus.", err=True)
+        raise typer.Exit(code=1)
+
+    layers = [layer] if layer else None
+
+    typer.echo(f"Running fuzz campaign: {samples} samples/layer, timeout={timeout}s")
+    if dry_run:
+        typer.echo("(dry run — generating inputs only)")
+
+    results = run_campaign(
+        examples_dir=examples_dir,
+        layers=layers,
+        samples_per_layer=samples,
+        timeout_seconds=timeout,
+        dry_run=dry_run,
+    )
+
+    if dry_run:
+        typer.echo(f"Generated {len(results)} inputs (not classified)")
+        return
+
+    report = generate_report(results)
+    typer.echo(report)
+
+    if output:
+        Path(output).write_text(report, encoding="utf-8")
+        typer.echo(f"\nReport saved to {output}")
+
+    # Exit with error code if bugs found
+    bugs = [r for r in results if r.classification in (Classification.HANG, Classification.CRASH)]
+    if bugs:
+        raise typer.Exit(code=1)
+
+
+@sentinel_app.command("history")
+def sentinel_history(
+    manifest: str = typer.Option("dazzle.toml", "--manifest", "-m"),
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of scans to show"),
+    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """List recent sentinel scans."""
+    from dazzle.cli._output import format_output
+    from dazzle.mcp.server.handlers.sentinel import sentinel_history_impl
+
+    root = _resolve_root(manifest)
+
+    try:
+        result = sentinel_history_impl(project_path=root, limit=limit)
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(format_output(result, as_json=as_json))

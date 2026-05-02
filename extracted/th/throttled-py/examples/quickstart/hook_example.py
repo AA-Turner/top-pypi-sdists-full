@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from throttled import Hook, HookContext, RateLimitResult, Throttled, per_sec
+from throttled import Hook, HookContext, RateLimitResult, Throttled
 
 
 class LoggingHook(Hook):
@@ -22,15 +22,10 @@ class LoggingHook(Hook):
         return result
 
 
-hook = LoggingHook()
-throttle = Throttled(
-    key="/api/users",
-    quota=per_sec(10),
-    hooks=[hook],
-)
+throttle = Throttled(key="/api/users", quota="10/s", hooks=[LoggingHook()])
 
 
-def main():
+def main() -> None:
     result = throttle.limit()
     # Output:
     # Checking rate limit for /api/users

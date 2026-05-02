@@ -19,9 +19,13 @@ Usage::
         ListBrowserProfilesPaginator,
         ListBrowsersPaginator,
         ListCodeInterpretersPaginator,
+        ListConfigurationBundleVersionsPaginator,
+        ListConfigurationBundlesPaginator,
         ListEvaluatorsPaginator,
+        ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
         ListGatewaysPaginator,
+        ListHarnessesPaginator,
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
         ListOnlineEvaluationConfigsPaginator,
@@ -45,9 +49,13 @@ Usage::
         list_browser_profiles_paginator: ListBrowserProfilesPaginator = client.get_paginator("list_browser_profiles")
         list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
         list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
+        list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
+        list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
         list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
+        list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
         list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
         list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
+        list_harnesses_paginator: ListHarnessesPaginator = client.get_paginator("list_harnesses")
         list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
         list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
         list_online_evaluation_configs_paginator: ListOnlineEvaluationConfigsPaginator = client.get_paginator("list_online_evaluation_configs")
@@ -83,12 +91,20 @@ from .type_defs import (
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestPaginateTypeDef,
     ListCodeInterpretersResponseTypeDef,
+    ListConfigurationBundlesRequestPaginateTypeDef,
+    ListConfigurationBundlesResponseTypeDef,
+    ListConfigurationBundleVersionsRequestPaginateTypeDef,
+    ListConfigurationBundleVersionsResponseTypeDef,
     ListEvaluatorsRequestPaginateTypeDef,
     ListEvaluatorsResponseTypeDef,
+    ListGatewayRulesRequestPaginateTypeDef,
+    ListGatewayRulesResponseTypeDef,
     ListGatewaysRequestPaginateTypeDef,
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestPaginateTypeDef,
     ListGatewayTargetsResponseTypeDef,
+    ListHarnessesRequestPaginateTypeDef,
+    ListHarnessesResponseTypeDef,
     ListMemoriesInputPaginateTypeDef,
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestPaginateTypeDef,
@@ -125,9 +141,13 @@ __all__ = (
     "ListBrowserProfilesPaginator",
     "ListBrowsersPaginator",
     "ListCodeInterpretersPaginator",
+    "ListConfigurationBundleVersionsPaginator",
+    "ListConfigurationBundlesPaginator",
     "ListEvaluatorsPaginator",
+    "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",
     "ListGatewaysPaginator",
+    "ListHarnessesPaginator",
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",
     "ListOnlineEvaluationConfigsPaginator",
@@ -291,6 +311,50 @@ class ListCodeInterpretersPaginator(_ListCodeInterpretersPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListConfigurationBundleVersionsPaginatorBase = AioPaginator[
+        ListConfigurationBundleVersionsResponseTypeDef
+    ]
+else:
+    _ListConfigurationBundleVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListConfigurationBundleVersionsPaginator(_ListConfigurationBundleVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConfigurationBundleVersions.html#BedrockAgentCoreControl.Paginator.ListConfigurationBundleVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listconfigurationbundleversionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConfigurationBundleVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListConfigurationBundleVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConfigurationBundleVersions.html#BedrockAgentCoreControl.Paginator.ListConfigurationBundleVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listconfigurationbundleversionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListConfigurationBundlesPaginatorBase = AioPaginator[ListConfigurationBundlesResponseTypeDef]
+else:
+    _ListConfigurationBundlesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListConfigurationBundlesPaginator(_ListConfigurationBundlesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConfigurationBundles.html#BedrockAgentCoreControl.Paginator.ListConfigurationBundles)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listconfigurationbundlespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConfigurationBundlesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListConfigurationBundlesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListConfigurationBundles.html#BedrockAgentCoreControl.Paginator.ListConfigurationBundles.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listconfigurationbundlespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListEvaluatorsPaginatorBase = AioPaginator[ListEvaluatorsResponseTypeDef]
 else:
     _ListEvaluatorsPaginatorBase = AioPaginator  # type: ignore[assignment]
@@ -308,6 +372,27 @@ class ListEvaluatorsPaginator(_ListEvaluatorsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListEvaluators.html#BedrockAgentCoreControl.Paginator.ListEvaluators.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listevaluatorspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGatewayRulesPaginatorBase = AioPaginator[ListGatewayRulesResponseTypeDef]
+else:
+    _ListGatewayRulesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListGatewayRulesPaginator(_ListGatewayRulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGatewayRules.html#BedrockAgentCoreControl.Paginator.ListGatewayRules)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewayrulespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGatewayRulesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListGatewayRulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGatewayRules.html#BedrockAgentCoreControl.Paginator.ListGatewayRules.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewayrulespaginator)
         """
 
 
@@ -350,6 +435,27 @@ class ListGatewaysPaginator(_ListGatewaysPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGateways.html#BedrockAgentCoreControl.Paginator.ListGateways.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewayspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListHarnessesPaginatorBase = AioPaginator[ListHarnessesResponseTypeDef]
+else:
+    _ListHarnessesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListHarnessesPaginator(_ListHarnessesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListHarnesses.html#BedrockAgentCoreControl.Paginator.ListHarnesses)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listharnessespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListHarnessesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListHarnessesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListHarnesses.html#BedrockAgentCoreControl.Paginator.ListHarnesses.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listharnessespaginator)
         """
 
 

@@ -42,6 +42,12 @@ SSH_OPTS: list[tuple[str, str]] = [
     ("ConnectTimeout", "15"),
     ("ServerAliveInterval", "10"),
     ("ServerAliveCountMax", "3"),
+    # Connection multiplexing: first SSH to a host opens a master socket,
+    # subsequent calls reuse it (sub-100ms vs. full TCP+KEX+auth handshake).
+    # Massive win when many agent installs/probes run in parallel.
+    ("ControlMaster", "auto"),
+    ("ControlPath", "/tmp/plato-ssh-%C"),
+    ("ControlPersist", "60s"),
 ]
 
 
@@ -241,6 +247,8 @@ def build_ssh_command(
     ssh_key: Path,
     hostname: str,
     extra_opts: list[tuple[str, str]] | None = None,
+    *,
+    multiplex: bool = True,
 ) -> list[str]:
     """Build an SSH command list with standard options.
 
@@ -248,12 +256,21 @@ def build_ssh_command(
         ssh_key: Path to SSH private key.
         hostname: Remote hostname or IP.
         extra_opts: Additional SSH -o options (e.g., ProxyCommand).
+        multiplex: If False, skip the ControlMaster/ControlPath/ControlPersist
+            options. Required for long-lived foreground SSH commands like
+            ``ssh -L … -N`` port forwards: with multiplexing on, the second
+            and later SSH calls to a host hand their request to the master
+            and exit immediately (rc=0), which makes the foreground process
+            die before its caller can attach.
 
     Returns:
         SSH command as a list of strings (without the remote command).
     """
     cmd = ["ssh", "-i", str(ssh_key)]
-    all_opts = list(SSH_OPTS)
+    if multiplex:
+        all_opts = list(SSH_OPTS)
+    else:
+        all_opts = [(name, value) for name, value in SSH_OPTS if not name.startswith("Control")]
     if extra_opts:
         all_opts.extend(extra_opts)
     for name, value in all_opts:

@@ -75,8 +75,6 @@ class VMRuntime(Runtime):
         memory: Memory in MB.
         disk: Disk in MB.
         timeout: VM job timeout in seconds (how long the VM stays alive).
-        heartbeat_timeout: Per-VM heartbeat timeout in seconds.
-            None = use server default (300s), 0 = disabled.
     """
 
     def __init__(
@@ -89,7 +87,6 @@ class VMRuntime(Runtime):
         memory: int = 4096,
         disk: int = 10240,
         timeout: int = 7200,
-        heartbeat_timeout: int | None = None,
     ) -> None:
         super().__init__(image)
         self._session = session
@@ -98,7 +95,6 @@ class VMRuntime(Runtime):
         self._memory = memory
         self._disk = disk
         self._timeout = timeout
-        self._heartbeat_timeout = heartbeat_timeout
         self._envs: dict[str, Environment] = {}
 
     def _ssh_target(self, env: Environment) -> tuple[str, list[tuple[str, str]]]:
@@ -159,7 +155,6 @@ class VMRuntime(Runtime):
                     rootfs_storage_backend="snapshot-store",
                 ),
                 timeout=self._timeout,
-                heartbeat_timeout=self._heartbeat_timeout,
             )
             self._envs[alias] = env
 

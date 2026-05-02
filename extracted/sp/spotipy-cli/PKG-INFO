@@ -1,0 +1,22 @@
+Metadata-Version: 1.1
+Name: spotipy-cli
+Version: 0.3.0
+Summary: CLI client for Spotify using Web API
+Home-page: https://github.com/kandrelczyk/spotipy-cli
+Author: Krzysztof Andrelczyk
+Author-email: cristof@vivaldi.net
+License: Apache
+Description: 
+        CLI client for Spotify using Web API
+        
+        (Thanks to cookiecutter and chriswarrick.com)
+        
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

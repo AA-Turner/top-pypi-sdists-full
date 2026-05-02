@@ -1,10 +1,10 @@
-from throttled import RateLimiterType, Throttled, rate_limiter, utils
+from throttled import RateLimiterType, Throttled, utils
 
 throttle = Throttled(
     # 📈 Use Token Bucket algorithm.
     using=RateLimiterType.TOKEN_BUCKET.value,
     # 🪣 Set quota: 1,000 tokens per second (limit), bucket size 1,000 (burst).
-    quota=rate_limiter.per_sec(1_000, burst=1_000),
+    quota="1000/s burst 1000",
     # 📁 By default, global MemoryStore is used as the storage backend.
 )
 

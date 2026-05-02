@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for aiobotocore LexModelBuildingService 3.5.0\n"
-        "Version:         3.5.0\n"
+        "Type annotations for aiobotocore LexModelBuildingService 3.6.0\n"
+        "Version:         3.6.0\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lex_models//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lex-models.html#lexmodelbuildingservice\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("3.5.0\n")
+    sys.stdout.write("3.6.0\n")
 
 
 def main() -> None:

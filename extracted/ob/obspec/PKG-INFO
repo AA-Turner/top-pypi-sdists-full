@@ -1,0 +1,41 @@
+Metadata-Version: 2.4
+Name: obspec
+Version: 0.1.0
+Summary: Object storage interface definitions for Python.
+Project-URL: homepage, https://developmentseed.org/obspec/latest/
+Project-URL: documentation, https://developmentseed.org/obspec/latest/
+Project-URL: repository, https://github.com/developmentseed/obspec
+Project-URL: issues, https://github.com/developmentseed/obspec/issues
+Project-URL: changelog, https://github.com/developmentseed/obspec/blob/main/CHANGELOG.md
+Author-email: Kyle Barron <kyle@developmentseed.org>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.9
+Requires-Dist: typing-extensions; python_version < '3.12'
+Description-Content-Type: text/markdown
+
+# obspec
+
+A Python protocol for interfacing with object storage.
+
+[Read the release post.](https://developmentseed.org/obspec/latest/blog/2025/06/25/introducing-obspec-a-python-protocol-for-interfacing-with-object-storage/)
+
+It's designed to abstract away the complexities of different object storage providers while acknowledging that object storage is _not a filesystem_. The Python protocols present more similarities to HTTP requests than Python file objects.
+
+## Implementations
+
+The primary implementation that implements obspec is [obstore](https://developmentseed.org/obstore/latest/), and the obspec protocol was designed around the obstore API.
+
+## Utilities
+
+There are planned to be utilities that build on top of obspec. Potentially:
+
+- globbing: an implementation of `glob()` similar to [`fsspec.glob`](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.glob) that uses `obspec` primitives.
+- Caching: wrappers around `Get`/`GetRange`/`GetRanges` that store a cache of bytes.
+
+By having these utilities operate on generic obspec protocols, it means that they can instantly be used with any future obspec backend.

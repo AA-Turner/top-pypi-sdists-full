@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iomete-sqlalchemy"
+version = "1.0.22"
+description = "SQLAlchemy dialect for IOMETE via Arrow Flight SQL"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+dependencies = [
+    "sqlalchemy>=2.0.30",
+    "adbc-driver-flightsql>=1.1.0",
+    "pyarrow>=16.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "python-dotenv",
+]
+
+[project.entry-points."sqlalchemy.dialects"]
+"iomete" = "iomete_sqlalchemy.dialect:IOMETEDialect"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:Cannot disable autocommit:Warning",
+]
+addopts = ""
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.coverage.report]
+fail_under = 80

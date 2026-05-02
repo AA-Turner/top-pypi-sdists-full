@@ -6,12 +6,15 @@ Copyright (c) 2017 - Eindhoven University of Technology, The Netherlands
 This software is made available under the terms of the MIT License.
 """
 
+import os
 import sys
+import tempfile
 from argparse import Namespace
+from typing import Any
 
 import nbformat
+from nbclient.exceptions import CellExecutionError
 from nbconvert.preprocessors import ExecutePreprocessor
-from nbconvert.preprocessors.execute import CellExecutionError
 from nbformat import NotebookNode
 
 from .cleaning import clean_code_output, clean_code_metadata, truncate_output_streams
@@ -19,13 +22,34 @@ from .cleaning import clean_code_output, clean_code_metadata, truncate_output_st
 TEST = False
 
 
+def ensure_secure_tempdir() -> None:
+    """Use a temp directory where Jupyter connection files can be chmodded."""
+    probe_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as probe:
+            probe_path = probe.name
+        os.chmod(probe_path, 0o600)
+        if os.stat(probe_path).st_mode & 0o777 != 0o600:
+            tempfile.tempdir = '/tmp'
+    except OSError:
+        tempfile.tempdir = '/tmp'
+    finally:
+        if probe_path:
+            try:
+                os.remove(probe_path)
+            except OSError:
+                pass
+
+
 def ipc_kernel_manager_factory(ipc_path):
     try:
-        from jupyter_client import AsyncKernelManager as _BaseKernelManager
+        from jupyter_client.manager import AsyncKernelManager
+        base_kernel_manager: type[Any] = AsyncKernelManager
     except ImportError:
-        from jupyter_client import KernelManager as _BaseKernelManager
+        from jupyter_client.manager import KernelManager
+        base_kernel_manager = KernelManager
 
-    class IPCKernelManager(_BaseKernelManager):
+    class IPCKernelManager(base_kernel_manager):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, transport='ipc', ip=ipc_path, **kwargs)
 
@@ -61,6 +85,7 @@ def run_nb(nb: NotebookNode, args: Namespace) -> None:
         ep_kwargs['kernel_name'] = args.kernel_name
 
     # run notebook
+    ensure_secure_tempdir()
     ep = ExecutePreprocessor(**ep_kwargs)
     try:
         resources = {'metadata': {'path': args.run_path}}  # set working directory

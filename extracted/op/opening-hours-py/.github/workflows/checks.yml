@@ -1,0 +1,131 @@
+name: Checks
+
+on:
+  - push
+  - pull_request
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ---
+  # --- Run tests and lints for Rust library
+  # ---
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate:
+          - .
+          - compact-calendar
+          - opening-hours-py
+          - opening-hours-syntax
+          - fuzz
+        features: [""]
+        include:
+          - { crate: ".", features: "log" }
+          - { crate: ".", features: "log,auto-country" }
+          - { crate: ".", features: "log,auto-country,auto-timezone" }
+          - { crate: ".", features: "log,auto-timezone" }
+          - { crate: "opening-hours-syntax", features: "log" }
+    defaults:
+      run:
+        working-directory: ${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Display rust version
+        run: |
+          rustc --version
+          cargo clippy -- --version
+          cargo fmt -- --version
+      - name: Lint
+        run: cargo clippy --no-default-features --features "${{ matrix.features }}" -- -D warnings
+      - name: Format
+        run: cargo fmt -- --check
+      - name: Tests
+        run: cargo test --no-default-features --features "${{ matrix.features }}"
+
+  # ---
+  # --- Check that all versions are consistency accross packages
+  # ---
+
+  check-version:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+      - name: Install dependancies
+        run: poetry install
+      - name: Check version consistency
+        run: poetry run ./check-version.py
+
+  # ---
+  # --- Check that python stub file is up to date
+  # ---
+
+  check-stub:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: opening-hours-py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+      - name: Install poetry deps
+        run: poetry install --with dev
+      - name: Check that Python stub file is up to date
+        run: cargo run --bin stub_gen -- check
+
+  # ---
+  # --- Calculate coverage using tarpaulin
+  # ---
+
+  coverage:
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Python library
+        run: apt-get update && apt-get install -yy python3-dev && apt-get clean
+      - name: Generate code coverage
+        run: >-
+          cargo +nightly tarpaulin --out xml
+          --ignore-panics --ignore-tests
+          --workspace
+          --all-features
+          --run-types Tests
+          --run-types Doctests
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
+          token: ${{secrets.CODECOV_TOKEN}}

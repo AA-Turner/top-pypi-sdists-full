@@ -24,6 +24,8 @@ from daft.execution.metadata import ExecutionMetadata
 from daft.naming import generate_query_name
 from daft.recordbatch import RecordBatch
 from daft.runners.flotilla import FlotillaRunner
+from daft.runners.heartbeat import Heartbeat
+from daft.runners.query_id import emit_query_id
 from daft.scarf_telemetry import track_runner_on_scarf
 from daft.series import Series, item_to_series
 
@@ -85,6 +87,8 @@ except ImportError:
 from daft.logical.schema import Schema
 
 RAY_VERSION = tuple(int(s) for s in ray.__version__.split(".")[0:3])
+
+HEARTBEAT_INTERVAL_SEC = 10.0
 
 _RAY_DATA_ARROW_TENSOR_TYPE_AVAILABLE = True
 try:
@@ -227,9 +231,13 @@ def _series_from_arrow_with_ray_data_extensions(
             if hasattr(array.type, "shape") and array.type.shape is not None and hasattr(array, "storage"):
                 tensor_array = cast("ArrowTensorArray", array)
                 storage_series = _series_from_arrow_with_ray_data_extensions(tensor_array.storage, name=name)
+                # Ray 2.55.0 renamed `scalar_type` to `value_type` for all tensor extension types
+                arrow_scalar_type = getattr(tensor_array.type, "value_type", None) or getattr(
+                    tensor_array.type, "scalar_type"
+                )
                 series = storage_series.cast(
                     DataType.fixed_size_list(
-                        _from_arrow_type_with_ray_data_extensions(tensor_array.type.scalar_type),
+                        _from_arrow_type_with_ray_data_extensions(arrow_scalar_type),
                         int(np.prod(array.type.shape)),
                     )
                 )
@@ -389,7 +397,9 @@ class RayPartitionSet(PartitionSet[ray.ObjectRef]):
 def _from_arrow_type_with_ray_data_extensions(arrow_type: pa.DataType) -> DataType:
     if _RAY_DATA_EXTENSIONS_AVAILABLE and isinstance(arrow_type, tuple(_TENSOR_EXTENSION_TYPES)):
         tensor_types = cast("ArrowTensorType | ArrowVariableShapedTensorType", arrow_type)
-        scalar_dtype = _from_arrow_type_with_ray_data_extensions(tensor_types.scalar_type)
+        # Ray 2.55.0 renamed `scalar_type` to `value_type` for all tensor extension types
+        arrow_scalar_type = getattr(tensor_types, "value_type", None) or getattr(tensor_types, "scalar_type")
+        scalar_dtype = _from_arrow_type_with_ray_data_extensions(arrow_scalar_type)
         # Both ArrowTensorType and ArrowTensorTypeV2 have a shape attribute
         # ArrowVariableShapedTensorType does not
         shape = getattr(tensor_types, "shape", None)
@@ -558,6 +568,7 @@ class RayRunner(Runner[ray.ObjectRef]):
         # Grab and freeze the current context
         ctx = get_context()
         query_id = generate_query_name()
+        emit_query_id(query_id)
         daft_execution_config = ctx.daft_execution_config
         output_schema = builder.schema()
         unoptimized_plan_json = builder.repr_json()
@@ -588,6 +599,8 @@ class RayRunner(Runner[ray.ObjectRef]):
         # Log Dashboard URL if configured
         if dashboard_url:
             logger.info("Daft Dashboard: %s/query/%s", dashboard_url, query_id)
+
+        heartbeat = Heartbeat(HEARTBEAT_INTERVAL_SEC, ctx, query_id)
 
         try:
             # Optimize the logical plan.
@@ -627,8 +640,10 @@ class RayRunner(Runner[ray.ObjectRef]):
                 ctx._notify_optimization_start(query_id)
                 ctx._notify_optimization_end(query_id, builder.repr_json())
                 ctx._notify_exec_start(query_id, physical_plan_json)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to send notifications: %s", e)
+
+            heartbeat.start()
 
             if self.flotilla_plan_runner is None:
                 self.flotilla_plan_runner = FlotillaRunner()
@@ -637,6 +652,7 @@ class RayRunner(Runner[ray.ObjectRef]):
             result_gen = self.flotilla_plan_runner.stream_plan(
                 distributed_plan, self._part_set_cache.get_all_partition_sets()
             )
+
             try:
                 while True:
                     result = next(result_gen)
@@ -658,14 +674,14 @@ class RayRunner(Runner[ray.ObjectRef]):
                         ctx._notify_exec_operator_end(query_id, node["id"])
 
                 notify_end(plan_dict)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to send operator end notifications: %s", e)
 
             try:
                 ctx._notify_exec_end(query_id)
-            except Exception:
-                pass
-            ctx._notify_query_end(query_id, PyQueryResult(QueryEndState.Finished, "Query finished"))
+                ctx._notify_query_end(query_id, PyQueryResult(QueryEndState.Finished, "Query finished"))
+            except Exception as e:
+                logger.warning("Failed to send query end notifications: %s", e)
 
         except GeneratorExit:
             # Generator was abandoned (e.g. .show() breaking out early). Match NativeRunner so
@@ -688,6 +704,8 @@ class RayRunner(Runner[ray.ObjectRef]):
             err_msg = f"General Exception raised: {e}"
             ctx._notify_query_end(query_id, PyQueryResult(QueryEndState.Failed, err_msg))
             raise e
+        finally:
+            heartbeat.stop()
 
         return ExecutionMetadata._from_runner_output(stats, query_id, physical_plan_json)
 

@@ -1,0 +1,17 @@
+description: Child element for the first child in Universal Credit.
+values:
+  2017-04-10: 277.08
+  2020-04-06: 281.25
+  2021-04-12: 282.5
+  2022-04-06: 290
+  2023-04-01: 315
+  2024-04-01: 333.33
+  2025-04-01: 339
+metadata:
+  unit: currency-GBP
+  period: month
+  label: Universal Credit child element higher amount
+  uprating: gov.benefit_uprating_cpi
+  reference:
+    - title: The Universal Credit Regulations 2013 reg. 24 (child element), amounts in reg. 36
+      href: https://www.legislation.gov.uk/uksi/2013/376/regulation/36

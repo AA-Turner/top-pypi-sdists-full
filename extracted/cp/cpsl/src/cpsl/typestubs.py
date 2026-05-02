@@ -1,0 +1,453 @@
+"""Auto-generate .capsule/types/ and tsconfig.json for editor DX.
+
+Called by both ``capsule serve`` and ``capsule deploy`` so that React page
+authors get type-checking and autocomplete for ``@capsule/page`` hooks,
+React itself, and any npm packages declared via ``packages=[...]``.
+
+Produces:
+  .capsule/types/capsule-page.d.ts   — @capsule/page hook signatures
+  .capsule/types/react.d.ts          — minimal React type declarations
+  .capsule/types/packages.d.ts       — stub declarations for npm deps
+  .capsule/.gitignore                — keeps generated files out of VCS
+  tsconfig.json (project root)       — jsx, paths, module resolution
+"""
+
+from __future__ import annotations
+
+import os
+
+
+def generate_type_stubs(pages: list[dict]) -> None:
+    has_react = any(p.get("type") == "react" for p in pages)
+    if not has_react:
+        return
+
+    root = os.getcwd()
+    capsule_dir = os.path.join(root, ".capsule")
+    types_dir = os.path.join(capsule_dir, "types")
+    os.makedirs(types_dir, exist_ok=True)
+
+    _write(os.path.join(types_dir, "capsule-page.d.ts"), _DTS_CAPSULE_PAGE)
+    _write(os.path.join(types_dir, "react.d.ts"), _DTS_REACT)
+
+    all_packages: set[str] = set()
+    for p in pages:
+        for pkg in p.get("packages", []):
+            at_idx = pkg.rfind("@") if pkg.count("@") > 1 or not pkg.startswith("@") else -1
+            name = pkg[:at_idx] if at_idx > 0 else pkg
+            all_packages.add(name)
+    if all_packages:
+        lines = [f'declare module "{pkg}";' for pkg in sorted(all_packages)]
+        _write(os.path.join(types_dir, "packages.d.ts"), "\n".join(lines) + "\n")
+
+    gi = os.path.join(capsule_dir, ".gitignore")
+    if not os.path.exists(gi):
+        _write(gi, "*\n")
+
+    tsconfig_path = os.path.join(root, "tsconfig.json")
+    if not os.path.exists(tsconfig_path):
+        _write(tsconfig_path, _TSCONFIG)
+
+
+def _write(path: str, content: str) -> None:
+    with open(path, "w") as f:
+        f.write(content)
+
+
+# ---------------------------------------------------------------------------
+# Template strings
+# ---------------------------------------------------------------------------
+
+_DTS_CAPSULE_PAGE = """\
+declare module "@capsule/page" {
+  import type { ReactNode, CSSProperties, FC } from "react";
+
+  // -----------------------------------------------------------------------
+  // Data hooks
+  // -----------------------------------------------------------------------
+
+  interface DataResult<T = unknown> {
+    data: T | null;
+    loading: boolean;
+    error: string | null;
+    refresh: () => void;
+  }
+
+  interface EndpointResult<T = unknown> {
+    data: T | null;
+    loading: boolean;
+    error: string | null;
+    call: (body?: unknown) => Promise<T>;
+  }
+
+  interface CapsuleContext {
+    appId: string;
+    user: { email: string } | null;
+    login: () => void;
+  }
+
+  export function useData<T = unknown>(
+    name: string,
+    opts?: { params?: Record<string, string> },
+  ): DataResult<T>;
+  export function useEndpoint<T = unknown>(path: string): EndpointResult<T>;
+  export function useCapsule(): CapsuleContext;
+
+  // -----------------------------------------------------------------------
+  // Theme
+  // -----------------------------------------------------------------------
+
+  interface ThemeColors {
+    background: string;
+    foreground: string;
+    muted: string;
+    surface: string;
+    surfaceHover: string;
+    card: string;
+    popover: string;
+    border: string;
+    input: string;
+    ring: string;
+    primary: string;
+    primaryFg: string;
+    accent: string;
+    accentFg: string;
+    accentSubtle: string;
+    accentBorder: string;
+    sidebar: string;
+    sidebarActive: string;
+    sidebarFg: string;
+    sidebarMuted: string;
+    danger: string;
+    dangerSubtle: string;
+    dangerBorder: string;
+    destructive: string;
+    success: string;
+  }
+
+  interface ThemeRadius {
+    sm: string;
+    md: string;
+    lg: string;
+    xl: string;
+  }
+
+  interface ThemeFont {
+    sans: string;
+    mono: string;
+  }
+
+  interface Theme {
+    mode: "dark" | "light";
+    color: ThemeColors;
+    radius: ThemeRadius;
+    font: ThemeFont;
+
+    /** @deprecated Use color.primary */
+    primary: string;
+    /** @deprecated Use color.accent */
+    accent: string;
+    /** @deprecated Use color.background */
+    background: string;
+    /** @deprecated Use color.foreground */
+    foreground: string;
+    /** @deprecated Use color.surface */
+    surface: string;
+    /** @deprecated Use color.border */
+    border: string;
+    /** @deprecated Use color.muted */
+    muted: string;
+    /** @deprecated Use color.danger */
+    danger: string;
+    /** @deprecated Use color.success */
+    success: string;
+    /** @deprecated Use color.sidebar */
+    sidebar: string;
+    /** @deprecated Use font.sans */
+    font_sans: string;
+    /** @deprecated Use font.mono */
+    font_mono: string;
+  }
+
+  export function useTheme(): Theme;
+
+  // -----------------------------------------------------------------------
+  // Helpers
+  // -----------------------------------------------------------------------
+
+  /** Apply an alpha channel to a hex color string. */
+  export function withAlpha(hex: string, alpha: number): string;
+
+  /** Linearly interpolate between two hex colors. t=0 returns a, t=1 returns b. */
+  export function mix(a: string, b: string, t: number): string;
+
+  /** Identity helper — returns the same object with CSSProperties inference. */
+  export function css(styles: CSSProperties): CSSProperties;
+
+  /** Build a stable Capsule URL for a file path mounted into the app. */
+  export function fileUrl(path: string): string;
+
+  /** React hook variant of fileUrl for render/effect usage. */
+  export function useFileUrl(path: string): string;
+
+  // -----------------------------------------------------------------------
+  // Collections
+  // -----------------------------------------------------------------------
+
+  interface CollectionOpts {
+    pageSize?: number;
+    sort?: { field: string; dir?: "asc" | "desc" };
+    filter?: Record<string, unknown>;
+  }
+
+  interface CollectionResult<T = unknown> {
+    data: T[];
+    total: number;
+    page: number;
+    totalPages: number;
+    loading: boolean;
+    error: string | null;
+    setPage: (page: number) => void;
+    setSort: (field: string, dir?: "asc" | "desc") => void;
+    setFilter: (filter: Record<string, unknown>) => void;
+    refresh: () => void;
+  }
+
+  export function useCollection<T = unknown>(
+    name: string,
+    opts?: CollectionOpts,
+  ): CollectionResult<T>;
+
+  // -----------------------------------------------------------------------
+  // Layout primitives
+  // -----------------------------------------------------------------------
+
+  interface LayoutRootProps {
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+
+  interface LayoutSidebarProps {
+    width?: number;
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+
+  interface LayoutListPaneProps {
+    width?: number;
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+
+  interface LayoutDetailProps {
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+
+  export const Layout: {
+    Root: FC<LayoutRootProps>;
+    Sidebar: FC<LayoutSidebarProps>;
+    ListPane: FC<LayoutListPaneProps>;
+    Detail: FC<LayoutDetailProps>;
+  };
+
+  // -----------------------------------------------------------------------
+  // UI primitives
+  // -----------------------------------------------------------------------
+
+  interface NavItemProps {
+    icon?: ReactNode;
+    active?: boolean;
+    count?: number | string;
+    onClick?: () => void;
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+  export const NavItem: FC<NavItemProps>;
+
+  interface ButtonProps {
+    variant?: "primary" | "ghost" | "danger";
+    size?: "sm" | "md";
+    disabled?: boolean;
+    onClick?: () => void;
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+  export const Button: FC<ButtonProps>;
+
+  interface CardProps {
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+  export const Card: FC<CardProps>;
+
+  interface RowProps {
+    active?: boolean;
+    onClick?: () => void;
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+  export const Row: FC<RowProps>;
+
+  interface EmptyStateProps {
+    icon?: ReactNode;
+    title?: string;
+    description?: string;
+    action?: ReactNode;
+    style?: CSSProperties;
+  }
+  export const EmptyState: FC<EmptyStateProps>;
+
+  interface SpinnerProps {
+    size?: number;
+    style?: CSSProperties;
+  }
+  export const Spinner: FC<SpinnerProps>;
+
+  interface AvatarProps {
+    name: string;
+    size?: number;
+    style?: CSSProperties;
+  }
+  export const Avatar: FC<AvatarProps>;
+
+  interface FileLinkProps {
+    path: string;
+    label?: string;
+    target?: string;
+    rel?: string;
+    children?: ReactNode;
+    style?: CSSProperties;
+  }
+  export const FileLink: FC<FileLinkProps>;
+}
+"""
+
+_DTS_REACT = """\
+// Minimal React type declarations for Capsule pages.
+// Auto-generated — do not edit.
+
+declare module "react" {
+  type ReactNode =
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | ReactElement
+    | ReactNode[];
+
+  interface ReactElement {
+    type: any;
+    props: any;
+    key: string | null;
+  }
+
+  type FC<P = {}> = (props: P) => ReactElement | null;
+  type PropsWithChildren<P = {}> = P & { children?: ReactNode };
+  type CSSProperties = Record<string, string | number>;
+
+  type Dispatch<A> = (value: A) => void;
+  type SetStateAction<S> = S | ((prevState: S) => S);
+  type DependencyList = readonly unknown[];
+  type EffectCallback = () => void | (() => void);
+  type Ref<T> = RefObject<T> | ((instance: T | null) => void) | null;
+
+  interface RefObject<T> {
+    readonly current: T | null;
+  }
+  interface MutableRefObject<T> {
+    current: T;
+  }
+  interface Context<T> {
+    Provider: FC<{ value: T; children?: ReactNode }>;
+    Consumer: FC<{ children: (value: T) => ReactNode }>;
+  }
+
+  function useState<S>(initial: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
+  function useEffect(effect: EffectCallback, deps?: DependencyList): void;
+  function useCallback<T extends (...args: any[]) => any>(cb: T, deps: DependencyList): T;
+  function useMemo<T>(factory: () => T, deps: DependencyList): T;
+  function useRef<T>(initial: T): MutableRefObject<T>;
+  function useRef<T>(initial: T | null): RefObject<T>;
+  function useContext<T>(context: Context<T>): T;
+  function useReducer<S, A>(reducer: (state: S, action: A) => S, initial: S): [S, Dispatch<A>];
+
+  function createElement(type: any, props?: any, ...children: ReactNode[]): ReactElement;
+  function createContext<T>(defaultValue: T): Context<T>;
+  function forwardRef<T, P = {}>(
+    render: (props: P, ref: Ref<T>) => ReactElement | null,
+  ): FC<P & { ref?: Ref<T> }>;
+  function memo<P>(component: FC<P>): FC<P>;
+  function Fragment(props: { children?: ReactNode }): ReactElement;
+
+  interface SyntheticEvent<T = Element> {
+    currentTarget: T;
+    target: EventTarget;
+    preventDefault(): void;
+    stopPropagation(): void;
+  }
+  interface ChangeEvent<T = Element> extends SyntheticEvent<T> {
+    target: EventTarget & T;
+  }
+  interface MouseEvent<T = Element> extends SyntheticEvent<T> {
+    clientX: number;
+    clientY: number;
+  }
+  interface KeyboardEvent<T = Element> extends SyntheticEvent<T> {
+    key: string;
+    code: string;
+  }
+  interface FormEvent<T = Element> extends SyntheticEvent<T> {}
+
+  interface HTMLAttributes<T> {
+    className?: string;
+    id?: string;
+    style?: CSSProperties;
+    onClick?: (e: MouseEvent<T>) => void;
+    onChange?: (e: ChangeEvent<T>) => void;
+    onKeyDown?: (e: KeyboardEvent<T>) => void;
+    onSubmit?: (e: FormEvent<T>) => void;
+    children?: ReactNode;
+    key?: string | number;
+    ref?: Ref<T>;
+    [attr: string]: any;
+  }
+}
+
+declare module "react/jsx-runtime" {
+  export function jsx(type: any, props: any, key?: string): any;
+  export function jsxs(type: any, props: any, key?: string): any;
+  export const Fragment: any;
+}
+
+declare module "react-dom/client" {
+  interface Root {
+    render(element: any): void;
+    unmount(): void;
+  }
+  function createRoot(container: Element | null): Root;
+}
+"""
+
+_TSCONFIG = """\
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@capsule/page": [".capsule/types/capsule-page"],
+      "react": [".capsule/types/react"],
+      "react/jsx-runtime": [".capsule/types/react"],
+      "react-dom/client": [".capsule/types/react"]
+    }
+  },
+  "include": ["**/*.tsx", "**/*.ts", ".capsule/types/*.d.ts"],
+  "exclude": ["node_modules"]
+}
+"""

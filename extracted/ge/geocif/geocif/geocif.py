@@ -1917,9 +1917,19 @@ class Geocif:
         Returns:
             Tuple of (experiment_id, results_dataframe)
         """
-        X_test = df_region[self.selected_features + self.cat_features]
+        X_test = df_region[self.selected_features + self.cat_features].copy()
+        num_cols = X_test.select_dtypes(include=[np.number]).columns
+        if len(num_cols):
+            inf_mask = ~np.isfinite(X_test[num_cols].to_numpy())
+            if inf_mask.any():
+                bad = list(num_cols[inf_mask.any(axis=0)])
+                self.logger.warning(
+                    f"Replacing ±inf with NaN in {len(bad)} test column(s): "
+                    f"{bad[:10]}{'...' if len(bad) > 10 else ''}"
+                )
+                X_test[num_cols] = X_test[num_cols].replace([np.inf, -np.inf], np.nan)
         y_test = df_region[self.target].values
-        
+
         y_pred, y_pred_ci, best_hyperparameters = self._run_prediction(
             X_test, df_region, scaler
         )
@@ -2715,7 +2725,24 @@ class Geocif:
 
     # Add debug logging in _clean_training_features
     def _clean_training_features(self, X_train: pd.DataFrame) -> pd.DataFrame:
-        """Drop columns with NaNs except lag yield and neighbor columns."""
+        """Replace ±inf with NaN, drop columns with NaN, preserve lag/neighbor cols.
+
+        Inf can leak in from feature paths that bypass the per-feature
+        ``np.isfinite`` guard in ``cid/indices.py`` (REV/MAR division on
+        repeated forecasts, neighbor-correlation features on constant series,
+        etc.).  Sanitizing at this boundary catches all sources at once and
+        lets the existing NaN-handling decide whether to drop or impute.
+        """
+        inf_mask = ~np.isfinite(X_train.select_dtypes(include=[np.number]).to_numpy())
+        if inf_mask.any():
+            num_cols = X_train.select_dtypes(include=[np.number]).columns
+            bad = list(num_cols[inf_mask.any(axis=0)])
+            self.logger.warning(
+                f"Replacing ±inf with NaN in {len(bad)} train column(s): "
+                f"{bad[:10]}{'...' if len(bad) > 10 else ''}"
+            )
+            X_train = X_train.replace([np.inf, -np.inf], np.nan)
+
         preserve_cols = [
             c for c in X_train.columns
             if c.startswith("t -") or c.startswith("nbr_")

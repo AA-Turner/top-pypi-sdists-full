@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: snakemake-storage-plugin-gcs
+Version: 1.1.4
+Summary: A Snakemake storage plugin for Google Cloud Storage
+Project-URL: repository, https://github.com/snakemake/snakemake-storage-plugin-gcs
+Project-URL: documentation, https://snakemake.github.io/snakemake-plugin-catalog/plugins/storage/gcs.html
+Author-email: Vanessa Sochat <sochat1@llnl.gov>, Johannes Koester <johannes.koester@uni-due.de>
+License: MIT
+License-File: LICENSE
+License-File: NOTICE
+Keywords: google cloud storage,plugin,snakemake,storage
+Requires-Python: >=3.11
+Requires-Dist: google-cloud-storage>=2.12.0
+Requires-Dist: google-crc32c>=1.1.2
+Requires-Dist: snakemake-interface-common>=1.14.2
+Requires-Dist: snakemake-interface-storage-plugins>=4.0
+Description-Content-Type: text/markdown
+
+# Snakemake storage plugin: gcs
+
+A snakemake storage plugin for Google Cloud Storage.
+For documentation and usage instructions, see the [Snakemake plugin catalog](https://snakemake.github.io/snakemake-plugin-catalog/plugins/storage/gcs.html).
+
+## Testing
+Set up a fake gcs server from [fake-gcs-server](https://github.com/fsouza/fake-gcs-server).
+
+## License
+
+HPCIC DevTools is distributed under the terms of the MIT license.
+All new contributions must be made under this license.
+
+See [LICENSE](https://github.com/converged-computing/cloud-select/blob/main/LICENSE),
+[COPYRIGHT](https://github.com/converged-computing/cloud-select/blob/main/COPYRIGHT), and
+[NOTICE](https://github.com/converged-computing/cloud-select/blob/main/NOTICE) for details.
+
+SPDX-License-Identifier: (MIT)
+
+LLNL-CODE- 842614

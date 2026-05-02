@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-univer-use:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build sdist and wheel (univer-use)
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish univer-use to PyPI
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          packages-dir: dist/
+
+  publish-spreadsheet-use:
+    runs-on: ubuntu-latest
+    needs: publish-univer-use
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Derive release version from tag
+        run: echo "RELEASE_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: Wait for univer-use to be available on PyPI
+        run: |
+          echo "Waiting for univer-use version $RELEASE_VERSION to be available on PyPI..."
+          MAX_ATTEMPTS=15
+          WAIT_TIME=30
+          
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $i/$MAX_ATTEMPTS: Checking PyPI for univer-use==$RELEASE_VERSION..."
+            
+            # Check via PyPI API (most reliable)
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/univer-use/$RELEASE_VERSION/json")
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ univer-use version $RELEASE_VERSION is available on PyPI (HTTP 200)"
+              
+              # Wait a moment for PyPI to fully propagate
+              echo "Waiting 10 seconds for PyPI propagation..."
+              sleep 10
+              
+              # Double-check with pip
+              if pip install --dry-run --no-deps "univer-use==$RELEASE_VERSION" >/dev/null 2>&1; then
+                echo "✅ Confirmed: pip can resolve univer-use==$RELEASE_VERSION"
+                break
+              else
+                echo "⚠️ PyPI API shows 200 but pip cannot resolve yet"
+                # Try updating pip index
+                pip cache purge >/dev/null 2>&1 || true
+                if pip install --dry-run --no-deps "univer-use==$RELEASE_VERSION" >/dev/null 2>&1; then
+                  echo "✅ Confirmed after cache purge: pip can resolve univer-use==$RELEASE_VERSION"
+                  break
+                else
+                  echo "⚠️ Still cannot resolve, continuing to wait..."
+                fi
+              fi
+            else
+              echo "❌ PyPI API returned HTTP $HTTP_STATUS for univer-use==$RELEASE_VERSION"
+            fi
+            
+            if [ $i -lt $MAX_ATTEMPTS ]; then
+              echo "Waiting $WAIT_TIME seconds before next attempt..."
+              sleep $WAIT_TIME
+            fi
+          done
+          
+          echo ""
+          echo "🔍 Final verification:"
+          FINAL_HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/univer-use/$RELEASE_VERSION/json")
+          echo "PyPI API status: $FINAL_HTTP_STATUS"
+          
+          if [ "$FINAL_HTTP_STATUS" = "200" ]; then
+            echo "✅ PyPI API confirms univer-use==$RELEASE_VERSION exists"
+            echo "Proceeding with build (PyPI propagation may still be in progress)"
+          else
+            echo "❌ Warning: PyPI API still returns $FINAL_HTTP_STATUS for univer-use==$RELEASE_VERSION"
+            echo "Proceeding anyway - the package may become available during build"
+          fi
+
+      - name: Build sdist and wheel (spreadsheet-use)
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ env.RELEASE_VERSION }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          mv pyproject-spreadsheet.toml pyproject.toml
+          echo "🔧 Setting dependency to univer-use==$RELEASE_VERSION"
+          echo "Before replacement:"
+          grep "univer-use" pyproject.toml
+          sed -i "s/univer-use>=0\.1\.0/univer-use==$RELEASE_VERSION/" pyproject.toml
+          echo "After replacement:"
+          grep "univer-use" pyproject.toml
+          echo "🔧 Building with version: $RELEASE_VERSION"
+          python -m build
+          python -m twine check dist/*
+          echo "🔍 Verifying package dependencies..."
+          WHEEL_FILE=$(ls dist/spreadsheet_use-*.whl | head -1)
+          echo "Checking wheel file: $WHEEL_FILE"
+          unzip -p "$WHEEL_FILE" "*/METADATA" | grep "Requires-Dist: univer-use" || echo "Warning: Could not verify dependency"
+
+      - name: Publish spreadsheet-use to PyPI
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          packages-dir: dist/

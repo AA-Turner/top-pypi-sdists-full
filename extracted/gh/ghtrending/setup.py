@@ -1,0 +1,30 @@
+from setuptools import setup, find_packages
+
+with open("README.md", "r") as f:
+    long_description = f.read()
+
+requires = [
+    'lxml',
+    'requests',
+]
+
+setup(
+    name='ghtrending',
+    version='0.2.2',
+    author='chinsyo',
+    author_email='chinsyo@sina.cn',
+    license='MIT',
+    description='Github Trending Explorer',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/chinsyo/ghtrending",
+    packages=find_packages(),
+    package_dir={'ghtrending': 'ghtrending'},
+    package_data={'': ['LICENSE', 'NOTICE']},
+    entry_points = {
+        'console_scripts':['ghtrending=ghtrending.__main__:main']
+    },
+    include_package_data=True,
+    install_requires=requires,
+    zip_safe=False
+)

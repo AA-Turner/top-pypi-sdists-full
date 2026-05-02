@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: types-gunicorn
+Version: 25.3.0.20260408
+Summary: Typing stubs for gunicorn
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
+Project-URL: GitHub, https://github.com/python/typeshed
+Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/gunicorn.md
+Project-URL: Issue tracker, https://github.com/python/typeshed/issues
+Project-URL: Chat, https://gitter.im/python/typing
+Classifier: Programming Language :: Python :: 3
+Classifier: Typing :: Stubs Only
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: types-gevent
+Dynamic: license-file
+
+## Typing stubs for gunicorn
+
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`gunicorn`](https://github.com/benoitc/gunicorn) package. It can be used by type checkers
+to check code that uses `gunicorn`. This version of
+`types-gunicorn` aims to provide accurate annotations for
+`gunicorn==25.3.0`.
+
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/gunicorn`](https://github.com/python/typeshed/tree/main/stubs/gunicorn)
+directory.
+
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
+
+It was generated from typeshed commit
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).

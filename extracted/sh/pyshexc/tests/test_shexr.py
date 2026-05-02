@@ -13,7 +13,7 @@ from rdflib import Graph, URIRef, Namespace
 from rdflib.term import Identifier, BNode
 
 from tests import schemas_base
-from tests.utils.build_test_harness import ValidationTestCase
+from tests.utils.build_test_harness import ValidationTestConfig
 
 # Comment this line out if you don't want context caching
 from pyshexc.rdflib import contextcache
@@ -38,7 +38,7 @@ fpath = os.path.abspath(os.path.split(__file__)[0])
 SHT = Namespace("file://" + fpath + '/')
 
 
-class ShexJToShexRTestCase(ValidationTestCase):
+class ShexJToShexRTestCase(ValidationTestConfig):
     pass
 
 # ShexJToShexRTestCase.repo_url = "~/Development/git/shexSpec/shexTest/schemas"
@@ -159,5 +159,3 @@ ShexJToShexRTestCase.validation_function = validate_file
 ShexJToShexRTestCase.build_test_harness()
 
 
-if __name__ == '__main__':
-    unittest.main()

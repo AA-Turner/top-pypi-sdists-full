@@ -1,0 +1,35 @@
+name: MS Teams Chat Extraction
+description: Sentiment Analysis for MS Teams Chats
+steps:
+  - MSTeamsMessages:
+      comments: "Extracting MS Teams Chat Messages"
+      team_id: MS_TEAMS_DEFAULT_TEAMS_ID
+      chat_name: "National CE Field Team Chat"
+      program_name: "Hisense"
+      weeks: 6
+      as_dataframe: True
+  - SentimentAnalysis:
+      text_column: text
+      sentiment_model: "tabularisai/robust-sentiment-analysis"
+      sentiment_levels: 5
+      emotions_model: "bhadresh-savani/distilbert-base-uncased-emotion"
+  - TransformRows:
+      fields:
+        created_date:
+          value:
+            - to_rethink_date
+  - CopyToRethink:
+      tablename: msteams_chats
+      schema: troc
+  - TransformRows:
+      fields:
+        created_date:
+          value:
+            - to_excel_date
+  - PandasToFile:
+      filename: /home/ubuntu/symbits/sentiment-hisense-ce-field-{today}.xlsx
+      mime: application/vnd.ms-excel
+      masks:
+        today:
+          - today
+          - mask: "%m%d%Y"

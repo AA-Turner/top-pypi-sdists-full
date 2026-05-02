@@ -10,7 +10,7 @@ shexc = """abstract <A>      /sA.........$/
 """
 
 
-class ShExCTestCase(SimpleShexTestCase):
+class TestShExC(SimpleShexTestCase):
     def test_shexc(self):
         base = 'http://example.org/'
         shex = self.shexc_to_shexj(shexc, base)
@@ -22,8 +22,4 @@ class ShExCTestCase(SimpleShexTestCase):
         rslt, log = self.compare_shexj(shex, shex_rev)
         if not rslt:
             print(log.getvalue())
-        self.assertTrue(rslt)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert rslt

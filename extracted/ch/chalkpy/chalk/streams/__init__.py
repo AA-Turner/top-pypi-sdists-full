@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, ParamS
 
 from chalk._lsp.error_builder import get_resolver_error_builder
 from chalk.features.tag import Environments
-from chalk.state import KeyedState
 from chalk.streams._kafka_source import KafkaSource
 from chalk.streams._kinesis_source import KinesisSource
 from chalk.streams._pubsub_source import PubSubSource
@@ -22,7 +21,6 @@ if TYPE_CHECKING:
 
 __all__ = (
     "KafkaSource",
-    "KeyedState",
     "KinesisSource",
     "MaterializationWindowConfig",
     "PubSubSource",

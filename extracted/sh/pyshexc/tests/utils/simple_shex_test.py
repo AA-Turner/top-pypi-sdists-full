@@ -1,4 +1,3 @@
-import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from typing import Tuple, Union
@@ -11,7 +10,7 @@ from pyshexc.ShExC import ShExC
 from pyshexc.parser_impl.generate_shexj import parse
 
 
-class SimpleShexTestCase(unittest.TestCase):
+class SimpleShexTestCase:
 
     @staticmethod
     def compare_shexj(shex: Union[ShExJ.Schema, str], shexj: Union[ShExJ.Schema, str]) -> Tuple[bool, StringIO]:
@@ -24,7 +23,7 @@ class SimpleShexTestCase(unittest.TestCase):
 
     def shexc_to_shexj(self, shexc, base=None) -> ShExJ.Schema:
         shex: ShExJ.Schema = parse(shexc, default_base=base)
-        self.assertIsNotNone(shex, "Compile error")
+        assert shex is not None, "Compile error"
         shex['@context'] = "http://www.w3.org/ns/shex.jsonld"
         return shex
 
@@ -38,7 +37,7 @@ class SimpleShexTestCase(unittest.TestCase):
             print(log.getvalue())
             print("\n***** Actual ShExJ *****")
             print(as_json(shex))
-        self.assertTrue(rslt, msg)
+        assert rslt, msg
 
         # ShExJ --> ShExC
         shexc_rev = str(ShExC(shex, base))
@@ -51,8 +50,4 @@ class SimpleShexTestCase(unittest.TestCase):
             print(log.getvalue())
             print("\n***** Actual ShExC *****")
             print(shexc_rev)
-        self.assertTrue(rslt, msg)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert rslt, msg

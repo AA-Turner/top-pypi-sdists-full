@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61.2", "setuptools_scm[toml]>=3.4.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-ignore-flaky"
+authors = [
+	{ name = "Eduardo Naufel Schettino", email = "schettino72@gmail.com" },
+	{ name = "Marcos Alfredo Camargo Leal Pinto", email = "marcos.alfredo@gmail.com" },
+]
+maintainers = [
+	{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" },
+]
+description = "ignore failures from flaky tests (pytest plugin)"
+readme = "README.rst"
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Environment :: Console",
+	"Intended Audience :: Developers",
+	"License :: OSI Approved :: MIT License",
+	"Natural Language :: English",
+	"Operating System :: OS Independent",
+	"Operating System :: POSIX",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Topic :: Software Development :: Testing",
+]
+requires-python = ">=3.8"
+dependencies = [
+	"pytest>=6.0",
+]
+dynamic = ["version"]
+
+
+[project.optional-dependencies]
+testing = [
+	# upstream
+	"pytest >= 6, != 8.1.*",
+	"pytest-checkdocs >= 2.4",
+	"pytest-cov",
+	"pytest-mypy",
+	"pytest-enabler >= 2.2",
+	"pytest-ruff >= 0.2.1",
+
+	# local
+	'importlib_resources; python_version < "3.12"',
+]
+docs = [
+	# upstream
+	"sphinx >= 3.5",
+	"jaraco.packaging >= 9.3",
+	"rst.linker >= 1.9",
+	"furo",
+	"sphinx-lint",
+
+	# local
+]
+
+[project.urls]
+Homepage = "https://github.com/coherent-oss/pytest-ignore-flaky"
+
+[project.entry-points]
+pytest11 = {pytest_ignore_flaky = "pytest_ignore_flaky"}
+
+[tool.setuptools_scm]

@@ -33,6 +33,7 @@ class InstanceArgs:
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  desired_status: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_display: Optional[pulumi.Input[_builtins.bool]] = None,
+                 erase_windows_vss_signature: Optional[pulumi.Input[_builtins.bool]] = None,
                  guest_accelerators: Optional[pulumi.Input[Sequence[pulumi.Input['InstanceGuestAcceleratorArgs']]]] = None,
                  hostname: Optional[pulumi.Input[_builtins.str]] = None,
                  instance_encryption_key: Optional[pulumi.Input['InstanceInstanceEncryptionKeyArgs']] = None,
@@ -73,7 +74,7 @@ class InstanceArgs:
                
                - - -
         :param pulumi.Input['InstanceAdvancedMachineFeaturesArgs'] advanced_machine_features: Configure Nested Virtualisation and Simultaneous Hyper Threading  on this VM. Structure is documented below
-        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this prvider to stop the instance to update its properties.
+        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this provider to stop the instance to update its properties.
                If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceAttachedDiskArgs']]] attached_disks: Additional disks to attach to the instance. Can be repeated multiple times for multiple disks. Structure is documented below.
         :param pulumi.Input[_builtins.bool] can_ip_forward: Whether to allow sending and receiving of
@@ -87,6 +88,7 @@ class InstanceArgs:
                `"RUNNING"`, `"SUSPENDED"` or `"TERMINATED"`.
         :param pulumi.Input[_builtins.bool] enable_display: Enable [Virtual Displays](https://cloud.google.com/compute/docs/instances/enable-instance-virtual-display#verify_display_driver) on this instance.
                **Note**: `allow_stopping_for_update` must be set to true or your instance must have a `desired_status` of `TERMINATED` in order to update this field.
+        :param pulumi.Input[_builtins.bool] erase_windows_vss_signature: Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceGuestAcceleratorArgs']]] guest_accelerators: List of the type and count of accelerator cards attached to the instance. Structure documented below.
                **Note:** GPU accelerators can only be used with `on_host_maintenance` option set to TERMINATE.
         :param pulumi.Input[_builtins.str] hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid.
@@ -172,6 +174,8 @@ class InstanceArgs:
             pulumi.set(__self__, "desired_status", desired_status)
         if enable_display is not None:
             pulumi.set(__self__, "enable_display", enable_display)
+        if erase_windows_vss_signature is not None:
+            pulumi.set(__self__, "erase_windows_vss_signature", erase_windows_vss_signature)
         if guest_accelerators is not None:
             pulumi.set(__self__, "guest_accelerators", guest_accelerators)
         if hostname is not None:
@@ -279,7 +283,7 @@ class InstanceArgs:
     @pulumi.getter(name="allowStoppingForUpdate")
     def allow_stopping_for_update(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        If true, allows this prvider to stop the instance to update its properties.
+        If true, allows this provider to stop the instance to update its properties.
         If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         """
         return pulumi.get(self, "allow_stopping_for_update")
@@ -376,6 +380,18 @@ class InstanceArgs:
     @enable_display.setter
     def enable_display(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "enable_display", value)
+
+    @_builtins.property
+    @pulumi.getter(name="eraseWindowsVssSignature")
+    def erase_windows_vss_signature(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
+        """
+        return pulumi.get(self, "erase_windows_vss_signature")
+
+    @erase_windows_vss_signature.setter
+    def erase_windows_vss_signature(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "erase_windows_vss_signature", value)
 
     @_builtins.property
     @pulumi.getter(name="guestAccelerators")
@@ -689,6 +705,7 @@ class _InstanceState:
                  desired_status: Optional[pulumi.Input[_builtins.str]] = None,
                  effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  enable_display: Optional[pulumi.Input[_builtins.bool]] = None,
+                 erase_windows_vss_signature: Optional[pulumi.Input[_builtins.bool]] = None,
                  guest_accelerators: Optional[pulumi.Input[Sequence[pulumi.Input['InstanceGuestAcceleratorArgs']]]] = None,
                  hostname: Optional[pulumi.Input[_builtins.str]] = None,
                  instance_encryption_key: Optional[pulumi.Input['InstanceInstanceEncryptionKeyArgs']] = None,
@@ -722,7 +739,7 @@ class _InstanceState:
         Input properties used for looking up and filtering Instance resources.
 
         :param pulumi.Input['InstanceAdvancedMachineFeaturesArgs'] advanced_machine_features: Configure Nested Virtualisation and Simultaneous Hyper Threading  on this VM. Structure is documented below
-        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this prvider to stop the instance to update its properties.
+        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this provider to stop the instance to update its properties.
                If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceAttachedDiskArgs']]] attached_disks: Additional disks to attach to the instance. Can be repeated multiple times for multiple disks. Structure is documented below.
         :param pulumi.Input['InstanceBootDiskArgs'] boot_disk: The boot disk for the instance.
@@ -742,6 +759,7 @@ class _InstanceState:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.bool] enable_display: Enable [Virtual Displays](https://cloud.google.com/compute/docs/instances/enable-instance-virtual-display#verify_display_driver) on this instance.
                **Note**: `allow_stopping_for_update` must be set to true or your instance must have a `desired_status` of `TERMINATED` in order to update this field.
+        :param pulumi.Input[_builtins.bool] erase_windows_vss_signature: Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceGuestAcceleratorArgs']]] guest_accelerators: List of the type and count of accelerator cards attached to the instance. Structure documented below.
                **Note:** GPU accelerators can only be used with `on_host_maintenance` option set to TERMINATE.
         :param pulumi.Input[_builtins.str] hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid.
@@ -853,6 +871,8 @@ class _InstanceState:
             pulumi.set(__self__, "effective_labels", effective_labels)
         if enable_display is not None:
             pulumi.set(__self__, "enable_display", enable_display)
+        if erase_windows_vss_signature is not None:
+            pulumi.set(__self__, "erase_windows_vss_signature", erase_windows_vss_signature)
         if guest_accelerators is not None:
             pulumi.set(__self__, "guest_accelerators", guest_accelerators)
         if hostname is not None:
@@ -928,7 +948,7 @@ class _InstanceState:
     @pulumi.getter(name="allowStoppingForUpdate")
     def allow_stopping_for_update(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        If true, allows this prvider to stop the instance to update its properties.
+        If true, allows this provider to stop the instance to update its properties.
         If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         """
         return pulumi.get(self, "allow_stopping_for_update")
@@ -1086,6 +1106,18 @@ class _InstanceState:
     @enable_display.setter
     def enable_display(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "enable_display", value)
+
+    @_builtins.property
+    @pulumi.getter(name="eraseWindowsVssSignature")
+    def erase_windows_vss_signature(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
+        """
+        return pulumi.get(self, "erase_windows_vss_signature")
+
+    @erase_windows_vss_signature.setter
+    def erase_windows_vss_signature(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "erase_windows_vss_signature", value)
 
     @_builtins.property
     @pulumi.getter(name="guestAccelerators")
@@ -1505,6 +1537,7 @@ class Instance(pulumi.CustomResource):
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  desired_status: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_display: Optional[pulumi.Input[_builtins.bool]] = None,
+                 erase_windows_vss_signature: Optional[pulumi.Input[_builtins.bool]] = None,
                  guest_accelerators: Optional[pulumi.Input[Sequence[pulumi.Input[Union['InstanceGuestAcceleratorArgs', 'InstanceGuestAcceleratorArgsDict']]]]] = None,
                  hostname: Optional[pulumi.Input[_builtins.str]] = None,
                  instance_encryption_key: Optional[pulumi.Input[Union['InstanceInstanceEncryptionKeyArgs', 'InstanceInstanceEncryptionKeyArgsDict']]] = None,
@@ -1642,7 +1675,7 @@ class Instance(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['InstanceAdvancedMachineFeaturesArgs', 'InstanceAdvancedMachineFeaturesArgsDict']] advanced_machine_features: Configure Nested Virtualisation and Simultaneous Hyper Threading  on this VM. Structure is documented below
-        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this prvider to stop the instance to update its properties.
+        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this provider to stop the instance to update its properties.
                If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         :param pulumi.Input[Sequence[pulumi.Input[Union['InstanceAttachedDiskArgs', 'InstanceAttachedDiskArgsDict']]]] attached_disks: Additional disks to attach to the instance. Can be repeated multiple times for multiple disks. Structure is documented below.
         :param pulumi.Input[Union['InstanceBootDiskArgs', 'InstanceBootDiskArgsDict']] boot_disk: The boot disk for the instance.
@@ -1658,6 +1691,7 @@ class Instance(pulumi.CustomResource):
                `"RUNNING"`, `"SUSPENDED"` or `"TERMINATED"`.
         :param pulumi.Input[_builtins.bool] enable_display: Enable [Virtual Displays](https://cloud.google.com/compute/docs/instances/enable-instance-virtual-display#verify_display_driver) on this instance.
                **Note**: `allow_stopping_for_update` must be set to true or your instance must have a `desired_status` of `TERMINATED` in order to update this field.
+        :param pulumi.Input[_builtins.bool] erase_windows_vss_signature: Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
         :param pulumi.Input[Sequence[pulumi.Input[Union['InstanceGuestAcceleratorArgs', 'InstanceGuestAcceleratorArgsDict']]]] guest_accelerators: List of the type and count of accelerator cards attached to the instance. Structure documented below.
                **Note:** GPU accelerators can only be used with `on_host_maintenance` option set to TERMINATE.
         :param pulumi.Input[_builtins.str] hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid.
@@ -1876,6 +1910,7 @@ class Instance(pulumi.CustomResource):
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  desired_status: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_display: Optional[pulumi.Input[_builtins.bool]] = None,
+                 erase_windows_vss_signature: Optional[pulumi.Input[_builtins.bool]] = None,
                  guest_accelerators: Optional[pulumi.Input[Sequence[pulumi.Input[Union['InstanceGuestAcceleratorArgs', 'InstanceGuestAcceleratorArgsDict']]]]] = None,
                  hostname: Optional[pulumi.Input[_builtins.str]] = None,
                  instance_encryption_key: Optional[pulumi.Input[Union['InstanceInstanceEncryptionKeyArgs', 'InstanceInstanceEncryptionKeyArgsDict']]] = None,
@@ -1920,6 +1955,7 @@ class Instance(pulumi.CustomResource):
             __props__.__dict__["description"] = description
             __props__.__dict__["desired_status"] = desired_status
             __props__.__dict__["enable_display"] = enable_display
+            __props__.__dict__["erase_windows_vss_signature"] = erase_windows_vss_signature
             __props__.__dict__["guest_accelerators"] = guest_accelerators
             __props__.__dict__["hostname"] = hostname
             __props__.__dict__["instance_encryption_key"] = instance_encryption_key
@@ -1983,6 +2019,7 @@ class Instance(pulumi.CustomResource):
             desired_status: Optional[pulumi.Input[_builtins.str]] = None,
             effective_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             enable_display: Optional[pulumi.Input[_builtins.bool]] = None,
+            erase_windows_vss_signature: Optional[pulumi.Input[_builtins.bool]] = None,
             guest_accelerators: Optional[pulumi.Input[Sequence[pulumi.Input[Union['InstanceGuestAcceleratorArgs', 'InstanceGuestAcceleratorArgsDict']]]]] = None,
             hostname: Optional[pulumi.Input[_builtins.str]] = None,
             instance_encryption_key: Optional[pulumi.Input[Union['InstanceInstanceEncryptionKeyArgs', 'InstanceInstanceEncryptionKeyArgsDict']]] = None,
@@ -2020,7 +2057,7 @@ class Instance(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['InstanceAdvancedMachineFeaturesArgs', 'InstanceAdvancedMachineFeaturesArgsDict']] advanced_machine_features: Configure Nested Virtualisation and Simultaneous Hyper Threading  on this VM. Structure is documented below
-        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this prvider to stop the instance to update its properties.
+        :param pulumi.Input[_builtins.bool] allow_stopping_for_update: If true, allows this provider to stop the instance to update its properties.
                If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         :param pulumi.Input[Sequence[pulumi.Input[Union['InstanceAttachedDiskArgs', 'InstanceAttachedDiskArgsDict']]]] attached_disks: Additional disks to attach to the instance. Can be repeated multiple times for multiple disks. Structure is documented below.
         :param pulumi.Input[Union['InstanceBootDiskArgs', 'InstanceBootDiskArgsDict']] boot_disk: The boot disk for the instance.
@@ -2040,6 +2077,7 @@ class Instance(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
         :param pulumi.Input[_builtins.bool] enable_display: Enable [Virtual Displays](https://cloud.google.com/compute/docs/instances/enable-instance-virtual-display#verify_display_driver) on this instance.
                **Note**: `allow_stopping_for_update` must be set to true or your instance must have a `desired_status` of `TERMINATED` in order to update this field.
+        :param pulumi.Input[_builtins.bool] erase_windows_vss_signature: Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
         :param pulumi.Input[Sequence[pulumi.Input[Union['InstanceGuestAcceleratorArgs', 'InstanceGuestAcceleratorArgsDict']]]] guest_accelerators: List of the type and count of accelerator cards attached to the instance. Structure documented below.
                **Note:** GPU accelerators can only be used with `on_host_maintenance` option set to TERMINATE.
         :param pulumi.Input[_builtins.str] hostname: A custom hostname for the instance. Must be a fully qualified DNS name and RFC-1035-valid.
@@ -2141,6 +2179,7 @@ class Instance(pulumi.CustomResource):
         __props__.__dict__["desired_status"] = desired_status
         __props__.__dict__["effective_labels"] = effective_labels
         __props__.__dict__["enable_display"] = enable_display
+        __props__.__dict__["erase_windows_vss_signature"] = erase_windows_vss_signature
         __props__.__dict__["guest_accelerators"] = guest_accelerators
         __props__.__dict__["hostname"] = hostname
         __props__.__dict__["instance_encryption_key"] = instance_encryption_key
@@ -2184,7 +2223,7 @@ class Instance(pulumi.CustomResource):
     @pulumi.getter(name="allowStoppingForUpdate")
     def allow_stopping_for_update(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
-        If true, allows this prvider to stop the instance to update its properties.
+        If true, allows this provider to stop the instance to update its properties.
         If you try to update a property that requires stopping the instance without setting this field, the update will fail.
         """
         return pulumi.get(self, "allow_stopping_for_update")
@@ -2290,6 +2329,14 @@ class Instance(pulumi.CustomResource):
         **Note**: `allow_stopping_for_update` must be set to true or your instance must have a `desired_status` of `TERMINATED` in order to update this field.
         """
         return pulumi.get(self, "enable_display")
+
+    @_builtins.property
+    @pulumi.getter(name="eraseWindowsVssSignature")
+    def erase_windows_vss_signature(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        Beta Specifies whether the disks restored from source snapshots or source machine image should erase Windows specific VSS signature.
+        """
+        return pulumi.get(self, "erase_windows_vss_signature")
 
     @_builtins.property
     @pulumi.getter(name="guestAccelerators")

@@ -325,11 +325,13 @@ default_channel_options: Dict[str, str | int] = {
             "methodConfig": [
                 {
                     "name": [{}],
-                    "maxAttempts": 5,
-                    "initialBackoff": "0.1s",
-                    "maxBackoff": "1s",
-                    "backoffMultiplier": 2,
-                    "retryableStatusCodes": ["UNAVAILABLE"],
+                    "retryPolicy": {
+                        "maxAttempts": 5,
+                        "initialBackoff": "0.1s",
+                        "maxBackoff": "1s",
+                        "backoffMultiplier": 2,
+                        "retryableStatusCodes": ["UNAVAILABLE"],
+                    },
                 }
             ]
         }
@@ -2559,7 +2561,7 @@ class ChalkGRPCClient:
         output_features: Optional[list[str]] = None,
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
-        model_image: Optional[str] = None,
+        model_image: Optional[Union[str, Any]] = None,
     ) -> RegisterModelVersionResponse:
         """Register a model in the Chalk model registry.
 
@@ -2568,7 +2570,8 @@ class ChalkGRPCClient:
         name
             Unique name for the model.
         model_image
-            Docker image for model serving (must have chalk-remote-call-python installed).
+            Docker image for model serving. Can be a string URI (e.g. ``"ghcr.io/org/image:tag"``)
+            or a ``chalkcompute.Image`` object, which will be built to obtain the image URI.
             If provided, the model can be deployed to a scaling group via deploy_scaling_group().
         aliases
             List of version aliases (e.g., `["v1.0", "latest"]`).
@@ -2653,6 +2656,9 @@ class ChalkGRPCClient:
         ... )
 
         """
+        if model_image is not None and not isinstance(model_image, str):
+            model_image = self._build_model_image(model_image)
+
         if model_image is not None and model is None and model_paths is None:
             # Image-only registration (for scaling group deployment)
             return self._register_model_with_image(
@@ -2683,6 +2689,15 @@ class ChalkGRPCClient:
                 aliases=aliases,
                 model_image=model_image,
             )
+
+    def _build_model_image(self, image: Any) -> str:
+        """Build a ``chalkcompute.Image`` and return the resulting image URI."""
+        try:
+            from chalkcompute import build_image  # pyright: ignore[reportMissingImports]
+        except ImportError:
+            raise ImportError("Please install `chalkcompute` to enable model image builds.")
+
+        return build_image(image)
 
     def _register_model_with_image(
         self,

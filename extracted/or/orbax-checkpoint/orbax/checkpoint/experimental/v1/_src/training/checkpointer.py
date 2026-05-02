@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import typing
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 from absl import logging
 from etils import epy
@@ -32,6 +32,7 @@ from orbax.checkpoint.experimental.v1._src.path import step as path_step_lib
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.saving import saving
 from orbax.checkpoint.experimental.v1._src.saving import validation
+from orbax.checkpoint.experimental.v1._src.synchronization import thread_utils
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.training import errors
 from orbax.checkpoint.experimental.v1._src.training import preservation_policies
@@ -48,17 +49,23 @@ PYTREE_CHECKPOINTABLE_KEY = checkpoint_layout.PYTREE_CHECKPOINTABLE_KEY
 
 
 class _AsyncSaveResponse(async_types.AsyncResponse[bool]):
+  """Response for asynchronous saving."""
 
   def __init__(
       self, manager: checkpoint_manager.CheckpointManager, saved: bool
   ):
-    self._manager = manager
-    self._saved = saved
+
+    async def _wait() -> bool:
+      manager.wait_until_finished()
+      return saved
+
+    self._thread_runner = thread_utils.BackgroundThreadRunner[bool](_wait())
 
   def result(self, timeout: float | None = None) -> bool:
-    del timeout  # Ignored.
-    self._manager.wait_until_finished()
-    return self._saved
+    return self._thread_runner.result(timeout=timeout)
+
+  def on_complete(self, callback: Callable[[bool], None]) -> None:
+    self._thread_runner.on_complete(callback)
 
 
 def _resolve_integer_step(
@@ -274,6 +281,7 @@ class Checkpointer(epy.ContextManager):
       step: int,
       pytree: tree_types.PyTreeOf[tree_types.LeafType],
       *,
+      checkpointable_name: str = PYTREE_CHECKPOINTABLE_KEY,
       force: bool = False,
       overwrite: bool = False,
       metrics: tree_types.JsonType | None = None,
@@ -340,6 +348,8 @@ class Checkpointer(epy.ContextManager):
     Args:
       step: The step number to save.
       pytree: The PyTree to save.
+      checkpointable_name: The name of the checkpointable to save a pytree
+        under. Defaults to 'pytree'.
       force: If True, ignores all :py:class:`.SaveDecisionPolicy` checks, and
         always decides to save a checkpoint.
       overwrite: If True, deletes any existing checkpoint at the given step
@@ -356,6 +366,7 @@ class Checkpointer(epy.ContextManager):
     return self.save_pytree_async(
         step,
         pytree,
+        checkpointable_name=checkpointable_name,
         force=force,
         overwrite=overwrite,
         metrics=metrics,
@@ -453,6 +464,7 @@ class Checkpointer(epy.ContextManager):
       step: int,
       pytree: tree_types.PyTreeOf[tree_types.LeafType],
       *,
+      checkpointable_name: str = PYTREE_CHECKPOINTABLE_KEY,
       force: bool = False,
       overwrite: bool = False,
       metrics: tree_types.JsonType | None = None,
@@ -476,6 +488,8 @@ class Checkpointer(epy.ContextManager):
     Args:
       step: The step number to save.
       pytree: The PyTree to save.
+      checkpointable_name: The name of the checkpointable to save a pytree
+        under. Defaults to 'pytree'.
       force: See `save_pytree`.
       overwrite: See `save_pytree`.
       metrics: See `save_pytree`.
@@ -487,7 +501,7 @@ class Checkpointer(epy.ContextManager):
     """
     return self.save_checkpointables_async(
         step,
-        {PYTREE_CHECKPOINTABLE_KEY: pytree},
+        {checkpointable_name: pytree},
         force=force,
         overwrite=overwrite,
         metrics=metrics,
@@ -536,7 +550,7 @@ class Checkpointer(epy.ContextManager):
       StepAlreadyExistsError: If `overwrite` is False and a checkpoint at the
         target `step` already exists.
     """
-    validation.validate_abstract_checkpointables(checkpointables)
+    validation.validate_save_checkpointables(checkpointables)
     if overwrite:
       logging.info(
           'Specified `overwrite`: deleting existing checkpoint %d if it'

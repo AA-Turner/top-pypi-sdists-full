@@ -19,9 +19,13 @@ Usage::
         ListBrowserProfilesPaginator,
         ListBrowsersPaginator,
         ListCodeInterpretersPaginator,
+        ListConfigurationBundleVersionsPaginator,
+        ListConfigurationBundlesPaginator,
         ListEvaluatorsPaginator,
+        ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
         ListGatewaysPaginator,
+        ListHarnessesPaginator,
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
         ListOnlineEvaluationConfigsPaginator,
@@ -60,9 +64,13 @@ Usage::
     list_browser_profiles_paginator: ListBrowserProfilesPaginator = client.get_paginator("list_browser_profiles")
     list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
+    list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
+    list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
     list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
+    list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
     list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
     list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
+    list_harnesses_paginator: ListHarnessesPaginator = client.get_paginator("list_harnesses")
     list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
     list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
     list_online_evaluation_configs_paginator: ListOnlineEvaluationConfigsPaginator = client.get_paginator("list_online_evaluation_configs")
@@ -85,9 +93,13 @@ from .paginator import (
     ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
+    ListConfigurationBundlesPaginator,
+    ListConfigurationBundleVersionsPaginator,
     ListEvaluatorsPaginator,
+    ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
+    ListHarnessesPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
@@ -120,9 +132,13 @@ __all__ = (
     "ListBrowserProfilesPaginator",
     "ListBrowsersPaginator",
     "ListCodeInterpretersPaginator",
+    "ListConfigurationBundleVersionsPaginator",
+    "ListConfigurationBundlesPaginator",
     "ListEvaluatorsPaginator",
+    "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",
     "ListGatewaysPaginator",
+    "ListHarnessesPaginator",
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",
     "ListOnlineEvaluationConfigsPaginator",

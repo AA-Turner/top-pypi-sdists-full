@@ -1,0 +1,148 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "g13-linux"
+version = "1.6.0"
+description = "Logitech G13 Linux driver with macro support, RGB control, and LCD display management"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "AreteDriver"}
+]
+maintainers = [
+    {name = "AreteDriver"}
+]
+keywords = [
+    "logitech",
+    "g13",
+    "linux",
+    "driver",
+    "gaming",
+    "keyboard",
+    "macro",
+    "rgb",
+    "lcd",
+    "hid",
+    "usb"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Games/Entertainment",
+    "Topic :: Desktop Environment"
+]
+dependencies = [
+    "hidapi>=0.14.0",
+    "evdev>=1.7.0",
+    "pyusb>=1.3.0",
+    "PyQt6>=6.7.0",
+    "pynput>=1.8.0",
+    "Pillow>=11.0.0",
+    "aiohttp>=3.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-aiohttp>=1.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-qt>=4.4.0",
+    "ruff>=0.11.0",
+    "mypy>=1.15.0",
+    "build>=1.2.0",
+    "twine>=6.0.0",
+    "bandit[toml]>=1.7.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/AreteDriver/G13_Linux"
+Documentation = "https://github.com/AreteDriver/G13_Linux#readme"
+Repository = "https://github.com/AreteDriver/G13_Linux.git"
+Issues = "https://github.com/AreteDriver/G13_Linux/issues"
+Changelog = "https://github.com/AreteDriver/G13_Linux/blob/main/CHANGELOG.md"
+
+[project.scripts]
+g13-linux = "g13_linux.cli:main"
+g13-linux-gui = "g13_linux.gui.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["g13_linux*"]
+
+[tool.setuptools.package-data]
+g13_linux = [
+    "data/*.json",
+    "data/*.yaml",
+    "data/*.pbm",
+    "profiles/*.yaml"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B008",  # Do not perform function call in argument defaults
+    "B027",  # Empty method in abstract class (intentional optional hooks)
+    "B905",  # zip() without strict= (Python 3.10 compat)
+    "B904",  # raise from in except (requires manual review)
+    "B007",  # unused loop variable (intentional unpacking)
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --cov=g13_linux --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/g13_linux"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:"
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "build", "dist"]
+skips = [
+    "B101",  # assert used (tests)
+    "B108",  # hardcoded /tmp for lock file (local daemon)
+    "B110",  # try/except/pass in hardware cleanup (intentional)
+    "B112",  # try/except/continue in file loading loops (intentional)
+    "B311",  # random module for visual effects, not crypto
+    "B404",  # subprocess import (required for system tools)
+    "B603",  # subprocess without shell=True (safe usage)
+    "B607",  # partial path for system binaries (xdotool, etc.)
+]

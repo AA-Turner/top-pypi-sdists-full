@@ -200,6 +200,24 @@ class SCRAM(Mech):
         self.step = 0
         self._mutual_auth = False
 
+        if self.use_channel_binding and not self.credentials['channel_binding']:
+            tls_version = self.security_settings.get('tls_version')
+            if tls_version not in (None, 'TLSv1.3'):
+                # On TLS < 1.3, tls-unique is available and SCRAM-PLUS should
+                # succeed. Unexpected None binding may indicate a downgrade
+                # attack; do not fall back silently.
+                return
+
+            # TLS 1.3 (or non-TLS): Python ssl only supports tls-unique,
+            # which is forbidden on TLS 1.3 per RFC 9266, and tls-exporter
+            # is not implemented in Python. Fall back to non-PLUS gracefully.
+            raise SASLCancelled(
+                'SCRAM-PLUS requires channel binding, but Python ssl only '
+                'supports tls-unique which is unavailable on TLS 1.3 '
+                '(see https://github.com/python/cpython/issues/95341); '
+                'falling back to non-PLUS mechanism'
+            )
+
     def HMAC(self, key, msg):
         return hmac.HMAC(key=key, msg=msg, digestmod=self.hash).digest()
 

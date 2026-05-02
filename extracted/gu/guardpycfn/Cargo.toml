@@ -1,0 +1,19 @@
+[package]
+name = "guardpycfn"
+version = "0.1.0"
+edition = "2021"
+license = "MIT-0"
+authors = ["Your Name"]
+description = "Python bindings for AWS CloudFormation Guard via pyo3 (scaffold)"
+readme = "README.md"
+
+[lib]
+name = "guardpycfn"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
+
+[dependencies.cfn-guard]
+path = "vendor/cloudformation-guard/guard"
+

@@ -1347,6 +1347,7 @@ class FirewallPolicyResponseTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
     ConsumedStatelessRuleCapacity: NotRequired[int]
     ConsumedStatefulRuleCapacity: NotRequired[int]
+    ConsumedStatefulDomainCapacity: NotRequired[int]
     NumberOfAssociations: NotRequired[int]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     LastModifiedTime: NotRequired[datetime]

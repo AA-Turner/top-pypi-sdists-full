@@ -1,0 +1,528 @@
+X20CMR111:
+  version: 1.6.0.0
+  settings: |
+    <Parameter ID="Accel01MinMaxEnable" Value="onDps"/>
+    <Parameter ID="Accel02MinMaxEnable" Value="onDps"/>
+    <Parameter ID="Accel03MinMaxEnable" Value="onDps"/>
+    <Parameter ID="DatapointInfoEnable" Value="on"/>
+    <Parameter ID="HumidityMinMaxEnable" Value="onDps"/>
+    <Parameter ID="OpRegEnable" Value="onDps"/>
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="TempIntMinMaxEnable" Value="onDps"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cCMR011:
+  version: 1.2.0.0
+  settings: |
+    <Parameter ID="Accel01MinMaxEnable" Value="onDps"/>
+    <Parameter ID="Accel02MinMaxEnable" Value="onDps"/>
+    <Parameter ID="Accel03MinMaxEnable" Value="onDps"/>
+    <Parameter ID="DatapointInfoEnable" Value="on"/>
+    <Parameter ID="HumidityMinMaxEnable" Value="onDps"/>
+    <Parameter ID="OpRegEnable" Value="onDps"/>
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="TempIntMinMaxEnable" Value="onDps"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20TB12:
+  version: 1.0.0.0
+  settings: null
+
+X20TB32:
+  version: 1.0.0.1
+  settings: null
+
+X20TB52:
+  version: 1.0.0.2
+  settings: null
+
+X20TB72:
+  version: 1.0.0.2
+  settings: null
+
+X20cAI4622:
+  version: 1.5.0.0
+  settings: |
+    <Parameter ID="InputFilter" Value="level 16"/>
+    <Parameter ID="InputLimitation" Value="255"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cAT4222:
+  version: 1.6.0.0
+  settings: |
+    <Parameter ID="FunctionModel" Value="FunctionModel001"/>
+    <Parameter ID="InputFilter" Value="40ms"/>
+    <Parameter ID="SensorType01" Value="PT1000"/>
+    <Parameter ID="SensorType02" Value="PT1000"/>
+    <Parameter ID="SensorType03" Value="PT1000"/>
+    <Parameter ID="SensorType04" Value="PT1000"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cBB80:
+  version: 1.1.0.0
+  settings: null
+
+X20cBB81:
+  version: 1.2.0.0
+  settings: null
+
+X20cBB82:
+  version: 1.2.0.0
+  settings: null
+
+X20cBC0083:
+  version: 2.17.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBB80
+
+X20cBC8083:
+  version: 2.17.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBB81
+
+X20cBM01:
+  version: 1.1.0.0
+  settings: null
+
+X20cBM11:
+  version: 1.1.0.0
+  settings: null
+
+X20cBM12:
+  version: 1.1.0.0
+  settings: null
+
+X20cBM33:
+  version: 1.1.0.0
+  settings: null
+
+X20cCP1584:
+  version: 1.13.0.0
+  settings: |
+    <Connector Name="IF2">
+      <Parameter ID="ActivateDevice" Value="1"/>
+      <Parameter ID="HostName" Value="{{ cpuhostname }}"/>
+      <Parameter ID="ActivateSnmp" Value="1"/>
+    </Connector>
+    <Connector Name="IF3">
+      <Parameter ID="DNAConfiguration" Value="manual"/>
+      <Parameter ID="EplHostName" Value="{{ cpuhostname }}"/>
+      <Parameter ID="CycleTime" Value="1000"/>
+      <Parameter ID="HostName" Value="{{ cpuhostname }}"/>
+    </Connector>
+    <Connector Name="IF6">
+      <Parameter ID="CycleTime" Value="1000"/>
+    </Connector>
+    <Parameter ID="ConfigurationID" Value="{{ cpuconfigurationid }}"/>
+    <Parameter ID="UserPartitionSize" Value="1024"/>
+    <Parameter ID="AutomaticTransferOfUserfiles" Value="on"/>
+    <Parameter ID="UserRamSize" Value="775936"/>
+    <Parameter ID="RemMemSize" Value="256000"/>
+    <Parameter ID="PermanentPvSize" Value="64000"/>
+    <Parameter ID="RemanentGlobalPvSize" Value="0"/>
+    <Parameter ID="VolatileGlobalPvSize" Value="81920000"/>
+    <Parameter ID="EnableUsbRemoteInstall" Value="1"/>
+    <Parameter ID="TimerDeviceType" Value="EPLX2X"/>
+    <Parameter ID="TimerDevice" Value="{{ cpuname }}.IF3"/>
+    <Parameter ID="TaskClassIdleTime" Value="2000"/>
+    <Parameter ID="CyclicTaskClassCount" Value="4"/>
+    <Parameter ID="Cyclic1Duration" Value="1000"/>
+    <Parameter ID="Cyclic1Tolerance" Value="1000"/>
+    <Parameter ID="Cyclic2Duration" Value="10000"/>
+    <Parameter ID="Cyclic2Tolerance" Value="10000"/>
+    <Parameter ID="Cyclic3Duration" Value="100000"/>
+    <Parameter ID="Cyclic3Tolerance" Value="100000"/>
+    <Group ID="FileDevice1"/>
+    <Parameter ID="FileDeviceName1" Value="dev_data"/>
+    <Parameter ID="FileDevicePath1" Value="F:\"/>
+    <Group ID="FileDevice2"/>
+    <Parameter ID="FileDeviceName2" Value="dev_confPLC"/>
+    <Parameter ID="FileDevicePath2" Value="F:\data\conf_PLC"/>
+    <Group ID="FileDevice3"/>
+    <Parameter ID="FileDeviceName3" Value="dev_confSHV"/>
+    <Parameter ID="FileDevicePath3" Value="F:\data\conf_SHV"/>
+    <Group ID="FileDevice4"/>
+    <Parameter ID="FileDeviceName4" Value="dev_logPLC"/>
+    <Parameter ID="FileDevicePath4" Value="F:\data\log_PLC"/>
+    <Group ID="FileDevice5"/>
+    <Parameter ID="FileDeviceName5" Value="dev_logSHV"/>
+    <Parameter ID="FileDevicePath5" Value="F:\data\log_SHV"/>
+    <Group ID="FileDevice6"/>
+    <Parameter ID="FileDeviceName6" Value="dev_logElesys"/>
+    <Parameter ID="FileDevicePath6" Value="F:\data\log_Elesys"/>
+    <Parameter ID="TimeZone" Value="145"/>
+    <Parameter ID="ActivateDaylightSavingTime" Value="1"/>
+    <Parameter ID="InternetFileSystemUsername" Value="admin"/>
+    <Parameter ID="InternetFileSystemDomainName" Value="ELEKTROLINE"/>
+    <Parameter ID="EthernetHostName" Value="{{ cpuhostname }}"/>
+    <Parameter ID="ActivateDns" Value="1"/>
+    <Parameter ID="DnsDefaultDomain" Value="plc-SystemG3"/>
+    <Parameter ID="GetDnsFromDhcp" Value="2"/>
+    <Group ID="FtpUser1"/>
+    <Parameter ID="FtpUsername1" Value="ftp"/>
+    <Parameter ID="FtpUserPassword1" Value="{{ ftpuserpassword1 }}"/>
+    <Parameter ID="FtpUserSalt1" Value="hvIOd8JU"/>
+    <Parameter ID="FTPMSpath1" Value="/data/log_Elesys/"/>
+    <Group ID="FtpUser2"/>
+    <Parameter ID="FtpUsername2" Value="ellmaster"/>
+    <Parameter ID="FtpUserPassword2" Value="{{ ftpuserpassword2 }}"/>
+    <Parameter ID="FtpUserSalt2" Value="DYK6g03a"/>
+    <Parameter ID="FTPAccessRight2" Value="0"/>
+    <Parameter ID="FTPMSpath2" Value="/data/"/>
+    <Parameter ID="ActivateTftpServer" Value="0" />
+    <Parameter ID="WebServerPort" Value="8080"/>
+    <Parameter ID="WebServerAspReadOnly" Value="1" />
+    <Parameter ID="TemperatureCPUType" Value="INT"/>
+    <Parameter ID="TemperatureENVType" Value="INT"/>
+    <Parameter ID="RebootReset" Value="2" />
+    <Parameter ID="SafetyLoggerSize" Value="1048576" />
+  tb: null
+  bm: null
+
+X20cCP3687X:
+  version: 1.8.2.0
+  settings: |
+    <Connector Name="IF2">
+      <Parameter ID="ActivateDevice" Value="1"/>
+      <Parameter ID="HostName" Value="{{ cpuhostname }}"/>
+      <Parameter ID="ActivateSnmp" Value="1"/>
+    </Connector>
+    <Connector Name="IF3">
+      <Parameter ID="DNAConfiguration" Value="manual"/>
+      <Parameter ID="EplHostName" Value="{{ cpuhostname }}"/>
+      <Parameter ID="CycleTime" Value="1000"/>
+      <Parameter ID="HostName" Value="{{ cpuhostname }}"/>
+    </Connector>
+    <Connector Name="IF6">
+      <Parameter ID="CycleTime" Value="1000"/>
+    </Connector>
+    <Parameter ID="ConfigurationID" Value="{{ cpuconfigurationid }}"/>
+    <Parameter ID="UserPartitionSize" Value="1024"/>
+    <Parameter ID="AutomaticTransferOfUserfiles" Value="on"/>
+    <Parameter ID="UserRamSize" Value="775936"/>
+    <Parameter ID="RemMemSize" Value="256000"/>
+    <Parameter ID="PermanentPvSize" Value="64000"/>
+    <Parameter ID="RemanentGlobalPvSize" Value="0"/>
+    <Parameter ID="VolatileGlobalPvSize" Value="81920000"/>
+    <Parameter ID="EnableUsbRemoteInstall" Value="1"/>
+    <Parameter ID="TimerDeviceType" Value="EPLX2X"/>
+    <Parameter ID="TimerDevice" Value="{{ cpuname }}.IF3"/>
+    <Parameter ID="TaskClassIdleTime" Value="2000"/>
+    <Parameter ID="CyclicTaskClassCount" Value="4"/>
+    <Parameter ID="Cyclic1Duration" Value="1000"/>
+    <Parameter ID="Cyclic1Tolerance" Value="1000"/>
+    <Parameter ID="Cyclic2Duration" Value="10000"/>
+    <Parameter ID="Cyclic2Tolerance" Value="10000"/>
+    <Parameter ID="Cyclic3Duration" Value="100000"/>
+    <Parameter ID="Cyclic3Tolerance" Value="100000"/>
+    <Group ID="FileDevice1"/>
+    <Parameter ID="FileDeviceName1" Value="dev_data"/>
+    <Parameter ID="FileDevicePath1" Value="F:\"/>
+    <Group ID="FileDevice2"/>
+    <Parameter ID="FileDeviceName2" Value="dev_confPLC"/>
+    <Parameter ID="FileDevicePath2" Value="F:\data\conf_PLC"/>
+    <Group ID="FileDevice3"/>
+    <Parameter ID="FileDeviceName3" Value="dev_confSHV"/>
+    <Parameter ID="FileDevicePath3" Value="F:\data\conf_SHV"/>
+    <Group ID="FileDevice4"/>
+    <Parameter ID="FileDeviceName4" Value="dev_logPLC"/>
+    <Parameter ID="FileDevicePath4" Value="F:\data\log_PLC"/>
+    <Group ID="FileDevice5"/>
+    <Parameter ID="FileDeviceName5" Value="dev_logSHV"/>
+    <Parameter ID="FileDevicePath5" Value="F:\data\log_SHV"/>
+    <Group ID="FileDevice6"/>
+    <Parameter ID="FileDeviceName6" Value="dev_logElesys"/>
+    <Parameter ID="FileDevicePath6" Value="F:\data\log_Elesys"/>
+    <Parameter ID="TimeZone" Value="145"/>
+    <Parameter ID="ActivateDaylightSavingTime" Value="1"/>
+    <Parameter ID="InternetFileSystemUsername" Value="admin"/>
+    <Parameter ID="InternetFileSystemDomainName" Value="ELEKTROLINE"/>
+    <Parameter ID="EthernetHostName" Value="{{ cpuhostname }}"/>
+    <Parameter ID="ActivateDns" Value="1"/>
+    <Parameter ID="DnsDefaultDomain" Value="plc-SystemG3"/>
+    <Parameter ID="GetDnsFromDhcp" Value="2"/>
+    <Group ID="FtpUser1"/>
+    <Parameter ID="FtpUsername1" Value="ftp"/>
+    <Parameter ID="FtpUserPassword1" Value="{{ ftpuserpassword1 }}"/>
+    <Parameter ID="FtpUserSalt1" Value="hvIOd8JU"/>
+    <Parameter ID="FTPMSpath1" Value="/data/log_Elesys/"/>
+    <Group ID="FtpUser2"/>
+    <Parameter ID="FtpUsername2" Value="ellmaster"/>
+    <Parameter ID="FtpUserPassword2" Value="{{ ftpuserpassword2 }}"/>
+    <Parameter ID="FtpUserSalt2" Value="DYK6g03a"/>
+    <Parameter ID="FTPAccessRight2" Value="0"/>
+    <Parameter ID="FTPMSpath2" Value="/data/"/>
+    <Parameter ID="ActivateTftpServer" Value="0" />
+    <Parameter ID="WebServerPort" Value="8080"/>
+    <Parameter ID="RebootReset" Value="2" />
+    <Parameter ID="SafetyLoggerSize" Value="1048576" />
+    <Parameter ID="WebServerAspReadOnly" Value="1" />
+  tb: null
+  bm: null
+  
+X20cCP1684:
+  version: 1.8.1.0
+  settings: |
+    <Connector Name="IF2">
+      <Parameter ID="ActivateDevice" Value="1"/>
+      <Parameter ID="HostName" Value="{{ cpuhostname }}"/>
+      <Parameter ID="ActivateSnmp" Value="1"/>
+    </Connector>
+    <Connector Name="IF3">
+      <Parameter ID="DNAConfiguration" Value="manual"/>
+      <Parameter ID="EplHostName" Value="{{ cpuhostname }}"/>
+      <Parameter ID="CycleTime" Value="1000"/>
+      <Parameter ID="HostName" Value="{{ cpuhostname }}"/>
+    </Connector>
+    <Connector Name="IF6">
+      <Parameter ID="CycleTime" Value="1000"/>
+    </Connector>
+    <Parameter ID="ConfigurationID" Value="{{ cpuconfigurationid }}"/>
+    <Parameter ID="UserPartitionSize" Value="1024"/>
+    <Parameter ID="AutomaticTransferOfUserfiles" Value="on"/>
+    <Parameter ID="UserRamSize" Value="775936"/>
+    <Parameter ID="RemMemSize" Value="256000"/>
+    <Parameter ID="PermanentPvSize" Value="64000"/>
+    <Parameter ID="RemanentGlobalPvSize" Value="0"/>
+    <Parameter ID="VolatileGlobalPvSize" Value="81920000"/>
+    <Parameter ID="EnableUsbRemoteInstall" Value="1"/>
+    <Parameter ID="TimerDeviceType" Value="EPLX2X"/>
+    <Parameter ID="TimerDevice" Value="{{ cpuname }}.IF3"/>
+    <Parameter ID="TaskClassIdleTime" Value="2000"/>
+    <Parameter ID="CyclicTaskClassCount" Value="4"/>
+    <Parameter ID="Cyclic1Duration" Value="1000"/>
+    <Parameter ID="Cyclic1Tolerance" Value="1000"/>
+    <Parameter ID="Cyclic2Duration" Value="10000"/>
+    <Parameter ID="Cyclic2Tolerance" Value="10000"/>
+    <Parameter ID="Cyclic3Duration" Value="100000"/>
+    <Parameter ID="Cyclic3Tolerance" Value="100000"/>
+    <Group ID="FileDevice1"/>
+    <Parameter ID="FileDeviceName1" Value="dev_data"/>
+    <Parameter ID="FileDevicePath1" Value="F:\"/>
+    <Group ID="FileDevice2"/>
+    <Parameter ID="FileDeviceName2" Value="dev_confPLC"/>
+    <Parameter ID="FileDevicePath2" Value="F:\data\conf_PLC"/>
+    <Group ID="FileDevice3"/>
+    <Parameter ID="FileDeviceName3" Value="dev_confSHV"/>
+    <Parameter ID="FileDevicePath3" Value="F:\data\conf_SHV"/>
+    <Group ID="FileDevice4"/>
+    <Parameter ID="FileDeviceName4" Value="dev_logPLC"/>
+    <Parameter ID="FileDevicePath4" Value="F:\data\log_PLC"/>
+    <Group ID="FileDevice5"/>
+    <Parameter ID="FileDeviceName5" Value="dev_logSHV"/>
+    <Parameter ID="FileDevicePath5" Value="F:\data\log_SHV"/>
+    <Group ID="FileDevice6"/>
+    <Parameter ID="FileDeviceName6" Value="dev_logElesys"/>
+    <Parameter ID="FileDevicePath6" Value="F:\data\log_Elesys"/>
+    <Parameter ID="TimeZone" Value="145"/>
+    <Parameter ID="ActivateDaylightSavingTime" Value="1"/>
+    <Parameter ID="InternetFileSystemUsername" Value="admin"/>
+    <Parameter ID="InternetFileSystemDomainName" Value="ELEKTROLINE"/>
+    <Parameter ID="EthernetHostName" Value="{{ cpuhostname }}"/>
+    <Parameter ID="ActivateDns" Value="1"/>
+    <Parameter ID="DnsDefaultDomain" Value="plc-SystemG3"/>
+    <Parameter ID="GetDnsFromDhcp" Value="2"/>
+    <Group ID="FtpUser1"/>
+    <Parameter ID="FtpUsername1" Value="ftp"/>
+    <Parameter ID="FtpUserPassword1" Value="{{ ftpuserpassword1 }}"/>
+    <Parameter ID="FtpUserSalt1" Value="hvIOd8JU"/>
+    <Parameter ID="FTPMSpath1" Value="/data/log_Elesys/"/>
+    <Group ID="FtpUser2"/>
+    <Parameter ID="FtpUsername2" Value="ellmaster"/>
+    <Parameter ID="FtpUserPassword2" Value="{{ ftpuserpassword2 }}"/>
+    <Parameter ID="FtpUserSalt2" Value="DYK6g03a"/>
+    <Parameter ID="FTPAccessRight2" Value="0"/>
+    <Parameter ID="FTPMSpath2" Value="/data/"/>
+    <Parameter ID="ActivateTftpServer" Value="0" />
+    <Parameter ID="RebootReset" Value="2" />
+    <Parameter ID="SafetyLoggerSize" Value="1048576" />
+    <Parameter ID="WebServerPort" Value="8080"/>
+    <Parameter ID="WebServerAspReadOnly" Value="1" />
+  tb: null
+  bm: null
+
+X20cCS1020:
+  version: 1.8.0.0
+  settings: |
+    <Parameter ID="FunctionModel" Value="StreamCyc1xRS4xx"/>
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="TaskClass" Value="TC#1"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cCS1030:
+  version: 1.8.0.0
+  settings: |
+    <Parameter ID="FunctionModel" Value="StreamCyc1xRS4xx"/>
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="TaskClass" Value="TC#1"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20CS1070:
+  version: 1.10.0.0
+  settings: |
+    <Connector Name="IF1">
+      <Parameter ID="ActivateDevice" Value="1" />
+    </Connector>
+    <Parameter ID="FunctionModel" Value="StreamCyc1xCan" />
+    <Parameter ID="Supervision" Value="off" />
+    <Parameter ID="TaskClass" Value="TC#1" />
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cDI9371:
+  version: 1.5.0.0
+  settings: |
+    <Parameter ID="InputFilter" Value="200"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cDI9372:
+  version: 1.5.0.0
+  settings:
+    <Parameter ID="InputFilter" Value="200"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cDM9324:
+  version: 1.2.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cDO6639:
+  version: 1.2.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB32
+  bm: X20cBM12
+
+X20cDO9321:
+  version: 1.2.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cDO9322:
+  version: 1.6.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+  
+X20cDO8332:
+  version: 1.7.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM11
+
+X20cHB2881:
+  version: 1.2.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: null
+  bm: null
+
+X20cMK0213:
+  version: 1.0.0.3
+  settings: null
+  tb: null
+  bm: null
+
+X20cPS3300:
+  version: 1.4.0.0
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB12
+  bm: X20cBM01
+
+X20cPS9400:
+  version: 1.7.0.0
+  settings: |
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="PowerInfo" Value="on" />
+  tb: X20TB12
+  bm: X20cBB80
+
+X20cSI4100:
+  version: 2.6.1.0
+  settings: |
+    <Parameter ID="SafeModuleID" Value="{{ safemoduleid }}"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB52
+  bm: X20cBM33
+
+X20cSI9100:
+  version: 2.6.1.0
+  settings: |
+    <Parameter ID="SafeModuleID" Value="{{ safemoduleid }}"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB52
+  bm: X20cBM33
+
+X20cSL8101:
+  version: 2.6.0.0
+  settings: |
+    <Connector Name="IF1">
+      <Parameter ID="CycleTime" Value="1000" />
+    </Connector>
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="UnsafeInputINTs" Value="1"/>
+    <Parameter ID="UnsafeInputUDINTs" Value="8"/>
+    <Parameter ID="UnsafeInputUINTs" Value="64"/>
+    <Parameter ID="UnsafeOutputINTs" Value="2"/>
+    <Parameter ID="UnsafeOutputUDINTs" Value="8"/>
+    <Parameter ID="UnsafeOutputUINTs" Value="64"/>
+    <Parameter ID="PowerInfo" Value="on" />
+  tb: X20TB52
+  bm: null
+
+X20cSL8100:
+  version: 2.6.0.0
+  settings: |
+    <Parameter ID="Supervision" Value="off"/>
+    <Parameter ID="UnsafeInputINTs" Value="1"/>
+    <Parameter ID="UnsafeInputUDINTs" Value="8"/>
+    <Parameter ID="UnsafeInputUINTs" Value="64"/>
+    <Parameter ID="UnsafeOutputINTs" Value="2"/>
+    <Parameter ID="UnsafeOutputUDINTs" Value="8"/>
+    <Parameter ID="UnsafeOutputUINTs" Value="64"/>
+    <Parameter ID="PowerInfo" Value="on" />
+  tb: X20TB52
+  bm: null
+
+X20cSO2530:
+  version: 2.6.0.0
+  settings: |
+    <Parameter ID="DigitalOutput01" Value="viaSafeLOGIC"/>
+    <Parameter ID="DigitalOutput0102" Value="viaSafeLOGIC"/>
+    <Parameter ID="DigitalOutput02" Value="viaSafeLOGIC"/>
+    <Parameter ID="SafeModuleID" Value="{{ safemoduleid }}"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB72
+  bm: X20cBM33
+
+X20cSO4120:
+  version: 2.3.0.1
+  settings: |
+    <Parameter ID="DigitalOutput01" Value="viaSafeLOGIC"/>
+    <Parameter ID="DigitalOutput02" Value="viaSafeLOGIC"/>
+    <Parameter ID="DigitalOutput03" Value="viaSafeLOGIC"/>
+    <Parameter ID="DigitalOutput04" Value="viaSafeLOGIC"/>
+    <Parameter ID="SafeModuleID" Value="{{ safemoduleid }}"/>
+    <Parameter ID="Supervision" Value="off"/>
+  tb: X20TB52
+  bm: X20cBM33
+
+default:
+  version: "1.0.0.0"
+  settings: <Parameter ID="Supervision" Value="off"/>
+  tb: null
+  bm: null

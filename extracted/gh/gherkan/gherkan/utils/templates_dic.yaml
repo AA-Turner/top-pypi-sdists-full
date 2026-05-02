@@ -1,0 +1,281 @@
+# Internal template for actors with program numbers.
+# Programs are described in a separate JSON file.
+
+# Inclination manual:
+# The number of inclinations must be the same as is the number of regular expressions to be filled.
+# The order corresponds to the order in which the expressions are in a sentence. If the regular expression refers to a
+# substantive to be filled in, the number of the inclination is the case in which the word should be conjugated (i.e. 4 is
+# the fourth case). If the expression stands for verb, the number of inclination refers to person and can be thus either
+# 1, 2 or 3 (I, You, He/She/It). The tense is automatically set as present at the moment. If the expression does not have
+# any applicable inclination, such as prepositions, states etc., the inclination should be 0.
+
+
+- Name: PN
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "(?P<subject>\\w+)ProgramNumber"
+      ValueId: programNumber
+  NLTemplateEn:
+   - "(?P<subject>\\w+\\s*\\w*) #(?P<programNumber>\\w+)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) #(?P<programNumber>\\w+)"
+  Inclinations:
+  - 0
+  - 3
+
+# TODO. Only temporary solution, see TreeProcessor
+- Name: PNStart
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "(?P<subject>\\w+)ProgramNumber"
+      ValueId: programNumber
+    - Type: BOOL
+      Template: "(?P<subject>\\w+)Program(?P<state>Start|End|Finish)ed"
+      ValueId: programState
+  NLTemplateEn:
+   - "(?P<subject>\\w+\\s*\\w*) #(?P<programNumber>\\w+):(?P<state>Start|End|Finish)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) #(?P<programNumber>\\w+):(?P<state>Start|End|Finish)"
+  Inclinations:
+  - 0
+  - 3
+
+- Name: sStart
+  SignalTemplate:
+  - Type: EQUALITY
+    Template: "(?P<subject>\\w+)Program(?P<state>Start|Stop|End)"
+    ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) (?P<state>start|stop|end) program"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) (?P<state>začít|skončit) program"
+  Inclinations:
+  - 1
+  - 3
+
+
+- Name: sState
+  SignalTemplate:
+    - Type: BOOL
+      Template: "(?P<subject>\\w+)(?P<state>Free|Full|Locked|On)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) be (?P<state>on|lock|full|free)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) být (?P<state>zapnutý|zamčený|obsazený|volný)"
+  Inclinations:
+  - 1
+  - 1
+
+- Name: sDest
+  SignalTemplate:
+  - Type: EQUALITY
+    Template: "(?P<subject>\\w+)Destination"
+    ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) go to station (?P<value>\\w+)"
+    - "(?P<subject>\\w+\\s*\\w*) go to station (?P<value>\\w+) (?:\\w+\\s*\\w*\\s*\\w*)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) jet do stanice (?P<value>\\w+)"
+    - "(?P<subject>\\w+\\s*\\w*) jet do stanice (?P<value>\\w+) (?:\\w+\\s*\\w*\\s*\\w*)"
+  Inclinations:
+  - 1
+  - 0
+
+- Name: sAtStat
+  SignalTemplate:
+  - Type: BOOL
+    Template: "(?P<subject>\\w+)AtStation(?P<place>\\w+)"
+    ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) be in station (?P<place>\\w+)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) být v stanice (?P<place>\\w+)"
+  Inclinations:
+  - 1
+  - 6
+
+- Name: sAct
+  SignalTemplate:
+    - Type: BOOL
+      Template: "(?P<subject>\\w+)(?P<action>Move)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) (?P<action>\\w+:move)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) (?P<action>\\w+:move)"
+  Inclinations:
+  - 1
+  - 0
+
+- Name: ActionS
+  SignalTemplate:
+    - Type: BOOL
+      Template: "(?P<action>:Replenish)(?P<subject>\\w+)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<action>Replenish) (?P<subject>\\w+\\s*\\w*)"
+  NLTemplateCz:
+    - "(?P<action>Doplnit) (?P<subject>\\w+\\s*\\w*)"
+  Inclinations:
+  - 1
+  - 4
+
+
+- Name: sCount
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "(?P<subject>\\w+)Count"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) contain (?P<value>\\w+) pieces"
+    - "(?P<subject>\\w+\\s*\\w*) be empty"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) obsahovat (?P<value>\\w+) kusů"
+    - "(?P<subject>\\w+\\s*\\w*) být prázdný"
+  Inclinations:
+    - 1
+    - 0
+
+
+- Name: Alert
+  SignalTemplate:
+    - Type: BOOL
+      Template: "alert(?P<action>\\w+)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<action>\\w+)!"
+  NLTemplateCz:
+    - "(?P<action>\\w+)!"
+  Inclinations:
+  - 1
+
+- Name: Safety
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "light_line_ready"
+      ValueId: value
+  NLTemplateEn:
+    - "safety be confirmed"
+    - "safety confirm"
+    - "safety be confirm"
+  NLTemplateCz:
+    - "potvrdit bezpečnost"
+  Inclinations:
+  - 1
+
+- Name: Door
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "safety_door"
+      ValueId: value
+  NLTemplateEn:
+    - "safety door be (?P<state>open|closed)"
+  NLTemplateCz:
+    - "být (?P<state>otevřený|zavřený) bezpečnostní dveře"
+  Inclinations:
+  - 1
+
+- Name: Sick
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "Sick"
+      ValueId: value
+  NLTemplateEn:
+    - "space be invaded"
+    - "space be invade"
+    - "space invade"
+  NLTemplateCz:
+    - "být narušen prostor"
+    - "být narušit prostor"
+  Inclinations:
+  - 1
+
+- Name: sAtStart
+  SignalTemplate:
+  - Type: EQUALITY
+    Template: "(?P<subject>\\w+)At(?P<place>Start|End)"
+    ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) be at (?P<place>Start|End|Position)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) být na (?P<place>Začátek|Konec|Pozici)"
+  Inclinations:
+  - 1
+  - 6
+
+
+- Name: PureStart
+  SignalTemplate:
+  - Type: EQUALITY
+    Template: "(?P<subject>\\w+)(?P<state>Start|Stop)"
+    ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) (?P<state>Start|Stop)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) (?P<state>začít|zastavit)"
+  Inclinations:
+  - 1
+  - 3
+
+- Name: sIn0
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "(?P<subject>\\w+\\s*\\w*\\w*)(?P<prep>In|On|To)(?P<object>\\w+)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) be (?P<prep>in|on|to) (?P<object>\\w+)"
+    - "(?P<subject>\\w+\\s*\\w*\\s*\\w*) be (?P<prep>in|on|to) (?P<object>\\w+)"
+    - "be (?P<subject>\\w+\\s*\\w*\\s*\\w*) (?P<prep>in|on|to) (?P<object>\\w+)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) být (?P<prep>v|na|do) (?P<object>\\w+)"
+    - "(?P<subject>\\w+\\s*\\w*\\s*\\w*) být (?P<prep>v|na|do) (?P<object>\\w+)"
+    - "být (?P<subject>\\w+\\s*\\w*\\s*\\w*) (?P<prep>v|na|do) (?P<object>\\w+)"
+  Inclinations:
+  - 1
+  - 0
+  - 6
+
+- Name: sRot
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "(?P<subject>\\w+)To(?P<state>FWD|HOME)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) move to position (?P<state>FWD|HOME)"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) se otočit do pozice (?P<state>FWD|HOME)"
+    - "se (?P<subject>\\w+\\s*\\w*) otočit do pozice (?P<state>FWD|HOME)"
+  Inclinations:
+  - 1
+  - 0
+
+- Name: sPos
+  SignalTemplate:
+    - Type: EQUALITY
+      Template: "(?P<subject>\\w+)At(?P<state>FWD|HOME)"
+      ValueId: value
+  NLTemplateEn:
+    - "(?P<subject>\\w+\\s*\\w*) be at position (?P<state>FWD|HOME)"
+    - "(?P<subject>\\w+\\s*\\w*) be at (?P<state>FWD|HOME) position"
+  NLTemplateCz:
+    - "(?P<subject>\\w+\\s*\\w*) být v pozice (?P<state>FWD|HOME)"
+  Inclinations:
+  - 1
+  - 0
+
+- Name: Cam
+  SignalTemplate:
+    - Type: BOOL
+      Template: "cameraChange((?P<place>\\w+\\s*\\w*\\s*\\w*))"
+      ValueId: value
+  NLTemplateEn:
+    - "camera change to (?P<place>\\w+\\s*\\w*\\s*\\w*)"
+    - "camera change to (?P<place>\\w+)"
+  NLTemplateCz:
+    - "kamera se přesunout na (?P<place>\\w+)"
+    - "kamera se přesun na (?P<place>\\w+\\s*\\w*\\s*\\w*)"
+    - "kamera se přesun na (?P<place>\\w+)"
+  Inclinations:
+  - 4
+

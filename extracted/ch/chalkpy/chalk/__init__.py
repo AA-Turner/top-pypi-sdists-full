@@ -41,7 +41,6 @@ from chalk.queries.query_context import ChalkContext
 from chalk.queries.scheduled_aggregate_backfill import AggregateBackfillTarget, ScheduledAggregateBackfill
 from chalk.queries.scheduled_query import ScheduledQuery
 from chalk.sql import make_sql_file_resolver
-from chalk.state import State
 from chalk.streams import MaterializationWindowConfig, Windowed, group_by_windowed, stream, windowed
 from chalk.utils import AnyDataclass
 from chalk.utils.duration import CronTab, Duration, ScheduleOptions
@@ -81,7 +80,6 @@ __all__ = (
     "ScheduleOptions",
     "ScheduledAggregateBackfill",
     "ScheduledQuery",
-    "State",
     "StaticOperator",
     "Tags",
     "Validation",

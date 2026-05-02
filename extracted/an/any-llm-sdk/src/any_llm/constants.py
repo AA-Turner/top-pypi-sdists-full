@@ -42,6 +42,7 @@ class LLMProvider(StrEnum):
     OPENAI = "openai"
     OPENROUTER = "openrouter"
     PORTKEY = "portkey"
+    QINIU = "qiniu"
     SAMBANOVA = "sambanova"
     SAGEMAKER = "sagemaker"
     TOGETHER = "together"
@@ -53,6 +54,8 @@ class LLMProvider(StrEnum):
     XAI = "xai"
     PERPLEXITY = "perplexity"
     MINIMAX = "minimax"
+    DASHSCOPE = "dashscope"
+    DEEPINFRA = "deepinfra"
     ZAI = "zai"
     GATEWAY = "gateway"
 

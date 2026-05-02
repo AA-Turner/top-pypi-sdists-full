@@ -1,0 +1,40 @@
+[project]
+name = "arcosparse"
+version = "0.5.1"
+description = "Helper to download and subset sparse data that has been Arcoified and are available through STAC and sqlite formated data"
+authors = [{name = "renaudjester",  email = "renaud.jester@lobelia.earth"}, {name = "Lobelia", email = "developer@lobelia.earth"}]
+readme = "README.md"
+requires-python = ">=3.9"
+packages = [{include = "src/arcosparse", from = "src"}]
+license = "EUPL-1.2"
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+requests = "^2.27.1"
+pandas = ">=2"
+pystac = "^1.8.3"
+pyarrow = ">=17.0.0"
+tqdm = "^4.65"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+isort = "^5.13.2"
+flake8 = "^7.1.1"
+bandit = "^1.8.2"
+pyright = "^1.1.391"
+pytest = "^8.3.4"
+syrupy = "^4.9.1"
+python-dotenv = "^1.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+line_length = 79

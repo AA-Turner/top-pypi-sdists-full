@@ -12,14 +12,24 @@ from chalk._gen.chalk.server.v1.sso_pb2 import (
     CreateScimTokenResponse,
     CreateSignOnProviderConfigurationRequest,
     CreateSignOnProviderConfigurationResponse,
+    CreateSsoEmailDomainRequest,
+    CreateSsoEmailDomainResponse,
     DeleteSignOnProviderConfigurationRequest,
     DeleteSignOnProviderConfigurationResponse,
+    DeleteSsoEmailDomainRequest,
+    DeleteSsoEmailDomainResponse,
     GetSamlConfigurationByIssuerRequest,
     GetSamlConfigurationByIssuerResponse,
+    GetSignOnProvidersForEmailRequest,
+    GetSignOnProvidersForEmailResponse,
     ListSignOnProviderConfigurationsRequest,
     ListSignOnProviderConfigurationsResponse,
+    ListSsoEmailDomainsRequest,
+    ListSsoEmailDomainsResponse,
     UpdateSignOnProviderConfigurationRequest,
     UpdateSignOnProviderConfigurationResponse,
+    UpdateSsoEmailDomainRequest,
+    UpdateSsoEmailDomainResponse,
 )
 from grpc import (
     Channel,
@@ -35,6 +45,22 @@ class SsoServiceStub:
         CreateScimTokenResponse,
     ]
     """Creates a SCIM JWT token for the authenticated team"""
+    ListSsoEmailDomains: UnaryUnaryMultiCallable[
+        ListSsoEmailDomainsRequest,
+        ListSsoEmailDomainsResponse,
+    ]
+    CreateSsoEmailDomain: UnaryUnaryMultiCallable[
+        CreateSsoEmailDomainRequest,
+        CreateSsoEmailDomainResponse,
+    ]
+    UpdateSsoEmailDomain: UnaryUnaryMultiCallable[
+        UpdateSsoEmailDomainRequest,
+        UpdateSsoEmailDomainResponse,
+    ]
+    DeleteSsoEmailDomain: UnaryUnaryMultiCallable[
+        DeleteSsoEmailDomainRequest,
+        DeleteSsoEmailDomainResponse,
+    ]
     ListSignOnProviderConfigurations: UnaryUnaryMultiCallable[
         ListSignOnProviderConfigurationsRequest,
         ListSignOnProviderConfigurationsResponse,
@@ -51,6 +77,10 @@ class SsoServiceStub:
         DeleteSignOnProviderConfigurationRequest,
         DeleteSignOnProviderConfigurationResponse,
     ]
+    GetSignOnProvidersForEmail: UnaryUnaryMultiCallable[
+        GetSignOnProvidersForEmailRequest,
+        GetSignOnProvidersForEmailResponse,
+    ]
     GetSamlConfigurationByIssuer: UnaryUnaryMultiCallable[
         GetSamlConfigurationByIssuerRequest,
         GetSamlConfigurationByIssuerResponse,
@@ -64,6 +94,30 @@ class SsoServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CreateScimTokenResponse:
         """Creates a SCIM JWT token for the authenticated team"""
+    @abstractmethod
+    def ListSsoEmailDomains(
+        self,
+        request: ListSsoEmailDomainsRequest,
+        context: ServicerContext,
+    ) -> ListSsoEmailDomainsResponse: ...
+    @abstractmethod
+    def CreateSsoEmailDomain(
+        self,
+        request: CreateSsoEmailDomainRequest,
+        context: ServicerContext,
+    ) -> CreateSsoEmailDomainResponse: ...
+    @abstractmethod
+    def UpdateSsoEmailDomain(
+        self,
+        request: UpdateSsoEmailDomainRequest,
+        context: ServicerContext,
+    ) -> UpdateSsoEmailDomainResponse: ...
+    @abstractmethod
+    def DeleteSsoEmailDomain(
+        self,
+        request: DeleteSsoEmailDomainRequest,
+        context: ServicerContext,
+    ) -> DeleteSsoEmailDomainResponse: ...
     @abstractmethod
     def ListSignOnProviderConfigurations(
         self,
@@ -88,6 +142,12 @@ class SsoServiceServicer(metaclass=ABCMeta):
         request: DeleteSignOnProviderConfigurationRequest,
         context: ServicerContext,
     ) -> DeleteSignOnProviderConfigurationResponse: ...
+    @abstractmethod
+    def GetSignOnProvidersForEmail(
+        self,
+        request: GetSignOnProvidersForEmailRequest,
+        context: ServicerContext,
+    ) -> GetSignOnProvidersForEmailResponse: ...
     @abstractmethod
     def GetSamlConfigurationByIssuer(
         self,

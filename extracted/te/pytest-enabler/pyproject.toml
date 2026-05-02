@@ -1,0 +1,82 @@
+[build-system]
+requires = [
+	"setuptools>=77",
+	"setuptools_scm[toml]>=3.4.1",
+	# jaraco/skeleton#174
+	"coherent.licensed",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-enabler"
+authors = [
+	{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" },
+]
+description = "Enable installed pytest plugins"
+readme = "README.rst"
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+	"Framework :: Pytest",
+]
+requires-python = ">=3.9"
+license = "MIT"
+dependencies = [
+	"toml",
+	"jaraco.functools",
+	"jaraco.context",
+	'importlib_resources >= 5.10; python_version < "3.12"',
+]
+dynamic = ["version"]
+
+[project.urls]
+Source = "https://github.com/jaraco/pytest-enabler"
+
+[project.optional-dependencies]
+test = [
+	# upstream
+	"pytest >= 6, != 8.1.*",
+
+	# local
+]
+
+doc = [
+	# upstream
+	"sphinx >= 3.5",
+	"jaraco.packaging >= 9.3",
+	"rst.linker >= 1.9",
+	"furo",
+	"sphinx-lint",
+
+	# local
+]
+
+check = [
+	"pytest-checkdocs >= 2.4",
+	"pytest-ruff >= 0.2.1; sys_platform != 'cygwin'",
+]
+
+cover = [
+	"pytest-cov",
+]
+
+enabler = [
+	"pytest-enabler >= 2.2",
+]
+
+type = [
+	# upstream
+	"pytest-mypy",
+
+	# local
+	"types-toml",
+]
+
+
+[project.entry-points]
+pytest11 = {enabler = "pytest_enabler"}
+
+
+[tool.setuptools_scm]

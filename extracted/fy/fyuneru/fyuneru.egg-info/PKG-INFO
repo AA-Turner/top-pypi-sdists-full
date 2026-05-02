@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: fyuneru
+Version: 0.5.10
+Summary: A Python utility library with logging and path management
+Author-email: inklov3 <inklov3@163.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: blake3>=1.0.5
+Requires-Dist: funcy>=2.0
+Requires-Dist: joblib>=1.5.1
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: lzf>=0.1
+Requires-Dist: pandas>=2.3.1
+Requires-Dist: redis>=6.4.0
+Requires-Dist: requests>=2.32.4
+Requires-Dist: returns>=0.26.0
+Requires-Dist: scipy>=1.15.3
+Requires-Dist: tqdm>=4.67.1
+Provides-Extra: media
+Requires-Dist: av>=16.0.1; extra == "media"
+Requires-Dist: pillow>=12.0.0; extra == "media"
+
+# 工作用工具包

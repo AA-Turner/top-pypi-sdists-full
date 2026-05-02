@@ -32,6 +32,7 @@ class SqlQuery(_message.Message):
         "resource_group",
         "query_plan_json",
         "output_uri_prefix",
+        "plan_uri",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -50,6 +51,7 @@ class SqlQuery(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     QUERY_PLAN_JSON_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    PLAN_URI_FIELD_NUMBER: _ClassVar[int]
     id: str
     agent_id: str
     environment_id: str
@@ -67,6 +69,7 @@ class SqlQuery(_message.Message):
     resource_group: str
     query_plan_json: str
     output_uri_prefix: str
+    plan_uri: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -86,6 +89,7 @@ class SqlQuery(_message.Message):
         resource_group: _Optional[str] = ...,
         query_plan_json: _Optional[str] = ...,
         output_uri_prefix: _Optional[str] = ...,
+        plan_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class ListSqlQueriesRequest(_message.Message):
@@ -156,6 +160,27 @@ class GetSqlQueryResponse(_message.Message):
     QUERY_FIELD_NUMBER: _ClassVar[int]
     query: SqlQuery
     def __init__(self, query: _Optional[_Union[SqlQuery, _Mapping]] = ...) -> None: ...
+
+class GetSqlQueryPlanRequest(_message.Message):
+    __slots__ = ("query_id",)
+    QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    query_id: str
+    def __init__(self, query_id: _Optional[str] = ...) -> None: ...
+
+class GetSqlQueryPlanResponse(_message.Message):
+    __slots__ = ("query_plan_json", "logical_plan", "physical_plan")
+    QUERY_PLAN_JSON_FIELD_NUMBER: _ClassVar[int]
+    LOGICAL_PLAN_FIELD_NUMBER: _ClassVar[int]
+    PHYSICAL_PLAN_FIELD_NUMBER: _ClassVar[int]
+    query_plan_json: str
+    logical_plan: str
+    physical_plan: str
+    def __init__(
+        self,
+        query_plan_json: _Optional[str] = ...,
+        logical_plan: _Optional[str] = ...,
+        physical_plan: _Optional[str] = ...,
+    ) -> None: ...
 
 class GetSqlQuerySignedUrlsRequest(_message.Message):
     __slots__ = ("query_id",)

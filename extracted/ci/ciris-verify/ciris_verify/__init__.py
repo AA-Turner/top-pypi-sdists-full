@@ -47,6 +47,9 @@ from .types import (
     SecurityAdvisory,
     HardwareLimitation,
     HardwareInfo,
+    StorageDescriptor,
+    StorageKind,
+    KeyringScope,
 )
 from .exceptions import (
     CIRISVerifyError,
@@ -111,7 +114,7 @@ def get_library_version() -> str:
     return __version__
 
 
-__version__ = "1.6.4"
+__version__ = "1.8.4"
 __all__ = [
     "CIRISVerify",
     "MockCIRISVerify",
@@ -134,6 +137,9 @@ __all__ = [
     "SecurityAdvisory",
     "HardwareLimitation",
     "HardwareInfo",
+    "StorageDescriptor",
+    "StorageKind",
+    "KeyringScope",
     "CIRISVerifyError",
     "BinaryNotFoundError",
     "BinaryTamperedError",

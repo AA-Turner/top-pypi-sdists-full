@@ -1,0 +1,409 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dazzle-dsl"
+version = "0.63.26"
+description = "DAZZLE — declarative SaaS framework with built-in compliance (SOC 2, ISO 27001), provable RBAC, and graph features"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "DAZZLE Contributors"}
+]
+maintainers = [
+    {name = "DAZZLE Contributors"}
+]
+keywords = [
+    "dsl",
+    "saas",
+    "compliance",
+    "soc2",
+    "iso27001",
+    "rbac",
+    "graph",
+    "openapi",
+    "llm",
+    "domain-modeling",
+    "application-framework"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.9",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+    "markdown>=3.5",
+    "psycopg[binary]>=3.2",
+    "psycopg-pool>=3.2",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "slowapi>=0.1.9",
+    # faker is used by demo_data.DemoDataGenerator (realistic seed
+    # fixtures) AND by testing.ux seed/form-fill paths (see #809).
+    # Was previously guarded with a try/except — promoted to a
+    # required dep so qualitative trials and demo boots produce
+    # realistic strings instead of "UX first_name 2f828c".
+    "faker>=20.0",
+    # segno renders TOTP enrollment QR codes server-side in the 2FA setup
+    # flow. Pure-Python, zero transitive deps. Previously the flow loaded
+    # QR codes from api.qrserver.com, leaking the TOTP secret to a third
+    # party (#829).
+    "segno>=1.5",
+]
+
+[project.optional-dependencies]
+llm = [
+    "anthropic>=0.21.0",
+    "openai>=1.0.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+lsp = [
+    "pygls>=1.0.0",
+    "lsprotocol>=2023.0.0",
+]
+graph = [
+    "networkx>=3.0",
+]
+compliance = [
+    "weasyprint>=60.0",
+    "markdown>=3.5",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.1",
+    "pytest-xdist>=3.3",
+    "pytest-timeout>=2.2",
+    "hypothesis>=6.82",
+    "syrupy>=4.0",
+    "mypy>=1.5",
+    "ruff>=0.1",
+    "pyyaml>=6.0",
+    "types-PyYAML>=6.0",
+    "requests>=2.31",
+    "mutmut>=2.4",
+    "djlint>=1.34",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.24.0",
+]
+# Runtime server dependencies for `dazzle serve --local` (v0.34.3 — Issue #388)
+serve = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.24.0",
+    "python-multipart>=0.0.6",
+]
+# PostgreSQL deps moved to core dependencies (v0.28.0 — PG is the sole backend)
+postgres = []
+# Process execution backends (v0.24.0 - Issue #45)
+temporal = [
+    "temporalio>=1.4.0",
+]
+# Celery/Redis process adapter for Heroku deployments (v0.28.0)
+celery = [
+    "celery>=5.3.0",
+    "redis>=5.0",
+]
+# Messaging adapters (v0.16.0 - Issue #29)
+rabbitmq = ["aio-pika>=9.0"]
+redis = ["redis>=5.0"]
+kafka = ["aiokafka>=0.9"]
+# All messaging adapters
+messaging = [
+    "aio-pika>=9.0",
+    "redis>=5.0",
+    "aiokafka>=0.9",
+]
+# Event system core (event bus, outbox/inbox, framework)
+events = [
+    "psycopg[binary]>=3.2",
+]
+# Pitch deck generation
+pitch = [
+    "python-pptx>=0.6.21",
+    "matplotlib>=3.7.0",
+]
+# Viewport visual regression testing
+viewport = [
+    "Pillow>=10.0.0",
+]
+# TigerBeetle ledger integration (v0.5.0 - Issue #ledgers)
+tigerbeetle = [
+    "tigerbeetle>=0.16.0",
+]
+# Mobile authentication (JWT, OAuth2, Push)
+mobile = [
+    "PyJWT>=2.8.0",
+    "cryptography>=41.0.0",
+]
+# Social authentication providers
+social_auth = [
+    "google-auth>=2.25.0",
+    "httpx>=0.25.0",  # For OAuth2 flows
+]
+# Push notifications
+push = [
+    "firebase-admin>=6.2.0",
+]
+# All mobile features
+mobile_full = [
+    "PyJWT>=2.8.0",
+    "cryptography>=41.0.0",
+    "google-auth>=2.25.0",
+    "httpx>=0.25.0",
+    "firebase-admin>=6.2.0",
+]
+# AWS services (S3 storage, SES email)
+aws = [
+    "aioboto3>=13.0",
+    "boto3>=1.35",
+]
+# moto-based S3 mocks for storage primitive integration tests (#932 cycle 2).
+# Pulled into the dev install via `pip install -e ".[dev,aws-test]"`. The
+# in-memory FakeStorageProvider in dazzle_back.runtime.storage.testing
+# covers most unit tests without this dep — moto is only needed for the
+# small set of integration tests that exercise the real boto3 surface.
+aws-test = [
+    "boto3>=1.35",
+    "moto[s3]>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/manwithacat/dazzle"
+Documentation = "https://github.com/manwithacat/dazzle/blob/main/docs"
+Repository = "https://github.com/manwithacat/dazzle"
+Issues = "https://github.com/manwithacat/dazzle/issues"
+Changelog = "https://github.com/manwithacat/dazzle/blob/main/CHANGELOG.md"
+
+# Console script entry point for `dazzle` command.
+# Package name on PyPI: dazzle-dsl  |  Import name: dazzle
+[project.scripts]
+dazzle = "dazzle.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["dazzle*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+dazzle = ["py.typed"]
+"dazzle.examples" = ["**/*"]
+"dazzle.compliance" = ["css/*.css", "templates/*.html", "frameworks/*.yaml"]
+"dazzle.lsp" = ["grammars/*.json"]
+# Dazzle UI templates (Jinja2 HTML templates for site pages, components, etc.)
+# Note: templates/ is a data directory, not a Python package, so include from parent
+"dazzle_ui" = ["templates/**/*.html", "templates/**/*.css", "templates/**/*.js", "static/**/*.js", "static/**/*.css"]
+# Dazzle UI runtime static files (JS, CSS)
+"dazzle_ui.runtime.static" = ["**/*.js", "**/*.css"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src/dazzle_back/tests"]
+pythonpath = ["src"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests (subprocess spawning, full validation)",
+    "e2e: End-to-end tests for Dazzle runtime",
+    "story: User story tests (FieldTest Hub)",
+    "access_control: Permission/access control tests (FieldTest Hub)",
+    "state_machine: State transition tests (FieldTest Hub)",
+    "invariant: Business rule/invariant tests (FieldTest Hub)",
+    "computed: Computed field tests (FieldTest Hub)",
+    "personas: Persona-related tests (FieldTest Hub)",
+    "data_management: Data reset/regenerate tests (FieldTest Hub)",
+    "state: State persistence tests (FieldTest Hub)",
+    "display: Display/UI element tests (FieldTest Hub)",
+    "pra: Performance Reference App stress tests",
+    "corpus: Parser corpus golden snapshot tests",
+    "tigerbeetle: TigerBeetle integration tests (requires running TigerBeetle)",
+    "postgres: Tests requiring a live PostgreSQL connection (TEST_DATABASE_URL)",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    # Harmless: DSLLever.construct is a domain term (DSL construct path)
+    # that coincidentally shadows a deprecated BaseModel.construct method.
+    # See src/dazzle/testing/ux/reconciler.py docstring.
+    "ignore:Field name \"construct\" in \"DSLLever\" shadows an attribute in parent \"BaseModel\":UserWarning",
+]
+# Coverage is opt-in for faster local runs. Use: pytest --cov=src/dazzle --cov-report=term-missing
+# Fast local run: pytest -m "not slow and not e2e"
+# CI runs with coverage enabled via command line
+
+[tool.coverage.run]
+source = ["src/dazzle"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "dazzle.lsp.server"
+# pygls/lsprotocol don't have type stubs, so decorators and LanguageServer base are untyped
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
+
+[[tool.mypy.overrides]]
+module = "dazzle.mcp.server"
+# MCP SDK decorators are untyped
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = ["dazzle.core.process.celery_tasks"]
+# Celery decorators are untyped
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = [
+    "dazzle_back.runtime.island_routes",
+    "dazzle_back.runtime.debug_routes",
+    "dazzle_back.runtime.event_explorer",
+    "dazzle_back.runtime.audit_routes",
+    "dazzle_back.runtime.test_routes",
+    "dazzle_back.runtime.social_auth",
+    "dazzle_back.runtime.jwt_middleware",
+    "dazzle_back.runtime.route_generator",
+    "dazzle_back.runtime.auth.routes",
+    "dazzle_back.runtime.auth.routes_2fa",
+    "dazzle_back.runtime.auth.routes_jwt",
+]
+# FastAPI app.get/post decorators on closure-scoped routes are untyped (app: Any).
+# APIRouter imported via _fastapi_compat is typed as Any, causing valid-type errors
+# on return annotations. These are structural issues from the optional-import shim.
+disallow_untyped_decorators = false
+warn_return_any = false
+disable_error_code = ["valid-type"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+# Exclude bundled examples from linting (they may have auto-generated code)
+exclude = [
+    "src/dazzle/examples/*",
+    # Third-party packages accidentally installed into src/
+    "src/PIL/",
+    "src/contourpy/",
+    "src/cycler/",
+    "src/dateutil/",
+    "src/fontTools/",
+    "src/kiwisolver/",
+    "src/matplotlib/",
+    "src/mpl_toolkits/",
+    "src/numpy/",
+    "src/packaging/",
+    "src/pyparsing/",
+    "src/share/",
+    "src/bin/",
+    "src/*.dist-info/",
+    "src/six.py",
+    "src/pylab.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "G004", # logging-f-string (use %-formatting for lazy evaluation)
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # function call in default arg - standard Typer pattern (typer.Option/Argument)
+    "B904",  # raise from err - style preference, not critical
+    "B027",  # empty method in abstract class - intentional default implementations
+    "B011",  # assert False in tests - pytest uses -O mode differently
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dazzle"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist", "scripts"]
+skips = [
+    "B101",  # assert_used - we use asserts for type narrowing
+    "B104",  # hardcoded_bind_all_interfaces - intentional for containerized apps
+    "B110",  # try_except_pass - intentional for discovery patterns
+    "B310",  # urllib_urlopen - we use with controlled localhost URLs only
+    "B404",  # import_subprocess - we need subprocess for git, CLI tools
+    "B601",  # shell injection - we use subprocess safely with list args
+    "B602",  # subprocess_popen_with_shell_true - false positive, using for piping
+    "B603",  # subprocess_without_shell - we intentionally avoid shell=True
+    "B604",  # any_other_function_shell_true - using for npm/node commands
+    "B607",  # start_process_with_partial_path - we use git/python which are in PATH
+    "B608",  # hardcoded SQL - false positives on template strings
+    "B311",  # random - used for demo simulation data, not security
+]
+
+[tool.djlint]
+profile = "jinja"
+indent = 2
+max_line_length = 120
+# Structural rules only — suppress style-only rules that are noisy with Jinja2 templates.
+# KEEP: tag closing/matching, nesting errors
+# IGNORE: style preferences (alt attrs, inline styles, entity refs, orphan tags, meta tags, etc.)
+ignore = "D018,H006,H013,H020,H021,H023,H025,H029,H030,H031,H037,J004,J018,T001,T002,T003,T028"

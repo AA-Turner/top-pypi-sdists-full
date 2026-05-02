@@ -160,7 +160,7 @@ class AccountClient(AioBaseClient):
     ) -> GetAccountInformationResponseTypeDef:
         """
         Retrieves information about the specified account including its account name,
-        account ID, and account creation date and time.
+        account ID, account creation date and time, and account state.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/get_account_information.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#get_account_information)

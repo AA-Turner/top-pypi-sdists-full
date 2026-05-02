@@ -1,5 +1,3 @@
-import unittest
-
 from tests.utils.simple_shex_test import SimpleShexTestCase
 
 shexc = """<http://a.example/S1> {
@@ -32,10 +30,7 @@ shexj = """{
 }"""
 
 
-class LanguageValuesetTestCase(SimpleShexTestCase):
+class TestLanguageValueset(SimpleShexTestCase):
     def test_language_valueset(self):
         self.shex_test(shexc, shexj)
 
-
-if __name__ == '__main__':
-    unittest.main()

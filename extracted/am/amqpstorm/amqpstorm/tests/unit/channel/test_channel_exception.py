@@ -1,7 +1,5 @@
-import collections
-
-import mock
-from pamqp import specification
+from unittest import mock
+from pamqp import commands
 
 import amqpstorm
 from amqpstorm import AMQPChannelError
@@ -191,9 +189,10 @@ class ChannelExceptionTests(TestFramework):
         channel = Channel(0, FakeConnection(), 360)
         channel.set_state(channel.OPEN)
 
-        basic_return = specification.Basic.Return(
+        basic_return = commands.Basic.Return(
             reply_code=500,
-            reply_text='Error'
+            reply_text='Error',
+            routing_key='',
         )
         channel._basic_return(basic_return)
 
@@ -209,17 +208,17 @@ class ChannelExceptionTests(TestFramework):
         channel = Channel(0, connection, 360)
 
         # Set up Fake Channel.
-        channel._inbound = collections.deque([1, 2, 3])
+        channel._inbound = [1, 2, 3]
         channel.set_state(channel.OPEN)
         channel._consumer_tags = [4, 5, 6]
 
-        close_frame = specification.Channel.Close(
+        close_frame = commands.Channel.Close(
             reply_code=500,
             reply_text='travis-ci'
         )
         channel._close_channel(close_frame)
 
-        self.assertFalse(channel._inbound)
+        self.assertIsNone(channel._inbound)
         self.assertEqual(channel._consumer_tags, [])
         self.assertEqual(channel._state, channel.CLOSED)
 

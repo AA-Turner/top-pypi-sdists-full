@@ -106,7 +106,16 @@ BucketLocationConstraintType = Literal[
 ]
 BucketVersioningStatusType = Literal["Enabled", "Suspended"]
 ComputeObjectChecksumAlgorithmType = Literal[
-    "CRC32", "CRC32C", "CRC64NVME", "MD5", "SHA1", "SHA256"
+    "CRC32",
+    "CRC32C",
+    "CRC64NVME",
+    "MD5",
+    "SHA1",
+    "SHA256",
+    "SHA512",
+    "XXHASH128",
+    "XXHASH3",
+    "XXHASH64",
 ]
 ComputeObjectChecksumTypeType = Literal["COMPOSITE", "FULL_OBJECT"]
 DeleteMarkerReplicationStatusType = Literal["Disabled", "Enabled"]
@@ -200,7 +209,18 @@ S3CannedAccessControlListType = Literal[
     "public-read",
     "public-read-write",
 ]
-S3ChecksumAlgorithmType = Literal["CRC32", "CRC32C", "CRC64NVME", "SHA1", "SHA256"]
+S3ChecksumAlgorithmType = Literal[
+    "CRC32",
+    "CRC32C",
+    "CRC64NVME",
+    "MD5",
+    "SHA1",
+    "SHA256",
+    "SHA512",
+    "XXHASH128",
+    "XXHASH3",
+    "XXHASH64",
+]
 S3GlacierJobTierType = Literal["BULK", "STANDARD"]
 S3GranteeTypeIdentifierType = Literal["emailAddress", "id", "uri"]
 S3MetadataDirectiveType = Literal["COPY", "REPLACE"]

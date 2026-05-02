@@ -18,6 +18,8 @@ from chalk._gen.chalk.runtime.v1.remote_python_call_pb2 import (
     GetRecentCallsResponse,
     PollRemoteCallRequest,
     PollRemoteCallResponse,
+    PurgeQueueRequest,
+    PurgeQueueResponse,
 )
 from collections.abc import (
     Iterator,
@@ -62,6 +64,11 @@ class AsyncRemoteCallServiceStub:
     last position; the server returns any new result chunks plus an
     updated cursor.
     """
+    PurgeQueue: UnaryUnaryMultiCallable[
+        PurgeQueueRequest,
+        PurgeQueueResponse,
+    ]
+    """Drop pending items from one or all per-function queues for the tenant."""
 
 class AsyncRemoteCallServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -81,6 +88,13 @@ class AsyncRemoteCallServiceServicer(metaclass=ABCMeta):
         last position; the server returns any new result chunks plus an
         updated cursor.
         """
+    @abstractmethod
+    def PurgeQueue(
+        self,
+        request: PurgeQueueRequest,
+        context: ServicerContext,
+    ) -> PurgeQueueResponse:
+        """Drop pending items from one or all per-function queues for the tenant."""
 
 def add_AsyncRemoteCallServiceServicer_to_server(servicer: AsyncRemoteCallServiceServicer, server: Server) -> None: ...
 

@@ -34,7 +34,9 @@ pub(crate) use self::iteration::extract_fixed_length_iterable_element_types;
 pub use self::known_instance::KnownInstanceType;
 pub(crate) use self::relation_error::{ErrorContext, ErrorContextTree, ParameterDescription};
 use self::set_theoretic::KnownUnion;
-pub(crate) use self::set_theoretic::builder::{IntersectionBuilder, UnionBuilder};
+pub(crate) use self::set_theoretic::builder::{
+    IntersectionBuilder, UnionAccumulator, UnionBuilder,
+};
 pub use self::set_theoretic::{
     IntersectionType, NegativeIntersectionElements, NegativeIntersectionElementsIterator, UnionType,
 };
@@ -852,11 +854,11 @@ fn recursive_type_normalize_type_guard_like<'db, T: TypeGuardLike<'db>>(
 ) -> Option<Type<'db>> {
     let ty = if nested {
         guard
-            .return_type(db)
+            .type_argument(db)
             .recursive_type_normalized_impl(db, div, true)?
     } else {
         guard
-            .return_type(db)
+            .type_argument(db)
             .recursive_type_normalized_impl(db, div, true)
             .unwrap_or(div)
     };
@@ -2288,6 +2290,9 @@ impl<'db> Type<'db> {
     /// Return true if this type is non-empty and all inhabitants of this type compare equal.
     pub(crate) fn is_single_valued(self, db: &'db dyn Db) -> bool {
         match self {
+            // Each `partial()` call creates a distinct object at runtime.
+            Type::KnownInstance(KnownInstanceType::FunctoolsPartial(_)) => false,
+
             Type::FunctionLiteral(..)
             | Type::WrapperDescriptor(_)
             | Type::KnownBoundMethod(_)
@@ -3475,6 +3480,39 @@ impl<'db> Type<'db> {
                     .into()
             }
 
+            Type::KnownInstance(KnownInstanceType::FunctoolsPartial(partial))
+                if name_str == "__call__" =>
+            {
+                Place::bound(Type::Callable(partial.partial(db))).into()
+            }
+
+            Type::KnownInstance(KnownInstanceType::FunctoolsPartial(partial)) => {
+                let wrapped = partial.wrapped(db).inner(db);
+                let nominal_lookup = partial
+                    .partial(db)
+                    .into_functools_partial_instance(db)
+                    .member_lookup_with_policy(db, name.clone(), policy);
+                if name_str == "func" {
+                    match nominal_lookup.place {
+                        Place::Defined(DefinedPlace {
+                            origin,
+                            definedness,
+                            public_type_policy,
+                            ..
+                        }) => Place::Defined(DefinedPlace {
+                            ty: wrapped,
+                            origin,
+                            definedness,
+                            public_type_policy,
+                        })
+                        .into(),
+                        Place::Undefined => Place::bound(wrapped).into(),
+                    }
+                } else {
+                    nominal_lookup
+                }
+            }
+
             Type::NominalInstance(..)
             | Type::ProtocolInstance(..)
             | Type::NewTypeInstance(..)
@@ -4144,6 +4182,10 @@ impl<'db> Type<'db> {
             )
             .into(),
 
+            Type::KnownInstance(KnownInstanceType::FunctoolsPartial(partial)) => {
+                Type::Callable(partial.partial(db)).bindings(db)
+            }
+
             Type::KnownInstance(known_instance) => {
                 known_instance.instance_fallback(db).bindings(db)
             }
@@ -4400,6 +4442,47 @@ impl<'db> Type<'db> {
                 )
             }
 
+            KnownClass::FunctoolsPartial => {
+                // ```py
+                // class partial(Generic[_T]):
+                //     def __new__(cls, func: Callable[..., _T], /, *args: Any, **kwargs: Any) -> Self: ...
+                // ```
+                let return_ty = BoundTypeVarInstance::synthetic(
+                    db,
+                    Name::new_static("_T"),
+                    TypeVarVariance::Covariant,
+                );
+
+                Some(
+                    Binding::single(
+                        self,
+                        Signature::new_generic(
+                            Some(GenericContext::from_typevar_instances(db, [return_ty])),
+                            Parameters::new(
+                                db,
+                                [
+                                    Parameter::positional_only(Some(Name::new_static("func")))
+                                        .with_annotated_type(Type::single_callable(
+                                            db,
+                                            Signature::new(
+                                                Parameters::gradual_form(),
+                                                Type::TypeVar(return_ty),
+                                            ),
+                                        )),
+                                    Parameter::variadic(Name::new_static("args"))
+                                        .with_annotated_type(Type::any()),
+                                    Parameter::keyword_variadic(Name::new_static("kwargs"))
+                                        .with_annotated_type(Type::any()),
+                                ],
+                            ),
+                            KnownClass::FunctoolsPartial
+                                .to_specialized_instance(db, &[Type::TypeVar(return_ty)]),
+                        ),
+                    )
+                    .into(),
+                )
+            }
+
             KnownClass::Tuple => {
                 let element_ty = BoundTypeVarInstance::synthetic(
                     db,
@@ -4529,6 +4612,7 @@ impl<'db> Type<'db> {
                 KnownClass::Bool
                     | KnownClass::Type
                     | KnownClass::Object
+                    | KnownClass::FunctoolsPartial
                     | KnownClass::Property
                     | KnownClass::Super
                     | KnownClass::TypeAliasType
@@ -5326,6 +5410,12 @@ impl<'db> Type<'db> {
                 }
                 KnownInstanceType::Callable(callable) => Ok(Type::Callable(*callable)),
                 KnownInstanceType::LiteralStringAlias(ty) => Ok(ty.inner(db)),
+                KnownInstanceType::FunctoolsPartial(_) => Err(InvalidTypeExpressionError {
+                    invalid_expressions: smallvec_inline![InvalidTypeExpression::InvalidType(
+                        *self, scope_id
+                    )],
+                    fallback_type: Type::unknown(),
+                }),
             },
 
             Type::SpecialForm(special_form) => special_form
@@ -5717,12 +5807,11 @@ impl<'db> Type<'db> {
                 builder.build()
             }
 
-            // TODO(jelle): Materialize should be handled differently, since TypeIs is invariant
             Type::TypeIs(type_is) => visitor.visit(self, type_mapping, || {
                 type_is.with_type(
                     db,
                     type_is
-                        .return_type(db)
+                        .type_argument(db)
                         .apply_type_mapping_impl(db, type_mapping, tcx, visitor),
                 )
             }),
@@ -5973,7 +6062,7 @@ impl<'db> Type<'db> {
             }
 
             Type::TypeIs(type_is) => {
-                type_is.return_type(db).find_legacy_typevars_impl(
+                type_is.type_argument(db).find_legacy_typevars_impl(
                     db,
                     binding_context,
                     typevars,
@@ -6035,7 +6124,8 @@ impl<'db> Type<'db> {
                 | KnownInstanceType::Literal(_)
                 | KnownInstanceType::LiteralStringAlias(_)
                 | KnownInstanceType::NamedTupleSpec(_)
-                | KnownInstanceType::NewType(_) => {
+                | KnownInstanceType::NewType(_)
+                | KnownInstanceType::FunctoolsPartial(_) => {
                     // TODO: For some of these, we may need to try to find legacy typevars in inner types.
                 }
             },
@@ -7642,7 +7732,7 @@ pub(super) struct MetaclassTransformInfo<'db> {
 
 #[salsa::interned(debug, heap_size=ruff_memory_usage::heap_size)]
 pub struct TypeIsType<'db> {
-    return_type: Type<'db>,
+    type_argument: Type<'db>,
     /// The ID of the scope to which the place belongs
     /// and the ID of the place itself within that scope.
     place_info: Option<(ScopeId<'db>, ScopedPlaceId)>,
@@ -7653,7 +7743,7 @@ fn walk_typeis_type<'db, V: visitor::TypeVisitor<'db> + ?Sized>(
     typeis_type: TypeIsType<'db>,
     visitor: &V,
 ) {
-    visitor.visit_type(db, typeis_type.return_type(db));
+    visitor.visit_type(db, typeis_type.type_argument(db));
 }
 
 // The Salsa heap is tracked separately.
@@ -7667,17 +7757,28 @@ impl<'db> TypeIsType<'db> {
         Some(format!("{}", table.place(place)))
     }
 
-    pub(crate) fn unbound(db: &'db dyn Db, ty: Type<'db>) -> Type<'db> {
+    /// Construct an unbound `TypeIs` return type from the user-written type expression.
+    ///
+    /// The user-written type is preserved for `TypeIs` invariance checks, while the return type
+    /// used for narrowing applies the top materialization on demand.
+    ///
+    /// ```python
+    /// from typing import TypeIs
+    ///
+    /// def is_tuple(value: object) -> TypeIs[tuple[int, ...]]:
+    ///     return isinstance(value, tuple)
+    /// ```
+    pub(crate) fn from_type_expression(db: &'db dyn Db, ty: Type<'db>) -> Type<'db> {
         Type::TypeIs(Self::new(db, ty, None))
     }
 
-    pub(crate) fn bound(
-        db: &'db dyn Db,
-        return_type: Type<'db>,
-        scope: ScopeId<'db>,
-        place: ScopedPlaceId,
-    ) -> Type<'db> {
-        Type::TypeIs(Self::new(db, return_type, Some((scope, place))))
+    pub(crate) fn return_type(self, db: &'db dyn Db) -> Type<'db> {
+        // N.B. Using the top materialization here is a pragmatic decision that
+        // makes us produce more intuitive results given how `TypeIs` is used in
+        // the real world (in particular, in typeshed). However, there's some
+        // debate about whether this is really fully correct. See
+        // <https://github.com/astral-sh/ruff/pull/20591> for more discussion.
+        self.type_argument(db).top_materialization(db)
     }
 
     #[must_use]
@@ -7687,7 +7788,7 @@ impl<'db> TypeIsType<'db> {
         scope: ScopeId<'db>,
         place: ScopedPlaceId,
     ) -> Type<'db> {
-        Self::bound(db, self.return_type(db), scope, place)
+        Type::TypeIs(Self::new(db, self.type_argument(db), Some((scope, place))))
     }
 
     #[must_use]
@@ -7704,7 +7805,7 @@ impl<'db> VarianceInferable<'db> for TypeIsType<'db> {
     // See the [typing spec] on why `TypeIs` is invariant in its type.
     // [typing spec]: https://typing.python.org/en/latest/spec/narrowing.html#typeis
     fn variance_of(self, db: &'db dyn Db, typevar: BoundTypeVarInstance<'db>) -> TypeVarVariance {
-        self.return_type(db)
+        self.type_argument(db)
             .with_polarity(TypeVarVariance::Invariant)
             .variance_of(db, typevar)
     }
@@ -7784,13 +7885,13 @@ pub(crate) trait TypeGuardLike<'db>: Copy {
     /// The name of this type guard form (for error messages and display)
     const FORM_NAME: &'static str;
 
-    /// Get the return type that the type guard narrows to
-    fn return_type(self, db: &'db dyn Db) -> Type<'db>;
+    /// Get the annotation argument stored in the type guard form.
+    fn type_argument(self, db: &'db dyn Db) -> Type<'db>;
 
     /// Get the human-readable place name if bound
     fn place_name(self, db: &'db dyn Db) -> Option<String>;
 
-    /// Create a new instance with a different return type, wrapped in Type
+    /// Create a new instance with a different type argument, wrapped in Type.
     fn with_type(self, db: &'db dyn Db, ty: Type<'db>) -> Type<'db>;
 
     /// The `SpecialFormType` for display purposes
@@ -7800,8 +7901,8 @@ pub(crate) trait TypeGuardLike<'db>: Copy {
 impl<'db> TypeGuardLike<'db> for TypeIsType<'db> {
     const FORM_NAME: &'static str = "TypeIs";
 
-    fn return_type(self, db: &'db dyn Db) -> Type<'db> {
-        TypeIsType::return_type(self, db)
+    fn type_argument(self, db: &'db dyn Db) -> Type<'db> {
+        TypeIsType::type_argument(self, db)
     }
 
     fn place_name(self, db: &'db dyn Db) -> Option<String> {
@@ -7820,7 +7921,7 @@ impl<'db> TypeGuardLike<'db> for TypeIsType<'db> {
 impl<'db> TypeGuardLike<'db> for TypeGuardType<'db> {
     const FORM_NAME: &'static str = "TypeGuard";
 
-    fn return_type(self, db: &'db dyn Db) -> Type<'db> {
+    fn type_argument(self, db: &'db dyn Db) -> Type<'db> {
         TypeGuardType::return_type(self, db)
     }
 

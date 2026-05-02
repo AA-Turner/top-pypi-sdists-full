@@ -7,8 +7,9 @@ This software is made available under the terms of the MIT License.
 """
 
 import argparse
+from collections.abc import Iterable
 from pathlib import Path
-from typing import List, Iterable
+from typing import cast
 
 from .config import load_config_file
 from .notebook_io import read_nb
@@ -63,7 +64,7 @@ class LoadConfigFile(argparse.Action):
         :param values: value for triggering option (already processed)
         :param option_string: option that triggered the action
         """
-        load_config_file(self.const, namespace, values, True)
+        load_config_file(str(self.const), namespace, cast(Path, values), True)
         if hasattr(namespace, self.dest):
             delattr(namespace, self.dest)  # clean up the namespace; attribute 'config' is not used
 
@@ -118,6 +119,7 @@ class NegatableAction(argparse.Action):
 
         .. note:: **Modifies**: ``ns``
         """
+        assert option_string is not None
         if len(option_string) == 2:
             setattr(ns, self.dest, option_string[1].islower())
         else:
@@ -141,11 +143,12 @@ class LoadSourceFile(argparse.Action):
         :param option_string: option that triggered the action
         """
         # read notebook whose file name is in values
-        setattr(namespace, self.dest, values)
-        nb = read_nb(Path(values), namespace)
+        source_path = Path(cast(str, values))
+        setattr(namespace, self.dest, source_path)
+        nb = read_nb(source_path, namespace)
         if nb is None:
             raise AssertionError('Could not read source chads')
-        freq = SourceChadsProcessor(nb, namespace, values).punch_nb()
+        freq = SourceChadsProcessor(nb, namespace, str(source_path)).punch_nb()
         # TODO: report freq in JSON output
         if namespace.debug or not namespace.source_chads:
             print('{} chads loaded from source notebook "{}".'
@@ -155,7 +158,7 @@ class LoadSourceFile(argparse.Action):
             pprint.pprint(getattr(namespace, self.dest))
 
 
-def split_csv(arg: str) -> List[str]:
+def split_csv(arg: str) -> list[str]:
     """Split comma-separated values into a list.
 
     :param arg: argument to split

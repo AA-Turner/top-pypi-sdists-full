@@ -21,6 +21,24 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class GetPodVenvSizeRequest(_message.Message):
+    __slots__ = ("namespace", "pod_name", "container_name")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    POD_NAME_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_NAME_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    pod_name: str
+    container_name: str
+    def __init__(
+        self, namespace: _Optional[str] = ..., pod_name: _Optional[str] = ..., container_name: _Optional[str] = ...
+    ) -> None: ...
+
+class GetPodVenvSizeResponse(_message.Message):
+    __slots__ = ("output",)
+    OUTPUT_FIELD_NUMBER: _ClassVar[int]
+    output: str
+    def __init__(self, output: _Optional[str] = ...) -> None: ...
+
 class GetPodStackTraceDumpRequest(_message.Message):
     __slots__ = ("namespace", "pod_name", "container_name", "process_id", "process_name", "auto_detect_process")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]

@@ -8,7 +8,8 @@ This software is made available under the terms of the MIT License.
 
 from argparse import Namespace
 from collections import defaultdict
-from typing import Any, Tuple, Dict, Mapping, Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy as np
 from nbformat import NotebookNode
@@ -78,7 +79,7 @@ EXECUTED = 'executed'
 NOT_EXEC_IN_ORDER = 'not executed in linear order'
 
 
-def count_source(source: str) -> Tuple[int, int, int]:
+def count_source(source: str) -> tuple[int, int, int]:
     """Count number of non-blank lines, words, and non-whitespace characters.
 
     :param source: string to count
@@ -91,7 +92,7 @@ def count_source(source: str) -> Tuple[int, int, int]:
     return len(lines), len(words), len(chars)
 
 
-def nb_metadata(nb: NotebookNode) -> Dict[str, Any]:
+def nb_metadata(nb: NotebookNode) -> dict[str, Any]:
     """Summarize notebook global metadata.
 
     :param nb: notebook to inspect
@@ -106,7 +107,7 @@ def nb_metadata(nb: NotebookNode) -> Dict[str, Any]:
     return result
 
 
-def nb_extra_fields(nb: NotebookNode) -> Dict[str, int]:
+def nb_extra_fields(nb: NotebookNode) -> dict[str, int]:
     """Extract extra global fields in notebook.
 
     :param nb: notebook to inspect
@@ -115,7 +116,7 @@ def nb_extra_fields(nb: NotebookNode) -> Dict[str, int]:
     return {key: 1 for key in nb.keys() if key not in REQUIRED_NB_FIELDS}
 
 
-def nb_other_metadata(nb: NotebookNode) -> Dict[str, int]:
+def nb_other_metadata(nb: NotebookNode) -> dict[str, int]:
     """Extract other global metadata fields in notebook.
 
     :param nb: notebook to inspect
@@ -124,7 +125,7 @@ def nb_other_metadata(nb: NotebookNode) -> Dict[str, int]:
     return {key: 1 for key in nb.metadata.keys() if key not in REQUIRED_NB_METADATA_FIELDS}
 
 
-def nb_cell_stats(nb: NotebookNode, args: Namespace = None) -> Dict[str, Dict[str, int]]:
+def nb_cell_stats(nb: NotebookNode, args: Namespace | None = None) -> dict[str, dict[str, int]]:
     """Count occurrences of various elements in notebook cells.
 
     If ``args`` is not ``None``, then the following boolean arguments are used
@@ -250,10 +251,10 @@ def nb_cell_stats(nb: NotebookNode, args: Namespace = None) -> Dict[str, Dict[st
     if result['code_execution'][LAST_EXEC_COUNT_IN_ORDER] == 0:
         del result['code_execution'][LAST_EXEC_COUNT_IN_ORDER]
 
-    return result
+    return {key: dict(value) for key, value in result.items()}
 
 
-def nb_code_execution_stats(nb: NotebookNode) -> Dict:
+def nb_code_execution_stats(nb: NotebookNode) -> dict:
     """Count number of (executed) code cells and errors in notebook.
 
     :param nb: notebook to inspect
@@ -282,8 +283,8 @@ def nb_code_execution_stats(nb: NotebookNode) -> Dict:
     return result
 
 
-def extract_aggregate(d: Dict[str, Dict[str, Any]], attr: str = 'total',
-                      convert: Callable[[Any], Any] = int) -> Dict[str, Any]:
+def extract_aggregate(d: dict[str, dict[str, Any]], attr: str = 'total',
+                      convert: Callable[[Any], Any] = int) -> dict[str, Any]:
     """Extract converted values for given attribute from nested dictionary.
     """
     return {key: convert(value[attr]) for key, value in d.items()}
@@ -313,7 +314,7 @@ def is_key_pair(key: str) -> bool:
     return ' : ' in key
 
 
-def unpair_key(key: str) -> Tuple[str, str]:
+def unpair_key(key: str) -> tuple[str, str]:
     """Unpair key into key1, key2 such that
     key1 is not a pair, and ``pair_keys(key1, key2) == key``.
 
@@ -329,7 +330,7 @@ def unpair_key(key: str) -> Tuple[str, str]:
         return key[:i], key[i + len(PAIRING_TOKEN):]
 
 
-def flatten_mapping(mapping: Mapping[str, Any]) -> Dict[str, Any]:
+def flatten_mapping(mapping: Mapping[str, Any]) -> dict[str, Any]:
     """Return recursively flattened mapping as dict.
 
     :param mapping: object to flatten
@@ -347,7 +348,7 @@ def flatten_mapping(mapping: Mapping[str, Any]) -> Dict[str, Any]:
         raise ValueError('Mapping has no "get" attribute')  # return mapping
 
 
-def unflatten_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+def unflatten_dict(d: dict[str, Any]) -> dict[str, Any]:
     """Return recursively unflattened dictionary,
     that is, ``flatten_mapping(result) == d``.
 
@@ -369,7 +370,7 @@ def unflatten_dict(d: Dict[str, Any]) -> Dict[str, Any]:
     return {key: (unflatten_dict(value) if type(d) is defaultdict else value) for key, value in result.items()}
 
 
-def clean_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+def clean_dict(d: dict[str, Any]) -> dict[str, Any]:
     """Remove key-nan pairs and convert non-nan np types to native Python.
 
     :param d: dict to clean

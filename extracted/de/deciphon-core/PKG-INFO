@@ -1,0 +1,24 @@
+Metadata-Version: 2.3
+Name: deciphon-core
+Version: 1.0.17
+Summary: Python wrapper around the Deciphon C library
+License: MIT
+Author: Danilo Horta
+Author-email: horta@ebi.ac.uk
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: cffi (>=1.17,<2.0)
+Requires-Dist: deciphon-schema (>=0.2.0)
+Requires-Dist: pydantic (>=2.9,<3.0)
+Description-Content-Type: text/markdown
+
+# deciphon-core
+
+Python wrapper around the Deciphon C library.
+

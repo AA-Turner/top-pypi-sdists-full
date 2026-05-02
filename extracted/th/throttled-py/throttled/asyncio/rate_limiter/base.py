@@ -1,7 +1,8 @@
 import abc
-from typing import Type
+from abc import ABC
+from typing import Any
 
-from ... import rate_limiter
+from ... import rate_limiter, types
 
 
 class RateLimiterRegistry(rate_limiter.RateLimiterRegistry):
@@ -9,14 +10,21 @@ class RateLimiterRegistry(rate_limiter.RateLimiterRegistry):
 
     _NAMESPACE: str = "async"
 
+    # Redeclare so sync and async class tables stay independent.
+    _RATE_LIMITERS: dict[str, type[Any]] = {}
+
 
 class RateLimiterMeta(rate_limiter.RateLimiterMeta):
     """Metaclass for Async RateLimiter classes."""
 
-    _REGISTRY_CLASS: Type[RateLimiterRegistry] = RateLimiterRegistry
+    _REGISTRY_CLASS: type[RateLimiterRegistry] = RateLimiterRegistry
 
 
-class BaseRateLimiter(rate_limiter.BaseRateLimiterMixin, metaclass=RateLimiterMeta):
+class BaseRateLimiter(
+    rate_limiter.BaseRateLimiterMixin[types.AsyncStoreP, types.AsyncAtomicActionP],
+    ABC,
+    metaclass=RateLimiterMeta,
+):
     """Base class for Async RateLimiter."""
 
     @abc.abstractmethod

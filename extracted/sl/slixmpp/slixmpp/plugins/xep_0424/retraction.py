@@ -4,7 +4,6 @@
 # See the file LICENSE for copying permission.
 
 from slixmpp import JID, Message
-from slixmpp.exceptions import IqError, IqTimeout
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.plugins import BasePlugin
@@ -46,7 +45,7 @@ class XEP_0424(BasePlugin):
     def send_retraction(self, mto: JID, id: str, mtype: str = 'chat',
                         include_fallback: bool = True,
                         fallback_text: str | None = None, *,
-                        mfrom: JID | None = None):
+                        mfrom: JID | None = None) -> Message:
         """
         Send a message retraction
 
@@ -56,6 +55,7 @@ class XEP_0424(BasePlugin):
         :param bool include_fallback: Whether to include a fallback body
         :param str | None fallback_text: The content of the fallback
                                             body. None will set the default value.
+        :returns: The sent retraction message.
         """
         if fallback_text is None:
             fallback_text = DEFAULT_FALLBACK
@@ -66,3 +66,4 @@ class XEP_0424(BasePlugin):
         msg['retract']['id'] = id
         msg.enable('store')
         msg.send()
+        return msg

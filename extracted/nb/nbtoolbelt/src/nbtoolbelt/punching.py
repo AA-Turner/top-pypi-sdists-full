@@ -10,7 +10,7 @@ import copy
 import re
 from argparse import Namespace
 from collections import defaultdict
-from typing import Any, Tuple, List, Dict, Set, Optional
+from typing import Any
 
 from nbformat import NotebookNode
 
@@ -19,7 +19,7 @@ from .notebook_io import cell_lines
 TEST = False
 
 
-def punch_via_tags(nb: NotebookNode, args: Namespace) -> Tuple[Dict[str, int], NotebookNode, NotebookNode]:
+def punch_via_tags(nb: NotebookNode, args: Namespace) -> tuple[dict[str, int], NotebookNode, NotebookNode]:
     """Punch notebook via tags approach.
 
     .. note:: **Modifies**: nb
@@ -109,12 +109,12 @@ class PunchBaseProcessor:
 
         # initialize parsing state
         self.inside = False  # whether inside a hole
-        self.label = None  # label of hole, when inside a hole
-        self.labels = set()  # type: Set[str]  # labels encountered so far
-        self.duplicate_labels = set()  # type: Set[str]
+        self.label = None  # type: str | None  # label of hole, when inside a hole
+        self.labels = set()  # type: set[str]  # labels encountered so far
+        self.duplicate_labels = set()  # type: set[str]
 
         # initialize marker line parsing results
-        self.marker = None
+        self.marker = None  # type: dict[str, str | None] | None
 
     def pre_cell(self, cell: NotebookNode) -> None:
         pass
@@ -253,8 +253,10 @@ class PunchBaseProcessor:
                     if self.args.debug:
                         print('Duplicate label in cell {} on line {}:\n  {}'
                               .format(cell_index, line_index + 1, line))
+                    assert self.label is not None
                     self.duplicate_labels.add(self.label)
 
+                assert self.label is not None
                 self.labels.add(self.label)
 
                 self.punch_begin_marker_line(cell, line)  # hook method
@@ -334,16 +336,17 @@ class PunchedNotebookProcessor(PunchBaseProcessor):
         self.nb_punched = copy.deepcopy(nb)
         self.nb_punched.cells = []  # to be appended to
 
-        self.source_chad = []  # type: List[NotebookNode]  # chad being inserted to fill current hole
-        self.cell_punched = None  # type: Optional[NotebookNode]  # next punched cell being collected
+        self.source_chad = []  # type: list[NotebookNode]  # chad being inserted to fill current hole
+        self.cell_punched = None  # type: NotebookNode | None  # next punched cell being collected
 
     def pre_cell(self, cell: NotebookNode):
         # create corresponding cell for punched notebook
         # we preserve everything, except possibly the source lines (this could result in empty cells)
         self.cell_punched = copy.deepcopy(cell)
-        self.cell_punched.source = []  # List[str] to be converted to single string in post_cell()
+        self.cell_punched.source = []  # list[str] to be converted to single string in post_cell()
 
     def punch_begin_marker_line(self, cell: NotebookNode, line: str):
+        assert self.cell_punched is not None
         # copy marker line to result notebook, if desired
         if self.args.keep_marker_lines:
             self.cell_punched.source.append(line)
@@ -353,6 +356,7 @@ class PunchedNotebookProcessor(PunchBaseProcessor):
             # inject filling
             if self.args.punch_source:
                 # use chads from source notebook, available in self.args.source_chads
+                assert self.label is not None
                 if self.label in self.args.source_chads:  # corresponding source chad is present
                     # copy the source chad,
                     self.source_chad = self.args.source_chads[self.label][:]  # copy  TODO deep?
@@ -380,9 +384,11 @@ class PunchedNotebookProcessor(PunchBaseProcessor):
 
             else:
                 # use fixed content, substituting label and description (only useful with source option)
+                assert self.marker is not None
                 self.cell_punched.source.append(self.args.filling[cell.cell_type].format(**self.marker))
 
     def punch_end_marker_line(self, cell: NotebookNode, line: str):
+        assert self.cell_punched is not None
         # check if source chad still has material; if so, handle it; could concern multiple cells
         if self.source_chad:
             # need to split if still in same cell as begin marker line
@@ -402,6 +408,7 @@ class PunchedNotebookProcessor(PunchBaseProcessor):
             del self.source_chad[:-1]
 
             # check if receiver and source end cell have same type
+            assert self.label is not None
             if self.args.source_chads[self.label][-1].cell_type == cell.cell_type:
                 # copy any remaining content
                 if TEST:
@@ -420,10 +427,12 @@ class PunchedNotebookProcessor(PunchBaseProcessor):
             self.cell_punched.source.append(line)
 
     def punch_outside_line(self, cell: NotebookNode, line: str):
+        assert self.cell_punched is not None
         # copy line to result notebook
         self.cell_punched.source.append(line)
 
     def post_cell(self, cell: NotebookNode):
+        assert self.cell_punched is not None
         # join source list into single string
         self.cell_punched.source = '\n'.join(self.cell_punched.source)
 
@@ -459,7 +468,7 @@ class ChadsNotebookProcessor(PunchBaseProcessor):
         # initialize result notebook
         self.nb_chads = copy.deepcopy(self.nb)
         self.nb_chads.cells = []  # it needs its own list object (avoid aliasing)
-        self.cell_chads = None  # type: Optional[NotebookNode]
+        self.cell_chads = None  # type: NotebookNode | None
 
     def pre_cell(self, cell: NotebookNode):
         # create corresponding cell for chads notebook
@@ -468,20 +477,24 @@ class ChadsNotebookProcessor(PunchBaseProcessor):
         self.cell_chads.source = []  # to be converted to single string in post_cell()
 
     def punch_begin_marker_line(self, cell: NotebookNode, line: str):
+        assert self.cell_chads is not None
         # copy marker line to result notebook, if desired
         if self.args.keep_marker_lines:
             self.cell_chads.source.append(line)
 
     def punch_end_marker_line(self, cell: NotebookNode, line: str):
+        assert self.cell_chads is not None
         # copy marker line to result notebook, if desired
         if self.args.keep_marker_lines:
             self.cell_chads.source.append(line)
 
     def punch_inside_line(self, cell: NotebookNode, line: str):
+        assert self.cell_chads is not None
         # copy line to result notebook
         self.cell_chads.source.append(line)
 
     def post_cell(self, cell: NotebookNode):
+        assert self.cell_chads is not None
         # join source list into single string
         self.cell_chads.source = '\n'.join(self.cell_chads.source)
 
@@ -515,12 +528,15 @@ class SourceChadsProcessor(PunchBaseProcessor):
 
     def punch_begin_marker_line(self, cell: NotebookNode, line: str):
         # start collecting hole content for args.source_chads
+        assert self.label is not None
         self.cell_source_chads = copy.deepcopy(cell)
         self.cell_source_chads.source = []  # list of strings, to be consolidated into single string
         # we don't copy marker lines into args.source_chads
         self.args.source_chads[self.label] = []  # overwrites previous chad, if label not unique
 
     def punch_end_marker_line(self, cell: NotebookNode, line: str):
+        assert self.cell_source_chads is not None
+        assert self.label is not None
         # finish collecting hole content for args.source_chads
         # we don't copy marker lines into args.source_chads
         # join source list into single string
@@ -531,11 +547,14 @@ class SourceChadsProcessor(PunchBaseProcessor):
         self.cell_source_chads = None
 
     def punch_inside_line(self, cell: NotebookNode, line: str):
+        assert self.cell_source_chads is not None
         # copy line to result
         self.cell_source_chads.source.append(line)
 
     def post_cell(self, cell: NotebookNode):
         if self.inside:
+            assert self.cell_source_chads is not None
+            assert self.label is not None
             # finish collecting hole content for args.source_chads
             # join source list into single string
             self.cell_source_chads.source = '\n'.join(self.cell_source_chads.source)

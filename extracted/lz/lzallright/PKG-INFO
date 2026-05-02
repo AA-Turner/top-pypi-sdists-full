@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: lzallright
+Version: 0.2.6
+License-File: LICENSE
+Summary: A Python 3.8+ binding for LZ👌(lzokay) library
+Home-Page: https://github.com/vlaci/lzallright
+Author: László Vaskó <1771332+vlaci@users.noreply.github.com>
+Author-email: László Vaskó <1771332+vlaci@users.noreply.github.com>
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://vlaci.github.io/lzallright
+Project-URL: Repository, https://github.com/vlaci/lzallright
+Project-URL: Changelog, https://github.com/vlaci/lzallright/blob/main/CHANGELOG.md
+
+# lzallright
+
+A Python 3.8+ binding for [LZ👌](https://github.com/jackoalan/lzokay) library which is
+
+> A minimal, C++14 implementation of the
+> [LZO compression format](http://www.oberhumer.com/opensource/lzo/).
+
+Licensed under the friendly MIT license.
+
+Wheels are built statically without any external dependencies.
+

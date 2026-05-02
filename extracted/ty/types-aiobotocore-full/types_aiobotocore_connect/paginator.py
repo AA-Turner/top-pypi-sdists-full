@@ -15,6 +15,7 @@ Usage::
         GetMetricDataPaginator,
         ListAgentStatusesPaginator,
         ListApprovedOriginsPaginator,
+        ListAttachedFilesConfigurationsPaginator,
         ListAuthenticationProfilesPaginator,
         ListBotsPaginator,
         ListChildHoursOfOperationsPaginator,
@@ -101,6 +102,7 @@ Usage::
         get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
         list_agent_statuses_paginator: ListAgentStatusesPaginator = client.get_paginator("list_agent_statuses")
         list_approved_origins_paginator: ListApprovedOriginsPaginator = client.get_paginator("list_approved_origins")
+        list_attached_files_configurations_paginator: ListAttachedFilesConfigurationsPaginator = client.get_paginator("list_attached_files_configurations")
         list_authentication_profiles_paginator: ListAuthenticationProfilesPaginator = client.get_paginator("list_authentication_profiles")
         list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
         list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = client.get_paginator("list_child_hours_of_operations")
@@ -195,6 +197,8 @@ from .type_defs import (
     ListAgentStatusResponseTypeDef,
     ListApprovedOriginsRequestPaginateTypeDef,
     ListApprovedOriginsResponseTypeDef,
+    ListAttachedFilesConfigurationsRequestPaginateTypeDef,
+    ListAttachedFilesConfigurationsResponseTypeDef,
     ListAuthenticationProfilesRequestPaginateTypeDef,
     ListAuthenticationProfilesResponseTypeDef,
     ListBotsRequestPaginateTypeDef,
@@ -361,6 +365,7 @@ __all__ = (
     "GetMetricDataPaginator",
     "ListAgentStatusesPaginator",
     "ListApprovedOriginsPaginator",
+    "ListAttachedFilesConfigurationsPaginator",
     "ListAuthenticationProfilesPaginator",
     "ListBotsPaginator",
     "ListChildHoursOfOperationsPaginator",
@@ -501,6 +506,29 @@ class ListApprovedOriginsPaginator(_ListApprovedOriginsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListApprovedOrigins.html#Connect.Paginator.ListApprovedOrigins.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listapprovedoriginspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAttachedFilesConfigurationsPaginatorBase = AioPaginator[
+        ListAttachedFilesConfigurationsResponseTypeDef
+    ]
+else:
+    _ListAttachedFilesConfigurationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListAttachedFilesConfigurationsPaginator(_ListAttachedFilesConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListAttachedFilesConfigurations.html#Connect.Paginator.ListAttachedFilesConfigurations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listattachedfilesconfigurationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAttachedFilesConfigurationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListAttachedFilesConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListAttachedFilesConfigurations.html#Connect.Paginator.ListAttachedFilesConfigurations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listattachedfilesconfigurationspaginator)
         """
 
 

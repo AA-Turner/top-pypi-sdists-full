@@ -1,0 +1,350 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  build_wheels:
+    name: Build wheels (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+            artifact: wheelhouse-linux-x86_64
+            cibw_archs: x86_64
+            cibw_environment: ""
+            cibw_config_settings: ""
+          - name: linux-aarch64
+            runner: ubuntu-24.04-arm
+            artifact: wheelhouse-linux-aarch64
+            cibw_archs: aarch64
+            cibw_environment: ""
+            cibw_config_settings: ""
+          - name: windows-amd64
+            runner: windows-latest
+            artifact: wheelhouse-windows-amd64
+            cibw_archs: AMD64
+            cibw_environment: ""
+            cibw_config_settings: ""
+          - name: macos-x86_64
+            runner: macos-15-intel
+            artifact: wheelhouse-macos-x86_64
+            cibw_archs: x86_64
+            cibw_environment: MACOSX_DEPLOYMENT_TARGET=10.15
+            cibw_config_settings: >-
+              cmake.define.CTBOOST_ENABLE_CUDA=OFF
+              cmake.define.CMAKE_OSX_DEPLOYMENT_TARGET=10.15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install cibuildwheel
+        run: python -m pip install --upgrade pip "cibuildwheel==3.4.1"
+
+      - name: Build wheels
+        env:
+          CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CIBW_ENVIRONMENT: ${{ matrix.cibw_environment }}
+          CIBW_CONFIG_SETTINGS: ${{ matrix.cibw_config_settings }}
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: python -m pip install --upgrade pip build
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  build_gpu_linux_wheels:
+    name: Build GPU Linux wheel (${{ matrix.python_abi }})
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'v'))
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python_abi: cp310
+            cibw_build: cp310-manylinux_x86_64
+            artifact: wheelhouse-gpu-linux-cp310
+          - python_abi: cp311
+            cibw_build: cp311-manylinux_x86_64
+            artifact: wheelhouse-gpu-linux-cp311
+          - python_abi: cp312
+            cibw_build: cp312-manylinux_x86_64
+            artifact: wheelhouse-gpu-linux-cp312
+          - python_abi: cp313
+            cibw_build: cp313-manylinux_x86_64
+            artifact: wheelhouse-gpu-linux-cp313
+          - python_abi: cp314
+            cibw_build: cp314-manylinux_x86_64
+            artifact: wheelhouse-gpu-linux-cp314
+    env:
+      CIBW_BUILD: ${{ matrix.cibw_build }}
+      CIBW_ARCHS: x86_64
+      CIBW_BUILD_VERBOSITY: 3
+      CIBW_TEST_REQUIRES: >-
+        pytest
+      CIBW_TEST_COMMAND: >-
+        python {project}/tests/run_installed_smoke.py {project}/tests/test_gpu_wheel_smoke.py
+      CIBW_CONFIG_SETTINGS: >-
+        cmake.define.CTBOOST_ENABLE_CUDA=ON
+        cmake.define.CTBOOST_REQUIRE_CUDA=ON
+        cmake.define.CMAKE_CUDA_COMPILER=/usr/local/cuda-12.0/bin/nvcc
+        cmake.define.CUDAToolkit_ROOT=/usr/local/cuda-12.0
+        cmake.define.CMAKE_CUDA_ARCHITECTURES=60\;70\;75\;80\;86\;89
+        wheel.build-tag=1gpu
+      CIBW_ENVIRONMENT: >-
+        CTBOOST_EXPECT_CUDA=1
+        CUDACXX=/usr/local/cuda-12.0/bin/nvcc
+        CUDA_HOME=/usr/local/cuda-12.0
+        CUDAToolkit_ROOT=/usr/local/cuda-12.0
+        PATH=/usr/local/cuda-12.0/bin:$PATH
+        LD_LIBRARY_PATH=/usr/local/cuda-12.0/lib64:$LD_LIBRARY_PATH
+      CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+      CIBW_BEFORE_ALL_LINUX: >-
+        rm -f /etc/yum.repos.d/epel*.repo &&
+        yum install -y wget &&
+        wget https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo -O /etc/yum.repos.d/cuda.repo &&
+        yum clean all &&
+        yum -y install cuda-compiler-12-0 cuda-cudart-devel-12-0 &&
+        /usr/local/cuda-12.0/bin/nvcc --version &&
+        test -f /usr/local/cuda-12.0/lib64/libcudart.so
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install cibuildwheel
+        run: python -m pip install --upgrade pip "cibuildwheel==3.4.1"
+
+      - name: Build GPU Linux wheel
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload GPU Linux wheel artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: wheelhouse/*.whl
+
+  build_gpu_windows_wheels:
+    name: Build GPU Windows wheel (${{ matrix.python_abi }})
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'v'))
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python_abi: cp310
+            cibw_build: cp310-win_amd64
+            artifact: wheelhouse-gpu-windows-cp310
+          - python_abi: cp311
+            cibw_build: cp311-win_amd64
+            artifact: wheelhouse-gpu-windows-cp311
+          - python_abi: cp312
+            cibw_build: cp312-win_amd64
+            artifact: wheelhouse-gpu-windows-cp312
+          - python_abi: cp313
+            cibw_build: cp313-win_amd64
+            artifact: wheelhouse-gpu-windows-cp313
+          - python_abi: cp314
+            cibw_build: cp314-win_amd64
+            artifact: wheelhouse-gpu-windows-cp314
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install CUDA toolkit
+        id: cuda-toolkit
+        uses: Jimver/cuda-toolkit@v0.2.29
+        with:
+          cuda: "12.5.0"
+
+      - name: Normalize CUDA path
+        run: |
+          if (Test-Path -LiteralPath C:\cuda) {
+            Remove-Item -LiteralPath C:\cuda -Recurse -Force
+          }
+          New-Item -ItemType Junction -Path C:\cuda -Target "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" | Out-Null
+          & C:\cuda\bin\nvcc.exe --version
+
+      - name: Install cibuildwheel
+        run: python -m pip install --upgrade pip "cibuildwheel==3.4.1"
+
+      - name: Build GPU Windows wheel
+        env:
+          CIBW_BUILD: ${{ matrix.cibw_build }}
+          CIBW_ARCHS: AMD64
+          CIBW_BUILD_VERBOSITY: 3
+          CIBW_TEST_REQUIRES: >-
+            pytest
+          CIBW_TEST_COMMAND: >-
+            python {project}/tests/run_installed_smoke.py {project}/tests/test_gpu_wheel_smoke.py
+          CIBW_BEFORE_BUILD_WINDOWS: >-
+            python -m pip install --upgrade "delvewheel>=1.8"
+          CIBW_TEST_ENVIRONMENT_WINDOWS: >-
+            CTBOOST_EXPECT_CUDA=1
+            CUDA_PATH="C:/cuda"
+            CUDAToolkit_ROOT="C:/cuda"
+            PATH="C:/cuda/bin;$PATH"
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            python -m delvewheel repair --add-path C:/cuda/bin -w {dest_dir} {wheel}
+          CIBW_CONFIG_SETTINGS: >-
+            cmake.define.CTBOOST_ENABLE_CUDA=ON
+            cmake.define.CTBOOST_REQUIRE_CUDA=ON
+            cmake.define.CMAKE_CUDA_COMPILER=C:/cuda/bin/nvcc.exe
+            cmake.define.CUDAToolkit_ROOT=C:/cuda
+            cmake.define.CMAKE_CUDA_ARCHITECTURES=60\;70\;75\;80\;86\;89
+            wheel.build-tag=1gpu
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CTBOOST_EXPECT_CUDA=1
+            CUDA_PATH="C:/cuda"
+            CUDAToolkit_ROOT="C:/cuda"
+            CUDACXX="C:/cuda/bin/nvcc.exe"
+            PATH="C:/cuda/bin;$PATH"
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload GPU Windows wheel artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: wheelhouse/*.whl
+
+  publish_pypi:
+    name: Publish to PyPI
+    needs:
+      - build_wheels
+      - build_sdist
+      - build_gpu_linux_wheels
+      - build_gpu_windows_wheels
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'v'))
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Download Linux CPU wheel artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: wheelhouse-linux-x86_64
+          path: dist
+
+      - name: Download Linux ARM wheel artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: wheelhouse-linux-aarch64
+          path: dist
+
+      - name: Download Windows CPU wheel artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: wheelhouse-windows-amd64
+          path: dist
+
+      - name: Download macOS CPU wheel artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: wheelhouse-macos-x86_64
+          path: dist
+
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: sdist
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  publish_release_assets:
+    name: Publish GitHub Release Assets
+    needs:
+      - build_wheels
+      - build_sdist
+      - build_gpu_linux_wheels
+      - build_gpu_windows_wheels
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: wheelhouse-*
+          path: dist
+          merge-multiple: true
+
+      - name: Download sdist artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: sdist
+          path: dist
+
+      - name: Publish GitHub release with CPU and GPU assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          overwrite_files: true

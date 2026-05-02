@@ -1,0 +1,383 @@
+Metadata-Version: 2.4
+Name: ghoststream
+Version: 1.2.5
+Summary: Open Source Cross-Platform Transcoding Service & SDK
+Home-page: https://github.com/BleedingXiko/GhostStream
+Author: GhostStream Contributors
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Multimedia :: Video :: Conversion
+Classifier: Framework :: Flask
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: gevent>=24.2.1
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.6.0
+Requires-Dist: zeroconf>=0.131.0
+Provides-Extra: server
+Requires-Dist: flask>=3.0.0; extra == "server"
+Requires-Dist: gevent-websocket>=0.10.1; extra == "server"
+Requires-Dist: pyyaml>=6.0.1; extra == "server"
+Requires-Dist: pydantic-settings>=2.2.0; extra == "server"
+Requires-Dist: python-json-logger>=2.0.7; extra == "server"
+Requires-Dist: textual>=0.50.0; extra == "server"
+Requires-Dist: rich>=13.7.0; extra == "server"
+Requires-Dist: psutil>=5.9.7; extra == "server"
+Provides-Extra: all
+Requires-Dist: gevent>=24.2.1; extra == "all"
+Requires-Dist: httpx>=0.27.0; extra == "all"
+Requires-Dist: pydantic>=2.6.0; extra == "all"
+Requires-Dist: zeroconf>=0.131.0; extra == "all"
+Requires-Dist: flask>=3.0.0; extra == "all"
+Requires-Dist: gevent-websocket>=0.10.1; extra == "all"
+Requires-Dist: pyyaml>=6.0.1; extra == "all"
+Requires-Dist: pydantic-settings>=2.2.0; extra == "all"
+Requires-Dist: python-json-logger>=2.0.7; extra == "all"
+Requires-Dist: textual>=0.50.0; extra == "all"
+Requires-Dist: rich>=13.7.0; extra == "all"
+Requires-Dist: psutil>=5.9.7; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# GhostStream
+
+**Open-Source Video Transcoding Server**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Docker-lightgrey.svg)]()
+
+GhostStream is a hardware-accelerated video transcoding server with automatic GPU detection, adaptive bitrate streaming, and minimal configuration. It serves as the transcoding backend for [GhostHub](https://ghosthub.net) but can be used standalone. It is designed for local-machine and LAN use, not direct public internet exposure.
+
+## Quick Start
+
+### Pre-built Binaries
+
+| Platform | Download | Run |
+|----------|----------|-----|
+| Windows | [GhostStream.exe](https://github.com/BleedingXiko/GhostStream/releases/latest) | Double-click |
+| Linux | [GhostStream-Linux](https://github.com/BleedingXiko/GhostStream/releases/latest) | `chmod +x && ./GhostStream-Linux` |
+| macOS | [GhostStream-macOS](https://github.com/BleedingXiko/GhostStream/releases/latest) | `chmod +x && ./GhostStream-macOS` |
+
+Requires FFmpeg. On startup, GhostStream launches the Textual dashboard by default and will show install instructions if FFmpeg is missing.
+
+### From Source
+
+```bash
+git clone https://github.com/BleedingXiko/GhostStream.git
+cd GhostStream
+git submodule update --init --recursive
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+.venv/bin/python -m ghoststream
+```
+
+That creates a local development virtualenv in `.venv`, installs the server dependencies, and starts the Specter-native GhostStream runtime with the TUI dashboard by default.
+
+If you prefer to stay inside the activated shell, this is equivalent:
+
+```bash
+python -m ghoststream
+```
+
+### Headless / Containers
+
+Use `--server-only` when you want the API/HLS engine without the dashboard:
+
+```bash
+.venv/bin/python -m ghoststream --server-only
+```
+
+That mode is ideal for Docker, CI smoke tests, browser example serving, SSH sessions, and other environments where a terminal UI is not practical.
+GhostStream is intended to stay on your machine or trusted LAN even in headless mode.
+
+## SDK Installation
+
+**Python:**
+```bash
+pip install ghoststream                # SDK + public models/contracts
+pip install "ghoststream[server]"      # Add the server runtime dependencies
+```
+
+`python -m ghoststream` requires the `server` extra (or the full repo `requirements.txt`). `pip install ghoststream` by itself is the GhostHub/client SDK install.
+
+**JavaScript/TypeScript:**
+```bash
+npm install ghoststream-sdk
+```
+
+## Usage
+
+**Python SDK (recommended):**
+```python
+from ghoststream import GhostStreamClient, TranscodeStatus
+
+client = GhostStreamClient(manual_server="localhost:8765")
+
+# Synchronous (Flask/gevent compatible)
+job = client.transcode(source="https://example.com/video.mp4", resolution="720p")
+print(f"Stream URL: {job.stream_url}")
+```
+
+**JavaScript/TypeScript:**
+```typescript
+import { GhostStreamClient } from 'ghoststream-sdk';
+
+const client = new GhostStreamClient('localhost:8765');
+const job = await client.transcode({ source: 'https://example.com/video.mp4', resolution: '720p' });
+console.log(`Stream URL: ${job.streamUrl}`);
+```
+
+**curl:**
+```bash
+curl -X POST http://localhost:8765/api/transcode/start \
+  -H "Content-Type: application/json" \
+  -d '{"source": "https://example.com/video.mp4", "mode": "stream"}'
+```
+
+See the `examples/` directory for additional usage examples.
+
+## Features
+
+- **HLS Streaming** - Real-time transcoding with immediate playback
+- **Adaptive Bitrate (ABR)** - Multiple quality variants for bandwidth adaptation
+- **Subtitle Muxing** - Native WebVTT subtitle support in HLS streams
+- **HDR to SDR** - Automatic tone mapping for HDR content
+- **Codec Support** - H.264, H.265/HEVC, VP9, AV1
+- **Batch Processing** - Queue multiple files with optional two-pass encoding
+- **Hardware Acceleration** - NVIDIA NVENC, Intel QuickSync, AMD AMF, Apple VideoToolbox
+- **Automatic Fallback** - Falls back to software encoding if hardware fails
+
+### Supported Hardware Encoders
+
+| Platform | Encoder | Detection |
+|----------|---------|-----------|
+| NVIDIA | NVENC | Automatic via nvidia-smi |
+| Intel | QuickSync | Automatic via VA-API |
+| AMD | AMF/VCE | Automatic |
+| Apple | VideoToolbox | Native macOS support |
+| CPU | libx264/libx265 | Always available |
+
+## API Reference
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/transcode/start` | Start a transcoding job |
+| `GET` | `/api/transcode/{id}/status` | Get job status & progress |
+| `POST` | `/api/transcode/{id}/cancel` | Cancel a job |
+| `DELETE` | `/api/transcode/{id}` | Delete job & cleanup |
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/capabilities` | Hardware & codec info |
+| `WS` | `/ws/progress` | Real-time progress via WebSocket |
+
+### Start Transcode Request
+
+```json
+{
+  "source": "https://example.com/video.mp4",
+  "mode": "stream",           // "stream", "abr", or "batch"
+  "output": {
+    "resolution": "720p",     // "4k", "1080p", "720p", "480p", "original"
+    "video_codec": "h264",    // "h264", "h265", "vp9", "av1"
+    "audio_codec": "aac",     // "aac", "opus", "copy"
+    "hw_accel": "auto"        // "auto", "nvenc", "qsv", "software"
+  },
+  "start_time": 0,            // Seek to position (seconds)
+  "subtitles": [              // Optional: Subtitle tracks to mux
+    {
+      "url": "https://example.com/subtitle.vtt",
+      "label": "English",
+      "language": "en",
+      "default": true
+    }
+  ]
+}
+```
+
+### Response
+
+```json
+{
+  "job_id": "abc-123",
+  "status": "processing",
+  "stream_url": "http://localhost:8765/stream/abc-123/master.m3u8?gst=eyJ...",
+  "control_token": "eyJ...",
+  "progress": 0
+}
+```
+
+Use the returned `control_token` on protected job endpoints:
+
+```bash
+curl http://localhost:8765/api/transcode/abc-123/status \
+  -H "X-GhostStream-Control-Token: eyJ..."
+```
+
+Use the returned `stream_url` as-is in players and web clients. GhostStream embeds the stream token there and propagates it through HLS playlists and segment URLs.
+The `gst=...` query parameter is that stream capability token. It authorizes playlist, segment, and download access for that job, so clients should preserve it exactly as returned.
+
+## Examples
+
+| File | Description |
+|------|-------------|
+| [`demo.py`](examples/demo.py) | Basic demo with auto-play |
+| [`demo.html`](examples/demo.html) | Browser-based demo |
+| [`minimal.py`](examples/minimal.py) | Minimal Python example |
+| [`quickstart.py`](examples/quickstart.py) | Interactive examples |
+| [`curl_examples.md`](examples/curl_examples.md) | HTTP/curl commands |
+| [`web_player.html`](examples/web_player.html) | Full-featured web player |
+
+### Running HTML Examples
+
+The HTML examples must be served over HTTP due to browser CORS restrictions:
+
+```bash
+# 1. Start GhostStream
+.venv/bin/python -m ghoststream --server-only
+
+# 2. In another terminal, serve the examples
+cd examples
+.venv/bin/python -m http.server 8080
+
+# 3. Open in browser
+#    http://localhost:8080/demo.html
+#    http://localhost:8080/web_player.html
+```
+
+If your virtualenv is already activated, plain `python -m ghoststream --server-only` and `python -m http.server 8080` are equivalent.
+
+## Configuration
+
+Create `ghoststream.yaml` to customize (optional):
+
+```yaml
+server:
+  host: 0.0.0.0  # Bind on all local interfaces; use only on trusted networks
+  port: 8765
+
+transcoding:
+  max_concurrent_jobs: 2
+  segment_duration: 4
+  tone_map_hdr: true
+  retry_count: 3
+
+hardware:
+  prefer_hw_accel: true
+  fallback_to_software: true
+```
+
+## GhostHub Integration
+
+GhostStream serves as the transcoding backend for [GhostHub](https://ghosthub.net).
+
+### Architecture
+
+```
+┌─────────────────────────────────┐      ┌─────────────────────────────────┐
+│        Raspberry Pi             │      │         Your PC                 │
+│  ┌───────────────────────────┐  │      │  ┌───────────────────────────┐  │
+│  │       GhostHub            │  │ WiFi │  │      GhostStream          │  │
+│  │    (Media Server)         │◄─┼──────┼─►│   (GPU Transcoder)        │  │
+│  └───────────────────────────┘  │      │  └───────────────────────────┘  │
+└─────────────────────────────────┘      └─────────────────────────────────┘
+```
+
+- **Auto-Discovery**: GhostStream advertises via mDNS (`_ghoststream._tcp.local`)
+- **On-Demand**: Transcoding occurs only when requested
+- **Local Network**: No internet connection required
+
+### Python SDK
+
+```bash
+pip install ghoststream
+```
+
+```python
+from ghoststream import GhostStreamClient, TranscodeStatus
+
+# Auto-discover on network
+client = GhostStreamClient()
+client.start_discovery()
+
+# Or connect directly
+client = GhostStreamClient(manual_server="192.168.1.100:8765")
+
+# Synchronous API (Flask/gevent compatible)
+job = client.transcode(
+    source="http://pi:5000/media/video.mkv",
+    resolution="1080p"
+)
+if job.status != TranscodeStatus.ERROR:
+    print(job.stream_url)
+```
+
+### Progress Updates
+
+```python
+# Python SDK: poll synchronously
+job = client.get_job_status("job-123")
+print(job.progress, job.status.value)
+```
+
+```json
+// Browser / JS clients can use /ws/progress directly
+{"type": "subscribe", "job_ids": ["job-123"], "control_token": "token-from-start-response"}
+
+{"type": "progress", "job_id": "job-123", "data": {"progress": 45.2}}
+{"type": "status_change", "job_id": "job-123", "data": {"status": "ready"}}
+```
+
+For multi-job filtered subscriptions, send a `job_tokens` object keyed by job ID instead of a single `control_token`.
+
+## Contributing
+
+After cloning, initialize the Specter submodule before running the server or tests:
+
+```bash
+git submodule update --init --recursive
+```
+
+The `ghoststream/specter` directory is sourced from [BleedingXiko/SPECTER](https://github.com/BleedingXiko/SPECTER). If you need to make changes inside the submodule:
+
+1. Commit and push from within `ghoststream/specter`.
+2. Return to the GhostStream repo and commit the updated submodule pointer.
+
+That keeps GhostStream pinned to an explicit Specter revision while still letting contributors iterate on both projects.
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+# Development setup
+git clone https://github.com/BleedingXiko/GhostStream.git
+cd GhostStream
+python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+.venv/bin/python -m ghoststream --log-level DEBUG
+```
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.

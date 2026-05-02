@@ -1,0 +1,110 @@
+Metadata-Version: 2.4
+Name: segments-ai
+Version: 1.25.0
+Author-email: Bert De Branderere <bert@segments.ai>
+License-Expression: MIT
+Project-URL: Homepage, https://segments.ai/
+Project-URL: Repository, https://github.com/segments-ai/segments-ai
+Keywords: image,segmentation,labeling,vision
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: numpy>=1.20
+Requires-Dist: requests>=2.0
+Requires-Dist: Pillow>=9.0
+Requires-Dist: tqdm>=4.0
+Requires-Dist: typing_extensions>=4.0
+Requires-Dist: pydantic!=2.4.0,==2.*
+Requires-Dist: types-Pillow>=9.0
+Requires-Dist: types-requests>=2.0
+Provides-Extra: dev
+Requires-Dist: flynt==1.*; extra == "dev"
+Requires-Dist: ruff==0.*; extra == "dev"
+Requires-Dist: mypy==0.*; extra == "dev"
+Requires-Dist: tox==3.*; extra == "dev"
+Requires-Dist: pytest==7.*; extra == "dev"
+Requires-Dist: pytest-cov==4.*; extra == "dev"
+Requires-Dist: pytest-dotenv==0.*; extra == "dev"
+Requires-Dist: pycocotools==2.*; extra == "dev"
+Requires-Dist: scikit-image==0.*; extra == "dev"
+Requires-Dist: opencv-python==4.*; extra == "dev"
+Requires-Dist: build>=1.2.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=4.0; extra == "docs"
+Requires-Dist: furo>=2022.0; extra == "docs"
+Requires-Dist: myst_parser>=0.0; extra == "docs"
+Requires-Dist: sphinx-autobuild>=2021.0; extra == "docs"
+Requires-Dist: sphinx-copybutton>=0.0; extra == "docs"
+Requires-Dist: sphinx_autodoc_typehints>=1.0; extra == "docs"
+Requires-Dist: autodoc_pydantic>=2.0; extra == "docs"
+Requires-Dist: datasets>=2.0; extra == "docs"
+Dynamic: license-file
+
+<p align="center">
+    <br>
+        <img src="assets/logo_no_shadow-with_text-blue_background.png" width="400"/>
+    <br>
+<p>
+<p align="center">
+    <a href="https://github.com/segments-ai/segments-ai/LICENSE" style="text-decoration: none">
+        <img alt="GitHub" src="https://img.shields.io/github/license/segments-ai/segments-ai.svg?color=blue">
+    </a>
+    <a href="https://github.com/segments-ai/segments-ai/releases" style="text-decoration: none">
+        <img alt="GitHub release" src="https://img.shields.io/github/release/segments-ai/segments-ai.svg">
+    </a>
+    <!-- <a href="https://github.com/segments-ai/segments-ai/actions" style="text-decoration: none">
+        <img alt="Tests" src="https://github.com/segments-ai/segments-ai/actions/workflows/tests.yml/badge.svg">
+    </a> -->
+    <a href="https://segments-python-sdk.readthedocs.io/en/latest/?badge=latest" style="text-decoration: none">
+        <img alt="Documentation" src="https://readthedocs.org/projects/segments-python-sdk/badge/?version=latest">
+    </a>
+    <a href="https://github.com/segments-ai/segments-ai/releases" style="text-decoration: none">
+        <img alt="Downloads" src="https://img.shields.io/pypi/dm/segments-ai">
+    </a>
+</p>
+
+[Segments.ai](https://segments.ai/) is the training data platform for computer vision engineers and labeling teams. Our powerful labeling interfaces, easy-to-use management features, and extensive API integrations help you iterate quickly between data labeling, model training and failure case discovery.
+
+![](assets/overview.jpg)
+
+## Quickstart
+
+Walk through [the Python SDK quickstart](https://docs.segments.ai/tutorials/python-sdk-quickstart).
+
+## Documentation
+
+Please refer to [the documentation](http://segments-python-sdk.rtfd.io/) for usage instructions.
+
+## Blog
+
+Read [our blog posts](https://segments.ai/blog) to learn more about the platform.
+
+## Changelog
+
+The most notable changes in v1.0 of the Python SDK compared to v0.73 include:
+
+- Added Python type hints and better auto-generated docs.
+- Improved error handling: functions now raise proper exceptions.
+- New functions for managing issues and collaborators.
+
+You can upgrade to v1.0 with `pip install -—upgrade segments-ai`. Please be mindful of following breaking changes:
+
+- The client functions now return classes instead of dicts, so you should access properties using dot-based indexing (e.g. `dataset.description`) instead of dict-based indexing (e.g. `dataset[’description’]`).
+- Functions now consistently raise exceptions, instead of sometimes silently failing with a print statement. You might want to handle these exceptions with a try-except block.
+- Some legacy fields are no longer returned: `dataset.tasks`, `dataset.task_readme`, `dataset.data_type`.
+- The default value of the `id_increment` argument in `utils.export_dataset()` and `utils.get_semantic_bitmap()` is changed from 1 to 0.
+- Python 3.6 and lower are no longer supported.

@@ -1,6 +1,5 @@
 import os
 import sys
-from collections import namedtuple
 
 import pytest
 
@@ -53,30 +52,22 @@ def test_completion(case, monkeypatch, environment, has_django):
 
         # ... and mock the entry points to include it
         # see https://docs.pytest.org/en/stable/how-to/writing_plugins.html#setuptools-entry-points
-        if sys.version_info >= (3, 8):
-            def mock_entry_points(*, group=None):
-                import importlib.metadata
-                entries = [importlib.metadata.EntryPoint(
-                    name=None,
-                    value="pytest_plugin.plugin",
-                    group="pytest11",
-                )]
+        def mock_entry_points(*, group=None):
+            import importlib.metadata
+            entries = [importlib.metadata.EntryPoint(
+                name=None,
+                value="pytest_plugin.plugin",
+                group="pytest11",
+            )]
 
-                if sys.version_info >= (3, 10):
-                    assert group == "pytest11"
-                    return entries
-                else:
-                    assert group is None
-                    return {"pytest11": entries}
-
-            monkeypatch.setattr("importlib.metadata.entry_points", mock_entry_points)
-        else:
-            def mock_iter_entry_points(group):
+            if sys.version_info >= (3, 10):
                 assert group == "pytest11"
-                EntryPoint = namedtuple("EntryPoint", ["module_name"])
-                return [EntryPoint("pytest_plugin.plugin")]
+                return entries
+            else:
+                assert group is None
+                return {"pytest11": entries}
 
-            monkeypatch.setattr("pkg_resources.iter_entry_points", mock_iter_entry_points)
+        monkeypatch.setattr("importlib.metadata.entry_points", mock_entry_points)
 
     repo_root = helpers.root_dir
     monkeypatch.chdir(os.path.join(repo_root, 'jedi'))

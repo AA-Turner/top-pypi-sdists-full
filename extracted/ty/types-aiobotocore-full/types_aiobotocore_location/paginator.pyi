@@ -17,6 +17,7 @@ Usage::
         ListDevicePositionsPaginator,
         ListGeofenceCollectionsPaginator,
         ListGeofencesPaginator,
+        ListJobsPaginator,
         ListKeysPaginator,
         ListMapsPaginator,
         ListPlaceIndexesPaginator,
@@ -34,6 +35,7 @@ Usage::
         list_device_positions_paginator: ListDevicePositionsPaginator = client.get_paginator("list_device_positions")
         list_geofence_collections_paginator: ListGeofenceCollectionsPaginator = client.get_paginator("list_geofence_collections")
         list_geofences_paginator: ListGeofencesPaginator = client.get_paginator("list_geofences")
+        list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
         list_keys_paginator: ListKeysPaginator = client.get_paginator("list_keys")
         list_maps_paginator: ListMapsPaginator = client.get_paginator("list_maps")
         list_place_indexes_paginator: ListPlaceIndexesPaginator = client.get_paginator("list_place_indexes")
@@ -61,6 +63,8 @@ from .type_defs import (
     ListGeofenceCollectionsResponseTypeDef,
     ListGeofencesRequestPaginateTypeDef,
     ListGeofencesResponseTypeDef,
+    ListJobsRequestPaginateTypeDef,
+    ListJobsResponseTypeDef,
     ListKeysRequestPaginateTypeDef,
     ListKeysResponseTypeDef,
     ListMapsRequestPaginateTypeDef,
@@ -86,6 +90,7 @@ __all__ = (
     "ListDevicePositionsPaginator",
     "ListGeofenceCollectionsPaginator",
     "ListGeofencesPaginator",
+    "ListJobsPaginator",
     "ListKeysPaginator",
     "ListMapsPaginator",
     "ListPlaceIndexesPaginator",
@@ -182,6 +187,24 @@ class ListGeofencesPaginator(_ListGeofencesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/paginator/ListGeofences.html#LocationService.Paginator.ListGeofences.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/paginators/#listgeofencespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListJobsPaginatorBase = AioPaginator[ListJobsResponseTypeDef]
+else:
+    _ListJobsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListJobsPaginator(_ListJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/paginator/ListJobs.html#LocationService.Paginator.ListJobs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/paginators/#listjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListJobsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/location/paginator/ListJobs.html#LocationService.Paginator.ListJobs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_location/paginators/#listjobspaginator)
         """
 
 if TYPE_CHECKING:

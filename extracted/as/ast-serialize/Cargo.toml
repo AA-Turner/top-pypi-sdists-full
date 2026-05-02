@@ -1,0 +1,59 @@
+[package]
+name = "mypy_parser"
+version = "0.1.0"
+publish = false
+authors = ["Jukka Lehtosalo"]
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+description = "Python extension that serializes Ruff AST for mypy"
+readme = "README.md"
+
+[lib]
+name = "ast_serialize"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 for Python bindings
+# Base features always enabled; abi3-py39 is added via stable-abi feature
+pyo3 = { version = "0.28.2", features = ["extension-module"] }
+
+# Ruff dependencies for parsing Python - pinned to release tag
+ruff_python_ast = { git = "https://github.com/astral-sh/ruff", tag = "0.15.5" }
+ruff_python_parser = { git = "https://github.com/astral-sh/ruff", tag = "0.15.5" }
+ruff_source_file = { git = "https://github.com/astral-sh/ruff", tag = "0.15.5" }
+ruff_text_size = { git = "https://github.com/astral-sh/ruff", tag = "0.15.5" }
+
+# Error handling
+anyhow = "1.0"
+
+# Hashing
+sha1 = "0.10"
+
+[dev-dependencies]
+indoc = "2"
+
+[features]
+# Default: stable ABI for regular Python 3.9+
+default = ["stable-abi"]
+# Stable ABI wheels (cp39-abi3) - compatible with Python 3.9+
+stable-abi = ["pyo3/abi3-py39"]
+# Free-threaded Python wheels (cp313t) - for nogil Python
+free-threaded = []
+# Turn off rayon for profiling
+singlethreaded = []
+
+[lints.rust]
+unsafe_code = "warn"
+unreachable_pub = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -2 }
+# Allowed pedantic lints (adjust based on your preferences)
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+# Restriction lints
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"

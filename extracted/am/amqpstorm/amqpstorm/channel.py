@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 
-from pamqp import specification
+from pamqp import commands
 from pamqp.header import ContentHeader
 
 from amqpstorm import compatibility
@@ -198,7 +198,9 @@ class Channel(BaseChannel):
                 self.stop_consuming()
             except AMQPChannelError:
                 self.remove_consumer_tag()
-            self.rpc_request(specification.Channel.Close(
+            self.rpc_request(commands.Channel.Close(
+                class_id=0,
+                method_id=0,
                 reply_code=reply_code,
                 reply_text=reply_text),
                 connection_adapter=self._connection
@@ -252,7 +254,7 @@ class Channel(BaseChannel):
         :return:
         """
         self._confirming_deliveries = True
-        confirm_frame = specification.Confirm.Select()
+        confirm_frame = commands.Confirm.Select()
         return self.rpc_request(confirm_frame)
 
     @property
@@ -285,7 +287,7 @@ class Channel(BaseChannel):
         elif frame_in.name == 'Channel.Close':
             self._close_channel(frame_in)
         elif frame_in.name == 'Channel.Flow':
-            self.write_frame(specification.Channel.FlowOk(frame_in.active))
+            self.write_frame(commands.Channel.FlowOk(frame_in.active))
         else:
             LOGGER.error(
                 '[Channel%d] Unhandled Frame: %s -- %s',
@@ -297,11 +299,11 @@ class Channel(BaseChannel):
 
         :return:
         """
-        self._inbound.clear()
+        self._inbound = collections.deque()
         self._exceptions = []
         self._confirming_deliveries = False
         self.set_state(self.OPENING)
-        self.rpc_request(specification.Channel.Open())
+        self.rpc_request(commands.Channel.Open())
         self.set_state(self.OPEN)
 
     def process_data_events(self, to_tuple=False, auto_decode=True):
@@ -445,14 +447,11 @@ class Channel(BaseChannel):
         """
         if len(self._inbound) < 2:
             return None
-        try:
-            headers = self._build_message_headers()
-            if not headers:
-                return None
-            basic_deliver, content_header = headers
-            body = self._build_message_body(content_header.body_size)
-        except IndexError:
+        headers = self._build_message_headers()
+        if not headers:
             return None
+        basic_deliver, content_header = headers
+        body = self._build_message_body(content_header.body_size)
 
         message = message_impl(channel=self,
                                body=body,
@@ -467,15 +466,15 @@ class Channel(BaseChannel):
         :rtype: tuple,None
         """
         basic_deliver = self._inbound.popleft()
-        content_header = self._inbound.popleft()
-        if not isinstance(basic_deliver, specification.Basic.Deliver):
+        if not isinstance(basic_deliver, commands.Basic.Deliver):
             LOGGER.warning(
                 'Received an out-of-order frame: %s was '
                 'expecting a Basic.Deliver frame',
                 type(basic_deliver)
             )
             return None
-        elif not isinstance(content_header, ContentHeader):
+        content_header = self._inbound.popleft()
+        if not isinstance(content_header, ContentHeader):
             LOGGER.warning(
                 'Received an out-of-order frame: %s was '
                 'expecting a ContentHeader frame',
@@ -511,12 +510,13 @@ class Channel(BaseChannel):
         self.set_state(self.CLOSING)
         if not self._connection.is_closed:
             try:
-                self.write_frame(specification.Channel.CloseOk())
+                self.write_frame(commands.Channel.CloseOk())
             except AMQPError:
                 pass
         self.remove_consumer_tag()
         if self._inbound:
             self._inbound.clear()
+            self._inbound = None
         self.exceptions.append(AMQPChannelError(
             'Channel %d was closed by remote server: %s' %
             (

@@ -1,0 +1,266 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What''s the current date in YYYY-MM-DD
+      format?"}], "role": "user"}], "systemInstruction": {"parts": [{"text": "Always
+      use a tool to help you answer. Reply with ''It is ____.''."}], "role": "user"},
+      "tools": [{"functionDeclarations": [{"description": "Gets the current date",
+      "name": "get_date", "parameters": {"properties": {}, "required": [], "type":
+      "OBJECT"}}]}], "generationConfig": {"temperature": 0}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '438'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/1.64.0 gl-python/3.12.11
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"functionCall\":
+        {\"name\": \"get_date\",\"args\": {}},\"thoughtSignature\": \"CiQBvj72+3gg4MjXy3a6oWPmDJVQaOxg2Zc1TV/nTcI0E0okxbQKWgG+Pvb7SRkGymJsu3K2rsBL/XwkbxwqE6WX0wQTGtJ5QjgqA1DZMQg09nCtxtROi7fWWgmxAX5PLycgoCCik2jBOJhGfLFXNtGyoWlAA5VKWFj+Z9Ms51Yp4wqrAQG+Pvb7PzEc/A9jjsG6Ag3IxTV5xx82IeDHaxsuhNTMw7czgO+aiXUudtYfjQ82arm3lX+CjzSqf22WHPHGpMpuT1sxvARpSTTDB1ftZ8r6LtnUMejZTsSyVTGcraPLcFD3j0g2rmi9QX0XAdngJkt4onaL7edU3tk21O9u0CUIeCBY8ofDkPiVa4HMMc1WeWIOngCQRH/O5RT7wiH97TlhxACMJ5Jn0K1nfw==\"}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0,\"finishMessage\": \"Model
+        generated function call(s).\"}],\"usageMetadata\": {\"promptTokenCount\":
+        59,\"candidatesTokenCount\": 10,\"totalTokenCount\": 117,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 59}],\"thoughtsTokenCount\": 48},\"modelVersion\":
+        \"gemini-2.5-flash\",\"responseId\": \"ra3NafjcCYe3jMcP0K6xyAk\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 01 Apr 2026 23:43:41 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=765
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What''s the current date in YYYY-MM-DD
+      format?"}], "role": "user"}, {"parts": [{"functionCall": {"args": {}, "name":
+      "get_date"}, "thoughtSignature": "CiQBvj72-3gg4MjXy3a6oWPmDJVQaOxg2Zc1TV_nTcI0E0okxbQKWgG-Pvb7SRkGymJsu3K2rsBL_XwkbxwqE6WX0wQTGtJ5QjgqA1DZMQg09nCtxtROi7fWWgmxAX5PLycgoCCik2jBOJhGfLFXNtGyoWlAA5VKWFj-Z9Ms51Yp4wqrAQG-Pvb7PzEc_A9jjsG6Ag3IxTV5xx82IeDHaxsuhNTMw7czgO-aiXUudtYfjQ82arm3lX-CjzSqf22WHPHGpMpuT1sxvARpSTTDB1ftZ8r6LtnUMejZTsSyVTGcraPLcFD3j0g2rmi9QX0XAdngJkt4onaL7edU3tk21O9u0CUIeCBY8ofDkPiVa4HMMc1WeWIOngCQRH_O5RT7wiH97TlhxACMJ5Jn0K1nfw=="}],
+      "role": "model"}, {"parts": [{"functionResponse": {"name": "get_date", "response":
+      {"result": "2024-01-01"}}}], "role": "user"}], "systemInstruction": {"parts":
+      [{"text": "Always use a tool to help you answer. Reply with ''It is ____.''."}],
+      "role": "user"}, "tools": [{"functionDeclarations": [{"description": "Gets the
+      current date", "name": "get_date", "parameters": {"properties": {}, "required":
+      [], "type": "OBJECT"}}]}], "generationConfig": {"temperature": 0}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1063'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/1.64.0 gl-python/3.12.11
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"It\"}],\"role\":
+        \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 141,\"candidatesTokenCount\":
+        1,\"totalTokenCount\": 142,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        141}]},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"rq3NaZSmB-fTjMcPxMSaiAU\"}\r\n\r\ndata:
+        {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \" is 2024-01-01.\"}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\":
+        141,\"candidatesTokenCount\": 14,\"totalTokenCount\": 155,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 141}]},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\":
+        \"rq3NaZSmB-fTjMcPxMSaiAU\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 01 Apr 2026 23:43:42 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=427
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What''s the current date in YYYY-MM-DD
+      format?"}], "role": "user"}, {"parts": [{"functionCall": {"args": {}, "name":
+      "get_date"}, "thoughtSignature": "CiQBvj72-3gg4MjXy3a6oWPmDJVQaOxg2Zc1TV_nTcI0E0okxbQKWgG-Pvb7SRkGymJsu3K2rsBL_XwkbxwqE6WX0wQTGtJ5QjgqA1DZMQg09nCtxtROi7fWWgmxAX5PLycgoCCik2jBOJhGfLFXNtGyoWlAA5VKWFj-Z9Ms51Yp4wqrAQG-Pvb7PzEc_A9jjsG6Ag3IxTV5xx82IeDHaxsuhNTMw7czgO-aiXUudtYfjQ82arm3lX-CjzSqf22WHPHGpMpuT1sxvARpSTTDB1ftZ8r6LtnUMejZTsSyVTGcraPLcFD3j0g2rmi9QX0XAdngJkt4onaL7edU3tk21O9u0CUIeCBY8ofDkPiVa4HMMc1WeWIOngCQRH_O5RT7wiH97TlhxACMJ5Jn0K1nfw=="}],
+      "role": "model"}, {"parts": [{"functionResponse": {"name": "get_date", "response":
+      {"result": "2024-01-01"}}}], "role": "user"}, {"parts": [{"text": "It"}, {"text":
+      " is 2024-01-01."}], "role": "model"}, {"parts": [{"text": "What month is it?
+      Provide the full name."}], "role": "user"}], "systemInstruction": {"parts":
+      [{"text": "Always use a tool to help you answer. Reply with ''It is ____.''."}],
+      "role": "user"}, "tools": [{"functionDeclarations": [{"description": "Gets the
+      current date", "name": "get_date", "parameters": {"properties": {}, "required":
+      [], "type": "OBJECT"}}]}], "generationConfig": {"temperature": 0}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1221'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/1.64.0 gl-python/3.12.11
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"functionCall\":
+        {\"name\": \"get_date\",\"args\": {}},\"thoughtSignature\": \"CiQBvj72+3X6FaU1RwzOPuF+gKzs3qZGvQkQdGZdYZDBCeuxUDgKXQG+Pvb7FI6xesYBPPIf7YIKvApjTK2w1+ipPJbSGhHMciJ76WzE5etY1KU5+mMJX90rfZ7HO6M1l5w/Lomd8WHp67wV4rPRfWllCaucp5ZwheBOZrcu1zTtMkLwdwqiAQG+Pvb7ML3JufxAAoAa/BWjSWYyfS6npDSxY5fB/CQyVREbXp8azLm0K0IUfW45RmqSbF6avu35ZucPB5KXT8CSkjSf5QKDAHg0tY2wdY451lPv7kjWsp6h29n6DvfDBc5Kn9yzeLAYgsVPG9xOBeJy4+cHENAb/Qeptg0vM4rnbn2FVXISr0PEdLUhs7Eni4nqKs/26GCa29yrpQZYHp4KBQ==\"}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0,\"finishMessage\": \"Model
+        generated function call(s).\"}],\"usageMetadata\": {\"promptTokenCount\":
+        119,\"candidatesTokenCount\": 10,\"totalTokenCount\": 180,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 119}],\"thoughtsTokenCount\": 51},\"modelVersion\":
+        \"gemini-2.5-flash\",\"responseId\": \"rq3Nad6NL4e3jMcP0K6xyAk\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 01 Apr 2026 23:43:43 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=656
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What''s the current date in YYYY-MM-DD
+      format?"}], "role": "user"}, {"parts": [{"functionCall": {"args": {}, "name":
+      "get_date"}, "thoughtSignature": "CiQBvj72-3gg4MjXy3a6oWPmDJVQaOxg2Zc1TV_nTcI0E0okxbQKWgG-Pvb7SRkGymJsu3K2rsBL_XwkbxwqE6WX0wQTGtJ5QjgqA1DZMQg09nCtxtROi7fWWgmxAX5PLycgoCCik2jBOJhGfLFXNtGyoWlAA5VKWFj-Z9Ms51Yp4wqrAQG-Pvb7PzEc_A9jjsG6Ag3IxTV5xx82IeDHaxsuhNTMw7czgO-aiXUudtYfjQ82arm3lX-CjzSqf22WHPHGpMpuT1sxvARpSTTDB1ftZ8r6LtnUMejZTsSyVTGcraPLcFD3j0g2rmi9QX0XAdngJkt4onaL7edU3tk21O9u0CUIeCBY8ofDkPiVa4HMMc1WeWIOngCQRH_O5RT7wiH97TlhxACMJ5Jn0K1nfw=="}],
+      "role": "model"}, {"parts": [{"functionResponse": {"name": "get_date", "response":
+      {"result": "2024-01-01"}}}], "role": "user"}, {"parts": [{"text": "It"}, {"text":
+      " is 2024-01-01."}], "role": "model"}, {"parts": [{"text": "What month is it?
+      Provide the full name."}], "role": "user"}, {"parts": [{"functionCall": {"args":
+      {}, "name": "get_date"}, "thoughtSignature": "CiQBvj72-3X6FaU1RwzOPuF-gKzs3qZGvQkQdGZdYZDBCeuxUDgKXQG-Pvb7FI6xesYBPPIf7YIKvApjTK2w1-ipPJbSGhHMciJ76WzE5etY1KU5-mMJX90rfZ7HO6M1l5w_Lomd8WHp67wV4rPRfWllCaucp5ZwheBOZrcu1zTtMkLwdwqiAQG-Pvb7ML3JufxAAoAa_BWjSWYyfS6npDSxY5fB_CQyVREbXp8azLm0K0IUfW45RmqSbF6avu35ZucPB5KXT8CSkjSf5QKDAHg0tY2wdY451lPv7kjWsp6h29n6DvfDBc5Kn9yzeLAYgsVPG9xOBeJy4-cHENAb_Qeptg0vM4rnbn2FVXISr0PEdLUhs7Eni4nqKs_26GCa29yrpQZYHp4KBQ=="}],
+      "role": "model"}, {"parts": [{"functionResponse": {"name": "get_date", "response":
+      {"result": "2024-01-01"}}}], "role": "user"}], "systemInstruction": {"parts":
+      [{"text": "Always use a tool to help you answer. Reply with ''It is ____.''."}],
+      "role": "user"}, "tools": [{"functionDeclarations": [{"description": "Gets the
+      current date", "name": "get_date", "parameters": {"properties": {}, "required":
+      [], "type": "OBJECT"}}]}], "generationConfig": {"temperature": 0}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1838'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/1.64.0 gl-python/3.12.11
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"It\"}],\"role\":
+        \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 204,\"candidatesTokenCount\":
+        1,\"totalTokenCount\": 205,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        204}]},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"r63NaaePJoe3jMcP0K6xyAk\"}\r\n\r\ndata:
+        {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \" is January.\"}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\":
+        204,\"candidatesTokenCount\": 4,\"totalTokenCount\": 208,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 204}]},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\":
+        \"r63NaaePJoe3jMcP0K6xyAk\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 01 Apr 2026 23:43:43 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=356
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

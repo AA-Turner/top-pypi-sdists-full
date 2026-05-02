@@ -1,0 +1,1 @@
+"""Packaged dashboard frontend assets."""

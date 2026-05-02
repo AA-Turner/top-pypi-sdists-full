@@ -1,8 +1,8 @@
-import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from typing import Optional
 
+import pytest
 import requests
 from ShExJSG import ShExJ
 from dict_compare import compare_dicts, json_filtr
@@ -12,37 +12,21 @@ from pyjsg.jsglib.logger import Logger
 
 from pyshexc.parser_impl.generate_shexj import parse
 from tests import schemas_base
-from tests.utils.build_test_harness import ValidationTestCase
+from tests.utils.build_test_harness import ValidationTestConfig
+from tests.utils.shape_decl_wrapper import rewrap_shape_decls
 
 #
 # Starting file name (full URL) (with or without ".shex" suffix)
-START_AT = ""
+START_AT = "2dot"
 
 # False if you want to start somewhere in the middle
 SINGLE_FILE = bool(START_AT)
-
-
-# Notes:
-#   you can use shexj.as_json() to print all or part of a ShEx Schema
-#   you can use "ctx.getText()" to get the span of any parser context
 
 issue_43 = 'Broken test case - see shexTest issue #43'
 
 skip = {
     "start2RefS2.shex": issue_43
 }
-
-
-class BasicParserTestCase(ValidationTestCase):
-    pass
-
-
-BasicParserTestCase.repo_url = schemas_base
-BasicParserTestCase.file_suffix = ".shex"
-BasicParserTestCase.start_at = START_AT
-BasicParserTestCase.single_file = SINGLE_FILE
-
-BasicParserTestCase.skip = skip
 
 
 class MemLogger:
@@ -55,13 +39,6 @@ class MemLogger:
 
 
 def compare_json(shex_url: str, shex_json: str, log: Logger) -> bool:
-    """
-    Compare the JSON generated from shex_url to the JSON in the target directory
-    :param shex_url: URL where we got the ShExC
-    :param shex_json: ShExJ equivalent of ShExC
-    :param log: Where comparison errors are recorded
-    :return: True if they match, false otherwise.  If no match, the offending string is printed
-    """
     json_url = shex_url.rsplit(".", 1)[0] + ".json"
     if ':' in json_url:
         resp = requests.get(json_url)
@@ -84,17 +61,12 @@ def compare_json(shex_url: str, shex_json: str, log: Logger) -> bool:
 
 
 def validate_shexc(shexc_str: str, input_fname: str) -> bool:
-    """
-    Validate json_str against ShEx Schema
-    :param shexc_str: String to validate
-    :param input_fname: Name of source file for error reporting
-    :return: True if pass
-    """
     shexj = parse(shexc_str)
     if shexj is None:
         return False
     shexj['@context'] = "http://www.w3.org/ns/shex.jsonld"
     shex_obj = jsg_loads(as_json(shexj), ShExJ)
+    shex_obj = rewrap_shape_decls(shex_obj)
     log = StringIO()
     rval = True
     with redirect_stdout(log):
@@ -109,11 +81,6 @@ def validate_shexc(shexc_str: str, input_fname: str) -> bool:
 
 
 def validate_file(download_url: str) -> bool:
-    """
-    Parse and validate the ShExC file in download_url
-    :param download_url: ShExC file
-    :return: True if success
-    """
     if ':' in download_url:
         resp = requests.get(download_url)
         if resp.ok:
@@ -126,9 +93,21 @@ def validate_file(download_url: str) -> bool:
             return validate_shexc(f.read().decode(), download_url)
 
 
+class BasicParserTestCase(ValidationTestConfig):
+    pass
+
+
+BasicParserTestCase.repo_url = schemas_base
+BasicParserTestCase.file_suffix = ".shex"
+BasicParserTestCase.start_at = START_AT
+BasicParserTestCase.single_file = SINGLE_FILE
+BasicParserTestCase.skip = skip
 BasicParserTestCase.validation_function = validate_file
 BasicParserTestCase.build_test_harness()
 
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.parametrize("download_url", BasicParserTestCase.build_test_harness())
+def test_shexc_file(download_url: str) -> None:
+    if download_url in skip:
+        pytest.skip(skip[download_url])
+    assert validate_file(download_url)

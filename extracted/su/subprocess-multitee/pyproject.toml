@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "subprocess-multitee"
+version = "0.2.1"
+authors = [{ name = "Jason Gross", email = "jgross@mit.edu" }]
+description = "A small `tee` function for splitting stdout/stderr in subprocess, and a `subprocess.Popen` convenience wrapper"
+readme = "README.md"
+requires-python = ">=3.6"
+dependencies = []
+
+[dependency-groups]
+dev = [{ include-group = "lint" }, { include-group = "test" }]
+lint = ["ruff>=0.1.0; python_version >= '3.7'"]
+test = ["pytest>=7.0.0"]
+
+[project.urls]
+"Homepage" = "https://github.com/JasonGross/subprocess-multitee"
+"Bug Tracker" = "https://github.com/JasonGross/subprocess-multitee/issues"
+
+[tool.hatchling.build.targets.wheel]
+py-modules = ["subprocess-multitee"]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true

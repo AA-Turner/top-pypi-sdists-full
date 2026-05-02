@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: livekit-plugins-hume
+Version: 1.5.7
+Summary: Hume TTS plugin for LiveKit agents
+Project-URL: Documentation, https://docs.livekit.io
+Project-URL: Website, https://livekit.io/
+Project-URL: Source, https://github.com/livekit/agents
+Author-email: LiveKit <info@livekit.io>
+License-Expression: Apache-2.0
+Keywords: Hume,HumeAI,Octave,ai,audio,livekit,realtime,video,voice
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10.0
+Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: livekit-agents>=1.5.7
+Description-Content-Type: text/markdown
+
+# Hume AI TTS plugin for LiveKit Agents
+
+Support for text-to-speech with [Hume](https://www.hume.ai/).
+
+See [https://docs.livekit.io/agents/integrations/tts/hume/](https://docs.livekit.io/agents/integrations/tts/hume/) for more information.
+
+## Installation
+
+```bash
+pip install livekit-plugins-hume
+```
+
+You will need an API Key from Hume, it can be set as an environment variable: `HUME_API_KEY`. You can get it from [here](https://platform.hume.ai/settings/keys)

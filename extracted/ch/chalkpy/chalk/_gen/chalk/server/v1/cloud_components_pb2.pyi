@@ -847,6 +847,20 @@ class GetBindingClusterContainerRegistryResponse(_message.Message):
     container_registry_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., container_registry_id: _Optional[str] = ...) -> None: ...
 
+class ListBindingClusterContainerRegistryRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingClusterContainerRegistryResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingClusterContainerRegistryResponse]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[GetBindingClusterContainerRegistryResponse, _Mapping]]] = ...
+    ) -> None: ...
+
 class DeleteBindingClusterContainerRegistryRequest(_message.Message):
     __slots__ = ("cluster_id",)
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -893,6 +907,20 @@ class GetBindingClusterGatewayResponse(_message.Message):
     cluster_gateway_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
 
+class ListBindingClusterGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingClusterGatewayResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingClusterGatewayResponse]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[GetBindingClusterGatewayResponse, _Mapping]]] = ...
+    ) -> None: ...
+
 class CreateBindingPrivateGatewayRequest(_message.Message):
     __slots__ = ("cluster_id", "private_gateway_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -928,6 +956,20 @@ class GetBindingPrivateGatewayResponse(_message.Message):
     cluster_id: str
     private_gateway_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., private_gateway_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingPrivateGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingPrivateGatewayResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingPrivateGatewayResponse]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[GetBindingPrivateGatewayResponse, _Mapping]]] = ...
+    ) -> None: ...
 
 class CreateBindingClusterBackgroundPersistenceDeploymentRequest(_message.Message):
     __slots__ = ("cluster_id", "background_persistence_deployment_id")
@@ -969,6 +1011,23 @@ class GetBindingClusterBackgroundPersistenceDeploymentResponse(_message.Message)
         self, cluster_id: _Optional[str] = ..., background_persistence_deployment_id: _Optional[str] = ...
     ) -> None: ...
 
+class ListBindingClusterBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingClusterBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingClusterBackgroundPersistenceDeploymentResponse]
+    def __init__(
+        self,
+        bindings: _Optional[
+            _Iterable[_Union[GetBindingClusterBackgroundPersistenceDeploymentResponse, _Mapping]]
+        ] = ...,
+    ) -> None: ...
+
 class CreateBindingClusterTelemetryDeploymentRequest(_message.Message):
     __slots__ = ("cluster_id", "telemetry_deployment_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1005,6 +1064,20 @@ class GetBindingClusterTelemetryDeploymentResponse(_message.Message):
     telemetry_deployment_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., telemetry_deployment_id: _Optional[str] = ...) -> None: ...
 
+class ListBindingClusterTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingClusterTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingClusterTelemetryDeploymentResponse]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[GetBindingClusterTelemetryDeploymentResponse, _Mapping]]] = ...
+    ) -> None: ...
+
 class CreateBindingEnvironmentGatewayRequest(_message.Message):
     __slots__ = ("environment_id", "cluster_gateway_id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1040,6 +1113,20 @@ class GetBindingEnvironmentGatewayResponse(_message.Message):
     environment_id: str
     cluster_gateway_id: str
     def __init__(self, environment_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingEnvironmentGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingEnvironmentGatewayResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingEnvironmentGatewayResponse]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[GetBindingEnvironmentGatewayResponse, _Mapping]]] = ...
+    ) -> None: ...
 
 class CreateBindingEnvironmentBackgroundPersistenceDeploymentRequest(_message.Message):
     __slots__ = ("environment_id", "background_persistence_deployment_id")
@@ -1079,4 +1166,21 @@ class GetBindingEnvironmentBackgroundPersistenceDeploymentResponse(_message.Mess
     background_persistence_deployment_id: str
     def __init__(
         self, environment_id: _Optional[str] = ..., background_persistence_deployment_id: _Optional[str] = ...
+    ) -> None: ...
+
+class ListBindingEnvironmentBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingEnvironmentBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingEnvironmentBackgroundPersistenceDeploymentResponse]
+    def __init__(
+        self,
+        bindings: _Optional[
+            _Iterable[_Union[GetBindingEnvironmentBackgroundPersistenceDeploymentResponse, _Mapping]]
+        ] = ...,
     ) -> None: ...

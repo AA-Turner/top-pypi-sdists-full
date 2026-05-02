@@ -365,6 +365,9 @@ __all__ = (
     "ReservedInstanceTypeDef",
     "ResponseMetadataTypeDef",
     "RevokeVpcEndpointAccessRequestTypeDef",
+    "RollbackServiceSoftwareOptionsTypeDef",
+    "RollbackServiceSoftwareUpdateRequestTypeDef",
+    "RollbackServiceSoftwareUpdateResponseTypeDef",
     "S3GlueDataCatalogTypeDef",
     "S3VectorsEngineTypeDef",
     "SAMLIdpTypeDef",
@@ -374,6 +377,9 @@ __all__ = (
     "ScheduledAutoTuneDetailsTypeDef",
     "SecurityLakeDirectQueryDataSourceTypeDef",
     "ServerlessVectorAccelerationTypeDef",
+    "ServiceOptionsOutputTypeDef",
+    "ServiceOptionsTypeDef",
+    "ServiceOptionsUnionTypeDef",
     "ServiceSoftwareOptionsTypeDef",
     "SnapshotOptionsStatusTypeDef",
     "SnapshotOptionsTypeDef",
@@ -473,6 +479,7 @@ class JWTOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     SubjectKey: NotRequired[str]
     RolesKey: NotRequired[str]
+    JwksUrl: NotRequired[str]
     PublicKey: NotRequired[str]
 
 class MasterUserOptionsTypeDef(TypedDict):
@@ -489,6 +496,7 @@ class JWTOptionsOutputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     SubjectKey: NotRequired[str]
     RolesKey: NotRequired[str]
+    JwksUrl: NotRequired[str]
     PublicKey: NotRequired[str]
 
 class AppConfigTypeDef(TypedDict):
@@ -508,14 +516,8 @@ ApplicationSummaryTypeDef = TypedDict(
     },
 )
 
-class AuthorizeVpcEndpointAccessRequestTypeDef(TypedDict):
-    DomainName: str
-    Account: NotRequired[str]
-    Service: NotRequired[Literal["application.opensearchservice.amazonaws.com"]]
-
-class AuthorizedPrincipalTypeDef(TypedDict):
-    PrincipalType: NotRequired[PrincipalTypeType]
-    Principal: NotRequired[str]
+class ServiceOptionsOutputTypeDef(TypedDict):
+    SupportedRegions: NotRequired[list[str]]
 
 class ScheduledAutoTuneDetailsTypeDef(TypedDict):
     Date: NotRequired[datetime]
@@ -661,6 +663,7 @@ class EncryptionAtRestOptionsTypeDef(TypedDict):
 class IdentityCenterOptionsInputTypeDef(TypedDict):
     EnabledAPIAccess: NotRequired[bool]
     IdentityCenterInstanceARN: NotRequired[str]
+    IdentityCenterInstanceRegion: NotRequired[str]
     SubjectKey: NotRequired[SubjectKeyIdCOptionType]
     RolesKey: NotRequired[RolesKeyIdCOptionType]
 
@@ -676,6 +679,7 @@ class SnapshotOptionsTypeDef(TypedDict):
 
 class SoftwareUpdateOptionsTypeDef(TypedDict):
     AutoSoftwareUpdateEnabled: NotRequired[bool]
+    UseLatestServiceSoftwareForBlueGreen: NotRequired[bool]
 
 class VPCOptionsTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
@@ -885,6 +889,7 @@ class ErrorDetailsTypeDef(TypedDict):
 class IdentityCenterOptionsTypeDef(TypedDict):
     EnabledAPIAccess: NotRequired[bool]
     IdentityCenterInstanceARN: NotRequired[str]
+    IdentityCenterInstanceRegion: NotRequired[str]
     SubjectKey: NotRequired[SubjectKeyIdCOptionType]
     RolesKey: NotRequired[RolesKeyIdCOptionType]
     IdentityCenterApplicationARN: NotRequired[str]
@@ -1104,14 +1109,21 @@ class RemoveTagsRequestTypeDef(TypedDict):
     ARN: str
     TagKeys: Sequence[str]
 
-class RevokeVpcEndpointAccessRequestTypeDef(TypedDict):
+class RollbackServiceSoftwareOptionsTypeDef(TypedDict):
+    CurrentVersion: NotRequired[str]
+    NewVersion: NotRequired[str]
+    RollbackAvailable: NotRequired[bool]
+    Description: NotRequired[str]
+
+class RollbackServiceSoftwareUpdateRequestTypeDef(TypedDict):
     DomainName: str
-    Account: NotRequired[str]
-    Service: NotRequired[Literal["application.opensearchservice.amazonaws.com"]]
 
 class SAMLIdpTypeDef(TypedDict):
     MetadataContent: str
     EntityId: str
+
+class ServiceOptionsTypeDef(TypedDict):
+    SupportedRegions: NotRequired[Sequence[str]]
 
 class StartDomainMaintenanceRequestTypeDef(TypedDict):
     DomainName: str
@@ -1288,14 +1300,10 @@ class ListApplicationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class AuthorizeVpcEndpointAccessResponseTypeDef(TypedDict):
-    AuthorizedPrincipal: AuthorizedPrincipalTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListVpcEndpointAccessResponseTypeDef(TypedDict):
-    AuthorizedPrincipalList: list[AuthorizedPrincipalTypeDef]
-    NextToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
+class AuthorizedPrincipalTypeDef(TypedDict):
+    PrincipalType: NotRequired[PrincipalTypeType]
+    Principal: NotRequired[str]
+    ServiceOptions: NotRequired[ServiceOptionsOutputTypeDef]
 
 class AutoTuneDetailsTypeDef(TypedDict):
     ScheduledAutoTuneDetails: NotRequired[ScheduledAutoTuneDetailsTypeDef]
@@ -1680,6 +1688,10 @@ class ReservedInstanceTypeDef(TypedDict):
     PaymentOption: NotRequired[ReservedInstancePaymentOptionType]
     RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
+class RollbackServiceSoftwareUpdateResponseTypeDef(TypedDict):
+    RollbackServiceSoftwareOptions: RollbackServiceSoftwareOptionsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class SAMLOptionsInputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     Idp: NotRequired[SAMLIdpTypeDef]
@@ -1695,6 +1707,8 @@ class SAMLOptionsOutputTypeDef(TypedDict):
     SubjectKey: NotRequired[str]
     RolesKey: NotRequired[str]
     SessionTimeoutMinutes: NotRequired[int]
+
+ServiceOptionsUnionTypeDef = Union[ServiceOptionsTypeDef, ServiceOptionsOutputTypeDef]
 
 class StorageTypeTypeDef(TypedDict):
     StorageTypeName: NotRequired[str]
@@ -1717,6 +1731,15 @@ class InboundConnectionTypeDef(TypedDict):
     ConnectionId: NotRequired[str]
     ConnectionStatus: NotRequired[InboundConnectionStatusTypeDef]
     ConnectionMode: NotRequired[ConnectionModeType]
+
+class AuthorizeVpcEndpointAccessResponseTypeDef(TypedDict):
+    AuthorizedPrincipal: AuthorizedPrincipalTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListVpcEndpointAccessResponseTypeDef(TypedDict):
+    AuthorizedPrincipalList: list[AuthorizedPrincipalTypeDef]
+    NextToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AutoTuneTypeDef(TypedDict):
     AutoTuneType: NotRequired[Literal["SCHEDULED_ACTION"]]
@@ -1963,6 +1986,18 @@ class AdvancedSecurityOptionsTypeDef(TypedDict):
     IAMFederationOptions: NotRequired[IAMFederationOptionsOutputTypeDef]
     AnonymousAuthDisableDate: NotRequired[datetime]
     AnonymousAuthEnabled: NotRequired[bool]
+
+class AuthorizeVpcEndpointAccessRequestTypeDef(TypedDict):
+    DomainName: str
+    Account: NotRequired[str]
+    Service: NotRequired[Literal["application.opensearchservice.amazonaws.com"]]
+    ServiceOptions: NotRequired[ServiceOptionsUnionTypeDef]
+
+class RevokeVpcEndpointAccessRequestTypeDef(TypedDict):
+    DomainName: str
+    Account: NotRequired[str]
+    Service: NotRequired[Literal["application.opensearchservice.amazonaws.com"]]
+    ServiceOptions: NotRequired[ServiceOptionsUnionTypeDef]
 
 class LimitsTypeDef(TypedDict):
     StorageTypes: NotRequired[list[StorageTypeTypeDef]]

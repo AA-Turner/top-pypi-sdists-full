@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "spotler-sdk"
+version = "0.3.2"
+description = ""
+authors = ["Gustav Ebbers <gueb01@gmail.com>"]
+#readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+loguru = "^0.7.3"
+pydantic = "^2.10.5"
+requests-oauthlib = "^2.0.0"
+
+[tool.poetry.dev-dependencies]
+responses = "^0.25.4"
+pytest = "^8.3.4"
+ruff = "^0.11.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = ["E501"]

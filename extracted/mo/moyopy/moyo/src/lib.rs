@@ -90,12 +90,15 @@ pub mod utils;
 
 mod symmetrize;
 
+pub use base::MoyoError as Error;
+
 use crate::base::{
     AngleTolerance, Cell, MagneticCell, MagneticMoment, MagneticOperations, MoyoError, Operations,
     OriginShift, RotationMagneticMomentAction,
 };
 use crate::data::{
-    HallNumber, Number, Setting, UNINumber, arithmetic_crystal_class_entry, hall_symbol_entry,
+    ArithmeticCrystalClassEntry, HallNumber, HallSymbolEntry, Number, Setting, UNINumber,
+    arithmetic_crystal_class_entry, hall_symbol_entry,
 };
 use crate::identify::{MagneticSpaceGroup, SpaceGroup};
 use crate::search::{
@@ -103,6 +106,7 @@ use crate::search::{
     magnetic_operations_in_magnetic_cell, operations_in_cell,
 };
 use crate::symmetrize::{StandardizedCell, StandardizedMagneticCell, orbits_in_cell};
+use crate::utils::{to_3_slice, to_3x3_slice};
 
 use nalgebra::Matrix3;
 use serde::{Deserialize, Serialize};
@@ -139,20 +143,41 @@ pub struct MoyoDataset {
     // ------------------------------------------------------------------------
     // Standardized cell
     // ------------------------------------------------------------------------
-    /// Standardized cell
+    /// Standardized cell.
+    ///
+    /// The input cell is related to the standardized cell by
+    /// `(std_linear, std_origin_shift)` and `std_rotation_matrix`:
+    ///
+    ///   Lattice (column-vector convention):
+    ///     std_cell.lattice.basis = std_rotation_matrix * cell.lattice.basis * std_linear
+    ///
+    ///   Fractional positions:
+    ///     x_std = std_linear^-1 * (x_input - std_origin_shift)
+    ///
+    /// `std_rotation_matrix` is a rigid rotation (orthogonal matrix) applied
+    /// only to the Cartesian lattice basis. It does not affect fractional
+    /// coordinates.
     pub std_cell: Cell,
     /// Linear part of transformation from the input cell to the standardized cell.
     pub std_linear: Matrix3<f64>,
     /// Origin shift of transformation from the input cell to the standardized cell.
     pub std_origin_shift: OriginShift,
-    /// Rigid rotation
+    /// Rigid rotation (orthogonal matrix) applied to the lattice basis.
     pub std_rotation_matrix: Matrix3<f64>,
-    /// Pearson symbol for standardized cell
+    /// Pearson symbol for standardized cell.
     pub pearson_symbol: String,
     // ------------------------------------------------------------------------
     // Primitive standardized cell
     // ------------------------------------------------------------------------
-    /// Primitive standardized cell
+    /// Primitive standardized cell.
+    ///
+    /// Same transformation convention as the standardized cell above:
+    ///
+    ///   Lattice:
+    ///     prim_std_cell.lattice.basis = std_rotation_matrix * cell.lattice.basis * prim_std_linear
+    ///
+    ///   Fractional positions:
+    ///     x_prim_std = prim_std_linear^-1 * (x_input - prim_std_origin_shift)
     pub prim_std_cell: Cell,
     /// Linear part of transformation from the input cell to the primitive standardized cell.
     pub prim_std_linear: Matrix3<f64>,
@@ -288,6 +313,41 @@ impl MoyoDataset {
     pub fn num_operations(&self) -> usize {
         self.operations.len()
     }
+
+    /// Returns `std_linear` as a 3x3 array. See [`std_linear`](Self::std_linear) field docs.
+    pub fn std_linear_as_array(&self) -> [[f64; 3]; 3] {
+        to_3x3_slice(&self.std_linear)
+    }
+
+    /// Returns `std_origin_shift` as a `[f64; 3]` array.
+    pub fn std_origin_shift_as_array(&self) -> [f64; 3] {
+        to_3_slice(&self.std_origin_shift)
+    }
+
+    /// Returns `std_rotation_matrix` as a 3x3 array.
+    pub fn std_rotation_matrix_as_array(&self) -> [[f64; 3]; 3] {
+        to_3x3_slice(&self.std_rotation_matrix)
+    }
+
+    /// Returns `prim_std_linear` as a 3x3 array.
+    pub fn prim_std_linear_as_array(&self) -> [[f64; 3]; 3] {
+        to_3x3_slice(&self.prim_std_linear)
+    }
+
+    /// Returns `prim_std_origin_shift` as a `[f64; 3]` array.
+    pub fn prim_std_origin_shift_as_array(&self) -> [f64; 3] {
+        to_3_slice(&self.prim_std_origin_shift)
+    }
+
+    /// Returns the Hall symbol entry for the space group.
+    pub fn hall_symbol(&self) -> HallSymbolEntry {
+        hall_symbol_entry(self.hall_number).unwrap()
+    }
+
+    /// Returns the arithmetic crystal class entry for the space group.
+    pub fn arithmetic_crystal_class(&self) -> ArithmeticCrystalClassEntry {
+        arithmetic_crystal_class_entry(self.hall_symbol().arithmetic_number).unwrap()
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -310,17 +370,39 @@ pub struct MoyoMagneticDataset<M: MagneticMoment> {
     // ------------------------------------------------------------------------
     // Standardized magnetic cell
     // ------------------------------------------------------------------------
-    /// Standardized magnetic cell
+    /// Standardized magnetic cell.
+    ///
+    /// The input magnetic cell is related to the standardized magnetic cell by
+    /// `(std_linear, std_origin_shift)` and `std_rotation_matrix`:
+    ///
+    ///   Lattice (column-vector convention):
+    ///     std_mag_cell.cell.lattice.basis = std_rotation_matrix * mag_cell.cell.lattice.basis * std_linear
+    ///
+    ///   Fractional positions:
+    ///     x_std = std_linear^-1 * (x_input - std_origin_shift)
+    ///
+    /// `std_rotation_matrix` is a rigid rotation (orthogonal matrix) applied
+    /// only to the Cartesian lattice basis. It does not affect fractional
+    /// coordinates.
     pub std_mag_cell: MagneticCell<M>,
     /// Linear part of transformation from the input magnetic cell to the standardized one.
     pub std_linear: Matrix3<f64>,
     /// Origin shift of transformation from the input magnetic cell to the standardized one.
     pub std_origin_shift: OriginShift,
-    /// Rigid rotation
+    /// Rigid rotation (orthogonal matrix) applied to the lattice basis.
     pub std_rotation_matrix: Matrix3<f64>,
     // ------------------------------------------------------------------------
     // Primitive standardized magnetic cell
     // ------------------------------------------------------------------------
+    /// Primitive standardized magnetic cell.
+    ///
+    /// Same transformation convention as the standardized magnetic cell above:
+    ///
+    ///   Lattice:
+    ///     prim_std_mag_cell.cell.lattice.basis = std_rotation_matrix * mag_cell.cell.lattice.basis * prim_std_linear
+    ///
+    ///   Fractional positions:
+    ///     x_prim_std = prim_std_linear^-1 * (x_input - prim_std_origin_shift)
     pub prim_std_mag_cell: MagneticCell<M>,
     /// Linear part of transformation from the input magnetic cell to the primitive standardized magnetic cell.
     pub prim_std_linear: Matrix3<f64>,
@@ -461,5 +543,30 @@ impl<M: MagneticMoment> MoyoMagneticDataset<M> {
     /// Return the number of magnetic symmetry operations in the input magnetic cell.
     pub fn num_magnetic_operations(&self) -> usize {
         self.magnetic_operations.len()
+    }
+
+    /// Returns `std_linear` as a 3x3 array. See [`std_linear`](Self::std_linear) field docs.
+    pub fn std_linear_as_array(&self) -> [[f64; 3]; 3] {
+        to_3x3_slice(&self.std_linear)
+    }
+
+    /// Returns `std_origin_shift` as a `[f64; 3]` array.
+    pub fn std_origin_shift_as_array(&self) -> [f64; 3] {
+        to_3_slice(&self.std_origin_shift)
+    }
+
+    /// Returns `std_rotation_matrix` as a 3x3 array.
+    pub fn std_rotation_matrix_as_array(&self) -> [[f64; 3]; 3] {
+        to_3x3_slice(&self.std_rotation_matrix)
+    }
+
+    /// Returns `prim_std_linear` as a 3x3 array.
+    pub fn prim_std_linear_as_array(&self) -> [[f64; 3]; 3] {
+        to_3x3_slice(&self.prim_std_linear)
+    }
+
+    /// Returns `prim_std_origin_shift` as a `[f64; 3]` array.
+    pub fn prim_std_origin_shift_as_array(&self) -> [f64; 3] {
+        to_3_slice(&self.prim_std_origin_shift)
     }
 }

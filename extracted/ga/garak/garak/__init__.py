@@ -1,6 +1,6 @@
 """Top-level package for garak"""
 
-__version__ = "0.14.1"
+__version__ = "0.15.0"
 __app__ = "garak"
 __description__ = "LLM vulnerability scanner"
 

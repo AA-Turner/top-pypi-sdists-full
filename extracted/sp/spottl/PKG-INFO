@@ -1,0 +1,39 @@
+Metadata-Version: 2.3
+Name: spottl
+Version: 2.13.0.1
+Summary: "Pip-installable version of spot library"
+License: GNP
+Author: Mikihisa Yuasa
+Author-email: mik0915yua@outlook.com
+Requires-Python: >=3.10,<3.14
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Description-Content-Type: text/markdown
+
+# spottl
+pip-installable version of spot TL library
+
+## Installation
+To install the latest version of spottl, use pip:
+
+```bash
+pip install spottl
+```
+### Prerequisites for spottl < v2.12
+- Python 3.10 or 3.11
+- spot < 2.12
+For spot installation instructions, see https://spot.lrde.epita.fr/install.html
+
+### Prerequisites for spottl >= v2.12
+- Python 3.10 or higher
+
+## Usage
+```python
+import spot
+```
+This will import the `spot` module from the `spottl` package.
+The usage of the `spot` module is the same as in the original `spot` library from https://spot.lrde.epita.fr/.

@@ -1,0 +1,176 @@
+Metadata-Version: 2.4
+Name: dvsim
+Version: 1.33.1
+Summary: DV system
+Author: lowRISC contributors (OpenTitan project)
+License-Expression: Apache-2.0
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: anybadge>=1.16.0
+Requires-Dist: click>=8.1.7
+Requires-Dist: enlighten>=1.12.4
+Requires-Dist: gitpython>=3.1.45
+Requires-Dist: hjson>=3.1.0
+Requires-Dist: jinja2>=3.1.6
+Requires-Dist: psutil>=7.2.2
+Requires-Dist: pydantic>=2.9.2
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: toml>=0.10.2
+Requires-Dist: typing-extensions>=4.15.0
+Provides-Extra: ci
+Requires-Dist: gitpython; extra == 'ci'
+Requires-Dist: pyhamcrest>=2.1.0; extra == 'ci'
+Requires-Dist: pyright>=1.1.381; extra == 'ci'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'ci'
+Requires-Dist: pytest-cov>=5.0.0; extra == 'ci'
+Requires-Dist: pytest-mock>=3.15.1; extra == 'ci'
+Requires-Dist: pytest-repeat>=0.9.4; extra == 'ci'
+Requires-Dist: pytest-timeout>=2.4.0; extra == 'ci'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'ci'
+Requires-Dist: pytest>=8.3.3; extra == 'ci'
+Requires-Dist: ruff>=0.6.7; extra == 'ci'
+Provides-Extra: debug
+Requires-Dist: ipython>=8.18.1; extra == 'debug'
+Provides-Extra: dev
+Requires-Dist: ipython>=8.18.1; extra == 'dev'
+Requires-Dist: pyhamcrest>=2.1.0; extra == 'dev'
+Requires-Dist: pyright>=1.1.381; extra == 'dev'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'dev'
+Requires-Dist: pytest-cov>=5.0.0; extra == 'dev'
+Requires-Dist: pytest-mock>=3.15.1; extra == 'dev'
+Requires-Dist: pytest-repeat>=0.9.4; extra == 'dev'
+Requires-Dist: pytest-timeout>=2.4.0; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
+Requires-Dist: pytest>=8.3.3; extra == 'dev'
+Requires-Dist: ruff>=0.6.7; extra == 'dev'
+Provides-Extra: linting
+Requires-Dist: ruff>=0.6.7; extra == 'linting'
+Provides-Extra: nix
+Requires-Dist: gitpython; extra == 'nix'
+Requires-Dist: ipython>=8.18.1; extra == 'nix'
+Requires-Dist: pyhamcrest>=2.1.0; extra == 'nix'
+Requires-Dist: pyright>=1.1.381; extra == 'nix'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'nix'
+Requires-Dist: pytest-cov>=5.0.0; extra == 'nix'
+Requires-Dist: pytest-mock>=3.15.1; extra == 'nix'
+Requires-Dist: pytest-repeat>=0.9.4; extra == 'nix'
+Requires-Dist: pytest-timeout>=2.4.0; extra == 'nix'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'nix'
+Requires-Dist: pytest>=8.3.3; extra == 'nix'
+Provides-Extra: release
+Requires-Dist: python-semantic-release>=10.4.1; extra == 'release'
+Provides-Extra: test
+Requires-Dist: pyhamcrest>=2.1.0; extra == 'test'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'test'
+Requires-Dist: pytest-cov>=5.0.0; extra == 'test'
+Requires-Dist: pytest-mock>=3.15.1; extra == 'test'
+Requires-Dist: pytest-repeat>=0.9.4; extra == 'test'
+Requires-Dist: pytest-timeout>=2.4.0; extra == 'test'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'test'
+Requires-Dist: pytest>=8.3.3; extra == 'test'
+Provides-Extra: typing
+Requires-Dist: pyright>=1.1.381; extra == 'typing'
+Description-Content-Type: text/markdown
+
+<!--
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+-->
+# DVSim
+
+![OpenTitan logo](./doc/opentitan-logo.png)
+
+## About the project
+
+[OpenTitan](https://opentitan.org) is an open source silicon Root of Trust (RoT) project.
+OpenTitan will make the silicon RoT design and implementation more transparent, trustworthy, and secure for enterprises, platform providers, and chip manufacturers.
+OpenTitan is administered by [lowRISC CIC](https://www.lowrisc.org) as a collaborative project to produce high quality, open IP for instantiation as a full-featured product.
+See the [OpenTitan site](https://opentitan.org) and [OpenTitan docs](https://opentitan.org/book/) for more information about the project.
+
+## About this repository
+
+This repository contains **DVSim** which is a build and run system written in Python that runs a variety of EDA tool flows.
+There are multiple steps involved in running EDA tool flows.
+DVSim encapsulates them all to provide a single, standardized command-line interface to launch them.
+While DVSim was written to support OpenTitan, it can be used for any ASIC project.
+
+All EDA tool flows on OpenTitan are launched using the DVSim tool.
+The following flows are currently supported:
+
+* Simulations
+* Coverage Unreachability Analysis (UNR)
+* Formal (formal property verification (FPV), and connectivity)
+* Lint (semantic and stylistic)
+* Synthesis
+* CDC
+* RDC
+
+### Installation
+
+#### Using nix and direnv
+
+If you have [Nix](https://nixos.org/download/) and [direnv](https://direnv.net/) installed, then it's as simple as `direnv allow .`.
+
+New to Nix? Perhaps checkout this [installer](https://determinate.systems/posts/determinate-nix-installer/) which will enable flakes by default.
+
+#### Using uv direct
+
+The recommended way of installing DVSim is inside a virtual environment to isolate the dependencies from your system python install.
+We use the `uv` tool for python dependency management and creating virtual environments.
+
+First make sure you have `uv` installed, see the [installation documentation](https://docs.astral.sh/uv/getting-started/installation/) for details and alternative installation methods.
+There is a python package that can be installed with `pip install uv`, however the standalone installer is preferred.
+
+##### macOS and Linux
+
+```console
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv
+uv sync
+```
+
+From there you can run the `dvsim` tool.
+
+##### Windows (Powershell)
+
+```console
+irm https://astral.sh/uv/install.ps1 | iex
+uv venv
+uv sync
+```
+
+From there you can run the `dvsim` tool.
+
+### Using DVSim
+
+For further information on how to use DVsim with OpenTitan see [Getting Started](https://opentitan.org/book/doc/getting_started/index.html)
+
+## History
+
+DVSim development started in the main OpenTitan repository under `utils/dvsim`.
+This repository contains the code that origionaly lived there, as well as the full git history copied over as generated by `git subtree split -p utils/dvsim`.
+
+## Documentation
+
+The project contains comprehensive documentation of all IPs and tools.
+You can access it [online at opentitan.org/book/](https://opentitan.org/book/).
+
+### Other related documents
+
+* [Testplanner tool](./doc/testplanner.md)
+* [Design document](./doc/design_doc.md)
+* [Glossary](./doc/glossary.md)
+
+## How to contribute
+
+Have a look at [CONTRIBUTING](https://github.com/lowRISC/opentitan/blob/master/CONTRIBUTING.md) and our [documentation on project organization and processes](https://opentitan.org/book/doc/project_governance/README.md) for guidelines on how to contribute code to this repository.
+
+## Licensing
+
+Unless otherwise noted, everything in this repository is covered by the Apache License, Version 2.0 (see [LICENSE](https://github.com/lowRISC/opentitan/blob/master/LICENSE) for full text).
+
+## Bugs
+
+Please see [link](https://github.com/lowRISC/dvsim/issues) for a list of open bugs and feature requests.

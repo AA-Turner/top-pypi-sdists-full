@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lineax
-Version: 0.1.0
+Version: 0.1.1
 Summary: Linear solvers in JAX and Equinox.
 Project-URL: repository, https://github.com/google/lineax
 Author-email: Jason Rader <raderjason@outlook.com>, Patrick Kidger <contact@kidger.site>
@@ -218,29 +218,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Requires-Python: ~=3.10
+Requires-Python: ~=3.11
 Requires-Dist: equinox>=0.11.10
-Requires-Dist: jax>=0.6.1
+Requires-Dist: jax>=0.10.0
 Requires-Dist: jaxtyping>=0.2.24
 Requires-Dist: typing-extensions>=4.5.0
-Provides-Extra: dev
-Requires-Dist: pre-commit; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: griffe==1.7.3; extra == 'docs'
-Requires-Dist: hippogriffe==0.2.2; extra == 'docs'
-Requires-Dist: mkdocs-include-exclude-files==0.1.0; extra == 'docs'
-Requires-Dist: mkdocs-ipynb==0.1.1; extra == 'docs'
-Requires-Dist: mkdocs-material==9.6.7; extra == 'docs'
-Requires-Dist: mkdocs==1.6.1; extra == 'docs'
-Requires-Dist: mkdocstrings-python==1.16.8; extra == 'docs'
-Requires-Dist: mkdocstrings==0.28.3; extra == 'docs'
-Requires-Dist: pymdown-extensions==10.14.3; extra == 'docs'
-Provides-Extra: tests
-Requires-Dist: beartype; extra == 'tests'
-Requires-Dist: equinox; extra == 'tests'
-Requires-Dist: jaxlib; extra == 'tests'
-Requires-Dist: pytest; extra == 'tests'
-Requires-Dist: pytest-xdist; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <h1 align='center'>Lineax</h1>

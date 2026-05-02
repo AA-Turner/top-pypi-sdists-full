@@ -1,9 +1,0 @@
-name: Anteroom
-repo_label: github.com/troylar/anteroom
-repo_url: https://github.com/troylar/anteroom
-docs_url: https://troylar.github.io/anteroom
-release_url_template: https://github.com/troylar/anteroom/releases/tag/{version}
-issue_tracking:
-  enabled: true
-  label_template: "#{number}"
-  url_template: https://github.com/troylar/anteroom/issues/{number}

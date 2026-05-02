@@ -255,7 +255,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 Each workspace's mount_path (from WorkspaceMarker) determines
                 where it appears on the agent VM.
             total_agents: Total number of agents that will run through the pool.
-                Scales the VM sandbox timeout to ``runtime.timeout * total_agents``
+                Scales the VM sandbox timeout to ``runtime.vm.timeout * total_agents``
                 so pooled VMs stay alive long enough for all sequential reuse.
             review_fn: Optional async review function. When set, each agent
                 execution is followed by a review; merge happens only on pass,

@@ -16,13 +16,13 @@ def test_on_code():
     assert i.infer()
 
 
-def test_generics_without_definition():
+def test_generics_without_definition() -> None:
     # Used to raise a recursion error
     T = TypeVar('T')
 
     class Stack(Generic[T]):
-        def __init__(self):
-            self.items = []  # type: List[T]
+        def __init__(self) -> None:
+            self.items: List[T] = []
 
         def push(self, item):
             self.items.append(item)
@@ -56,10 +56,10 @@ def test_generics_methods(code, expected, class_findable):
     class Reader(Generic[T]):
         @classmethod
         def read(cls) -> T:
-            return cls()
+            return cls()  # type: ignore[return-value]
 
         def method(self) -> T:
-            return 1
+            return 1  # type: ignore[return-value]
 
     class Foo(Reader[str]):
         def transform(self) -> int:
@@ -94,7 +94,7 @@ def test_signature():
         pass
 
     from inspect import Signature, Parameter
-    some_signature.__signature__ = Signature([
+    some_signature.__signature__ = Signature([  # type: ignore[attr-defined]
         Parameter('bar', kind=Parameter.KEYWORD_ONLY, default=1)
     ])
 
@@ -105,10 +105,10 @@ def test_signature():
 def test_compiled_signature_annotation_string():
     import typing
 
-    def func(x: typing.Type, y: typing.Union[typing.Type, int]):
+    def func(x: typing.Type, y: typing.Union[typing.Type, int]):  # type: ignore[type-arg]
         pass
     func.__name__ = 'not_func'
 
     s, = jedi.Interpreter('func()', [locals()]).get_signatures(1, 5)
     assert s.params[0].description == 'param x: Type'
-    assert s.params[1].description == 'param y: Union[Type, int]'
+    assert s.params[1].description == 'param y: Type | int'

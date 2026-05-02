@@ -1,1 +1,0 @@
-from .lfsr import DefineLFSR

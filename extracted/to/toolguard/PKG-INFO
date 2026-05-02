@@ -1,0 +1,665 @@
+Metadata-Version: 2.4
+Name: toolguard
+Version: 0.2.17
+Summary: Policy adherence code generation for guarding AI agent tools
+Author-email: Naama Zwerdling <naamaz@il.ibm.com>, David Boaz <davidbo@il.ibm.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: <3.15,>=3.10
+Requires-Dist: datamodel-code-generator>=0.52.2
+Requires-Dist: fastmcp>=2.13.0
+Requires-Dist: langchain-core>=0.3.72
+Requires-Dist: litellm!=1.82.7,!=1.82.8,>=1.82.6
+Requires-Dist: loguru
+Requires-Dist: markdown>=3.7
+Requires-Dist: pydantic>=2.11.0
+Requires-Dist: pyright>=1.1.408
+Requires-Dist: pytest-asyncio>=1.3.0
+Requires-Dist: pytest-json-report>=1.5.0
+Requires-Dist: pytest>=8.3.3
+Requires-Dist: smolagents>=1.21.3
+Description-Content-Type: text/markdown
+
+# 📦 AI Agents Policy Adherence
+
+This tool analyzes policy documents and generates deterministic Python code to enforce operational policies when invoking AI agent tools.
+This work is described in [EMNLP 2025 Towards Enforcing Company Policy Adherence in Agentic Workflows](https://arxiv.org/pdf/2507.16459).
+
+Business policies (or guidelines) are normally detailed in company documents, and have traditionally been hard-coded into automatic assistant platforms. Contemporary agentic approaches take the "best-effort" strategy, where the policies are appended to the agent's system prompt, an inherently non-deterministic approach, that does not scale effectively. Here we propose a deterministic, predictable and interpretable two-phase solution for agentic policy adherence at the tool-level: guards are executed prior to function invocation and raise alerts in case a tool-related policy deem violated.
+
+This component enforces **pre‑tool activation policy constraints**, ensuring that agent decisions comply with business rules **before** modifying system state. This prevents policy violations such as unauthorized tool calls or unsafe parameter values.
+
+
+**Step 1**:
+
+This component gets a set of tools and a policy document and generated multiple ToolGuard specifications, known as `ToolGuardSpec`s. Each specification is attached to a tool, and it declares a precondition that must apply before invoking the tool. The specification has a `name`, `description`, list of `refernces` to the original policy document, a set of declerative `compliance_examples`, describing test cases that the toolGuard should allow the tool invocation, and `violation_examples`, where the toolGuard should raise an exception.
+
+The specifications are aimed to be used as input into our next component - described below.
+
+The two components are not concatenated by design. As the geneartion involves a non-deterministic language model, the results need to be reviewed by a human. Hence, the output specification files should be reviewed and optionaly edited. For example, removing a wrong compliance example.
+
+The OpenAPI document should describe agent tools and optionally include *read-only* tools that might be used to enforce policies. It’s important that each tool has:
+- A proper `operation_id` matching the tool name
+- A detailed description
+- Clearly defined input parameters and return types
+- Well-documented data models
+
+**Step 2**:
+Uses the output from Step 1 and the OpenAPI spec to generate Python code that enforces each tool’s policies.
+
+---
+
+## 🐍 Requirements
+
+- Python 3.10+
+
+---
+
+## 🛠 Installation
+
+1. **Clone the repository:**
+
+   ```bash
+   uv pip install toolguard
+   ```
+
+
+## 📚 Usage Examples
+
+### Quick Start
+
+ToolGuard provides two main APIs:
+
+1. **Buildtime API** (`toolguard.buildtime`): Generate guard specifications and code
+2. **Runtime API** (`toolguard.runtime`): Execute guards during tool invocation
+
+### Complete Example: Calculator with Policy Guards
+
+This example demonstrates how to enforce policies on calculator tools.
+
+#### Step 1: Define Your Tools
+
+```python
+# tools.py
+def divide_tool(g: float, h: float) -> float:
+    """Divides one number by another."""
+    return g / h
+
+def add_tool(a: float, b: float) -> float:
+    """Adds two numbers."""
+    return a + b
+
+def multiply_tool(a: float, b: float) -> float:
+    """Multiplies two numbers."""
+    return a * b
+
+def map_kdi_number(i: float) -> float:
+    """Maps a number to its KDI value."""
+    return 3.14 * i
+```
+
+#### Step 2: Define Your Policy Document
+
+```markdown
+# Calculator Usage Policy
+
+## Operation Constraints
+
+- **Division by Zero is Not Allowed**
+  The calculator must not allow division by zero.
+
+- **Summing Numbers Whose Product is 365 is Not Allowed**
+  The calculator must not allow addition if their product equals 365.
+  For example, adding 5 + 73 should be disallowed (5 * 73 = 365).
+
+- **Multiplying Numbers When Any Operand's KDI Value Equals 6.28 is Not Allowed**
+  If any operand has KDI(x) = 6.28, multiplication must be rejected.
+```
+
+#### Step 3: Generate Guard Specifications (Buildtime)
+
+```python
+import asyncio
+from pathlib import Path
+from toolguard.buildtime import generate_guard_specs, LitellmModel
+
+async def generate_specs():
+    # Configure LLM
+    llm = LitellmModel(
+        model_name="gpt-4o",
+        provider="azure",
+        kw_args={
+            "api_base": "your-api-base",
+            "api_version": "2024-08-01-preview",
+            "api_key": "your-api-key", # pragma: allowlist secret
+        }
+    )
+
+    # Load policy text
+    with open("policy.md", "r") as f:
+        policy_text = f.read()
+
+    # Define tools
+    tools = [divide_tool, add_tool, multiply_tool, map_kdi_number]
+
+    # Generate specifications
+    specs = await generate_guard_specs(
+        policy_text=policy_text,
+        tools=tools,
+        work_dir="output/step1",
+        llm=llm,
+        options=PolicySpecOptions(spec_steps={PolicySpecStep.CREATE_POLICIES},) # Use short mode for faster generation
+    )
+
+    return specs
+
+# Run generation
+specs = asyncio.run(generate_specs())
+```
+
+##### Controlling Specification Generation
+generate_guard_specs now accepts a PolicySpecOptions object that controls how specifications are generated.
+```python
+from toolguard.buildtime import PolicySpecOptions, PolicySpecStep
+
+options = PolicySpecOptions(
+    spec_steps={
+        PolicySpecStep.CREATE_POLICIES,
+        PolicySpecStep.ADD_POLICIES,
+        PolicySpecStep.REVIEW_POLICIES
+    },
+    add_iterations=2,
+    example_number=3
+)
+```
+
+
+###### Parameters
+
+| Parameter        | Description                                                                                                                      |
+|------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `spec_steps`     | Which generation phases to run. Defaults to **all steps**. (see available steps below).                                                                       |
+| `add_iterations` | How many refinement passes to run when adding policies. Default is `3`.                                                          |
+| `example_number` | Controls how many examples are generated per policy:<br>• `None` = model decides<br>• `0` = no examples<br>• `>0` = exact number |
+
+###### Available `PolicySpecStep` Values
+
+The following generation phases can be selected via `spec_steps`:
+
+- `CREATE_POLICIES` – Extract initial policy specifications from the policy document.
+- `ADD_POLICIES` – Iteratively refine and extend generated policies.
+- `REVIEW_POLICIES` – Review generated policies for correctness.
+- `CORRECT_REFERENCES` – Ensure references correctly map to the original policy document.
+- `REVIEW_POLICIES_SELF_CONTAINED` – Ensure each policy description is fully self-contained and unambiguous.
+- `REVIEW_POLICIES_FEASIBILITY` – Validate that each policy can be deterministically enforced.
+
+#### Step 4: Generate Guard Code (Buildtime)
+
+```python
+from toolguard.buildtime import generate_guards_code
+
+async def generate_code():
+    # Use specs from Step 3
+    guards = await generate_guards_code(
+        tool_specs=specs,
+        tools=tools,
+        work_dir="output/step2",
+        llm=llm,
+        app_name="calculator"
+    )
+
+    return guards
+
+# Run code generation
+guards = asyncio.run(generate_code())
+```
+
+#### Step 5: Use Guards at Runtime
+
+```python
+from toolguard.runtime import (
+    load_toolguards,
+    ToolFunctionsInvoker,
+    PolicyViolationException
+)
+
+# Load generated guards
+with load_toolguards("output/step2") as toolguard:
+    # Create tool invoker
+    invoker = ToolFunctionsInvoker([divide_tool, add_tool, multiply_tool])
+
+    # Valid calls - these will succeed
+    await toolguard.guard_toolcall("add_tool", {"a": 5, "b": 4}, invoker)
+    await toolguard.guard_toolcall("divide_tool", {"g": 10, "h": 2}, invoker)
+
+    # Policy violations - these will raise exceptions
+    try:
+        # Division by zero
+        await toolguard.guard_toolcall("divide_tool", {"g": 5, "h": 0}, invoker)
+    except PolicyViolationException as e:
+        print(f"Policy violation: {e}")
+
+    try:
+        # Product equals 365
+        await toolguard.guard_toolcall("add_tool", {"a": 5, "b": 73}, invoker)
+    except PolicyViolationException as e:
+        print(f"Policy violation: {e}")
+```
+
+### Working with Different Tool Types
+
+#### Python Functions
+
+```python
+from toolguard.runtime import ToolFunctionsInvoker
+
+tools = [divide_tool, add_tool, multiply_tool]
+invoker = ToolFunctionsInvoker(tools)
+```
+
+#### Class Methods
+
+```python
+from toolguard.runtime import ToolMethodsInvoker
+from toolguard.extra.api_to_functions import api_cls_to_functions
+
+class CalculatorTools:
+    def divide_tool(self, g: float, h: float) -> float:
+        return g / h
+
+    def add_tool(self, a: float, b: float) -> float:
+        return a + b
+
+# Convert class methods to functions for spec generation
+tools = api_cls_to_functions(CalculatorTools)
+
+# Use at runtime
+invoker = ToolMethodsInvoker(CalculatorTools())
+```
+
+#### LangChain Tools
+
+```python
+from langchain.tools import tool
+from toolguard.runtime import LangchainToolInvoker
+from toolguard.extra.langchain_to_oas import langchain_tools_to_openapi
+
+@tool
+def divide_tool(g: float, h: float) -> float:
+    """Divides one number by another."""
+    return g / h
+
+tools = [divide_tool, add_tool]
+
+# Convert to OpenAPI for spec generation
+oas = langchain_tools_to_openapi(tools)
+
+# Use at runtime (note: args wrapped in "args" key)
+invoker = LangchainToolInvoker(tools)
+await toolguard.guard_toolcall("divide_tool", {"args": {"g": 5, "h": 2}}, invoker)
+```
+
+#### OpenAPI Specification
+
+```python
+from toolguard.buildtime.utils.open_api import OpenAPI
+
+# Load OpenAPI spec
+oas = OpenAPI.load_from("calculator_api.json")
+
+# Generate guards using OpenAPI
+guards = await generate_guards_code(
+    tool_specs=specs,
+    tools=oas.model_dump(),
+    work_dir="output/step2",
+    llm=llm,
+    app_name="calculator"
+)
+```
+
+
+#### MCP Server Tools
+```python
+import asyncio
+from fastmcp.client import Client, StreamableHttpTransport
+from toolguard.extra.mcp_tools_to_oas import list_mcp_tools, mcp_tools_to_openapi
+
+async def export_mcp_tools():
+    # Create HTTP transport for MCP server
+    transport = StreamableHttpTransport(url="http://127.0.0.1:8765/mcp")
+    mcp_client = Client(transport)
+
+    # List tools from MCP server
+    tools = await list_mcp_tools(mcp_client)
+
+    # Convert to OpenAPI spec
+    openapi_spec = mcp_tools_to_openapi(
+        tools,
+        title="My MCP Tools",
+        version="1.0.0"
+    )
+    return openapi_spec
+
+# Run the async function
+openapi_spec = asyncio.run(export_mcp_tools())
+```
+
+### Advanced Configuration
+
+#### Selective Tool Guard Generation
+
+```python
+# Generate specs only for specific tools
+specs = await generate_guard_specs(
+    policy_text=policy_text,
+    tools=tools,
+    work_dir="output/step1",
+    llm=llm,
+    tools2guard=["divide_tool", "add_tool"]  # Only these tools
+)
+
+# Generate code only for specific tools
+guards = await generate_guards_code(
+    tool_specs=specs,
+    tools=tools,
+    work_dir="output/step2",
+    llm=llm,
+    app_name="calculator",
+    tool_names=["divide_tool"]  # Only this tool
+)
+```
+
+#### Custom LLM Configuration
+
+```python
+from toolguard.buildtime import LitellmModel
+
+# Azure OpenAI
+llm = LitellmModel(
+    model_name="gpt-4o-2024-08-06",
+    provider="azure",
+    kw_args={
+        "api_base": "https://your-resource.openai.azure.com",
+        "api_version": "2024-08-01-preview",
+        "api_key": "your-key" # pragma: allowlist secret
+    }
+)
+
+# OpenAI
+llm = LitellmModel(
+    model_name="gpt-4o",
+    provider="openai",
+    kw_args={"api_key": "your-key"} # pragma: allowlist secret
+)
+
+# Anthropic
+llm = LitellmModel(
+    model_name="claude-3-5-sonnet-20241022",
+    provider="anthropic",
+    kw_args={"api_key": "your-key"} #pragma: allowlist secret
+)
+```
+
+### Loading Previously Generated Guards
+
+```python
+from toolguard.runtime import load_toolguards, ToolGuardsCodeGenerationResult
+
+# Load from default location
+with load_toolguards("output/step2") as toolguard:
+    await toolguard.guard_toolcall("add_tool", {"a": 1, "b": 2}, invoker)
+
+# Load from custom file
+result = ToolGuardsCodeGenerationResult.load("output/step2", "custom_results.json")
+```
+
+### Error Handling
+
+```python
+from toolguard.runtime import PolicyViolationException
+
+try:
+    await toolguard.guard_toolcall("divide_tool", {"g": 5, "h": 0}, invoker)
+except PolicyViolationException as e:
+    # Handle policy violation
+    print(f"Policy violated: {e}")
+    # Log the violation, notify admin, etc.
+except Exception as e:
+    # Handle other errors
+    print(f"Unexpected error: {e}")
+```
+
+---
+
+## 🔍 How It Works
+
+1. **Specification Generation**: Analyzes policy documents and tools to create `ToolGuardSpec` objects with compliance/violation examples
+2. **Code Generation**: Converts specifications into executable Python guard functions with tests
+3. **Runtime Enforcement**: Guards are executed before tool invocation, raising `PolicyViolationException` if policies are violated
+
+---
+
+## 📖 API Reference
+
+### Buildtime API
+
+- `generate_guard_specs()`: Generate guard specifications from policy text
+- `generate_guards_code()`: Generate executable guard code from specifications
+- `LitellmModel`: LLM configuration for various providers
+
+### Runtime API
+
+- `load_toolguards()`: Load generated guards for runtime use
+- `ToolguardRuntime.guard_toolcall()`: Execute guard before tool invocation
+- `ToolFunctionsInvoker`: Invoker for Python functions
+- `ToolMethodsInvoker`: Invoker for class methods
+- `LangchainToolInvoker`: Invoker for LangChain tools
+- `PolicyViolationException`: Raised when a policy is violated
+
+---
+
+## Development
+`uv pip install .[dev]`

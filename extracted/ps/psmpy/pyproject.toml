@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = {find = {include = ["psmpy"]}}
+
+[project]
+name = "psmpy"
+version = "0.3.16"
+description = "Propensity score matching for python and graphical plots"
+keywords = ["propensity score matching", "statistics", "plotting"]
+readme = "README.md"
+authors = [
+    {name = "Adrienne Kline", email = "askline1@gmail.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent"
+]
+
+dependencies = [
+    "matplotlib", 
+    "numpy", 
+    "pandas",
+    "seaborn", 
+    "scikit-learn", 
+    "scipy"]
+
+
+[project.urls]
+Issues = "https://github.com/adriennekline/psmpy/issues"
+Homepage = "https://github.com/adriennekline/psmpy"
+Documentation = "https://pypi.org/project/psmpy"

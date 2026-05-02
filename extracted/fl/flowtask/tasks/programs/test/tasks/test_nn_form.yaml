@@ -1,0 +1,9 @@
+name: Sample NN payload
+description: Test Sample Payload For Netwok Ninja
+steps:
+  - FileRead:
+      file: forms.json
+      is_json: True
+  - NetworkNinja:
+      comment: Network Ninja Router for processing the payload.
+      action: process_payload

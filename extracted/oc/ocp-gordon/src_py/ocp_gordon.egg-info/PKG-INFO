@@ -1,0 +1,117 @@
+Metadata-Version: 2.4
+Name: ocp_gordon
+Version: 0.2.0
+Summary: A Python library for Gordon Surface interpolation using B-splines.
+Author-email: Fan Gong <gongfan99@hotmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/gongfan99/ocp_gordon
+Project-URL: Issues, https://github.com/gongfan99/ocp_gordon/issues
+Project-URL: Used-by, https://github.com/gumyr/build123d
+Keywords: 3d models,3d printing,3d,brep,cad,cadquery,build123d,opencascade,python
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cadquery_ocp_proxy<8.0,>=7.9
+Requires-Dist: numpy<3,>=2
+Requires-Dist: scipy
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: cadquery_ocp_novtk<8.0,>=7.9; extra == "test"
+Provides-Extra: stubs
+Requires-Dist: cadquery-ocp-stubs<8.0,>=7.9; extra == "stubs"
+Dynamic: license-file
+
+# Gordon Surface Library for CadQuery's OCP
+
+This library provides a Python implementation for creating Gordon surfaces, a method for interpolating a network of curves to generate a smooth surface. It is designed to be compatible with CadQuery's OCP and leverages B-spline mathematics.
+
+The implementation is written entirely in Python and is adapted from the original C++ code in [`occ_gordon`](https://github.com/rainman110/occ_gordon)
+
+It is currently used by [`build123d`](https://github.com/gumyr/build123d), but can also be used independently.
+
+## Features
+
+- Gordon surface interpolation from profile and guide curves.
+- Compatibility with B-spline representations.
+- Integration with CadQuery's OCP (OpenCASCADE Python) for geometric primitives.
+
+## Installation
+
+This package can be installed using pip.
+
+```bash
+pip install ocp_gordon
+```
+
+## Dependencies
+
+- OCP (OpenCASCADE Python)
+- NumPy
+- SciPy
+
+## Usage
+
+Here's a basic example of how to use the library:
+
+```python
+# Assume you have profile_curves and guide_curves defined as lists of B-spline objects
+# profile_curves = [...] # List of Geom_BSplineCurve objects
+# guide_curves = [...]   # List of Geom_BSplineCurve objects
+
+from ocp_gordon import interpolate_curve_network
+
+gordon_surface = interpolate_curve_network(profile_curves, guide_curves, tolerance=3e-4)
+
+```
+
+For more detailed examples, please refer to the `examples/` directory in the source code.
+
+## Test
+
+To run tests, first install pytest, then:
+
+```bash
+python -m pytest
+
+```
+
+## Notable Difference from C++ Code
+
+- In `intersect_bsplines.py`, the `math_BFGS` method is polyfilled and used in place of `math_FRPR`, as neither `math_BFGS` nor `math_FRPR` is usable in OCP due to the lack of `math_Vector` exposure. The intersect detection algorithm has been improved for both speed and reliability.
+- In the `_solve()` function of `bspline_approx_interp.py`, regularization has been added to prevent singular matrix issues, which can occur in cases such as when the input curve is a B-spline derived from a circle.
+- A new file, `misc.py`, has been introduced to implement missing OCP utilities. The primary additions include `clone_bspline` and `math_BFGS`.
+- Modified `curve_network_sorter.py`, `bspline_algorithms.py`, and `interpolate_curve_network.py` to allow a single point to be used as either a profile or a guide.
+- The reparameterization process is now skipped if the input profiles and guides are already iso-parametric, improving accuracy and performance for such cases.
+- In `bspline_algorithms.py`, the `GeomConvert_ApproxCurve()` function is utilized for improved representation of conic curves.
+
+## Caveats
+
+Potential misalignments can occur between the generated Gordon surface and its input curves, especially at boundaries. This is primarily due to the approximation involved in the reparameterization process for non-iso-parametric inputs. For a detailed explanation and mitigation strategies, please refer to the [Gordon Surface Misalignment wiki page](https://github.com/gongfan99/ocp_gordon/wiki/Gordon-Surface-Misalignment).
+
+## License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+
+## Citing
+
+The algorithm was originally described in:
+
+[Siggel M. et. al. (2019), _TiGL: An Open Source Computational Geometry Library for Parametric Aircraft Design_](https://doi.org/10.1007/s11786-019-00401-y)
+
+```
+@article{siggel2019tigl,
+	title={TiGL: an open source computational geometry library for parametric aircraft design},
+	author={Siggel, Martin and Kleinert, Jan and Stollenwerk, Tobias and Maierl, Reinhold},
+	journal={Mathematics in Computer Science},
+	volume={13},
+	number={3},
+	pages={367--389},
+	year={2019},
+	publisher={Springer},
+    doi={10.1007/s11786-019-00401-y}
+}
+```

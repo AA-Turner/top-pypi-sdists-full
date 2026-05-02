@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.33"
+version = "0.0.34"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -124,8 +124,8 @@ trim-title-prefixes = ["[ty]"]
 [tool.rooster.section-labels]
 "Breaking changes" = ["breaking"]
 "Preview features" = ["preview"]
-"Diagnostics" = ["diagnostics"]
 "Bug fixes" = ["bug"]
 "LSP server" = ["server"]
 "CLI" = ["cli"]
+"Diagnostics" = ["diagnostics"]
 "Configuration" = ["configuration"]

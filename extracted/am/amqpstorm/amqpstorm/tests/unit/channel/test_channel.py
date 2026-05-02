@@ -1,6 +1,6 @@
 import collections
-import mock
-from pamqp import specification
+from unittest import mock
+from pamqp import commands
 
 from amqpstorm import Channel
 from amqpstorm.basic import Basic
@@ -47,8 +47,8 @@ class ChannelTests(TestFramework):
 
     def test_channel_open(self):
         def on_open_ok(_, frame_out):
-            self.assertIsInstance(frame_out, specification.Channel.Open)
-            channel.rpc.on_frame(specification.Channel.OpenOk())
+            self.assertIsInstance(frame_out, commands.Channel.Open)
+            channel.rpc.on_frame(commands.Channel.OpenOk())
 
         channel = Channel(0, FakeConnection(on_write=on_open_ok), 360)
 
@@ -59,36 +59,36 @@ class ChannelTests(TestFramework):
 
     def test_channel_close(self):
         def on_close_ok(_, frame_out):
-            if isinstance(frame_out, specification.Basic.Cancel):
-                channel.rpc.on_frame(specification.Basic.CancelOk())
+            if isinstance(frame_out, commands.Basic.Cancel):
+                channel.rpc.on_frame(commands.Basic.CancelOk())
                 return
-            channel.rpc.on_frame(specification.Channel.CloseOk())
+            channel.rpc.on_frame(commands.Channel.CloseOk())
 
         channel = Channel(0, FakeConnection(on_write=on_close_ok), 360)
 
         # Set up Fake Channel.
-        channel._inbound = collections.deque([1, 2, 3])
+        channel._inbound = [1, 2, 3]
         channel.set_state(channel.OPEN)
         channel._consumer_tags = ['4', '5', '6']
 
         # Close Channel.
         channel.close()
 
-        self.assertFalse(channel._inbound)
+        self.assertEqual(channel._inbound, [])
         self.assertEqual(channel._consumer_tags, [])
         self.assertEqual(channel._state, channel.CLOSED)
         self.assertFalse(channel.exceptions)
 
     def test_channel_close_gracefully_with_queued_error(self):
         def on_close_ok(_, frame_out):
-            if isinstance(frame_out, specification.Basic.Cancel):
+            if isinstance(frame_out, commands.Basic.Cancel):
                 raise AMQPChannelError('travis-ci')
-            channel.rpc.on_frame(specification.Channel.CloseOk())
+            channel.rpc.on_frame(commands.Channel.CloseOk())
 
         channel = Channel(0, FakeConnection(on_write=on_close_ok), 360)
 
         # Set up Fake Channel.
-        channel._inbound = collections.deque([1, 2, 3])
+        channel._inbound = [1, 2, 3]
         channel.set_state(channel.OPEN)
         channel._consumer_tags = ['4', '5', '6']
         channel.exceptions.append(AMQPChannelError('travis-ci'))
@@ -96,7 +96,7 @@ class ChannelTests(TestFramework):
         # Close Channel.
         channel.close()
 
-        self.assertFalse(channel._inbound)
+        self.assertEqual(channel._inbound, [])
         self.assertEqual(channel._consumer_tags, [])
         self.assertEqual(channel._state, channel.CLOSED)
         self.assertTrue(channel.exceptions)
@@ -106,7 +106,7 @@ class ChannelTests(TestFramework):
         channel = Channel(0, fake_connection, 360)
 
         # Set up Fake Channel.
-        channel._inbound = collections.deque([1, 2, 3])
+        channel._inbound = [1, 2, 3]
         channel.set_state(channel.CLOSED)
         channel._consumer_tags = ['4', '5', '6']
 
@@ -120,14 +120,14 @@ class ChannelTests(TestFramework):
 
         self.assertFalse(fake_connection.frames_out)
 
-        self.assertFalse(channel._inbound)
+        self.assertEqual(channel._inbound, [])
         self.assertEqual(channel._consumer_tags, [])
         self.assertEqual(channel._state, channel.CLOSED)
         self.assertFalse(channel.exceptions)
 
     def test_channel_confirm_deliveries(self):
         def on_select_ok(*_):
-            channel.rpc.on_frame(specification.Confirm.SelectOk())
+            channel.rpc.on_frame(commands.Confirm.SelectOk())
 
         connection = FakeConnection(on_write=on_select_ok)
         channel = Channel(0, connection, 0.01)
@@ -145,12 +145,12 @@ class ChannelTests(TestFramework):
         channel.set_state(channel.OPEN)
         channel._consumer_tags = [4, 5, 6]
 
-        close_frame = specification.Channel.Close(reply_code=200,
-                                                  reply_text='travis-ci')
+        close_frame = commands.Channel.Close(reply_code=200,
+                                             reply_text='travis-ci')
         # Close Channel.
         channel._close_channel(close_frame)
 
-        self.assertFalse(channel._inbound)
+        self.assertIsNone(channel._inbound)
         self.assertEqual(channel._consumer_tags, [])
         self.assertEqual(channel._state, channel.CLOSED)
 

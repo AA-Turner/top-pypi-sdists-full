@@ -1,0 +1,40 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sppcls"
+version = "0.1.0"
+authors = [
+    { name = "Robert Jäschke", email = "jaeschke@L3S.de" },
+    { name = "Frederik Anrold", email = "frederik.arnold@hu-berlin.de"}
+]
+description = "Accessing and processing data from the DFG-funded SPP Computational Literary Studies"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=1.1.5"
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+tokenise = ["spacy>=2.8.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["sppcls*"]
+
+[project.scripts]
+sppcls = "sppcls.cli.sppclscli:main"
+
+[project.urls]
+"Homepage" = "https://scm.cms.hu-berlin.de/schluesselstellen/spp-cls-dataexchange/code"

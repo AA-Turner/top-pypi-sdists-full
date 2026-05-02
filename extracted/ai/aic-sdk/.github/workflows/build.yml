@@ -1,0 +1,97 @@
+name: Build and Run Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      AIC_SDK_LICENSE: ${{ secrets.AIC_SDK_LICENSE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies and build
+        run: |
+          uv sync --group dev
+          uvx maturin develop
+
+      - name: Run tests
+        run: uv run pytest
+
+  build:
+    needs: test
+    name: Build and test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            targets: x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+            interpreters: '3.10 3.11 3.12 3.13 3.14'
+            test-arch: x86_64
+            use-zig: true
+          - os: macos-latest
+            targets: x86_64-apple-darwin aarch64-apple-darwin
+            interpreters: '3.10 3.11 3.12 3.13 3.14'
+            test-arch: arm64
+            use-zig: false
+          - os: windows-latest
+            targets: x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+            interpreters: '3.10 3.11 3.12 3.13 3.14'
+            test-arch: amd64
+            use-zig: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+
+      - name: Install Python interpreters
+        shell: bash
+        run: uv python install ${{ matrix.interpreters }}
+
+      - name: Build wheels
+        shell: bash
+        run: |
+          for target in ${{ matrix.targets }}; do
+            echo "Building for $target"
+            if [ "${{ matrix.use-zig }}" = "true" ]; then
+              uvx --from maturin[zig] maturin build --zig --release --target $target --out dist --interpreter ${{ matrix.interpreters }}
+            else
+              uvx maturin build --release --target $target --out dist --interpreter ${{ matrix.interpreters }}
+            fi
+          done
+
+      - name: Test wheels
+        shell: bash
+        env:
+          AIC_SDK_LICENSE: ${{ secrets.AIC_SDK_LICENSE }}
+        run: |
+          for version in ${{ matrix.interpreters }}; do
+            echo "Testing Python $version"
+            uv venv --python $version .venv-$version
+            VIRTUAL_ENV=.venv-$version uv pip install dist/*cp${version//.}*${{ matrix.test-arch }}*.whl
+            uv run --python $version examples/basic.py
+            uv run --python $version examples/basic_async.py
+          done

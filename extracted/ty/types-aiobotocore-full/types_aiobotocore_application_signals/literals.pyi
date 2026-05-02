@@ -39,6 +39,7 @@ __all__ = (
     "MetricSourceTypeType",
     "PaginatorName",
     "ResourceServiceName",
+    "SelectionTypeType",
     "ServiceLevelIndicatorComparisonOperatorType",
     "ServiceLevelIndicatorMetricTypeType",
     "ServiceLevelObjectiveBudgetStatusType",
@@ -65,6 +66,7 @@ ListServicesPaginatorName = Literal["list_services"]
 MetricSourceTypeType = Literal[
     "AppMonitor", "Canary", "CloudWatchMetric", "Service", "ServiceDependency", "ServiceOperation"
 ]
+SelectionTypeType = Literal["EXPLICIT", "PREFIX", "REGEX"]
 ServiceLevelIndicatorComparisonOperatorType = Literal[
     "GreaterThan", "GreaterThanOrEqualTo", "LessThan", "LessThanOrEqualTo"
 ]

@@ -1,0 +1,22 @@
+Metadata-Version: 1.1
+Name: spotipy-tui
+Version: 1.0.5
+Summary: Text-based UI to control Spotify client
+Home-page: https://github.com/JonShepChen/SpotipyTUI
+Author: Jonathan Chen
+Author-email: jonshepchen@gmail.com
+License: MIT
+Download-URL: https://github.com/JonShepChen/SpotipyTUI/archive/v1.0.5.tar.gz
+Description: UNKNOWN
+Keywords: spotify,remote,audio,music,tui,curses
+Platform: UNKNOWN
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Environment :: Console :: Curses
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.1
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Topic :: Terminals
+Classifier: Topic :: Multimedia :: Sound/Audio :: Players

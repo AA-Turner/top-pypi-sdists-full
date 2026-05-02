@@ -1,0 +1,125 @@
+"""PII type registry — central definition of all PII types."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Callable
+
+
+@dataclass(frozen=True)
+class PIITypeDef:
+    """Complete definition of a PII type."""
+
+    # ── Identity ──
+    name: str  # "phone", "id_number"
+    lang: str  # "zh", "en", "shared"
+
+    # ── Structure ──
+    format: str  # "1[3-9]XXXXXXXXX"
+    length: int | tuple[int, int] | None = None  # 11 or (16, 19)
+    charset: str = "digits"  # "digits", "digits+X", "alnum"
+    structure: dict[str, str] = field(default_factory=dict)  # segment descriptions
+
+    # ── Validation ──
+    checksum: str | None = None  # "MOD11-2", "Luhn", None
+    validate: Callable[[str], bool] | None = None  # runtime validator
+
+    # ── Context ──
+    prefixes: tuple[str, ...] = ()  # context words before PII
+    suffixes: tuple[str, ...] = ()  # context words after PII
+    separators: tuple[str, ...] = ("",)  # allowed in-value separators
+
+    # ── Action ──
+    strategy: str = "remove"  # "mask", "pseudonym", "remove", "category"
+    label: str = ""  # "[手机号已脱敏]"
+    mask_rule: dict[str, int] | None = None  # {"visible_prefix": 3, "visible_suffix": 4}
+
+    # ── Evidence ──
+    examples: tuple[str, ...] = ()  # valid instances
+    counterexamples: tuple[str, ...] = ()  # should NOT match
+    source: str = ""  # authoritative reference
+
+    # ── Pattern generation ──
+    _patterns: tuple[dict, ...] = ()  # pre-built pattern dicts (override auto-generation)
+
+    # ── Faker ──
+    faker: Callable | None = None  # (rng: random.Random) -> str
+    faker_reserved: Callable | None = None  # (value: str, rng: random.Random) -> str — reserved-range or range-noise faker for realistic strategy
+
+    # ── Risk / Compliance ──
+    sensitivity: int = 2  # 1=low, 2=medium, 3=high, 4=critical
+
+    # ── Description ──
+    description: str = ""
+
+    def to_patterns(self) -> list[dict]:
+        """Return pattern dict(s) for use with match_patterns().
+
+        If _patterns is set, returns those directly.
+        Otherwise, returns an empty list (type needs NER or manual patterns).
+        """
+        if self._patterns:
+            return list(self._patterns)
+        return []
+
+    def to_fixtures(self) -> list[dict]:
+        """Generate test fixture entries from examples and counterexamples."""
+        fixtures = []
+        for i, ex in enumerate(self.examples):
+            fixtures.append(
+                {
+                    "id": f"{self.name}_spec_example_{i}",
+                    "input": ex,
+                    "should_match": True,
+                    "type": self.name,
+                    "description": f"Spec example for {self.lang}/{self.name}",
+                }
+            )
+        for i, cx in enumerate(self.counterexamples):
+            fixtures.append(
+                {
+                    "id": f"{self.name}_spec_counter_{i}",
+                    "input": cx,
+                    "should_match": False,
+                    "type": self.name,
+                    "description": f"Spec counterexample for {self.lang}/{self.name}",
+                }
+            )
+        return fixtures
+
+
+# ── Global registry ──
+
+_REGISTRY: dict[tuple[str, str], PIITypeDef] = {}
+
+
+def register(typedef: PIITypeDef) -> PIITypeDef:
+    """Register a PII type definition."""
+    key = (typedef.lang, typedef.name)
+    _REGISTRY[key] = typedef
+    return typedef
+
+
+def unregister(lang: str, name: str) -> None:
+    """Remove a registration. Primarily for tests that inject temporary types."""
+    _REGISTRY.pop((lang, name), None)
+
+
+def get(lang: str, name: str) -> PIITypeDef:
+    """Get a PII type definition by language and name."""
+    key = (lang, name)
+    if key not in _REGISTRY:
+        raise KeyError(f"No PII type '{name}' for lang '{lang}'")
+    return _REGISTRY[key]
+
+
+def lookup(name: str) -> list[PIITypeDef]:
+    """Find all definitions for a PII type across languages."""
+    return [v for (_, n), v in _REGISTRY.items() if n == name]
+
+
+def list_types(lang: str | None = None) -> list[PIITypeDef]:
+    """List all registered PII types, optionally filtered by language."""
+    if lang:
+        return [v for (l, _), v in _REGISTRY.items() if l == lang]
+    return list(_REGISTRY.values())

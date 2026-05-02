@@ -41,6 +41,32 @@ fn run_arg(arg: String) {
     assert "SKY-D212" in _rule_ids(findings)
 
 
+def test_shell_c_with_args_list_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::process::Command;
+fn run_arg(command: String) {
+    Command::new("bash").args(["-c", command.as_str()]).output();
+}
+""",
+    )
+    assert "SKY-D212" in _rule_ids(findings)
+
+
+def test_windows_shell_command_switch_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::process::Command;
+fn run_arg(command: String) {
+    Command::new("cmd").arg("/C").arg(command).output();
+}
+""",
+    )
+    assert "SKY-D212" in _rule_ids(findings)
+
+
 def test_literal_command_is_safe(tmp_path):
     findings = _scan_rust_findings(
         tmp_path,
@@ -76,6 +102,19 @@ use std::process::Command;
 fn run_cmd(cmd: String) {
     let executable = cmd;
     Command::new(executable).spawn();
+}
+""",
+    )
+    assert "SKY-D212" in _rule_ids(findings)
+
+
+def test_direct_env_var_command_source_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::process::Command;
+fn run_cmd() {
+    Command::new(std::env::var("CMD").unwrap()).spawn();
 }
 """,
     )
@@ -118,6 +157,62 @@ use std::fs;
 fn read_file(path: String) {
     let requested_file = path;
     std::fs::read_to_string(requested_file).unwrap();
+}
+""",
+    )
+    assert "SKY-D215" in _rule_ids(findings)
+
+
+def test_env_var_path_source_to_filesystem_sink_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::fs;
+fn read_file() {
+    let requested_file = std::env::var("DOWNLOAD").unwrap();
+    fs::read_to_string(requested_file).unwrap();
+}
+""",
+    )
+    assert "SKY-D215" in _rule_ids(findings)
+
+
+def test_direct_env_var_path_source_to_filesystem_sink_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::fs;
+fn read_file() {
+    fs::read_to_string(std::env::var("DOWNLOAD").unwrap()).unwrap();
+}
+""",
+    )
+    assert "SKY-D215" in _rule_ids(findings)
+
+
+def test_pathbuf_from_tainted_path_to_sink_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::fs;
+use std::path::PathBuf;
+fn read_file(path: String) {
+    let requested_file = PathBuf::from(path);
+    fs::read_to_string(requested_file).unwrap();
+}
+""",
+    )
+    assert "SKY-D215" in _rule_ids(findings)
+
+
+def test_pathbuf_push_tainted_filename_flags(tmp_path):
+    findings = _scan_rust_findings(
+        tmp_path,
+        """
+use std::path::PathBuf;
+fn read_file(filename: String) {
+    let mut base = PathBuf::from("/srv/data");
+    base.push(filename);
 }
 """,
     )

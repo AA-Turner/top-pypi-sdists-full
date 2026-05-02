@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: nowfy
+Version: 1.4.66
+Summary: Nowfy unified plugin package with integrated runtime core and services
+Author: AGeekApple
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31.0
+Requires-Dist: ytmusicapi>=1.8.0
+Requires-Dist: yt-dlp>=2025.1.0
+Requires-Dist: musicbrainzngs
+
+﻿# Nowfy
+
+Single PyPI package containing Nowfy plugin runtime and internal core.

@@ -1,0 +1,75 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.python-version }}-${{ matrix.os }}-${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "latest"
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: uv sync --dev --python python
+    - name: Run tests with pytest
+      run: uv run --python python pytest test_subprocess.py -v
+    - name: Run tests with unittest (fallback)
+      if: failure()
+      run: uv run --python python python -m unittest test_subprocess -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "latest"
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.x"
+    - name: Install dependencies
+      run: uv sync --dev --python python
+    - name: Run ruff
+      run: uv run ruff check .
+      continue-on-error: true
+    - name: Run ruff format check
+      run: uv run ruff format --check .
+      continue-on-error: true
+
+  check-all:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: always()
+    steps:
+    - run: echo 'The triggering workflow passed'
+      if: ${{ needs.test.result == 'success' && needs.lint.result == 'success' }}
+    - run: echo 'The triggering workflow failed' && false
+      if: ${{ needs.test.result != 'success' || needs.lint.result != 'success' }}

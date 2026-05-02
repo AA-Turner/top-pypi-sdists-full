@@ -37,9 +37,13 @@ from .paginator import (
     ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
+    ListConfigurationBundlesPaginator,
+    ListConfigurationBundleVersionsPaginator,
     ListEvaluatorsPaginator,
+    ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
+    ListHarnessesPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
@@ -64,12 +68,18 @@ from .type_defs import (
     CreateBrowserResponseTypeDef,
     CreateCodeInterpreterRequestTypeDef,
     CreateCodeInterpreterResponseTypeDef,
+    CreateConfigurationBundleRequestTypeDef,
+    CreateConfigurationBundleResponseTypeDef,
     CreateEvaluatorRequestTypeDef,
     CreateEvaluatorResponseTypeDef,
     CreateGatewayRequestTypeDef,
     CreateGatewayResponseTypeDef,
+    CreateGatewayRuleRequestTypeDef,
+    CreateGatewayRuleResponseTypeDef,
     CreateGatewayTargetRequestTypeDef,
     CreateGatewayTargetResponseTypeDef,
+    CreateHarnessRequestTypeDef,
+    CreateHarnessResponseTypeDef,
     CreateMemoryInputTypeDef,
     CreateMemoryOutputTypeDef,
     CreateOauth2CredentialProviderRequestTypeDef,
@@ -97,12 +107,18 @@ from .type_defs import (
     DeleteBrowserResponseTypeDef,
     DeleteCodeInterpreterRequestTypeDef,
     DeleteCodeInterpreterResponseTypeDef,
+    DeleteConfigurationBundleRequestTypeDef,
+    DeleteConfigurationBundleResponseTypeDef,
     DeleteEvaluatorRequestTypeDef,
     DeleteEvaluatorResponseTypeDef,
     DeleteGatewayRequestTypeDef,
     DeleteGatewayResponseTypeDef,
+    DeleteGatewayRuleRequestTypeDef,
+    DeleteGatewayRuleResponseTypeDef,
     DeleteGatewayTargetRequestTypeDef,
     DeleteGatewayTargetResponseTypeDef,
+    DeleteHarnessRequestTypeDef,
+    DeleteHarnessResponseTypeDef,
     DeleteMemoryInputTypeDef,
     DeleteMemoryOutputTypeDef,
     DeleteOauth2CredentialProviderRequestTypeDef,
@@ -129,12 +145,20 @@ from .type_defs import (
     GetBrowserResponseTypeDef,
     GetCodeInterpreterRequestTypeDef,
     GetCodeInterpreterResponseTypeDef,
+    GetConfigurationBundleRequestTypeDef,
+    GetConfigurationBundleResponseTypeDef,
+    GetConfigurationBundleVersionRequestTypeDef,
+    GetConfigurationBundleVersionResponseTypeDef,
     GetEvaluatorRequestTypeDef,
     GetEvaluatorResponseTypeDef,
     GetGatewayRequestTypeDef,
     GetGatewayResponseTypeDef,
+    GetGatewayRuleRequestTypeDef,
+    GetGatewayRuleResponseTypeDef,
     GetGatewayTargetRequestTypeDef,
     GetGatewayTargetResponseTypeDef,
+    GetHarnessRequestTypeDef,
+    GetHarnessResponseTypeDef,
     GetMemoryInputTypeDef,
     GetMemoryOutputTypeDef,
     GetOauth2CredentialProviderRequestTypeDef,
@@ -171,12 +195,20 @@ from .type_defs import (
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestTypeDef,
     ListCodeInterpretersResponseTypeDef,
+    ListConfigurationBundlesRequestTypeDef,
+    ListConfigurationBundlesResponseTypeDef,
+    ListConfigurationBundleVersionsRequestTypeDef,
+    ListConfigurationBundleVersionsResponseTypeDef,
     ListEvaluatorsRequestTypeDef,
     ListEvaluatorsResponseTypeDef,
+    ListGatewayRulesRequestTypeDef,
+    ListGatewayRulesResponseTypeDef,
     ListGatewaysRequestTypeDef,
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestTypeDef,
     ListGatewayTargetsResponseTypeDef,
+    ListHarnessesRequestTypeDef,
+    ListHarnessesResponseTypeDef,
     ListMemoriesInputTypeDef,
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestTypeDef,
@@ -217,12 +249,18 @@ from .type_defs import (
     UpdateAgentRuntimeResponseTypeDef,
     UpdateApiKeyCredentialProviderRequestTypeDef,
     UpdateApiKeyCredentialProviderResponseTypeDef,
+    UpdateConfigurationBundleRequestTypeDef,
+    UpdateConfigurationBundleResponseTypeDef,
     UpdateEvaluatorRequestTypeDef,
     UpdateEvaluatorResponseTypeDef,
     UpdateGatewayRequestTypeDef,
     UpdateGatewayResponseTypeDef,
+    UpdateGatewayRuleRequestTypeDef,
+    UpdateGatewayRuleResponseTypeDef,
     UpdateGatewayTargetRequestTypeDef,
     UpdateGatewayTargetResponseTypeDef,
+    UpdateHarnessRequestTypeDef,
+    UpdateHarnessResponseTypeDef,
     UpdateMemoryInputTypeDef,
     UpdateMemoryOutputTypeDef,
     UpdateOauth2CredentialProviderRequestTypeDef,
@@ -370,6 +408,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_code_interpreter)
         """
 
+    async def create_configuration_bundle(
+        self, **kwargs: Unpack[CreateConfigurationBundleRequestTypeDef]
+    ) -> CreateConfigurationBundleResponseTypeDef:
+        """
+        Creates a new configuration bundle resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_configuration_bundle.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_configuration_bundle)
+        """
+
     async def create_evaluator(
         self, **kwargs: Unpack[CreateEvaluatorRequestTypeDef]
     ) -> CreateEvaluatorResponseTypeDef:
@@ -390,6 +438,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_gateway)
         """
 
+    async def create_gateway_rule(
+        self, **kwargs: Unpack[CreateGatewayRuleRequestTypeDef]
+    ) -> CreateGatewayRuleResponseTypeDef:
+        """
+        Creates a rule for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_gateway_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_gateway_rule)
+        """
+
     async def create_gateway_target(
         self, **kwargs: Unpack[CreateGatewayTargetRequestTypeDef]
     ) -> CreateGatewayTargetResponseTypeDef:
@@ -398,6 +456,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_gateway_target.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_gateway_target)
+        """
+
+    async def create_harness(
+        self, **kwargs: Unpack[CreateHarnessRequestTypeDef]
+    ) -> CreateHarnessResponseTypeDef:
+        """
+        Operation to create a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_harness.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_harness)
         """
 
     async def create_memory(
@@ -541,6 +609,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_code_interpreter)
         """
 
+    async def delete_configuration_bundle(
+        self, **kwargs: Unpack[DeleteConfigurationBundleRequestTypeDef]
+    ) -> DeleteConfigurationBundleResponseTypeDef:
+        """
+        Deletes a configuration bundle and all of its versions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_configuration_bundle.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_configuration_bundle)
+        """
+
     async def delete_evaluator(
         self, **kwargs: Unpack[DeleteEvaluatorRequestTypeDef]
     ) -> DeleteEvaluatorResponseTypeDef:
@@ -561,6 +639,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_gateway)
         """
 
+    async def delete_gateway_rule(
+        self, **kwargs: Unpack[DeleteGatewayRuleRequestTypeDef]
+    ) -> DeleteGatewayRuleResponseTypeDef:
+        """
+        Deletes a gateway rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_gateway_rule)
+        """
+
     async def delete_gateway_target(
         self, **kwargs: Unpack[DeleteGatewayTargetRequestTypeDef]
     ) -> DeleteGatewayTargetResponseTypeDef:
@@ -569,6 +657,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway_target.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_gateway_target)
+        """
+
+    async def delete_harness(
+        self, **kwargs: Unpack[DeleteHarnessRequestTypeDef]
+    ) -> DeleteHarnessResponseTypeDef:
+        """
+        Operation to delete a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_harness.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_harness)
         """
 
     async def delete_memory(
@@ -722,6 +820,26 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_code_interpreter)
         """
 
+    async def get_configuration_bundle(
+        self, **kwargs: Unpack[GetConfigurationBundleRequestTypeDef]
+    ) -> GetConfigurationBundleResponseTypeDef:
+        """
+        Gets the latest version of a configuration bundle.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_configuration_bundle)
+        """
+
+    async def get_configuration_bundle_version(
+        self, **kwargs: Unpack[GetConfigurationBundleVersionRequestTypeDef]
+    ) -> GetConfigurationBundleVersionResponseTypeDef:
+        """
+        Gets a specific version of a configuration bundle by its version identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_configuration_bundle_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_configuration_bundle_version)
+        """
+
     async def get_evaluator(
         self, **kwargs: Unpack[GetEvaluatorRequestTypeDef]
     ) -> GetEvaluatorResponseTypeDef:
@@ -743,6 +861,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_gateway)
         """
 
+    async def get_gateway_rule(
+        self, **kwargs: Unpack[GetGatewayRuleRequestTypeDef]
+    ) -> GetGatewayRuleResponseTypeDef:
+        """
+        Retrieves detailed information about a specific gateway rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_gateway_rule)
+        """
+
     async def get_gateway_target(
         self, **kwargs: Unpack[GetGatewayTargetRequestTypeDef]
     ) -> GetGatewayTargetResponseTypeDef:
@@ -751,6 +879,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway_target.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_gateway_target)
+        """
+
+    async def get_harness(
+        self, **kwargs: Unpack[GetHarnessRequestTypeDef]
+    ) -> GetHarnessResponseTypeDef:
+        """
+        Operation to get a single Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_harness.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_harness)
         """
 
     async def get_memory(self, **kwargs: Unpack[GetMemoryInputTypeDef]) -> GetMemoryOutputTypeDef:
@@ -935,6 +1073,27 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_code_interpreters)
         """
 
+    async def list_configuration_bundle_versions(
+        self, **kwargs: Unpack[ListConfigurationBundleVersionsRequestTypeDef]
+    ) -> ListConfigurationBundleVersionsResponseTypeDef:
+        """
+        Lists all versions of a configuration bundle, with optional filtering by branch
+        name or creation source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_configuration_bundle_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_configuration_bundle_versions)
+        """
+
+    async def list_configuration_bundles(
+        self, **kwargs: Unpack[ListConfigurationBundlesRequestTypeDef]
+    ) -> ListConfigurationBundlesResponseTypeDef:
+        """
+        Lists all configuration bundles in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_configuration_bundles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_configuration_bundles)
+        """
+
     async def list_evaluators(
         self, **kwargs: Unpack[ListEvaluatorsRequestTypeDef]
     ) -> ListEvaluatorsResponseTypeDef:
@@ -944,6 +1103,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_evaluators.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_evaluators)
+        """
+
+    async def list_gateway_rules(
+        self, **kwargs: Unpack[ListGatewayRulesRequestTypeDef]
+    ) -> ListGatewayRulesResponseTypeDef:
+        """
+        Lists all rules for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateway_rules.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_gateway_rules)
         """
 
     async def list_gateway_targets(
@@ -964,6 +1133,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateways.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_gateways)
+        """
+
+    async def list_harnesses(
+        self, **kwargs: Unpack[ListHarnessesRequestTypeDef]
+    ) -> ListHarnessesResponseTypeDef:
+        """
+        Operation to list Harnesses.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_harnesses.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_harnesses)
         """
 
     async def list_memories(
@@ -1179,6 +1358,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_api_key_credential_provider)
         """
 
+    async def update_configuration_bundle(
+        self, **kwargs: Unpack[UpdateConfigurationBundleRequestTypeDef]
+    ) -> UpdateConfigurationBundleResponseTypeDef:
+        """
+        Updates a configuration bundle by creating a new version with the specified
+        changes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_configuration_bundle.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_configuration_bundle)
+        """
+
     async def update_evaluator(
         self, **kwargs: Unpack[UpdateEvaluatorRequestTypeDef]
     ) -> UpdateEvaluatorResponseTypeDef:
@@ -1199,6 +1389,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_gateway)
         """
 
+    async def update_gateway_rule(
+        self, **kwargs: Unpack[UpdateGatewayRuleRequestTypeDef]
+    ) -> UpdateGatewayRuleResponseTypeDef:
+        """
+        Updates a gateway rule's priority, conditions, actions, or description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_gateway_rule)
+        """
+
     async def update_gateway_target(
         self, **kwargs: Unpack[UpdateGatewayTargetRequestTypeDef]
     ) -> UpdateGatewayTargetResponseTypeDef:
@@ -1207,6 +1407,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway_target.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_gateway_target)
+        """
+
+    async def update_harness(
+        self, **kwargs: Unpack[UpdateHarnessRequestTypeDef]
+    ) -> UpdateHarnessResponseTypeDef:
+        """
+        Operation to update a Harness.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_harness.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#update_harness)
         """
 
     async def update_memory(
@@ -1379,8 +1589,41 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_bundle_versions"]
+    ) -> ListConfigurationBundleVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_bundles"]
+    ) -> ListConfigurationBundlesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_evaluators"]
     ) -> ListEvaluatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gateway_rules"]
+    ) -> ListGatewayRulesPaginator:
         """
         Create a paginator for an operation.
 
@@ -1403,6 +1646,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_gateways"]
     ) -> ListGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_harnesses"]
+    ) -> ListHarnessesPaginator:
         """
         Create a paginator for an operation.
 

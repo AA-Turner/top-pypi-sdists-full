@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push: { branches: ["main"] }
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Run everything on main, most-recent on PR builds
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build -t unit-scaling-dev:latest .
+
+      - name: Local unit_scaling install
+        run: docker run -v $(pwd):/home/developer/unit-scaling unit-scaling-dev:latest pip install --user -e .
+
+      - name: Run CI
+        run: docker run -v $(pwd):/home/developer/unit-scaling unit-scaling-dev:latest ./dev ci
+
+      - name: Publish documentation
+        if: ${{github.ref == 'refs/heads/main'}}
+        uses: Cecilapp/GitHub-Pages-deploy@v3
+        env: { GITHUB_TOKEN: "${{ github.token }}" }
+        with:
+          build_dir: docs/_build/html

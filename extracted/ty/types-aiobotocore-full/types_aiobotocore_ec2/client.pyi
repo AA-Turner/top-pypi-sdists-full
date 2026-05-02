@@ -208,6 +208,8 @@ from .type_defs import (
     AcceptCapacityReservationBillingOwnershipResultTypeDef,
     AcceptReservedInstancesExchangeQuoteRequestTypeDef,
     AcceptReservedInstancesExchangeQuoteResultTypeDef,
+    AcceptTransitGatewayClientVpnAttachmentRequestTypeDef,
+    AcceptTransitGatewayClientVpnAttachmentResultTypeDef,
     AcceptTransitGatewayMulticastDomainAssociationsRequestTypeDef,
     AcceptTransitGatewayMulticastDomainAssociationsResultTypeDef,
     AcceptTransitGatewayPeeringAttachmentRequestTypeDef,
@@ -634,6 +636,8 @@ from .type_defs import (
     DeleteTrafficMirrorSessionResultTypeDef,
     DeleteTrafficMirrorTargetRequestTypeDef,
     DeleteTrafficMirrorTargetResultTypeDef,
+    DeleteTransitGatewayClientVpnAttachmentRequestTypeDef,
+    DeleteTransitGatewayClientVpnAttachmentResultTypeDef,
     DeleteTransitGatewayConnectPeerRequestTypeDef,
     DeleteTransitGatewayConnectPeerResultTypeDef,
     DeleteTransitGatewayConnectRequestTypeDef,
@@ -1293,6 +1297,8 @@ from .type_defs import (
     GetManagedPrefixListAssociationsResultTypeDef,
     GetManagedPrefixListEntriesRequestTypeDef,
     GetManagedPrefixListEntriesResultTypeDef,
+    GetManagedResourceVisibilityRequestTypeDef,
+    GetManagedResourceVisibilityResultTypeDef,
     GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef,
     GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef,
     GetNetworkInsightsAccessScopeContentRequestTypeDef,
@@ -1438,6 +1444,8 @@ from .type_defs import (
     ModifyLocalGatewayRouteResultTypeDef,
     ModifyManagedPrefixListRequestTypeDef,
     ModifyManagedPrefixListResultTypeDef,
+    ModifyManagedResourceVisibilityRequestTypeDef,
+    ModifyManagedResourceVisibilityResultTypeDef,
     ModifyNetworkInterfaceAttributeRequestTypeDef,
     ModifyPrivateDnsNameOptionsRequestTypeDef,
     ModifyPrivateDnsNameOptionsResultTypeDef,
@@ -1552,6 +1560,8 @@ from .type_defs import (
     RegisterTransitGatewayMulticastGroupSourcesResultTypeDef,
     RejectCapacityReservationBillingOwnershipRequestTypeDef,
     RejectCapacityReservationBillingOwnershipResultTypeDef,
+    RejectTransitGatewayClientVpnAttachmentRequestTypeDef,
+    RejectTransitGatewayClientVpnAttachmentResultTypeDef,
     RejectTransitGatewayMulticastDomainAssociationsRequestTypeDef,
     RejectTransitGatewayMulticastDomainAssociationsResultTypeDef,
     RejectTransitGatewayPeeringAttachmentRequestTypeDef,
@@ -1787,6 +1797,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/accept_reserved_instances_exchange_quote.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#accept_reserved_instances_exchange_quote)
+        """
+
+    async def accept_transit_gateway_client_vpn_attachment(
+        self, **kwargs: Unpack[AcceptTransitGatewayClientVpnAttachmentRequestTypeDef]
+    ) -> AcceptTransitGatewayClientVpnAttachmentResultTypeDef:
+        """
+        Accepts a Transit Gateway attachment request for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/accept_transit_gateway_client_vpn_attachment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#accept_transit_gateway_client_vpn_attachment)
         """
 
     async def accept_transit_gateway_multicast_domain_associations(
@@ -4107,6 +4127,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_transit_gateway)
+        """
+
+    async def delete_transit_gateway_client_vpn_attachment(
+        self, **kwargs: Unpack[DeleteTransitGatewayClientVpnAttachmentRequestTypeDef]
+    ) -> DeleteTransitGatewayClientVpnAttachmentResultTypeDef:
+        """
+        Deletes a Transit Gateway attachment for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_client_vpn_attachment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_transit_gateway_client_vpn_attachment)
         """
 
     async def delete_transit_gateway_connect(
@@ -7585,6 +7615,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_managed_prefix_list_entries)
         """
 
+    async def get_managed_resource_visibility(
+        self, **kwargs: Unpack[GetManagedResourceVisibilityRequestTypeDef]
+    ) -> GetManagedResourceVisibilityResultTypeDef:
+        """
+        Retrieves the managed resource visibility configuration for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_managed_resource_visibility.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_managed_resource_visibility)
+        """
+
     async def get_network_insights_access_scope_analysis_findings(
         self, **kwargs: Unpack[GetNetworkInsightsAccessScopeAnalysisFindingsRequestTypeDef]
     ) -> GetNetworkInsightsAccessScopeAnalysisFindingsResultTypeDef:
@@ -8349,6 +8389,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_managed_prefix_list)
         """
 
+    async def modify_managed_resource_visibility(
+        self, **kwargs: Unpack[ModifyManagedResourceVisibilityRequestTypeDef]
+    ) -> ModifyManagedResourceVisibilityResultTypeDef:
+        """
+        Modifies the managed resource visibility configuration for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_managed_resource_visibility.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_managed_resource_visibility)
+        """
+
     async def modify_network_interface_attribute(
         self, **kwargs: Unpack[ModifyNetworkInterfaceAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -8965,6 +9015,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/reject_capacity_reservation_billing_ownership.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#reject_capacity_reservation_billing_ownership)
+        """
+
+    async def reject_transit_gateway_client_vpn_attachment(
+        self, **kwargs: Unpack[RejectTransitGatewayClientVpnAttachmentRequestTypeDef]
+    ) -> RejectTransitGatewayClientVpnAttachmentResultTypeDef:
+        """
+        Rejects a Transit Gateway attachment request for a Client VPN endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/reject_transit_gateway_client_vpn_attachment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#reject_transit_gateway_client_vpn_attachment)
         """
 
     async def reject_transit_gateway_multicast_domain_associations(

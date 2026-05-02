@@ -1,0 +1,169 @@
+Metadata-Version: 2.1
+Name: ghga_service_chassis_lib
+Version: 0.17.8
+Summary: A library that contains the basic chassis functionality used in services of GHGA
+Home-page: https://github.com/ghga-de/ghga-service-chassis-lib
+Author: German Human Genome Phenome Archive (GHGA)
+Author-email: contact@ghga.de
+License: Apache 2.0
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8
+License-File: LICENSE
+Requires-Dist: pydantic==1.10.6
+Requires-Dist: PyYAML==6.0
+Provides-Extra: api
+Requires-Dist: fastapi==0.89.1; extra == "api"
+Requires-Dist: uvicorn[standard]==0.20.0; extra == "api"
+Requires-Dist: httpyexpect==0.2.4; extra == "api"
+Requires-Dist: requests==2.28.1; extra == "api"
+Provides-Extra: kafka
+Requires-Dist: kafka-python==2.0.2; extra == "kafka"
+Requires-Dist: jsonschema==4.17.3; extra == "kafka"
+Provides-Extra: pubsub
+Requires-Dist: pika==1.3.1; extra == "pubsub"
+Requires-Dist: jsonschema==4.17.3; extra == "pubsub"
+Provides-Extra: mongo-connect
+Requires-Dist: motor==3.1.1; extra == "mongo-connect"
+Provides-Extra: object-storage-dao
+Provides-Extra: s3
+Requires-Dist: boto3==1.26.46; extra == "s3"
+Requires-Dist: botocore==1.29.47; extra == "s3"
+Provides-Extra: postgresql
+Requires-Dist: sqlalchemy==1.4.46; extra == "postgresql"
+Requires-Dist: asyncpg==0.27.0; extra == "postgresql"
+Requires-Dist: psycopg2==2.9.5; extra == "postgresql"
+Provides-Extra: dev
+Requires-Dist: pytest==7.2.0; extra == "dev"
+Requires-Dist: pytest-asyncio==0.20.3; extra == "dev"
+Requires-Dist: pytest-cov==4.0.0; extra == "dev"
+Requires-Dist: mypy==1.0.0; extra == "dev"
+Requires-Dist: mypy-extensions==1.0.0; extra == "dev"
+Requires-Dist: types-requests==2.28.11.7; extra == "dev"
+Requires-Dist: pylint==2.16.4; extra == "dev"
+Requires-Dist: click==8.1.3; extra == "dev"
+Requires-Dist: black==23.1.0; extra == "dev"
+Requires-Dist: flake8==6.0.0; extra == "dev"
+Requires-Dist: isort==5.12.0; extra == "dev"
+Requires-Dist: bandit==1.7.4; extra == "dev"
+Requires-Dist: pre-commit==3.1.1; extra == "dev"
+Requires-Dist: mkdocs==1.4.2; extra == "dev"
+Requires-Dist: mkdocs-autorefs==0.4.1; extra == "dev"
+Requires-Dist: mkdocs-material==9.0.3; extra == "dev"
+Requires-Dist: mkdocs-material-extensions==1.1.1; extra == "dev"
+Requires-Dist: mkdocstrings==0.19.1; extra == "dev"
+Requires-Dist: mkdocstrings-python-legacy==0.2.3; extra == "dev"
+Requires-Dist: testcontainers[kafka,mongo,postgresql]==3.4.1; extra == "dev"
+Requires-Dist: typer==0.7.0; extra == "dev"
+Requires-Dist: sqlalchemy-utils==0.39.0; extra == "dev"
+Requires-Dist: sqlalchemy-stubs==0.4; extra == "dev"
+Requires-Dist: httpx==0.23.3; extra == "dev"
+Provides-Extra: all
+Requires-Dist: fastapi==0.89.1; extra == "all"
+Requires-Dist: uvicorn[standard]==0.20.0; extra == "all"
+Requires-Dist: httpyexpect==0.2.4; extra == "all"
+Requires-Dist: requests==2.28.1; extra == "all"
+Requires-Dist: pika==1.3.1; extra == "all"
+Requires-Dist: jsonschema==4.17.3; extra == "all"
+Requires-Dist: kafka-python==2.0.2; extra == "all"
+Requires-Dist: jsonschema==4.17.3; extra == "all"
+Requires-Dist: motor==3.1.1; extra == "all"
+Requires-Dist: sqlalchemy==1.4.46; extra == "all"
+Requires-Dist: asyncpg==0.27.0; extra == "all"
+Requires-Dist: psycopg2==2.9.5; extra == "all"
+Requires-Dist: pytest==7.2.0; extra == "all"
+Requires-Dist: pytest-asyncio==0.20.3; extra == "all"
+Requires-Dist: pytest-cov==4.0.0; extra == "all"
+Requires-Dist: mypy==1.0.0; extra == "all"
+Requires-Dist: mypy-extensions==1.0.0; extra == "all"
+Requires-Dist: types-requests==2.28.11.7; extra == "all"
+Requires-Dist: pylint==2.16.4; extra == "all"
+Requires-Dist: click==8.1.3; extra == "all"
+Requires-Dist: black==23.1.0; extra == "all"
+Requires-Dist: flake8==6.0.0; extra == "all"
+Requires-Dist: isort==5.12.0; extra == "all"
+Requires-Dist: bandit==1.7.4; extra == "all"
+Requires-Dist: pre-commit==3.1.1; extra == "all"
+Requires-Dist: mkdocs==1.4.2; extra == "all"
+Requires-Dist: mkdocs-autorefs==0.4.1; extra == "all"
+Requires-Dist: mkdocs-material==9.0.3; extra == "all"
+Requires-Dist: mkdocs-material-extensions==1.1.1; extra == "all"
+Requires-Dist: mkdocstrings==0.19.1; extra == "all"
+Requires-Dist: mkdocstrings-python-legacy==0.2.3; extra == "all"
+Requires-Dist: testcontainers[kafka,mongo,postgresql]==3.4.1; extra == "all"
+Requires-Dist: typer==0.7.0; extra == "all"
+Requires-Dist: sqlalchemy-utils==0.39.0; extra == "all"
+Requires-Dist: sqlalchemy-stubs==0.4; extra == "all"
+Requires-Dist: httpx==0.23.3; extra == "all"
+Requires-Dist: boto3==1.26.46; extra == "all"
+Requires-Dist: botocore==1.29.47; extra == "all"
+
+![tests](https://github.com/ghga-de/ghga-service-chassis-lib/actions/workflows/unit_and_int_tests.yaml/badge.svg)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/ghga_service_chassis_lib.svg)](https://pypi.python.org/pypi/ghga_service_chassis_lib/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/ghga_service_chassis_lib.svg)](https://pypi.python.org/pypi/ghga_service_chassis_lib/)
+[![Coverage Status](https://coveralls.io/repos/github/ghga-de/ghga_service_chassis_lib/badge.svg?branch=main)](https://coveralls.io/github/ghga-de/ghga_service_chassis_lib?branch=main)
+
+# ghga-service-chassis-lib
+This python library serves as chassis for the microservices developed at
+German Human Genome-Phenome Archive (GHGA).
+
+It collects boilerplate code for common functionalities such as config
+parameter parsing and API server setup.
+
+This library is primarily intended for internal use at GHGA and should
+not be seen as a general-purpose microservice chassis.
+However, if this library matches your specific needs as well,
+please feel free to use it. It is open source.
+
+# Installation
+This package is available at PyPI:
+https://pypi.org/project/ghga_service_chassis_lib
+
+You can install it from there using:
+```
+pip install ghga_service_chassis_lib
+```
+
+Thereby, you may specify following extra(s):
+- `api`: dependencies needed to use the API server functionalities
+- `dev`: dependencies needed for development and testing
+
+## Development
+For setting up the development environment, we rely on the
+[devcontainer feature](https://code.visualstudio.com/docs/remote/containers) of vscode.
+
+To use it, you have to have Docker as well as vscode with its "Remote - Containers" extension (`ms-vscode-remote.remote-containers`) extension installed.
+Then, you just have to open this repo in vscode and run the command
+`Remote-Containers: Reopen in Container` from the vscode "Command Palette".
+
+This will give you a full-fledged, pre-configured development environment including:
+- infrastructural dependencies of the service (databases, etc.)
+- all relevant vscode extensions pre-installed
+- pre-configured linting and auto-formating
+- a pre-configured debugger
+- automatic license-header insertion
+
+Moreover, inside the devcontainer, there is follwing convenience command available
+(please type it in the integrated terminal of vscode):
+- `dev_install` - install the lib with all development dependencies and pre-commit hooks
+(please run that if you are starting the devcontainer for the first time
+or if added any python dependencies to the [`./setup.cfg`](./setup.cfg))
+
+If you prefer not to use vscode, you could get a similar setup (without the editor specific features)
+by running the following commands:
+``` bash
+# Execute in the repo's root dir:
+cd ./.devcontainer
+
+# build and run the environment with docker-compose
+docker build -t ghga-service-chassis-lib .
+docker run -it ghga-service-chassis-lib /bin/bash
+
+```
+
+## License
+This repository is free to use and modify according to the [Apache 2.0 License](./LICENSE).

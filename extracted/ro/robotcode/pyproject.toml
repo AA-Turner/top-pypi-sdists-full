@@ -1,0 +1,337 @@
+[build-system]
+requires = ["hatchling>=1.28.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "robotcode"
+description = "Command line interface for RobotCode"
+authors = [{ name = "Daniel Biehl", email = "dbiehl@live.de" }]
+readme = { "file" = "README.md", "content-type" = "text/markdown" }
+license = { text = "Apache-2.0" }
+keywords = [
+  "Test",
+  "Testing",
+  "RobotFramework",
+  "Keyword Driven",
+  "Data Driven",
+  "Acceptance Testing",
+  "Acceptance Test Driven Development",
+  "BDD",
+  "Behavior Driven Testing",
+  "BDT",
+  "Robotic Process Automation",
+  "RPA",
+  "Language Server Protocol",
+  "Debug Adapter Protocol",
+  "Visual Studio Code",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Software Development :: Testing :: Acceptance",
+  "Topic :: Software Development :: Testing :: BDD",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+  "Topic :: Software Development :: Debuggers",
+  "Topic :: Text Editors :: Integrated Development Environments (IDE)",
+  "Intended Audience :: Developers",
+  "Framework :: Robot Framework",
+  "Framework :: Robot Framework :: Tool",
+]
+requires-python = ">=3.10"
+dependencies = ["robotcode-core", "robotcode-plugin", "robotcode-robot"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+debugger = ["robotcode-debugger==2.5.1"]
+languageserver = ["robotcode-language-server==2.5.1"]
+runner = ["robotcode-runner==2.5.1"]
+analyze = ["robotcode-analyze==2.5.1"]
+yaml = ["PyYAML>=5.4"]
+lint = ["robotframework-robocop>=2.0.0"]
+rest = ["docutils"]
+repl = ["robotcode-repl==2.5.1"]
+replserver = ["robotcode-repl-server==2.5.1"]
+colored = ["rich"]
+all = [
+  "robotcode-debugger",
+  "robotcode-language-server",
+  "robotcode-runner",
+  "robotcode-analyze",
+  "robotcode-repl",
+  "robotcode-repl-server",
+  "PyYAML>=5.4",
+  "robotframework-robocop>=6.0.0",
+  "docutils",
+  "rich",
+]
+
+[dependency-groups]
+debugger = ["robotcode-debugger"]
+languageserver = ["robotcode-language-server"]
+runner = ["robotcode-runner"]
+analyze = ["robotcode-analyze"]
+replserver = ["robotcode-repl-server"]
+repl = ["robotcode-repl"]
+yaml = ["PyYAML>=5.4"]
+lint = ["robotframework-robocop>=6.0.0"]
+rest = ["docutils"]
+colored = ["rich"]
+all = [
+  { "include-group" = "debugger" },
+  { "include-group" = "languageserver" },
+  { "include-group" = "runner" },
+  { "include-group" = "analyze" },
+  { "include-group" = "repl" },
+  { "include-group" = "replserver" },
+  { "include-group" = "yaml" },
+  { "include-group" = "lint" },
+  { "include-group" = "rest" },
+  { "include-group" = "colored" },
+]
+
+[project.urls]
+Homepage = "https://robotcode.io"
+Donate = "https://opencollective.com/robotcode"
+Documentation = "https://github.com/robotcodedev/robotcode#readme"
+Changelog = "https://github.com/robotcodedev/robotcode/blob/main/CHANGELOG.md"
+Issues = "https://github.com/robotcodedev/robotcode/issues"
+Source = "https://github.com/robotcodedev/robotcode"
+
+[project.scripts]
+robotcode = "robotcode.cli.__main__:main"
+
+
+[tool.semantic_release]
+version_variable = [
+  "src/robotcode/cli/__version__.py:__version__",
+  "packages/analyze/src/robotcode/analyze/__version__.py:__version__",
+  "packages/core/src/robotcode/core/__version__.py:__version__",
+  "packages/debugger/src/robotcode/debugger/__version__.py:__version__",
+  "packages/jsonrpc2/src/robotcode/jsonrpc2/__version__.py:__version__",
+  "packages/language_server/src/robotcode/language_server/__version__.py:__version__",
+  "packages/modifiers/src/robotcode/modifiers/__version__.py:__version__",
+  "packages/plugin/src/robotcode/plugin/__version__.py:__version__",
+  "packages/robot/src/robotcode/robot/__version__.py:__version__",
+  "packages/runner/src/robotcode/runner/__version__.py:__version__",
+]
+version_pattern = [
+  'package.json:"version": "{version}"',
+  "packages/analyze/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/core/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/debugger/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/jsonrpc2/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/language_server/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/modifiers/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/plugin/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/robot/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "packages/runner/pyproject.toml:\"robotcode\\S*=={version}\"",
+  "pyproject.toml:\"robotcode\\S*=={version}\"",
+]
+branch = "main"
+upload_to_release = false
+upload_to_repository = false
+build_command = "pip install hatch && hatch build"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -vv -rf --ignore=bundled --ignore=.hatch"
+filterwarnings = [
+    "ignore:.*Using or importing the ABCs from 'collections' instead of from 'collections.abc'.*:DeprecationWarning",
+    "ignore:cannot collect test class 'TestCaseDefinition'.*:pytest.PytestCollectionWarning",
+]
+testpaths = ["tests"]
+junit_suite_name = "robotcode"
+# console_output_style = "classic"
+log_cli = true
+# log_cli_level = 4
+# log_cli_format = "%(levelname)s %(name)s: %(message)s"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+faulthandler_timeout = 30
+
+
+[tool.coverage.run]
+omit = ["*tests*"]
+source = ["robotcode"]
+
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+fail_under = 40
+
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["bundled/libs", ".hatch"]
+
+[tool.ruff.lint]
+ignore = ["E741", "N805", "N999", "RUF012", "RUF006", "ISC001"]
+select = [
+  "E",
+  "F",
+  "W",
+  "I",
+  "N",
+  #"UP",
+  "YTT",
+  #"ANN",
+  #"BLE",
+  #"B",
+  #"A"
+  #"COM"
+  # "C4", # TODO enable this
+  "DTZ",
+  "T10",
+  # "EM",
+  "ISC",
+  "G",
+  #"INP",
+  "PIE",
+  # "T20",
+  "PT",
+  "Q",
+  "RET",
+  # "SIM", # TODO enable this
+  # "TID",
+  # "TCH",
+  # "ARG",
+  # "PTH", # TODO enable this
+  # "SLF", #  TODO enable this
+  # "ERA", # TODO enable this
+  "RSE",
+  # "PL",
+  #"TRY",
+  "RUF",
+  # "TID"
+]
+
+[tool.ruff.lint.per-file-ignores]
+#"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+detect-same-package = true
+known-first-party = ["robotcode"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unreachable = true
+implicit_reexport = false
+implicit_optional = true
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
+explicit_package_bases = true
+namespace_packages = true
+exclude = [
+  '^\.mypy_cache/',
+  '^\.venv/',
+  '^\.hatch/',
+  "^build/",
+  "^dist/",
+  "^out/",
+  "^playground/",
+  "^scripts/",
+  "^bundled/libs/",
+  "^intellij-client/",
+]
+mypy_path = [
+  "typings",
+  "src",
+  "packages/core/src",
+  "packages/debugger/src",
+  "packages/jsonrpc2/src",
+  "packages/language_server/src",
+  "packages/modifiers/src",
+  "packages/plugin/src",
+  "packages/robot/src",
+  "packages/runner/src",
+  "packages/analyze/src",
+  "packages/repl/src",
+  "packages/repl_server/src",
+]
+# allow_untyped_calls = true
+
+
+[[tool.mypy.overrides]]
+module = ["robot.*", "robotremoteserver.*", "debugpy.*", "robocop.*", "pluggy"]
+ignore_missing_imports = true
+no_implicit_reexport = false
+
+
+# [tool.hatch.build.targets.wheel.hooks.mypyc]
+# enable-by-default = false
+# dependencies = ["hatch-mypyc", "types-PyYAML", "types-docutils"]
+# require-runtime-dependencies = true
+# include = [
+#   "robotcode/utils/glob_path.py",
+#   "robotcode/language_server/robotframework/diagnostics/analyzer.py",
+# ]
+# exclude = ["__main__.py", "__version__.py", "__init__.py", "typings", "tests"]
+
+
+# [tool.hatch.build.targets.wheel.hooks.mypyc.options]
+# # opt_level = "3"
+# multi_file = true
+#separate = true
+#verbose = true
+#include_runtime_files = false
+
+[tool.pyright]
+exclude = [
+  "**/.hatch",
+  "**/node_modules",
+  "**/__pycache__",
+  "bundled/libs",
+  "intellij-client/build",
+]
+typeCheckingMode = "off"
+pythonVersion = "3.10"
+
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+bump_message = "chore(release): bump version $current_version → $new_version"
+tag_format = "v$version"
+version_scheme = "semver2"
+version_provider = "scm"
+update_changelog_on_bump = false
+# major_version_zero = true
+changelog_incremental = true
+changelog_merge_prerelease = true
+gpg_sign = true
+annotated_tag = true
+pre_bump_hooks = [
+  "hatch env remove lint",
+  "hatch run build:update-git-versions",
+  "hatch run build:update-changelog",
+  "git add .",
+]
+
+
+[tool.robotcode-analyze.extend-modifiers]
+information = ["info_from_pyproject_toml"]
+extend-hint = ["a_hint_from_pyproject_toml"]

@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: spotixplore
+Version: 0.2.0
+Summary: Explore Spotify tracks features and recommended tracks from a playlist
+Home-page: https://github.com/AdriaPadilla/spotixplore
+Author: Adrian Padilla
+Author-email: adrian.padilla.m@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent

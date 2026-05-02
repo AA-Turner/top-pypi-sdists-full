@@ -1,0 +1,46 @@
+name: Build and Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          activate-environment: true
+      - run: uv build
+      - run: uv publish --trusted-publishing always
+
+  build-enterprise:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+          python-version: "3.10"
+          activate-environment: true
+      - name: Build Enterprise Wheel
+        run: uv build --wheel
+        env:
+          REFLEX_NO_CALL_HOME: "True"
+      - name: Attach wheel to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl

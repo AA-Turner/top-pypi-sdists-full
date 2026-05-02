@@ -1,0 +1,18 @@
+name: Extract Costco Brands
+description: Extracts the brands from the Costco website
+steps:
+  - QueryToPandas:
+      query: "SELECT brand, url_brand from costco.roadshows group by brand, url_brand"
+  - ServiceScrapper:
+      use_proxy: true
+      scrapper: costco
+      function: product_information
+      column_name: url_brand
+  - CopyToPg:
+      tablename: costco_brands
+      schema: costco
+      truncate: true
+      use_buffer: true
+      create_table:
+        pk:
+          - "brand"

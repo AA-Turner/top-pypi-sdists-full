@@ -1,0 +1,23 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing_extensions import Required, TypedDict
+
+from ..chat.sort_order import SortOrder
+
+__all__ = ["CriterionListVersionsParams"]
+
+
+class CriterionListVersionsParams(TypedDict, total=False):
+    rubric_id: Required[str]
+
+    ending_before: str
+
+    limit: int
+
+    sort_by: str
+
+    sort_order: SortOrder
+
+    starting_after: str

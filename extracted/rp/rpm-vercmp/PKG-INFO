@@ -1,0 +1,53 @@
+Metadata-Version: 1.1
+Name: rpm_vercmp
+Version: 0.1.2
+Summary: Pure Python implementation of rpmvercmp
+Home-page: UNKNOWN
+Author: Mihai Ibanescu
+Author-email: Mihai.Ibanescu@sas.com
+License: UNKNOWN
+Description: Pure Python implementation of rpmvercmp.
+        
+        The RPM Package Manager (http://rpm.org) has a version comparision algorithm,
+        implemented in its C library, which performs the comparison in a certain way.
+        
+        In certain circumstances, where the C library is not installable (for example,
+        on non-rpm based systems), or does not support the desired version of the
+        python interpreter, the pure-python implementation may be useful.
+        
+        Source Code
+        ===========
+        https://github.com/sassoftware/python-rpm-vercmp
+        
+        Installation
+        ============
+                $ pip install rpm_vercmp
+        
+        Usage
+        =====
+        
+                import rpm_vercmp
+                assert rpm_vercmp.vercmp("1.0", "1.0") == 0
+                assert rpm_vercmp.vercmp("1.0", "1.1") == -1
+        
+        Testing
+        =======
+        The testsuite uses rpm's test file in m4 format.
+        The file cat be fetched from:
+        https://raw.githubusercontent.com/rpm-software-management/rpm/master/tests/rpmvercmp.at
+        
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: System :: Archiving :: Packaging

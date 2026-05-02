@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: ghostcoder
+Version: 0.0.13
+Summary: 
+Author: Albert Örwall
+Author-email: albert@a20g.se
+Requires-Python: >=3.10,<3.12
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: gitpython (>=3.1.31,<4.0.0)
+Requires-Dist: ipython (>=8.16.1,<9.0.0)
+Requires-Dist: openai (>=1.3.7,<2.0.0)
+Requires-Dist: pathspec (>=0.11.1,<0.12.0)
+Requires-Dist: pydantic (>=1,<2)
+Requires-Dist: pyfakefs (>=5.2.3,<6.0.0)
+Requires-Dist: pytest (>=7.3.1,<8.0.0)
+Requires-Dist: tiktoken (>=0.5.1,<0.6.0)
+Requires-Dist: tree-sitter-languages (>=1.8.0,<2.0.0)
+Description-Content-Type: text/markdown
+
+# ghostcoder
+
+
+
+

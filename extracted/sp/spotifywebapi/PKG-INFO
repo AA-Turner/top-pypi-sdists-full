@@ -1,0 +1,46 @@
+Metadata-Version: 2.1
+Name: spotifywebapi
+Version: 1.2.8
+Summary: A simple Spotify Web API in Python
+Home-page: https://github.com/Firius0408/spotifywebapi
+Author: Brian Cheng
+Author-email: briantc@mit.edu
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+Spotify Web API in Python
+=====================
+
+Installation
+------------
+
+`pip install spotifywebapi`
+
+Setup
+-----
+
+```
+export SPOTIFY_CLIENT_ID=client_id_here
+export SPOTIFY_CLIENT_SECRET=client_secret_here
+```
+
+### Client
+
+```python
+import spotifywebapi, os
+
+sp = spotifywebapi.Spotify(os.getenv('SPOTIFY_CLIENT_ID'), os.getenv('SPOTIFY_CLIENT_SECRET'))
+```
+
+### User
+
+```python
+user = sp.getAuthUser(refreshtoken_for_user)
+```
+

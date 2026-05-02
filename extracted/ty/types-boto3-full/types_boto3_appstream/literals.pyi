@@ -24,6 +24,7 @@ else:
 __all__ = (
     "AccessEndpointTypeType",
     "ActionType",
+    "AgentActionType",
     "AgentSoftwareVersionType",
     "AppBlockBuilderAttributeType",
     "AppBlockBuilderPlatformTypeType",
@@ -69,6 +70,8 @@ __all__ = (
     "PreferredProtocolType",
     "RegionName",
     "ResourceServiceName",
+    "ScreenImageFormatType",
+    "ScreenResolutionType",
     "ServiceName",
     "SessionConnectionStateType",
     "SessionStateType",
@@ -98,6 +101,7 @@ ActionType = Literal[
     "FILE_UPLOAD",
     "PRINTING_TO_LOCAL_DEVICE",
 ]
+AgentActionType = Literal["COMPUTER_INPUT", "COMPUTER_VISION"]
 AgentSoftwareVersionType = Literal["ALWAYS_LATEST", "CURRENT_LATEST"]
 AppBlockBuilderAttributeType = Literal[
     "ACCESS_ENDPOINTS", "IAM_ROLE_ARN", "VPC_CONFIGURATION_SECURITY_GROUP_IDS"
@@ -217,6 +221,8 @@ PlatformTypeType = Literal[
     "WINDOWS_SERVER_2025",
 ]
 PreferredProtocolType = Literal["TCP", "UDP"]
+ScreenImageFormatType = Literal["JPEG", "PNG"]
+ScreenResolutionType = Literal["W_1280xH_720"]
 SessionConnectionStateType = Literal["CONNECTED", "NOT_CONNECTED"]
 SessionStateType = Literal["ACTIVE", "EXPIRED", "PENDING"]
 SoftwareDeploymentStatusType = Literal[
@@ -230,6 +236,7 @@ SoftwareDeploymentStatusType = Literal[
 ]
 StackAttributeType = Literal[
     "ACCESS_ENDPOINTS",
+    "AGENT_ACCESS_CONFIG",
     "CONTENT_REDIRECTION",
     "EMBED_HOST_DOMAINS",
     "FEEDBACK_URL",

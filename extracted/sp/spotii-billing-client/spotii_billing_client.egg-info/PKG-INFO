@@ -1,0 +1,453 @@
+Metadata-Version: 2.1
+Name: spotii-billing-client
+Version: 1.0.2
+Summary: Spotii Billing API
+Home-page: UNKNOWN
+Author-email: hello@nuclearo.com
+License: UNKNOWN
+Description: # spotii-billing-client
+        API for Billing
+        
+        
+        - API version: v1.0
+        - Package version: 1.0.0
+        - Build package: io.swagger.codegen.v3.generators.python.PythonClientCodegen
+        
+        ## Requirements.
+        
+        Python 2.7 and 3.4+
+        
+        ## Installation & Usage
+        ### pip install
+        
+        If the python package is hosted on Github, you can install directly from Github
+        
+        ```sh
+        pip install spotii-billing-client
+        ```
+        
+        Then import the package:
+        ```python
+        import spotii_billing_client 
+        ```
+        
+        ## Getting Started
+        
+        Please follow the [installation procedure](#installation--usage) and then run the following:
+        
+        ```python
+        from __future__ import print_function
+        import time
+        import spotii_billing_client
+        from spotii_billing_client.configuration import Configuration
+        from spotii_billing_client.rest import ApiException
+        from pprint import pprint
+        
+        # Configure HTTP basic authorization: Basic
+        configuration = Configuration()
+        configuration.username = 'key'
+        configuration.password = 'secret'
+        
+        # Configure API key authorization: Bearer
+        configuration = Configuration()
+        configuration.api_key['Authorization'] = 'Token key:secret'
+        
+        # Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+        # configuration.api_key_prefix['Authorization'] = 'Bearer'
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.BillingAddress() # BillingAddress | 
+        account_id = 'account_id_example' # str | 
+        
+        try:
+            api_response = api_instance.accounts_billing_addresses_create(body, account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_create: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        external_key = 'external_key_example' # str |  (optional)
+        
+        try:
+            api_response = api_instance.accounts_billing_addresses_default(account_id, external_key=external_key)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_default: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        billing_address_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this billing address.
+        
+        try:
+            api_instance.accounts_billing_addresses_delete(account_id, billing_address_id)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_delete: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        external_key = 'external_key_example' # str |  (optional)
+        
+        try:
+            api_response = api_instance.accounts_billing_addresses_list(account_id, external_key=external_key)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_list: %s\n" % e)
+        
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.BillingAddress() # BillingAddress | 
+        account_id = 'account_id_example' # str | 
+        billing_address_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this billing address.
+        
+        try:
+            api_response = api_instance.accounts_billing_addresses_partial_update(body, account_id, billing_address_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_partial_update: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        billing_address_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this billing address.
+        
+        try:
+            api_response = api_instance.accounts_billing_addresses_read(account_id, billing_address_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_read: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.BillingAddress() # BillingAddress | 
+        account_id = 'account_id_example' # str | 
+        billing_address_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this billing address.
+        
+        try:
+            api_response = api_instance.accounts_billing_addresses_update(body, account_id, billing_address_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_billing_addresses_update: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.Account() # Account | 
+        
+        try:
+            api_response = api_instance.accounts_create(body)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_create: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.Installments() # Installments | 
+        account_id = 'account_id_example' # str | 
+        
+        try:
+            api_response = api_instance.accounts_installments_create(body, account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_installments_create: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        installments_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this installments.
+        
+        try:
+            api_instance.accounts_installments_delete(account_id, installments_id)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_installments_delete: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        external_key = 'external_key_example' # str |  (optional)
+        
+        try:
+            api_response = api_instance.accounts_installments_list(account_id, external_key=external_key)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_installments_list: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        installments_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this installments.
+        
+        try:
+            api_response = api_instance.accounts_installments_read(account_id, installments_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_installments_read: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        external_key = 'external_key_example' # str |  (optional)
+        
+        try:
+            api_response = api_instance.accounts_list(external_key=external_key)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_list: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.Account() # Account | 
+        account_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this account.
+        
+        try:
+            api_response = api_instance.accounts_partial_update(body, account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_partial_update: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.PaymentMethod() # PaymentMethod | 
+        account_id = 'account_id_example' # str | 
+        
+        try:
+            api_response = api_instance.accounts_payment_methods_create(body, account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_create: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        external_key = 'external_key_example' # str |  (optional)
+        
+        try:
+            api_response = api_instance.accounts_payment_methods_default(account_id, external_key=external_key)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_default: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        payment_method_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this payment method.
+        
+        try:
+            api_instance.accounts_payment_methods_delete(account_id, payment_method_id)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_delete: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        external_key = 'external_key_example' # str |  (optional)
+        
+        try:
+            api_response = api_instance.accounts_payment_methods_list(account_id, external_key=external_key)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_list: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.PaymentMethod() # PaymentMethod | 
+        account_id = 'account_id_example' # str | 
+        payment_method_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this payment method.
+        
+        try:
+            api_response = api_instance.accounts_payment_methods_partial_update(body, account_id, payment_method_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_partial_update: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        payment_method_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this payment method.
+        
+        try:
+            api_response = api_instance.accounts_payment_methods_read(account_id, payment_method_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_read: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.PaymentMethod() # PaymentMethod | 
+        account_id = 'account_id_example' # str | 
+        payment_method_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this payment method.
+        
+        try:
+            api_response = api_instance.accounts_payment_methods_update(body, account_id, payment_method_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payment_methods_update: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        
+        try:
+            # API endpoint that allow access to payment.
+            api_response = api_instance.accounts_payments_list(account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payments_list: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = 'account_id_example' # str | 
+        payment_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this payment.
+        
+        try:
+            # API endpoint that allow access to payment.
+            api_response = api_instance.accounts_payments_read(account_id, payment_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_payments_read: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        account_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this account.
+        
+        try:
+            api_response = api_instance.accounts_read(account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_read: %s\n" % e)
+        
+        # create an instance of the API class
+        api_instance = spotii_billing_client.AccountsApi(spotii_billing_client.ApiClient(configuration))
+        body = spotii_billing_client.Account() # Account | 
+        account_id = '38400000-8cf0-11bd-b23e-10b96e4ef00d' # str | A UUID string identifying this account.
+        
+        try:
+            api_response = api_instance.accounts_update(body, account_id)
+            pprint(api_response)
+        except ApiException as e:
+            print("Exception when calling AccountsApi->accounts_update: %s\n" % e)
+        ```
+        
+        ## Documentation for API Endpoints
+        
+        All URIs are relative to *http://localhost:8000/api/v1.0*
+        
+        Class | Method | HTTP request | Description
+        ------------ | ------------- | ------------- | -------------
+        *AccountsApi* | [**accounts_billing_addresses_create**](docs/AccountsApi.md#accounts_billing_addresses_create) | **POST** /accounts/{account_id}/billing-addresses/ | 
+        *AccountsApi* | [**accounts_billing_addresses_default**](docs/AccountsApi.md#accounts_billing_addresses_default) | **GET** /accounts/{account_id}/billing-addresses/default/ | 
+        *AccountsApi* | [**accounts_billing_addresses_delete**](docs/AccountsApi.md#accounts_billing_addresses_delete) | **DELETE** /accounts/{account_id}/billing-addresses/{billing_address_id}/ | 
+        *AccountsApi* | [**accounts_billing_addresses_list**](docs/AccountsApi.md#accounts_billing_addresses_list) | **GET** /accounts/{account_id}/billing-addresses/ | 
+        *AccountsApi* | [**accounts_billing_addresses_partial_update**](docs/AccountsApi.md#accounts_billing_addresses_partial_update) | **PATCH** /accounts/{account_id}/billing-addresses/{billing_address_id}/ | 
+        *AccountsApi* | [**accounts_billing_addresses_read**](docs/AccountsApi.md#accounts_billing_addresses_read) | **GET** /accounts/{account_id}/billing-addresses/{billing_address_id}/ | 
+        *AccountsApi* | [**accounts_billing_addresses_update**](docs/AccountsApi.md#accounts_billing_addresses_update) | **PUT** /accounts/{account_id}/billing-addresses/{billing_address_id}/ | 
+        *AccountsApi* | [**accounts_create**](docs/AccountsApi.md#accounts_create) | **POST** /accounts/ | 
+        *AccountsApi* | [**accounts_installments_create**](docs/AccountsApi.md#accounts_installments_create) | **POST** /accounts/{account_id}/installments/ | 
+        *AccountsApi* | [**accounts_installments_delete**](docs/AccountsApi.md#accounts_installments_delete) | **DELETE** /accounts/{account_id}/installments/{installments_id}/ | 
+        *AccountsApi* | [**accounts_installments_list**](docs/AccountsApi.md#accounts_installments_list) | **GET** /accounts/{account_id}/installments/ | 
+        *AccountsApi* | [**accounts_installments_read**](docs/AccountsApi.md#accounts_installments_read) | **GET** /accounts/{account_id}/installments/{installments_id}/ | 
+        *AccountsApi* | [**accounts_list**](docs/AccountsApi.md#accounts_list) | **GET** /accounts/ | 
+        *AccountsApi* | [**accounts_partial_update**](docs/AccountsApi.md#accounts_partial_update) | **PATCH** /accounts/{account_id}/ | 
+        *AccountsApi* | [**accounts_payment_methods_create**](docs/AccountsApi.md#accounts_payment_methods_create) | **POST** /accounts/{account_id}/payment-methods/ | 
+        *AccountsApi* | [**accounts_payment_methods_default**](docs/AccountsApi.md#accounts_payment_methods_default) | **GET** /accounts/{account_id}/payment-methods/default/ | 
+        *AccountsApi* | [**accounts_payment_methods_delete**](docs/AccountsApi.md#accounts_payment_methods_delete) | **DELETE** /accounts/{account_id}/payment-methods/{payment_method_id}/ | 
+        *AccountsApi* | [**accounts_payment_methods_list**](docs/AccountsApi.md#accounts_payment_methods_list) | **GET** /accounts/{account_id}/payment-methods/ | 
+        *AccountsApi* | [**accounts_payment_methods_partial_update**](docs/AccountsApi.md#accounts_payment_methods_partial_update) | **PATCH** /accounts/{account_id}/payment-methods/{payment_method_id}/ | 
+        *AccountsApi* | [**accounts_payment_methods_read**](docs/AccountsApi.md#accounts_payment_methods_read) | **GET** /accounts/{account_id}/payment-methods/{payment_method_id}/ | 
+        *AccountsApi* | [**accounts_payment_methods_update**](docs/AccountsApi.md#accounts_payment_methods_update) | **PUT** /accounts/{account_id}/payment-methods/{payment_method_id}/ | 
+        *AccountsApi* | [**accounts_payments_list**](docs/AccountsApi.md#accounts_payments_list) | **GET** /accounts/{account_id}/payments/ | API endpoint that allow access to payment.
+        *AccountsApi* | [**accounts_payments_read**](docs/AccountsApi.md#accounts_payments_read) | **GET** /accounts/{account_id}/payments/{payment_id}/ | API endpoint that allow access to payment.
+        *AccountsApi* | [**accounts_read**](docs/AccountsApi.md#accounts_read) | **GET** /accounts/{account_id}/ | 
+        *AccountsApi* | [**accounts_update**](docs/AccountsApi.md#accounts_update) | **PUT** /accounts/{account_id}/ | 
+        *BillingAddressesApi* | [**billing_addresses_create**](docs/BillingAddressesApi.md#billing_addresses_create) | **POST** /billing_addresses/ | 
+        *BillingAddressesApi* | [**billing_addresses_default**](docs/BillingAddressesApi.md#billing_addresses_default) | **GET** /billing_addresses/default/ | 
+        *BillingAddressesApi* | [**billing_addresses_delete**](docs/BillingAddressesApi.md#billing_addresses_delete) | **DELETE** /billing_addresses/{billing_address_id}/ | 
+        *BillingAddressesApi* | [**billing_addresses_list**](docs/BillingAddressesApi.md#billing_addresses_list) | **GET** /billing_addresses/ | 
+        *BillingAddressesApi* | [**billing_addresses_partial_update**](docs/BillingAddressesApi.md#billing_addresses_partial_update) | **PATCH** /billing_addresses/{billing_address_id}/ | 
+        *BillingAddressesApi* | [**billing_addresses_read**](docs/BillingAddressesApi.md#billing_addresses_read) | **GET** /billing_addresses/{billing_address_id}/ | 
+        *BillingAddressesApi* | [**billing_addresses_update**](docs/BillingAddressesApi.md#billing_addresses_update) | **PUT** /billing_addresses/{billing_address_id}/ | 
+        *ConfigurationsApi* | [**configurations_create**](docs/ConfigurationsApi.md#configurations_create) | **POST** /configurations/ | Tenant configuration
+        *ConfigurationsApi* | [**configurations_delete**](docs/ConfigurationsApi.md#configurations_delete) | **DELETE** /configurations/{key}/ | Tenant configuration
+        *ConfigurationsApi* | [**configurations_list**](docs/ConfigurationsApi.md#configurations_list) | **GET** /configurations/ | Tenant configuration
+        *ConfigurationsApi* | [**configurations_partial_update**](docs/ConfigurationsApi.md#configurations_partial_update) | **PATCH** /configurations/{key}/ | Tenant configuration
+        *ConfigurationsApi* | [**configurations_read**](docs/ConfigurationsApi.md#configurations_read) | **GET** /configurations/{key}/ | Tenant configuration
+        *ConfigurationsApi* | [**configurations_update**](docs/ConfigurationsApi.md#configurations_update) | **PUT** /configurations/{key}/ | Tenant configuration
+        *InstallmentEstimateApi* | [**installment_estimate_create**](docs/InstallmentEstimateApi.md#installment_estimate_create) | **POST** /installment-estimate/ | 
+        *InstallmentsApi* | [**installments_create**](docs/InstallmentsApi.md#installments_create) | **POST** /installments/ | 
+        *InstallmentsApi* | [**installments_delete**](docs/InstallmentsApi.md#installments_delete) | **DELETE** /installments/{installments_id}/ | 
+        *InstallmentsApi* | [**installments_list**](docs/InstallmentsApi.md#installments_list) | **GET** /installments/ | 
+        *InstallmentsApi* | [**installments_read**](docs/InstallmentsApi.md#installments_read) | **GET** /installments/{installments_id}/ | 
+        *InvoicesApi* | [**invoices_list**](docs/InvoicesApi.md#invoices_list) | **GET** /invoices/ | The invoice resource represents a specific invoice associated with a given account.
+        *InvoicesApi* | [**invoices_read**](docs/InvoicesApi.md#invoices_read) | **GET** /invoices/{invoice_id}/ | The invoice resource represents a specific invoice associated with a given account.
+        *PaymentMethodsApi* | [**payment_methods_create**](docs/PaymentMethodsApi.md#payment_methods_create) | **POST** /payment_methods/ | 
+        *PaymentMethodsApi* | [**payment_methods_default**](docs/PaymentMethodsApi.md#payment_methods_default) | **GET** /payment_methods/default/ | 
+        *PaymentMethodsApi* | [**payment_methods_delete**](docs/PaymentMethodsApi.md#payment_methods_delete) | **DELETE** /payment_methods/{payment_method_id}/ | 
+        *PaymentMethodsApi* | [**payment_methods_list**](docs/PaymentMethodsApi.md#payment_methods_list) | **GET** /payment_methods/ | 
+        *PaymentMethodsApi* | [**payment_methods_partial_update**](docs/PaymentMethodsApi.md#payment_methods_partial_update) | **PATCH** /payment_methods/{payment_method_id}/ | 
+        *PaymentMethodsApi* | [**payment_methods_read**](docs/PaymentMethodsApi.md#payment_methods_read) | **GET** /payment_methods/{payment_method_id}/ | 
+        *PaymentMethodsApi* | [**payment_methods_update**](docs/PaymentMethodsApi.md#payment_methods_update) | **PUT** /payment_methods/{payment_method_id}/ | 
+        *PaymentsApi* | [**payments_list**](docs/PaymentsApi.md#payments_list) | **GET** /payments/ | API endpoint that allow access to payment.
+        *PaymentsApi* | [**payments_read**](docs/PaymentsApi.md#payments_read) | **GET** /payments/{payment_id}/ | API endpoint that allow access to payment.
+        *PluginConfigurationsApi* | [**plugin_configurations_create**](docs/PluginConfigurationsApi.md#plugin_configurations_create) | **POST** /plugin_configurations/ | Plugin configuration
+        *PluginConfigurationsApi* | [**plugin_configurations_delete**](docs/PluginConfigurationsApi.md#plugin_configurations_delete) | **DELETE** /plugin_configurations/{key}/ | Plugin configuration
+        *PluginConfigurationsApi* | [**plugin_configurations_list**](docs/PluginConfigurationsApi.md#plugin_configurations_list) | **GET** /plugin_configurations/ | Plugin configuration
+        *PluginConfigurationsApi* | [**plugin_configurations_partial_update**](docs/PluginConfigurationsApi.md#plugin_configurations_partial_update) | **PATCH** /plugin_configurations/{key}/ | Plugin configuration
+        *PluginConfigurationsApi* | [**plugin_configurations_read**](docs/PluginConfigurationsApi.md#plugin_configurations_read) | **GET** /plugin_configurations/{key}/ | Plugin configuration
+        *PluginConfigurationsApi* | [**plugin_configurations_update**](docs/PluginConfigurationsApi.md#plugin_configurations_update) | **PUT** /plugin_configurations/{key}/ | Plugin configuration
+        *PushNotificationsApi* | [**push_notifications_create**](docs/PushNotificationsApi.md#push_notifications_create) | **POST** /push_notifications/ | 
+        *PushNotificationsApi* | [**push_notifications_delete**](docs/PushNotificationsApi.md#push_notifications_delete) | **DELETE** /push_notifications/{push_notification_id}/ | 
+        *PushNotificationsApi* | [**push_notifications_list**](docs/PushNotificationsApi.md#push_notifications_list) | **GET** /push_notifications/ | 
+        *PushNotificationsApi* | [**push_notifications_read**](docs/PushNotificationsApi.md#push_notifications_read) | **GET** /push_notifications/{push_notification_id}/ | 
+        *TenantsApi* | [**tenants_create**](docs/TenantsApi.md#tenants_create) | **POST** /tenants/ | 
+        *TenantsApi* | [**tenants_delete**](docs/TenantsApi.md#tenants_delete) | **DELETE** /tenants/{tenant_id}/ | 
+        *TenantsApi* | [**tenants_list**](docs/TenantsApi.md#tenants_list) | **GET** /tenants/ | 
+        *TenantsApi* | [**tenants_read**](docs/TenantsApi.md#tenants_read) | **GET** /tenants/{tenant_id}/ | 
+        *TransactionsApi* | [**transactions_list**](docs/TransactionsApi.md#transactions_list) | **GET** /transactions/ | API endpoint that allow access to payment transactions. Transaction belong to a Payment object.
+        *TransactionsApi* | [**transactions_read**](docs/TransactionsApi.md#transactions_read) | **GET** /transactions/{transaction_id}/ | API endpoint that allow access to payment transactions. Transaction belong to a Payment object.
+        
+        ## Documentation For Models
+        
+         - [Account](docs/Account.md)
+         - [BillingAddress](docs/BillingAddress.md)
+         - [CalculatedPaymentsSerilizer](docs/CalculatedPaymentsSerilizer.md)
+         - [CardDetails](docs/CardDetails.md)
+         - [Configuration](docs/Configuration.md)
+         - [ConfigurationUpdate](docs/ConfigurationUpdate.md)
+         - [EsstimationPaymentSerilizer](docs/EsstimationPaymentSerilizer.md)
+         - [Estimation](docs/Estimation.md)
+         - [InstallmentSerilizer](docs/InstallmentSerilizer.md)
+         - [Installments](docs/Installments.md)
+         - [Invoice](docs/Invoice.md)
+         - [InvoiceItem](docs/InvoiceItem.md)
+         - [Payment](docs/Payment.md)
+         - [PaymentMethod](docs/PaymentMethod.md)
+         - [PluginConfiguration](docs/PluginConfiguration.md)
+         - [PluginConfigurationUpdate](docs/PluginConfigurationUpdate.md)
+         - [PushNotification](docs/PushNotification.md)
+         - [Tenant](docs/Tenant.md)
+         - [Transaction](docs/Transaction.md)
+        
+        ## Documentation For Authorization
+        
+        
+        ## Basic
+        
+        - **Type**: HTTP basic authentication
+        
+        ## Bearer
+        
+        - **Type**: API key
+        - **API key parameter name**: Authorization
+        - **Location**: HTTP header
+        
+        
+        ## Author
+        
+        hello@nuclearo.com
+        
+Keywords: Swagger,Spotii Billing API
+Platform: UNKNOWN
+Description-Content-Type: text/markdown

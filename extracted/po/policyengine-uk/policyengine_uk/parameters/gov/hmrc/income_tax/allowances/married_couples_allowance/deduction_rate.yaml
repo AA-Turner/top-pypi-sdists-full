@@ -1,0 +1,12 @@
+description: Percentage of the Married Couple's Allowance which is deductible from
+  Income Tax Liability
+metadata:
+  economy: false
+  propagate_metadata_to_children: true
+  unit: /1
+  label: Married couple's allowance deduction rate
+  reference:
+    - title: Income Tax Act 2007 s. 46
+      href: https://www.legislation.gov.uk/ukpga/2007/3/section/46
+values:
+  2010-01-01: 0.1

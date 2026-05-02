@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: gaboost
+Version: 1.8.14
+Summary: fork funboost
+Author: ziko
+License: BSD License
+Platform: all
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: Implementation
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries
+License-File: LICENSE
+Requires-Dist: pymongo>=4.0.2
+Requires-Dist: AMQPStorm>=2.7.1
+Requires-Dist: decorator>=4.4.0
+Requires-Dist: tomorrow3>=1.1.0
+Requires-Dist: persist-queue>=0.4.2
+Requires-Dist: elasticsearch
+Requires-Dist: requests
+Requires-Dist: psutil
+Requires-Dist: apscheduler>=3.7.0
+Requires-Dist: redis
+Requires-Dist: ga_log>=1.1
+Requires-Dist: setuptools_rust
+Requires-Dist: nb_filelock
+Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: pysnooper
+Requires-Dist: deprecated
+Dynamic: author
+Dynamic: classifier
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary

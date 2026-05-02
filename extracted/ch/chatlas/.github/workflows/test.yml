@@ -1,0 +1,46 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "rc-*"]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    # Note: Dummy API keys for VCR replay testing are set in the Makefile.
+    # This workflow will not make any live API calls; those are reserved for
+    # the test-live.yml workflow.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install the project
+        run: uv sync --python ${{ matrix.python-version }} --all-extras
+
+      - name: Check tests
+        run: make check-tests
+
+      - name: Check types
+        run: make check-types
+
+      - name: Check formatting
+        run: make check-format

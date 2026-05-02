@@ -12,6 +12,7 @@ Usage::
     from types_aiobotocore_ivs import (
         Client,
         IVSClient,
+        ListAdConfigurationsPaginator,
         ListChannelsPaginator,
         ListPlaybackKeyPairsPaginator,
         ListRecordingConfigurationsPaginator,
@@ -25,6 +26,7 @@ Usage::
         ...
 
 
+    list_ad_configurations_paginator: ListAdConfigurationsPaginator = client.get_paginator("list_ad_configurations")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
     list_playback_key_pairs_paginator: ListPlaybackKeyPairsPaginator = client.get_paginator("list_playback_key_pairs")
     list_recording_configurations_paginator: ListRecordingConfigurationsPaginator = client.get_paginator("list_recording_configurations")
@@ -35,6 +37,7 @@ Usage::
 
 from .client import IVSClient
 from .paginator import (
+    ListAdConfigurationsPaginator,
     ListChannelsPaginator,
     ListPlaybackKeyPairsPaginator,
     ListRecordingConfigurationsPaginator,
@@ -48,6 +51,7 @@ Client = IVSClient
 __all__ = (
     "Client",
     "IVSClient",
+    "ListAdConfigurationsPaginator",
     "ListChannelsPaginator",
     "ListPlaybackKeyPairsPaginator",
     "ListRecordingConfigurationsPaginator",

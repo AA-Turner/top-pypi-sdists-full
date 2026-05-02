@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: spright
+Version: 25.6.3
+Summary: Bayesian radius-density-mass relation for small planets.
+Author-email: Hannu Parviainen <hpparvi@gmail.com>
+Project-URL: homepage, https://github.com/hpparvi/spright
+Keywords: astronomy,astrophysics,exoplanets
+Classifier: Topic :: Scientific/Engineering
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: numba
+Requires-Dist: scipy
+Requires-Dist: uncertainties
+Requires-Dist: pandas
+Requires-Dist: plotext
+Requires-Dist: astropy
+Requires-Dist: pytransit
+Requires-Dist: arviz
+Requires-Dist: corner
+Requires-Dist: tqdm
+Requires-Dist: celerite
+Requires-Dist: emcee
+Requires-Dist: mpltern
+Dynamic: license-file

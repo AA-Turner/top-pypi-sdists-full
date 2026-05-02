@@ -1,0 +1,46 @@
+Metadata-Version: 2.4
+Name: ghostfolio
+Version: 0.8.0
+Summary: Python API client for Ghostfolio
+Author-email: Marcin Szymanski <ms32035@gmail.com>
+Project-URL: Homepage, https://github.com/ms32035/ghostfolio-py
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests
+Dynamic: license-file
+
+# Rest API client for Ghostfolio
+
+Unofficial REST API for [Ghostfolio](https://ghostfol.io/).
+
+Supports documented and undocumented APIs
+
+## Installation
+
+```bash
+pip install ghostfolio
+```
+
+## Usage
+
+```python
+from ghostfolio import Ghostfolio
+
+client = Ghostfolio(token="your_token")
+
+```
+
+Or if you want to connect to your self-hosted Ghostfolio instance:
+
+```python
+from ghostfolio import Ghostfolio
+
+client = Ghostfolio(token="your_token", host="https://your-ghostfolio-instance.com")
+```
+
+## Generate Documentation
+
+```shell
+pdoc --html --output-dir docs ghostfolio --force
+```

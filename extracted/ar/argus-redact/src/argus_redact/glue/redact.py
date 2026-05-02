@@ -1,0 +1,574 @@
+"""redact() — public API that composes pure + impure layers."""
+
+from __future__ import annotations
+
+import importlib
+import json
+import logging
+import re as _re
+import time
+from pathlib import Path
+
+from argus_redact._types import PatternMatch
+from argus_redact.lang.shared.patterns import PATTERNS as SHARED_PATTERNS
+from argus_redact.pure.grammar import normalize_grammar_en
+from argus_redact.pure.hints import (
+    boost_cross_layer,
+    filter_self_reference,
+    get_ner_min_confidence,
+    get_person_threshold,
+    produce_hints,
+    should_skip_ner,
+)
+from argus_redact.pure.lang_detect import detect_languages
+from argus_redact.pure.merger import merge_entities
+from argus_redact.pure.normalize import MAX_INPUT_SIZE, map_spans_to_original, normalize_text
+from argus_redact.pure.patterns import match_patterns
+from argus_redact.pure.replacer import replace
+from argus_redact.telemetry import PerfRecord, emit, get_perf_hook
+
+logger = logging.getLogger(__name__)
+
+# Cached telemetry constants (resolved once at import, not per-call)
+try:
+    from argus_redact._core import merge_entities as _unused  # noqa: F401
+
+    _RUST_CORE = True
+except ImportError:
+    _RUST_CORE = False
+
+
+def _telemetry_hook_active() -> bool:
+    return get_perf_hook() is not None
+
+
+def _emit_telemetry(
+    text: str,
+    timing: dict,
+    entities: list,
+    langs: list[str],
+    mode: str,
+) -> None:
+    ascii_count = sum(1 for c in text if c.isascii()) if text else 0
+    emit(
+        PerfRecord(
+            version=importlib.import_module("argus_redact").__version__,
+            timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
+            text_len=len(text),
+            text_ascii_ratio=round(ascii_count / len(text), 2) if text else 0.0,
+            lang=langs,
+            mode=mode,
+            normalize_ms=round(timing.get("normalize_ms", 0), 2),
+            layer_1_ms=round(timing.get("layer_1_ms", 0), 2),
+            layer_1b_person_ms=round(timing.get("layer_1b_person_ms", 0), 2),
+            layer_2_ms=round(timing.get("layer_2_ms", 0), 2),
+            layer_3_ms=round(timing.get("layer_3_ms", 0), 2),
+            merge_ms=round(timing.get("merge_ms", 0), 2),
+            replace_ms=round(timing.get("replace_ms", 0), 2),
+            total_ms=round(sum(timing.values()), 2),
+            entities_found=len(entities),
+            entity_types=sorted(set(e.type for e in entities)),
+            rust_core=_RUST_CORE,
+        )
+    )
+
+
+_LANG_PATTERNS = {
+    "zh": "argus_redact.lang.zh.patterns",
+    "en": "argus_redact.lang.en.patterns",
+    "ja": "argus_redact.lang.ja.patterns",
+    "ko": "argus_redact.lang.ko.patterns",
+    "de": "argus_redact.lang.de.patterns",
+    "uk": "argus_redact.lang.uk.patterns",
+    "in": "argus_redact.lang.in_.patterns",
+    "br": "argus_redact.lang.br.patterns",
+}
+
+_LANG_NER_ADAPTERS = {
+    "zh": "argus_redact.lang.zh.ner_adapter",
+    "en": "argus_redact.lang.en.ner_adapter",
+    "ja": "argus_redact.lang.ja.ner_adapter",
+    "ko": "argus_redact.lang.ko.ner_adapter",
+    "de": "argus_redact.lang.de.ner_adapter",
+    "uk": "argus_redact.lang.uk.ner_adapter",
+    "in": "argus_redact.lang.in_.ner_adapter",
+}
+
+VALID_MODES = ("auto", "fast", "ner")
+
+
+_pattern_cache: dict[tuple[str, ...], list[dict]] = {}
+
+
+def _load_patterns(lang: str | list[str]) -> list[dict]:
+    """Load regex patterns for the given language(s). Cached per language combo."""
+    langs = tuple(lang) if isinstance(lang, list) else (lang,)
+    if langs in _pattern_cache:
+        return _pattern_cache[langs]
+
+    all_patterns = list(SHARED_PATTERNS)
+    for code in langs:
+        if code not in _LANG_PATTERNS:
+            raise ValueError(f"Unknown language '{code}'. Available: {list(_LANG_PATTERNS.keys())}")
+        try:
+            mod = importlib.import_module(_LANG_PATTERNS[code])
+            all_patterns.extend(mod.PATTERNS)
+        except ModuleNotFoundError:
+            raise ValueError(
+                f"Language pack '{code}' is not installed. "
+                f"Install with: pip install argus-redact[{code}]"
+            )
+
+    _pattern_cache[langs] = all_patterns
+    return all_patterns
+
+
+def _get_ner_adapters(lang: str | list[str]) -> list:
+    """Load ALL available NER adapters for the given languages."""
+    langs = [lang] if isinstance(lang, str) else list(lang)
+    adapters = []
+
+    for code in langs:
+        if code not in _LANG_NER_ADAPTERS:
+            continue
+        try:
+            mod = importlib.import_module(_LANG_NER_ADAPTERS[code])
+            adapter = mod.create_adapter()
+            adapter.load()
+            adapters.append(adapter)
+        except (ModuleNotFoundError, ImportError):
+            pass
+
+    return adapters
+
+
+def _get_semantic_adapter():
+    """Create an Ollama semantic adapter. Returns None if unavailable."""
+    try:
+        from argus_redact.impure.ollama_adapter import OllamaAdapter
+
+        return OllamaAdapter()
+    except ImportError:
+        return None
+
+
+def _tag_layer(entities: list[PatternMatch], layer: int) -> list[PatternMatch]:
+    """Tag entities with their source layer if not already tagged."""
+    return [
+        PatternMatch(
+            text=e.text,
+            type=e.type,
+            start=e.start,
+            end=e.end,
+            confidence=e.confidence,
+            layer=layer if e.layer == 0 else e.layer,
+        )
+        for e in entities
+    ]
+
+
+def _detect(
+    text: str,
+    *,
+    lang: str | list[str],
+    mode: str,
+    names: list[str] | None,
+    types: list[str] | None,
+    types_exclude: list[str] | None,
+) -> tuple[list[PatternMatch], list[str], dict, dict]:
+    """Run the full detection pipeline (L1 regex + L1b person + L2 NER + L3 LLM + merge).
+
+    Returns:
+        entities: final filtered entity list
+        langs: resolved language list (after auto-detect)
+        timing: numeric per-stage timings (ms) — values summed for total_ms
+        layer_stats: counts/status per layer (for detailed/report output)
+    """
+    timing: dict[str, float] = {}
+    entities: list[PatternMatch] = []
+    langs = [lang] if isinstance(lang, str) else list(lang)
+
+    t0 = time.perf_counter()
+    normalized, offset_map = normalize_text(text)
+    timing["normalize_ms"] = (time.perf_counter() - t0) * 1000
+    use_normalized = offset_map is not None
+
+    # Layer 1a: regex (structural PII — phone, ID, bank card, etc.)
+    t0 = time.perf_counter()
+    detect_text = normalized if use_normalized else text
+    layer1_raw, near_misses = match_patterns(detect_text, _load_patterns(lang))
+
+    # Map normalized offsets back to original text
+    if use_normalized and layer1_raw:
+        mapped_spans = map_spans_to_original(
+            [(e.start, e.end) for e in layer1_raw],
+            offset_map,
+            len(text),
+        )
+        layer1 = [
+            PatternMatch(
+                text=text[s:e],
+                type=e_orig.type,
+                start=s,
+                end=e,
+                confidence=e_orig.confidence,
+                layer=e_orig.layer,
+            )
+            for e_orig, (s, e) in zip(layer1_raw, mapped_spans)
+        ]
+    else:
+        layer1 = layer1_raw
+
+    timing["layer_1_ms"] = (time.perf_counter() - t0) * 1000
+    entities.extend(_tag_layer(layer1, 1))
+    layer1_count = len(layer1)
+
+    # Produce hints from L1a results — consumed by L1b, L2, L3, and tier filter
+    hints = produce_hints(layer1, text, near_misses=near_misses)
+
+    # Layer 1b: person name detection
+    # Hint-driven: threshold adjusts based on text_intent
+    person_threshold = get_person_threshold(hints)
+
+    if "zh" in langs:
+        from argus_redact.lang.zh.person import detect_person_names
+
+        t0 = time.perf_counter()
+        person_names = detect_person_names(
+            text,
+            pii_entities=layer1,
+            known_names=names,
+            threshold=person_threshold,
+        )
+        timing["layer_1b_person_ms"] = (time.perf_counter() - t0) * 1000
+        entities.extend(_tag_layer(person_names, 1))
+        layer1_count += len(person_names)
+
+    if "en" in langs:
+        from argus_redact.lang.en.person import detect_person_names as detect_en_person
+
+        t0 = time.perf_counter()
+        en_person_names = detect_en_person(text, known_names=names)
+        timing["layer_1b_person_en_ms"] = (time.perf_counter() - t0) * 1000
+        entities.extend(_tag_layer(en_person_names, 1))
+        layer1_count += len(en_person_names)
+        # Note: en detector ignores L1 hints / threshold today (uses surname
+        # list-match exclusively); kwargs simplified to known_names.
+
+    if "zh" not in langs and "en" not in langs and names:
+        for name in names:
+            if not name:
+                continue
+            for m in _re.finditer(_re.escape(name), text):
+                entities.append(
+                    PatternMatch(
+                        text=name,
+                        type="person",
+                        start=m.start(),
+                        end=m.end(),
+                        confidence=1.0,
+                        layer=1,
+                    )
+                )
+                layer1_count += 1
+
+    # Layer 2: NER (auto or ner mode), hint-gated
+    layer2_count = 0
+    layer2_status = "skipped"
+    if mode in ("auto", "ner") and not should_skip_ner(hints):
+        from argus_redact.impure.ner import detect_ner
+
+        ner_confidence = get_ner_min_confidence(hints)
+        t0 = time.perf_counter()
+        adapters = _get_ner_adapters(lang)
+        if not adapters and mode == "ner":
+            logger.warning(
+                "mode='ner' but no NER models available. "
+                "Install language extras: pip install argus-redact[zh] or [en]"
+            )
+            layer2_status = "no_model"
+        for adapter in adapters:
+            ner_entities = detect_ner(text, adapter=adapter, min_confidence=ner_confidence)
+            layer2_matches = [e.to_pattern_match(layer=2) for e in ner_entities]
+            entities.extend(layer2_matches)
+            layer2_count += len(layer2_matches)
+        if adapters:
+            layer2_status = "ok"
+        timing["layer_2_ms"] = (time.perf_counter() - t0) * 1000
+
+    # Layer 3: Semantic LLM (auto mode only)
+    layer3_count = 0
+    layer3_status = "skipped"
+    if mode == "auto":
+        semantic_adapter = _get_semantic_adapter()
+        if semantic_adapter is not None:
+            from argus_redact.impure.semantic import detect_semantic
+
+            t0 = time.perf_counter()
+            try:
+                sem_entities = detect_semantic(text, adapter=semantic_adapter)
+                layer3_matches = [e.to_pattern_match(layer=3) for e in sem_entities]
+                entities.extend(layer3_matches)
+                layer3_count += len(layer3_matches)
+                layer3_status = "ok"
+            except Exception:
+                logger.warning("Layer 3 semantic detection failed", exc_info=True)
+                layer3_status = "error"
+            timing["layer_3_ms"] = (time.perf_counter() - t0) * 1000
+
+    t0 = time.perf_counter()
+    pre_merge = entities
+    entities = merge_entities(pre_merge, text=text)
+    entities = boost_cross_layer(entities, pre_merge)
+    entities = filter_self_reference(entities, hints)
+    timing["merge_ms"] = (time.perf_counter() - t0) * 1000
+
+    # Apply type filtering
+    if types is not None:
+        type_set = set(types)
+        entities = [e for e in entities if e.type in type_set]
+    elif types_exclude is not None:
+        exclude_set = set(types_exclude)
+        entities = [e for e in entities if e.type not in exclude_set]
+
+    layer_stats = {
+        "layer1_count": layer1_count,
+        "layer2_count": layer2_count,
+        "layer2_status": layer2_status,
+        "layer3_count": layer3_count,
+        "layer3_status": layer3_status,
+    }
+    return entities, langs, timing, layer_stats
+
+
+def _replace_and_emit(
+    text: str,
+    entities: list[PatternMatch],
+    *,
+    seed: int | None,
+    existing_key: dict | None,
+    key_file: str | None,
+    config: dict | None,
+    lang: str | list[str],
+    langs: list[str],
+    timing: dict,
+    mode: str,
+    aliases_out: dict[str, list[str]] | None = None,
+) -> tuple[str, dict]:
+    """Apply replacement, run grammar normalization, emit telemetry, persist key file.
+
+    Mutates `timing` in place by adding `replace_ms`. The caller is responsible
+    for any further use of `timing` (e.g., detailed-output stats).
+
+    `aliases_out` (v0.5.8+, optional): forwarded to ``replace()`` so the caller
+    can capture cross-language aliases emitted by realistic-strategy fakers.
+    """
+    t0 = time.perf_counter()
+    redacted, result_key = replace(
+        text,
+        entities,
+        seed=seed,
+        key=existing_key,
+        config=config,
+        langs=langs,
+        aliases_out=aliases_out,
+    )
+    effective_lang = lang if isinstance(lang, str) else (lang[0] if lang else "zh")
+    if effective_lang == "en":
+        redacted = normalize_grammar_en(redacted, result_key)
+    timing["replace_ms"] = (time.perf_counter() - t0) * 1000
+
+    # Emit telemetry — zero overhead when no hook set
+    if _telemetry_hook_active():
+        _emit_telemetry(text, timing, entities, langs, mode)
+
+    if key_file is not None and result_key:
+        target = Path(key_file)
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps(result_key, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        tmp.replace(target)
+
+    return redacted, result_key
+
+
+def redact(
+    text: str,
+    *,
+    key: dict | str | None = None,
+    lang: str | list[str] = "zh",
+    mode: str = "fast",
+    seed: int | None = None,
+    config: dict | str | None = None,
+    names: list[str] | None = None,
+    detailed: bool = False,
+    report: bool = False,
+    with_types: bool = False,
+    profile: str | None = None,
+    types: list[str] | None = None,
+    types_exclude: list[str] | None = None,
+):
+    """Detect and replace PII in text.
+
+    Args:
+        mode: Detection mode.
+            - "fast" (default): regex only. Zero deps, sub-ms, deterministic.
+              English names / standalone Chinese names are NOT detected at this level
+              — pass them via `names=[...]` or use "ner" / "auto".
+            - "ner": regex + NER model (requires spacy/hanlp). Detects bare names.
+            - "auto": regex + NER + semantic LLM (requires Ollama). Maximum coverage.
+        names: List of known names/entities to always redact (works in fast mode).
+        report: Return a RedactReport with risk assessment and audit info.
+        with_types: Return a 3-tuple (redacted, key, types) where types maps replacement→PII type.
+        profile: Compliance profile name ("default", "pipl", "gdpr", "hipaa").
+        types: Whitelist of PII type names to detect.
+        types_exclude: Blacklist of PII type names to skip.
+
+    Returns:
+        (redacted_text, key) by default.
+        (redacted_text, key, details) when detailed=True.
+        RedactReport when report=True.
+    """
+    if not isinstance(text, str):
+        raise TypeError(f"text must be a string, got {type(text).__name__}")
+
+    if len(text) > MAX_INPUT_SIZE:
+        raise ValueError(
+            f"Input text ({len(text)} chars) exceeds maximum allowed size "
+            f"({MAX_INPUT_SIZE} chars). Split into smaller chunks."
+        )
+
+    if mode not in VALID_MODES:
+        raise ValueError(f"Invalid mode '{mode}'. Must be one of: {', '.join(VALID_MODES)}")
+
+    if types is not None and types_exclude is not None:
+        raise ValueError("types and types_exclude are mutually exclusive")
+
+    # Resolve profile → types filter + strategy overrides
+    if profile is not None:
+        from argus_redact.specs.profiles import get_profile
+
+        prof = get_profile(profile)
+        if types is None and "types" in prof:
+            types = prof["types"]
+        if "config" in prof:
+            # Profile config is base; user config overrides
+            profile_config = dict(prof["config"])
+            if config:
+                profile_config.update(config)
+            config = profile_config
+
+    # Resolve config from file path
+    if isinstance(config, str):
+        config_path = Path(config)
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config}")
+        if config_path.suffix in (".yaml", ".yml"):
+            import yaml
+
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        else:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+
+    # Resolve key
+    existing_key: dict | None = None
+    key_file: str | None = None
+    if isinstance(key, str):
+        key_file = key
+        path = Path(key_file)
+        existing_key = (
+            json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        )
+    elif isinstance(key, dict):
+        existing_key = dict(key)
+
+    if lang == "auto":
+        lang = detect_languages(text)
+
+    entities, langs, timing, layer_stats = _detect(
+        text,
+        lang=lang,
+        mode=mode,
+        names=names,
+        types=types,
+        types_exclude=types_exclude,
+    )
+
+    redacted, result_key = _replace_and_emit(
+        text,
+        entities,
+        seed=seed,
+        existing_key=existing_key,
+        key_file=key_file,
+        config=config,
+        lang=lang,
+        langs=langs,
+        timing=timing,
+        mode=mode,
+    )
+
+    if with_types and not detailed and not report:
+        # Build replacement → PII type mapping
+        reverse_key = {v: k for k, v in result_key.items()}
+        type_map = {}
+        for e in entities:
+            replacement = reverse_key.get(e.text, "")
+            if replacement:
+                type_map[replacement] = e.type
+        return redacted, result_key, type_map
+
+    if detailed or report:
+        reverse_key = {v: k for k, v in result_key.items()}
+        entity_details = [
+            {
+                "original": e.text,
+                "replacement": reverse_key.get(e.text, ""),
+                "type": e.type,
+                "layer": e.layer,
+                "start": e.start,
+                "end": e.end,
+                "confidence": e.confidence,
+            }
+            for e in entities
+        ]
+        total_ms = sum(timing.values())
+        stats = {
+            "total": len(entity_details),
+            "layer_1": layer_stats["layer1_count"],
+            "layer_2": layer_stats["layer2_count"],
+            "layer_2_status": layer_stats["layer2_status"],
+            "layer_3": layer_stats["layer3_count"],
+            "layer_3_status": layer_stats["layer3_status"],
+            "duration_ms": round(total_ms, 2),
+            **{k: round(v, 2) for k, v in timing.items()},
+        }
+
+        if report:
+            from argus_redact._types import RedactReport
+            from argus_redact.pure.risk import assess_risk
+            from argus_redact.specs import lookup
+
+            # Build risk input with cached sensitivity lookup
+            sens_cache: dict[str, int] = {}
+            risk_entities = []
+            for e in entity_details:
+                t = e["type"]
+                if t not in sens_cache:
+                    typedefs = lookup(t)
+                    sens_cache[t] = typedefs[0].sensitivity if typedefs else 2
+                risk_entities.append({"type": t, "sensitivity": sens_cache[t]})
+            risk = assess_risk(risk_entities, lang=lang if isinstance(lang, str) else lang[0])
+
+            return RedactReport(
+                redacted_text=redacted,
+                key=result_key,
+                entities=tuple(entity_details),
+                stats=stats,
+                risk=risk,
+            )
+
+        return redacted, result_key, {"entities": entity_details, "stats": stats}
+
+    return redacted, result_key

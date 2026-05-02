@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: spounge-proto-py
+Version: 0.2.9
+Summary: Generated protobuf Python packages for Spounge AI ecosystem microservices
+Author-email: Spounge AI Team <dev@spounge.com>
+License: MIT
+Project-URL: Homepage, https://github.com/spoungeai/spounge-proto
+Project-URL: Repository, https://github.com/spoungeai/spounge-proto
+Keywords: protobuf,grpc,microservices,spounge,ai
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: Internet
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: protobuf<7.0.0,>=6.31.1
+Requires-Dist: grpcio<2.0.0,>=1.74.0rc1
+Requires-Dist: grpcio-tools<2.0.0,>=1.73.1
+Provides-Extra: dev
+Requires-Dist: build>=1.2.2; extra == "dev"
+Requires-Dist: twine>=5.1.1; extra == "dev"
+Requires-Dist: pytest>=8.4.1; extra == "dev"
+Dynamic: license-file
+
+# spounge-proto-py
+
+Generated protobuf Python packages for Spounge AI ecosystem microservices.
+
+## Installation
+
+```bash
+pip install spounge-proto-py
+```
+
+## Usage
+
+```python
+# Import your generated protobuf modules
+from api.v2 import auth_gateway_service_pb2
+from auth.v2 import auth_service_pb2
+from common.v1 import common_pb2
+
+# Create requests
+auth_request = auth_service_pb2.LoginRequest(
+    email="user@example.com", 
+    password="password"
+)
+
+# Use with gRPC
+import grpc
+from api.v2 import auth_gateway_service_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:8080')
+client = auth_gateway_service_pb2_grpc.AuthGatewayServiceStub(channel)
+```
+
+## Package Structure
+
+Your protobuf modules are organized by domain and version:
+- `api.v*` - API Gateway interfaces
+- `auth.v*` - Authentication services
+- `common.v*` - Shared definitions  
+- `workflow.v*` - Workflow orchestration
+- `dashboard.v*` - Analytics
+
+## License
+
+MIT License

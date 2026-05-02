@@ -1,7 +1,7 @@
 import asyncio
 import os
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import grpc
 import pytest
@@ -51,11 +51,23 @@ def test_abort_agent_logs_return_code_for_graceful_termination(tmp_path: Path) -
     process.terminate.assert_called_once()
     process.wait.assert_called_once()
     process.kill.assert_not_called()
-    connection.log.assert_called_once_with(
-        "Isolate agent gracefully terminated",
-        level=LogLevel.INFO,
-        source=LogSource.BRIDGE,
-    )
+    assert connection.log.call_args_list == [
+        call(
+            "Terminating the agent process...",
+            level=LogLevel.INFO,
+            source=LogSource.BRIDGE,
+        ),
+        call(
+            "Agent process shutdown gracefully",
+            level=LogLevel.INFO,
+            source=LogSource.BRIDGE,
+        ),
+        call(
+            "Isolate agent gracefully terminated",
+            level=LogLevel.INFO,
+            source=LogSource.BRIDGE,
+        ),
+    ]
     assert connection._process is None
 
 
@@ -73,11 +85,23 @@ def test_abort_agent_logs_return_code_after_kill_fallback(tmp_path: Path) -> Non
     process.terminate.assert_called_once()
     process.kill.assert_called_once()
     process.wait.assert_called_once()
-    connection.log.assert_called_once_with(
-        "Isolate agent forcefully killed",
-        level=LogLevel.INFO,
-        source=LogSource.BRIDGE,
-    )
+    assert connection.log.call_args_list == [
+        call(
+            "Terminating the agent process...",
+            level=LogLevel.INFO,
+            source=LogSource.BRIDGE,
+        ),
+        call(
+            "Failed to shutdown the agent process gracefully: terminate failed",
+            level=LogLevel.ERROR,
+            source=LogSource.BRIDGE,
+        ),
+        call(
+            "Isolate agent forcefully killed",
+            level=LogLevel.INFO,
+            source=LogSource.BRIDGE,
+        ),
+    ]
     assert connection._process is None
 
 

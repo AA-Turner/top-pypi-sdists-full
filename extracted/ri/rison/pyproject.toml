@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rison"
+version = "2.0.1"
+description = "Rison encoder/decoder"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Beto Dealmeida", email = "beto@dealmeida.net" },
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.urls]
+Homepage = "https://github.com/betodealmeida/python-rison"
+
+[project.optional-dependencies]
+pygments = ["pygments>=2.0"]
+dev = ["pytest", "pytest-cov", "pygments>=2.0"]
+
+[project.entry-points."pygments.lexers"]
+rison = "rison.lexers:RisonLexer"
+orison = "rison.lexers:ORisonLexer"
+arison = "rison.lexers:ARisonLexer"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.isort]
+profile = "black"

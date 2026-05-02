@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: spring-data-sqlachemy
+Version: 0.1.4
+Summary: Spring Data SQLAlchemy is an offshoot of the Java-based Spring Data Framework, targeted for SQLAlchemy.
+Home-page: https://github.com/kobibleu/spring-data-sqlalchemy
+Author: Vincent TERESE
+Author-email: vincent.terese@gmail.com
+Requires-Python: >=3.8,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: SQLAlchemy (>=1.4,<2.0)
+Requires-Dist: spring-data-python (>=0.1.0,<1)
+Project-URL: Repository, https://github.com/kobibleu/spring-data-sqlalchemy
+Description-Content-Type: text/markdown
+
+# spring-data-sqlalchemy
+Spring Data SQLAlchemy is an offshoot of the Java-based Spring Data Framework, targeted for SQLAlchemy.
+

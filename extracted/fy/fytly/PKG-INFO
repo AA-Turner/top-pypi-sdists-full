@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: fytly
+Version: 3.6.3
+Summary: A grading component for keyword-based scoring for resumes
+Home-page: https://www.aegletek.com/
+Author: Aegletek
+Author-email: coe@aegletek.com
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENCE.txt
+Requires-Dist: PyPDF2
+Requires-Dist: python-docx
+Requires-Dist: pyspellchecker
+Requires-Dist: spacy
+Requires-Dist: nltk
+Requires-Dist: rapidfuzz
+
+A Python package for keyword-based weightage of resumes, designed to evaluate and scoring resume content using natural language processing techniques used these rapidfuzz, spacy, nltk.

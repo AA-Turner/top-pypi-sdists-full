@@ -1,0 +1,22 @@
+name: Test CASE
+description: Test for Switch/CASE functionality
+steps:
+  - FileRead:
+      file: sample_recap.json
+      is_json: True
+  - Switch:
+      cases:
+        - condition: "$.metadata.type == 'recapDefinition'"
+          component: PrintMessage_3
+        - condition: "$.metadata.type == 'role'"
+          component: PrintMessage_4
+      default: PrintMessage_5
+  - PrintMessage:
+      message: "Executing: recapDefinition"
+      level: "WARN"
+  - PrintMessage:
+      message: "Executing: Role"
+      level: "WARN"
+  - PrintMessage:
+      message: "Executing: Default"
+      level: "WARN"

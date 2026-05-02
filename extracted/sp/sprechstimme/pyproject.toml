@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sprechstimme"
+version = "1.8.10"
+description = "A modular Python synthesizer and sequencer"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "liquidsound" }
+]
+dependencies = [
+  "numpy",
+  "sounddevice",
+  "scipy"
+]
+
+[project.urls]
+Homepage = "https://github.com/breatn/sprechstimme"
+
+[tool.setuptools]
+packages = ["sprechstimme"]

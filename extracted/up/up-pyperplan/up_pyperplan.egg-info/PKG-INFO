@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: up-pyperplan
+Version: 1.1.0
+Summary: up_pyperplan
+Home-page: https://www.aiplan4eu-project.eu
+Author: AIPlan4EU Organization
+Author-email: aiplan4eu@fbk.eu
+License: APACHE
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.7

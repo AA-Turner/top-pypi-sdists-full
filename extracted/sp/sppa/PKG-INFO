@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: sppa
+Version: 1.1.0
+Summary: SPPA MINLP solver
+Home-page: https://github.com/jamespltan/sppa
+Author: James Tan
+Author-email: jamestan@ntu.edu.sg
+License: MIT
+Download-URL: https://github.com/jamespltan/sppa/archive/v1.1.0.tar.gz
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3

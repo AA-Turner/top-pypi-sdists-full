@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use axum::{
     Json, Router,
@@ -10,7 +14,9 @@ use common_metrics::{QueryEndState, QueryID, QueryPlan, ROWS_IN_KEY, ROWS_OUT_KE
 use daft_recordbatch::RecordBatch;
 use serde::{Deserialize, Serialize};
 
-fn secs_from_epoch() -> f64 {
+const DEAD_QUERY_THRESHOLD_SEC: f64 = 60.;
+
+pub(crate) fn secs_from_epoch() -> f64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
@@ -19,7 +25,7 @@ fn secs_from_epoch() -> f64 {
 
 use crate::state::{
     DashboardState, ExecInfo, NodeInfo, OperatorInfo, OperatorInfos, OperatorStatus, PlanInfo,
-    QueryInfo, QueryState,
+    QueryInfo, QueryState, TaskStatus, TaskStore,
 };
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -55,6 +61,7 @@ pub(crate) fn apply_query_start(
     let query_info = QueryInfo {
         id: query_id.clone(),
         start_sec: args.start_sec,
+        last_heartbeat_sec: secs_from_epoch(),
         unoptimized_plan: args.unoptimized_plan,
         runner: args
             .runner
@@ -75,6 +82,34 @@ pub(crate) fn apply_query_start(
     };
 
     state.ping_clients_on_query_update(query_info.value());
+    StatusCode::OK
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub struct QueryHeartbeatArgs {
+    pub timestamp_sec: f64,
+}
+
+async fn query_heartbeat(
+    State(state): State<Arc<DashboardState>>,
+    Path(query_id): Path<QueryID>,
+    Json(_args): Json<QueryHeartbeatArgs>,
+) -> StatusCode {
+    let query_info = state.queries.get_mut(&query_id);
+    let Some(mut query_info) = query_info else {
+        tracing::error!("Query `{}` not found", query_id);
+        return StatusCode::BAD_REQUEST;
+    };
+
+    // Record the dashboard server's clock as the heartbeat even though
+    // the request includes a timestamp according to the runner's clock,
+    // because we care about how *recent* the heartbeat is, and we don't
+    // have the runner's *current* clock to compare against.
+    query_info.last_heartbeat_sec = secs_from_epoch();
+
+    state.ping_clients_on_query_update(query_info.value());
+
     StatusCode::OK
 }
 
@@ -240,6 +275,7 @@ pub(crate) fn apply_exec_start(
                     exec_start_sec: args.exec_start_sec,
                     physical_plan: args.physical_plan.clone(),
                     operators: parse_physical_plan(&args.physical_plan),
+                    task_store: TaskStore::default(),
                 },
             };
 
@@ -668,6 +704,7 @@ pub(crate) fn apply_query_end(
                         exec_start_sec: query_info.start_sec,
                         physical_plan: query_info.unoptimized_plan.clone(),
                         operators: HashMap::new(),
+                        task_store: TaskStore::default(),
                     }),
                     exec_end_sec: exec_end_sec.unwrap_or(args.end_sec),
                     end_sec: args.end_sec,
@@ -715,11 +752,189 @@ pub(crate) fn apply_query_end(
                 message: args.error_message,
             }
         }
-        QueryEndState::Dead => todo!(),
     };
 
     state.ping_clients_on_query_update(query_info.value());
     StatusCode::OK
+}
+
+/// periodic check for dead queries. Not an HTTP handler.
+pub(crate) async fn mark_dead_queries(state: Arc<DashboardState>) {
+    let dead_threshold = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64()
+        - DEAD_QUERY_THRESHOLD_SEC;
+
+    // Only check active queries (not already terminal)
+    let active_queries = state.queries.iter_mut().filter(|q| q.is_active());
+    for mut q in active_queries {
+        if q.last_heartbeat_sec < dead_threshold {
+            tracing::error!(
+                "Marking query {} as dead, last heartbeat {:?}",
+                q.id,
+                SystemTime::UNIX_EPOCH + Duration::from_secs_f64(q.last_heartbeat_sec),
+            );
+            let (plan_info, exec_info) = match &q.state {
+                QueryState::Setup { plan_info, .. } => (Some(plan_info.clone()), None),
+                QueryState::Executing {
+                    plan_info,
+                    exec_info,
+                } => (Some(plan_info.clone()), Some(exec_info.clone())),
+                _ => (None, None),
+            };
+            q.state = QueryState::Dead {
+                plan_info,
+                exec_info,
+                marked_dead_sec: secs_from_epoch(),
+            };
+
+            state.ping_clients_on_query_update(&q);
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+#[serde(tag = "status")]
+pub enum TaskOutcomeArgs {
+    Success,
+    Failed { message: String },
+    Cancelled,
+}
+
+#[derive(Clone, Deserialize, Serialize, Default)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub struct TaskTotals {
+    pub cpu_us: u64,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub struct TaskSubmitArgs {
+    pub submit_sec: f64,
+    pub task_id: u32,
+    pub last_node_id: usize,
+    pub node_ids: Vec<usize>,
+    pub plan_fingerprint: u32,
+    pub name: Option<String>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
+pub struct TaskEndArgs {
+    pub end_sec: f64,
+    pub task_id: u32,
+    pub last_node_id: usize,
+    pub node_ids: Vec<usize>,
+    pub plan_fingerprint: u32,
+    pub worker_id: Option<String>,
+    pub outcome: TaskOutcomeArgs,
+    pub totals: TaskTotals,
+}
+
+async fn task_submit(
+    State(state): State<Arc<DashboardState>>,
+    Path(query_id): Path<QueryID>,
+    Json(args): Json<TaskSubmitArgs>,
+) -> StatusCode {
+    apply_task_submit(&state, query_id, args)
+}
+
+pub(crate) fn apply_task_submit(
+    state: &DashboardState,
+    query_id: QueryID,
+    args: TaskSubmitArgs,
+) -> StatusCode {
+    let Some(mut query_info) = state.queries.get_mut(&query_id) else {
+        tracing::error!("Query `{}` not found in task_submit", query_id);
+        return StatusCode::BAD_REQUEST;
+    };
+
+    let Some(exec_info) = active_exec_info_mut(&mut query_info.state) else {
+        // Task events may arrive before exec_start or after exec_end; that's ok.
+        return StatusCode::OK;
+    };
+
+    exec_info.task_store.submit_task(
+        args.task_id,
+        args.last_node_id,
+        args.node_ids,
+        args.plan_fingerprint,
+        args.name,
+        args.submit_sec,
+    );
+
+    state.ping_clients_on_query_update(query_info.value());
+    StatusCode::OK
+}
+
+async fn task_end(
+    State(state): State<Arc<DashboardState>>,
+    Path(query_id): Path<QueryID>,
+    Json(args): Json<TaskEndArgs>,
+) -> StatusCode {
+    apply_task_end(&state, query_id, args)
+}
+
+pub(crate) fn apply_task_end(
+    state: &DashboardState,
+    query_id: QueryID,
+    args: TaskEndArgs,
+) -> StatusCode {
+    let Some(mut query_info) = state.queries.get_mut(&query_id) else {
+        tracing::error!("Query `{}` not found in task_end", query_id);
+        return StatusCode::BAD_REQUEST;
+    };
+
+    let Some(exec_info) = active_exec_info_mut(&mut query_info.state) else {
+        return StatusCode::OK;
+    };
+
+    let status = match &args.outcome {
+        TaskOutcomeArgs::Success => TaskStatus::Finished,
+        TaskOutcomeArgs::Failed { message } => TaskStatus::Failed {
+            message: Some(message.clone()),
+        },
+        TaskOutcomeArgs::Cancelled => TaskStatus::Cancelled,
+    };
+
+    exec_info.task_store.end_task(
+        args.task_id,
+        args.last_node_id,
+        args.node_ids,
+        args.plan_fingerprint,
+        args.worker_id,
+        status,
+        args.end_sec,
+        args.totals.cpu_us,
+    );
+
+    state.ping_clients_on_query_update(query_info.value());
+    StatusCode::OK
+}
+
+/// Returns the `ExecInfo` for any state where task events are meaningful. Task
+/// events are ignored outside of these states (pre-exec or terminal-no-exec).
+fn active_exec_info_mut(state: &mut QueryState) -> Option<&mut ExecInfo> {
+    match state {
+        QueryState::Executing { exec_info, .. }
+        | QueryState::Finalizing { exec_info, .. }
+        | QueryState::Finished { exec_info, .. } => Some(exec_info),
+        QueryState::Failed {
+            exec_info: Some(exec_info),
+            ..
+        }
+        | QueryState::Canceled {
+            exec_info: Some(exec_info),
+            ..
+        }
+        | QueryState::Dead {
+            exec_info: Some(exec_info),
+            ..
+        } => Some(exec_info),
+        _ => None,
+    }
 }
 
 pub(crate) fn routes() -> Router<Arc<DashboardState>> {
@@ -727,6 +942,7 @@ pub(crate) fn routes() -> Router<Arc<DashboardState>> {
         // Query lifecycle
         // TODO: Consider replacing with websocket for active engine -> server communication
         .route("/query/{query_id}/start", post(query_start))
+        .route("/query/{query_id}/heartbeat", post(query_heartbeat))
         .route("/query/{query_id}/plan_start", post(plan_start))
         .route("/query/{query_id}/plan_end", post(plan_end))
         .route("/query/{query_id}/exec/start", post(exec_start))
@@ -734,5 +950,7 @@ pub(crate) fn routes() -> Router<Arc<DashboardState>> {
         .route("/query/{query_id}/exec/{op_id}/end", post(exec_op_end))
         .route("/query/{query_id}/exec/emit_stats", post(exec_emit_stats))
         .route("/query/{query_id}/exec/end", post(exec_end))
+        .route("/query/{query_id}/task/submit", post(task_submit))
+        .route("/query/{query_id}/task/end", post(task_end))
         .route("/query/{query_id}/end", post(query_end))
 }

@@ -1,0 +1,78 @@
+[build-system]
+requires = ['setuptools', 'setuptools-scm']
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spox"
+description = "A framework for constructing ONNX computational graphs."
+authors = [
+    { name = "Jakub Bachurski", email = "kbachurski@gmail.com" },
+    { name = "Christian Bourjau", email = "christian.bourjau@quantco.com" },
+]
+
+maintainers = [
+    { name = "Jakub Bachurski", email = "kbachurski@gmail.com" },
+    { name = "Christian Bourjau", email = "christian.bourjau@quantco.com" },
+]
+keywords = ["machine-learning", "onnx"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dynamic = ["version"]
+
+requires-python = ">=3.10"
+
+dependencies = ["numpy", "onnx>=1.13", "packaging"]
+
+[project.urls]
+Source = "https://github.com/quantco/spox"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+
+[tool.setuptools]
+include-package-data = true
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable the isort rules.
+extend-select = ["I", "UP", "FA100"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["spox"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+# This will be pytest's future default.
+addopts = "--import-mode=importlib"
+filterwarnings = [
+    # Protobuf warning seen when running the test suite
+    "ignore:.*Type google.protobuf.pyext.*:DeprecationWarning:.*",
+]

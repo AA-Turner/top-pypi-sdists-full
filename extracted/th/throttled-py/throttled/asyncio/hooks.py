@@ -1,13 +1,18 @@
 """Async hook system for throttled-py."""
 
 import abc
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+import logging
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TYPE_CHECKING, cast
 
 from ..hooks import HookContext
 
+logger: logging.Logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from ..rate_limiter import RateLimitResult
+
+__all__ = ["HookContext", "Hook", "build_hook_chain"]
 
 
 class Hook(abc.ABC):
@@ -40,7 +45,8 @@ class Hook(abc.ABC):
     ) -> "RateLimitResult":
         """Middleware that wraps an async rate limit check.
 
-        :param call_next: Async function to call the next hook or the actual rate limiter.
+        :param call_next: Async function to call the next hook
+            or the actual rate limiter.
         :param context: The rate-limiting context information.
         :return: The result from call_next() (RateLimitResult).
         """
@@ -48,7 +54,7 @@ class Hook(abc.ABC):
 
 
 def build_hook_chain(
-    hooks: list[Hook],
+    hooks: Sequence[Hook],
     do_limit: Callable[[], Awaitable["RateLimitResult"]],
     context: HookContext,
 ) -> Callable[[], Awaitable["RateLimitResult"]]:
@@ -59,7 +65,7 @@ def build_hook_chain(
 
     Exceptions raised in hooks are caught and the chain continues.
 
-    :param hooks: List of async hooks to chain.
+    :param hooks: Sequence of async hooks to chain.
     :param do_limit: The actual async rate limit function to be wrapped.
     :param context: The hook context containing rate limit metadata.
     :return: A callable that executes the async hook chain.
@@ -74,10 +80,10 @@ def build_hook_chain(
         def make_chain(
             h: Hook,
             next_fn: Callable[[], Awaitable["RateLimitResult"]],
-        ):
+        ) -> Callable[[], Awaitable["RateLimitResult"]]:
             async def chain_fn() -> "RateLimitResult":
-                next_called = False
-                next_result = None
+                next_called: bool = False
+                next_result: RateLimitResult | None = None
 
                 async def tracked_next() -> "RateLimitResult":
                     """Track whether call_next() was already invoked by the hook.
@@ -102,9 +108,9 @@ def build_hook_chain(
                 try:
                     return await h.on_limit(tracked_next, context)
                 except Exception:
-                    # TODO - Logging strategy should be developed
+                    logger.exception("Hook %r raised during on_limit", h)
                     if next_called:
-                        return next_result
+                        return cast("RateLimitResult", next_result)
                     return await next_fn()
 
             return chain_fn

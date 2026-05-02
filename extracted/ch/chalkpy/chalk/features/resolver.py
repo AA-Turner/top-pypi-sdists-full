@@ -91,11 +91,9 @@ from chalk.features.pseudofeatures import CHALK_TS_FEATURE, PSEUDONAMESPACE
 from chalk.features.tag import Environments, Tags
 from chalk.parsed.ast_context import get_project_ast_context
 from chalk.sink import SinkIntegrationProtocol
-from chalk.state import StateWrapper
 from chalk.streams import KafkaSource, StreamSource, get_name_with_duration
 from chalk.streams.types import (
     StreamResolverParam,
-    StreamResolverParamKeyedState,
     StreamResolverParamMessage,
     StreamResolverParamMessageWindow,
     StreamResolverSignature,
@@ -144,14 +142,6 @@ _logger = get_logger(__name__)
 @dataclasses.dataclass(frozen=True)
 class ResolverArgErrorHandler:
     default_value: Any
-
-
-@dataclass
-class StateDescriptor(Generic[T]):
-    kwarg: str
-    pos: int
-    initial: T
-    typ: Type[T]
 
 
 class Cron:
@@ -633,7 +623,6 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         cron: CronTab | Duration | Cron | None,
         machine_type: MachineType | None,
         when: None = None,
-        state: StateDescriptor | None,
         default_args: Sequence[ResolverArgErrorHandler | None] | None,
         owner: str | None,
         timeout: Duration | None,
@@ -682,7 +671,6 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self._doc = doc
         self.machine_type = machine_type
         self.when = None
-        self._state = state
         self._default_args = default_args
         self.owner = owner
         if isinstance(timeout, str):
@@ -759,12 +747,6 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         return _flatten_features(self.output)
 
     @property
-    def state(self) -> StateDescriptor | None:
-        if self._state is None:
-            self._do_parse()
-        return self._state
-
-    @property
     def default_args(self) -> Sequence[ResolverArgErrorHandler | None]:
         if self._default_args is None:
             self._do_parse()
@@ -802,8 +784,6 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
             self._inputs = self._parse.inputs
         if self._output is None:
             self._output = self._parse.output
-        if self._state is None:
-            self._state = self._parse.state
         if self._default_args is None:
             self._default_args = self._parse.default_args
         if self._unique_on is None:
@@ -851,15 +831,13 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         bound = inspect.signature(self.fn).bind(*args, **kwargs)
         updated_args = []
         inputs = self.inputs
-        if self.state is not None:
-            inputs = (*self.inputs[: self.state.pos], None, *inputs[self.state.pos :])
 
         for i, (val, input_) in enumerate(zip(bound.args, inputs)):
             if isinstance(input_, type) and issubclass(
                 input_, DataFrame
             ):  # pyright: ignore[reportUnnecessaryIsInstance]
                 annotation = input_
-            elif input_ is not None and input_.is_has_many:  # pyright: ignore[reportAttributeAccessIssue]
+            elif input_.is_has_many:  # pyright: ignore[reportAttributeAccessIssue]
                 annotation = input_.typ.as_dataframe()  # pyright: ignore[reportAttributeAccessIssue]
                 assert annotation is not None, f"Expected DataFrame, found {annotation}"
             else:
@@ -951,7 +929,6 @@ class SinkResolver(Resolver[P, T]):
             tags=tags,
             cron=None,
             when=None,
-            state=None,
             default_args=default_args,
             owner=owner,
             source_line=source_line,
@@ -997,7 +974,6 @@ class OfflineResolver(Resolver[P, T]):
 class ResolverParseResult(Generic[P, T]):
     fqn: str
     inputs: list[Feature]
-    state: Optional[StateDescriptor]
     output: Optional[Type[Features]]
     function: Callable[P, T]
     function_definition: str | None
@@ -1027,60 +1003,6 @@ def get_resolver_fqn(function: Callable, name: str | None = None):
     if notebook.is_notebook() and not notebook.is_defined_in_module(function):
         return name
     return f"{function.__module__}.{name}"
-
-
-def get_state_default_value(
-    state_typ: type,
-    declared_default: Any,
-    parameter_name_for_errors: str,
-    resolver_fqn_for_errors: str,
-    error_builder: ResolverErrorBuilder,
-) -> Any:
-    if not is_pydantic_basemodel(state_typ) and not dataclasses.is_dataclass(state_typ):
-        error_builder.add_diagnostic(
-            message=(
-                f"State value must be a pydantic model or dataclass, "
-                f"but argument '{parameter_name_for_errors}' has type '{type(state_typ).__name__}'"
-            ),
-            code="117",
-            label="invalid state type",
-            range=error_builder.function_arg_annotation_by_name(parameter_name_for_errors),
-            raise_error=ValueError,
-        )
-
-    default = declared_default
-    if default is inspect.Signature.empty:
-        try:
-            default = state_typ()
-        except Exception as e:
-            cls_name = state_typ.__name__
-            error_builder.add_diagnostic(
-                message=(
-                    "State parameter must have a default value, or be able to be instantiated "
-                    f"with no arguments. For resolver '{resolver_fqn_for_errors}', no default found, and default "
-                    f"construction failed with '{str(e)}'. Assign a default in the resolver's "
-                    f"signature ({parameter_name_for_errors}: {cls_name} = {cls_name}(...)), or assign a default"
-                    f" to each of the fields of '{cls_name}'."
-                ),
-                code="118",
-                label="state value must have a default",
-                range=error_builder.function_arg_annotation_by_name(parameter_name_for_errors),
-                raise_error=ValueError,
-            )
-
-    if not isinstance(default, cast(Type, state_typ)):
-        error_builder.add_diagnostic(
-            message=(
-                f"Expected type '{state_typ.__name__}' for '{parameter_name_for_errors}', "
-                f"but default '{default}' does not match."
-            ),
-            code="119",
-            label="invalid default state",
-            range=error_builder.function_arg_value_by_name(parameter_name_for_errors),
-            raise_error=ValueError,
-        )
-
-    return default
 
 
 def _explode_features(ret_val: Type[Features], inputs: list[Feature]) -> Type[Features]:
@@ -1300,7 +1222,6 @@ def parse_function(
         else:
             default_arg_count = len(inputs)
 
-        state = None
         default_args: list[Optional[ResolverArgErrorHandler]] = [None for _ in range(default_arg_count)]
 
         function_definition = None if function_source is None else simplify_function_definition(function_source)
@@ -1333,7 +1254,7 @@ def parse_function(
 
         for i, (arg_name, parameter) in enumerate(sig.parameters.items()):
             bad_input_message = (
-                "Resolver inputs must be Features, DataFrame, or State. "
+                "Resolver inputs must be Features or DataFrame. "
                 f"Resolver '{short_name}' received '{str(inputs[i])}' for argument '{arg_name}'."
             )
             arg = inputs[i]
@@ -1372,9 +1293,7 @@ def parse_function(
             if parameter.empty != parameter.default:
                 default_args[i] = ResolverArgErrorHandler(parameter.default)
 
-            if not isinstance(arg, (StateWrapper, Feature)) and not (
-                isinstance(arg, type) and issubclass(arg, DataFrame)
-            ):
+            if not isinstance(arg, Feature) and not (isinstance(arg, type) and issubclass(arg, DataFrame)):
                 if allow_custom_args:
                     continue
                 if isinstance(arg, datetime) or arg == datetime:
@@ -1418,36 +1337,6 @@ def parse_function(
                 maybe_dataframe = arg.typ.parsed_annotation
                 if issubclass(maybe_dataframe, DataFrame):
                     _validate_dataframe(maybe_dataframe, error_builder, fqn=arg.fqn, arg_index=i)
-
-            if not isinstance(arg, StateWrapper):
-                continue
-
-            if state is not None:
-                error_builder.add_diagnostic(
-                    message=(
-                        f"Only one state argument is allowed. "
-                        f"Two provided to '{short_name}': '{state.kwarg}' and '{arg_name}'"
-                    ),
-                    code="89",
-                    label="second state argument",
-                    range=error_builder.function_arg_annotations()[arg_name],
-                    raise_error=ValueError,
-                )
-
-            arg_name = parameter.name
-
-            state = StateDescriptor(
-                kwarg=arg_name,
-                pos=i,
-                initial=get_state_default_value(
-                    state_typ=arg.typ,
-                    resolver_fqn_for_errors=fqn,
-                    parameter_name_for_errors=arg_name,
-                    declared_default=parameter.default,
-                    error_builder=error_builder,
-                ),
-                typ=arg.typ,
-            )
 
         if not is_streaming_resolver:
             assert ret_val is not None
@@ -1499,8 +1388,6 @@ def parse_function(
                         raise_error=TypeError,
                     )
 
-        state_index = state.pos if state is not None else None
-
         if validate_output and ret_val is None:
             error_builder.add_diagnostic(
                 message=f"Online resolvers must return features; '{fqn}' returns None",
@@ -1525,13 +1412,12 @@ def parse_function(
 
         return ResolverParseResult(
             fqn=fqn,
-            inputs=[v for i, v in enumerate(inputs) if i != state_index],
+            inputs=inputs,
             output=ret_val,
             function=cast(Callable[P, T], fn),
             function_definition=function_source,
             function_captured_globals=function_captured_globals,
             doc=fn.__doc__,
-            state=state,
             default_args=default_args,
             unique_on=unique_on_parsed,
             partitioned_by=partitioned_by_parsed,
@@ -2464,7 +2350,6 @@ def online(
             cron=cron,
             machine_type=machine_type,
             owner=owner,
-            state=None,
             default_args=None,
             timeout=timeout,
             source_line=None if caller_lines is None else caller_lines[1],
@@ -2709,7 +2594,6 @@ def offline(
             tags=None if tags is None else list(ensure_tuple(tags)),
             cron=cron,
             machine_type=machine_type,
-            state=None,
             owner=owner,
             default_args=None,
             timeout=timeout,
@@ -2906,7 +2790,6 @@ class StreamResolver(Resolver[P, T]):
         message: Type[Any] | None,
         output: Type[Features],
         signature: StreamResolverSignature,
-        state: StateDescriptor | None,
         sql_query: str | None,
         owner: str | None,
         parse: ParseInfo | None,
@@ -2942,7 +2825,6 @@ class StreamResolver(Resolver[P, T]):
             tags=tags,
             cron=None,
             when=None,
-            state=state,
             default_args=[],
             owner=owner,
             source_line=source_line,
@@ -3053,29 +2935,6 @@ def _parse_stream_resolver_param(
         )
 
     annotation = annotation_parser.parse_annotation(param.name)
-    if isinstance(annotation, StateWrapper):
-        if is_windowed_resolver:
-            error_builder.add_diagnostic(
-                message=(
-                    f"Windowed stream resolvers cannot have state, but '{resolver_fqn_for_errors}' requires state."
-                ),
-                code="121",
-                label="invalid state parameter",
-                range=error_builder.function_arg_annotation_by_name(param.name),
-                raise_error=ValueError,
-            )
-        default_value = get_state_default_value(
-            state_typ=annotation.typ,
-            declared_default=param.default,
-            resolver_fqn_for_errors=resolver_fqn_for_errors,
-            parameter_name_for_errors=param.name,
-            error_builder=error_builder,
-        )
-        return StreamResolverParamKeyedState(
-            name=param.name,
-            typ=annotation.typ,
-            default_value=default_value,
-        )
 
     if not is_windowed_resolver and _is_stream_resolver_body_type(annotation):
         return StreamResolverParamMessage(name=param.name, typ=annotation)
@@ -3100,7 +2959,6 @@ def _parse_stream_resolver_param(
         message=(
             f"Stream resolver parameter '{param.name}' of resolver '{resolver_fqn_for_errors}' is not recognized. "
             "Message payloads must be one of `str`, `bytes`, or pydantic model class. "
-            "Keyed state parameters must be chalk.KeyedState[T]. "
             f"Received: {annotation}"
         ),
         code="122",
@@ -3137,46 +2995,21 @@ def _parse_stream_resolver_params(
                 raise_error=ValueError,
             )
     elif num_params == 2:
-        if isinstance(params[0], StreamResolverParamKeyedState):
-            stream_input_model = params[1]
-        elif isinstance(params[1], StreamResolverParamKeyedState):
-            stream_input_model = params[0]
-        else:
-            error_builder.add_diagnostic(
-                message=(
-                    f"Streaming resolver '{resolver_fqn_for_errors}' of length '{num_params}' must have "
-                    "exactly one non-State input argument. "
-                ),
-                code="94",
-                label="invalid input",
-                range=error_builder.function_arg_annotation_by_name(params[1].name),
-                raise_error=ValueError,
-            )
-            raise  # for type-checking, but the above raises
-        if isinstance(stream_input_model, StreamResolverParamKeyedState):
-            error_builder.add_diagnostic(
-                message=f"Stream resolver '{resolver_fqn_for_errors}' includes more than one KeyedState parameter.",
-                code="95",
-                label="only one KeyedState parameter permitted",
-                range=error_builder.function_arg_annotation_by_name(params[1].name),
-                raise_error=ValueError,
-            )
-        if not isinstance(stream_input_model, (StreamResolverParamMessage, StreamResolverParamMessageWindow)):
-            error_builder.add_diagnostic(
-                message=(
-                    f"Stream resolver '{resolver_fqn_for_errors}' must take as input "
-                    "a Pydantic model, `str`, or `bytes` representing the message body. "
-                ),
-                code="96",
-                label="invalid input",
-                range=error_builder.function_arg_annotation_by_name(params[0].name),
-                raise_error=ValueError,
-            )
+        error_builder.add_diagnostic(
+            message=(
+                f"Streaming resolver '{resolver_fqn_for_errors}' of length '{num_params}' must have "
+                "exactly one input argument. "
+            ),
+            code="94",
+            label="invalid input",
+            range=error_builder.function_arg_annotation_by_name(params[1].name),
+            raise_error=ValueError,
+        )
     else:
         error_builder.add_diagnostic(
             message=(
                 f"Streaming resolver '{resolver_fqn_for_errors}' of length '{num_params}' must have "
-                "exactly one non-State input argument. "
+                "exactly one input argument. "
             ),
             code="97",
             label="invalid input",
@@ -3528,8 +3361,7 @@ def _validate_possibly_nested_key(
             )
 
             if (
-                nested_model_type is None
-                or nested_model_type is str
+                nested_model_type is str
                 or nested_model_type is bool
                 or nested_model_type is int
                 or nested_model_type is float
@@ -3848,7 +3680,6 @@ def parse_and_register_stream_resolver(
         message=message,
         output=output_features,
         signature=signature,
-        state=parsed.state,
         sql_query=None,
         owner=owner,
         parse=parse_info,
@@ -4154,7 +3985,6 @@ def make_stream_resolver(
             params=params,
             output_feature_fqns={str(x) for x in output_features.keys()},
         ),
-        state=None,
         sql_query=None,
         owner=owner,
         parse=parse_info,
@@ -4891,7 +4721,6 @@ def make_model_resolver(
         fqn=f"{name}__{output_namespace}_{output_names}",
         doc=None,
         inputs=[DataFrame[[pkey, *ensure_tuple(input_features)]]],
-        state=None,
         output=Features[DataFrame[tuple([*output_features, pkey])]],  # type: ignore[misc]
         fn=inference_fn,
         environment=None,

@@ -1,0 +1,133 @@
+on:
+  release:
+    types:
+      - published
+
+name: release
+
+permissions: {}
+
+jobs:
+  release-linux:
+    name: build Linux release dists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - name: build wheels
+        run: make dist-pyrage
+
+      - name: upload linux dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyrage-dists-linux
+          path: dist/
+
+  release-linux-arm:
+    name: build Linux arm release dists
+    # Use 22.04, as 24.04 is unstable atm:
+    # https://github.com/orgs/community/discussions/148648#discussioncomment-11890717
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - name: build wheels
+        run: make dist-pyrage
+
+      - name: upload linux dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyrage-dists-linux-arm
+          path: dist/
+
+  release-macos:
+    name: build macOS release dists
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - name: build wheels
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          make env
+          source env/bin/activate
+          maturin build --release --strip --target universal2-apple-darwin
+          mv target/wheels/ dist/
+
+      - name: upload macos dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyrage-dists-macos
+          path: dist/
+
+  release-windows:
+    name: build Windows release dists
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - name: build wheels
+        shell: bash
+        run: |
+          make env
+          source env/Scripts/activate
+          maturin build --release --strip
+          mv target/wheels/ dist/
+
+      - name: upload windows dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyrage-dists-windows
+          path: dist/
+
+  pypi-publish:
+    name: publish all dists to PyPI
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      # Used for OIDC publishing.
+      # Used to sign the release's artifacts with sigstore-python.
+      id-token: write
+
+      # Used to attach signing artifacts to the published release.
+      contents: write
+    needs:
+      - release-linux
+      - release-linux-arm
+      - release-macos
+      - release-windows
+
+    steps:
+      - name: fetch dists
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pyrage-dists-*
+          path: dist/
+          merge-multiple: true
+
+      - name: publish
+        uses: pypa/gh-action-pypi-publish@v1.12.4

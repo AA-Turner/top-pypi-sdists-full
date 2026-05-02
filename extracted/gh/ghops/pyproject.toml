@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghops"
+version = "1.0.0"
+description = "DEPRECATED - Use repoindex instead: https://pypi.org/project/repoindex/"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Alex Towell", email = "lex@metafunctor.com" }
+]
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+dependencies = []
+
+[project.urls]
+"Replacement" = "https://pypi.org/project/repoindex/"
+"Homepage" = "https://github.com/queelius/repoindex"

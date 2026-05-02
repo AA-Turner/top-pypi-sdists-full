@@ -7,8 +7,8 @@ This software is made available under the terms of the MIT License.
 """
 
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -45,6 +45,8 @@ class PunchTool(Tool):
         """
         args = self._args
         freq = {}
+        nb_punched = nb
+        nb_chads = nb
 
         if args.tags:
             freq, nb_punched, nb_chads = punch_via_tags(nb, args)
@@ -160,7 +162,7 @@ class PunchTool(Tool):
         print('  {}'.format(action))
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return PunchTool().main(cli_args)
 
 

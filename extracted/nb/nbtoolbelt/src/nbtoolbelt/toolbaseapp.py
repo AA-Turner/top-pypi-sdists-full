@@ -10,7 +10,8 @@ import json
 import sys
 from argparse import Namespace, ArgumentParser, _ArgumentGroup, SUPPRESS
 from pathlib import Path
-from typing import Any, Optional, List, Dict
+from collections.abc import Sequence
+from typing import Any
 
 import pandas as pd
 from nbformat import NotebookNode
@@ -69,13 +70,13 @@ class Tool(object):
         self._description = description
         self._action = action
         # load default options from embedded configuration file
-        self._args = load_config(self._name)  # type: Namespace  # TODO when to pass in verbose=True?
+        self._args: Namespace = load_config(self._name)  # TODO when to pass in verbose=True?
         # anticipated exit code; tools can set this
         self._exit_code = 0
         # dictionary with results aggregated over multiple notebooks
         # concrete tools initialize their part in __init__()
-        self._aggregate = {
-            'outputs': [{'file_count': 0}],  # type: List[Dict[str, Any]]
+        self._aggregate: dict[str, Any] = {
+            'outputs': [{'file_count': 0}],  # type: list[dict[str, Any]]
             # outputs[0] is overall; outputs[i] for i > 0 is per notebook argument
             # outputs[0].file_count == number of notebook files fully processed so far
         }
@@ -223,7 +224,7 @@ class Tool(object):
         parser.add_argument('-q', '--quiet',
                             action=NegatableAction, default=SUPPRESS,
                             help='quiet mode produces less output' +
-                                 ' (default: False)'.format(self._args.quiet))
+                                 ' (default: False)')
         parser.add_argument('--assert', action=NegatableAction,
                             help='assert mode: when processing fails, abort with exit code 1' +
                                  ' (default: {})'.format(getattr(self._args, 'assert')))
@@ -285,7 +286,7 @@ class Tool(object):
         """
         pass
 
-    def parse_args(self, arguments: List[str]) -> None:
+    def parse_args(self, arguments: Sequence[str]) -> None:
         """Configure an argument parser and parse the command-line arguments,
         updating the namespace with the parsed arguments.
 
@@ -318,7 +319,7 @@ class Tool(object):
             print('Options for {}:'.format(self._name))
             self.print_tool_args()
 
-    def main(self, cli_args: Optional[List[str]] = None) -> int:
+    def main(self, cli_args: Sequence[str] | None = None) -> int:
         """Main entry point.
         Processes all files in ``args.notebooks``, returning an exit code (0 = success).
 
@@ -382,7 +383,7 @@ class Tool(object):
         return self._exit_code
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return Tool().main(cli_args)
 
 

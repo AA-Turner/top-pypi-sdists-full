@@ -1,4 +1,0 @@
-refactor:
-  skip: # https://docs.sourcery.ai/Reference/Default-Rules/refactorings/
-    - use-named-expression  # Python 3.8+
-    - dict-assign-update-to-union # Python 3.8+

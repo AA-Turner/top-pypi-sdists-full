@@ -1,0 +1,215 @@
+"""Project canonical identity, user, and relationship state into a runtime profile view."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import replace
+from pathlib import Path
+import re
+
+from packages.contracts import CloneIdentityRecord, ProfileState, RelationshipMemoryRecord, UserCardRecord
+
+from .governance import render_user_profile_text
+from .loader import LoadedProfile, packaged_aegis_path, profile_aegis_path
+from .policy import CompanionSettings, resolve_personality_preset
+
+
+def render_user_card_profile_text(record: UserCardRecord | None) -> str | None:
+    if record is None:
+        return None
+    field_values: dict[str, str | None] = {
+        "preferred_name": record.preferred_name,
+        "locale": record.locale,
+        "timezone": record.timezone,
+        "boundaries": record.boundaries[0] if record.boundaries else None,
+    }
+    for fragment in record.biography_fragments:
+        key, _, value = fragment.partition(":")
+        if key and value:
+            field_values[key.strip()] = value.strip()
+    rendered = render_user_profile_text(durable_notes=record.durable_notes, **field_values)
+    cleaned = rendered.strip()
+    return cleaned or None
+
+
+def overlay_canonical_profile_state(
+    profile: LoadedProfile,
+    *,
+    identity_record: CloneIdentityRecord | None = None,
+    user_card: UserCardRecord | None = None,
+    relationship_record: RelationshipMemoryRecord | None = None,
+) -> LoadedProfile:
+    state = profile.state
+    if identity_record is not None:
+        state = replace(
+            state,
+            display_name=identity_record.display_name,
+            mode=identity_record.identity_mode,
+        )
+    companion = _project_companion_settings(
+        profile.companion,
+        mode=state.mode,
+        identity_record=identity_record,
+        relationship_record=relationship_record,
+    )
+    user_profile_text = render_user_card_profile_text(user_card) if user_card is not None else profile.user_profile_text
+    clone_text = profile.clone_text
+    if identity_record is not None and identity_record.charter_extension is not None:
+        clone_text = identity_record.charter_extension
+    return LoadedProfile(
+        state=state,
+        companion=companion,
+        profile_dir=profile.profile_dir,
+        manifest_path=profile.manifest_path,
+        clone_text=clone_text,
+        user_profile_text=user_profile_text,
+        aegis_path=profile.aegis_path,
+        user_profile_path=profile.user_profile_path,
+        manifest=dict(profile.manifest),
+    )
+
+
+def build_loaded_profile_from_state(
+    profile_state: ProfileState,
+    *,
+    manifest: Mapping[str, object] | None = None,
+    companion: CompanionSettings | None = None,
+    profile_dir: str = "",
+    manifest_path: str | None = None,
+    clone_text: str | None = None,
+    user_profile_text: str | None = None,
+    user_profile_path: str | None = None,
+    aegis_path: str | None = None,
+    identity_record: CloneIdentityRecord | None = None,
+    user_card: UserCardRecord | None = None,
+    relationship_record: RelationshipMemoryRecord | None = None,
+) -> LoadedProfile:
+    resolved_aegis_path = aegis_path
+    if resolved_aegis_path is None and profile_dir:
+        resolved_aegis_path = str(profile_aegis_path(Path(profile_dir)))
+    if resolved_aegis_path is None:
+        resolved_aegis_path = str(packaged_aegis_path())
+    base = LoadedProfile(
+        state=profile_state,
+        companion=companion,
+        profile_dir=profile_dir,
+        manifest_path=manifest_path,
+        clone_text=clone_text,
+        user_profile_text=user_profile_text,
+        aegis_path=resolved_aegis_path,
+        user_profile_path=user_profile_path,
+        manifest=dict(manifest or {}),
+    )
+    return overlay_canonical_profile_state(
+        base,
+        identity_record=identity_record,
+        user_card=user_card,
+        relationship_record=relationship_record,
+    )
+
+
+def _project_companion_settings(
+    current: CompanionSettings | None,
+    *,
+    mode: str,
+    identity_record: CloneIdentityRecord | None,
+    relationship_record: RelationshipMemoryRecord | None,
+) -> CompanionSettings:
+    resolved_current = current or _default_companion_settings(mode)
+    if identity_record is None and relationship_record is None:
+        return resolved_current
+    governance_flags = set(identity_record.governance_flags if identity_record is not None else ())
+    preset_id = identity_record.personality_preset if identity_record is not None else resolved_current.personality_preset
+    traits = _project_personality_traits(
+        current=resolved_current,
+        mode=mode,
+        preset_id=preset_id,
+        identity_record=identity_record,
+    )
+    initiative = identity_record.initiative if identity_record is not None else resolved_current.initiative
+    notes = relationship_record.continuity_notes if relationship_record is not None else resolved_current.notes
+    return CompanionSettings(
+        text_first=_flag_enabled(governance_flags, positive="text-first", fallback=resolved_current.text_first),
+        personality_preset=preset_id,
+        personality=traits,
+        initiative=initiative,
+        preserve_relationship_timeline=_flag_enabled(
+            governance_flags,
+            positive="preserve-relationship-timeline",
+            negative="limit-relationship-timeline",
+            fallback=resolved_current.preserve_relationship_timeline,
+        ),
+        preserve_preferences=_flag_enabled(
+            governance_flags,
+            positive="preserve-preferences",
+            negative="limit-preferences",
+            fallback=resolved_current.preserve_preferences,
+        ),
+        preserve_corrections=_flag_enabled(
+            governance_flags,
+            positive="preserve-corrections",
+            negative="limit-corrections",
+            fallback=resolved_current.preserve_corrections,
+        ),
+        preserve_emotional_context=_flag_enabled(
+            governance_flags,
+            positive="preserve-emotional-context",
+            negative="limit-emotional-context",
+            fallback=resolved_current.preserve_emotional_context,
+        ),
+        allow_voice_extension=_flag_enabled(
+            governance_flags,
+            positive="allow-voice-extension",
+            negative="block-voice-extension",
+            fallback=resolved_current.allow_voice_extension,
+        ),
+        notes=notes,
+    )
+
+
+def _project_personality_traits(
+    *,
+    current: CompanionSettings,
+    mode: str,
+    preset_id: str,
+    identity_record: CloneIdentityRecord | None,
+) -> tuple[str, ...]:
+    if current.personality and preset_id == current.personality_preset:
+        return current.personality
+    if identity_record is not None:
+        parsed = _voice_contract_personality(identity_record.voice_contract)
+        if parsed:
+            return parsed
+    return resolve_personality_preset(preset_id, mode=mode).traits
+
+
+def _voice_contract_personality(voice_contract: str) -> tuple[str, ...]:
+    match = re.search(r"(?:^|;)\s*persona=(.+?)(?:;|$)", voice_contract)
+    if match is None:
+        return ()
+    raw = match.group(1).strip()
+    if not raw or raw.lower() == "default persona":
+        return ()
+    return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
+def _default_companion_settings(mode: str) -> CompanionSettings:
+    preset = resolve_personality_preset(None, mode=mode)
+    return CompanionSettings(
+        personality_preset=preset.preset_id,
+        personality=preset.traits,
+    )
+
+
+def _flag_enabled(
+    flags: set[str],
+    *,
+    positive: str,
+    fallback: bool,
+    negative: str | None = None,
+) -> bool:
+    if positive in flags:
+        return True
+    if negative is not None and negative in flags:
+        return False
+    return fallback

@@ -1,25 +1,28 @@
 Metadata-Version: 2.3
 Name: copilotkit
-Version: 0.1.87
+Version: 0.1.88
 Summary: CopilotKit python SDK
 License: MIT
 Keywords: copilot,copilotkit,langgraph,langchain,ai,langsmith,langserve
 Author: Markus Ecker
 Author-email: markus.ecker@gmail.com
-Requires-Python: >=3.10,<3.13
+Requires-Python: >=3.10,<3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: crewai
-Requires-Dist: ag-ui-langgraph[fastapi] (>=0.0.29)
-Requires-Dist: ag-ui-protocol (>=0.1.11)
-Requires-Dist: crewai (==0.118.0) ; extra == "crewai"
+Requires-Dist: ag-ui-langgraph[fastapi] (>=0.0.35)
+Requires-Dist: ag-ui-protocol (>=0.1.15)
+Requires-Dist: crewai (>=0.118.0) ; (python_version >= "3.10" and python_version < "3.14") and (extra == "crewai")
 Requires-Dist: fastapi (>=0.115.0,<1.0.0)
 Requires-Dist: langchain (>=0.3.0)
 Requires-Dist: langgraph (>=0.3.25,<2)
 Requires-Dist: partialjson (>=0.0.8,<0.0.9)
+Requires-Dist: pydantic-core (>=2.35.0)
 Requires-Dist: toml (>=0.10.2,<0.11.0)
 Project-URL: Homepage, https://copilotkit.ai
 Project-URL: Repository, https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python

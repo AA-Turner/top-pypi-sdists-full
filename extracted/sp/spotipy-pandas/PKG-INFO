@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: spotipy-pandas
+Version: 0.2.0
+Summary: A Spotipy-based Pandas wrapper for Spotify API calls
+Home-page: https://github.com/opbenesh/spotipy-pandas
+Author: Ben Esh
+Keywords: spotify pandas
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.7
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# spotipy-pandas
+##### A Spotipy-based Pandas wrapper for Spotify API calls
+
+[![PyPI version](https://badge.fury.io/py/spotipy-pandas.svg)](https://badge.fury.io/py/spotipy-pandas)
+
+`spotipy-pandas` is a Python library for easily retrieving and manipulating
+musical data from Spotify's Web API in a Pandas-friendly format. It is built on
+top of [Spotipy](https://github.com/spotipy-dev/spotipy), which provides
+lightweight Python bindings for the Spotify Web API.
+
+# Installation
+`spotipy-pandas` can be installed from PyPI via pip:
+
+```bash
+pip install spotipy-pandas
+```

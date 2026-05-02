@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "fy_tool_cli"
+version = "0.5.21"
+description = ""
+authors = ["Vinko Buble <vinkobuble@gmail.com>","Jere Perisic <jereperisic@icloud.com>"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+fy = "fy_tool_cli.main:fy_cli"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+
+fy_library = "0.5.21"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "0.6.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

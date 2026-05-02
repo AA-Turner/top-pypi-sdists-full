@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "springcraft"
+version = "0.3.0"
+description = "Investigate molecular dynamics with elastic network models"
+readme = "README.rst"
+license = "BSD-3-Clause"
+authors = [
+    "Patrick Kunzmann <padix.key@gmail.com>",
+    "Jan Krumbach <jhkr@web.de>",
+    "Faisal Islam <faisalislam98@yahoo.de>"
+]
+homepage = "https://springcraft.biotite-python.org"
+repository = "https://github.com/biotite-dev/springcraft"
+documentation = "https://springcraft.biotite-python.org"
+keywords = [
+    "Bioinformatics",
+    "Computational biology",
+    "Elastic network models",
+    "Normal mode analysis"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+packages = [
+    { include = "springcraft", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+biotite = ">= 0.32"
+numpy = "^1.15"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+sphinx = "^3.0"
+sphinx-gallery = "0.9.0"
+numpydoc = ">= 0.8"
+ammolite = ">=0.8"
+
+
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

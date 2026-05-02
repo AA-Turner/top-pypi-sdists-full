@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from typing import Dict
 
@@ -55,6 +56,10 @@ class IsolateLogger:
             try:
                 _labels = json.loads(raw)
             except json.JSONDecodeError:
-                print("Failed to parse ISOLATE_LOG_LABELS")
+                # Write to stderr so a malformed env var does not become a
+                # constant first stdout line and break Vector's content-based
+                # file fingerprint (collision-prone first lines cause silent
+                # log skipping; see infra commit b9f0f2237).
+                sys.stderr.write("Failed to parse ISOLATE_LOG_LABELS\n")
 
         return cls.with_env_expanded(labels=_labels)

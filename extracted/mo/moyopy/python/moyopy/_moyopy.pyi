@@ -1,8 +1,10 @@
 from moyopy._base import (  # noqa: F401
     Cell,
     CollinearMagneticCell,
+    MagneticOperations,
     NonCollinearMagneticCell,
     Operations,
+    UnimodularTransformation,
 )
 from moyopy._data import (
     ArithmeticCrystalClass,
@@ -19,7 +21,12 @@ from moyopy._dataset import (
     MoyoDataset,
     MoyoNonCollinearMagneticDataset,
 )  # noqa: F401
-from moyopy._identify import MagneticSpaceGroup, PointGroup, SpaceGroup  # noqa: F401
+from moyopy._identify import (  # noqa: F401
+    MagneticSpaceGroup,
+    PointGroup,
+    SpaceGroup,
+    integral_normalizer,
+)
 
 __version__: str
 
@@ -27,8 +34,10 @@ __all__ = [
     # base
     "Cell",
     "CollinearMagneticCell",
+    "MagneticOperations",
     "NonCollinearMagneticCell",
     "Operations",
+    "UnimodularTransformation",
     # data
     "Setting",
     "Centering",
@@ -46,6 +55,7 @@ __all__ = [
     "PointGroup",
     "SpaceGroup",
     "MagneticSpaceGroup",
+    "integral_normalizer",
     # lib
     "__version__",
 ]

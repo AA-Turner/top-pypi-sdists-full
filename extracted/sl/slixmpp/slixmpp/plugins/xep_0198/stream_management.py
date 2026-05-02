@@ -252,8 +252,8 @@ class XEP_0198(BasePlugin):
         self.xmpp.features.add('stream_management')
         self.enabled_in = True
         self._handle_ack(stanza)
-        for id, stanza in self.unacked_queue:
-            self.xmpp.send(stanza, use_filters=False)
+        for id, resend_stanza in self.unacked_queue:
+            self.xmpp.send(resend_stanza, use_filters=False)
         self.xmpp.event('session_resumed', stanza)
         self.xmpp.end_session_on_disconnect = False
 

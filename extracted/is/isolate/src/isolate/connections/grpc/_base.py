@@ -185,14 +185,26 @@ class LocalPythonGRPC(PythonExecutionBase[str], GRPCExecutionBase):
                     # already finished
                     return_code = self._process.returncode
                 else:
-                    print("Terminating the agent process...")
+                    self.log(
+                        "Terminating the agent process...",
+                        level=LogLevel.INFO,
+                        source=LogSource.BRIDGE,
+                    )
                     self._process.terminate()
                     return_code = self._process.wait(
                         timeout=PROCESS_SHUTDOWN_TIMEOUT_SECONDS
                     )
-                    print("Agent process shutdown gracefully")
+                    self.log(
+                        "Agent process shutdown gracefully",
+                        level=LogLevel.INFO,
+                        source=LogSource.BRIDGE,
+                    )
             except Exception as exc:
-                print(f"Failed to shutdown the agent process gracefully: {exc}")
+                self.log(
+                    f"Failed to shutdown the agent process gracefully: {exc}",
+                    level=LogLevel.ERROR,
+                    source=LogSource.BRIDGE,
+                )
                 self._process.kill()
                 return_code = self._process.wait()
 

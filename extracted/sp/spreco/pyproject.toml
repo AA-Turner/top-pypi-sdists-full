@@ -1,0 +1,34 @@
+[project]
+name = "spreco"
+version = "0.0.4"
+authors = [
+  { name="Guanxiong Luo", email="guanxiong.luo@med.uni-goettingen.de" },
+]
+description = "Generative image priors for MRI image reconstruction"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = ["tensorflow",
+        "tf-slim==1.1.0",
+        "numpy",
+        "pillow",
+        "matplotlib",
+        "scikit-image",
+        "pyyaml",
+        "tqdm"]
+
+keywords = [
+    "MRI reconstruction",
+    "generative model",
+    "image priors",
+    "sampling",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mrirecon/spreco"
+"Bug Tracker" = "https://github.com/mrirecon/spreco/issues"

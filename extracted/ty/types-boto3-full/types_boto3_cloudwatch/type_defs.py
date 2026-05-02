@@ -541,11 +541,6 @@ class MuteTargetsTypeDef(TypedDict):
     AlarmNames: Sequence[str]
 
 
-class PutDashboardInputTypeDef(TypedDict):
-    DashboardName: str
-    DashboardBody: str
-
-
 class ScheduleTypeDef(TypedDict):
     Expression: str
     Duration: str
@@ -923,6 +918,12 @@ class PutCompositeAlarmInputTypeDef(TypedDict):
     ActionsSuppressor: NotRequired[str]
     ActionsSuppressorWaitPeriod: NotRequired[int]
     ActionsSuppressorExtensionPeriod: NotRequired[int]
+
+
+class PutDashboardInputTypeDef(TypedDict):
+    DashboardName: str
+    DashboardBody: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class PutInsightRuleInputTypeDef(TypedDict):

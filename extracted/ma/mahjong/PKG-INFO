@@ -1,0 +1,86 @@
+Metadata-Version: 2.4
+Name: mahjong
+Version: 2.0.0
+Summary: Mahjong hands calculation
+Author-email: Alexey Lisikhin <alexey@nihisil.com>
+Maintainer: Apricot S.
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/MahjongRepository/mahjong
+Project-URL: Documentation, https://mahjongrepository.github.io/mahjong
+Project-URL: Wiki, https://github.com/MahjongRepository/mahjong/wiki
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Dynamic: license-file
+
+# mahjong
+
+[![PyPI](https://img.shields.io/pypi/v/mahjong.svg)](https://pypi.python.org/pypi/mahjong)
+[![License](https://img.shields.io/pypi/l/mahjong.svg)](https://pypi.python.org/pypi/mahjong)
+[![Supported Python versions](https://img.shields.io/pypi/pyversions/mahjong.svg)](https://pypi.python.org/pypi/mahjong)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/mahjong.svg?label=PyPI%20downloads)](https://pypi.org/project/mahjong/)
+[![Linters and tests](https://github.com/MahjongRepository/mahjong/actions/workflows/lint_and_test.yml/badge.svg)](https://github.com/MahjongRepository/mahjong/actions/workflows/lint_and_test.yml)
+[![API Docs](https://img.shields.io/badge/api-master-yellow.svg)](https://mahjongrepository.github.io/mahjong)
+
+Japanese riichi mahjong hand calculator library.
+
+Compute hand cost (han, fu, yaku, and scores), validate winning hands, and calculate shanten (minimum tiles to tenpai).
+
+The code was validated on tenhou.net phoenix replays in total on **26,148,038 hands**.
+
+So, we can say that our hand calculator works the same way that tenhou.net hand calculation.
+
+## Documentation
+
+- [API reference](https://mahjongrepository.github.io/mahjong)
+- [Wiki](https://github.com/MahjongRepository/mahjong/wiki) — Supported rules and usage examples
+
+## How to install
+
+```bash
+pip install mahjong
+```
+
+## Local development setup
+
+To set up the project locally for development:
+
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/MahjongRepository/mahjong.git
+    cd mahjong
+    ```
+
+2. Setup env using [uv](https://github.com/astral-sh/uv):
+
+    ```bash
+    uv sync
+    ```
+
+3. Run tests to verify setup:
+
+    ```bash
+    make tests
+    # Or directly:
+    uv run pytest
+    ```
+
+4. Run full checks before committing:
+
+    ```bash
+    make check   # Runs format, lint, and tests
+    ```
+
+## License
+
+This library is licensed under the [MIT license](LICENSE.txt).

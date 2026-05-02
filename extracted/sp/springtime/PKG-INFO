@@ -1,0 +1,103 @@
+Metadata-Version: 2.3
+Name: springtime
+Version: 0.2.2
+Summary: Spatiotemporal phenology research with interpretable models
+Project-URL: Documentation, https://springtime.readthedocs.io/en/latest/
+Project-URL: Issues, https://github.com/phenology/springtime/issues
+Project-URL: Source, https://github.com/phenology/springtime
+Author-email: Peter Kalverla <peter.kalverla@gmx.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: phenology
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.10
+Requires-Dist: cftime
+Requires-Dist: click
+Requires-Dist: dask
+Requires-Dist: geopandas
+Requires-Dist: netcdf4
+Requires-Dist: pandas
+Requires-Dist: pydantic==2.*
+Requires-Dist: pyyaml
+Requires-Dist: requests
+Requires-Dist: scikit-learn
+Requires-Dist: xarray==2023.8.0
+Requires-Dist: xdg-base-dirs
+Provides-Extra: dev
+Requires-Dist: black; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: types-pyyaml; extra == 'dev'
+Requires-Dist: types-requests; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == 'docs'
+Requires-Dist: mkdocs-gen-files; extra == 'docs'
+Requires-Dist: mkdocs-include-markdown-plugin; extra == 'docs'
+Requires-Dist: mkdocs-jupyter; extra == 'docs'
+Requires-Dist: mkdocs-literate-nav; extra == 'docs'
+Requires-Dist: mkdocs-material; extra == 'docs'
+Requires-Dist: mkdocs-section-index; extra == 'docs'
+Requires-Dist: mkdocstrings-python; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Provides-Extra: extras
+Requires-Dist: dumme; extra == 'extras'
+Requires-Dist: ipykernel; extra == 'extras'
+Requires-Dist: pycaret[models]; extra == 'extras'
+Requires-Dist: pyphenology; extra == 'extras'
+Description-Content-Type: text/markdown
+
+[![Documentation Status](https://readthedocs.org/projects/springtime/badge/?version=latest)](https://springtime.readthedocs.io/en/latest/?badge=latest)
+[![RSD](https://img.shields.io/badge/RSD-springtime-blue)](https://research-software-directory.org/software/springtime)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7835299.svg)](https://doi.org/10.5281/zenodo.7835299)
+[![PyPI version](https://badge.fury.io/py/springtime.svg)](https://badge.fury.io/py/springtime)
+
+
+
+For detailed information and instruction, please refer to the
+[documentation](https://springtime.readthedocs.io/)
+
+<!--intro-start-->
+# Springtime
+
+Springtime is both a project and a python packaged aimed at streamlining
+workflows for doing machine learning with phenological datasets.
+
+Phenology is the scientific discipline in which we study the lifecycle of plants
+and animals. A common objective is to develop (Machine Learning) models that can
+explain or predict the occurrence of phenological events, such as the blooming
+of plants. Since there is a variety of data sources and existing tools to
+retrieve and analyse phenology data, it is easy to get lost and disorganized.
+
+At the heart of springtime is a data representation following the scikit-learn
+standard structure. The springtime python package implements (down)loaders for
+various datasets that are able to convert the data to this same structure. Data
+loading specifications can be exported to yaml recipes for easy sharing.
+
+The documentation has an extensive user guide that shows how each of the data
+loaders convert from the raw to the standardized data format. It also includes
+examples of using various (combinations of) models.
+
+The data structure proposed here is still not ideal, and should rather be seen
+as a first step in standardizing workflows in phenological modelling. We hope it
+will serve as a basis for discussion and further developments.
+
+## Example task
+
+Predict the day of first bloom of the common lilac given indirect observations
+(e.g. satellite data) and/or other indicators (e.g. sunshine and temperature).
+
+![illustration_example_use_case](docs/illustration.png)
+<!--intro-end-->
+
+

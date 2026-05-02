@@ -19,6 +19,7 @@ import asyncio
 import functools
 import traceback
 import warnings
+import weakref
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -55,6 +56,29 @@ from ..types import (
 )
 from ._core import Context, Dependents, ReactiveWarning, isolate
 from ._utils import is_user_code_frame
+
+
+def _weak_callback(method: Callable[[], None]) -> Callable[[], None]:
+    """
+    Wrap a bound method in a ``weakref.WeakMethod`` so the callback does not
+    prevent the owning object from being garbage collected. If the object has
+    been collected, the wrapper silently no-ops.
+    """
+    ref = weakref.WeakMethod(method)
+
+    def wrapper() -> None:
+        fn = ref()
+        if fn is not None:
+            fn()
+
+    return wrapper
+
+
+class DestroyedReactiveError(Exception):
+    """Raised when accessing a destroyed reactive.calc."""
+
+    pass
+
 
 if TYPE_CHECKING:
     from .. import Session
@@ -177,6 +201,14 @@ class Value(Generic[T]):
                 self._otel_namespace = ns_str
         # Lazily initialized OTel label for value updates; Allows for `_name` to be adjusted manually after init (ex: Inputs class)
         self._otel_label: str | None = None
+        # Guards destroy() idempotency — _set(MISSING) should only run once
+        # to avoid redundant invalidation of dependents.
+        self._destroyed: bool = False
+
+        if session is not None:
+            # Unset the value on session/module destroy so dependents are
+            # invalidated and the stored value is freed.
+            session.on_destroy(_weak_callback(self.destroy))
 
     def _try_infer_name(self) -> str | None:
         """
@@ -196,6 +228,16 @@ class Value(Generic[T]):
         - self.counter = reactive.value(0) → "counter"
         - self.counter = Value(0) → "counter"
         - self.counter = value(0) → "counter"
+        - counter: reactive.Value[int] = reactive.Value(0) → "counter"
+        - self._messages: reactive.Value[tuple[str, ...]] = reactive.Value(()) → "_messages"
+        - Multiline assignments (Value call on continuation line):
+          self._messages: reactive.Value[tuple[str, ...]] = (
+              reactive.Value(())
+          ) → "_messages"
+        - Multiline type annotations:
+          self._latest: reactive.Value[
+              str | None
+          ] = reactive.Value(None) → "_latest"
 
         Examples of what doesn't work (returns None):
         - values = [reactive.Value(0), reactive.Value(1)]
@@ -219,25 +261,98 @@ class Value(Generic[T]):
                     line = frame_info.code_context[0].strip()
 
                     # Pattern 1: var_name = [reactive.]Value(...) or [reactive.]value(...)
-                    # The \( at the end anchors to a function call, preventing matches
+                    # Also handles type annotations: var_name: Type = [reactive.]Value(...)
+                    # [\[\(] at the end anchors to either a function call `Value(`
+                    # or a generic subscript `Value[int](`, preventing matches
                     # against identifiers like ValueFactory or value2
-                    match = re.match(r"^(\w+)\s*=\s*(?:reactive\.)?[Vv]alue\s*\(", line)
-                    if match:
-                        return match.group(1)
-
-                    # Pattern 2: self.var_name = [reactive.]Value(...) or [reactive.]value(...)
                     match = re.match(
-                        r"^\w+\.(\w+)\s*=\s*(?:reactive\.)?[Vv]alue\s*\(", line
+                        r"^(\w+)\s*(?::[^=]+)?\s*=\s*(?:reactive\.)?[Vv]alue\s*[\[\(]",
+                        line,
                     )
                     if match:
                         return match.group(1)
 
-                # Stop after first user code frame
+                    # Pattern 2: self.var_name = [reactive.]Value(...) or [reactive.]value(...)
+                    # Also handles type annotations: self.var_name: Type = [reactive.]Value(...)
+                    # [\[\(] at the end anchors to either a function call `Value(`
+                    # or a generic subscript `Value[int](`, preventing matches
+                    # against identifiers like ValueFactory or value2
+                    match = re.match(
+                        r"^\w+\.(\w+)\s*(?::[^=]+)?\s*=\s*(?:reactive\.)?[Vv]alue\s*[\[\(]",
+                        line,
+                    )
+                    if match:
+                        return match.group(1)
+
+                    # If the line is a bare Value/value call (e.g., from a
+                    # multiline assignment where the target is on a previous
+                    # line), look backwards in the source file for the
+                    # assignment target.
+                    if re.search(r"\b[Vv]alue\b", line):
+                        name = self._try_infer_name_from_preceding_lines(
+                            filename, frame_info.lineno
+                        )
+                        if name is not None:
+                            return name
+                        break
+                    continue
+
+                # Stop after first user code frame with no source context
                 break
 
         except Exception:
             # If anything fails, silently return None
             pass
+
+        return None
+
+    @staticmethod
+    def _try_infer_name_from_preceding_lines(filename: str, lineno: int) -> str | None:
+        """
+        Look at preceding source lines to find the assignment target for a
+        multiline reactive.Value() assignment.
+
+        Handles patterns like::
+
+            self._messages: reactive.Value[tuple[str, ...]] = (
+                reactive.Value(())
+            )
+
+        where the Value() call is on a continuation line.
+        """
+        import linecache
+        import re
+
+        # Collect preceding lines to find the assignment target.
+        # This handles cases where the type annotation or assignment spans
+        # multiple lines, e.g.:
+        #   self._messages: reactive.Value[tuple[str, ...]] = (
+        #       reactive.Value(())
+        #   )
+        # or:
+        #   self._latest: reactive.Value[
+        #       str | None
+        #   ] = reactive.Value(None)
+        for offset in range(1, 6):
+            prev_line = linecache.getline(filename, lineno - offset).strip()
+            if not prev_line:
+                break
+
+            # Look for: var_name = ... or var_name: ... (start of assignment)
+            match = re.match(
+                r"^(\w+)\s*[:=]",
+                prev_line,
+            )
+            if match:
+                return match.group(1)
+
+            # Look for: self.var_name = ... or self.var_name: ...
+            match = re.match(
+                r"^\w+\.(\w+)\s*[:=]",
+                prev_line,
+            )
+            if match:
+                return match.group(1)
 
         return None
 
@@ -321,11 +436,17 @@ class Value(Generic[T]):
 
         Raises
         ------
+        DestroyedReactiveError
+            If the value has been destroyed.
         :class:`~shiny.types.SilentException`
             If the value is not set.
         RuntimeError
             If called from outside a reactive function.
         """
+        if self._destroyed:
+            raise DestroyedReactiveError(
+                f"Reactive value '{self._name}' has been destroyed."
+            )
 
         self._value_dependents.register()
 
@@ -350,9 +471,15 @@ class Value(Generic[T]):
 
         Raises
         ------
+        DestroyedReactiveError
+            If the value has been destroyed.
         RuntimeError
             If called on a read-only reactive value.
         """
+        if self._destroyed:
+            raise DestroyedReactiveError(
+                f"Reactive value '{self._name}' has been destroyed."
+            )
         if self._read_only:
             raise RuntimeError(
                 "Can't set read-only Value. If you are trying to set an input value, use `update_xxx()` instead."
@@ -361,8 +488,8 @@ class Value(Generic[T]):
 
     # The ._set() method allows setting read-only Value objects. This is used when the
     # Value is part of a session.Inputs object, and the session wants to set it.
-    def _set(self, value: T) -> bool:
-        if self._value is value:
+    def _set(self, value: T, *, force: bool = False) -> bool:
+        if not force and self._value is value:
             return False
 
         if isinstance(self._value, MISSING_TYPE) != isinstance(value, MISSING_TYPE):
@@ -416,6 +543,29 @@ class Value(Generic[T]):
             infer_session_id=False,
         )
 
+    def destroy(self) -> None:
+        """
+        Destroy this reactive value.
+
+        Unsets the value, invalidating all dependents and freeing the stored
+        value. Idempotent: calling ``destroy()`` more than once has no effect.
+        Works on read-only values (e.g., input values).
+
+        Note
+        ----
+        This method will only perform the minimum cleanup needed to
+        release resources and invalidate dependents — the same work that
+        would happen if this object were garbage collected.
+        """
+        if self._destroyed:
+            return
+        self._destroyed = True
+        # Invalidate directly instead of calling _set(MISSING) because _set()
+        # short-circuits when the value is already MISSING (identity check).
+        self._value = MISSING  # type: ignore
+        self._value_dependents.invalidate()
+        self._is_set_dependents.invalidate()
+
     def unset(self) -> None:
         """
         Unset the reactive value.
@@ -431,11 +581,15 @@ class Value(Generic[T]):
         """
         Check if the reactive value is set.
 
+        Returns ``False`` for destroyed values.
+
         Returns
         -------
         :
             ``True`` if the value is set, ``False`` otherwise.
         """
+        if self._destroyed:
+            return False
 
         self._is_set_dependents.register()
         return not isinstance(self._value, MISSING_TYPE)
@@ -446,7 +600,16 @@ class Value(Generic[T]):
 
         Freezing is equivalent to unsetting the value, but it does not invalidate
         dependents.
+
+        Raises
+        ------
+        DestroyedReactiveError
+            If the value has been destroyed.
         """
+        if self._destroyed:
+            raise DestroyedReactiveError(
+                f"Reactive value '{self._name}' has been destroyed."
+            )
         self._value = MISSING
 
 
@@ -476,6 +639,8 @@ class Calc_(Generic[T]):
         *,
         session: "MISSING_TYPE | Session | None" = MISSING,
     ) -> None:
+        _utils.validate_no_params(fn, "reactive.calc", stacklevel=5)
+
         self.__name__ = fn.__name__
         self.__doc__ = fn.__doc__
 
@@ -491,6 +656,9 @@ class Calc_(Generic[T]):
         self._most_recent_ctx_id: int = -1
         self._ctx: Optional[Context] = None
         self._exec_count: int = 0
+        # Guards destroy() idempotency and __call__/get_value access.
+        # Once destroyed, the calc raises DestroyedReactiveError on access.
+        self._destroyed: bool = False
 
         self._session: Optional[Session]
         # Use `isinstance(x, MISSING_TYPE)`` instead of `x is MISSING` because
@@ -531,13 +699,54 @@ class Calc_(Generic[T]):
         # the current collection level at initialization time.
         self._otel_level: OtelCollectLevel = resolve_func_otel_level(fn)
 
+        if self._session is not None:
+            # Invalidate context and dependents on session/module destroy so
+            # the calc is permanently destroyed and references are freed.
+            self._session.on_destroy(_weak_callback(self.destroy))
+
+    def destroy(self) -> None:
+        """
+        Destroy this reactive calc.
+
+        Invalidates the calc's context and all downstream dependents, freeing
+        references. After destruction, calling the calc raises
+        :class:`DestroyedReactiveError`. Idempotent.
+
+        Note
+        ----
+        This method will only perform the minimum cleanup needed to
+        release resources and invalidate dependents — the same work that
+        would happen if this object were garbage collected.
+        """
+        if self._destroyed:
+            return
+        self._destroyed = True
+        if self._ctx is not None:
+            # _on_invalidate_cb handles clearing _value, invalidating
+            # _dependents, and setting _ctx = None.
+            self._ctx.invalidate()
+        else:
+            # Calc was never evaluated, so no context exists and
+            # _on_invalidate_cb won't fire. Clean up manually.
+            self._dependents.invalidate()
+            self._value.clear()
+        self._error.clear()
+
     def __call__(self) -> T:
+        if self._destroyed:
+            raise DestroyedReactiveError(
+                f"Reactive calc '{self._otel_label}' has been destroyed."
+            )
         # Run the Coroutine (synchronously), and then return the value.
         # If the Coroutine yields control, then an error will be raised.
         return _utils.run_coro_sync(self.get_value())
 
     # TODO: should this be private?
     async def get_value(self) -> T:
+        if self._destroyed:
+            raise DestroyedReactiveError(
+                f"Reactive calc '{self._otel_label}' has been destroyed."
+            )
         self._dependents.register()
 
         if self._invalidated or self._running:
@@ -753,6 +962,8 @@ class Effect_:
                 + "Please remove your call of `@reactive.effect`."
             )
 
+        _utils.validate_no_params(fn, "reactive.effect", stacklevel=5)
+
         # The EffectAsync subclass will pass in an async function, but it tells the
         # static type checker that it's synchronous. wrap_async() is smart -- if is
         # passed an async function, it will not change it.
@@ -788,7 +999,11 @@ class Effect_:
         self._session = session
 
         if self._session is not None:
-            self._session.on_ended(self._on_session_ended_cb)
+            # TODO-future: Investigate using _weak_callback for on_ended too.
+            # Currently kept as a strong reference to preserve existing behavior
+            # where effects are guaranteed to be destroyed at session end.
+            self._session.on_ended(self.destroy)
+            self._session.on_destroy(_weak_callback(self.destroy))
 
         # Extract OpenTelemetry attributes at initialization time
         self._otel_attrs: dict[str, Any] = {
@@ -915,6 +1130,12 @@ class Effect_:
 
         Stops the effect from executing ever again, even if it is currently scheduled
         for re-execution.
+
+        Note
+        ----
+        This method will only perform the minimum cleanup needed to
+        release resources and prevent future execution — the same work
+        that would happen if this object were garbage collected.
         """
         self._destroyed = True
 
@@ -963,9 +1184,6 @@ class Effect_:
         suspended, in which case the priority change will be effective upon resume.
         """
         self._priority = priority
-
-    def _on_session_ended_cb(self) -> None:
-        self.destroy()
 
     def _extract_otel_attrs(self, fn: Callable[..., Any]) -> SourceRefAttrs:
         """Extract OpenTelemetry attributes from the reactive function."""
@@ -1126,6 +1344,8 @@ def event(
                 + "It should usually be applied before `@Calc`,` @Effect`, or `@render.xx` function.\n"
                 + "In other words, `@reactive.event()` goes below the other decorators."
             )
+
+        _utils.validate_no_params(user_fn, "reactive.event", stacklevel=3)
 
         if isinstance(user_fn, Calc_):
             raise TypeError(

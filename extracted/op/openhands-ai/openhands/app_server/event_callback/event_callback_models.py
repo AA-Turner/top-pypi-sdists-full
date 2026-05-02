@@ -15,6 +15,9 @@ from openhands.app_server.event_callback.event_callback_result_models import (
     EventCallbackResult,
     EventCallbackResultStatus,
 )
+
+# TODO(OpenHands/evaluation#418): import from openhands.sdk.utils.redact
+from openhands.app_server.utils._redact_compat import redact_text_secrets
 from openhands.sdk import Event
 from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
@@ -56,7 +59,11 @@ class LoggingCallbackProcessor(EventCallbackProcessor):
         callback: EventCallback,
         event: Event,
     ) -> EventCallbackResult:
-        _logger.info(f'Callback {callback.id} Invoked for event {event}')
+        _logger.info(
+            'Callback %s Invoked for event %s',
+            callback.id,
+            redact_text_secrets(str(event)),
+        )
         return EventCallbackResult(
             status=EventCallbackResultStatus.SUCCESS,
             event_callback_id=callback.id,

@@ -1,0 +1,46 @@
+[project]
+name = "gh_release_tools"
+dynamic = ["version"]
+description = "Tools for data wrangling in github releases"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+authors = [
+    { name = "Sreeram Kandimalla", email = "kandimalla.sreeram@gmail.com" },
+]
+
+[project.urls]
+homepage = "https://github.com/ramSeraph/release_tools"
+repository = "https://github.com/ramSeraph/release_tools.git"
+
+[project.scripts]
+generate-lists = "release_tools.generate_lists:cli"
+upload-to-release = "release_tools.upload_to_release:cli"
+delete-from-release = "release_tools.delete_from_release:cli"
+download-from-release = "release_tools.download_from_release:cli"
+
+[build-system]
+requires = [
+    "hatchling",
+    "hatch-vcs"
+]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "release_tools/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "release_tools",
+    "release_tools/bash_scripts/**",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "release_tools",
+    "release_tools/bash_scripts/**",
+]
+

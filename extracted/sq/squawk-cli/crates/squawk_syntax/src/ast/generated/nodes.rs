@@ -2861,6 +2861,10 @@ pub struct Cluster {
 }
 impl Cluster {
     #[inline]
+    pub fn on_path(&self) -> Option<OnPath> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn option_item_list(&self) -> Option<OptionItemList> {
         support::child(&self.syntax)
     }
@@ -12500,6 +12504,21 @@ impl OnDeleteAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnPath {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OnPath {
+    #[inline]
+    pub fn path(&self) -> Option<Path> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn on_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ON_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OnTable {
     pub(crate) syntax: SyntaxNode,
 }
@@ -14179,6 +14198,10 @@ impl Reindex {
     #[inline]
     pub fn path(&self) -> Option<Path> {
         support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn concurrently_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CONCURRENTLY_KW)
     }
     #[inline]
     pub fn database_token(&self) -> Option<SyntaxToken> {
@@ -26989,6 +27012,24 @@ impl AstNode for OnDeleteAction {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ON_DELETE_ACTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OnPath {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ON_PATH
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {

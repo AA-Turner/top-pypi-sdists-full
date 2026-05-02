@@ -1,0 +1,447 @@
+Metadata-Version: 2.4
+Name: spring-api-intel-mcp
+Version: 1.0.0
+Summary: MCP server for Spring Boot codebase intelligence
+Project-URL: Homepage, https://github.com/mparth14/spring-api-intel-mcp
+Project-URL: Repository, https://github.com/mparth14/spring-api-intel-mcp
+License: MIT
+Keywords: ai,developer-tools,java,mcp,spring-boot
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: mcp[cli]>=1.26.0
+Description-Content-Type: text/markdown
+
+# Spring Boot API Intelligence MCP Server
+
+An MCP (Model Context Protocol) server that gives AI assistants deep understanding of Spring Boot codebases — without even running the application.
+
+Point it at any Spring Boot project to understand the architecture and get a quick understanding of the project. Ask questions in plain English:
+- *"What endpoints exist and what do they do?"*
+- *"Trace the /api/v1/orders endpoint through to the database"*
+- *"What classes depend on ValidationService?"*
+- *"What version of Java and Spring Boot is this project using?"*
+- *"Summarize what PaymentController does and flag any design observations"*
+- *"Generate a visual architecture dashboard for this project"*
+- *"Analyse this GitHub repo: gothinkster/spring-boot-realworld-example-app"*
+
+## Demo
+```
+User: Set the project to C:\projects\my-spring-app
+
+Claude: Switched to project: C:\projects\my-spring-app
+        Indexed 34 classes and 13 endpoints
+```
+```
+User: Analyse this repo: gothinkster/spring-boot-realworld-example-app
+
+Claude: Cloned: https://github.com/gothinkster/spring-boot-realworld-example-app
+        Location : C:\Users\pmodi\AppData\Local\Temp\springboot-intel\spring-boot-realworld-example-app
+        Classes  : 116
+        Endpoints: 17
+
+        Ready — ask me anything about this codebase.
+```
+```
+User: Summarize the CustomerService class
+
+Claude: Overview — A Spring @Service class responsible for all customer-related
+business logic. Uses constructor injection for its dependencies.
+
+Dependencies:
+  CustomerRepository — handles database persistence for Customer entities
+  GeoCoderService — resolves postal codes to geographic location data
+
+Key Design Points:
+  Uses DTOs to separate the API layer from the domain model
+  Custom exceptions thrown for clear error handling
+  Logging via SLF4J on destructive operations like deletes
+```
+```
+User: Trace the /api/v1/customer/get endpoint
+
+Claude: [GET] /api/v1/customer/get
+  Controller : CustomerController.getAllCustomers()
+  Service calls:
+    → customerService.getAllCustomers()
+       → customerRepository.findAll() [repository]
+  Returns    : ResponseEntity.ok(customers)
+```
+```
+User: Generate a dashboard for this project
+
+Claude: Dashboard generated and opened in your browser.
+        File: C:\projects\my-spring-app\dashboard.html
+```
+
+## Tools
+
+| Tool | Description | MCP Primitive |
+|------|-------------|---------------|
+| `set_project` | Switch the active project at runtime — no config changes needed | Tool |
+| `clone_and_set_project` | Clone any public GitHub repo and index it instantly | Tool |
+| `list_endpoints` | Lists all REST endpoints grouped by controller with service call detection | Tool |
+| `trace_endpoint` | Traces the full call chain: controller → service → repository | Tool |
+| `find_usages` | Finds all classes that reference a given class name | Tool |
+| `summarize_class` | AI-generated plain-English class summary via MCP Sampling | Tool + Sampling |
+| `get_project_info` | Extracts Java version, Spring Boot version, build tool and all dependencies | Tool |
+| `generate_dashboard` | Generates a self-contained HTML architecture dashboard, auto-opens in browser | Tool + Sampling |
+| `reindex` | Re-scans the project to pick up new or changed files | Tool |
+| `list_cloned_repos` | Lists all cached GitHub clones with their disk usage | Tool |
+| `delete_cloned_repo` | Deletes a specific cached repo to free disk space | Tool |
+| `delete_all_cloned_repos` | Deletes all cached repos to free disk space | Tool |
+| `clear_saved_state` | Resets saved project state so the server starts fresh next session | Tool |
+
+## Dashboard
+
+`generate_dashboard` produces a self-contained HTML file and opens it in your
+default browser automatically — no server, no internet connection required.
+It includes:
+
+- **Architecture layers** — color-coded view of controllers, services, and
+  repositories with clickable class chips
+- **Interactive dependency graph** — D3-powered force layout showing which
+  classes depend on which, with draggable nodes
+- **Tech stack summary** — Java version, Spring Boot version, build tool,
+  class and endpoint counts
+- **Endpoint breakdown** — bar chart of endpoints by HTTP method
+- **Key insights** — AI-generated architectural observations via MCP Sampling
+- **Class overview table** — every class, its role, method count, and
+  dependencies at a glance
+
+The dashboard is generated from static analysis — no running JVM needed.
+The project description and key insights are written by Claude via Sampling,
+so they read like a senior developer wrote them rather than a script.
+
+The file is saved as `dashboard.html` in the project root and can be committed
+to the repository as living documentation.
+
+## MCP Primitives Used
+
+This server implements all three core MCP primitives:
+
+**Tools** — thirteen callable tools that Claude invokes based on natural language.
+No special syntax needed — just describe what you want.
+
+**Prompts** — pre-built prompt templates accessible via the `+` button in
+Claude Desktop. Includes `summarize-class`, `trace-endpoint`,
+`onboarding-overview`, `find-usages`, `architecture-review`,
+`generate-dashboard`, and `analyse-github-repo`.
+Select one, fill in the arguments, and Claude fires the optimised prompt
+automatically.
+
+**Sampling** — the most advanced primitive. Used by both `summarize_class`
+and `generate_dashboard`. The server sends a `sampling/createMessage` request
+*back* to Claude Desktop, asking it to generate content using the user's
+existing Claude session. This means:
+- No Anthropic API key required
+- No separate billing — uses the user's existing Claude session
+- Works on the free tier
+- The server orchestrates AI generation rather than just returning raw data
+
+Both tools fall back gracefully to raw structured data if the client does not
+support sampling.
+
+## How It Works
+
+At startup the server loads the last active project from its persisted state
+file (`.server_state.json`) and indexes it automatically — no manual setup
+needed after the first run.
+
+The server walks all `.java` files in the target project and builds an
+in-memory index of:
+- All classes, their annotations, methods, and injected dependencies
+- All REST endpoints parsed from `@RestController` / `@RequestMapping` annotations,
+  including old-style `@RequestMapping(method = RequestMethod.GET)`, array paths
+  `@GetMapping({"/path1", "/path2"})`, and multi-line annotations
+- The full controller → service → repository call chain per endpoint
+
+The active project can be changed at any time via `set_project` or
+`clone_and_set_project` — no config edits or client restarts needed. The new
+project is persisted automatically so it loads on next startup.
+
+If the Spring Boot app is running, `list_endpoints` also enriches results with
+live data from Swagger (`/v3/api-docs`) or Spring Actuator (`/actuator/mappings`).
+
+The parser is regex-based so it works on any Spring Boot project without
+compilation or a running JVM.
+
+All tool calls and errors are logged to `server.log` in the project root for
+easy debugging.
+
+## Prerequisites
+
+- Python 3.10+
+- [git](https://git-scm.com) (required for `clone_and_set_project`)
+- [Claude Desktop](https://claude.ai/download) or [Cursor](https://cursor.com) (**FREE tier works**)
+
+## Installation
+
+### Option A — pip (recommended, no cloning needed)
+```bash
+pip install spring-api-intel-mcp
+```
+
+That's it. The `springboot-intel` command is now available on your machine.
+
+### Option B — uv (if you use uv)
+```bash
+uv tool install spring-api-intel-mcp
+```
+
+### Option C — clone the repo (for development or contribution)
+```bash
+git clone https://github.com/mparth14/spring-api-intel-mcp
+cd spring-api-intel-mcp
+uv sync
+```
+
+## Client Configuration
+
+### Claude Desktop
+
+Find your config file:
+- **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows (Store install):** `%LOCALAPPDATA%\Packages\AnthropicPBC.Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json`
+- **Windows (direct install):** `%APPDATA%\Claude\claude_desktop_config.json`
+
+**If installed via pip (Option A or B):**
+```json
+{
+  "mcpServers": {
+    "springboot-intel": {
+      "command": "springboot-intel",
+      "args": [],
+      "env": {
+        "SPRING_PROJECT_ROOT": "",
+        "SPRING_BOOT_URL": ""
+      }
+    }
+  }
+}
+```
+
+**If using the cloned repo (Option C):**
+```json
+{
+  "mcpServers": {
+    "springboot-intel": {
+      "command": "uv",
+      "args": [
+        "--directory", "/path/to/spring-api-intel-mcp",
+        "run", "server.py"
+      ],
+      "env": {
+        "SPRING_PROJECT_ROOT": "",
+        "SPRING_BOOT_URL": ""
+      }
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (Mac/Linux) or `%USERPROFILE%\.cursor\mcp.json` (Windows):
+
+**If installed via pip:**
+```json
+{
+  "mcpServers": {
+    "springboot-intel": {
+      "command": "springboot-intel",
+      "args": [],
+      "env": {
+        "SPRING_PROJECT_ROOT": "",
+        "SPRING_BOOT_URL": ""
+      }
+    }
+  }
+}
+```
+
+**If using the cloned repo:**
+```json
+{
+  "mcpServers": {
+    "springboot-intel": {
+      "command": "uv",
+      "args": [
+        "--directory", "/path/to/spring-api-intel-mcp",
+        "run", "server.py"
+      ],
+      "env": {
+        "SPRING_PROJECT_ROOT": "",
+        "SPRING_BOOT_URL": ""
+      }
+    }
+  }
+}
+```
+
+On Windows use double backslashes in the `--directory` path: `C:\\path\\to\\...`
+
+Restart your client after saving the config. You should see a hammer icon
+(Claude Desktop) or MCP indicator (Cursor) confirming the server is connected.
+
+> **Leave `SPRING_PROJECT_ROOT` empty.** The server remembers the last active
+> project across sessions via `.server_state.json`. Use `set_project` or
+> `clone_and_set_project` in chat to point it at a codebase.
+
+> **Windows PATH note:** If installed via pip and `springboot-intel` is not
+> recognised as a command, add your Python Scripts folder to PATH. Run
+> `where springboot-intel` to find the path, then add that folder to your
+> system PATH environment variable.
+
+## Usage
+
+### Analyse any public GitHub repository
+
+No manual cloning needed — just pass the URL or owner/repo shorthand:
+```
+Analyse this repo: gothinkster/spring-boot-realworld-example-app
+Analyse this repo: https://github.com/spring-projects/spring-petclinic
+```
+
+The server clones with `--depth=1` for speed, indexes it immediately, and
+all tools work against the remote codebase. Re-running on the same repo
+skips the clone and just reindexes from the cached copy.
+
+Clones are stored in your system **temp** folder under `springboot-intel/` and
+persist across sessions. Use `list_cloned_repos` to see cached repos and
+their disk usage, and `delete_cloned_repo` or `delete_all_cloned_repos` to
+free up space.
+
+> **Note:** Public repositories only. For private repos, clone manually
+> and use `set_project` instead. Repos over ~500MB may timeout — clone
+> manually with `git clone --depth=1` and use `set_project` instead.
+
+### Switch to a local project
+```
+Set the project to C:\projects\my-spring-app
+```
+
+Claude calls `set_project`, the index rebuilds, and all subsequent queries
+run against the new codebase. The project path is saved automatically for
+next session.
+
+### Single tool prompts
+```
+List all the endpoints in my Spring Boot project
+Trace the /api/v1/customer/create endpoint
+What classes use CustomerService and where?
+Summarize the AccountService class
+What version of Java and Spring Boot is this project using?
+Generate a dashboard for this project
+Reindex the project
+List my cached repos and their sizes
+Delete the spring-petclinic clone
+```
+
+### Multi-tool chains
+
+These prompts cause Claude to call several tools in sequence and synthesise
+a complete answer — good ones to screenshot for a demo:
+```
+I'm new to this codebase — give me a full onboarding overview
+Which endpoints have no authentication annotations?
+If I modify the Customer model, what else would be affected?
+Give me a full architecture review of this codebase
+```
+
+### Built-in prompt templates (Claude Desktop)
+
+Click the `+` button next to the chat input to access pre-built prompts:
+
+| Prompt | What it does |
+|--------|-------------|
+| `analyse-github-repo` | Clone and analyse any public GitHub repo |
+| `summarize-class` | AI summary of any class |
+| `trace-endpoint` | Full call chain walkthrough |
+| `find-usages` | Cross-codebase reference search |
+| `onboarding-overview` | Full codebase overview for new developers |
+| `architecture-review` | Endpoints, dependencies, and design observations |
+| `generate-dashboard` | Visual HTML architecture dashboard, auto-opens in browser |
+
+### Recommended repos to try
+
+| Repo | What makes it good to test |
+|------|---------------------------|
+| `spring-projects/spring-petclinic` | Clean layered architecture, good baseline |
+| `Amit-Ashok-Swain/Spring-Boot-EcommerceAPI-Application` | 21 endpoints across 4 domains, thin service layer pattern |
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SPRING_PROJECT_ROOT` | No | Pre-set a project path at startup. Leave empty — server remembers last project via state file |
+| `SPRING_BOOT_URL` | No | Base URL of a running app for live Swagger/Actuator enrichment e.g. `http://localhost:8080` |
+
+## Compatible Clients
+
+| Client | MCP Support | Notes |
+|--------|-------------|-------|
+| Claude Desktop | Full — Tools, Sampling, Prompts | Recommended |
+| Cursor | Tools only | Works well for IDE use |
+| Windsurf | Tools only | |
+| VS Code (Copilot) | Partial / in progress | |
+| IntelliJ IDEA | Not supported yet | JetBrains roadmap |
+| ChatGPT | Not supported | Uses a different protocol |
+
+MCP Sampling requires a client that supports the full MCP spec.
+Claude Desktop is currently the most complete implementation.
+
+## Known Limitations
+
+- Parser is regex-based — handles standard Spring patterns well but may miss
+  heavily customised or generated code
+- Constructor injection is detected; Lombok `@RequiredArgsConstructor` is not
+- Kotlin Spring Boot projects are not supported
+- Complex lambda expressions in method bodies may not trace correctly
+- Sampling falls back gracefully to raw data if the client does not support it
+- Dashboard dependency graph requires classes to be indexed with detected
+  dependencies — heavily abstracted injection patterns may not appear
+- `clone_and_set_project` works with public repositories only — private repos
+  require manual cloning and `set_project`
+- Repositories over ~500MB may exceed the 2 minute clone timeout — clone
+  manually with `git clone --depth=1` and use `set_project` instead
+- Multi-module repos should be pointed at a single submodule path rather
+  than the repo root
+
+## Project Structure
+```
+spring-api-intel-mcp/
+├── server.py                      # Entry point — ~60 lines, delegates to handlers
+├── pyproject.toml                 # Package config and dependencies
+├── core/
+│   ├── __init__.py
+│   ├── indexer.py                 # Walks .java files and builds in-memory index
+│   ├── logger.py                  # Shared logger — writes to server.log
+│   ├── sampling.py                # MCP Sampling — delegates AI generation to client
+│   ├── state_manager.py           # Persists active project across sessions
+│   └── swagger_client.py          # Fetches live endpoint data from running app
+├── handlers/
+│   ├── __init__.py
+│   ├── tool_handlers.py           # All tool definitions and execution logic
+│   └── prompt_handlers.py         # All prompt definitions and routing logic
+├── tools/
+│   ├── __init__.py
+│   ├── list_endpoints.py
+│   ├── trace_endpoint.py
+│   ├── find_usages.py
+│   ├── summarize_class.py         # Uses sampling for AI-generated summaries
+│   ├── project_info.py            # Parses pom.xml / build.gradle
+│   ├── dashboard.py               # Generates HTML dashboard, auto-opens in browser
+│   └── git_clone.py               # Clones public GitHub repos with partial clone cleanup
+└── README.md
+```
+
+## Contributing
+
+Issues and PRs welcome at [github.com/mparth14/spring-api-intel-mcp](https://github.com/mparth14/spring-api-intel-mcp).
+
+## License
+
+MIT

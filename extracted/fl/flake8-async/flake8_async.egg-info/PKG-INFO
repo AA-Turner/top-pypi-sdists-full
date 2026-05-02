@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-async
-Version: 26.4.1
+Version: 26.4.2
 Summary: A highly opinionated flake8 plugin for Trio-related problems.
 Author: Zac Hatfield-Dodds, John Litborn, and Contributors
 Author-email: zac@zhd.dev

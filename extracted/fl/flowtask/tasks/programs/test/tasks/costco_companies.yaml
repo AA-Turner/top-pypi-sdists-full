@@ -1,0 +1,18 @@
+name: Load Costco Companies
+description: Costco Companies into DB
+steps:
+  - FileRead:
+      file: company_info.json
+      is_json: True
+      as_dataframe: True
+  - TransformRows:
+      fields:
+        account_name: brand
+  - CopyToPg:
+      tablename: companies_info
+      schema: costco
+      truncate: true
+      use_buffer: true
+      create_table:
+        pk:
+          - "brand"

@@ -1,0 +1,34 @@
+Metadata-Version: 2.4
+Name: g3tables
+Version: 0.2.18
+Summary: G3 SW Definition, HW and PLC components, and Visualisation tables parser
+Author: Elektroline a.s.
+License-Expression: MIT
+Project-URL: Homepage, https://gitlab.elektroline.cz/plc/systemg3-py/SystemG3Tables
+Keywords: Elektroline,Google Drive,Project table
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Other Audience
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENCE
+Requires-Dist: gspread
+Requires-Dist: openpyxl
+Requires-Dist: pandas
+Requires-Dist: python-gitlab
+Requires-Dist: unidecode
+Requires-Dist: platformdirs
+Requires-Dist: g3core
+Requires-Dist: g3hardware
+Dynamic: license-file
+
+# G3 SW Definition, HW and PLC components, and Visualisation tables Python parser

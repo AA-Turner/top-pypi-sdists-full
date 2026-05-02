@@ -1,0 +1,70 @@
+[tool.poetry]
+name = "reka-api"
+version = "3.2.0"
+description = "Reka Python SDK"
+readme = "README.md"
+authors = [
+    "Reka Team <contact@reka.ai>"
+]
+keywords = [
+    "reka",
+    "ai",
+    "sdk"
+]
+license = "MIT"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+    "License :: OSI Approved :: MIT License"
+]
+packages = [
+    { include = "reka", from = "src"}
+]
+
+[project.urls]
+Documentation = 'https://docs.reka.ai'
+Homepage = 'https://reka.ai'
+Repository = 'https://github.com/reka-ai/reka-sdk-python'
+
+[tool.poetry.dependencies]
+python = "^3.8"
+httpx = ">=0.21.2"
+httpx-sse = "0.4.0"
+idna = ">=3.7"
+pydantic = ">= 1.9.2"
+requests = "^2.31.0"
+typing_extensions = ">= 4.0.0"
+urllib3 = ">=2.0.7"
+
+[tool.poetry.dev-dependencies]
+mypy = "1.9.0"
+pytest = "^7.4.0"
+pytest-asyncio = "^0.23.5"
+python-dateutil = "^2.9.0"
+types-python-dateutil = "^2.9.0.20240316"
+types-requests = "^2.31.0.2"
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+asyncio_mode = "auto"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

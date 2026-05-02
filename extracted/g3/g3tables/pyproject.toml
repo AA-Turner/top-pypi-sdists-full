@@ -1,0 +1,57 @@
+[project]
+name = "g3tables"
+version = "0.2.18"
+description = "G3 SW Definition, HW and PLC components, and Visualisation tables parser"
+readme = "README.md"
+license-files = ["LICENCE"]
+license = "MIT"
+authors = [
+  { name="Elektroline a.s." },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed"
+]
+keywords = ["Elektroline", "Google Drive", "Project table"]
+requires-python = ">=3.10"
+dependencies = [
+    'gspread',
+    'openpyxl',
+    'pandas',
+    'python-gitlab',
+    'unidecode',
+    'platformdirs',
+    'g3core',
+    'g3hardware',
+]
+
+[project.scripts]
+gen-system-config = "g3tables.system_config._cli:main"
+g3tables-update-creds = "g3tables.utils.gdrive._update_creds:main"
+extend-io-table = "g3tables.plc_composition_io_table._extend_table:main"
+
+[project.urls]
+"Homepage" = "https://gitlab.elektroline.cz/plc/systemg3-py/SystemG3Tables"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"g3tables.plc_composition_io_table" = ["io_signals.json"]
+
+[options]
+package_dir = {"" = "src"}
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"

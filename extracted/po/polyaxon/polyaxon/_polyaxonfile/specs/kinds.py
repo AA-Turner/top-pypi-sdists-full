@@ -1,0 +1,4 @@
+OPERATION = "operation"
+COMPILED_OPERATION = "compiled_operation"
+COMPONENT = "component"
+KINDS = {OPERATION, COMPILED_OPERATION, COMPONENT}

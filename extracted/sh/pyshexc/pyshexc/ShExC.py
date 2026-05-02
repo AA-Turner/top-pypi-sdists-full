@@ -1,20 +1,19 @@
 import re
 from functools import reduce
-from typing import Optional, Tuple, List
 
 from ShExJSG import ShExJ
 from pyjsg.jsglib import *
 
 from pyshexc.parser_impl import generate_shexj
 
-repl_list: List[Tuple[str, str]] = [
+repl_list: list[tuple[str, str]] = [
     (r'"([0-9]+)"\^\^<http://www.w3.org/2001/XMLSchema#integer>\n?', r'\1')
 ]
 
 
 class ShExC:
     """ Convert ShExJ into ShExC """
-    def __init__(self, schema: Union[ShExJ.Schema, str], base: Optional[str]=None) -> None:
+    def __init__(self, schema: ShExJ.Schema | str, base: str | None = None) -> None:
         """ Construct a converter
 
         :param schema: schema string or instance to parse
@@ -54,8 +53,8 @@ class ShExC:
         """
         return ' '.join(e for e in self.tokenize() if e)
 
-    def tokenize(self) -> List[str]:
-        schema: List[str] = []
+    def tokenize(self) -> list[str]:
+        schema: list[str] = []
 
         schema += self.imports(self.schema.imports)
         schema += self.semActs(self.schema.startActs)
@@ -66,12 +65,12 @@ class ShExC:
     def implementation_error(self, tkn: Any) -> None:
         raise NotImplementedError(f"Unknown token: {type(tkn)}")
 
-    def imports(self, imports: Optional[List[ShExJ.IRIREF]]) -> List[str]:
+    def imports(self, imports: list[ShExJ.IRIREF] | None) -> list[str]:
         if imports is not None:
             return [f"IMPORT {self.iriref(e)}" for e in imports]
         return []
 
-    def semActs(self, semActs: Optional[List[ShExJ.SemAct]]) -> List[str]:
+    def semActs(self, semActs: list[ShExJ.SemAct] | None) -> list[str]:
         rval = []
         if semActs is not None:
             for act in semActs:
@@ -80,17 +79,17 @@ class ShExC:
                 rval.append(f"{{{act_code}%}}" if act_code is not None else '%')
         return rval
 
-    def start(self, start: Optional[ShExJ.shapeExpr]) -> List[str]:
+    def start(self, start: ShExJ.shapeExpr | None) -> list[str]:
         return (["START="] + self.shapeExpr(start)) if start is not None else []
 
-    def shapes(self, shapes: Optional[List[ShExJ.shapeExpr]]) -> List[str]:
+    def shapes(self, shapes: list[ShExJ.shapeExpr] | None) -> list[str]:
         rval = []
         if shapes is not None:
             for sexpr in shapes:
                 rval += self.shapeExpr(sexpr)
         return rval
 
-    def shapeExpr(self, sexpr: ShExJ.shapeExpr) -> List[str]:
+    def shapeExpr(self, sexpr: ShExJ.shapeExpr) -> list[str]:
         if isinstance(sexpr, ShExJ.ShapeOr):
             return self.shapeOr(sexpr)
         elif isinstance(sexpr, ShExJ.ShapeAnd):
@@ -110,7 +109,7 @@ class ShExC:
         else:
             self.implementation_error(sexpr)
 
-    def shapeDecl(self, shapeDecl: ShExJ.ShapeDecl) -> List[str]:
+    def shapeDecl(self, shapeDecl: ShExJ.ShapeDecl) -> list[str]:
         rval = []
         if shapeDecl.abstract:
             rval.append('ABSTRACT')
@@ -121,7 +120,7 @@ class ShExC:
         rval += self.shapeExpr(shapeDecl.shapeExpr)
         return rval
 
-    def binop(self, op: Union[ShExJ.ShapeOr, ShExJ.ShapeAnd], txt: str) -> List[str]:
+    def binop(self, op: ShExJ.ShapeOr | ShExJ.ShapeAnd, txt: str) -> list[str]:
         rval = [self.shapeExprLabel(op.id)] + [' ('] + self.shapeExpr(op.shapeExprs[0]) + [txt]
         for e in op.shapeExprs[1:-1]:
             rval += self.shapeExpr(e) + [txt]
@@ -129,16 +128,16 @@ class ShExC:
         rval += [')']
         return rval
 
-    def shapeOr(self, shapeOr: ShExJ.ShapeOr) -> List[str]:
+    def shapeOr(self, shapeOr: ShExJ.ShapeOr) -> list[str]:
         return self.binop(shapeOr, 'OR')
 
-    def shapeAnd(self, shapeAnd: ShExJ.ShapeAnd) -> List[str]:
+    def shapeAnd(self, shapeAnd: ShExJ.ShapeAnd) ->list[str]:
         return self.binop(shapeAnd, 'AND')
 
-    def shapeNot(self, shapeNot: ShExJ.ShapeNot) -> List[str]:
+    def shapeNot(self, shapeNot: ShExJ.ShapeNot) -> list[str]:
         return [self.shapeExprLabel(shapeNot.id)] + ['NOT ('] + self.shapeExpr(shapeNot.shapeExpr) + [')']
 
-    def nodeConstraint(self, nc: ShExJ.NodeConstraint) -> List[str]:
+    def nodeConstraint(self, nc: ShExJ.NodeConstraint) -> list[str]:
         rval = [self.shapeExprLabel(nc.id)]
         if nc.nodeKind:
             rval += [str(nc.nodeKind).upper()]
@@ -152,7 +151,7 @@ class ShExC:
             rval.append(']')
         return rval
 
-    def shape(self, shape: ShExJ.Shape) -> List[str]:
+    def shape(self, shape: ShExJ.Shape) -> list[str]:
         rval = [self.shapeExprLabel(shape.id)]
         if shape.extends is not None:
             for lbl in shape.extends:
@@ -171,7 +170,7 @@ class ShExC:
     def shapeExternal(self, se: ShExJ.ShapeExternal) -> str:
         return self.shapeExprLabel(se.id) + 'EXTERNAL'
 
-    def tripleExpr(self, te: ShExJ.tripleExpr) -> List[str]:
+    def tripleExpr(self, te: ShExJ.tripleExpr) -> list[str]:
         if te is None:
             return []
         elif isinstance(te, ShExJ.EachOf):
@@ -185,13 +184,13 @@ class ShExC:
         else:
             self.implementation_error(te)
 
-    def eachOf(self, eo: ShExJ.EachOf) -> List[str]:
+    def eachOf(self, eo: ShExJ.EachOf) -> list[str]:
         return self._eachOneOf(eo, ';')
 
-    def oneOf(self, oo: ShExJ.OneOf) -> List[str]:
+    def oneOf(self, oo: ShExJ.OneOf) -> list[str]:
         return self._eachOneOf(oo, '|')
 
-    def _eachOneOf(self, eoo: Union[ShExJ.EachOf, ShExJ.OneOf], sep: str) -> List[str]:
+    def _eachOneOf(self, eoo: ShExJ.EachOf | ShExJ.OneOf, sep: str) -> list[str]:
         rval = ['$' + self.tripleExprLabel(eoo.id)] if eoo.id is not None else []
         rval += ['(']
         rval += self.tripleExpr(eoo.expressions[0])
@@ -202,7 +201,7 @@ class ShExC:
         rval += self.semActs(eoo.semActs)
         return rval
 
-    def tripleConstraint(self, tc: ShExJ.TripleConstraint) -> List[str]:
+    def tripleConstraint(self, tc: ShExJ.TripleConstraint) -> list[str]:
         rval = ['$' + self.tripleExprLabel(tc.id)] if tc.id else []
         rval += [('^' if tc.inverse else '') + self.iriref(tc.predicate)] + \
             (self.shapeExpr(tc.valueExpr) if tc.valueExpr is not None else ['.'])
@@ -214,14 +213,14 @@ class ShExC:
         rval += self.semActs(tc.semActs)
         return rval
 
-    def annotations(self, annotations: Optional[List[ShExJ.Annotation]]) -> List[str]:
+    def annotations(self, annotations: list[ShExJ.Annotation] | None) -> list[str]:
         if annotations:
             return ['// ' + self.iriref(annot.predicate) + self.objectValue(annot.object) for annot in annotations]
         else:
             return []
 
     @staticmethod
-    def cardinality(min_: Optional[Integer], max_: Optional[Integer]) -> str:
+    def cardinality(min_: Integer | None, max_: Integer | None) -> str:
         minv = 1 if min_ is None else min_
         maxv = 1 if max_ is None else max_
         if minv == 0:
@@ -247,7 +246,7 @@ class ShExC:
             return f'/{pval}/' + (flags if flags is not None else '')
         return ''
 
-    def xsFacet(self, nc: ShExJ.NodeConstraint) -> List[str]:
+    def xsFacet(self, nc: ShExJ.NodeConstraint) -> list[str]:
         return [self.add_facet(nc.length, 'LENGTH'),
                 self.add_facet(nc.minlength, 'MINLENGTH'),
                 self.add_facet(nc.maxlength, 'MAXLENGTH'),
@@ -259,7 +258,7 @@ class ShExC:
                 self.add_facet(nc.totaldigits, 'TOTALDIGITS'),
                 self.add_facet(nc.fractiondigits, 'FRACTIONDIGITS')]
 
-    def valueSetValue(self, vsv: ShExJ.valueSetValue) -> List[str]:
+    def valueSetValue(self, vsv: ShExJ.valueSetValue) -> list[str]:
         if isinstance_(vsv, ShExJ.objectValue):
             return [self.objectValue(vsv)]
         elif isinstance(vsv, ShExJ.IriStem):
@@ -335,7 +334,7 @@ class ShExC:
     def tripleExprLabel(self, tripleExprLabel: ShExJ.tripleExprLabel) -> str:
         return self.exprLabel(tripleExprLabel)
 
-    def exprLabel(self, label: Union[ShExJ.shapeExprLabel, ShExJ.tripleExprLabel]) -> str:
+    def exprLabel(self, label: ShExJ.shapeExprLabel | ShExJ.tripleExprLabel) -> str:
         if label is None:
             return ""
         elif isinstance(label, ShExJ.IRIREF):
@@ -363,4 +362,4 @@ class ShExC:
             c = o.group(0)
             return chr(int('0x' + c[2:], 16))
 
-        return re.sub(r'\\x[0-9a-fA-F]+', _sub, rval, re.MULTILINE + re.DOTALL + re.UNICODE)
+        return re.sub(r'\\x[0-9a-fA-F]+', _sub, rval, flags=re.MULTILINE + re.DOTALL + re.UNICODE)

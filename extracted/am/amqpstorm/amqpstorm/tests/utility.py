@@ -3,7 +3,6 @@ import uuid
 
 from amqpstorm.connection import Channel
 from amqpstorm.connection import Connection
-import random
 
 try:
     import unittest2 as unittest
@@ -46,6 +45,7 @@ class FakeConnection(Connection):
             'ssl': False,
             'ssl_options': {},
             'poller': 'select',
+            'locale': 'en_US',
         }
         self.set_state(state)
         self.on_write = on_write
@@ -174,7 +174,6 @@ class TestFramework(unittest.TestCase):
     message = str(uuid.uuid4())
 
     def __init__(self, *args, **kwargs):
-        self.random = random.Random(42)
         self.channel = None
         self.connection = None
         self.validate_logging = True

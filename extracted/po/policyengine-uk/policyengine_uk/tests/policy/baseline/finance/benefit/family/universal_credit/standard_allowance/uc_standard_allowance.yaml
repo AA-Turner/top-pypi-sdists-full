@@ -1,0 +1,7 @@
+- name: 2025 test
+  period: 2025
+  absolute_error_margin: 150
+  input:
+    uc_standard_allowance_claimant_type: COUPLE_OLD
+  output:
+    uc_standard_allowance: 7527

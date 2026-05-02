@@ -1,0 +1,215 @@
+
+name: Benchmark
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  UV_TORCH_BACKEND: cpu
+  UV_INDEX_STRATEGY: unsafe-best-match
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  mot-metrics-benchmark:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.12']
+        tracker: ["ocsort", "bytetrack", "botsort", "deepocsort", "hybridsort", "strongsort", "boosttrack", "sfsort"]
+    timeout-minutes: 50
+    env:
+      SMOKE_SOURCE: assets/DOTA8-MOT/train/P0861__1024__0___1648/img1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install requirements
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl unzip
+          bash .github/scripts/uv_ci_install.sh ".[yolo]"
+
+      - name: Restore MOT17 dataset cache
+        id: cache-restore
+        uses: actions/cache@v4
+        with:
+          path: boxmot/engine/trackeval/data/MOT17-ablation.zip
+          key: mot17-ablation-dataset-cache-v4
+
+      - name: Cache MOT17.zip if not already cached
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: boxmot/engine/trackeval/data/MOT17-ablation.zip
+          key: mot17-ablation-dataset-cache-v4
+
+      - name: DOTA8-MOT OBB smoke tracking
+        id: obb_smoke
+        run: |
+          source .venv/bin/activate
+
+          if boxmot track --detector yolo11n-obb.pt --reid lmbn_n_duke.pt --tracker ${{ matrix.tracker }} --source "$SMOKE_SOURCE" --project runs/benchmark_ci --name ${{ matrix.tracker }} --exist-ok; then
+            echo "obb_status=✅" >> $GITHUB_OUTPUT
+          else
+            echo "obb_status=❌" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Evaluation and summarize MOT metrics
+        run: |
+          source .venv/bin/activate
+
+          OBB_STATUS="${{ steps.obb_smoke.outputs.obb_status }}"
+
+          if boxmot eval --classes 0 --detector yolox_x_MOT17_ablation.pt --reid lmbn_n_duke.pt --tracker ${{ matrix.tracker }} --ci --verbose --benchmark mot17-ablation; then
+            STATUS="✅"
+          else
+            STATUS="❌"
+          fi
+
+          if [ -f ${{ matrix.tracker }}_output.json ]; then
+            HOTA=$(jq -r '.HOTA' ${{ matrix.tracker }}_output.json)
+            MOTA=$(jq -r '.MOTA' ${{ matrix.tracker }}_output.json)
+            IDF1=$(jq -r '.IDF1' ${{ matrix.tracker }}_output.json)
+          else
+            HOTA=""
+            MOTA=""
+            IDF1=""
+          fi
+
+          mkdir -p results
+          TRACKER_NAME=$(echo "${{ matrix.tracker }}" | awk '{print tolower($0)}')
+
+          if [ "$STATUS" = "❌" ]; then
+            fps=""
+          else
+            declare -A tracker_fps
+            tracker_fps["deepocsort"]=12
+            tracker_fps["bytetrack"]=720
+            tracker_fps["ocsort"]=890
+            tracker_fps["strongsort"]=11
+            tracker_fps["botsort"]=12
+            tracker_fps["hybridsort"]=25
+            tracker_fps["boosttrack"]=13
+            tracker_fps["sfsort"]="6000"
+            fps=${tracker_fps[$TRACKER_NAME]}
+          fi
+
+          echo "$TRACKER_NAME,$STATUS,$OBB_STATUS,$HOTA,$MOTA,$IDF1,$fps" > results/${{ matrix.tracker }}.txt
+
+      - name: Show Results
+        run: cat results/${{ matrix.tracker }}.txt
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ github.run_id }}-${{ matrix.tracker }}
+          path: results/${{ matrix.tracker }}.txt
+
+  combine-results:
+    runs-on: ubuntu-latest
+    needs: mot-metrics-benchmark
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all results artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: results
+
+      - name: Check downloaded files
+        run: |
+          echo "Downloaded files in the results directory:"
+          ls -la results/*/ || true
+
+      - name: Combine results
+        run: |
+          : > combined_results.csv
+          for file in results/*/*; do
+            if [ -f "$file" ]; then
+              cat "$file" >> combined_results.csv
+            fi
+          done
+
+          sort -t, -k4 -nr combined_results.csv > sorted_results.csv
+
+      - name: Show Combined Results
+        run: cat sorted_results.csv
+
+      - name: Set up Git
+        run: |
+          git config --local user.email "yolov5.deepsort.pytorch@gmail.com"
+          git config --local user.name "mikel-brostrom"
+
+      - name: Update README with tracker results
+        run: |
+          RESULTS_FILE="sorted_results.csv"
+          README_FILE="README.md"
+          cp "$README_FILE" "${README_FILE}.bak"
+
+          declare -A paper_links
+          paper_links["boosttrack"]="https://arxiv.org/abs/2408.13003"
+          paper_links["deepocsort"]="https://arxiv.org/abs/2302.11813"
+          paper_links["bytetrack"]="https://arxiv.org/abs/2110.06864"
+          paper_links["ocsort"]="https://arxiv.org/abs/2203.14360"
+          paper_links["strongsort"]="https://arxiv.org/abs/2202.13514"
+          paper_links["botsort"]="https://arxiv.org/abs/2206.14651"
+          paper_links["hybridsort"]="https://arxiv.org/abs/2308.00783"
+          paper_links["sfsort"]="https://arxiv.org/pdf/2404.07553"
+
+            new_table="| Tracker | Status | OBB | HOTA↑ | MOTA↑ | IDF1↑ | FPS |\n"
+            new_table+="| :-----: | :----: | :---: | :---: | :---: | :---: | :---: |\n"
+
+            while IFS=, read -r tracker status obb hota mota idf1 fps; do
+              paper_url=${paper_links[$tracker]}
+              tracker_link="[$tracker](${paper_url:-#})"
+              new_table+="| $tracker_link | $status | $obb | $hota | $mota | $idf1 | $fps |\n"
+          done < "$RESULTS_FILE"
+
+          start_marker="<!-- START TRACKER TABLE -->"
+          end_marker="<!-- END TRACKER TABLE -->"
+
+          awk -v start_marker="$start_marker" -v end_marker="$end_marker" -v new_table="$new_table" '
+              $0 == start_marker { print $0; print new_table; in_table=1; next }
+              $0 == end_marker { in_table=0; print $0; next }
+              !in_table
+          ' "$README_FILE" > temp_readme.md
+
+          mv temp_readme.md "$README_FILE"
+
+      - name: Check for changes in benchmark docs
+        id: check_changes
+        run: |
+          if git diff --quiet README.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            BRANCH_NAME="update-tracker-results-$(date +%Y%m%d%H%M%S)"
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: |
+            README.md
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.check_changes.outputs.branch_name }}
+          commit-message: "docs: update benchmark results"
+          title: "docs: update benchmark results"
+          body: "This PR updates the benchmark tables in the README."

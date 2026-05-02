@@ -1,0 +1,198 @@
+import typing
+
+class Stats(typing.TypedDict):
+    rule_count: int
+    process_types: list[int]
+
+class ProcessType:
+    """
+    An enumeration representing various types of text processing operations.
+
+    Flags compose with ``|``. For example, ``ProcessType.DELETE | ProcessType.NORMALIZE``
+    is equivalent to ``ProcessType.DELETE_NORMALIZE``.
+    """
+
+    NONE: int
+    VARIANT_NORM: int
+    DELETE: int
+    NORMALIZE: int
+    DELETE_NORMALIZE: int
+    VARIANT_NORM_DELETE_NORMALIZE: int
+    ROMANIZE: int
+    ROMANIZE_CHAR: int
+    EMOJI_NORM: int
+
+class SimpleResult:
+    """
+    A match result returned by :meth:`SimpleMatcher.process`.
+
+    Attributes:
+        word_id (int): The identifier of the word within the word list.
+        word (str): The word corresponding to the word_id.
+    """
+
+    word_id: int
+    word: str
+
+def text_process(process_type: int | ProcessType, text: str) -> str:
+    """
+    Apply all transformations in *process_type* to *text* and return the
+    final transformed string.
+
+    Parameters:
+        process_type: Which transformations to apply (e.g. ``ProcessType.DELETE``).
+        text: The input text.
+
+    Returns:
+        The fully transformed text.
+    """
+
+def reduce_text_process(process_type: int | ProcessType, text: str) -> list[str]:
+    """
+    Apply transformations in *process_type* incrementally and return every
+    intermediate variant (one per transform step).
+
+    Parameters:
+        process_type: Which transformations to apply.
+        text: The input text.
+
+    Returns:
+        A list of strings, one for each intermediate transformation stage.
+    """
+
+class SimpleMatcherBuilder:
+    """
+    Fluent builder for constructing a :class:`SimpleMatcher` without
+    serialization overhead.
+
+    Example::
+
+        builder = SimpleMatcherBuilder()
+        builder.add_word(ProcessType.NONE, 1, "hello")
+        builder.add_word(ProcessType.NONE, 2, "world")
+        matcher = builder.build()
+    """
+
+    def __init__(self) -> None: ...
+
+    def add_word(self, process_type: int | ProcessType, word_id: int, word: str) -> None:
+        """
+        Register a pattern under the given process type and word ID.
+
+        Parameters:
+            process_type: Which transformations to apply before matching.
+            word_id: Caller-assigned identifier returned in match results.
+            word: Pattern string (supports ``&``, ``~``, ``|``, ``\\b``).
+        """
+
+    def build(self) -> SimpleMatcher:
+        """
+        Compile accumulated patterns into a :class:`SimpleMatcher`.
+
+        Drains the builder — a second ``build()`` raises ``ValueError``.
+
+        Raises:
+            ValueError: If no patterns were added or compilation fails.
+        """
+
+class SimpleMatcher:
+    """
+    High-performance multi-pattern matcher with logical operators and text
+    normalization.
+
+    Construct from a JSON-encoded ``SimpleTable`` mapping
+    ``{ProcessType: {word_id: pattern_string}}``.  Once built, matching
+    methods are infallible and thread-safe.
+    """
+
+    def __init__(self, simple_table_bytes: bytes) -> None:
+        """
+        Build a matcher from a JSON-encoded ``SimpleTable``.
+
+        Parameters:
+            simple_table_bytes: UTF-8 JSON bytes of the form
+                ``{ProcessType: {word_id: pattern}}``.
+
+        Raises:
+            ValueError: If the JSON is malformed or contains invalid
+                ``ProcessType`` values.
+        """
+
+    @classmethod
+    def from_dict(cls, table: dict) -> SimpleMatcher:
+        """
+        Build a matcher from a Python dict.
+
+        Iterates the dict directly — no JSON serialization overhead.
+
+        Parameters:
+            table: Mapping of ``{ProcessType_int: {word_id: pattern}}``.
+
+        Raises:
+            TypeError: If the table structure has wrong types.
+            ValueError: If compilation fails.
+        """
+
+    def __getnewargs__(self) -> tuple[bytes]:
+        """Return constructor args for pickle support."""
+
+    def __repr__(self) -> str:
+        """Return a summary string showing rule count."""
+
+    def stats(self) -> Stats:
+        """
+        Return metadata about the compiled matcher.
+
+        Returns a dict with keys:
+
+        - ``rule_count`` (int): Total number of rules across all process types.
+        - ``process_types`` (list[int]): Sorted list of ProcessType bit values.
+        """
+
+    def heap_bytes(self) -> int:
+        """Return estimated heap memory in bytes used by the compiled matcher."""
+
+    def is_match(self, text: str) -> bool:
+        """
+        Return ``True`` if *text* matches any pattern in the matcher.
+
+        This is the fastest check — use it when you only need a boolean answer.
+        """
+
+    def process(self, text: str) -> list[SimpleResult]:
+        """
+        Return all patterns that match *text*.
+
+        Each :class:`SimpleResult` contains the ``word_id`` and ``word``
+        of a matched pattern. Results are deduplicated but unordered.
+        """
+
+    def find_match(self, text: str) -> SimpleResult | None:
+        """
+        Return the first pattern that matches *text*, or ``None``.
+
+        Faster than :meth:`process` when you only need one result —
+        exits early on simple literal matchers.
+        """
+
+    def batch_is_match(self, texts: list[str]) -> list[bool]:
+        """
+        Check multiple texts in one call. Releases the GIL internally.
+
+        Returns a list of booleans, one per input text.
+        """
+
+    def batch_process(self, texts: list[str]) -> list[list[SimpleResult]]:
+        """
+        Process multiple texts in one call. Releases the GIL internally.
+
+        Returns a list of result lists, one per input text.
+        """
+
+    def batch_find_match(self, texts: list[str]) -> list[SimpleResult | None]:
+        """
+        Find the first match for each text in one call. Releases the GIL internally.
+
+        Returns a list with one element per input text — each is either
+        a :class:`SimpleResult` or ``None``.
+        """

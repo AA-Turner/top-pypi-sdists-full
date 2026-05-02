@@ -1,0 +1,247 @@
+from __future__ import annotations
+
+import argparse
+import os
+from pathlib import Path
+import sys
+
+from rich import print as rprint
+
+from drydock import __version__
+from drydock.core.agents.models import BuiltinAgentName
+from drydock.core.config.harness_files import init_harness_files_manager
+from drydock.core.trusted_folders import has_trustable_content, trusted_folders_manager
+from drydock.setup.trusted_folders.trust_folder_dialog import (
+    TrustDialogQuitException,
+    ask_trust_folder,
+)
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Drydock interactive CLI")
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"%(prog)s {__version__}"
+    )
+    parser.add_argument(
+        "initial_prompt",
+        nargs="?",
+        metavar="PROMPT",
+        help="Initial prompt to start the interactive session with.",
+    )
+    parser.add_argument(
+        "-p",
+        "--prompt",
+        nargs="?",
+        const="",
+        metavar="TEXT",
+        help="Run in programmatic mode: send prompt, auto-approve all tools, "
+        "output response, and exit.",
+    )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        metavar="N",
+        help="Maximum number of assistant turns "
+        "(only applies in programmatic mode with -p).",
+    )
+    parser.add_argument(
+        "--max-price",
+        type=float,
+        metavar="DOLLARS",
+        help="Maximum cost in dollars (only applies in programmatic mode with -p). "
+        "Session will be interrupted if cost exceeds this limit.",
+    )
+    parser.add_argument(
+        "--enabled-tools",
+        action="append",
+        metavar="TOOL",
+        help="Enable specific tools. In programmatic mode (-p), this disables "
+        "all other tools. "
+        "Can use exact names, glob patterns (e.g., 'bash*'), or "
+        "regex with 're:' prefix. Can be specified multiple times.",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        choices=["text", "json", "streaming"],
+        default="text",
+        help="Output format for programmatic mode (-p): 'text' "
+        "for human-readable (default), 'json' for all messages at end, "
+        "'streaming' for newline-delimited JSON per message.",
+    )
+    parser.add_argument(
+        "--json-schema",
+        metavar="FILE",
+        help="Path to JSON Schema file. Constrains the final output to match the schema.",
+    )
+    parser.add_argument(
+        "--agent",
+        metavar="NAME",
+        default=BuiltinAgentName.DEFAULT,
+        help="Agent to use (builtin: default, plan, accept-edits, auto-approve, "
+        "or custom from ~/.drydock/agents/NAME.toml)",
+    )
+    parser.add_argument("--setup", action="store_true", help="Setup API key and exit")
+    parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Check ~/.drydock/config.toml for drift vs. package defaults and exit",
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="With --doctor: rewrite ~/.drydock/config.toml to union missing "
+        "defaults (writes .bak backup first). No effect without --doctor.",
+    )
+    parser.add_argument(
+        "--workdir",
+        type=Path,
+        metavar="DIR",
+        help="Change to this directory before running",
+    )
+
+    parser.add_argument(
+        "--dangerously-skip-permissions",
+        action="store_true",
+        help="Skip all tool permission checks. Equivalent to --agent auto-approve. "
+        "Use with caution — tools will execute without confirmation.",
+    )
+    parser.add_argument(
+        "-k", "--insecure",
+        action="store_true",
+        help="Disable SSL certificate verification for web searches and API calls. "
+        "Useful behind corporate proxies with self-signed certificates.",
+    )
+    parser.add_argument(
+        "--consultant",
+        metavar="MODEL",
+        help="Enable consultant mode: when the agent is uncertain or stuck in a loop, "
+        "it can call a more capable model (e.g., 'gemini-2.5-pro') for single-turn advice. "
+        "The consultant is NOT used for tool calls, only reasoning.",
+    )
+
+    parser.add_argument(
+        "--local",
+        metavar="URL",
+        nargs="?",
+        const="http://localhost:8000/v1",
+        help="Use a local LLM server (default: http://localhost:8000/v1). "
+        "Sets up a 'local' provider and model automatically. "
+        "Example: drydock --local http://localhost:11434/v1",
+    )
+
+    # Feature flag for teleport, not exposed to the user yet
+    parser.add_argument("--teleport", action="store_true", help=argparse.SUPPRESS)
+
+    continuation_group = parser.add_mutually_exclusive_group()
+    continuation_group.add_argument(
+        "-c",
+        "--continue",
+        action="store_true",
+        dest="continue_session",
+        help="Continue from the most recent saved session",
+    )
+    continuation_group.add_argument(
+        "--resume",
+        metavar="SESSION_ID",
+        help="Resume a specific session by its ID (supports partial matching)",
+    )
+    return parser.parse_args()
+
+
+def check_and_resolve_trusted_folder() -> None:
+    try:
+        cwd = Path.cwd()
+    except FileNotFoundError:
+        rprint(
+            "[red]Error: Current working directory no longer exists.[/]\n"
+            "[yellow]The directory you started drydock from has been deleted. "
+            "Please change to an existing directory and try again, "
+            "or use --workdir to specify a working directory.[/]"
+        )
+        sys.exit(1)
+
+    if not has_trustable_content(cwd) or cwd.resolve() == Path.home().resolve():
+        return
+
+    is_folder_trusted = trusted_folders_manager.is_trusted(cwd)
+
+    if is_folder_trusted is not None:
+        return
+
+    try:
+        is_folder_trusted = ask_trust_folder(cwd)
+    except (KeyboardInterrupt, EOFError, TrustDialogQuitException):
+        sys.exit(0)
+    except Exception as e:
+        rprint(f"[yellow]Error showing trust dialog: {e}[/]")
+        return
+
+    if is_folder_trusted is True:
+        trusted_folders_manager.add_trusted(cwd)
+    elif is_folder_trusted is False:
+        trusted_folders_manager.add_untrusted(cwd)
+
+
+def main() -> None:
+    args = parse_arguments()
+
+    if getattr(args, "doctor", False):
+        from drydock.core.config.doctor import run_doctor
+        init_harness_files_manager("user", "project")
+        sys.exit(run_doctor(apply=bool(getattr(args, "fix", False))))
+
+    if args.workdir:
+        workdir = args.workdir.expanduser().resolve()
+        if not workdir.is_dir():
+            rprint(
+                f"[red]Error: --workdir does not exist or is not a directory: {workdir}[/]"
+            )
+            sys.exit(1)
+        os.chdir(workdir)
+
+    # --dangerously-skip-permissions → force auto-approve agent
+    if args.dangerously_skip_permissions:
+        args.agent = BuiltinAgentName.AUTO_APPROVE
+
+    # --insecure → disable SSL verification globally
+    if args.insecure:
+        os.environ["DRYDOCK_INSECURE"] = "1"
+        os.environ["CURL_CA_BUNDLE"] = ""
+        os.environ["REQUESTS_CA_BUNDLE"] = ""
+        import ssl
+        ssl._create_default_https_context = ssl._create_unverified_context
+
+    # --consultant → store for agent loop to use
+    if args.consultant:
+        os.environ["DRYDOCK_CONSULTANT_MODEL"] = args.consultant
+
+    # --local → set up local LLM provider without editing config
+    if getattr(args, "local", None):
+        os.environ["DRYDOCK_LOCAL_URL"] = args.local
+        # Detect model name from the server
+        try:
+            import httpx
+            resp = httpx.get(f"{args.local}/models", timeout=5)
+            if resp.status_code == 200:
+                models = resp.json().get("data", [])
+                if models:
+                    model_name = models[0]["id"]
+                    os.environ["DRYDOCK_LOCAL_MODEL"] = model_name
+                    rprint(f"[green]Using local model: {model_name} at {args.local}[/]")
+        except Exception:
+            os.environ["DRYDOCK_LOCAL_MODEL"] = "local"
+            rprint(f"[yellow]Using local server at {args.local} (couldn't detect model name)[/]")
+
+    is_interactive = args.prompt is None
+    if is_interactive:
+        check_and_resolve_trusted_folder()
+    init_harness_files_manager("user", "project")
+
+    from drydock.cli.cli import run_cli
+
+    run_cli(args)
+
+
+if __name__ == "__main__":
+    main()

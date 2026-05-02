@@ -9,8 +9,8 @@ This software is made available under the terms of the MIT License.
 import os
 import webbrowser
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -119,7 +119,7 @@ class ViewTool(Tool):
                           UserWarning)
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return ViewTool().main(cli_args)
 
 

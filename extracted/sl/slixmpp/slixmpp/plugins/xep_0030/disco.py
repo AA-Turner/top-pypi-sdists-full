@@ -430,8 +430,8 @@ class XEP_0030(BasePlugin):
         return self.api['set_info'](jid, node, None, info)
 
     async def get_items(self, jid: OptJid = None, node: str | None = None,
-                        local: bool = False, ifrom: OptJid = None,
-                        **kwargs) -> Iq:
+                        local: bool = False, iterator: bool = False,
+                        ifrom: OptJid = None, **kwargs) -> Iq:
         """
         Retrieve the disco#items results from a given JID/node combination.
 
@@ -470,7 +470,7 @@ class XEP_0030(BasePlugin):
         iq['to'] = jid
         iq['type'] = 'get'
         iq['disco_items']['node'] = node if node else ''
-        if kwargs.get('iterator', False) and self.xmpp['xep_0059']:
+        if iterator and self.xmpp['xep_0059']:
             return self.xmpp['xep_0059'].iterate(iq, 'disco_items')
         else:
             return await iq.send(**kwargs)

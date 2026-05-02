@@ -1,30 +1,52 @@
 Metadata-Version: 2.4
-Name: open_spiel
-Version: 1.6.12
+Name: open-spiel
+Version: 1.6.13
 Summary: A Framework for Reinforcement Learning in Games
 Home-page: https://github.com/deepmind/open_spiel
 Author: The OpenSpiel authors
-Author-email: open_spiel@google.com
-License: Apache 2.0
+Author-email: The OpenSpiel authors <open_spiel@google.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/deepmind/open_spiel
+Project-URL: Repository, https://github.com/deepmind/open_spiel.git
+Project-URL: Documentation, https://openspiel.readthedocs.io/
+Project-URL: Bug Tracker, https://github.com/deepmind/open_spiel/issues
+Keywords: reinforcement learning,game theory,artificial intelligence,games
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: C++
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Games/Entertainment
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pip>=20.0.2
-Requires-Dist: attrs>=19.3.0
 Requires-Dist: absl-py>=0.10.0
+Requires-Dist: attrs>=19.3.0
 Requires-Dist: numpy>=1.21.5
 Requires-Dist: scipy>=1.10.1
 Requires-Dist: ml-collections>=0.1.1
+Provides-Extra: full
+Requires-Dist: matplotlib; extra == "full"
+Requires-Dist: nashpy; extra == "full"
+Requires-Dist: networkx; extra == "full"
+Requires-Dist: pillow; extra == "full"
+Requires-Dist: pygame; extra == "full"
+Requires-Dist: pygraphviz; extra == "full"
+Requires-Dist: scipy; extra == "full"
+Requires-Dist: tensorflow; extra == "full"
+Requires-Dist: torch; extra == "full"
 Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
 Dynamic: requires-python
-Dynamic: summary
 
 
 <!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
@@ -60,7 +82,8 @@ To try OpenSpiel in Google Colaboratory, please refer to `open_spiel/colabs` sub
 
 Please choose among the following options:
 
-*   [Installing OpenSpiel](docs/install.md)
+*   [Installing OpenSpiel](docs/install.md) (for Linux and MacOS; see separate
+    [Windows Installation](docs/windows.md) instructions.)
 *   [Introduction to OpenSpiel](docs/intro.md)
 *   [API Overview and First Example](docs/concepts.md)
 *   [API Reference](docs/api_reference.md)

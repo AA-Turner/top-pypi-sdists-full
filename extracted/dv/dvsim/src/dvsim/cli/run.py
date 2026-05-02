@@ -1,0 +1,1044 @@
+# Copyright lowRISC contributors (OpenTitan project).
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+"""dvsim is a command line tool to deploy ASIC tool flows.
+
+Examples of a supported flow is regressions for design verification (DV),
+formal property verification (FPV), linting and synthesis.
+
+It uses hjson as the format for specifying what to build and run. It is an
+end-to-end regression manager that can deploy multiple builds (where some tests
+might need different set of compile time options requiring a uniquely build sim
+executable) in parallel followed by tests in parallel using the load balancer
+of your choice.
+
+dvsim is built to be tool-agnostic so that you can easily switch between the
+tools at your disposal. dvsim uses fusesoc as the starting step to resolve all
+inter-package dependencies and provide us with a filelist that will be consumed
+by the sim tool.
+
+"""
+
+import argparse
+import datetime
+import os
+import random
+import shlex
+import subprocess
+import sys
+import textwrap
+from importlib.metadata import version
+from pathlib import Path
+
+from dvsim.flow.factory import make_cfg
+from dvsim.instrumentation import InstrumentationFactory, set_instrumentation
+from dvsim.job.deploy import RunTest
+from dvsim.launcher.base import Launcher
+from dvsim.launcher.lsf import LsfLauncher
+from dvsim.launcher.nc import NcLauncher
+from dvsim.launcher.sge import SgeLauncher
+from dvsim.launcher.slurm import SlurmLauncher
+from dvsim.logging import LOG_LEVELS, configure_logging, log
+from dvsim.runtime.backend import RuntimeBackend
+from dvsim.runtime.registry import BackendType, backend_registry
+from dvsim.scheduler.resources import UnknownResourcePolicy
+from dvsim.scheduler.status_printer import StatusPrinter, get_status_printer
+from dvsim.utils import TS_FORMAT, TS_FORMAT_LONG, rm_path, run_cmd_with_timeout
+
+# The different categories that can be passed to the --list argument.
+_LIST_CATEGORIES = ["build_modes", "run_modes", "tests", "regressions"]
+
+
+# Function to resolve the scratch root directory among the available options:
+# If set on the command line, then use that as a preference.
+# Else, check if $SCRATCH_ROOT env variable exists and is a directory.
+# Else use the default (<proj_root>/scratch)
+# Try to create the directory if it does not already exist.
+def resolve_scratch_root(arg_scratch_root, proj_root):
+    default_scratch_root = proj_root + "/scratch"
+    scratch_root = os.environ.get("SCRATCH_ROOT")
+    if not arg_scratch_root:
+        if scratch_root is None:
+            arg_scratch_root = default_scratch_root
+        else:
+            # Scratch space could be mounted in a filesystem (such as NFS) on a network drive.
+            # If the network is down, it could cause the access access check to hang. So run a
+            # simple ls command with a timeout to prevent the hang.
+            (out, status) = run_cmd_with_timeout(
+                cmd="ls -d " + scratch_root,
+                timeout=1,
+                exit_on_failure=0,
+            )
+            if status == 0 and out != "":
+                arg_scratch_root = scratch_root
+            else:
+                arg_scratch_root = default_scratch_root
+                log.warning(
+                    f'Env variable $SCRATCH_ROOT="{scratch_root}" is not accessible.\n'
+                    f'Using "{arg_scratch_root}" instead.',
+                )
+    else:
+        arg_scratch_root = os.path.realpath(arg_scratch_root)
+
+    try:
+        Path(arg_scratch_root).mkdir(exist_ok=True, parents=True)
+    except PermissionError as e:
+        log.fatal(f"Failed to create scratch root {arg_scratch_root}:\n{e}.")
+        sys.exit(1)
+
+    if not os.access(arg_scratch_root, os.W_OK):
+        log.fatal(f"Scratch root {arg_scratch_root} is not writable!")
+        sys.exit(1)
+
+    return arg_scratch_root
+
+
+def read_max_parallel(arg):
+    """Take value for --max-parallel as an integer."""
+    try:
+        int_val = int(arg)
+        if int_val <= 0:
+            msg = "bad value"
+            raise ValueError(msg)
+        return int_val
+
+    except ValueError:
+        msg = f"Bad argument for --max-parallel ({arg!r}): must be a positive integer."
+        raise argparse.ArgumentTypeError(
+            msg,
+        )
+
+
+def resolve_max_parallel(arg):
+    """Determine the maximum parallelism that should be used by DVSim.
+
+    Always use the CLI argument if provided. If not, check if some $DVSIM_MAX_PARALLEL
+    environment variable is defined. If not, try to determine the number of logical
+    CPUs on the system and use (logical CPUs - 1). Otherwise, default to 16.
+    """
+    if arg is not None:
+        assert arg > 0
+        log.info("Using max_parallel=%d from the command-line args.", arg)
+        return arg
+
+    from_env = os.environ.get("DVSIM_MAX_PARALLEL")
+    if from_env is not None:
+        try:
+            max_parallel = read_max_parallel(from_env)
+            log.info("Using max_parallel=%d from $DVSIM_MAX_PARALLEL.", max_parallel)
+            return max_parallel
+        except argparse.ArgumentTypeError:
+            log.warning(
+                "DVSIM_MAX_PARALLEL environment variable has value "
+                f"{from_env!r}, which is not a positive integer. Falling back to "
+                "the default max parallelism.",
+            )
+
+    # If the CLI args and env var did not define any parallelism limit, try and
+    # use the number of logical CPU cores minus one (for IO, scheduler overhead, etc.)
+    logical_cores = os.cpu_count()
+    if logical_cores == 1:
+        log.info("Using max_parallel=1 as the system has 1 logical CPU available.")
+        return 1
+    if logical_cores is not None and logical_cores > 0:
+        max_parallel = max(logical_cores - 1, 16)
+        log.info(
+            "Using max_parallel=%d%s as the system has %d logical CPUs available",
+            " (capped)" if (logical_cores - 1) > 16 else "",
+            max_parallel,
+            logical_cores,
+        )
+        return max_parallel
+
+    # If we can't even find the number of logical CPUs on the system, default to 16.
+    log.warning("Could not determine the available logical CPUs. Defaulting to max_parallel=16.")
+    return 16
+
+
+def parse_resource(s: str) -> tuple[str, int | None]:
+    """Parse a resource limit string from the argparse CLI."""
+    unbounded_strs = ("all", "any", "inf", "infinite", "many", "max", "none", "null", "unlimited")
+    try:
+        key, val = "=".join(s.split()).split("=")
+        key, val = key.strip().upper(), val.strip()
+        if val.lower() in unbounded_strs:
+            return key, None
+        val = int(val)
+        if val <= 0:
+            msg = f"Resource values should be positive integers or 'INF' / 'NONE', not {val}."
+            raise argparse.ArgumentTypeError(msg)
+        return key, int(val)
+    except (ValueError, KeyError, RuntimeError) as e:
+        msg = f"Invalid resource format: {s}, expected RESOURCE=COUNT"
+        raise argparse.ArgumentTypeError(msg) from e
+
+
+def resolve_branch(branch):
+    """Choose a branch name for output files.
+
+    If the --branch argument was passed on the command line, the branch
+    argument is the branch name to use. Otherwise it is None and we use git to
+    find the name of the current branch in the working directory.
+
+    Note, as this name will be used to generate output files any forward slashes
+    are replaced with single dashes to avoid being interpreted as directory hierarchy.
+    """
+    if branch is not None:
+        return branch.replace("/", "-")
+
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        stdout=subprocess.PIPE,
+        check=False,
+    )
+    branch = result.stdout.decode("utf-8").strip().replace("/", "-")
+    if not branch:
+        log.warning('Failed to find current git branch. Setting it to "default"')
+        branch = "default"
+
+    return branch
+
+
+# Get the project root directory path - this is used to construct the full paths
+def get_proj_root():
+    cmd = ["git", "rev-parse", "--show-toplevel"]
+    result = subprocess.run(cmd, capture_output=True, check=False)
+    proj_root = result.stdout.decode("utf-8").strip()
+    if not proj_root:
+        log.error(
+            "Attempted to find the root of this GitHub repository by running:\n"
+            "{}\n"
+            "But this command has failed:\n"
+            "{}".format(" ".join(cmd), result.stderr.decode("utf-8")),
+        )
+        sys.exit(1)
+    return proj_root
+
+
+def resolve_proj_root(args):
+    """Update proj_root based on how DVSim is invoked.
+
+    If --remote switch is set, a location in the scratch area is chosen as the
+    new proj_root. The entire repo is copied over to this location. Else, the
+    proj_root is discovered using get_proj_root() method, unless the user
+    overrides it on the command line.
+
+    This function returns the updated proj_root src and destination path. If
+    --remote switch is not set, the destination path is identical to the src
+    path. Likewise, if --dry-run is set.
+    """
+    proj_root_src = args.proj_root or get_proj_root()
+
+    # Check if jobs are dispatched to external compute machines. If yes,
+    # then the repo needs to be copied over to the scratch area
+    # accessible to those machines.
+    # If --purge arg is set, then purge the repo_top that was copied before.
+    if args.remote and not args.dry_run:
+        proj_root_dest = os.path.join(args.scratch_root, args.branch, "repo_top")
+        if args.purge:
+            rm_path(proj_root_dest)
+        copy_repo(proj_root_src, proj_root_dest)
+    else:
+        proj_root_dest = proj_root_src
+
+    return proj_root_src, proj_root_dest
+
+
+def copy_repo(src, dest) -> None:
+    """Copy over the repo to a new location.
+
+    The repo is copied over from src to dest area. It tentatively uses the
+    rsync utility which provides the ability to specify a file containing some
+    exclude patterns to skip certain things from being copied over. With GitHub
+    repos, an existing `.gitignore` serves this purpose pretty well.
+    """
+    rsync_cmd = [
+        "rsync",
+        "--recursive",
+        "--links",
+        "--checksum",
+        "--update",
+        "--inplace",
+        "--no-group",
+    ]
+
+    # Supply `.gitignore` from the src area to skip temp files.
+    ignore_patterns_file = Path(src) / ".gitignore"
+    if ignore_patterns_file.exists():
+        # TODO: hack - include hw/foundry since it is excluded in .gitignore.
+        rsync_cmd += [
+            "--include=hw/foundry",
+            f"--exclude-from={ignore_patterns_file}",
+            "--exclude=.*",
+        ]
+
+    rsync_cmd += [src + "/.", dest]
+    rsync_str = " ".join([shlex.quote(w) for w in rsync_cmd])
+
+    cmd = ["flock", "--timeout", "600", dest, "--command", rsync_str]
+
+    log.info("[copy_repo] [dest]: %s", dest)
+    log.verbose("[copy_repo] [cmd]: \n%s", " ".join(cmd))
+
+    # Make sure the dest exists first.
+    Path(dest).mkdir(exist_ok=True, parents=True)
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        log.exception(
+            "Failed to copy over %s to %s: %s", src, dest, e.stderr.decode("utf-8").strip()
+        )
+    log.info("Done.")
+
+
+def wrapped_docstring():
+    """Return a text-wrapped version of the module docstring."""
+    paras = []
+    para = []
+    for line in __doc__.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            if para:
+                paras.append("\n".join(para))
+                para = []
+        else:
+            para.append(line)
+    if para:
+        paras.append("\n".join(para))
+
+    return "\n\n".join(textwrap.fill(p) for p in paras)
+
+
+def parse_reseed_multiplier(as_str: str) -> float:
+    """Parse the argument for --reseed-multiplier."""
+    try:
+        ret = float(as_str)
+    except ValueError:
+        msg = f"Invalid reseed multiplier: {as_str!r}. Must be a float."
+        raise argparse.ArgumentTypeError(
+            msg,
+        )
+    if ret <= 0:
+        msg = "Reseed multiplier must be positive."
+        raise argparse.ArgumentTypeError(msg)
+    return ret
+
+
+def parse_args(argv: list[str] | None = None):
+    cfg_metavar = "<cfg-hjson-file>"
+    parser = argparse.ArgumentParser(
+        description=wrapped_docstring(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        # #12377 [dvsim] prints invalid usage when constructed by argparse
+        # Disable it pending more verbose and automatic solution and document in
+        # help message
+        usage=f"%(prog)s {cfg_metavar} [-h] [options]",
+        epilog="Either place the positional argument ahead of the optional args:\n"
+        f"eg. `dvsim.py {cfg_metavar} -i ITEM ITEM` \n"
+        "or end a sequence of optional args with `--`:\n"
+        f"eg. `dvsim.py -i ITEM ITEM -- {cfg_metavar}`\n",
+    )
+
+    parser.add_argument("cfg", metavar=cfg_metavar, help="""Configuration hjson file.""")
+
+    parser.add_argument("--version", action="version", version=version("dvsim"))
+
+    parser.add_argument(
+        "--tool",
+        "-t",
+        help=(
+            "Explicitly set the tool to use. This is "
+            "optional for running simulations (where it can "
+            "be set in an .hjson file), but is required for "
+            "other flows. Possible tools include: vcs, questa,"
+            "xcelium, ascentlint, verixcdc, mrdc, veriblelint,"
+            "verilator, dc."
+        ),
+    )
+
+    parser.add_argument(
+        "--list",
+        "-l",
+        nargs="*",
+        metavar="CAT",
+        choices=_LIST_CATEGORIES,
+        help=(
+            "Parse the given .hjson config file, list "
+            "the things that can be run, then exit. The "
+            "list can be filtered with a space-separated "
+            "of categories from: {}.".format(", ".join(_LIST_CATEGORIES))
+        ),
+    )
+
+    parser.add_argument(
+        "--log-level",
+        choices=LOG_LEVELS,
+        default=None,
+        help="Set the log level (defaults to INFO).",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=Path,
+        help="Writes logs to a specific file (as well as to stderr).",
+    )
+
+    whatg = parser.add_argument_group("Choosing what to run")
+
+    whatg.add_argument(
+        "-i",
+        "--items",
+        nargs="*",
+        default=["smoke"],
+        help=(
+            "Specify the regressions or tests to run. "
+            'Defaults to "smoke", but can be a '
+            "space separated list of test or regression "
+            "names."
+        ),
+    )
+
+    whatg.add_argument(
+        "--select-cfgs",
+        nargs="*",
+        metavar="CFG",
+        help=(
+            "The .hjson file is a primary config. Only run "
+            "the given configs from it. If this argument is "
+            "not used, dvsim will process all configs listed "
+            "in a primary config."
+        ),
+    )
+
+    disg = parser.add_argument_group("Dispatch options")
+
+    disg.add_argument(
+        "--job-prefix",
+        default="",
+        metavar="PFX",
+        help=("Prepend this string when running each tool command."),
+    )
+
+    disg.add_argument(
+        "--local",
+        action="store_true",
+        help=("Force jobs to be dispatched locally onto user's machine."),
+    )
+
+    disg.add_argument(
+        "--remote",
+        action="store_true",
+        help=("Trigger copying of the repo to scratch area."),
+    )
+
+    disg.add_argument(
+        "--max-parallel",
+        "-mp",
+        type=read_max_parallel,
+        metavar="N",
+        help=(
+            "Run only up to N builds/tests at a time. "
+            "Default value 16, unless the DVSIM_MAX_PARALLEL "
+            "environment variable is set, in which case that "
+            "is used. Only applicable when launching jobs "
+            "locally."
+        ),
+    )
+
+    resources = parser.add_argument_group("Resource management")
+
+    resources.add_argument(
+        "-R",
+        "--resource",
+        metavar="RESOURCE=COUNT",
+        type=parse_resource,
+        dest="resource_limits",
+        action="append",
+        help="Set a limit for a resource (repeatable), e.g. --resource A=30 or -R B=unlimited.",
+    )
+
+    resources.add_argument(
+        "--on-missing-resource",
+        # TODO: when using Python 3.11+, make UnknownResourcePolicy a StrEnum instead and then
+        # just use the enum type directly.
+        type=str.lower,
+        choices=[p.value for p in UnknownResourcePolicy],
+        default=UnknownResourcePolicy.IGNORE.value,
+        help=(
+            "Behaviour when a job requests a resource with no defined limit. "
+            "Defaults to %(default)s."
+        ),
+    )
+
+    pathg = parser.add_argument_group("File management")
+
+    pathg.add_argument(
+        "--scratch-root",
+        "-sr",
+        metavar="PATH",
+        help=(
+            "Destination for build / run directories. If not "
+            "specified, uses the path in the SCRATCH_ROOT "
+            "environment variable, if set, or ./scratch "
+            "otherwise."
+        ),
+    )
+
+    pathg.add_argument(
+        "--proj-root",
+        "-pr",
+        metavar="PATH",
+        help=(
+            "The root directory of the project. If not "
+            "specified, dvsim will search for a git "
+            "repository containing the current directory."
+        ),
+    )
+
+    pathg.add_argument(
+        "--branch",
+        "-br",
+        metavar="B",
+        help=(
+            "By default, dvsim creates files below "
+            "{scratch-root}/{dut}.{flow}.{tool}/{branch}. "
+            "If --branch is not specified, dvsim assumes the "
+            "current directory is a git repository and uses "
+            "the name of the current branch."
+        ),
+    )
+
+    pathg.add_argument(
+        "--max-odirs",
+        "-mo",
+        type=int,
+        default=5,
+        metavar="N",
+        help=(
+            "When tests are run, older runs are backed "
+            "up. Discard all but the N most recent (defaults "
+            "to %(default)d)."
+        ),
+    )
+
+    pathg.add_argument(
+        "--purge",
+        action="store_true",
+        help="Clean the scratch directory before running.",
+    )
+
+    buildg = parser.add_argument_group("Options for building")
+
+    buildg.add_argument(
+        "--build-only",
+        "-bu",
+        action="store_true",
+        help=("Stop after building executables for the given items."),
+    )
+
+    buildg.add_argument(
+        "--build-unique",
+        action="store_true",
+        help=(
+            "Append a timestamp to the directory in which "
+            "files are built. This is suitable for the case "
+            "when another test is already running and you "
+            "want to run something else from a different "
+            "terminal without affecting it."
+        ),
+    )
+
+    buildg.add_argument(
+        "--build-opts",
+        "-bo",
+        nargs="+",
+        default=[],
+        metavar="OPT",
+        help=("Additional options passed on the command line each time a build tool is run."),
+    )
+
+    buildg.add_argument(
+        "--build-modes",
+        "-bm",
+        nargs="+",
+        default=[],
+        metavar="MODE",
+        help=(
+            "The options for each build_mode in this list are applied to all build and run targets."
+        ),
+    )
+
+    buildg.add_argument(
+        "--build-timeout-mins",
+        type=int,
+        metavar="MINUTES",
+        help=(
+            "Wall-clock timeout for builds in minutes: if "
+            "the build takes longer it will be killed. If "
+            "GUI mode is enabled, this timeout mechanism will "
+            "be disabled."
+        ),
+    )
+
+    disg.add_argument(
+        "--gui",
+        action="store_true",
+        help=("Run the flow in GUI mode instead of the batch mode."),
+    )
+
+    disg.add_argument(
+        "--gui-debug",
+        "-gd",
+        action="store_true",
+        help=(
+            "Run the flow in GUI mode and enable tool debug "
+            "features such as: breakpoints, live values, "
+            "transactions recording... (works with Xcelium "
+            "only for the moment). "
+            "[!] Has a significant performance impact."
+        ),
+    )
+
+    disg.add_argument(
+        "--interactive",
+        action="store_true",
+        help=(
+            "Run the job in non-GUI interactive mode "
+            "accepting manual user inputs and displaying the "
+            "tool outputs transparently. This implies --reseed 1."
+        ),
+    )
+
+    rung = parser.add_argument_group("Options for running")
+
+    rung.add_argument(
+        "--run-only",
+        "-ru",
+        action="store_true",
+        help=("Skip the build step (assume that simulation executables have already been built)."),
+    )
+
+    rung.add_argument(
+        "--run-opts",
+        "-ro",
+        nargs="+",
+        default=[],
+        metavar="OPT",
+        help=("Additional options passed on the command line each time a test is run."),
+    )
+
+    rung.add_argument(
+        "--run-modes",
+        "-rm",
+        nargs="+",
+        default=[],
+        metavar="MODE",
+        help=("The options for each run_mode in this list are applied to each simulation run."),
+    )
+
+    rung.add_argument(
+        "--profile",
+        "-p",
+        nargs="?",
+        choices=["time", "mem"],
+        const="time",
+        metavar="P",
+        help=("Turn on simulation profiling (where P is time or mem)."),
+    )
+
+    rung.add_argument(
+        "--xprop-off",
+        action="store_true",
+        help="Turn off X-propagation in simulation.",
+    )
+
+    rung.add_argument(
+        "--run-timeout-mins",
+        type=int,
+        metavar="MINUTES",
+        help=(
+            "Wall-clock timeout for runs in minutes: if "
+            "the run takes longer it will be killed. If "
+            "GUI mode is enabled, this timeout mechanism will "
+            "be disabled."
+        ),
+    )
+
+    rung.add_argument(
+        "--run-timeout-multiplier",
+        type=float,
+        metavar="MULTIPLIER",
+        help=(
+            "Multiplier for wall-clock run timeout as a "
+            "floating point number: typical use is to "
+            "uniformly magnify timeout when running "
+            "gate-level or foundry tests."
+        ),
+    )
+
+    rung.add_argument(
+        "--verbosity",
+        "-v",
+        choices=["n", "l", "m", "h", "f", "d"],
+        metavar="V",
+        help=(
+            "Set tool/simulation verbosity to none (n), low "
+            "(l), medium (m), high (h), full (f) or debug (d)."
+            " The default value is set in config files."
+        ),
+    )
+
+    seedg = parser.add_argument_group("Build / test seeds")
+
+    seedg.add_argument(
+        "--build-seed",
+        nargs="?",
+        type=int,
+        const=random.getrandbits(256),
+        metavar="S",
+        help=(
+            "Randomize the build. Uses the seed value passed "
+            "an additional argument, else it randomly picks "
+            "a 256-bit unsigned integer."
+        ),
+    )
+
+    seedg.add_argument(
+        "--seeds",
+        "-s",
+        nargs="+",
+        default=[],
+        metavar="S",
+        help=(
+            "A list of seeds for tests. Note that these "
+            "specific seeds are applied to items being run "
+            "in the order they are passed."
+        ),
+    )
+
+    seedg.add_argument(
+        "--fixed-seed",
+        "-fs",
+        type=int,
+        metavar="S",
+        help=("Run all items with the seed S. This implies --reseed 1."),
+    )
+
+    seedg.add_argument(
+        "--reseed",
+        "-r",
+        type=int,
+        metavar="N",
+        help=(
+            "Override any reseed value in the test "
+            "configuration and run each test N times, with "
+            "a new seed each time."
+        ),
+    )
+
+    seedg.add_argument(
+        "--reseed-multiplier",
+        "-rx",
+        type=parse_reseed_multiplier,
+        default=1,
+        metavar="N",
+        help=(
+            "Scale each reseed value in the test "
+            "configuration by N. This allows e.g. running "
+            "the tests 10 times as much as normal while "
+            "maintaining the ratio of numbers of runs "
+            "between different tests."
+        ),
+    )
+
+    waveg = parser.add_argument_group("Dumping waves")
+
+    waveg.add_argument(
+        "--waves",
+        "-w",
+        choices=["fsdb", "shm", "vpd", "vcd", "evcd", "fst"],
+        help=(
+            "Enable dumping of waves. It takes an "
+            "argument to pick the desired wave format."
+            "By default, dumping waves is not enabled."
+        ),
+    )
+
+    waveg.add_argument(
+        "--max-waves",
+        "-mw",
+        type=int,
+        default=5,
+        metavar="N",
+        help=(
+            "Only dump waves for the first N tests run. This "
+            "includes both tests scheduled for run and those "
+            "that are automatically rerun."
+        ),
+    )
+
+    waveg.add_argument(
+        "--dump-script",
+        "-ds",
+        help=(
+            "Use user define custom dump script file"
+            "The custom file should be located in {proj_root}"
+            "Default file is {proj_root}/hw/dv/tools/sim.tcl"
+        ),
+    )
+
+    covg = parser.add_argument_group("Generating simulation coverage")
+
+    covg.add_argument(
+        "--cov",
+        "-c",
+        action="store_true",
+        help="Enable collection of coverage data.",
+    )
+
+    covg.add_argument(
+        "--cov-merge-previous",
+        action="store_true",
+        help=(
+            "Only applicable with --cov. Merge any previous "
+            "coverage database directory with the new "
+            "coverage database."
+        ),
+    )
+
+    covg.add_argument(
+        "--cov-unr",
+        action="store_true",
+        help=("Run coverage UNR analysis and generate report. This only supports VCS now."),
+    )
+
+    covg.add_argument(
+        "--cov-analyze",
+        action="store_true",
+        help=("Rather than building or running any tests, analyze the coverage from the last run."),
+    )
+
+    pubg = parser.add_argument_group("Generating results")
+
+    pubg.add_argument(
+        "--map-full-testplan",
+        action="store_true",
+        help=("Show complete testplan annotated results at the end."),
+    )
+
+    dvg = parser.add_argument_group("Controlling DVSim itself")
+
+    dvg.add_argument(
+        "--instrument",
+        dest="instrumentation",
+        nargs="+",
+        default=[],
+        choices=InstrumentationFactory.options(),
+        help="Enable scheduler instrumentation (can specify multiple types).",
+    )
+
+    dvg.add_argument(
+        "--print-interval",
+        "-pi",
+        type=float,
+        default=10,
+        metavar="N",
+        help="Print status every N seconds (default %(default)d). A zero value means that every"
+        " job status change will cause a print.",
+    )
+
+    dvg.add_argument(
+        "--verbose",
+        nargs="?",
+        choices=["default", "debug"],
+        const="default",
+        metavar="D",
+        help=(
+            "With no argument, print verbose dvsim tool "
+            "messages. With --verbose=debug, the volume of "
+            "messages is even higher."
+        ),
+    )
+
+    dvg.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help=("Print dvsim tool messages but don't actually run any command"),
+    )
+
+    dvg.add_argument(
+        "--fake",
+        action="store_true",
+        help=("Use a fake launcher that generates random results"),
+    )
+
+    args = parser.parse_args(argv) if argv else parser.parse_args()
+
+    # Check conflicts
+    # interactive and remote, r
+    if args.interactive and args.remote:
+        log.error("--interactive and --remote cannot be set together")
+        sys.exit()
+
+    if args.interactive and args.reseed != 1:
+        args.reseed = 1
+
+    # We want the --list argument to default to "all categories", but allow
+    # filtering. If args.list is None, then --list wasn't supplied. If it is
+    # [], then --list was supplied with no further arguments and we want to
+    # list all categories.
+    if args.list == []:
+        args.list = _LIST_CATEGORIES
+
+    # Get max_parallel from environment if it wasn't specified on the command
+    # line.
+    args.max_parallel = resolve_max_parallel(args.max_parallel)
+    assert args.max_parallel > 0
+
+    return args
+
+
+def set_backend_type(*, is_local: bool = False, fake: bool = False) -> None:
+    """Set the default backend type that will be used to launch jobs (unless overridden).
+
+    The DVSIM_BACKEND/DVSIM_LAUNCHER environment variables are used to identify what
+    backend should be used by default, and is intended to be specific to the user's
+    work site and set externally before invoking DVSim. Selecting a local or fake backend
+    via the command line will override this.
+    """
+    if is_local:
+        backend = "local"
+    elif fake:
+        backend = "fake"
+    else:
+        backend = os.environ.get("DVSIM_BACKEND")
+
+        if backend is None:
+            # Fall back to the legacy launcher environment variable
+            backend = os.environ.get("DVSIM_LAUNCHER", "local")
+
+        if backend not in backend_registry:
+            log.error(
+                "Backend %s set using the DVSIM_BACKEND/DVSIM_LAUNCHER environment variables "
+                "does not exist. Using the local backend instead."
+            )
+            backend = "local"
+
+    # Configure the resolved backend type as the default backend
+    backend_registry.default = BackendType(backend)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """DVSim CLI entry point."""
+    args = parse_args(argv)
+
+    configure_logging(
+        verbose=args.verbose is not None,
+        debug=args.verbose == "debug",
+        log_level=args.log_level,
+        log_file=args.log_file,
+    )
+
+    if not Path(args.cfg).exists():
+        log.fatal("Path to config file %s appears to be invalid.", args.cfg)
+        sys.exit(1)
+
+    args.branch = resolve_branch(args.branch)
+    proj_root_src, proj_root = resolve_proj_root(args)
+    args.scratch_root = resolve_scratch_root(args.scratch_root, proj_root)
+    log.info("[proj_root]: %s", proj_root)
+
+    # Create an empty FUSESOC_IGNORE file in scratch_root. This ensures that
+    # any fusesoc invocation from a job won't search within scratch_root for
+    # core files.
+    (Path(args.scratch_root) / "FUSESOC_IGNORE").touch()
+
+    args.cfg = Path(args.cfg).resolve()
+    if args.remote:
+        cfg_path = args.cfg.replace(proj_root_src + "/", "")
+        args.cfg = os.path.join(proj_root, cfg_path)
+
+    # Add timestamp to args that all downstream objects can use.
+    curr_ts = datetime.datetime.now(datetime.timezone.utc)
+    args.timestamp_long = curr_ts.strftime(TS_FORMAT_LONG)
+    args.timestamp = curr_ts.strftime(TS_FORMAT)
+
+    # Register the seeds from command line with the RunTest class.
+    RunTest.seeds = args.seeds
+
+    # If we are fixing a seed value, no point in tests having multiple reseeds.
+    if args.fixed_seed is not None:
+        args.reseed = 1
+    RunTest.fixed_seed = args.fixed_seed
+
+    # Register the common deploy settings.
+    StatusPrinter.print_interval = args.print_interval
+    SlurmLauncher.max_parallel = args.max_parallel
+    SgeLauncher.max_parallel = args.max_parallel
+    LsfLauncher.max_parallel = args.max_parallel
+    NcLauncher.max_parallel = args.max_parallel
+    Launcher.max_odirs = args.max_odirs
+    RuntimeBackend.max_output_dirs = args.max_odirs
+
+    # Configure the runtime backend.
+    set_backend_type(is_local=args.local, fake=args.fake)
+
+    # Configure scheduler instrumentation
+    set_instrumentation(InstrumentationFactory.create(args.instrumentation))
+
+    # Build infrastructure from hjson file and create the list of items to
+    # be deployed.
+    cfg = make_cfg(args.cfg, args, proj_root)
+
+    # List items available for run if --list switch is passed, and exit.
+    if args.list is not None:
+        cfg.print_list()
+        sys.exit(0)
+
+    # Purge the scratch path if --purge option is set.
+    if args.purge:
+        cfg.purge()
+
+    # If --cov-unr is passed, run UNR to generate report for unreachable
+    # exclusion file.
+    if args.cov_unr:
+        cfg.cov_unr()
+        cfg.deploy_objects()
+        sys.exit(0)
+
+    # In simulation mode: if --cov-analyze switch is passed, then run the GUI
+    # tool.
+    if args.cov_analyze:
+        cfg.cov_analyze()
+        cfg.deploy_objects()
+        sys.exit(0)
+
+    # Deploy the builds and runs
+    if args.items:
+        # Create deploy objects.
+        cfg.create_deploy_objects()
+        results = cfg.deploy_objects()
+
+        # Generate results.
+        cfg.gen_results(results)
+
+        # Now that we have printed the results from the scheduler, we close the
+        # status printer, to ensure the status remains relevant in the UI context
+        # (for applicable status printers).
+        if not args.interactive:
+            status_printer = get_status_printer()
+            status_printer.exit()
+
+    else:
+        log.error("Nothing to run!")
+        sys.exit(1)
+
+    # Exit with non-zero status if there were errors or failures.
+    if cfg.has_errors():
+        log.error("Errors were encountered in this run.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

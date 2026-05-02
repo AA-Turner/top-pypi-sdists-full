@@ -1,0 +1,66 @@
+[workspace]
+members  = [".", "python"]
+resolver = "2"
+
+[workspace.dependencies]
+mdka = { version = "2.1.0", path = "." }
+
+[package]
+name    = "mdka"
+version = "2.1.5"
+edition = "2024"
+
+description   = "A HTML to Markdown converter that balances conversion quality with runtime efficiency"
+authors       = ["nabbisen"]
+license       = "Apache-2.0"
+categories    = ["text-processing", "parsing", "development-tools"]
+keywords      = ["html", "markdown", "converter", "parser"]
+repository    = "https://github.com/nabbisen/mdka-rs"
+readme        = "README.md"
+documentation = "https://docs.rs/mdka"
+
+[profile.release]
+lto           = "thin"
+strip         = "symbols"
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3
+lto       = "thin"
+[[bench]]
+name = "convert"
+harness = false
+[[bench]]
+name = "parallel"
+harness = false
+[[bench]]
+name = "scaling"
+harness = false
+[[bench]]
+name = "memory"
+harness = false
+
+[features]
+default  = ["parallel"]
+parallel = ["dep:rayon"]
+jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl"]
+
+[dependencies]
+scraper = "0.26"
+thiserror = "2"
+ego-tree = "0.11"
+rayon = { version = "1", optional = true }
+tikv-jemallocator = { version = "0.6", optional = true }
+tikv-jemalloc-ctl = { version = "0.6", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+rand = "0.10"
+
+mdka-v1 = { package = "mdka", version = "=1.6.9" }
+html2md = "=0.2.15"
+fast-html2md = { package = "fast_html2md", version = "=0.0.61" }
+htmd = "=0.5.4"
+html-to-markdown-rs = "=3.1.0"
+html2text = "=0.16.7"
+dom_smoothie = "=0.17.0"

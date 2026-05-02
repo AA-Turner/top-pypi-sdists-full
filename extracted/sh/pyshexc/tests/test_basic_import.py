@@ -1,5 +1,3 @@
-import unittest
-
 from tests.utils.simple_shex_test import SimpleShexTestCase
 
 shexc = """IMPORT <1dot>
@@ -25,11 +23,7 @@ shexj = """{
 """
 
 
-class ImportTestCase(SimpleShexTestCase):
+class TestImport(SimpleShexTestCase):
 
     def test_import(self):
         self.shex_test(shexc, shexj)
-
-
-if __name__ == '__main__':
-    unittest.main()

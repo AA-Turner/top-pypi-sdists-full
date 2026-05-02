@@ -8,8 +8,8 @@ This software is made available under the terms of the MIT License.
 
 import copy
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -91,7 +91,7 @@ class SplitTool(Tool):
         print('  Split cell types: {}'.format(join_csv(self._args.split_cell_types)))
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return SplitTool().main(cli_args)
 
 

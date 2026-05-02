@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    branches:
+      - main
+    inputs:
+      bump:
+        description: Version bump
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+jobs:
+
+  # Stage commits on a temporary branch
+  branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Name release branch
+        id: ref
+        run: |
+          echo "ref=release/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+      - name: Create release branch
+        run: |
+          git checkout -b "${{ steps.ref.outputs.ref }}"
+          git push --branches
+
+  # Make release commit
+  commit:
+    needs: branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.branch.outputs.ref }}
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "Tenstorrent"
+          git config --global user.email "releases@tenstorrent.com"
+      - uses: cargo-bins/cargo-binstall@v1.17.8
+      - name: Install cargo-edit
+        run: cargo binstall --no-confirm cargo-edit@0.13.9
+      - name: Bump version
+        run: |
+          cargo set-version \
+            --package=luwen \
+            --bump=${{ inputs.bump }}
+      - name: Get new version
+        id: bump
+        run: |
+          version=$(
+            cargo metadata --format-version 1 \
+              | jq -r '.packages[] | select(.name=="luwen") | .version'
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Create release commit
+        run: |
+          git add .
+          git commit -m \
+            "chore(release): bump version to v${{ steps.bump.outputs.version }}"
+          git pull --rebase
+          git push
+      - name: Get HEAD SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # Build release artifacts
+  build:
+    needs:
+      - branch
+      - commit
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.branch.outputs.ref }}
+
+  # Create the GitHub release
+  release:
+    needs:
+      - build
+      - commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.commit.outputs.sha }}
+          fetch-tags: true
+          fetch-depth: 0
+      - name: Create GitHub release
+        run: |
+          version="${{ needs.commit.outputs.version }}"
+          gh release create "v${version}" \
+            --title "v${version}" \
+            --target "${{ needs.commit.outputs.sha }}" \
+            --generate-notes
+      - name: Trigger publish
+        run: |
+          gh api repos/${{ github.repository }}/dispatches \
+            --method POST \
+            -f event_type=publish \
+            -F client_payload[tag]="v${{ needs.commit.outputs.version }}"
+
+  # Merge the release branch
+  merge:
+    needs:
+      - branch
+      - release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+      - name: Merge release branch
+        run: |
+          git merge --ff-only origin/${{ needs.branch.outputs.ref }}
+          git push
+
+  # Delete the release branch
+  cleanup:
+    if: always() && needs.branch.result == 'success'
+    needs:
+      - branch
+      - merge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Delete release branch
+        run: |
+          git push origin --delete "${{ needs.branch.outputs.ref }}"

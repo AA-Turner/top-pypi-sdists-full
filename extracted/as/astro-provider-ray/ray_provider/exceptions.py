@@ -1,2 +1,0 @@
-class RayAirflowException(Exception):
-    pass

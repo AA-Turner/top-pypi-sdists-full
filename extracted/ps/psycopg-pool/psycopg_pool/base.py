@@ -11,8 +11,6 @@ from random import random
 from typing import TYPE_CHECKING, Any
 from collections import Counter, deque
 
-from psycopg import errors as e
-
 from .errors import PoolClosed
 
 if TYPE_CHECKING:
@@ -126,15 +124,13 @@ class BasePool:
         if max_size < min_size:
             raise ValueError("max_size must be greater or equal than min_size")
         if min_size == max_size == 0:
-            raise ValueError("if min_size is 0 max_size must be greater or than 0")
+            raise ValueError("if min_size is 0 max_size must be greater than 0")
 
         return min_size, max_size
 
     def _check_open(self) -> None:
         if self._closed and self._opened:
-            raise e.OperationalError(
-                "pool has already been opened/closed and cannot be reused"
-            )
+            raise PoolClosed("pool has already been opened/closed and cannot be reused")
 
     def _check_open_getconn(self) -> None:
         if self._closed:

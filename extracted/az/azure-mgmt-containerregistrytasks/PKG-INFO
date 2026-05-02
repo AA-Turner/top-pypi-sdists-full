@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: azure-mgmt-containerregistrytasks
+Version: 0.0.0
+Summary: This package will be released in the near future. Stay tuned!
+Author-email: Microsoft Corporation <azuresdkengsysadmins@microsoft.com>
+License-Expression: MIT
+Project-URL: Bug Reports, https://github.com/Azure/azure-sdk-for-python/issues
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
+Keywords: azure,azure sdk
+Classifier: Development Status :: 1 - Planning
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+
+# This package will be `azure-mgmt-containerregistrytasks`
+
+The `Azure SDK` team is planning to release this package for public usage soon. This is a placeholder on PyPI for planning purposes and do not yet contain any code.
+
+If you have any questions about the future availability of this package, please create an issue on https://github.com/Azure/azure-sdk-for-python/issues or contact the email on this PyPI page.

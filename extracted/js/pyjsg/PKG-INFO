@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyJSG
-Version: 0.12.3
+Version: 0.12.4
 Summary: Python JSON Schema Grammar interpreter
 Author-email: Harold Solbrig <solbrig@jhu.edu>, Wouter-Michiel Vierdag <michiel.vierdag@scverse.org>
 License: CC0 1.0 Universal

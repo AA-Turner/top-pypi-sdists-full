@@ -1,0 +1,79 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[project]
+name = "vastai"
+description = "CLI and SDK for Vast.ai GPU Cloud Service"
+authors = [
+  { name = "jake cannell", email = "jake@vast.ai" },
+  { name = "chris mckenzie", email = "chris@vast.ai" },
+  { name = "anthony benjamin", email = "anthony@vast.ai" },
+  { name = "liam weldon", email = "liam@vast.ai" },
+  { name = "edgar lin", email = "edgar@vast.ai" },
+  { name = "nader arbabian", email = "nader@vast.ai" },
+  { name = "marco hernandez", email = "marco@vast.ai" },
+  { name = "karthik pillalamarri", email = "karthik@vast.ai" },
+  { name = "sammy javed", email = "sammy@vast.ai" },
+  { name = "rob ballantyne", email = "rob@vast.ai" },
+  { name = "lucas armand", email = "lucas@vast.ai" },
+  { name = "zuby javed", email = "zuby@vast.ai" },
+]
+readme = "README.md"
+requires-python = ">3.9.1, <4.0"
+license = { text = "MIT" }
+dynamic = []
+dependencies = [
+  "xdg>=1.0.0",
+  "borb~=2.1.25",
+  "requests>=2.32.3",
+  "python-dateutil>=2.8.2",
+  "urllib3>=2.0,<3.0",
+  "pyparsing>=3.1,<4.0",
+  "aiohttp>=3.9.1",
+  "aiodns>=3.6.0",
+  "pycares==4.11.0",
+  "anyio~=4.4",
+  "psutil~=6.0",
+  "pycryptodome~=3.20",
+  "argcomplete>=2.0",
+  "curlify>=2.2",
+  "rich>=13.0",
+  "cryptography<=46.0.4",
+]
+version = "1.0.8"
+
+[tool.poetry]
+packages = [
+  { include = "vastai" },
+  { include = "vastai_sdk" },
+]
+
+[project.scripts]
+vastai = "vastai.cli.main:main"
+serve-vast-deployment = "vastai.serverless.remote.serve_deployment:main"
+
+[project.urls]
+Homepage = "https://vast.ai"
+Repository = "https://github.com/vast-ai/vast-cli"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+fix-shallow-repository = true
+style = "semver"
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-mock = "^3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: tests that hit the real Vast.ai API (require VAST_API_KEY)",
+    "integration: integration tests requiring API credentials and fixtures",
+]
+addopts = "-m 'not live and not integration' --tb=short -q"

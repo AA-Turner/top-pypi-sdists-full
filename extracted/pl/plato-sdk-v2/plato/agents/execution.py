@@ -60,7 +60,7 @@ class AgentExecutionManager:
         vm_timeout: int | None = None
         if isinstance(agent_config.runtime, VMRuntimeConfig):
             if total_agents is not None:
-                vm_timeout = agent_config.runtime.timeout * total_agents
+                vm_timeout = agent_config.runtime.vm.timeout * total_agents
             vm_timeout = max(vm_timeout or 0, min_warmpool_timeout) if min_warmpool_timeout > 0 else vm_timeout
 
         self._warm_pool = WarmPool(
@@ -77,7 +77,7 @@ class AgentExecutionManager:
         if not isinstance(self._agent_config.runtime, VMRuntimeConfig):
             return
         new_timeout = max(
-            self._agent_config.runtime.timeout * total_agents,
+            self._agent_config.runtime.vm.timeout * total_agents,
             self._min_warmpool_timeout,
         )
         if self._warm_pool._vm_timeout is None or new_timeout > self._warm_pool._vm_timeout:

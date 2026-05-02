@@ -1,0 +1,136 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "\n        What are Joe and Hadley''s
+      favourite colours?\n        Answer like name1: colour1, name2: colour2\n    "}],
+      "role": "user"}], "systemInstruction": {"parts": [{"text": "Be very terse, not
+      even punctuation."}], "role": "user"}, "tools": [{"functionDeclarations": [{"description":
+      "Returns a person''s favourite colour", "name": "favorite_color", "parameters":
+      {"properties": {"_person": {"type": "STRING"}}, "required": ["_person"], "type":
+      "OBJECT"}}]}], "generationConfig": {"temperature": 0}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '536'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/1.64.0 gl-python/3.12.11
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"functionCall\":
+        {\"name\": \"favorite_color\",\"args\": {\"_person\": \"Joe\"}},\"thoughtSignature\":
+        \"CiQBvj72+8qmWM1fJrd6ra7ZgLl6S50DseOu29VO/2xz+TmRE4YKdQG+Pvb7rA36hxdWBUl6jFSEashnpxFkSHmvclNFvAHC6eFM0b0emagP+ouMXbxvk7CIJA47V/Zw+W/bpb2A/AfpVCkIslG0OBrZ29VtvIWFZdV7h1zrkSeRM+8ez+UXP3g94exlMim+6gMeRu9Hoa+8XukkdwrYAQG+Pvb7H/sYkbdpb6+knFARJuxcQxNvMGEyxatkqXruoy236+5fjAdfnzCMAAHb1wua3yLN8xwmQH+4v3xokH3cGSp1cipT9UoLiYs6LNziJOcPrMvij7W0c/kTkdGfbwwvToBpugFOAbmDm3ou6VPEiNrTiaXipYLRAl3oIvyXEoCZ3dFulaOLbSAG46UAs93FVgCj0va+tNyBxXMhAc4R94fk1tDsifiQPD6HnqMroqQiXnLO7m4Y8pKbaMcAUPLNGS6Bpq9aqf4t972m8j9tFSz1/DPdEg==\"},{\"functionCall\":
+        {\"name\": \"favorite_color\",\"args\": {\"_person\": \"Hadley\"}}}],\"role\":
+        \"model\"},\"finishReason\": \"STOP\",\"index\": 0,\"finishMessage\": \"Model
+        generated function call(s).\"}],\"usageMetadata\": {\"promptTokenCount\":
+        80,\"candidatesTokenCount\": 31,\"totalTokenCount\": 172,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 80}],\"thoughtsTokenCount\": 61},\"modelVersion\":
+        \"gemini-2.5-flash\",\"responseId\": \"sa3NadKnNOnSjMcPsZyr4Qw\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 01 Apr 2026 23:43:46 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=755
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "\n        What are Joe and Hadley''s
+      favourite colours?\n        Answer like name1: colour1, name2: colour2\n    "}],
+      "role": "user"}, {"parts": [{"functionCall": {"args": {"_person": "Joe"}, "name":
+      "favorite_color"}, "thoughtSignature": "CiQBvj72-8qmWM1fJrd6ra7ZgLl6S50DseOu29VO_2xz-TmRE4YKdQG-Pvb7rA36hxdWBUl6jFSEashnpxFkSHmvclNFvAHC6eFM0b0emagP-ouMXbxvk7CIJA47V_Zw-W_bpb2A_AfpVCkIslG0OBrZ29VtvIWFZdV7h1zrkSeRM-8ez-UXP3g94exlMim-6gMeRu9Hoa-8XukkdwrYAQG-Pvb7H_sYkbdpb6-knFARJuxcQxNvMGEyxatkqXruoy236-5fjAdfnzCMAAHb1wua3yLN8xwmQH-4v3xokH3cGSp1cipT9UoLiYs6LNziJOcPrMvij7W0c_kTkdGfbwwvToBpugFOAbmDm3ou6VPEiNrTiaXipYLRAl3oIvyXEoCZ3dFulaOLbSAG46UAs93FVgCj0va-tNyBxXMhAc4R94fk1tDsifiQPD6HnqMroqQiXnLO7m4Y8pKbaMcAUPLNGS6Bpq9aqf4t972m8j9tFSz1_DPdEg=="},
+      {"functionCall": {"args": {"_person": "Hadley"}, "name": "favorite_color"}}],
+      "role": "model"}, {"parts": [{"functionResponse": {"name": "favorite_color",
+      "response": {"result": "sage green"}}}, {"functionResponse": {"name": "favorite_color",
+      "response": {"result": "red"}}}], "role": "user"}], "systemInstruction": {"parts":
+      [{"text": "Be very terse, not even punctuation."}], "role": "user"}, "tools":
+      [{"functionDeclarations": [{"description": "Returns a person''s favourite colour",
+      "name": "favorite_color", "parameters": {"properties": {"_person": {"type":
+      "STRING"}}, "required": ["_person"], "type": "OBJECT"}}]}], "generationConfig":
+      {"temperature": 0}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1443'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      x-goog-api-client:
+      - google-genai-sdk/1.64.0 gl-python/3.12.11
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse
+  response:
+    body:
+      string: "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"Joe:
+        sage green\"}],\"role\": \"model\"},\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\":
+        201,\"candidatesTokenCount\": 4,\"totalTokenCount\": 205,\"promptTokensDetails\":
+        [{\"modality\": \"TEXT\",\"tokenCount\": 201}]},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\":
+        \"sq3NaYj9L47RjMcP4tTv-Ag\"}\r\n\r\ndata: {\"candidates\": [{\"content\":
+        {\"parts\": [{\"text\": \", Hadley: red\"}],\"role\": \"model\"},\"finishReason\":
+        \"STOP\",\"index\": 0}],\"usageMetadata\": {\"promptTokenCount\": 201,\"candidatesTokenCount\":
+        8,\"totalTokenCount\": 209,\"promptTokensDetails\": [{\"modality\": \"TEXT\",\"tokenCount\":
+        201}]},\"modelVersion\": \"gemini-2.5-flash\",\"responseId\": \"sq3NaYj9L47RjMcP4tTv-Ag\"}\r\n\r\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Disposition:
+      - attachment
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 01 Apr 2026 23:43:47 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=425
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

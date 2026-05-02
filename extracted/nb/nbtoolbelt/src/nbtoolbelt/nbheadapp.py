@@ -9,8 +9,8 @@ This tool also illustrates how to extend class Tool, to define a new concrete to
 """
 
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -70,7 +70,7 @@ class HeadTool(Tool):
         ))
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return HeadTool().main(cli_args)
 
 

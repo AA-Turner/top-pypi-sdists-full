@@ -1,1 +1,0 @@
-"""DIRACCommon Core utilities"""

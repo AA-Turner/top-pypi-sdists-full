@@ -7,8 +7,8 @@ This software is made available under the terms of the MIT License.
 """
 
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List, Set
 
 from nbformat import NotebookNode
 
@@ -90,7 +90,7 @@ class CleanTool(Tool):
     def check_and_adjust_arguments(self):
         args = self._args
 
-        nmf = set(args.clean_notebook_metadata_fields)  # type: Set[str]
+        nmf = set(args.clean_notebook_metadata_fields)  # type: set[str]
         if nmf:
             intersection = nmf.intersection(REQUIRED_NB_METADATA_FIELDS)
             if intersection:
@@ -113,7 +113,7 @@ class CleanTool(Tool):
             print('  Deleting outputs from all code cells')
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return CleanTool().main(cli_args)
 
 

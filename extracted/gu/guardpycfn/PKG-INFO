@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: guardpycfn
+Version: 0.1.0
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+License-File: LICENSE
+Summary: Python bindings for AWS CloudFormation Guard via pyo3
+Author: Your Name
+License: MIT-0
+Requires-Python: >=3.9

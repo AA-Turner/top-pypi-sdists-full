@@ -596,6 +596,8 @@ __all__ = (
     "ContributionAnalysisTimeRangesTypeDef",
     "ContributionAnalysisTimeRangesUnionTypeDef",
     "ControlSortConfigurationTypeDef",
+    "ControlTitleFontConfigurationTypeDef",
+    "ControlTitleFormatTextTypeDef",
     "CoordinateTypeDef",
     "CreateAccountCustomizationRequestTypeDef",
     "CreateAccountCustomizationResponseTypeDef",
@@ -3030,6 +3032,8 @@ class CapabilitiesTypeDef(TypedDict):
     Extension: NotRequired[Literal["DENY"]]
     ManageSharedFolders: NotRequired[Literal["DENY"]]
     GenerateAnalyses: NotRequired[Literal["DENY"]]
+    Story: NotRequired[Literal["DENY"]]
+    Scenario: NotRequired[Literal["DENY"]]
 
 class CastColumnTypeOperationTypeDef(TypedDict):
     ColumnName: str
@@ -3183,6 +3187,10 @@ class ContributionAnalysisFactorTypeDef(TypedDict):
 
 class SelectableValuesSortTypeDef(TypedDict):
     Direction: ControlSortDirectionType
+
+class ControlTitleFormatTextTypeDef(TypedDict):
+    PlainText: NotRequired[str]
+    RichText: NotRequired[str]
 
 class CoordinateTypeDef(TypedDict):
     Latitude: float
@@ -5761,6 +5769,7 @@ class OAuthParametersTypeDef(TypedDict):
     OAuthScope: NotRequired[str]
     IdentityProviderVpcConnectionProperties: NotRequired[VpcConnectionPropertiesTypeDef]
     IdentityProviderResourceUri: NotRequired[str]
+    IdentityProviderCACertificatesBundleS3Uri: NotRequired[str]
 
 class AssetBundleImportJobRefreshScheduleOverrideParametersTypeDef(TypedDict):
     DataSetId: str
@@ -7739,6 +7748,7 @@ class GetIdentityContextRequestTypeDef(TypedDict):
     UserIdentifier: UserIdentifierTypeDef
     Namespace: NotRequired[str]
     SessionExpiresAt: NotRequired[TimestampTypeDef]
+    ContextRegion: NotRequired[str]
 
 class TableSideBorderOptionsTypeDef(TypedDict):
     InnerVertical: NotRequired[TableBorderOptionsTypeDef]
@@ -8821,6 +8831,10 @@ class AxisLabelOptionsTypeDef(TypedDict):
     CustomLabel: NotRequired[str]
     ApplyTo: NotRequired[AxisLabelReferenceOptionsTypeDef]
 
+class ControlTitleFontConfigurationTypeDef(TypedDict):
+    FontConfiguration: NotRequired[FontConfigurationTypeDef]
+    TextAlignment: NotRequired[HorizontalTextAlignmentType]
+
 class DataLabelOptionsOutputTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     CategoryLabelVisibility: NotRequired[VisibilityType]
@@ -9858,6 +9872,7 @@ class TypographyOutputTypeDef(TypedDict):
     DataLabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
     VisualTitleFontConfiguration: NotRequired[VisualTitleFontConfigurationTypeDef]
     VisualSubtitleFontConfiguration: NotRequired[VisualSubtitleFontConfigurationTypeDef]
+    ControlTitleFontConfiguration: NotRequired[ControlTitleFontConfigurationTypeDef]
 
 class TypographyTypeDef(TypedDict):
     FontFamilies: NotRequired[Sequence[FontTypeDef]]
@@ -9868,6 +9883,7 @@ class TypographyTypeDef(TypedDict):
     DataLabelFontConfiguration: NotRequired[FontConfigurationTypeDef]
     VisualTitleFontConfiguration: NotRequired[VisualTitleFontConfigurationTypeDef]
     VisualSubtitleFontConfiguration: NotRequired[VisualSubtitleFontConfigurationTypeDef]
+    ControlTitleFontConfiguration: NotRequired[ControlTitleFontConfigurationTypeDef]
 
 ColumnGroupUnionTypeDef = Union[ColumnGroupTypeDef, ColumnGroupOutputTypeDef]
 
@@ -10244,19 +10260,21 @@ FilterDateTimePickerControlTypeDef = TypedDict(
     "FilterDateTimePickerControlTypeDef",
     {
         "FilterControlId": str,
-        "Title": str,
         "SourceFilterId": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[DateTimePickerControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlDateTimePickerTypeType],
         "CommitMode": NotRequired[CommitModeType],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 
 class ParameterDateTimePickerControlTypeDef(TypedDict):
     ParameterControlId: str
-    Title: str
     SourceParameterName: str
+    Title: NotRequired[str]
     DisplayOptions: NotRequired[DateTimePickerControlDisplayOptionsTypeDef]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class DefaultRelativeDateTimeControlOptionsTypeDef(TypedDict):
     DisplayOptions: NotRequired[RelativeDateTimeControlDisplayOptionsTypeDef]
@@ -10264,10 +10282,11 @@ class DefaultRelativeDateTimeControlOptionsTypeDef(TypedDict):
 
 class FilterRelativeDateTimeControlTypeDef(TypedDict):
     FilterControlId: str
-    Title: str
     SourceFilterId: str
+    Title: NotRequired[str]
     DisplayOptions: NotRequired[RelativeDateTimeControlDisplayOptionsTypeDef]
     CommitMode: NotRequired[CommitModeType]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 DefaultSliderControlOptionsTypeDef = TypedDict(
     "DefaultSliderControlOptionsTypeDef",
@@ -10283,24 +10302,26 @@ FilterSliderControlTypeDef = TypedDict(
     "FilterSliderControlTypeDef",
     {
         "FilterControlId": str,
-        "Title": str,
         "SourceFilterId": str,
         "MaximumValue": float,
         "MinimumValue": float,
         "StepSize": float,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[SliderControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlSliderTypeType],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 
 class ParameterSliderControlTypeDef(TypedDict):
     ParameterControlId: str
-    Title: str
     SourceParameterName: str
     MaximumValue: float
     MinimumValue: float
     StepSize: float
+    Title: NotRequired[str]
     DisplayOptions: NotRequired[SliderControlDisplayOptionsTypeDef]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class DefaultTextAreaControlOptionsTypeDef(TypedDict):
     Delimiter: NotRequired[str]
@@ -10308,32 +10329,36 @@ class DefaultTextAreaControlOptionsTypeDef(TypedDict):
 
 class FilterTextAreaControlTypeDef(TypedDict):
     FilterControlId: str
-    Title: str
     SourceFilterId: str
+    Title: NotRequired[str]
     Delimiter: NotRequired[str]
     DisplayOptions: NotRequired[TextAreaControlDisplayOptionsTypeDef]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class ParameterTextAreaControlTypeDef(TypedDict):
     ParameterControlId: str
-    Title: str
     SourceParameterName: str
+    Title: NotRequired[str]
     Delimiter: NotRequired[str]
     DisplayOptions: NotRequired[TextAreaControlDisplayOptionsTypeDef]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class DefaultTextFieldControlOptionsTypeDef(TypedDict):
     DisplayOptions: NotRequired[TextFieldControlDisplayOptionsTypeDef]
 
 class FilterTextFieldControlTypeDef(TypedDict):
     FilterControlId: str
-    Title: str
     SourceFilterId: str
+    Title: NotRequired[str]
     DisplayOptions: NotRequired[TextFieldControlDisplayOptionsTypeDef]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class ParameterTextFieldControlTypeDef(TypedDict):
     ParameterControlId: str
-    Title: str
     SourceParameterName: str
+    Title: NotRequired[str]
     DisplayOptions: NotRequired[TextFieldControlDisplayOptionsTypeDef]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class SmallMultiplesOptionsTypeDef(TypedDict):
     MaxVisibleRows: NotRequired[int]
@@ -11122,108 +11147,116 @@ FilterDropDownControlOutputTypeDef = TypedDict(
     "FilterDropDownControlOutputTypeDef",
     {
         "FilterControlId": str,
-        "Title": str,
         "SourceFilterId": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
         "CommitMode": NotRequired[CommitModeType],
         "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 FilterDropDownControlTypeDef = TypedDict(
     "FilterDropDownControlTypeDef",
     {
         "FilterControlId": str,
-        "Title": str,
         "SourceFilterId": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
         "CommitMode": NotRequired[CommitModeType],
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 FilterListControlOutputTypeDef = TypedDict(
     "FilterListControlOutputTypeDef",
     {
         "FilterControlId": str,
-        "Title": str,
         "SourceFilterId": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[FilterSelectableValuesOutputTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
         "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 FilterListControlTypeDef = TypedDict(
     "FilterListControlTypeDef",
     {
         "FilterControlId": str,
-        "Title": str,
         "SourceFilterId": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 ParameterDropDownControlOutputTypeDef = TypedDict(
     "ParameterDropDownControlOutputTypeDef",
     {
         "ParameterControlId": str,
-        "Title": str,
         "SourceParameterName": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[ParameterSelectableValuesOutputTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
         "CommitMode": NotRequired[CommitModeType],
         "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 ParameterDropDownControlTypeDef = TypedDict(
     "ParameterDropDownControlTypeDef",
     {
         "ParameterControlId": str,
-        "Title": str,
         "SourceParameterName": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[DropDownControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[ParameterSelectableValuesTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
         "CommitMode": NotRequired[CommitModeType],
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 ParameterListControlOutputTypeDef = TypedDict(
     "ParameterListControlOutputTypeDef",
     {
         "ParameterControlId": str,
-        "Title": str,
         "SourceParameterName": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[ParameterSelectableValuesOutputTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationOutputTypeDef],
         "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 ParameterListControlTypeDef = TypedDict(
     "ParameterListControlTypeDef",
     {
         "ParameterControlId": str,
-        "Title": str,
         "SourceParameterName": str,
+        "Title": NotRequired[str],
         "DisplayOptions": NotRequired[ListControlDisplayOptionsTypeDef],
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[ParameterSelectableValuesTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
 )
 
@@ -12359,12 +12392,14 @@ class TableUnaggregatedFieldWellsTypeDef(TypedDict):
     Values: NotRequired[Sequence[UnaggregatedFieldTypeDef]]
 
 class DefaultFilterControlConfigurationOutputTypeDef(TypedDict):
-    Title: str
     ControlOptions: DefaultFilterControlOptionsOutputTypeDef
+    Title: NotRequired[str]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class DefaultFilterControlConfigurationTypeDef(TypedDict):
-    Title: str
     ControlOptions: DefaultFilterControlOptionsTypeDef
+    Title: NotRequired[str]
+    ControlTitleFormatText: NotRequired[ControlTitleFormatTextTypeDef]
 
 class BodySectionConfigurationOutputTypeDef(TypedDict):
     SectionId: str

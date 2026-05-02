@@ -1,0 +1,6 @@
+#Example of a worker configuration file
+enabled: True
+splay: 5
+interval: 15
+cmd_url: 'https://{}/aws/ec2/instance/{}/cmd?status=NEW'
+cmd_update_url: 'https://{}/aws/ec2/cmdStatus'

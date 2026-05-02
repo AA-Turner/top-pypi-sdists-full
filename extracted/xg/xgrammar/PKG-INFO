@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: xgrammar
-Version: 0.1.34
+Version: 0.2.0
 Summary: Efficient, Flexible and Portable Structured Generation
 Keywords: machine learning,inference
 Author: MLC Team
@@ -113,6 +113,8 @@ XGrammar has been widely adopted in industry, open-source projects, and academia
 [<img src="https://raw.githubusercontent.com/mlc-ai/XGrammar-web-assets/refs/heads/main/repo/meta.svg" height=50/>](https://about.meta.com/)
 &emsp;
 [<img src="https://raw.githubusercontent.com/mlc-ai/XGrammar-web-assets/refs/heads/main/repo/google.svg" height=50/>](https://about.google/)
+&emsp;
+[<img src="https://raw.githubusercontent.com/mlc-ai/XGrammar-web-assets/refs/heads/main/repo/perplexity.png" height=50/>](https://www.perplexity.ai/)
 &emsp;
 [<img src="https://raw.githubusercontent.com/mlc-ai/XGrammar-web-assets/refs/heads/main/repo/xai.png" height=50/>](https://github.com/NVIDIA/TensorRT-LLM)
 &emsp;

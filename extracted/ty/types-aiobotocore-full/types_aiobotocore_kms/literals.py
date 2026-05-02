@@ -41,6 +41,7 @@ __all__ = (
     "KMSServiceName",
     "KeyAgreementAlgorithmSpecType",
     "KeyEncryptionMechanismType",
+    "KeyLastUsageTrackingOperationType",
     "KeyManagerTypeType",
     "KeyMaterialStateType",
     "KeySpecType",
@@ -157,6 +158,20 @@ ImportTypeType = Literal["EXISTING_KEY_MATERIAL", "NEW_KEY_MATERIAL"]
 IncludeKeyMaterialType = Literal["ALL_KEY_MATERIAL", "ROTATIONS_ONLY"]
 KeyAgreementAlgorithmSpecType = Literal["ECDH"]
 KeyEncryptionMechanismType = Literal["RSAES_OAEP_SHA_256"]
+KeyLastUsageTrackingOperationType = Literal[
+    "Decrypt",
+    "DeriveSharedSecret",
+    "Encrypt",
+    "GenerateDataKey",
+    "GenerateDataKeyPair",
+    "GenerateDataKeyPairWithoutPlaintext",
+    "GenerateDataKeyWithoutPlaintext",
+    "GenerateMac",
+    "ReEncrypt",
+    "Sign",
+    "Verify",
+    "VerifyMac",
+]
 KeyManagerTypeType = Literal["AWS", "CUSTOMER"]
 KeyMaterialStateType = Literal[
     "CURRENT", "NON_CURRENT", "PENDING_MULTI_REGION_IMPORT_AND_ROTATION", "PENDING_ROTATION"

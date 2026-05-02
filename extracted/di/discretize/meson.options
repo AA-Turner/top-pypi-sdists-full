@@ -1,1 +1,0 @@
-option('cy_line_trace', type : 'boolean', value : false)

@@ -1,0 +1,1 @@
+from .base_container_with_collection import ChattyAssetContainerWithCollection

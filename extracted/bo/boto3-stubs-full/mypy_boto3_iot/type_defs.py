@@ -1311,6 +1311,7 @@ class BatchConfigTypeDef(TypedDict):
     maxBatchOpenMs: NotRequired[int]
     maxBatchSize: NotRequired[int]
     maxBatchSizeBytes: NotRequired[int]
+    batchAcrossTopics: NotRequired[bool]
 
 
 class MachineLearningDetectionConfigTypeDef(TypedDict):

@@ -1,0 +1,36 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import Dict, Optional
+from typing_extensions import Literal
+
+from .._models import BaseModel
+
+__all__ = ["ApplicationNode", "Configuration"]
+
+
+class Configuration(BaseModel):
+    value: object
+
+
+class ApplicationNode(BaseModel):
+    id: str
+
+    application_node_schema_id: Literal[
+        "text_input_schema",
+        "text_output_schema",
+        "knowledge_base_input_schema",
+        "knowledge_base_schema",
+        "multi_knowledge_base_input_schema",
+        "multi_knowledge_base_schema",
+        "reranker_schema",
+        "prompt_engineering_schema",
+        "completion_model_input_schema",
+        "completion_model_schema",
+        "external_endpoint_schema",
+        "document_input_schema",
+        "map_reduce_schema",
+        "document_search_schema",
+        "document_prompt_schema",
+    ]
+
+    configuration: Optional[Dict[str, Configuration]] = None

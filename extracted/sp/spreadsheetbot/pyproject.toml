@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spreadsheetbot"
+version = "2.5.2"
+authors = [
+  { name="Egor Dubrovin", email="dubrovin.en@ya.ru" },
+]
+description = "Google Spreadsheet-based Telegram Bot Package"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  'python-telegram-bot>=20.0b0',
+  'python-telegram-bot[job-queue]',
+  'pandas',
+  'gspread',
+  'gspread-asyncio',
+  'aiohttp',
+  'filetype'
+]
+
+[project.urls]
+"Homepage" = "https://github.com/twobrowin-study/spreadsheetbot-lib"
+"Bug Tracker" = "https://github.com/twobrowin-study/spreadsheetbot-lib/issues"

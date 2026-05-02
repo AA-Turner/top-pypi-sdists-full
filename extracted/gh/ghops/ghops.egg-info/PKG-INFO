@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: ghops
+Version: 1.0.0
+Summary: DEPRECATED - Use repoindex instead: https://pypi.org/project/repoindex/
+Author-email: Alex Towell <lex@metafunctor.com>
+License: MIT
+Project-URL: Replacement, https://pypi.org/project/repoindex/
+Project-URL: Homepage, https://github.com/queelius/repoindex
+Classifier: Development Status :: 7 - Inactive
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# ghops (DEPRECATED)
+
+**This package is deprecated and no longer maintained.**
+
+Use [repoindex](https://pypi.org/project/repoindex/) instead -- a complete rewrite with a better approach to managing your GitHub repository collection.
+
+```bash
+pip install repoindex
+```
+
+See https://github.com/queelius/repoindex for details.

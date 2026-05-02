@@ -1,0 +1,120 @@
+[[tool.mypy.overrides]]
+module = "jwcrypto.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yaspin.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = ["I", "UP", "TRY"]
+ignore = ["E501"]
+per-file-ignores = {"tests/test_init.py" = ["F401"]}
+
+[tool.coverage.run]
+concurrency = ["greenlet", "thread"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+
+[tool.hatch]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+source = "regex_commit"
+commit_extra_args = ["-e"]
+path = "fief_client/__init__.py"
+
+[tool.hatch.envs.default]
+installer = "uv"
+features = [
+  "fastapi",
+  "flask",
+  "cli",
+]
+dependencies = [
+  "coverage[toml]",
+  "greenlet",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "pytest-asyncio",
+  "pytest-mock",
+  "respx",
+  "ruff",
+  "uvicorn[standard]",
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "pdoc"
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest --cov fief_client/ --cov-report=term-missing"
+test-cov-xml = "pytest --cov fief_client/ --cov-report=xml"
+lint = [
+  "ruff format . ",
+  "ruff check --fix .",
+  "mypy fief_client/",
+]
+lint-check = [
+  "ruff format --check .",
+  "ruff check .",
+  "mypy fief_client/",
+]
+
+[tool.hatch.envs.docs.scripts]
+serve = "pdoc fief_client/"
+build = "pdoc fief_client/ -o docs/_build"
+
+[build-system]
+requires = ["hatchling", "hatch-regex-commit"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fief-client"
+authors = [
+  { name = "François Voron", email = "contact@fief.dev" }
+]
+description = "Fief Client for Python"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dynamic = ["version"]
+requires-python = ">=3.9"
+dependencies = [
+    "httpx >=0.21.3,<0.28.0",
+    "jwcrypto >=1.4,<2.0.0",
+]
+
+[project.optional-dependencies]
+fastapi = [
+  "fastapi",
+  "makefun >=1.14.0,<2.0.0",
+]
+
+flask = [
+  "flask",
+]
+
+cli = [
+  "yaspin",
+]
+
+[project.urls]
+Documentation = "https://docs.fief.dev/integrate/python/"
+Source = "https://github.com/fief-dev/fief-python"

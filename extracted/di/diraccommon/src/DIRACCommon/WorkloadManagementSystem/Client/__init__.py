@@ -1,1 +1,0 @@
-"""DIRACCommon WorkloadManagementSystem client utilities"""

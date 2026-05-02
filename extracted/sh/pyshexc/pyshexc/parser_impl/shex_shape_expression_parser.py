@@ -1,5 +1,3 @@
-from typing import Optional, Union, List
-
 from pyshexc.parser.ShExDocParser import ShExDocParser
 from pyshexc.parser.ShExDocVisitor import ShExDocVisitor
 
@@ -10,7 +8,7 @@ from ShExJSG.ShExJ import BNODE, IRIREF, ShapeOr, ShapeAnd, ShapeNot, Shape, sha
 
 class ShexShapeExpressionParser(ShExDocVisitor):
     """ Parser for Shape Expressions branch """
-    def __init__(self, context: ParserContext, label: Optional[Union[IRIREF, BNODE]]=None):
+    def __init__(self, context: ParserContext, label: IRIREF | BNODE | None = None):
         ShExDocVisitor.__init__(self)
         self.context = context
         self.label = label
@@ -19,7 +17,7 @@ class ShexShapeExpressionParser(ShExDocVisitor):
     # ------------------
     # shapeOr
     # ------------------
-    def _shape_or(self, ands: Union[List[ShExDocParser.ShapeAndContext], List[ShExDocParser.InlineShapeAndContext]]):
+    def _shape_or(self, ands: list[ShExDocParser.ShapeAndContext] | list[ShExDocParser.InlineShapeAndContext]):
         if len(ands) > 1:
             exprs = []
             for sa in ands:
@@ -42,7 +40,7 @@ class ShexShapeExpressionParser(ShExDocVisitor):
     # shapeAnd
     # ------------------
     def _shape_and(self,
-                   nots: Union[List[ShExDocParser.ShapeNotContext], List[ShExDocParser.InlineShapeNotContext]],
+                   nots: list[ShExDocParser.ShapeNotContext] | list[ShExDocParser.InlineShapeNotContext],
                    is_inline: bool):
         if len(nots) > 1:
             exprs = []
@@ -58,7 +56,7 @@ class ShexShapeExpressionParser(ShExDocVisitor):
             self.visit(nots[0])
 
     @staticmethod
-    def _collapse_ands(exprs: List, new_expr: shapeExpr) -> None:
+    def _collapse_ands(exprs: list, new_expr: shapeExpr) -> None:
         """ For various nefarious reaons, the reference parser has decided to implement
             And(And(a, b), c) --> And(a, b, c).  We've got to do the same
         """
@@ -80,7 +78,7 @@ class ShexShapeExpressionParser(ShExDocVisitor):
     # shapeNot
     # ------------------
     def _shape_not(self,
-                   ctx: Union[ShExDocParser.ShapeNotContext, ShExDocParser.InlineShapeNotContext],
+                   ctx: ShExDocParser.ShapeNotContext | ShExDocParser.InlineShapeNotContext,
                    is_inline: bool) -> None:
         if ctx.KW_NOT():
             self.expr = ShapeNot(id=self.label)
@@ -101,10 +99,10 @@ class ShexShapeExpressionParser(ShExDocVisitor):
     # ------------------
     # shapeAtom
     # ------------------
-    def _shape_atom(self, ctx: Union[ShExDocParser.ShapeAtomNonLitNodeConstraintContext,
-                                     ShExDocParser.ShapeAtomLitNodeConstraintContext,
-                                     ShExDocParser.InlineShapeAtomNonLitNodeConstraintContext,
-                                     ShExDocParser.InlineShapeAtomLitNodeConstraintContext],
+    def _shape_atom(self, ctx: ShExDocParser.ShapeAtomNonLitNodeConstraintContext |
+                               ShExDocParser.ShapeAtomLitNodeConstraintContext |
+                               ShExDocParser.InlineShapeAtomNonLitNodeConstraintContext |
+                               ShExDocParser.InlineShapeAtomLitNodeConstraintContext,
                     is_inline: bool, is_lit: bool):
         """ One of nonLitNodeConstraint shapeOrRef?  or shapeOrRef nonLitNodeConstraint? """
 
@@ -164,7 +162,7 @@ class ShexShapeExpressionParser(ShExDocVisitor):
     # ------------------
     # shapeOrRef
     # ------------------
-    def _shape_or_ref(self, ctx: Union[ShExDocParser.ShapeOrRefContext, ShExDocParser.InlineShapeOrRefContext],
+    def _shape_or_ref(self, ctx: ShExDocParser.ShapeOrRefContext | ShExDocParser.InlineShapeOrRefContext,
                       is_inline: bool):
         defn = ctx.inlineShapeDefinition() if is_inline else ctx.shapeDefinition()
         if defn:

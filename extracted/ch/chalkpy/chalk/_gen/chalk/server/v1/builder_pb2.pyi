@@ -54,6 +54,12 @@ class OtelCollectorImage(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     OTEL_COLLECTOR_IMAGE_UPSTREAM_CONTRIB: _ClassVar[OtelCollectorImage]
     OTEL_COLLECTOR_IMAGE_CHALK_SHARED: _ClassVar[OtelCollectorImage]
 
+class TelemetryRuntime(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TELEMETRY_RUNTIME_UNSPECIFIED: _ClassVar[TelemetryRuntime]
+    TELEMETRY_RUNTIME_OTEL: _ClassVar[TelemetryRuntime]
+    TELEMETRY_RUNTIME_VECTOR: _ClassVar[TelemetryRuntime]
+
 class PerfettoTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PERFETTO_TRIGGER_UNSPECIFIED: _ClassVar[PerfettoTrigger]
@@ -96,6 +102,9 @@ TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL_EXCEPT_NO_NETWORK: Telemetry
 OTEL_COLLECTOR_IMAGE_UNSPECIFIED: OtelCollectorImage
 OTEL_COLLECTOR_IMAGE_UPSTREAM_CONTRIB: OtelCollectorImage
 OTEL_COLLECTOR_IMAGE_CHALK_SHARED: OtelCollectorImage
+TELEMETRY_RUNTIME_UNSPECIFIED: TelemetryRuntime
+TELEMETRY_RUNTIME_OTEL: TelemetryRuntime
+TELEMETRY_RUNTIME_VECTOR: TelemetryRuntime
 PERFETTO_TRIGGER_UNSPECIFIED: PerfettoTrigger
 PERFETTO_TRIGGER_TIME_INTERVAL: PerfettoTrigger
 PERFETTO_TRIGGER_HTTP: PerfettoTrigger
@@ -356,12 +365,19 @@ class UploadSourceRequest(_message.Message):
     ) -> None: ...
 
 class UploadSourceResponse(_message.Message):
-    __slots__ = ("status", "progress_url")
+    __slots__ = ("status", "progress_url", "warnings")
     STATUS_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_URL_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
     status: str
     progress_url: str
-    def __init__(self, status: _Optional[str] = ..., progress_url: _Optional[str] = ...) -> None: ...
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        status: _Optional[str] = ...,
+        progress_url: _Optional[str] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class PrepareDeploymentRequest(_message.Message):
     __slots__ = (
@@ -619,6 +635,20 @@ class GetClusterTimescaleDBResponse(_message.Message):
         specs: _Optional[_Union[ClusterTimescaleSpecs, _Mapping]] = ...,
     ) -> None: ...
 
+class ListClusterTimescaleDBsRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListClusterTimescaleDBsResponse(_message.Message):
+    __slots__ = ("cluster_timescale_dbs",)
+    CLUSTER_TIMESCALE_DBS_FIELD_NUMBER: _ClassVar[int]
+    cluster_timescale_dbs: _containers.RepeatedCompositeFieldContainer[GetClusterTimescaleDBResponse]
+    def __init__(
+        self, cluster_timescale_dbs: _Optional[_Iterable[_Union[GetClusterTimescaleDBResponse, _Mapping]]] = ...
+    ) -> None: ...
+
 class GetClusterGatewayRequest(_message.Message):
     __slots__ = ("environment_id", "id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -650,6 +680,18 @@ class GetClusterGatewayResponse(_message.Message):
         specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
         kube_cluster_id: _Optional[str] = ...,
     ) -> None: ...
+
+class ListClusterGatewaysRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListClusterGatewaysResponse(_message.Message):
+    __slots__ = ("gateways",)
+    GATEWAYS_FIELD_NUMBER: _ClassVar[int]
+    gateways: _containers.RepeatedCompositeFieldContainer[GetClusterGatewayResponse]
+    def __init__(self, gateways: _Optional[_Iterable[_Union[GetClusterGatewayResponse, _Mapping]]] = ...) -> None: ...
 
 class GetClusterGatewayDefaultRequest(_message.Message):
     __slots__ = ()
@@ -701,6 +743,20 @@ class GetClusterBackgroundPersistenceResponse(_message.Message):
     BACKGROUND_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
     background_persistence: BackgroundPersistence
     def __init__(self, background_persistence: _Optional[_Union[BackgroundPersistence, _Mapping]] = ...) -> None: ...
+
+class ListClusterBackgroundPersistenceDeploymentsRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListClusterBackgroundPersistenceDeploymentsResponse(_message.Message):
+    __slots__ = ("background_persistence_deployments",)
+    BACKGROUND_PERSISTENCE_DEPLOYMENTS_FIELD_NUMBER: _ClassVar[int]
+    background_persistence_deployments: _containers.RepeatedCompositeFieldContainer[BackgroundPersistence]
+    def __init__(
+        self, background_persistence_deployments: _Optional[_Iterable[_Union[BackgroundPersistence, _Mapping]]] = ...
+    ) -> None: ...
 
 class CreateClusterTimescaleDBRequest(_message.Message):
     __slots__ = ("environment_id", "environment_ids", "specs_string", "specs")
@@ -1565,6 +1621,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         "observability_daemons",
         "cluster_manager_config",
         "autodiscover_key",
+        "observability_daemon_scheduling",
     )
     COMMON_PERSISTENCE_SPECS_FIELD_NUMBER: _ClassVar[int]
     API_SERVER_HOST_FIELD_NUMBER: _ClassVar[int]
@@ -1583,6 +1640,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_MANAGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
     AUTODISCOVER_KEY_FIELD_NUMBER: _ClassVar[int]
+    OBSERVABILITY_DAEMON_SCHEDULING_FIELD_NUMBER: _ClassVar[int]
     common_persistence_specs: BackgroundPersistenceCommonSpecs
     api_server_host: str
     kafka_sasl_secret: str
@@ -1600,6 +1658,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
     cluster_manager_config: ClusterManagerConfig
     autodiscover_key: str
+    observability_daemon_scheduling: ObservabilityDaemonSchedulingSpec
     def __init__(
         self,
         common_persistence_specs: _Optional[_Union[BackgroundPersistenceCommonSpecs, _Mapping]] = ...,
@@ -1619,6 +1678,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
         cluster_manager_config: _Optional[_Union[ClusterManagerConfig, _Mapping]] = ...,
         autodiscover_key: _Optional[str] = ...,
+        observability_daemon_scheduling: _Optional[_Union[ObservabilityDaemonSchedulingSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
@@ -1997,6 +2057,7 @@ class ObservabilityDaemonSpec(_message.Message):
         "request",
         "limit",
         "image_override",
+        "scheduling",
         "zombie_killer",
         "core_dump_collector",
         "py_spy_stack_trace_collector",
@@ -2009,6 +2070,7 @@ class ObservabilityDaemonSpec(_message.Message):
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULING_FIELD_NUMBER: _ClassVar[int]
     ZOMBIE_KILLER_FIELD_NUMBER: _ClassVar[int]
     CORE_DUMP_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     PY_SPY_STACK_TRACE_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
@@ -2020,6 +2082,7 @@ class ObservabilityDaemonSpec(_message.Message):
     request: KubeResourceConfig
     limit: KubeResourceConfig
     image_override: str
+    scheduling: ObservabilityDaemonSchedulingSpec
     zombie_killer: ZombieKillerSpec
     core_dump_collector: CoreDumpCollectorSpec
     py_spy_stack_trace_collector: PySpyStackTraceCollectorSpec
@@ -2033,6 +2096,7 @@ class ObservabilityDaemonSpec(_message.Message):
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         image_override: _Optional[str] = ...,
+        scheduling: _Optional[_Union[ObservabilityDaemonSchedulingSpec, _Mapping]] = ...,
         zombie_killer: _Optional[_Union[ZombieKillerSpec, _Mapping]] = ...,
         core_dump_collector: _Optional[_Union[CoreDumpCollectorSpec, _Mapping]] = ...,
         py_spy_stack_trace_collector: _Optional[_Union[PySpyStackTraceCollectorSpec, _Mapping]] = ...,
@@ -2041,6 +2105,12 @@ class ObservabilityDaemonSpec(_message.Message):
         directory_watcher: _Optional[_Union[DirectoryWatcherSpec, _Mapping]] = ...,
         streamed_watcher: _Optional[_Union[StreamedDirectoryWatcherSpec, _Mapping]] = ...,
     ) -> None: ...
+
+class ObservabilityDaemonSchedulingSpec(_message.Message):
+    __slots__ = ("node_selectors",)
+    NODE_SELECTORS_FIELD_NUMBER: _ClassVar[int]
+    node_selectors: _containers.RepeatedCompositeFieldContainer[KubeNodeSelector]
+    def __init__(self, node_selectors: _Optional[_Iterable[_Union[KubeNodeSelector, _Mapping]]] = ...) -> None: ...
 
 class TelemetryDeploymentSpec(_message.Message):
     __slots__ = (
@@ -2054,6 +2124,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "customer_collector",
         "require_infrastructure_nodepool",
         "gpu_telemetry",
+        "telemetry_runtime",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -2065,6 +2136,7 @@ class TelemetryDeploymentSpec(_message.Message):
     CUSTOMER_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     GPU_TELEMETRY_FIELD_NUMBER: _ClassVar[int]
+    TELEMETRY_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -2075,6 +2147,7 @@ class TelemetryDeploymentSpec(_message.Message):
     customer_collector: CustomerCollectorConfig
     require_infrastructure_nodepool: bool
     gpu_telemetry: GpuTelemetrySpec
+    telemetry_runtime: TelemetryRuntime
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -2087,6 +2160,7 @@ class TelemetryDeploymentSpec(_message.Message):
         customer_collector: _Optional[_Union[CustomerCollectorConfig, _Mapping]] = ...,
         require_infrastructure_nodepool: bool = ...,
         gpu_telemetry: _Optional[_Union[GpuTelemetrySpec, _Mapping]] = ...,
+        telemetry_runtime: _Optional[_Union[TelemetryRuntime, str]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):
@@ -2147,6 +2221,18 @@ class GetTelemetryDeploymentResponse(_message.Message):
     DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
     deployment: TelemetryDeployment
     def __init__(self, deployment: _Optional[_Union[TelemetryDeployment, _Mapping]] = ...) -> None: ...
+
+class ListTelemetryDeploymentsRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListTelemetryDeploymentsResponse(_message.Message):
+    __slots__ = ("deployments",)
+    DEPLOYMENTS_FIELD_NUMBER: _ClassVar[int]
+    deployments: _containers.RepeatedCompositeFieldContainer[TelemetryDeployment]
+    def __init__(self, deployments: _Optional[_Iterable[_Union[TelemetryDeployment, _Mapping]]] = ...) -> None: ...
 
 class CreateTelemetryDeploymentRequest(_message.Message):
     __slots__ = ("cluster_id", "spec", "telemetry_deployment_id")

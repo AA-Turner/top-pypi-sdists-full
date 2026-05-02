@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: spotify-win-cli
+Version: 4.0.6
+Summary: interact with spotify through commands
+Author-email: "A. Random Developer" <author@example.com>
+Maintainer-email: "A. Great Maintainer" <maintainer@example.com>
+Project-URL: Homepage, https://github.com/aghastmuffin/spotify-cli
+Project-URL: Bug Reports, https://github.com/aghastmuffin/spotify-cli/issues
+Project-URL: Funding, https://donate.pypi.org
+Keywords: spotify-cli,spotify
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.8
+Description-Content-Type: text/plain
+
+This is a detailed description of my package.

@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: fitfile
+Version: 1.2.0
+Summary: Decode FIT format files.
+Home-page: https://github.com/tcgoetz/Fit
+Author: Tom Goetz
+Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.0
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
+
+=======
+fitfile
+=======
+
+Fit file parser.

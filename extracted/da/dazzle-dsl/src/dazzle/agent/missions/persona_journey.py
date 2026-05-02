@@ -1,0 +1,1292 @@
+"""
+Headless persona journey analysis: static DSL/KG analysis of persona journey completeness.
+
+Answers "can each persona accomplish their stories through the surfaces and workspaces
+defined in the DSL?" using deterministic static analysis — no running app needed.
+
+Output feeds the existing compile→emit pipeline via Observation conversion, so findings
+can become DSL proposals automatically.
+
+Analysis passes (per persona):
+1. Workspace reachability — persona has a valid, accessible workspace with regions
+2. Surface access — surfaces accessible per access control rules
+3. Story surface coverage — story-implied CRUD has matching accessible surfaces
+4. Process surface wiring — human_task steps reference existing, accessible surfaces
+5. Experience completeness — experience steps/transitions are valid and accessible
+6. Experience reachability — experiences have entry points from persona's workspace
+7. Orphan surface detection — surfaces unreachable from workspace regions, experiences, or processes
+8. Cross-entity gaps — multi-entity stories have connected navigation paths
+9. Navigation scope — persona sees only entities they should (workspace + policy + persona_variants)
+
+Personas with no stories and no default_workspace are skipped (they produce only noise).
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+from ..compiler import infer_crud_action
+
+if TYPE_CHECKING:
+    from dazzle.core.ir.appspec import AppSpec
+from ..transcript import Observation
+from ._shared import get_surface_entity, is_step_kind
+
+logger = logging.getLogger("dazzle.agent.missions.persona_journey")
+
+
+# =============================================================================
+# Data Structures
+# =============================================================================
+
+
+@dataclass
+class PersonaJourneyGap:
+    """A gap in a persona's journey through the application."""
+
+    persona_id: str
+    gap_type: str
+    severity: str
+    description: str
+    entity_name: str | None = None
+    surface_name: str | None = None
+    story_id: str | None = None
+    process_name: str | None = None
+    experience_name: str | None = None
+    related_artefacts: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PersonaJourneyReport:
+    """Results of persona journey analysis for a single persona."""
+
+    persona_id: str
+    default_workspace: str | None = None
+    gaps: list[PersonaJourneyGap] = field(default_factory=list)
+    surface_coverage: dict[str, bool] = field(default_factory=dict)
+    story_coverage: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class HeadlessDiscoveryReport:
+    """Complete headless discovery report across all personas."""
+
+    persona_reports: list[PersonaJourneyReport] = field(default_factory=list)
+    skipped_personas: list[str] = field(default_factory=list)
+    entity_report: Any | None = None  # EntityCompletenessReport
+    workflow_report: Any | None = None  # WorkflowCoherenceReport
+
+    def to_observations(self) -> list[Observation]:
+        """Convert all gaps to pipeline-compatible Observations."""
+        observations: list[Observation] = []
+        for pr in self.persona_reports:
+            for gap in pr.gaps:
+                obs = _gap_to_observation(gap)
+                if pr.default_workspace:
+                    obs.metadata["default_workspace"] = pr.default_workspace
+                observations.append(obs)
+        return observations
+
+    def to_json(self) -> dict[str, Any]:
+        """Serialize to JSON-compatible dict."""
+        result: dict[str, Any] = {
+            "persona_reports": [],
+            "skipped_personas": self.skipped_personas,
+        }
+        for pr in self.persona_reports:
+            pr_dict: dict[str, Any] = {
+                "persona_id": pr.persona_id,
+                "gaps": [
+                    {
+                        "persona_id": g.persona_id,
+                        "gap_type": g.gap_type,
+                        "severity": g.severity,
+                        "description": g.description,
+                        "entity_name": g.entity_name,
+                        "surface_name": g.surface_name,
+                        "story_id": g.story_id,
+                        "process_name": g.process_name,
+                        "experience_name": g.experience_name,
+                        "related_artefacts": g.related_artefacts,
+                    }
+                    for g in pr.gaps
+                ],
+                "surface_coverage": pr.surface_coverage,
+                "story_coverage": pr.story_coverage,
+            }
+            result["persona_reports"].append(pr_dict)
+
+        if self.entity_report is not None:
+            result["entity_summary"] = self.entity_report.to_summary()
+        if self.workflow_report is not None:
+            result["workflow_summary"] = self.workflow_report.to_summary()
+
+        return result
+
+    def to_summary(self) -> str:
+        """Render a markdown summary."""
+        lines: list[str] = ["# Headless Discovery Report\n"]
+
+        total_gaps = sum(len(pr.gaps) for pr in self.persona_reports)
+        lines.append(
+            f"**{len(self.persona_reports)}** persona(s) analyzed, **{total_gaps}** gap(s) found.\n"
+        )
+
+        if self.skipped_personas:
+            lines.append(
+                f"*Skipped {len(self.skipped_personas)} persona(s) with no stories "
+                f"and no default workspace: {', '.join(self.skipped_personas)}*\n"
+            )
+
+        for pr in self.persona_reports:
+            lines.append(f"## Persona: {pr.persona_id}\n")
+            if not pr.gaps:
+                lines.append("No gaps found.\n")
+                continue
+            for gap in pr.gaps:
+                lines.append(f"- [{gap.severity.upper()}] **{gap.gap_type}**: {gap.description}")
+            lines.append("")
+
+        if self.entity_report is not None:
+            lines.append("## Entity Completeness\n")
+            lines.append(self.entity_report.to_summary())
+            lines.append("")
+
+        if self.workflow_report is not None:
+            lines.append("## Workflow Coherence\n")
+            lines.append(self.workflow_report.to_summary())
+            lines.append("")
+
+        return "\n".join(lines)
+
+
+# =============================================================================
+# Gap → Observation Mapping
+# =============================================================================
+
+_GAP_TYPE_TO_CATEGORY: dict[str, str] = {
+    "workspace_unreachable": "navigation_gap",
+    "surface_inaccessible": "access_gap",
+    "story_no_surface": "missing_crud",
+    "process_step_no_surface": "workflow_gap",
+    "experience_broken_step": "workflow_gap",
+    "experience_dangling_transition": "navigation_gap",
+    "unreachable_experience": "navigation_gap",
+    "orphan_surfaces": "navigation_gap",
+    "dead_end_surface": "navigation_gap",  # backward compat
+    "cross_entity_gap": "navigation_gap",
+    "nav_over_exposed": "access_gap",
+    "nav_under_exposed": "navigation_gap",
+}
+
+
+def _gap_to_observation(gap: PersonaJourneyGap) -> Observation:
+    """Convert a PersonaJourneyGap to a pipeline-compatible Observation."""
+    category = _GAP_TYPE_TO_CATEGORY.get(gap.gap_type, "gap")
+    return Observation(
+        category=category,
+        severity=gap.severity,
+        title=f"[{gap.persona_id}] {gap.gap_type}: {gap.description[:80]}",
+        description=gap.description,
+        location=gap.surface_name or gap.experience_name or "",
+        related_artefacts=gap.related_artefacts,
+        metadata={"headless": True, "gap_type": gap.gap_type, "persona_id": gap.persona_id},
+    )
+
+
+# =============================================================================
+# Shared Helpers
+# =============================================================================
+
+
+def _compute_accessible_surfaces(persona_id: str, appspec: AppSpec) -> set[str]:
+    """
+    Compute the set of surface names accessible to a persona.
+
+    Access rules:
+    - No access spec → accessible
+    - allow_personas empty and persona not in deny_personas → accessible
+    - allow_personas contains persona_id → accessible
+    - Otherwise → inaccessible
+    """
+    accessible: set[str] = set()
+
+    for surface in appspec.surfaces:
+        access = surface.access
+        if access is None:
+            accessible.add(surface.name)
+            continue
+
+        allow = access.allow_personas
+        deny = access.deny_personas
+
+        if persona_id in deny:
+            continue
+
+        if not allow or persona_id in allow:
+            accessible.add(surface.name)
+
+    return accessible
+
+
+def _get_persona_stories(persona_id: str, appspec: AppSpec) -> list[Any]:
+    """Get stories where this persona is the actor."""
+    return [s for s in appspec.stories if s.actor == persona_id]
+
+
+def _get_story_entities(story: Any) -> list[str]:
+    """Extract entity names from a story's scope."""
+    scope = story.scope
+    if not scope:
+        return []
+    if isinstance(scope, list):
+        return [str(s) for s in scope]
+    if isinstance(scope, str):
+        return [scope]
+    return []
+
+
+def _get_surfaces_for_entity(entity_name: str, appspec: AppSpec) -> list[Any]:
+    """Get all surfaces that reference a given entity."""
+    return [s for s in appspec.surfaces if get_surface_entity(s) == entity_name]
+
+
+# =============================================================================
+# Analysis Pass 1: Workspace Reachability
+# =============================================================================
+
+
+def _analyze_workspace_reachability(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+) -> list[PersonaJourneyGap]:
+    """Check that persona has a valid, accessible workspace with regions."""
+    gaps: list[PersonaJourneyGap] = []
+    workspace_map = {ws.name: ws for ws in appspec.workspaces}
+
+    default_ws = persona.default_workspace
+    if not default_ws:
+        gaps.append(
+            PersonaJourneyGap(
+                persona_id=persona_id,
+                gap_type="workspace_unreachable",
+                severity="medium",
+                description=f"Persona '{persona_id}' has no default_workspace",
+            )
+        )
+        return gaps
+
+    ws = workspace_map.get(default_ws)
+    if not ws:
+        gaps.append(
+            PersonaJourneyGap(
+                persona_id=persona_id,
+                gap_type="workspace_unreachable",
+                severity="critical",
+                description=f"Persona '{persona_id}' default_workspace '{default_ws}' does not exist in appspec",
+                related_artefacts=[f"workspace:{default_ws}"],
+            )
+        )
+        return gaps
+
+    # Check workspace access control
+    ws_access = ws.access
+    if ws_access:
+        allow = ws_access.allow_personas
+        deny = ws_access.deny_personas
+        if persona_id in deny or (allow and persona_id not in allow):
+            gaps.append(
+                PersonaJourneyGap(
+                    persona_id=persona_id,
+                    gap_type="workspace_unreachable",
+                    severity="high",
+                    description=f"Persona '{persona_id}' denied access to workspace '{default_ws}'",
+                    related_artefacts=[f"workspace:{default_ws}"],
+                )
+            )
+
+    # Check workspace has regions
+    if not ws.regions:
+        gaps.append(
+            PersonaJourneyGap(
+                persona_id=persona_id,
+                gap_type="workspace_unreachable",
+                severity="medium",
+                description=f"Workspace '{default_ws}' has no regions",
+                related_artefacts=[f"workspace:{default_ws}"],
+            )
+        )
+
+    return gaps
+
+
+# =============================================================================
+# Analysis Pass 2: Surface Access
+# =============================================================================
+
+
+def _analyze_surface_access(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Flag surfaces that reference entities in persona's stories but are inaccessible."""
+    gaps: list[PersonaJourneyGap] = []
+
+    # Get entities from persona's stories
+    stories = _get_persona_stories(persona_id, appspec)
+    story_entity_names: set[str] = set()
+    for story in stories:
+        story_entity_names.update(_get_story_entities(story))
+
+    # Check surfaces for those entities
+    for entity_name in story_entity_names:
+        entity_surfaces = _get_surfaces_for_entity(entity_name, appspec)
+        for surface in entity_surfaces:
+            if surface.name not in accessible_surfaces:
+                gaps.append(
+                    PersonaJourneyGap(
+                        persona_id=persona_id,
+                        gap_type="surface_inaccessible",
+                        severity="high",
+                        description=(
+                            f"Surface '{surface.name}' for entity '{entity_name}' "
+                            f"is not accessible to persona '{persona_id}'"
+                        ),
+                        entity_name=entity_name,
+                        surface_name=surface.name,
+                        related_artefacts=[f"entity:{entity_name}", f"surface:{surface.name}"],
+                    )
+                )
+
+    return gaps
+
+
+# =============================================================================
+# Analysis Pass 3: Story Surface Coverage
+# =============================================================================
+
+
+def _analyze_story_surface_coverage(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Check that stories have accessible surfaces for their implied CRUD operations."""
+    gaps: list[PersonaJourneyGap] = []
+    stories = _get_persona_stories(persona_id, appspec)
+
+    for story in stories:
+        story_id = getattr(story, "story_id", None) or getattr(story, "id", "unknown")
+        entity_names = _get_story_entities(story)
+
+        # Infer CRUD action from story conditions/title
+        story_text = " ".join(
+            filter(
+                None,
+                [
+                    story.title,
+                    story.description or "",
+                    " ".join(getattr(story, "conditions", []) or []),
+                ],
+            )
+        )
+        implied_action = infer_crud_action(story_text)
+
+        for entity_name in entity_names:
+            entity_surfaces = _get_surfaces_for_entity(entity_name, appspec)
+            accessible_entity_surfaces = [
+                s for s in entity_surfaces if s.name in accessible_surfaces
+            ]
+
+            # Check if the implied CRUD action has a matching surface mode
+            if implied_action != "CRUD":
+                # Map action to expected surface mode
+                action_to_mode = {
+                    "create": "create",
+                    "edit": "edit",
+                    "delete": "edit",  # delete typically via edit or list
+                    "list": "list",
+                    "view": "view",
+                }
+                expected_mode = action_to_mode.get(implied_action)
+                if expected_mode:
+                    has_mode = any(str(s.mode) == expected_mode for s in accessible_entity_surfaces)
+                    if not has_mode:
+                        gaps.append(
+                            PersonaJourneyGap(
+                                persona_id=persona_id,
+                                gap_type="story_no_surface",
+                                severity="high",
+                                description=(
+                                    f"Story '{story_id}' implies '{implied_action}' on '{entity_name}' "
+                                    f"but no accessible '{expected_mode}' surface exists"
+                                ),
+                                entity_name=entity_name,
+                                story_id=story_id,
+                                related_artefacts=[f"entity:{entity_name}", f"story:{story_id}"],
+                            )
+                        )
+            else:
+                # Generic CRUD — check entity has at least one accessible surface
+                if not accessible_entity_surfaces:
+                    gaps.append(
+                        PersonaJourneyGap(
+                            persona_id=persona_id,
+                            gap_type="story_no_surface",
+                            severity="high",
+                            description=(
+                                f"Story '{story_id}' references entity '{entity_name}' "
+                                f"but no accessible surfaces exist"
+                            ),
+                            entity_name=entity_name,
+                            story_id=story_id,
+                            related_artefacts=[f"entity:{entity_name}", f"story:{story_id}"],
+                        )
+                    )
+
+    return gaps
+
+
+# =============================================================================
+# Analysis Pass 4: Process Surface Wiring
+# =============================================================================
+
+
+def _analyze_process_surface_wiring(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Check that process human_task steps reference existing, accessible surfaces."""
+    gaps: list[PersonaJourneyGap] = []
+    surface_names = {s.name for s in appspec.surfaces}
+
+    # Get persona's story IDs
+    persona_story_ids: set[str] = set()
+    for story in _get_persona_stories(persona_id, appspec):
+        sid = getattr(story, "story_id", None) or getattr(story, "id", None)
+        if sid:
+            persona_story_ids.add(sid)
+
+    for proc in appspec.processes:
+        if not set(proc.implements).intersection(persona_story_ids):
+            continue
+
+        for step in proc.steps:
+            if not is_step_kind(step, "human_task"):
+                continue
+            human_task = step.human_task
+            if not human_task:
+                continue
+            surface_ref = human_task.surface
+            if not surface_ref:
+                continue
+
+            if surface_ref not in surface_names:
+                gaps.append(
+                    PersonaJourneyGap(
+                        persona_id=persona_id,
+                        gap_type="process_step_no_surface",
+                        severity="critical",
+                        description=(
+                            f"Process '{proc.name}' step '{step.name}' references "
+                            f"surface '{surface_ref}' which does not exist"
+                        ),
+                        surface_name=surface_ref,
+                        process_name=proc.name,
+                        related_artefacts=[f"process:{proc.name}", f"surface:{surface_ref}"],
+                    )
+                )
+            elif surface_ref not in accessible_surfaces:
+                gaps.append(
+                    PersonaJourneyGap(
+                        persona_id=persona_id,
+                        gap_type="process_step_no_surface",
+                        severity="high",
+                        description=(
+                            f"Process '{proc.name}' step '{step.name}' references "
+                            f"surface '{surface_ref}' which is not accessible to persona '{persona_id}'"
+                        ),
+                        surface_name=surface_ref,
+                        process_name=proc.name,
+                        related_artefacts=[f"process:{proc.name}", f"surface:{surface_ref}"],
+                    )
+                )
+
+    return gaps
+
+
+# =============================================================================
+# Analysis Pass 5: Experience Completeness
+# =============================================================================
+
+
+def _analyze_experience_completeness(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Check experience steps and transitions for validity and accessibility."""
+    gaps: list[PersonaJourneyGap] = []
+    surfaces = appspec.surfaces
+    surface_names = {s.name for s in surfaces}
+
+    # Get entities from persona's stories
+    story_entity_names: set[str] = set()
+    for story in _get_persona_stories(persona_id, appspec):
+        story_entity_names.update(_get_story_entities(story))
+
+    for exp in appspec.experiences:
+        # Check if this experience references surfaces for persona's entities
+        exp_steps = exp.steps
+        exp_surfaces: set[str] = set()
+        for step in exp_steps:
+            step_kind = str(step.kind)
+            if step_kind == "surface" or step_kind == "StepKind.SURFACE":
+                surface_ref = step.surface
+                if surface_ref:
+                    exp_surfaces.add(surface_ref)
+
+        # Check if any experience surface is for persona's entities
+        relevant = False
+        for s_name in exp_surfaces:
+            for s in surfaces:
+                if s.name == s_name and get_surface_entity(s) in story_entity_names:
+                    relevant = True
+                    break
+            if relevant:
+                break
+
+        if not relevant:
+            continue
+
+        # Build step name set for transition validation
+        step_names = {s.name for s in exp_steps}
+
+        # Check start_step
+        start_step = exp.start_step
+        if start_step and start_step not in step_names:
+            gaps.append(
+                PersonaJourneyGap(
+                    persona_id=persona_id,
+                    gap_type="experience_broken_step",
+                    severity="critical",
+                    description=(
+                        f"Experience '{exp.name}' start_step '{start_step}' "
+                        f"does not reference a valid step"
+                    ),
+                    experience_name=exp.name,
+                    related_artefacts=[f"experience:{exp.name}"],
+                )
+            )
+
+        # Check each step
+        for step in exp_steps:
+            step_kind = str(step.kind)
+            if step_kind == "surface" or step_kind == "StepKind.SURFACE":
+                surface_ref = step.surface
+                step_name = step.name
+                if surface_ref and surface_ref not in surface_names:
+                    gaps.append(
+                        PersonaJourneyGap(
+                            persona_id=persona_id,
+                            gap_type="experience_broken_step",
+                            severity="critical",
+                            description=(
+                                f"Experience '{exp.name}' step '{step_name}' references "
+                                f"surface '{surface_ref}' which does not exist"
+                            ),
+                            surface_name=surface_ref,
+                            experience_name=exp.name,
+                            related_artefacts=[f"experience:{exp.name}", f"surface:{surface_ref}"],
+                        )
+                    )
+                elif surface_ref and surface_ref not in accessible_surfaces:
+                    gaps.append(
+                        PersonaJourneyGap(
+                            persona_id=persona_id,
+                            gap_type="experience_broken_step",
+                            severity="high",
+                            description=(
+                                f"Experience '{exp.name}' step '{step_name}' references "
+                                f"surface '{surface_ref}' not accessible to '{persona_id}'"
+                            ),
+                            surface_name=surface_ref,
+                            experience_name=exp.name,
+                            related_artefacts=[f"experience:{exp.name}", f"surface:{surface_ref}"],
+                        )
+                    )
+
+            # Check transitions
+            for transition in step.transitions:
+                next_step = transition.next_step
+                if next_step and next_step not in step_names:
+                    gaps.append(
+                        PersonaJourneyGap(
+                            persona_id=persona_id,
+                            gap_type="experience_dangling_transition",
+                            severity="medium",
+                            description=(
+                                f"Experience '{exp.name}' step '{step.name}' "
+                                f"transitions to '{next_step}' which does not exist"
+                            ),
+                            experience_name=exp.name,
+                            related_artefacts=[f"experience:{exp.name}"],
+                        )
+                    )
+
+        # Check for orphan steps (unreachable from start)
+        if start_step and start_step in step_names:
+            reachable = _find_reachable_steps(start_step, exp_steps)
+            for step in exp_steps:
+                sn = step.name
+                if sn and sn not in reachable:
+                    gaps.append(
+                        PersonaJourneyGap(
+                            persona_id=persona_id,
+                            gap_type="experience_dangling_transition",
+                            severity="medium",
+                            description=(
+                                f"Experience '{exp.name}' step '{sn}' is unreachable "
+                                f"from start_step '{start_step}'"
+                            ),
+                            experience_name=exp.name,
+                            related_artefacts=[f"experience:{exp.name}"],
+                        )
+                    )
+
+    return gaps
+
+
+def _find_reachable_steps(start: str, steps: list[Any]) -> set[str]:
+    """BFS from start step, following transitions."""
+    step_map: dict[str, Any] = {}
+    for s in steps:
+        sn = s.name
+        if sn:
+            step_map[sn] = s
+
+    visited: set[str] = set()
+    queue = [start]
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        step = step_map.get(current)
+        if not step:
+            continue
+        for t in step.transitions:
+            ns = t.next_step
+            if ns and ns not in visited:
+                queue.append(ns)
+
+    return visited
+
+
+# =============================================================================
+# Analysis Pass 6: Experience Reachability
+# =============================================================================
+
+
+def _analyze_experience_reachability(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Check that experiences relevant to a persona are reachable from their workspace.
+
+    An experience is reachable if its start step's surface (or any surface in the
+    experience) is referenced by a workspace region accessible to the persona.
+    Emits one HIGH gap per unreachable experience.
+    """
+    gaps: list[PersonaJourneyGap] = []
+    experiences = appspec.experiences
+    surfaces = appspec.surfaces
+    workspaces = appspec.workspaces
+
+    if not experiences:
+        return gaps
+
+    # Build set of entities from persona's stories
+    story_entity_names: set[str] = set()
+    for story in _get_persona_stories(persona_id, appspec):
+        story_entity_names.update(_get_story_entities(story))
+
+    # Build set of surfaces reachable from persona's workspace regions
+    default_ws = persona.default_workspace
+    workspace_surfaces: set[str] = set()
+    for ws in workspaces:
+        # Only consider persona's own workspace
+        if default_ws and ws.name != default_ws:
+            continue
+        for region in ws.regions:
+            source = region.source
+            if source:
+                for s in surfaces:
+                    if get_surface_entity(s) == source:
+                        workspace_surfaces.add(s.name)
+
+    for exp in experiences:
+        exp_steps = exp.steps
+
+        # Collect surfaces referenced by this experience
+        exp_surfaces: set[str] = set()
+        for step in exp_steps:
+            step_kind = str(step.kind)
+            if step_kind in ("surface", "StepKind.SURFACE"):
+                surface_ref = step.surface
+                if surface_ref:
+                    exp_surfaces.add(surface_ref)
+
+        if not exp_surfaces:
+            continue
+
+        # Check if this experience is relevant to the persona (its surfaces
+        # reference entities from the persona's stories)
+        relevant = False
+        for s_name in exp_surfaces:
+            for s in surfaces:
+                if s.name == s_name and get_surface_entity(s) in story_entity_names:
+                    relevant = True
+                    break
+            if relevant:
+                break
+
+        if not relevant:
+            continue
+
+        # Check if ANY experience surface is reachable from workspace regions
+        if exp_surfaces & workspace_surfaces:
+            continue
+
+        # Fallback: infer reachability from the experience's access spec.
+        # If the experience explicitly allows this persona (or allows all
+        # authenticated users and doesn't deny this persona), treat it as
+        # reachable — the DSL has no explicit workspace→experience link yet.
+        exp_access = getattr(exp, "access", None)
+        if exp_access is not None:
+            allow = getattr(exp_access, "allow_personas", []) or []
+            deny = getattr(exp_access, "deny_personas", []) or []
+            if persona_id not in deny and (not allow or persona_id in allow):
+                continue
+
+        # Find start surface for the description
+        start_step = exp.start_step
+        start_surface = None
+        if start_step:
+            for step in exp_steps:
+                if step.name == start_step:
+                    start_surface = step.surface
+                    break
+
+        ws_name = default_ws or "none"
+        gaps.append(
+            PersonaJourneyGap(
+                persona_id=persona_id,
+                gap_type="unreachable_experience",
+                severity="high",
+                description=(
+                    f"Experience '{exp.name}' ({len(exp_steps)} steps, "
+                    f"persona: {persona_id}) has no entry point from "
+                    f"workspace '{ws_name}'"
+                ),
+                experience_name=exp.name,
+                surface_name=start_surface,
+                related_artefacts=[
+                    f"experience:{exp.name}",
+                    f"workspace:{ws_name}",
+                    *(f"surface:{s}" for s in sorted(exp_surfaces)),
+                ],
+            )
+        )
+
+    return gaps
+
+
+# =============================================================================
+# Analysis Pass 7: Orphan Surface Detection
+# =============================================================================
+
+
+def _analyze_orphan_surfaces(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Find accessible surfaces not reachable from any workspace region, experience, or process.
+
+    Instead of checking outgoing navigation edges (which produced excessive noise),
+    this checks whether each surface is *referenced* by at least one workspace region
+    (via entity source), experience step, or process human_task.  Surfaces that appear
+    nowhere are genuinely orphaned.
+
+    Emits a single aggregated gap rather than per-surface gaps.
+    """
+    surfaces = appspec.surfaces
+    workspaces = appspec.workspaces
+    experiences = appspec.experiences
+    processes = appspec.processes
+
+    # Build "referenced surfaces" set from three sources
+    referenced: set[str] = set()
+
+    # 1. Workspace regions: region.source is an entity name → surfaces with that entity_ref
+    for ws in workspaces:
+        for region in ws.regions:
+            source = region.source
+            if source:
+                for s in surfaces:
+                    if get_surface_entity(s) == source:
+                        referenced.add(s.name)
+
+    # 2. Experience steps with kind=surface
+    for exp in experiences:
+        for step in exp.steps:
+            step_kind = str(step.kind)
+            if step_kind in ("surface", "StepKind.SURFACE"):
+                surface_ref = step.surface
+                if surface_ref:
+                    referenced.add(surface_ref)
+
+    # 3. Process human_task steps
+    for proc in processes:
+        for step in proc.steps:
+            if is_step_kind(step, "human_task"):
+                human_task = step.human_task
+                if human_task:
+                    surface_ref = human_task.surface
+                    if surface_ref:
+                        referenced.add(surface_ref)
+
+    # Build set of entities that have a list-mode surface.  The framework
+    # auto-generates nav entries for every entity with surfaces, so CRUD siblings
+    # (view/edit/create) are implicitly reachable: nav → list → detail/edit/create.
+    entities_with_list_surface: set[str] = set()
+    for surface in surfaces:
+        if str(surface.mode) == "list":
+            entity = get_surface_entity(surface)
+            if entity:
+                entities_with_list_surface.add(entity)
+
+    # Find orphan surfaces: accessible but not referenced anywhere
+    orphan_names: list[str] = []
+    for surface in surfaces:
+        if surface.name not in accessible_surfaces:
+            continue
+        if surface.name in referenced:
+            continue
+        # List surfaces are self-standing index pages — not orphaned
+        mode = str(surface.mode)
+        if mode == "list":
+            continue
+        # CRUD siblings (view/edit/create) are implicitly reachable when their
+        # entity has a list surface — the framework generates nav → list → detail
+        # drill-down and edit/create links on detail pages automatically.
+        if mode in ("view", "edit", "create"):
+            entity = get_surface_entity(surface)
+            if entity and entity in entities_with_list_surface:
+                continue
+        orphan_names.append(surface.name)
+
+    if not orphan_names:
+        return []
+
+    # Emit ONE summary gap instead of per-surface gaps
+    return [
+        PersonaJourneyGap(
+            persona_id=persona_id,
+            gap_type="orphan_surfaces",
+            severity="low",
+            description=(
+                f"{len(orphan_names)}/{len(accessible_surfaces)} accessible surface(s) "
+                f"not referenced by any workspace region, experience, or process: "
+                f"{', '.join(sorted(orphan_names))}"
+            ),
+            related_artefacts=[f"surface:{n}" for n in sorted(orphan_names)],
+        )
+    ]
+
+
+# =============================================================================
+# Analysis Pass 8: Cross-Entity Gaps
+# =============================================================================
+
+
+def _analyze_cross_entity_gaps(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+    kg_store: Any | None = None,
+) -> list[PersonaJourneyGap]:
+    """Check that multi-entity stories have connected navigation paths."""
+    gaps: list[PersonaJourneyGap] = []
+    stories = _get_persona_stories(persona_id, appspec)
+
+    # Build entity → workspace map using region.source and nav_group items (#477)
+    entity_workspaces: dict[str, set[str]] = {}
+    for ws in appspec.workspaces:
+        for region in ws.regions:
+            source = region.source
+            if source:
+                entity_workspaces.setdefault(source, set()).add(ws.name)
+        for ng in getattr(ws, "nav_groups", []) or []:
+            for item in getattr(ng, "items", []) or []:
+                entity = getattr(item, "entity", None)
+                if entity:
+                    entity_workspaces.setdefault(entity, set()).add(ws.name)
+
+    # Build FK adjacency set — if entity A has a ref field pointing to entity B,
+    # the framework auto-links them in list/detail rendering (clickable FK links).
+    fk_pairs: set[tuple[str, str]] = set()
+    for entity in appspec.domain.entities:
+        for fld in entity.fields:
+            ref_entity = fld.type.ref_entity
+            if ref_entity:
+                fk_pairs.add((entity.name, ref_entity))
+                fk_pairs.add((ref_entity, entity.name))  # bidirectional
+
+    for story in stories:
+        entity_names = _get_story_entities(story)
+        if len(entity_names) < 2:
+            continue
+
+        story_id = getattr(story, "story_id", None) or getattr(story, "id", "unknown")
+
+        # Check each pair of entities shares a workspace, FK, or KG adjacency
+        for i, e1 in enumerate(entity_names):
+            for e2 in entity_names[i + 1 :]:
+                ws1 = entity_workspaces.get(e1, set())
+                ws2 = entity_workspaces.get(e2, set())
+
+                if ws1 & ws2:
+                    continue  # Shared workspace — OK
+
+                # FK relationship — framework auto-links in list/detail views
+                if (e1, e2) in fk_pairs:
+                    continue
+
+                # Try KG adjacency as fallback
+                if kg_store:
+                    try:
+                        adj = kg_store.compute_adjacency(f"entity:{e1}", f"entity:{e2}")
+                        if adj and adj.get("distance", 999) <= 2:
+                            continue
+                    except Exception:
+                        logger.debug(
+                            "Failed to compute KG adjacency for %s→%s", e1, e2, exc_info=True
+                        )
+
+                gaps.append(
+                    PersonaJourneyGap(
+                        persona_id=persona_id,
+                        gap_type="cross_entity_gap",
+                        severity="medium",
+                        description=(
+                            f"Story '{story_id}' spans entities '{e1}' and '{e2}' "
+                            f"but they share no workspace or navigation path"
+                        ),
+                        story_id=story_id,
+                        related_artefacts=[f"entity:{e1}", f"entity:{e2}", f"story:{story_id}"],
+                    )
+                )
+
+    return gaps
+
+
+# =============================================================================
+# Analysis Pass 9: Navigation Scope Audit
+# =============================================================================
+
+
+def _condition_matches_role(condition: Any, role_name: str) -> bool:
+    """Recursively check if a ConditionExpr tree contains a role_check matching role_name."""
+    if condition is None:
+        return False
+    # Direct role_check match
+    role_check = condition.role_check
+    if role_check:
+        if role_check.role_name == role_name:
+            return True
+    # Recurse into OR/AND branches
+    if condition.left and _condition_matches_role(condition.left, role_name):
+        return True
+    if condition.right and _condition_matches_role(condition.right, role_name):
+        return True
+    return False
+
+
+def _analyze_navigation_scope(
+    persona_id: str,
+    persona: Any,
+    appspec: AppSpec,
+    accessible_surfaces: set[str],
+) -> list[PersonaJourneyGap]:
+    """Audit which entities should appear in a persona's navigation.
+
+    Cross-references three data sources to build the **expected** entity set:
+    1. Workspace regions — ``region.source`` entity names in the persona's workspace
+    2. Surface persona_variants — surfaces with a variant for this persona → entities
+    3. Policy permission rules — entities with explicit ``PERMIT`` rules for this persona
+
+    Then compares against the full entity list to flag:
+    - **Over-exposure** (HIGH): entities visible to everyone but this persona has no
+      workspace region, no surface variant, and no policy access.
+    - **Under-exposure** (MEDIUM): entities with policy access that aren't reachable
+      from the persona's workspace.
+    """
+    gaps: list[PersonaJourneyGap] = []
+    entities = appspec.domain.entities
+    surfaces = appspec.surfaces
+    workspaces = appspec.workspaces
+
+    if not entities:
+        return gaps
+
+    all_entity_names = {e.name for e in entities}
+
+    # ── Source 1: Workspace regions ──────────────────────────────────
+    workspace_entities: set[str] = set()
+    default_ws = persona.default_workspace
+    for ws in workspaces:
+        if default_ws and ws.name != default_ws:
+            continue
+        # Also include workspaces the persona is allowed into
+        ws_access = ws.access
+        if ws_access:
+            allow = ws_access.allow_personas
+            deny = ws_access.deny_personas
+            if persona_id in deny:
+                continue
+            if allow and persona_id not in allow:
+                continue
+        for region in ws.regions:
+            source = region.source
+            if source and source in all_entity_names:
+                workspace_entities.add(source)
+
+    # ── Source 2: Surface persona_variants ───────────────────────────
+    variant_entities: set[str] = set()
+    for surface in surfaces:
+        ux = surface.ux
+        if not ux:
+            continue
+        for variant in ux.persona_variants:
+            if variant.persona == persona_id:
+                entity = get_surface_entity(surface)
+                if entity and entity in all_entity_names:
+                    variant_entities.add(entity)
+
+    # ── Source 3: Policy permission rules ────────────────────────────
+    # Check both persona-explicit PERMIT rules and role-based conditions.
+    # In many projects (including Dazzle archetypes), permissions use
+    # `role(name)` conditions where role names map 1:1 to persona IDs.
+    policy_entities: set[str] = set()
+    for entity in entities:
+        access = entity.access
+        if not access:
+            continue
+        for perm in access.permissions:
+            if "PERMIT" not in str(perm.effect).upper():
+                continue
+            # Check persona-explicit rules
+            if persona_id in perm.personas:
+                policy_entities.add(entity.name)
+                break
+            # Check role-based condition (role names often match persona IDs)
+            op_kind = str(perm.operation)
+            if "list" in op_kind.lower() or "read" in op_kind.lower():
+                condition = perm.condition
+                # `authenticated` permissions (no condition) are accessible to all personas
+                if condition is None and perm.require_auth:
+                    policy_entities.add(entity.name)
+                    break
+                if _condition_matches_role(condition, persona_id):
+                    policy_entities.add(entity.name)
+                    break
+
+    # ── Expected entity set ──────────────────────────────────────────
+    expected_entities = workspace_entities | variant_entities | policy_entities
+
+    # If persona has no workspace AND no policy AND no variants, skip audit —
+    # the workspace_unreachable pass already flags this.
+    if not expected_entities and not default_ws:
+        return gaps
+
+    # ── Over-exposure ────────────────────────────────────────────────
+    # Only flag entities that appear in the persona's accessible workspaces
+    # but the persona lacks read/list permission.  Entities outside the persona's
+    # workspace scope aren't in their primary navigation path and are handled
+    # by route-level access control instead.
+    over_exposed = sorted(workspace_entities - expected_entities)
+    if over_exposed:
+        gaps.append(
+            PersonaJourneyGap(
+                persona_id=persona_id,
+                gap_type="nav_over_exposed",
+                severity="high",
+                description=(
+                    f"Persona '{persona_id}' would see {len(over_exposed)} entity(ies) "
+                    f"in navigation that they have no workspace region, persona_variant, "
+                    f"or policy access for: {', '.join(over_exposed[:10])}"
+                    + (f" ... and {len(over_exposed) - 10} more" if len(over_exposed) > 10 else "")
+                ),
+                related_artefacts=[f"entity:{e}" for e in over_exposed[:20]],
+            )
+        )
+
+    # ── Under-exposure ───────────────────────────────────────────────
+    # Entities with policy access but NOT in any workspace region.
+    # Exclude entities that have a list surface — the framework auto-generates
+    # entity nav entries for these, so they ARE reachable even without a
+    # workspace region.
+    entities_with_list = set()
+    for surface in surfaces:
+        if str(surface.mode) == "list":
+            ent = get_surface_entity(surface)
+            if ent:
+                entities_with_list.add(ent)
+    under_exposed = sorted((policy_entities - workspace_entities) - entities_with_list)
+    if under_exposed:
+        ws_name = default_ws or "none"
+        gaps.append(
+            PersonaJourneyGap(
+                persona_id=persona_id,
+                gap_type="nav_under_exposed",
+                severity="medium",
+                description=(
+                    f"Persona '{persona_id}' has policy access to {len(under_exposed)} "
+                    f"entity(ies) not reachable from workspace '{ws_name}': "
+                    f"{', '.join(under_exposed[:10])}"
+                    + (
+                        f" ... and {len(under_exposed) - 10} more"
+                        if len(under_exposed) > 10
+                        else ""
+                    )
+                ),
+                related_artefacts=[
+                    f"workspace:{ws_name}",
+                    *(f"entity:{e}" for e in under_exposed[:20]),
+                ],
+            )
+        )
+
+    return gaps
+
+
+# =============================================================================
+# Entry Point
+# =============================================================================
+
+
+def run_headless_discovery(
+    appspec: AppSpec,
+    persona_ids: list[str] | None = None,
+    kg_store: Any | None = None,
+    include_entity_analysis: bool = True,
+    include_workflow_analysis: bool = True,
+) -> HeadlessDiscoveryReport:
+    """
+    Run headless persona journey analysis on a DSL spec.
+
+    Pure static analysis — no running app needed. Checks whether each persona
+    can accomplish their stories through the surfaces and workspaces in the DSL.
+
+    Args:
+        appspec: Parsed AppSpec from the DSL
+        persona_ids: Specific persona IDs to analyze (None = all)
+        kg_store: Optional KnowledgeGraphStore for adjacency checks
+        include_entity_analysis: Include entity completeness analysis
+        include_workflow_analysis: Include workflow coherence analysis
+
+    Returns:
+        HeadlessDiscoveryReport with per-persona gaps and optional sub-reports
+    """
+    report = HeadlessDiscoveryReport()
+
+    personas = appspec.personas
+    if persona_ids:
+        id_set = set(persona_ids)
+        personas = [p for p in personas if _persona_id(p) in id_set]
+
+    for persona in personas:
+        pid = _persona_id(persona)
+        default_ws = persona.default_workspace
+        has_stories = bool(_get_persona_stories(pid, appspec))
+
+        # Skip personas with no stories AND no default_workspace — they produce only noise
+        if not has_stories and not default_ws:
+            report.skipped_personas.append(pid)
+            logger.debug("Skipping persona '%s': no stories and no default_workspace", pid)
+            continue
+
+        accessible = _compute_accessible_surfaces(pid, appspec)
+
+        pr = PersonaJourneyReport(persona_id=pid, default_workspace=default_ws)
+
+        # Record surface coverage
+        for surface in appspec.surfaces:
+            pr.surface_coverage[surface.name] = surface.name in accessible
+
+        # Record story coverage
+        for story in _get_persona_stories(pid, appspec):
+            sid: str = getattr(story, "story_id", None) or getattr(story, "id", None) or "unknown"
+            entities = _get_story_entities(story)
+            missing_surfaces: list[str] = []
+            for ent in entities:
+                ent_surfaces = _get_surfaces_for_entity(ent, appspec)
+                accessible_ent = [s for s in ent_surfaces if s.name in accessible]
+                if not accessible_ent:
+                    missing_surfaces.append(ent)
+            pr.story_coverage[sid] = {
+                "covered": len(missing_surfaces) == 0,
+                "missing_surfaces": missing_surfaces,
+            }
+
+        # Run all 9 analysis passes
+        pr.gaps.extend(_analyze_workspace_reachability(pid, persona, appspec))
+        pr.gaps.extend(_analyze_surface_access(pid, persona, appspec, accessible))
+        pr.gaps.extend(_analyze_story_surface_coverage(pid, persona, appspec, accessible))
+        pr.gaps.extend(_analyze_process_surface_wiring(pid, persona, appspec, accessible))
+        pr.gaps.extend(_analyze_experience_completeness(pid, persona, appspec, accessible))
+        pr.gaps.extend(_analyze_experience_reachability(pid, persona, appspec, accessible))
+        pr.gaps.extend(_analyze_orphan_surfaces(pid, persona, appspec, accessible))
+        pr.gaps.extend(_analyze_cross_entity_gaps(pid, persona, appspec, accessible, kg_store))
+        pr.gaps.extend(_analyze_navigation_scope(pid, persona, appspec, accessible))
+
+        report.persona_reports.append(pr)
+
+    # Optional sub-analyses
+    if include_entity_analysis:
+        try:
+            from .entity_completeness import _static_entity_analysis
+
+            report.entity_report = _static_entity_analysis(appspec)
+        except Exception as e:
+            logger.warning("Entity analysis failed: %s", e)
+
+    if include_workflow_analysis:
+        try:
+            from .workflow_coherence import _static_workflow_analysis
+
+            report.workflow_report = _static_workflow_analysis(appspec)
+        except Exception as e:
+            logger.warning("Workflow analysis failed: %s", e)
+
+    return report
+
+
+def _persona_id(persona: Any) -> str:
+    """Extract persona ID, handling both .id and .name attributes."""
+    return str(getattr(persona, "id", None) or getattr(persona, "name", None) or "unknown")

@@ -1,0 +1,108 @@
+[tool.poetry]
+name = "scaleway-core"
+version = "2.11.0"
+description = "Scaleway SDK for Python"
+authors = ["Scaleway <opensource@scaleway.com>"]
+license = "BSD"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.4",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+requests = "^2.28.1"
+PyYAML = "^6.0"
+python-dateutil = "^2.8.2"
+
+[tool.poetry.group.dev.dependencies]
+types-python-dateutil = "^2.8.19"
+ruff = ">=0.5.0,<0.15.9"
+mypy = "^1.5.1"
+ty = ">=0.0.1,<0.0.28"
+pytest = ">=8.4.1,<10.0.0"
+pyrefly = ">=0.36.1,<0.55.0"
+pytest-cov = ">=6.3,<8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+ignore = [
+    "A", # flake8-builtins
+    "ANN", # flake8-annotations
+    "B", # flake8-bugbear
+    "BLE", # flake8-blind-except
+    "C90", # mccabe
+    "COM", # flake8-commas
+    "E501",
+    "EM", # flake8-errmsg
+    "FA", # flake8-future-annotations
+    "FBT", # flake8-boolean-trap
+    "G", # flake8-logging-format
+    "I", # isort
+    "INP", # flake8-no-pep420
+    "N", # pep8-naming
+    "PERF", # Perflint
+    "PL", # Pylint
+    "PT", # flake8-pytest-style
+    "S", # flake8-bandit
+    "SIM", # flake8-simplify
+    "SLF", # flake8-self
+    "TRY", # tryceratops
+    "UP", # pyupgrade
+]
+select = [
+    "ARG", # https://docs.astral.sh/ruff/rules/#flake8-unused-arguments-arg
+    "ASYNC", # https://docs.astral.sh/ruff/rules/#flake8-async-async
+    "C4", # https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    "DTZ", # https://docs.astral.sh/ruff/rules/#flake8-datetimez-dtz
+    "ERA", # https://docs.astral.sh/ruff/rules/#eradicate-era
+    "EXE", # https://docs.astral.sh/ruff/rules/#flake8-executable-exe
+    "F", # https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "FIX", # https://docs.astral.sh/ruff/rules/#flake8-fixme-fix
+    "FLY", # https://docs.astral.sh/ruff/rules/#flynt-fly
+    "FURB", # https://docs.astral.sh/ruff/rules/#refurb-furb
+    "ICN", # https://docs.astral.sh/ruff/rules/#flake8-import-conventions-icn
+    "INT", # https://docs.astral.sh/ruff/rules/#flake8-gettext-int
+    "ISC", # https://docs.astral.sh/ruff/rules/#flake8-implicit-str-concat-isc
+    "LOG", # https://docs.astral.sh/ruff/rules/#flake8-logging-log
+    "PGH", # https://docs.astral.sh/ruff/rules/#pygrep-hooks-pgh
+    "PIE", # https://docs.astral.sh/ruff/rules/#flake8-pie-pie
+    "PYI", # https://docs.astral.sh/ruff/rules/#flake8-pyi-pyi
+    "Q", # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+    "RET", # https://docs.astral.sh/ruff/rules/#flake8-return-ret
+    "RSE", # https://docs.astral.sh/ruff/rules/#flake8-raise-rse
+    "RUF", # https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
+    "SLOT", # https://docs.astral.sh/ruff/rules/#flake8-slots-slot
+    "T10", # https://docs.astral.sh/ruff/rules/#flake8-debugger-t10
+    "T20", # https://docs.astral.sh/ruff/rules/#flake8-print-t20
+    "TC", # https://docs.astral.sh/ruff/rules/#flake8-type-checking-tc
+    "TD", # https://docs.astral.sh/ruff/rules/#flake8-todos-td
+    "TID", # https://docs.astral.sh/ruff/rules/#flake8-tidy-imports-tid
+    "YTT", # https://docs.astral.sh/ruff/rules/#flake8-2020-ytt
+]
+
+[tool.pyrefly.errors]
+missing-import = false
+not-callable = false
+bad-return = false
+bad-assignment = false
+bad-argument-type = false
+
+[tool.ty.rules]
+unsupported-operator = "ignore"

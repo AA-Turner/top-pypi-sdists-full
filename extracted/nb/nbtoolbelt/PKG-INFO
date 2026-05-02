@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nbtoolbelt
-Version: 2024.7.2
+Version: 2026.4.1
 Summary: Tools to work with Jupyter notebooks
 Author-email: "Tom Verhoeff (Eindhoven Univesity of Technology)" <T.Verhoeff@tue.nl>
 License: MIT License
@@ -42,29 +42,30 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Jupyter
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: nbformat~=5.9
-Requires-Dist: nbconvert~=7.10
-Requires-Dist: jupyter-client~=8.6
-Requires-Dist: numpy~=1.26
-Requires-Dist: pandas~=2.1
+Requires-Dist: nbformat~=5.10
+Requires-Dist: nbconvert~=7.17
+Requires-Dist: jupyter-client~=8.8
+Requires-Dist: numpy<2.3,>=2.2
+Requires-Dist: pandas~=2.3
 Provides-Extra: test
-Requires-Dist: pytest~=6.0; extra == "test"
-Requires-Dist: pytest-mock~=3.5; extra == "test"
-Requires-Dist: pytest-cov~=2.12; extra == "test"
-Requires-Dist: ipykernel~=6.29; extra == "test"
+Requires-Dist: pytest~=9.0; extra == "test"
+Requires-Dist: pytest-mock~=3.15; extra == "test"
+Requires-Dist: pytest-cov~=7.1; extra == "test"
+Requires-Dist: ipykernel~=7.2; extra == "test"
 Provides-Extra: docs
-Requires-Dist: sphinx~=5.0; extra == "docs"
-Requires-Dist: sphinx-rtd-theme~=1.0; extra == "docs"
+Requires-Dist: sphinx~=8.2; extra == "docs"
+Requires-Dist: sphinx-rtd-theme~=3.1; extra == "docs"
 Requires-Dist: recommonmark~=0.7; extra == "docs"
+Dynamic: license-file
 
 # [nbtoolbelt](https://gitlab.tue.nl/jupyter-projects/nbtoolbelt) - Tools to Work with Jupyter Notebooks
 

@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: gh-templates-linux-x64-musl
+Version: 0.1.39
+Summary: GitHub Templates CLI tool
+License: Apache-2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.7
+Dynamic: classifier
+Dynamic: license
+Dynamic: requires-python
+Dynamic: summary

@@ -86,7 +86,12 @@ from plato.v2._wait_for_ready import (
     is_terminal_status,
     poll_until_ready_async,
 )
-from plato.v2.async_.cdp_bridge import CDP_PORT_BASE, resolve_cdp_ws_url, shared_cdp_chromium
+from plato.v2.async_.cdp_bridge import (
+    CDP_PORT_BASE,
+    kill_agent_browser_daemon,
+    resolve_cdp_ws_url,
+    shared_cdp_chromium,
+)
 from plato.v2.async_.environment import Environment
 from plato.v2.async_.flow_backends import (
     CLAUDE_CODE_SSH_SHELL_PREFIX,
@@ -1569,64 +1574,101 @@ class Session:
             cdp_port = CDP_PORT_BASE + idx
             profile_dir = f"/tmp/plato-ab-{env.alias}-{self.session_id}"
 
-            active_log.info(
-                "agent-browser login: env=%s flow=%s cdp_port=%d",
-                env.alias,
-                flow,
-                cdp_port,
-            )
+            last_error: Exception | None = None
+            for attempt in range(1 + retries):
+                if attempt > 0:
+                    # Tear down the previous attempt's daemon so the next
+                    # ``connect`` call attaches a fresh one. The previous
+                    # ``shared_cdp_chromium`` ctx has already exited, so the
+                    # next iteration's ``kill_stale_chromium`` will kill the
+                    # old chromium and rm its profile dir before respawning.
+                    await kill_agent_browser_daemon(run_cmd, alias=env.alias, log=active_log)
+                    await asyncio.sleep(retry_delay_ms / 1000)
 
-            async with shared_cdp_chromium(
-                run_cmd=run_cmd,
-                ssh_key_path=ssh_key_path,
-                hostname=hostname,
-                extra_ssh_opts=extra_ssh_opts,
-                port=cdp_port,
-                profile_dir=profile_dir,
-                log=active_log,
-            ) as local_cdp_url:
-                # Attach the agent-browser daemon BEFORE Playwright drives
-                # login so it's ready to inherit cookies once the SPA finishes
-                # its post-auth setup.
-                rc, _, err = await run_cmd(
-                    [
-                        "agent-browser",
-                        "--session",
-                        env.alias,
-                        "connect",
-                        str(cdp_port),
-                    ]
+                active_log.info(
+                    "agent-browser login: env=%s flow=%s cdp_port=%d attempt=%d/%d",
+                    env.alias,
+                    flow,
+                    cdp_port,
+                    attempt + 1,
+                    1 + retries,
                 )
-                if rc != 0:
-                    raise RuntimeError(
-                        f"agent-browser --session {env.alias} connect {cdp_port} failed: rc={rc} stderr={err[-400:]!r}"
-                    )
 
-                async with async_playwright() as pw:
-                    browser = await pw.chromium.connect_over_cdp(local_cdp_url)
-                    try:
-                        # Route through ``self.login()`` so FlowExecutor is
-                        # wired identically to ``login_via_cdp``:
-                        # ``screenshots_dir`` threaded through, no spurious
-                        # ``base_url``, same per-env retry structure.
-                        context = browser.contexts[0] if browser.contexts else None
-                        result = await self.login(
-                            browser=browser,
-                            context=context,
-                            flow=flow,
-                            screenshots_dir=screenshots_dir,
-                            port=port,
-                            env_alias=env.alias,
-                            retries=retries,
-                            retry_delay_ms=retry_delay_ms,
+                try:
+                    async with shared_cdp_chromium(
+                        run_cmd=run_cmd,
+                        ssh_key_path=ssh_key_path,
+                        hostname=hostname,
+                        extra_ssh_opts=extra_ssh_opts,
+                        port=cdp_port,
+                        profile_dir=profile_dir,
+                        log=active_log,
+                    ) as local_cdp_url:
+                        # Attach the agent-browser daemon BEFORE Playwright
+                        # drives login so it's ready to inherit cookies once
+                        # the SPA finishes its post-auth setup.
+                        rc, _, err = await run_cmd(
+                            [
+                                "agent-browser",
+                                "--session",
+                                env.alias,
+                                "connect",
+                                str(cdp_port),
+                            ]
                         )
-                        await self._stabilize_post_login(result, active_log)
-                    finally:
-                        # Disconnect the Playwright client only. The remote
-                        # chromium stays alive and the agent-browser daemon
-                        # keeps its CDP attachment.
-                        with contextlib.suppress(Exception):
-                            await browser.close()
+                        if rc != 0:
+                            raise RuntimeError(
+                                f"agent-browser --session {env.alias} connect {cdp_port} failed: rc={rc} stderr={err[-400:]!r}"
+                            )
+
+                        async with async_playwright() as pw:
+                            browser = await pw.chromium.connect_over_cdp(local_cdp_url)
+                            try:
+                                # Route through ``self.login()`` so
+                                # FlowExecutor is wired identically to
+                                # ``login_via_cdp``: ``screenshots_dir``
+                                # threaded through, no spurious ``base_url``.
+                                # Inner ``retries=0`` — the outer loop owns
+                                # retry semantics so a failure throws away
+                                # chromium + profile + daemon for a clean
+                                # reset, rather than ``self.login`` only
+                                # re-navigating the page in-place.
+                                context = browser.contexts[0] if browser.contexts else None
+                                result = await self.login(
+                                    browser=browser,
+                                    context=context,
+                                    flow=flow,
+                                    screenshots_dir=screenshots_dir,
+                                    port=port,
+                                    env_alias=env.alias,
+                                    retries=0,
+                                    retry_delay_ms=0,
+                                )
+                                await self._stabilize_post_login(result, active_log)
+                            finally:
+                                # Disconnect the Playwright client only. The
+                                # remote chromium stays alive and the agent-
+                                # browser daemon keeps its CDP attachment.
+                                with contextlib.suppress(Exception):
+                                    await browser.close()
+                    last_error = None
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    if attempt < retries:
+                        active_log.warning(
+                            "agent-browser login: env=%s attempt %d/%d failed (%s); "
+                            "tearing down chromium + profile + daemon and retrying",
+                            env.alias,
+                            attempt + 1,
+                            1 + retries,
+                            exc,
+                        )
+
+            if last_error is not None:
+                raise RuntimeError(
+                    f"agent-browser login failed for env {env.alias} after {1 + retries} attempt(s): {last_error}"
+                ) from last_error
 
             logged_in.append(env.alias)
 

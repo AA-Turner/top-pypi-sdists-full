@@ -1,0 +1,59 @@
+# Build pdoc API docs and deploy to GitHub Pages (single copy).
+# Updates on push to main or tag push (v*). No versioned paths.
+# Pages: https://mocomakers.github.io/sprime/
+
+name: Deploy API docs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package and pdoc3
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+          pip install pdoc3
+
+      - name: Build API docs
+        run: pdoc --html --output-dir build sprime
+        # Output: build/sprime/ (not pdoc_html). pdoc_html is for local preview only.
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/sprime
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

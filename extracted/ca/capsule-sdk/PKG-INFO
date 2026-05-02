@@ -1,0 +1,326 @@
+Metadata-Version: 2.4
+Name: capsule-sdk
+Version: 0.4.10
+Summary: Python SDK for Capsule
+License-Expression: Apache-2.0
+Requires-Python: >=3.10
+Requires-Dist: google-cloud-kms<4.0,>=2.21
+Requires-Dist: httpx<1.0,>=0.27
+Requires-Dist: pydantic<3.0,>=2.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: websockets<17.0,>=12.0
+Provides-Extra: dev
+Requires-Dist: pytest-httpx>=0.30; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Requires-Dist: respx>=0.21; extra == 'dev'
+Requires-Dist: ruff>=0.4; extra == 'dev'
+Requires-Dist: ty>=0.0.30; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# Capsule SDK
+
+The Capsule SDK is the recommended client surface for registering workloads,
+triggering builds, allocating runners, and interacting with running Capsule
+sandboxes from Python.
+
+## Requirements
+
+- Python `>= 3.10`
+- access to a running Capsule control plane
+- a GCP KMS attestation key for authenticated requests (auto-derived from tenant ID by default)
+
+## Installation
+
+```bash
+pip install capsule-sdk
+```
+
+For local development:
+
+```bash
+cd sdk/python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+## Configuration
+
+The SDK can be configured directly in code or through environment variables.
+
+| Parameter | Env var | Default |
+|---|---|---|
+| `control_plane_addr` | `CAPSULE_CONTROL_PLANE_ADDR` | `http://localhost:8080` |
+| `kms_key_name` | `CAPSULE_KMS_KEY_NAME` | auto-derived from `tenant_id` |
+| `request_timeout` | `CAPSULE_REQUEST_TIMEOUT` | `30.0` |
+| `startup_timeout` | `CAPSULE_STARTUP_TIMEOUT` | `45.0` |
+| `operation_timeout` | `CAPSULE_OPERATION_TIMEOUT` | `120.0` |
+
+Example:
+
+```bash
+export CAPSULE_CONTROL_PLANE_ADDR="http://localhost:8080"
+# KMS key name is auto-derived from tenant_id if not set:
+# export CAPSULE_KMS_KEY_NAME="projects/{tenant}/locations/global/keyRings/capsule/cryptoKeys/capsule-attestation/cryptoKeyVersions/1"
+```
+
+## Quickstart
+
+The fastest way to get started is the high-level `workloads` API.
+
+```python
+from capsule_sdk import CapsuleClient, RunnerConfig
+
+cfg = (
+    RunnerConfig("My dev sandbox")
+    .with_base_image("ubuntu:22.04")
+    .with_commands(["apt-get update", "apt-get install -y python3"])
+    .with_tier("m")
+    .with_ttl(3600)
+    .with_auto_pause(True)
+    .with_auto_rollout(True)
+)
+
+with CapsuleClient(control_plane_addr="http://localhost:8080", tenant_id="my-tenant") as client:
+    workload = client.workloads.onboard(cfg)
+
+    with client.workloads.start(workload) as runner:
+        output, code = runner.exec_collect("python3", "-c", "print('hello')")
+        print(output, code)
+
+        runner.write_text("/workspace/hello.txt", "hello")
+        print(runner.read_text("/workspace/hello.txt"))
+```
+
+## Onboard From YAML
+
+You can also onboard directly from an `onboard.yaml`-style file:
+
+```python
+from capsule_sdk import CapsuleClient
+
+with CapsuleClient(control_plane_addr="http://localhost:8080", tenant_id="my-tenant") as client:
+    workload = client.workloads.onboard_yaml(
+        "examples/afs/onboard.yaml",
+        name="afs-sandbox",
+    )
+
+    with client.workloads.start("afs-sandbox") as runner:
+        print(runner.read_text("/etc/hostname"))
+```
+
+The AFS example is an example workload name, not a special SDK mode. See
+`examples/afs/` for the underlying config shape.
+
+## Async Quickstart
+
+Use the async client in event-loop-native applications:
+
+```python
+import asyncio
+
+from capsule_sdk import AsyncCapsuleClient, RunnerConfig
+
+
+async def main() -> None:
+    cfg = (
+        RunnerConfig("My async sandbox")
+        .with_base_image("ubuntu:22.04")
+        .with_commands(["echo async-ready"])
+        .with_tier("m")
+        .with_ttl(3600)
+        .with_auto_pause(True)
+    )
+
+    async with AsyncCapsuleClient(control_plane_addr="http://localhost:8080", tenant_id="my-tenant") as client:
+        workload = await client.workloads.onboard(cfg)
+        runner = await client.workloads.start(workload)
+
+        async with runner:
+            result = await runner.exec_collect("sh", "-lc", "printf hello")
+            print(result.stdout, result.exit_code)
+
+
+asyncio.run(main())
+```
+
+## Low-Level APIs
+
+For finer control, work directly with the resource clients:
+
+```python
+from capsule_sdk import CapsuleClient
+
+with CapsuleClient(control_plane_addr="http://localhost:8080", tenant_id="my-tenant") as client:
+    with client.runners.allocate_ready("my-workload-key") as runner:
+        for event in runner.exec("echo", "hello"):
+            if event.type == "stdout":
+                print(event.data, end="")
+```
+
+Key low-level surfaces:
+
+- `client.runners`
+- `client.workloads`
+- `client.snapshots`
+- `client.runner_configs`
+
+## Multi-Tenant Builder Config
+
+When running builds in a tenant's own GCP project, set the tenant GCE config
+on `RunnerConfig`. Builds will launch in the tenant's project while pulling
+the base builder image from central.
+
+```python
+cfg = (
+    RunnerConfig("my-sandbox")
+    .with_base_image("ubuntu:22.04")
+    .with_commands(["pip install -e ."])
+    .with_tier("m")
+    .with_tenant_gce_config(
+        project="tenant-project-123",
+        zone="us-central1-a",
+        network="projects/tenant-project-123/global/networks/default",
+        subnet="projects/tenant-project-123/regions/us-central1/subnetworks/default",
+        service_account="builder@tenant-project-123.iam.gserviceaccount.com",
+    )
+)
+```
+
+Individual fields can also be set separately:
+
+```python
+cfg = (
+    RunnerConfig("my-sandbox")
+    .with_tenant_gcp_project("tenant-project-123")
+    .with_tenant_gcp_zone("us-central1-a")
+)
+```
+
+Two tenants can register the same display name without conflict — the server
+qualifies the config ID with the tenant project automatically.
+
+## Credential Broker Proxy
+
+To route runner traffic through a credential broker proxy, pass `proxy_addr`
+during allocation:
+
+```python
+with CapsuleClient() as client:
+    runner = client.runners.allocate_ready(
+        "my-workload-key",
+        session_id="session-abc",
+        proxy_addr="10.0.16.7:3128",
+    )
+```
+
+This configures the runner to:
+
+- Route all egress through the proxy (deny-all except proxy IP)
+- Fetch the proxy CA certificate from the proxy host
+- Use `session_id` as the basic-auth username in proxy requests
+
+The same parameters are available on `allocate()`, `allocate_ready()`,
+`from_config()`, and `workloads.start()` / `workloads.allocate()`.
+
+## Key Concepts
+
+| SDK concept | Server primitive | Description |
+|---|---|---|
+| `RunnerConfig` | `LayeredConfig` | Declarative workload shape |
+| `workloads.onboard()` | create + build | Register a workload from Python or YAML |
+| `workloads.start()` | allocate + wait | Start a ready runner by workload name |
+| `runners.allocate_ready()` | `/runners/allocate` | Allocate and wait for a usable runner |
+| `RunnerSession` | runner handle | High-level exec, file, shell, pause, and resume API |
+| Host VM I/O | `/api/v1/sessions/{session_id}/...` | Low-level `Runners.file_*`, `exec`, and `shell` use this path prefix on the host; the host maps `session_id` to the runner |
+| Control-plane lifecycle | `/runners/status`, `/pause`, `/release` | `runners.status`, `pause`, and `release` accept either `runner_id=` or `session_id=` |
+
+### Runner and session IDs
+
+- After allocation, prefer **`session_id`** for anything that hits the **host**
+  HTTP API directly: `Runners.file_download`, `file_upload`, `file_read`,
+  `file_write`, `file_list`, `file_stat`, `file_remove`, `file_mkdir`, `exec`,
+  and `shell` take `session_id` as the first argument (or embed it in the URL).
+  Those requests go to paths such as `/api/v1/sessions/{session_id}/files/...`
+  or `/api/v1/sessions/{session_id}/exec` on the host address returned by the
+  control plane. The legacy `/api/v1/runners/{runner_id}/...` paths remain
+  available for callers that key off `runner_id` only.
+- On the **control plane**, `runners.status`, `runners.release`, and
+  `runners.pause` accept **`runner_id=`** or **`session_id=`** (exactly one).
+  The SDK caches the host address by `session_id` when the allocate/status
+  response includes one.
+
+### RunnerConfig Builder Methods
+
+| Method | Field | Description |
+|---|---|---|
+| `with_base_image(img)` | `base_image` | Docker image URI for layer 0 |
+| `with_commands(cmds)` | `layers[0].init_commands` | Shell commands for the main layer |
+| `with_layers(layers)` | `layers` | Full multi-layer definitions |
+| `with_tier(tier)` | `config.tier` | VM size tier (`s`, `m`, `l`) |
+| `with_ttl(secs)` | `config.ttl` | Runner time-to-live in seconds |
+| `with_auto_pause(bool)` | `config.auto_pause` | Auto-pause idle runners |
+| `with_auto_rollout(bool)` | `config.auto_rollout` | Auto-rollout new builds |
+| `with_session_max_age(secs)` | `config.session_max_age_seconds` | Max session age |
+| `with_rootfs_size_gb(gb)` | `config.rootfs_size_gb` | Root filesystem size |
+| `with_workspace_size_gb(gb)` | `config.workspace_size_gb` | Workspace drive size |
+| `with_runner_user(user)` | `config.runner_user` | Non-root user for commands |
+| `with_network_policy_preset(p)` | `config.network_policy_preset` | Named network policy |
+| `with_network_policy(policy)` | `config.network_policy` | Custom network policy JSON |
+| `with_start_command(cmd)` | `start_command` | Long-running service command |
+| `with_auth(auth)` | `config.auth` | Auth/proxy config |
+| `with_tenant_gce_config(...)` | `config.tenant_*` | All tenant GCE fields at once |
+| `with_tenant_gcp_project(p)` | `config.tenant_gcp_project` | Tenant GCP project for builds |
+| `with_tenant_gcp_zone(z)` | `config.tenant_gcp_zone` | Tenant GCE zone |
+| `with_tenant_network(n)` | `config.tenant_network` | Tenant VPC network |
+| `with_tenant_subnet(s)` | `config.tenant_subnet` | Tenant VPC subnet |
+| `with_tenant_service_account(sa)` | `config.tenant_service_account` | Tenant builder SA |
+
+## Retry And Timeout Behavior
+
+- `request_timeout` applies to a single HTTP request
+- `startup_timeout` covers "get me a usable runner"
+- `operation_timeout` applies to host-side file, PTY, and stream operations
+- `allocate()` retries transient control-plane and capacity errors until `startup_timeout`
+- `workloads.start()` is the preferred high-level path for named workloads
+- `from_config()` waits for runner readiness by default; use `wait_ready=False` for lower-level control
+
+## Host Reconnection
+
+The SDK caches host addresses returned by `allocate()` and `connect()`, keyed
+by **`session_id`** when known (otherwise by `runner_id`). If a host proxy
+becomes unavailable during a safe retryable operation, the SDK will refresh the
+host via `connect()` and retry once when possible.
+
+## Live End-To-End Test
+
+The repository includes an explicit live SDK E2E at `sdk/python/tests/e2e_live.py`.
+It exercises config registration, build enqueue, allocation, exec, file ops,
+PTY, pause/resume, release, and config cleanup against a real control plane.
+
+Run it with:
+
+```bash
+make sdk-python-e2e
+```
+
+If you are not using the default address:
+
+```bash
+CAPSULE_BASE_URL="http://localhost:8080" make sdk-python-e2e
+```
+
+## Development Checks
+
+```bash
+python -m ruff check src/capsule_sdk/ tests/
+python -m ty check
+python -m pytest tests/ -v --ignore=tests/e2e_live.py --ignore=tests/e2e_live_async.py
+```
+
+For contract tests against a live control plane:
+
+```bash
+CAPSULE_BASE_URL=http://localhost:8080 CAPSULE_TENANT_ID=test-tenant \
+  python -m pytest tests/test_contract.py -v -m contract
+```

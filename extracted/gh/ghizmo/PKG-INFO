@@ -1,0 +1,27 @@
+Metadata-Version: 1.2
+Name: ghizmo
+Version: 0.2.0
+Summary: ghizmo: An extensible command line for GitHub
+Home-page: https://github.com/jlevy/ghizmo
+Author: Joshua Levy
+Author-email: UNKNOWN
+License: Apache 2
+Description: 
+        If commands require input, it must be line-delimited JSON (e.g. quoted strings).
+        
+        For further documentation, see: https://github.com/jlevy/ghizmo
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Utilities
+Classifier: Topic :: Software Development
+Requires-Python: >=3

@@ -177,6 +177,40 @@ async def kill_stale_chromium(
         )
 
 
+async def kill_agent_browser_daemon(
+    run_cmd: RunCmd,
+    *,
+    alias: str,
+    log: logging.Logger | None = None,
+) -> None:
+    """Kill any ``agent-browser --session <alias>`` daemon on the remote host.
+
+    Used between login retries so the next ``agent-browser --session <alias>
+    connect <port>`` attaches a fresh daemon to the freshly-spawned chromium
+    instead of reusing in-memory state from a failed attempt. ``shared_cdp_
+    chromium``'s :func:`kill_stale_chromium` already handles the chromium
+    half — this handles the daemon process.
+
+    The bracket regex (``[a]gent-browser``) is the same load-bearing trick
+    :func:`~plato.agents.warmpool._runtime_reset_commands` uses: ``pkill -f``
+    matches against every cmdline including the very ``bash -c`` invocation
+    we ssh in, so an unbracketed pattern would self-match the SSH session
+    and drop it with rc=255. The bracket char class still matches the
+    daemon's literal ``agent-browser`` cmdline.
+    """
+    active_log = log or logger
+    alias_re = shlex.quote(alias).strip("'")
+    script = f"pkill -9 -f '[a]gent-browser .*--session {alias_re}( |$)' 2>/dev/null || true; sleep 0.1"
+    rc, _, err = await run_cmd(["bash", "-c", script])
+    if rc != 0:
+        active_log.debug(
+            "agent-browser daemon cleanup for session=%s rc=%d (non-fatal): %s",
+            alias,
+            rc,
+            err[-200:] if err else "",
+        )
+
+
 async def _spawn_chromium(
     run_cmd: RunCmd,
     *,
@@ -257,7 +291,7 @@ async def _open_ssh_tunnel(
     an IPv6 forward lands on a dead socket and the tunnel looks open locally
     but every HTTP read through it gets an immediate RST.
     """
-    ssh_cmd = build_ssh_command(ssh_key_path, hostname, extra_opts=extra_ssh_opts)
+    ssh_cmd = build_ssh_command(ssh_key_path, hostname, extra_opts=extra_ssh_opts, multiplex=False)
     tunnel_argv = [
         *ssh_cmd,
         "-N",
@@ -433,6 +467,7 @@ async def shared_cdp_chromium(
 
 __all__ = [
     "CDP_PORT_BASE",
+    "kill_agent_browser_daemon",
     "kill_stale_chromium",
     "resolve_cdp_ws_url",
     "shared_cdp_chromium",

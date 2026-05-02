@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "gh-utils"
+version = "1.1.0"
+description = "GitHub CLI Utilities"
+authors = ["Xinyuan Chen <45612704+tddschn@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/tddschn/gh-utils"
+repository = "https://github.com/tddschn/gh-utils"
+classifiers = ["Topic :: Utilities"]
+keywords = ["gh", "github", "utils"]
+
+[tool.poetry.scripts]
+ghcrar = "gh_utils.gh_create_repo_and_add_to_remote:main"
+ghshs = "gh_utils.switch_between_https_and_ssh_remote_types:main"
+ghra = "gh_utils.gh_repo_actions:main"
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/tddschn/gh-utils/issues"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+PyYAML = "^6.0.1"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.4.0"
+pytest = "^7.2.0"
+black = "^22.3.0"
+better-exceptions = "^0.3.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,76 @@
+[package]
+name = "matcher_rs"
+authors.workspace = true
+categories.workspace = true
+description.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/crate/matcher_rs/latest"
+build = "build.rs"
+
+[lib]
+name = "matcher_rs"
+crate-type = ["rlib"]
+
+[dependencies]
+bytecount = { version = "0.6.9", default-features = false }
+foldhash = "0.2"
+aho-corasick = { version = "1.1.4", optional = true }
+bitflags = "2.11.1"
+daachorse = "2.0.0"
+mimalloc = { version = "0.1.48", features = ["v3"] }
+rayon = { version = "1.12", optional = true }
+serde = { version = "1.0.228", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+[dev-dependencies]
+divan = "0.1.21"
+proptest = "1.11.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+default = ["perf"]
+# Enables all performance features: DFA automaton and SIMD transform dispatch.
+perf = ["dfa", "simd_runtime_dispatch"]
+# By enabling the dfa feature, DFA-backed Aho-Corasick automata are used for matching, significantly increasing memory usage.
+dfa = ["aho-corasick"]
+# By enabling the simd_runtime_dispatch feature, the best available SIMD kernel is selected at runtime (AVX2/NEON/portable)
+# for transforms and bytecount's character density scan.
+simd_runtime_dispatch = ["bytecount/runtime-dispatch-simd"]
+# Enables parallel execution for batch methods (batch_is_match, batch_process, batch_find_match). Without this feature, batch methods run sequentially.
+rayon = ["dep:rayon"]
+# Enables Serialize/Deserialize impls for ProcessType and Serialize for SimpleResult.
+serde = ["dep:serde", "dep:serde_json"]
+# Inserts `#[inline(never)]` at key boundaries (process_match, eval_hit, decode_direct)
+# so Instruments / samply can distinguish DFA scan work from closure / rule-evaluation work.
+# Only useful with the `profiling` Cargo profile; never enable for release or bench.
+_profile_boundaries = []
+
+[package.metadata.docs.rs]
+features = ["serde"]
+
+[package.metadata.cargo-all-features]
+allowlist = ["perf"]
+
+[[bench]]
+name = "bench_build"
+harness = false
+
+[[bench]]
+name = "bench_search"
+harness = false
+
+[[bench]]
+name = "bench_transform"
+harness = false
+
+
+[[example]]
+name = "characterize_engines"
+required-features = ["dfa"]

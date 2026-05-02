@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = ["matcher_rs", "matcher_py"]
+
+[workspace.package]
+authors = ["Foster Guo <f975793771@gmail.com>"]
+categories = ["text-processing"]
+description = "A high-performance matcher designed to solve LOGICAL and TEXT VARIATIONS problems in word matching, implemented in Rust."
+edition = "2024"
+homepage = "https://github.com/Lips7/Matcher"
+readme = "README.md"
+keywords = ["text", "string", "search", "pattern", "multi"]
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/Lips7/Matcher"
+version = "0.15.5"
+
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.test]
+split-debuginfo = "unpacked"
+
+[profile.release]
+strip = true
+opt-level = 3
+lto = true
+codegen-units = 1
+incremental = false
+debug = false
+debug-assertions = false
+
+[profile.profiling]
+inherits = "release"
+strip = "none"
+debug = true
+
+[profile.bench]
+strip = "none"
+opt-level = 3
+lto = true
+codegen-units = 1
+incremental = false
+debug = true
+debug-assertions = false
+
+[profile.bench-dev]
+inherits = "release"
+lto = "thin"
+codegen-units = 4
+incremental = true
+debug = true
+strip = "none"

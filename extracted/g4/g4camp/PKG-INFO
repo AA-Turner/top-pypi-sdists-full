@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: g4camp
+Version: 0.1.23
+Summary: g4camp is a Pyhton module based on Geant4 framework and geant4_pybind pythonization. It simulates propagation of particles in a water volume and produces Cherenkov photons. g4camp simulated cascade development with production of secondary particles (e+/e- and gamma for EM cascades) and emission of Cherenkov photons.
+Project-URL: Documentation, http://malyshkin.pages.jinr.ru/g4camp/
+Project-URL: Issues, https://git.jinr.ru/malyshkin/g4camp/issues
+Project-URL: Source, https://git.jinr.ru/malyshkin/g4camp
+Author-email: Yury Malyshkin <yum@jinr.ru>
+License-Expression: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.7
+Requires-Dist: configargparse
+Requires-Dist: geant4-pybind
+Requires-Dist: h5py
+Requires-Dist: numpy
+Description-Content-Type: text/markdown
+
+[Documentation](http://malyshkin.pages.jinr.ru/g4camp/)

@@ -9,9 +9,9 @@ Summarize Jupyter notebooks on the command line.
 """
 
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -155,7 +155,7 @@ class StatsTool(Tool):
         group.add_argument('--all',
                            action=NegatableAction, dest='all_stats', default=SUPPRESS,
                            help='show all statistics' +
-                           ' (default: {})'.format(self._args.all_stats)),
+                           ' (default: {})'.format(self._args.all_stats))
         group.add_argument('-c', '--cell-types',
                            action=NegatableAction, default=SUPPRESS,
                            help='count cell types' +
@@ -214,7 +214,7 @@ class StatsTool(Tool):
             args.extra = True
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return StatsTool().main(cli_args)
 
 

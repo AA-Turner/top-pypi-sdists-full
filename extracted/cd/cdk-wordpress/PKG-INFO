@@ -1,0 +1,74 @@
+Metadata-Version: 2.1
+Name: cdk-wordpress
+Version: 0.0.1000
+Summary: cdk-wordpress
+Home-page: https://github.com/clarencetw/cdk-wordpress.git
+Author: Clarence Lin<mr.lin.clarence@gmail.com>
+License: Apache-2.0
+Project-URL: Source, https://github.com/clarencetw/cdk-wordpress.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-cdk.aws-ec2<2.0.0,>=1.71.0
+Requires-Dist: aws-cdk.aws-ecs-patterns<2.0.0,>=1.71.0
+Requires-Dist: aws-cdk.aws-ecs<2.0.0,>=1.71.0
+Requires-Dist: aws-cdk.aws-efs<2.0.0,>=1.71.0
+Requires-Dist: aws-cdk.aws-rds<2.0.0,>=1.71.0
+Requires-Dist: aws-cdk.core<2.0.0,>=1.71.0
+Requires-Dist: constructs<4.0.0,>=3.2.27
+Requires-Dist: jsii<2.0.0,>=1.103.1
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<5.0.0,>=2.13.3
+
+# cdk-wordpress
+
+[![NPM version](https://badge.fury.io/js/cdk-wordpress.svg)](https://www.npmjs.com/package/cdk-wordpress)
+[![PyPI version](https://badge.fury.io/py/cdk-wordpress.svg)](https://pypi.org/project/cdk-wordpress)
+![Release](https://github.com/clarencetw/cdk-wordpress/workflows/Release/badge.svg)
+
+![npm](https://img.shields.io/npm/dt/cdk-wordpress?label=npm&color=orange)
+![PyPI](https://img.shields.io/pypi/dm/cdk-wordpress?label=pypi&color=blue)
+
+A CDK construct library to deploy WordPress
+
+## How do use
+
+Install your package manager:
+
+```sh
+yarn add cdk-wordpress
+```
+
+### TypeScript Sample
+
+```python
+import { WordPress } from "cdk-wordpress";
+
+const wordpress = new WordPress(stack, "WordPressEcs");
+
+// Get WordPress endpoint
+new CfnOutput(stack, "Endpoint", { value: wordpress.endpoint });
+```
+
+### To deploy
+
+```bash
+cdk deploy
+```
+
+### To destroy
+
+```bash
+cdk destroy
+```

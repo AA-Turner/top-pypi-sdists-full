@@ -9,13 +9,12 @@ This software is made available under the terms of the MIT License.
 import sys
 from argparse import Namespace
 from pathlib import Path
-from typing import List, Union
 
 import nbformat
 from nbformat import NotebookNode
 
 
-def read_nb(nb_path: Path, args: Namespace) -> Union[None, NotebookNode]:
+def read_nb(nb_path: Path, args: Namespace) -> NotebookNode | None:
     """Read notebook from given path, and return it.
     Uses ``args.debug``: in debug mode, a read error results in an exception, else it returns ``None``.
 
@@ -38,7 +37,7 @@ def read_nb(nb_path: Path, args: Namespace) -> Union[None, NotebookNode]:
     return nb
 
 
-def write_nb(nb: NotebookNode, nb_path: Path, args: Namespace) -> Union[None, bool]:
+def write_nb(nb: NotebookNode, nb_path: Path, args: Namespace) -> bool | None:
     """Write given notebook to given path.
     Uses ``args.debug``: in debug mode, a write error results in an exception, else it returns ``None``.
 
@@ -62,7 +61,7 @@ def write_nb(nb: NotebookNode, nb_path: Path, args: Namespace) -> Union[None, bo
     return True
 
 
-def cell_lines(cell: NotebookNode) -> List[str]:
+def cell_lines(cell: NotebookNode) -> list[str]:
     """Return list of source lines for given cell.
 
     :param cell: cell whose source lines to return as list

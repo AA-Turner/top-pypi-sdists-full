@@ -11,3 +11,12 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy-strict
+        name: mypy-strict
+        entry: uv run --no-sync mypy throttled tests
+        language: system
+        pass_filenames: false
+        types: [python]

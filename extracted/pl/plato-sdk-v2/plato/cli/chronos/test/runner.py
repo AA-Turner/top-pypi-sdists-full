@@ -346,9 +346,9 @@ class TestRunner:
                 Env.resource(
                     simulator=f"test-{world_package}",
                     sim_config=SimConfigCompute(
-                        cpus=world_runtime.cpus,
-                        memory=world_runtime.memory,
-                        disk=world_runtime.disk,
+                        cpus=world_runtime.vm.cpus,
+                        memory=world_runtime.vm.memory,
+                        disk=world_runtime.vm.disk,
                     ),
                     alias="runtime",
                     docker_image_url=world_image,
@@ -356,7 +356,7 @@ class TestRunner:
                     rootfs_storage_backend="snapshot-store",
                 )
             ],
-            timeout=world_runtime.timeout or 7200,
+            timeout=world_runtime.vm.timeout,
         )
         await self.session.start_heartbeat()
 

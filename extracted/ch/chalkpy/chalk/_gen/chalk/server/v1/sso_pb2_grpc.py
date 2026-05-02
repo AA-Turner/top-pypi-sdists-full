@@ -20,6 +20,26 @@ class SsoServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenResponse.FromString,
         )
+        self.ListSsoEmailDomains = channel.unary_unary(
+            "/chalk.server.v1.SsoService/ListSsoEmailDomains",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSsoEmailDomainsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSsoEmailDomainsResponse.FromString,
+        )
+        self.CreateSsoEmailDomain = channel.unary_unary(
+            "/chalk.server.v1.SsoService/CreateSsoEmailDomain",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSsoEmailDomainRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSsoEmailDomainResponse.FromString,
+        )
+        self.UpdateSsoEmailDomain = channel.unary_unary(
+            "/chalk.server.v1.SsoService/UpdateSsoEmailDomain",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSsoEmailDomainRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSsoEmailDomainResponse.FromString,
+        )
+        self.DeleteSsoEmailDomain = channel.unary_unary(
+            "/chalk.server.v1.SsoService/DeleteSsoEmailDomain",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSsoEmailDomainRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSsoEmailDomainResponse.FromString,
+        )
         self.ListSignOnProviderConfigurations = channel.unary_unary(
             "/chalk.server.v1.SsoService/ListSignOnProviderConfigurations",
             request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSignOnProviderConfigurationsRequest.SerializeToString,
@@ -40,6 +60,11 @@ class SsoServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.FromString,
         )
+        self.GetSignOnProvidersForEmail = channel.unary_unary(
+            "/chalk.server.v1.SsoService/GetSignOnProvidersForEmail",
+            request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSignOnProvidersForEmailRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSignOnProvidersForEmailResponse.FromString,
+        )
         self.GetSamlConfigurationByIssuer = channel.unary_unary(
             "/chalk.server.v1.SsoService/GetSamlConfigurationByIssuer",
             request_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSamlConfigurationByIssuerRequest.SerializeToString,
@@ -52,6 +77,30 @@ class SsoServiceServicer(object):
 
     def CreateScimToken(self, request, context):
         """Creates a SCIM JWT token for the authenticated team"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListSsoEmailDomains(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateSsoEmailDomain(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateSsoEmailDomain(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteSsoEmailDomain(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -80,6 +129,12 @@ class SsoServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSignOnProvidersForEmail(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetSamlConfigurationByIssuer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -93,6 +148,26 @@ def add_SsoServiceServicer_to_server(servicer, server):
             servicer.CreateScimToken,
             request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenResponse.SerializeToString,
+        ),
+        "ListSsoEmailDomains": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSsoEmailDomains,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSsoEmailDomainsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.ListSsoEmailDomainsResponse.SerializeToString,
+        ),
+        "CreateSsoEmailDomain": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateSsoEmailDomain,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSsoEmailDomainRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.CreateSsoEmailDomainResponse.SerializeToString,
+        ),
+        "UpdateSsoEmailDomain": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateSsoEmailDomain,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSsoEmailDomainRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSsoEmailDomainResponse.SerializeToString,
+        ),
+        "DeleteSsoEmailDomain": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteSsoEmailDomain,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSsoEmailDomainRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSsoEmailDomainResponse.SerializeToString,
         ),
         "ListSignOnProviderConfigurations": grpc.unary_unary_rpc_method_handler(
             servicer.ListSignOnProviderConfigurations,
@@ -113,6 +188,11 @@ def add_SsoServiceServicer_to_server(servicer, server):
             servicer.DeleteSignOnProviderConfiguration,
             request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.SerializeToString,
+        ),
+        "GetSignOnProvidersForEmail": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSignOnProvidersForEmail,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSignOnProvidersForEmailRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sso__pb2.GetSignOnProvidersForEmailResponse.SerializeToString,
         ),
         "GetSamlConfigurationByIssuer": grpc.unary_unary_rpc_method_handler(
             servicer.GetSamlConfigurationByIssuer,
@@ -147,6 +227,122 @@ class SsoService(object):
             "/chalk.server.v1.SsoService/CreateScimToken",
             chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_sso__pb2.CreateScimTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListSsoEmailDomains(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/ListSsoEmailDomains",
+            chalk_dot_server_dot_v1_dot_sso__pb2.ListSsoEmailDomainsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.ListSsoEmailDomainsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateSsoEmailDomain(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/CreateSsoEmailDomain",
+            chalk_dot_server_dot_v1_dot_sso__pb2.CreateSsoEmailDomainRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.CreateSsoEmailDomainResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateSsoEmailDomain(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/UpdateSsoEmailDomain",
+            chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSsoEmailDomainRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.UpdateSsoEmailDomainResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteSsoEmailDomain(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/DeleteSsoEmailDomain",
+            chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSsoEmailDomainRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSsoEmailDomainResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -263,6 +459,35 @@ class SsoService(object):
             "/chalk.server.v1.SsoService/DeleteSignOnProviderConfiguration",
             chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_sso__pb2.DeleteSignOnProviderConfigurationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSignOnProvidersForEmail(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SsoService/GetSignOnProvidersForEmail",
+            chalk_dot_server_dot_v1_dot_sso__pb2.GetSignOnProvidersForEmailRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sso__pb2.GetSignOnProvidersForEmailResponse.FromString,
             options,
             channel_credentials,
             insecure,

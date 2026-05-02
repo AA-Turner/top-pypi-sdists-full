@@ -250,39 +250,137 @@ class SaveLoadTestBase:
       else:
         self.assertEqual(loaded['k'], value)
 
-    def test_jax_array_leaf_types(self):
+    @parameterized.named_parameters(
+        dict(
+            testcase_name='replicated_array',
+            spec=jax.sharding.PartitionSpec(),
+            size=12,
+        ),
+        dict(
+            testcase_name='sharded_array',
+            spec=jax.sharding.PartitionSpec(('devices',)),
+            size=32,
+        ),
+    )
+    def test_jax_array_leaf_types(self, spec, size):
       mesh = jax.sharding.Mesh(np.asarray(jax.devices()), ('devices',))
-      # TODO(cpgaffney): Add support for missing arrays.
-      values = {
-          # 'simple_array': jnp.arange(16),
-          # 'single_device_array': jnp.arange(8, device=jax.local_devices()[0]),
-          'replicated_array': jnp.arange(
-              12,
-              device=jax.sharding.NamedSharding(
-                  mesh, jax.sharding.PartitionSpec()
-              ),
+      sharding = jax.sharding.NamedSharding(mesh, spec)
+      v = jnp.arange(size, device=sharding)
+      ocp.save_pytree(self.directory, [v])
+      with self.subTest('with_abstract_pytree'):
+        loaded = ocp.load_pytree(self.directory, [as_abstract_type(v)])
+        test_utils.assert_tree_equal(self, [v], loaded)
+      with self.subTest('without_abstract_pytree'):
+        if multihost.is_pathways_backend():
+          self.skipTest('Must provide abstract_pytree for Pathways.')
+        loaded = ocp.load_pytree(self.directory)
+        test_utils.assert_tree_equal(self, [v], loaded)
+
+    @parameterized.named_parameters(
+        dict(
+            testcase_name='simple_array',
+            value_fn=lambda: jnp.arange(16),
+        ),
+        dict(
+            testcase_name='single_device_array',
+            value_fn=lambda: jnp.arange(8, device=jax.local_devices()[0]),
+        ),
+        dict(
+            testcase_name='single_device_cpu_array',
+            value_fn=lambda: jnp.arange(
+                24, device=jax.local_devices(backend='cpu')[0]
+            ),
+            skip_on_pathways=True,
+        ),
+    )
+    def test_jax_array_single_device_leaf_types(
+        self, value_fn, skip_on_pathways=False
+    ):
+      if skip_on_pathways and multihost.is_pathways_backend():
+        self.skipTest('Skip CPU array test on pathways.')
+      v = value_fn()
+      if jax.process_count() > 1 or multihost.is_pathways_backend():
+        with self.assertRaisesRegex(ValueError, 'with SingleDeviceSharding'):
+          ocp.save_pytree(self.directory, [v])
+        return
+
+      ocp.save_pytree(self.directory, [v])
+      with self.subTest('with_abstract_pytree'):
+        loaded = ocp.load_pytree(self.directory, [as_abstract_type(v)])
+        test_utils.assert_tree_equal(self, [v], loaded)
+      with self.subTest('without_abstract_pytree'):
+        loaded = ocp.load_pytree(self.directory)
+        test_utils.assert_tree_equal(self, [v], loaded)
+
+    @parameterized.parameters(
+        (np.arange(8),),
+        (2,),
+        (2.2,),
+        ('foo',),
+        (np.asarray(3.14),),
+    )
+    def test_standard_leaf_types_as_checkpointable(self, value):
+      with self.subTest('save_pytree'):
+        ocp.save_pytree(
+            self.directory / 'pytree', value, checkpointable_name='leaf'
+        )
+        loaded = ocp.load_pytree(
+            self.directory / 'pytree', checkpointable_name='leaf'
+        )
+        if isinstance(value, np.ndarray):
+          np.testing.assert_array_equal(loaded, value)
+        else:
+          self.assertEqual(loaded, value)
+      with self.subTest('save_checkpointables'):
+        ocp.save_checkpointables(
+            self.directory / 'checkpointables', {'foo': value}
+        )
+        loaded = ocp.load_checkpointables(self.directory / 'checkpointables')[
+            'foo'
+        ]
+        if isinstance(value, np.ndarray):
+          np.testing.assert_array_equal(loaded, value)
+        else:
+          self.assertEqual(loaded, value)
+
+    def test_jax_array_as_checkpointable(self):
+      value = jnp.arange(
+          16,
+          device=jax.sharding.NamedSharding(
+              jax.sharding.Mesh(np.asarray(jax.devices()), ('devices',)),
+              jax.sharding.PartitionSpec(),
           ),
-          'sharded_array': jnp.arange(
-              32,
-              device=jax.sharding.NamedSharding(
-                  mesh, jax.sharding.PartitionSpec(('devices',))
-              ),
-          ),
-          # 'single_device_cpu_array': jnp.arange(
-          #     24, device=jax.local_devices(backend='cpu')[0]
-          # ),
-      }
-      for k, v in values.items():
-        with self.subTest(k):
-          ocp.save_pytree(self.directory / k, [v])
-          with self.subTest('with_abstract_pytree'):
-            loaded = ocp.load_pytree(self.directory / k, [as_abstract_type(v)])
-            test_utils.assert_tree_equal(self, [v], loaded)
-          with self.subTest('without_abstract_pytree'):
-            if multihost.is_pathways_backend():
-              self.skipTest('Must provide abstract_pytree for Pathways.')
-            loaded = ocp.load_pytree(self.directory / k)
-            test_utils.assert_tree_equal(self, [v], loaded)
+      )
+      with self.subTest('save_pytree'):
+        ocp.save_pytree(
+            self.directory / 'pytree', value, checkpointable_name='leaf'
+        )
+        loaded = ocp.load_pytree(
+            self.directory / 'pytree', checkpointable_name='leaf'
+        )
+        test_utils.assert_tree_equal(self, value, loaded)
+      with self.subTest('save_checkpointables'):
+        ocp.save_checkpointables(
+            self.directory / 'checkpointables', {'foo': value}
+        )
+        loaded = ocp.load_checkpointables(self.directory / 'checkpointables')[
+            'foo'
+        ]
+        test_utils.assert_tree_equal(self, value, loaded)
+
+    def test_save_unregistered_type_as_pytree(self):
+      with self.assertRaises(serialization_registry.UnregisteredTypeError):
+        ocp.save_pytree(self.directory, handler_utils.Foo(1, 'hi'))
+
+    @parameterized.parameters(
+        ({},),
+        ([],),
+        ('hello',),
+        (None,),
+    )
+    def test_save_checkpointables_invalid(self, checkpointables):
+      with self.assertRaises(ValueError):
+        ocp.save_checkpointables(self.directory, checkpointables)
 
     def test_leaf_change_type(self):
       mesh = jax.sharding.Mesh(np.asarray(jax.devices()), ('devices',))
@@ -528,15 +626,15 @@ class SaveLoadTestBase:
           'numpy_array': np.arange(len(jax.devices()), dtype=load_dtype),
       }
 
-      create_array_storage_options_fn = (
+      scoped_storage_options_creator = (
           lambda k, v: ocp.options.ArrayOptions.Saving.StorageOptions(
               dtype=save_dtype
           )
       )
       with ocp.Context(
-          pytree_options=ocp.options.PyTreeOptions(
-              saving=ocp.options.PyTreeOptions.Saving(
-                  create_array_storage_options_fn=create_array_storage_options_fn
+          array_options=ocp.options.ArrayOptions(
+              saving=ocp.options.ArrayOptions.Saving(
+                  scoped_storage_options_creator=scoped_storage_options_creator
               )
           )
       ):
@@ -1167,7 +1265,7 @@ class SaveLoadTestBase:
             self.assertEqual(metadata[k].storage_metadata.chunk_shape, (2,))
 
       with self.subTest('per_key_setting'):
-        def create_array_storage_options_fn(key, value):
+        def scoped_storage_options_creator(key, value):
           del value
           if 'a' in tree_utils.str_keypath(key):
             return ocp.options.ArrayOptions.Saving.StorageOptions(
@@ -1177,9 +1275,9 @@ class SaveLoadTestBase:
               chunk_byte_size=8,  # force divide in 2 subchunks
           )
         with ocp.Context(
-            pytree_options=ocp.options.PyTreeOptions(
-                saving=ocp.options.PyTreeOptions.Saving(
-                    create_array_storage_options_fn=create_array_storage_options_fn
+            array_options=ocp.options.ArrayOptions(
+                saving=ocp.options.ArrayOptions.Saving(
+                    scoped_storage_options_creator=scoped_storage_options_creator
                 )
             ),
         ):

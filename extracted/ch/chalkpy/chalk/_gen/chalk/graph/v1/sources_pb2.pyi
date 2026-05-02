@@ -759,6 +759,9 @@ class SnowflakeSource(_message.Message):
         "engine_args",
         "async_engine_args",
         "private_key_b64",
+        "unload_stage",
+        "unload_storage_integration",
+        "unload_external_location",
     )
     class EngineArgsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -791,6 +794,9 @@ class SnowflakeSource(_message.Message):
     ENGINE_ARGS_FIELD_NUMBER: _ClassVar[int]
     ASYNC_ENGINE_ARGS_FIELD_NUMBER: _ClassVar[int]
     PRIVATE_KEY_B64_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_STAGE_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_STORAGE_INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_EXTERNAL_LOCATION_FIELD_NUMBER: _ClassVar[int]
     name: str
     db: str
     schema: str
@@ -802,6 +808,9 @@ class SnowflakeSource(_message.Message):
     engine_args: _containers.MessageMap[str, _arrow_pb2.ScalarValue]
     async_engine_args: _containers.MessageMap[str, _arrow_pb2.ScalarValue]
     private_key_b64: str
+    unload_stage: str
+    unload_storage_integration: str
+    unload_external_location: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -815,6 +824,9 @@ class SnowflakeSource(_message.Message):
         engine_args: _Optional[_Mapping[str, _arrow_pb2.ScalarValue]] = ...,
         async_engine_args: _Optional[_Mapping[str, _arrow_pb2.ScalarValue]] = ...,
         private_key_b64: _Optional[str] = ...,
+        unload_stage: _Optional[str] = ...,
+        unload_storage_integration: _Optional[str] = ...,
+        unload_external_location: _Optional[str] = ...,
     ) -> None: ...
 
 class SQLiteSource(_message.Message):

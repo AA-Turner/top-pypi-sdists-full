@@ -1,0 +1,710 @@
+# Skill Path to Agent Mapping Configuration
+# Auto-generated from research: docs/research/skill-path-to-agent-mapping-2025-12-16.md
+# Version: 1.0.0
+# Last Updated: 2025-12-16
+
+# This file defines which agents should receive which skills based on skill path patterns.
+# Used by progressive skills discovery to optimize skill deployment.
+
+# Special marker for skills that apply to all agents
+all_agents_marker: &all_agents
+  - ALL_AGENTS
+
+# Skill path to agent mapping
+skill_mappings:
+  # AI/ML Toolchains
+  toolchains/ai/frameworks/dspy:
+    - python-engineer
+    - data-engineer
+    - research
+
+  toolchains/ai/frameworks/langchain:
+    - python-engineer
+    - data-engineer
+    - research
+
+  toolchains/ai/frameworks/langgraph:
+    - python-engineer
+    - data-engineer
+    - research
+
+  toolchains/ai/protocols/mcp:
+    - python-engineer
+    - typescript-engineer
+    - research
+    - mpm-agent-manager
+    - mpm-skills-manager
+
+  toolchains/ai/sdks/anthropic:
+    - python-engineer
+    - typescript-engineer
+    - research
+    - prompt-engineer
+
+  toolchains/ai/services/openrouter:
+    - python-engineer
+    - typescript-engineer
+    - research
+
+  toolchains/ai/techniques/session-compression:
+    - python-engineer
+    - typescript-engineer
+    - research
+    - memory-manager
+
+  # Elixir Toolchains
+  toolchains/elixir/data/ecto-patterns:
+    - phoenix-engineer
+
+  toolchains/elixir/frameworks/phoenix-api-channels:
+    - phoenix-engineer
+
+  toolchains/elixir/frameworks/phoenix-liveview:
+    - phoenix-engineer
+
+  toolchains/elixir/ops/phoenix-ops:
+    - phoenix-engineer
+
+  # Golang Toolchains
+  toolchains/golang/cli:
+    - golang-engineer
+
+  toolchains/golang/data:
+    - golang-engineer
+
+  toolchains/golang/observability:
+    - golang-engineer
+
+  toolchains/golang/testing:
+    - golang-engineer
+
+  toolchains/golang/web:
+    - golang-engineer
+
+  # JavaScript Toolchains
+  toolchains/javascript/build/vite:
+    - javascript-engineer
+    - typescript-engineer
+    - nextjs-engineer
+    - react-engineer
+    - svelte-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/express-local-dev:
+    - javascript-engineer
+    - typescript-engineer
+
+  toolchains/javascript/frameworks/nextjs:
+    - nextjs-engineer
+    - react-engineer
+    - typescript-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/react:
+    - react-engineer
+    - nextjs-engineer
+    - typescript-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/react/state-machine:
+    - react-engineer
+    - nextjs-engineer
+    - typescript-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/svelte:
+    - svelte-engineer
+    - javascript-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/svelte5-runes-static:
+    - svelte-engineer
+    - javascript-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/sveltekit:
+    - svelte-engineer
+    - javascript-engineer
+    - web-ui
+
+  toolchains/javascript/frameworks/vue:
+    - javascript-engineer
+    - web-ui
+
+  toolchains/javascript/testing/playwright:
+    - web-qa
+    - javascript-engineer
+    - typescript-engineer
+
+  toolchains/javascript/tooling/biome:
+    - javascript-engineer
+    - typescript-engineer
+
+  # Next.js Specific
+  toolchains/nextjs/api/validated-handler:
+    - nextjs-engineer
+    - typescript-engineer
+
+  toolchains/nextjs/core:
+    - nextjs-engineer
+    - react-engineer
+    - typescript-engineer
+    - web-ui
+
+  toolchains/nextjs/v16:
+    - nextjs-engineer
+    - react-engineer
+    - typescript-engineer
+    - web-ui
+
+  # PHP Toolchains
+  toolchains/php/frameworks/espocrm:
+    - php-engineer
+
+  toolchains/php/frameworks/wordpress/advanced-architecture:
+    - php-engineer
+
+  toolchains/php/frameworks/wordpress/block-editor:
+    - php-engineer
+
+  toolchains/php/frameworks/wordpress/plugin-fundamentals:
+    - php-engineer
+
+  toolchains/php/frameworks/wordpress/security-validation:
+    - php-engineer
+
+  toolchains/php/frameworks/wordpress/testing-qa:
+    - php-engineer
+
+  # Platform Toolchains
+  toolchains/platforms/backend/supabase:
+    - typescript-engineer
+    - python-engineer
+    - data-engineer
+
+  toolchains/platforms/database/neon:
+    - data-engineer
+
+  toolchains/platforms/deployment/netlify:
+    - ops
+    - local-ops
+    - web-ui
+
+  toolchains/platforms/deployment/vercel:
+    - vercel-ops
+    - ops
+    - nextjs-engineer
+
+  # Python Toolchains
+  toolchains/python/async/asyncio:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/async/celery:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/data/sqlalchemy:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/frameworks/django:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/frameworks/fastapi-local-dev:
+    - python-engineer
+
+  toolchains/python/frameworks/flask:
+    - python-engineer
+
+  toolchains/python/testing/pytest:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/tooling/mypy:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/tooling/pyright:
+    - python-engineer
+    - data-engineer
+
+  toolchains/python/validation/pydantic:
+    - python-engineer
+    - data-engineer
+
+  # Rust Toolchains
+  toolchains/rust/desktop-applications:
+    - rust-engineer
+    - tauri-engineer
+
+  toolchains/rust/frameworks/tauri:
+    - tauri-engineer
+    - rust-engineer
+
+  # TypeScript Toolchains
+  toolchains/typescript/api/trpc:
+    - typescript-engineer
+    - nextjs-engineer
+
+  toolchains/typescript/build/turborepo:
+    - typescript-engineer
+
+  toolchains/typescript/core:
+    - typescript-engineer
+    - javascript-engineer
+
+  toolchains/typescript/data/drizzle:
+    - typescript-engineer
+    - data-engineer
+
+  toolchains/typescript/data/drizzle-migrations:
+    - typescript-engineer
+    - data-engineer
+
+  toolchains/typescript/data/kysely:
+    - typescript-engineer
+    - data-engineer
+
+  toolchains/typescript/data/prisma:
+    - typescript-engineer
+    - data-engineer
+
+  toolchains/typescript/frameworks/nodejs-backend:
+    - typescript-engineer
+    - javascript-engineer
+
+  toolchains/typescript/state/tanstack-query:
+    - typescript-engineer
+    - react-engineer
+    - nextjs-engineer
+
+  toolchains/typescript/state/zustand:
+    - typescript-engineer
+    - react-engineer
+    - nextjs-engineer
+
+  toolchains/typescript/testing/jest:
+    - typescript-engineer
+
+  toolchains/typescript/testing/vitest:
+    - typescript-engineer
+
+  toolchains/typescript/validation/zod:
+    - typescript-engineer
+
+  # UI Toolchains
+  toolchains/ui/components/daisyui:
+    - web-ui
+    - react-engineer
+    - svelte-engineer
+
+  toolchains/ui/components/headlessui:
+    - web-ui
+    - react-engineer
+    - nextjs-engineer
+
+  toolchains/ui/components/shadcn:
+    - web-ui
+    - react-engineer
+    - nextjs-engineer
+
+  toolchains/ui/styling/tailwind:
+    - web-ui
+    - react-engineer
+    - nextjs-engineer
+    - svelte-engineer
+    - php-engineer
+
+  # Universal Toolchains
+  toolchains/universal/data/graphql:
+    - typescript-engineer
+    - python-engineer
+    - javascript-engineer
+    - api-qa
+
+  toolchains/universal/dependency/audit:
+    - ops
+    - security
+
+  toolchains/universal/emergency/release:
+    - ops
+    - version-control
+
+  toolchains/universal/infrastructure/docker:
+    - ops
+    - local-ops
+    - vercel-ops
+    - gcp-ops
+
+  toolchains/universal/infrastructure/github-actions:
+    - ops
+    - version-control
+
+  toolchains/universal/pr/quality:
+    - qa
+    - version-control
+
+  toolchains/universal/security/api-review:
+    - security
+    - api-qa
+
+  # Universal Skills
+  universal/architecture/software-patterns:
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+    - nextjs-engineer
+    - react-engineer
+    - svelte-engineer
+    - data-engineer
+    - refactoring-engineer
+    - research
+    - code-analyzer
+
+  universal/collaboration/brainstorming: *all_agents
+  universal/collaboration/dispatching-parallel-agents: *all_agents
+  universal/collaboration/finishing-a-development-branch:
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+    - ops
+    - version-control
+
+  universal/collaboration/git-workflow: *all_agents
+
+  universal/collaboration/git-worktrees-superpowers:
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+    - ops
+    - version-control
+
+  universal/collaboration/git-worktrees:
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+    - ops
+    - version-control
+
+  universal/collaboration/receiving-code-review: *all_agents
+  universal/collaboration/requesting-code-review: *all_agents
+
+  universal/collaboration/stacked-prs:
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+    - ops
+    - version-control
+
+  universal/collaboration/subagent-driven-development: *all_agents
+  universal/collaboration/writing-plans: *all_agents
+
+  universal/data/database-migration:
+    - data-engineer
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - phoenix-engineer
+    - ops
+
+  universal/data/json-data-handling: *all_agents
+
+  universal/data/xlsx:
+    - data-engineer
+    - python-engineer
+    - content-agent
+
+  universal/debugging/finding-duplicate-functions:
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+    - code-analyzer
+
+  universal/debugging/root-cause-tracing: *all_agents
+  universal/debugging/systematic-debugging: *all_agents
+  universal/debugging/verification-before-completion: *all_agents
+
+  universal/infrastructure/env-manager:
+    - ops
+    - local-ops
+    - vercel-ops
+    - gcp-ops
+    - security
+
+  universal/main/artifacts-builder:
+    - web-ui
+    - react-engineer
+    - nextjs-engineer
+    - svelte-engineer
+
+  universal/main/internal-comms: *all_agents
+
+  universal/main/build-mcp-server:
+    - python-engineer
+    - typescript-engineer
+    - mpm-agent-manager
+
+  universal/main/skill-creator:
+    - mpm-skills-manager
+    - research
+
+  universal/security/security-scanning:
+    - security
+    - ops
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+
+  universal/testing/condition-based-waiting:
+    - qa
+    - web-qa
+    - api-qa
+
+  universal/testing/test-driven-development: *all_agents
+
+  universal/testing/test-quality-inspector:
+    - qa
+    - web-qa
+    - api-qa
+
+  universal/testing/testing-anti-patterns:
+    - qa
+    - web-qa
+    - api-qa
+
+  universal/testing/webapp-testing:
+    - web-qa
+    - qa
+    - web-ui
+
+  universal/verification/bug-fix:
+    - qa
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - ruby-engineer
+    - php-engineer
+    - javascript-engineer
+    - phoenix-engineer
+
+  universal/verification/pre-merge:
+    - qa
+    - version-control
+
+  universal/verification/screenshot:
+    - web-qa
+    - qa
+    - web-ui
+
+  universal/web/api-design-patterns:
+    - api-qa
+    - python-engineer
+    - typescript-engineer
+    - golang-engineer
+    - rust-engineer
+    - java-engineer
+    - phoenix-engineer
+    - javascript-engineer
+
+  universal/web/api-documentation:
+    - documentation
+    - api-qa
+
+  universal/web/web-performance-optimization:
+    - web-ui
+    - nextjs-engineer
+    - react-engineer
+    - svelte-engineer
+    - web-qa
+
+  # Example skills (for reference/testing)
+  examples/bad-interdependent-skill:
+    - mpm-skills-manager
+
+  examples/good-self-contained-skill:
+    - mpm-skills-manager
+
+# Pattern-based inference rules (used when exact path match not found)
+inference_rules:
+  # Language-based patterns
+  language_patterns:
+    python:
+      - python-engineer
+      - data-engineer
+    typescript:
+      - typescript-engineer
+      - javascript-engineer
+    javascript:
+      - javascript-engineer
+      - typescript-engineer
+    golang:
+      - golang-engineer
+    rust:
+      - rust-engineer
+    php:
+      - php-engineer
+    elixir:
+      - phoenix-engineer
+    ruby:
+      - ruby-engineer
+    java:
+      - java-engineer
+    dart:
+      - dart-engineer
+
+  # Framework-based patterns
+  framework_patterns:
+    nextjs:
+      - nextjs-engineer
+      - react-engineer
+      - typescript-engineer
+      - web-ui
+    react:
+      - react-engineer
+      - nextjs-engineer
+      - typescript-engineer
+      - web-ui
+    svelte:
+      - svelte-engineer
+      - javascript-engineer
+      - web-ui
+    phoenix:
+      - phoenix-engineer
+    django:
+      - python-engineer
+    flask:
+      - python-engineer
+    fastapi:
+      - python-engineer
+    express:
+      - javascript-engineer
+      - typescript-engineer
+
+  # Domain-based patterns
+  domain_patterns:
+    testing:
+      - qa
+      - web-qa
+      - api-qa
+    security:
+      - security
+      - ops
+    data:
+      - data-engineer
+    ops:
+      - ops
+      - local-ops
+    infrastructure:
+      - ops
+      - local-ops
+    deployment:
+      - ops
+    ui:
+      - web-ui
+    frontend:
+      - web-ui
+    api:
+      - api-qa
+
+# ALL_AGENTS expansion (when marker is used)
+all_agents_list:
+  # Engineering
+  - engineer
+  - typescript-engineer
+  - python-engineer
+  - golang-engineer
+  - rust-engineer
+  - java-engineer
+  - ruby-engineer
+  - php-engineer
+  - javascript-engineer
+  - phoenix-engineer
+  - dart-engineer
+  - nextjs-engineer
+  - react-engineer
+  - svelte-engineer
+  - tauri-engineer
+  - web-ui
+  - data-engineer
+  - refactoring-engineer
+  - agentic-coder-optimizer
+  - prompt-engineer
+  - imagemagick
+  # QA
+  - qa
+  - web-qa
+  - api-qa
+  # Ops
+  - ops
+  - local-ops
+  - vercel-ops
+  - gcp-ops
+  - clerk-ops
+  # Specialized
+  - security
+  - research
+  - documentation
+  - ticketing
+  - code-analyzer
+  - content-agent
+  - memory-manager
+  - product-owner
+  - project-organizer
+  - version-control
+  - mpm-agent-manager
+  - mpm-skills-manager
+
+# Configuration metadata
+metadata:
+  version: "1.0.0"
+  generated_date: "2025-12-16"
+  total_skills: 109
+  total_agents: 41
+  research_document: "docs/research/skill-path-to-agent-mapping-2025-12-16.md"

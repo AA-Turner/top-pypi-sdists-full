@@ -42,7 +42,7 @@ def pytest_addoption(parser):
                      help="Warnings are treated as errors.")
 
     parser.addoption("--env", action='store',
-                     help="Execute the tests in that environment (e.g. 39 for python3.9).")
+                     help="Execute the tests in that environment (e.g. 314 for python3.14).")
     parser.addoption("--interpreter-env", "-I", action='store_true',
                      help="Don't use subprocesses to guarantee having safe "
                           "code execution. Useful for debugging.")
@@ -133,11 +133,13 @@ def goto_or_help(request, Script):
 
 @pytest.fixture(scope='session', params=['goto', 'help', 'infer'])
 def goto_or_help_or_infer(request, Script):
-    def do(code, *args, **kwargs):
-        return getattr(Script(code), request.param)(*args, **kwargs)
+    class GotoOrHelpOrInfer:
+        def __call__(self, code, *args, **kwargs):
+            return getattr(Script(code), request.param)(*args, **kwargs)
 
-    do.type = request.param
-    return do
+        type = request.param
+
+    return GotoOrHelpOrInfer()
 
 
 @pytest.fixture(scope='session', params=['goto', 'complete', 'help'])
@@ -157,16 +159,8 @@ def jedi_path():
 
 
 @pytest.fixture()
-def skip_pre_python38(environment):
-    if environment.version_info < (3, 8):
-        # This if is just needed to avoid that tests ever skip way more than
-        # they should for all Python versions.
-        pytest.skip()
-
-
-@pytest.fixture()
-def skip_pre_python37(environment):
-    if environment.version_info < (3, 7):
+def skip_pre_python311(environment):
+    if environment.version_info < (3, 11):
         # This if is just needed to avoid that tests ever skip way more than
         # they should for all Python versions.
         pytest.skip()

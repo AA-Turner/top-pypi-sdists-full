@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shiny
-Version: 1.6.0
+Version: 1.6.1
 Summary: A web development framework for Python.
 Author-email: Winston Chang <winston@posit.co>
 License: MIT
@@ -52,6 +52,7 @@ Requires-Dist: pytest-asyncio>=0.17.2; extra == "test"
 Requires-Dist: pytest-playwright>=0.5.2; extra == "test"
 Requires-Dist: playwright>=1.48.0; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: pytest-shard; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -112,7 +113,7 @@ Provides-Extra: doc
 Requires-Dist: jupyter; extra == "doc"
 Requires-Dist: jupyter_client<8.0.0; extra == "doc"
 Requires-Dist: tabulate; extra == "doc"
-Requires-Dist: shinylive; extra == "doc"
+Requires-Dist: shinylive>=0.8.6; extra == "doc"
 Requires-Dist: pydantic>=2.7.4; extra == "doc"
 Requires-Dist: quartodoc>=0.8.1; extra == "doc"
 Requires-Dist: griffe<2.0.0,>=1.3.2; extra == "doc"

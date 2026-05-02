@@ -1,0 +1,24 @@
+name: Test CASE
+description: Test for Switch/CASE functionality
+steps:
+  - FileRead:
+      file: sample_recap.json
+      is_json: True
+  - Switch:
+      cases:
+        - condition: "$.metadata.type == 'recapDefinition'"
+          component: ToPandas_3
+        - condition: "$.metadata.type == 'role'"
+          component: PrintMessage_4
+      default: PrintMessage_5
+  - ToPandas:
+      comment: "Converts the JSON data to a pandas DataFrame"
+      frame: "pandas"
+      type: "dict"
+      data_path: "payload"
+  - PrintMessage:
+      message: "Executing: Role"
+      level: "WARN"
+  - PrintMessage:
+      message: "Executing: Default"
+      level: "WARN"

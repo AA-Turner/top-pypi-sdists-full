@@ -1,0 +1,628 @@
+Metadata-Version: 2.4
+Name: connector-py
+Version: 4.212.0
+Summary: An Abstract Tool to Perform Actions on Integrations.
+Author-email: teamlumos <security@lumos.com>
+License-Expression: Apache-2.0
+Project-URL: Documentation, https://developers.lumos.com/reference/the-lumos-connector-api
+Keywords: integrations
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: connector-sdk-types==0.47.0
+Requires-Dist: gql[httpx]~=3.5.3
+Requires-Dist: httpx~=0.28.1
+Requires-Dist: msgpack~=1.1.2
+Requires-Dist: pydantic~=2.9.2
+Requires-Dist: urllib3~=2.6.2
+Requires-Dist: botocore~=1.40.61
+Requires-Dist: PyJWT~=2.10.1
+Requires-Dist: datadog~=0.49.1
+Requires-Dist: pip-system-certs~=5.2.0; platform_system == "Windows"
+Provides-Extra: fastapi
+Requires-Dist: fastapi-slim~=0.115.2; extra == "fastapi"
+Requires-Dist: uvicorn~=0.38.0; extra == "fastapi"
+Provides-Extra: dev
+Requires-Dist: pytest~=9.0.2; extra == "dev"
+Requires-Dist: pytest-asyncio~=1.3.0; extra == "dev"
+Requires-Dist: pytest-httpx~=0.36.0; extra == "dev"
+Requires-Dist: Flask~=3.1.2; extra == "dev"
+Requires-Dist: pyinstaller~=6.8.0; extra == "dev"
+Requires-Dist: pip-licenses~=5.5.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: connector-py[dev,fastapi]; extra == "all"
+Dynamic: license-file
+
+# Lumos Connector SDK
+
+Plug apps back into Lumos using an integration connector built with this SDK.
+
+[![PyPI - Version](https://img.shields.io/pypi/v/connector-py.svg)](https://pypi.org/project/connector-py)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/connector-py.svg)](https://pypi.org/project/connector-py)
+
+-----
+
+## Table of Contents
+
+- [Lumos Connector SDK](#lumos-connector-sdk)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Print the spec](#print-the-spec)
+  - [Create a new connector](#create-a-new-connector)
+    - [Learning the connector's capabilities](#learning-the-connectors-capabilities)
+    - [Connector implementation](#connector-implementation)
+    - [Running unit tests](#running-unit-tests)
+    - [Typechecking with MyPy](#typechecking-with-mypy)
+    - [Error Handling](#error-handling)
+      - [Raising an exception](#raising-an-exception)
+      - [Response](#response)
+    - [OAuth Module](#oauth-module)
+      - [OAuth Flow Types](#oauth-flow-types)
+  - [Connector Configuration](#connector-configuration)
+    - [Where should I set my connector's configuration?](#where-should-i-set-my-connectors-configuration)
+    - [The connection sequence for Lumos](#the-connection-sequence-for-lumos)
+  - [Deploying a connector](#deploying-a-connector)
+    - [Deployment models](#deployment-models)
+  - [Tips](#tips)
+    - [The library I want to use is synchronous only](#the-library-i-want-to-use-is-synchronous-only)
+  - [License](#license)
+
+## Installation
+
+```console
+pip install "connector-py[dev]"
+```
+
+## Usage
+
+This package has...
+
+1. A CLI to create a custom connector with its own CLI to call commands
+2. A library to assist building custom connectors in Python
+
+To get started with the CLI, run `connector --help`
+
+### Print the spec
+
+This SDK has an OpenAPI spec that you can render and view with the [Swagger editor](https://editor.swagger.io/).
+
+```console
+connector spec
+```
+
+## Create a new connector
+
+From your shell, run
+
+```shell
+# Create a connector
+# CLI     cmd      name           folder
+connector scaffold demo-connector demo_connector
+
+# Install its dependencies in a virtual env
+cd demo_connector
+python -m venv .venv
+. .venv/bin/activate
+pip install ".[all]"
+
+# Lint and run tests
+mypy .
+pytest
+
+# Run the info capability (note the hyphens, instead of underscores)
+demo-connector info
+```
+
+### Learning the connector's capabilities
+
+Custom and on-premise Lumos connectors are called via the CLI; they're passed JSON and should print the response JSON to stdout.
+
+Run the `info` capability to learn what other capabilities the connector supports, what resource and entitlement types, its name, etc.
+
+Look at the info, using `jq` to pretty-print the response:
+
+```shell
+demo-connector info | jq .response
+# or just the capabilities
+demo-connector info | jq .response.capabilities
+```
+
+To call most capabilities, you run a command where you pass the request (JSON) as a string.
+
+```console
+<CONNECTOR COMMAND> <CAPABILITY NAME> --json '<A STRINGIFIED JSON OBJECT>'
+```
+
+The most important capability to implement is `validate_credentials`. Lumos uses this capability to ensure a user-established connection works, and has resulted in authentication credentials your connector can use to perform other actions.
+
+```py
+test-connector validate_credentials --json '{
+    "auth": {
+        "oauth": {
+            "access_token":"this will not work"
+        }
+    },
+    "request": {},
+    "settings": {
+        "account_id":"foo"
+    }
+}'
+```
+
+**This is expected to 💥 fail with a brand-new connector**. You'll need to figure out how to [configure the authentication](#connector-configuration) to the underlying app server, and how to surface that as user (auth) configuration.
+
+To learn more about all the capabilities, check out the OpenAPI spec in a Swagger editor.
+
+To see a working capability, you can use the Lumos mock connector's `validate_credentials` call, using `jq` to pretty print the JSON:
+
+```console
+mock-connector validate_credentials --json '{"auth":{"basic":{"username":"foo","password":"bar"}},"request":{},"settings":{"host":"google.com"}}' | jq .
+```
+
+```json
+{
+  "response": {
+    "valid": true,
+    "unique_tenant_id": "mock-connector-tenant-id"
+  },
+  "page": null
+}
+```
+
+### Connector implementation
+
+Connectors can implement whichever Lumos capabilities make sense for the underlying app.
+
+To see what a minimal implementation looks like, you can inspect a newly scaffolded connector, and look at the integration declaration, and the _uncommented out_ capability registrations.
+
+The integration declaration looks something like this:
+
+```python
+integration = Integration(
+    app_id="my_app",
+    version=__version__,
+    auth=BasicCredential,
+    settings_model=MyAppSettings,
+    exception_handlers=[
+        (httpx.HTTPStatusError, HTTPHandler, None),
+    ],
+    description_data=DescriptionData(
+        logo_url="https://logos.app.lumos.com/foobar.com",
+        user_friendly_name="Foo Bar",
+        description="Foobar is a cloud-based platform that lets you manage foos and bars",
+        categories=[AppCategory.DEVELOPERS, AppCategory.COLLABORATION],
+    ),
+    resource_types=resource_types,
+    entitlement_types=entitlement_types,
+)
+```
+
+And capability registration looks something like this:
+
+```py
+integration.register_capabilities(
+    {
+        StandardCapabilityName.VALIDATE_CREDENTIALS: capabilities_read.validate_credentials,
+        # StandardCapabilityName.LIST_ACCOUNTS: capabilities_read.list_accounts,
+        # StandardCapabilityName.ASSIGN_ENTITLEMENT: capabilities_write.assign_entitlement,
+    }
+)
+integration.register_custom_capabilities(
+    {
+        "my_custom_capability": (
+            capabilities_write.my_custom_capability, # must exist
+            CapabilityMetadata(
+                display_name="My Custom Capability",
+                description="Executes my custom capability",
+            ),
+        ),
+    }
+)
+```
+
+### Running unit tests
+
+Scaffolded connectors come with a bunch of unit test examples - they're all skipped by default, but you can remove the skip marker to use the existing test.
+
+To run unit tests:
+
+```console
+pytest .
+```
+
+To understand the test structure:
+
+```text
+demo_connector/
+    demo_connector/
+    tests/
+        test_read_capabilities/
+            test_list_accounts_cases.py
+            ...
+        test_write_capabilities/
+            ...
+        test_all_capabilities.py
+        common_mock_data.py
+```
+
+- `test_all_capabilities.py` is the main Pytest test file. It uses `gather_cases` to discover all capability test cases automatically.
+- `test_read_capabilities/test_list_accounts_cases.py` contains case functions for `list_accounts`.
+- `common_mock_data.py` holds shared mock data (e.g., `DATETIME_NOW`) used across test cases.
+
+### Typechecking with MyPy
+
+The generated Python code is typed, and can be typechecked with MyPy (installed as a dev dependency).
+
+```console
+mypy .
+```
+
+### Error Handling
+
+Error handling is facilitated through an exception handler decorator.
+
+An exception handler can be attached to the connector library as follows:
+
+```python
+from httpx import HTTPStatusError
+from connector.oai.errors import HTTPHandler
+
+integration = Integration(
+    ...,
+    exception_handlers=[
+        (HTTPStatusError, HTTPHandler, None),
+    ],
+    handle_errors=True,
+)
+```
+
+The decorator accepts a list of tuples of three.
+
+1. the exception type you would like to catch
+2. the handler (default or implemented on your own)
+3. a specific error code that you would like to associate with this handler.
+
+By default it is recommended to make use of the default `HTTPHandler` which maps HTTP status codes to structured error codes. For more complex errors it is recommended to subclass `ExceptionHandler` and craft your own handler.
+
+The `HTTPHandler` maps HTTP status codes as follows:
+
+| Status code(s)           | `ConnectorErrorCode`   |
+|--------------------------|------------------------|
+| 400, 413, 415, 422       | `BAD_REQUEST`          |
+| 401                      | `UNAUTHORIZED`         |
+| 403                      | `PERMISSION_DENIED`    |
+| 404                      | `NOT_FOUND`            |
+| 405, 406, 501            | `UNSUPPORTED_OPERATION`|
+| 408                      | `REQUEST_TIMEOUT`      |
+| 409                      | `CONFLICT`             |
+| 429                      | `RATE_LIMIT`           |
+| 500, 502, 504            | `BAD_GATEWAY`          |
+| 503                      | `SERVICE_ERROR`        |
+| _(anything else)_        | `INVALID_RESPONSE`     |
+
+#### Raising an exception
+
+Prefer raising a typed exception subclass rather than the generic `ConnectorError`. Each subclass carries a pre-configured error code, fault classification, and retry/refresh semantics.
+
+```python
+from connector.oai.errors import NotFoundError, RateLimitError, MissingParameterError
+
+# Resource does not exist in the upstream app
+raise NotFoundError(message="User 'john@example.com' was not found.")
+
+# Upstream throttled the request
+raise RateLimitError()  # uses default message
+
+# Required tenant setting is absent
+raise MissingParameterError(message="Base URL is not configured.")
+```
+
+All constructor arguments are optional — omitting them falls back to the class-level defaults:
+
+```python
+raise NotFoundError()  # message="The requested resource was not found."
+raise RateLimitError(message="Slack throttled the request", throttled=True)
+raise NotFoundError(app_error_code="myapp.user_not_found", hint="Check the user exists in the admin panel.")
+```
+
+##### Exception class hierarchy
+
+```
+ConnectorError                          (base — use only when no subclass fits)
+├── AuthenticationError                 → UNAUTHORIZED         (fault: UPSTREAM / AUTHENTICATION)
+│   ├── AuthenticationExpiredError      → AUTHENTICATION_EXPIRED
+│   └── CredentialsRevokedError         → CREDS_REVOKED
+├── AuthorizationError                  → PERMISSION_DENIED    (fault: UPSTREAM / AUTHORIZATION)
+├── TransientError                      → SERVICE_ERROR        (fault: UPSTREAM / TRANSIENT — retryable)
+│   ├── RateLimitError                  → RATE_LIMIT
+│   ├── UpstreamError                   → BAD_GATEWAY
+│   └── NetworkError                    → CONNECTION_TIMEOUT
+│       ├── ConnectionRejectedError     → CONNECTION_REJECTED
+│       ├── ConnectionClosedError       → CONNECTION_CLOSED
+│       └── RequestTimeoutError         → REQUEST_TIMEOUT
+├── ClientError                         → BAD_REQUEST          (fault: CALLER / CLIENT — permanent)
+│   ├── NotFoundError                   → NOT_FOUND
+│   ├── InvalidValueError               → INVALID_VALUE
+│   │   └── InvalidConfigurationError   → INVALID_VALUE        (settings value present but wrong)
+│   ├── UnknownValueError               → UNKNOWN_VALUE
+│   ├── InvalidPageTokenError           → INVALID_PAGE_TOKEN
+│   ├── MissingParameterError           → INTEGRATION_MISSING_PARAMETER
+│   └── ConflictError                   → CONFLICT
+└── InternalError                       → INTERNAL_ERROR       (fault: CONNECTOR / INTERNAL)
+    ├── InvalidResponseError            → INVALID_RESPONSE     (upstream returned unexpected data)
+    └── UnsupportedOperationError       → UNSUPPORTED_OPERATION
+```
+
+#### Response
+
+An example response including the auto-populated `error_metadata`:
+
+```json
+{
+  "error": {
+    "message": "User 'john@example.com' was not found.",
+    "status_code": 404,
+    "error_code": "not_found",
+    "raised_by": "NotFoundError",
+    "raised_in": "github.capabilities_read:list_accounts",
+    "error_metadata": {
+      "fault": "CALLER",
+      "category": "CLIENT",
+      "retryable": false,
+      "throttled": false,
+      "refreshable": false
+    }
+  },
+  "response": null,
+  "raw_data": null
+}
+```
+
+The `error_metadata` block is always populated automatically from the exception class — you do not need to set it manually.
+
+#### ConnectorErrorCode — codes, faults, and categories
+
+`ConnectorErrorCode` is the canonical enum for structured error codes. Each code carries fixed fault and category classifications that drive retry, refresh, and routing logic in the Lumos platform. **You should not use a raw `ConnectorErrorCode` directly when raising exceptions** — use the typed exception subclass instead. The subclass maps to the right code, and the code maps to the right `fault`/`category`/`retryable` values automatically.
+
+The full table of codes and their classifications:
+
+| `ConnectorErrorCode`            | Fault            | Category         | retryable | throttled | refreshable |
+|---------------------------------|------------------|------------------|-----------|-----------|-------------|
+| `BAD_REQUEST`                   | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `INVALID_VALUE`                 | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `UNKNOWN_VALUE`                 | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `NOT_FOUND`                     | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `CONFLICT`                      | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `INVALID_PAGE_TOKEN`            | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `INTEGRATION_MISSING_PARAMETER` | `CALLER`         | `CLIENT`         | false     | false     | false       |
+| `UNAUTHORIZED`                  | `UPSTREAM`       | `AUTHENTICATION` | false     | false     | **true**    |
+| `AUTHENTICATION_EXPIRED`        | `UPSTREAM`       | `AUTHENTICATION` | false     | false     | **true**    |
+| `CREDS_REVOKED`                 | `UPSTREAM`       | `AUTHENTICATION` | false     | false     | **true**    |
+| `PERMISSION_DENIED`             | `UPSTREAM`       | `AUTHORIZATION`  | false     | false     | false       |
+| `RATE_LIMIT`                    | `UPSTREAM`       | `TRANSIENT`      | **true**  | **true**  | false       |
+| `BAD_GATEWAY`                   | `UPSTREAM`       | `TRANSIENT`      | **true**  | false     | false       |
+| `SERVICE_ERROR`                 | `UPSTREAM`       | `TRANSIENT`      | **true**  | false     | false       |
+| `CONNECTION_TIMEOUT`            | `INFRASTRUCTURE` | `TRANSIENT`      | **true**  | false     | false       |
+| `REQUEST_TIMEOUT`               | `INFRASTRUCTURE` | `TRANSIENT`      | **true**  | false     | false       |
+| `CONNECTION_REJECTED`           | `INFRASTRUCTURE` | `TRANSIENT`      | **true**  | false     | false       |
+| `CONNECTION_CLOSED`             | `INFRASTRUCTURE` | `TRANSIENT`      | **true**  | false     | false       |
+| `UNSUPPORTED_OPERATION`         | `CONNECTOR`      | `INTERNAL`       | false     | false     | false       |
+| `INTERNAL_ERROR`                | `CONNECTOR`      | `INTERNAL`       | **true**  | false     | false       |
+| `INVALID_RESPONSE`              | `CONNECTOR`      | `INTERNAL`       | false     | false     | false       |
+
+**Fault** describes who is responsible:
+- `CALLER` — Lumos sent a bad request; the connector should not retry.
+- `UPSTREAM` — the third-party API rejected or rate-limited the request.
+- `INFRASTRUCTURE` — the network prevented the request from completing.
+- `CONNECTOR` — a bug or misconfiguration inside the connector itself.
+
+**Category** is a coarser grouping used for routing and alerting (`CLIENT`, `AUTHENTICATION`, `AUTHORIZATION`, `TRANSIENT`, `INTERNAL`).
+
+If you need to override the default behavioral flags for a specific raise site (e.g., a connector-specific 403 that is actually retryable), pass the flag directly:
+
+```python
+raise AuthorizationError(message="Access revoked mid-session", retryable=True)
+raise NotFoundError(message="Group not found", hint="Check the group exists and the token has directory:read scope.")
+```
+
+### OAuth Module
+
+The OAuth module is responsible for handling the OAuth2.0 flow for a connector.
+It is configured with `oauth_settings` in the `Integration` class.
+Not configuring this object will disable the OAuth module completely.
+
+```python
+from connector.oai.modules.oauth_module_types import (
+    OAuthSettings,
+    OAuthCapabilities,
+    OAuthRequest,
+    RequestDataType,
+)
+
+integration = Integration(
+    ...,
+    oauth_settings=OAuthSettings(
+        # Authorization & Token URLs for the particular connector
+        authorization_url="https://app.connector.com/oauth/authorize",
+        token_url="https://api.connector.com/oauth/v1/token",
+
+        # Scopes per capability (space delimited string)
+        scopes={
+            StandardCapabilityName.VALIDATE_CREDENTIALS: "test:scope another:scope",
+            ... # further capabilities as implemented in the connector
+        },
+
+        # You can modify the request type if the default is not appropriate
+        # common options for method are "POST" and "GET"
+        # available options for data are "FORMDATA", "QUERY", and "JSON" (form-data / url query params / json body)
+        # *default is POST and FORMDATA*
+        request_type=OAuthRequest(data=RequestDataType.FORMDATA),
+
+        # You can modify the authentication method if the default is not appropriate
+        # available options for auth_method are "CLIENT_SECRET_POST" and "CLIENT_SECRET_BASIC"
+        # *default is CLIENT_SECRET_POST*
+        client_auth=ClientAuthenticationMethod.CLIENT_SECRET_POST,
+
+        # You can turn off specific or all capabilities for the OAuth module
+        # This means that these will either be skipped or you have to implement them manually
+        capabilities=OAuthCapabilities(
+            refresh_access_token=False,
+        ),
+
+        # You can specify the type of OAuth flow to use
+        # Available options are "CODE_FLOW" and "CLIENT_CREDENTIALS"
+        # *default is CODE_FLOW*
+        flow_type=OAuthFlowType.CODE_FLOW,
+
+        # You can enable PKCE (Proof Key for Code Exchange)
+        # *default is False*
+        # S256 is the default hashing algorithm, and the only supported at the moment
+        pkce=True,
+    ),
+)
+```
+
+It might happen that your integration requires a dynamic authorization/token URL.
+For example when the service provider has specific URLs and uses the customers custom subdomain. (eg. `https://{subdomain}.service.com/oauth/authorize`)
+In that case you can pass a callable that takes the request args (`AuthRequest`, without the auth parameter) as an argument (only available during request).
+
+```python
+# method definitions
+def get_authorization_url(args: AuthRequest) -> str:
+    settings = get_settings(args, ConnectorSettings)
+    return f"https://{settings.subdomain}.service.com/oauth/authorize"
+
+def get_token_url(args: AuthRequest) -> str:
+    settings = get_settings(args, ConnectorSettings)
+    return f"https://{settings.subdomain}.service.com/oauth/token"
+
+# oauth settings
+integration = Integration(
+    ...,
+    oauth_settings=OAuthSettings(
+        authorization_url=get_authorization_url,
+        token_url=get_token_url,
+    ),
+)
+```
+
+#### OAuth Flow Types
+
+The OAuth module supports two flow types:
+
+- `CODE_FLOW`: The authorization code flow (default)
+- `CLIENT_CREDENTIALS`: The client credentials flow (sometimes called "2-legged OAuth" or "Machine-to-Machine OAuth")
+
+The flow type can be specified in the `OAuthSettings` object.
+
+Using the authorization code flow you have three available capabilities:
+
+- `GET_AUTHORIZATION_URL`: To get the authorization URL
+- `HANDLE_AUTHORIZATION_CALLBACK`: To handle the authorization callback
+- `REFRESH_ACCESS_TOKEN`: To refresh the access token
+
+Using the client credentials flow you have two available capabilities:
+
+- `HANDLE_CLIENT_CREDENTIALS_REQUEST`: To handle the client credentials request, uses the token URL
+- `REFRESH_ACCESS_TOKEN`: To refresh the access token
+
+These are registered by default via the module and can be overriden by the connector.
+
+If you run:
+
+```sh
+connector info
+```
+
+You will see that the OAuth capabilities are included in the available connector capabilities.
+
+## Connector Configuration
+
+A connector is used to connect to multiple tenants of the same app. Each tenant has a connection in Lumos, and the unique tenant ID is used to distinguish the different connections.
+
+Each connection has its own...
+
+- ...auth object that fits the connector's auth model.
+- ...settings object that fits the connector's settings model.
+- ...set of data (accounts, resources, entitlements) that Lumos reads and stores.
+
+![How a connector is used](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-tenant-data-model.png)
+
+A connector can be used for multiple underlying instances of the same app. For instance, you might use a `github` connector to establish connections with different Github Organizations. The nature of "what is a tenant" is dependent on the underlying app.
+
+A scaffolded connector has OAuth authentication, and a Settings type with `account_id`. You don't have to keep these - you can change the authentication model and the Settings type to whatever is appropriate for the underlying app (settings may be empty).
+
+### Where should I set my connector's configuration?
+
+A quick rule is sensitive data that would allow an attacker the ability to access the underlying app, goes into the `auth` payload. Anything else that's not sensitive, not absolutely required to connect to a tenant, or can have a sane default, is `settings`.
+
+### The connection sequence for Lumos
+
+1. Lumos sees a new connector, and queries its settings and auth models via the `info` command.
+2. Lumos uses these parts of the `info` response to render a connection form for the user.
+    - the settings (JSON schema + included documentation)
+    - auth models (string matching to the auth model)
+    - app logo, description, tags, etc.
+3. The user enters all the relevant data/auth materials to connect to an app, and/or does an OAuth consent flow to the underlying app.
+4. Lumos validates the credentials and settings via the `validate_credentials` capability.
+
+![The process of connecting a new connector](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-setup.png)
+
+At this point, the connection is considered established, and Lumos will attempt to read all data from the connector, allow user provisioning and deprovisioning, etc.
+
+## Deploying a connector
+
+Quick steps:
+
+1. Package up the connector you've built into an archive with a native executable. We use [`pyinstaller`](https://pyinstaller.org/en/stable/) for our Python connectors.
+
+    ```shell
+    # SDK     command         ...required args
+    connector compile-on-prem --connector-root-module-dir ./demo_connector/demo_connector --app-id demo
+    ```
+
+2. Run the [Lumos on-premise agent](https://developers.lumos.com/reference/on-premise-agent).
+3. On the same machine as (3), deploy the packaged-up connector from (1) in the same folder.
+4. The integration should show up in the Lumos AdminView > Integrations screen.
+
+### Deployment models
+
+Lumos calls a connector's APIs with auth and settings data to read all the accounts, entitlements, resources, and associations in the connected app.
+
+There are two ways this happens, depending on who's hosting the connector.
+
+If Lumos is hosting it, we call it directly in our backend.
+
+![Lumos hosts and calls our own connectors](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-hosting-lumos.png)
+
+If it's a custom connector, it runs as an on-premise connector on a customer's computer, and is called by the [Lumos on-prem agent](https://developers.lumos.com/reference/on-premise-agent).
+
+![Lumos hosts and calls our own connectors](https://lumos-static.s3.us-west-2.amazonaws.com/prod/public/sdk-documentation/connector-hosting-onprem.png)
+
+## Tips
+
+### The library I want to use is synchronous only
+
+You can use a package called `asgiref`. This package converts I/O bound synchronous
+calls into asyncio non-blocking calls. First, add asgiref to your dependencies list
+in `pyproject.toml`. Then, in your async code, use `asgiref.sync_to_async` to convert
+synchronous calls to asynchronous calls.
+
+```python
+from asgiref.sync import sync_to_async
+import requests
+
+async def async_get_data():
+    response = await sync_to_async(requests.get)("url")
+```
+
+## License
+
+`connector` is distributed under the terms of the [Apache 2.0](./LICENSE.txt) license.

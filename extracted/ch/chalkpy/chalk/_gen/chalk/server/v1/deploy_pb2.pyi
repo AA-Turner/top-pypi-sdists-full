@@ -39,21 +39,24 @@ class DeployBranchRequest(_message.Message):
     ) -> None: ...
 
 class DeployBranchResponse(_message.Message):
-    __slots__ = ("deployment_id", "graph", "deployment_errors", "export")
+    __slots__ = ("deployment_id", "graph", "deployment_errors", "export", "deployment_warnings")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     GRAPH_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ERRORS_FIELD_NUMBER: _ClassVar[int]
     EXPORT_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_WARNINGS_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     graph: _graph_pb2.Graph
     deployment_errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
     export: _export_pb2.Export
+    deployment_warnings: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         deployment_id: _Optional[str] = ...,
         graph: _Optional[_Union[_graph_pb2.Graph, _Mapping]] = ...,
         deployment_errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
         export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
+        deployment_warnings: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class CreateBranchFromSourceDeploymentRequest(_message.Message):

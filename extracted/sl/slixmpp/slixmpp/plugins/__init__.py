@@ -130,6 +130,7 @@ PLUGINS = [
     'xep_0494',  # Client Access Management
     'xep_0502',  # MUC Activity Indicator
     'xep_0511',  # Link Metadata
+    'xep_0513',  # Explicit Mentions
     # Meant to be imported by plugins
 ]
 

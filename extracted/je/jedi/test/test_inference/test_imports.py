@@ -30,13 +30,13 @@ def test_find_module_basic():
 
 def test_find_module_package():
     file_io, is_package = _find_module('json')
-    assert file_io.path.parts[-2:] == ('json', '__init__.py')
+    assert file_io.path.parts[-2:] == ('json', '__init__.py')  # type: ignore[union-attr]
     assert is_package is True
 
 
 def test_find_module_not_package():
     file_io, is_package = _find_module('io')
-    assert file_io.path.name == 'io.py'
+    assert file_io.path.name == 'io.py'  # type: ignore[union-attr]
     assert is_package is False
 
 
@@ -318,9 +318,14 @@ def test_duplicated_import(Script):
     s = 'from os import path, p'
     assert 'path' not in import_names(s)
     assert 'path' in import_names(s, column=len(s) - 3)
+    assert 'path' in import_names("from os import path")
+    assert 'path' in import_names("from os import chdir, path")
 
-    s = 'import path as pp, p'
-    assert 'path' not in import_names(s)
+    s = 'import math as mm, m'
+    assert 'math' not in import_names(s)
+
+    s = 'import math as os, o'
+    assert 'os' in import_names(s)
 
     s = 'from os import path as pp, p'
     assert 'path' not in import_names(s)

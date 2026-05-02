@@ -1,12 +1,12 @@
 import asyncio
 
-from throttled.asyncio import RateLimiterType, Throttled, rate_limiter, utils
+from throttled.asyncio import RateLimiterType, Throttled, utils
 
 throttle = Throttled(
     # 📈 Use Token Bucket algorithm
     using=RateLimiterType.TOKEN_BUCKET.value,
     # 🪣 Set quota: 1,000 tokens per second (limit), bucket size 1,000 (burst)
-    quota=rate_limiter.per_sec(1_000, burst=1_000),
+    quota="1000/s burst 1000",
     # 📁 By default, global MemoryStore is used as the storage backend.
 )
 
@@ -17,7 +17,7 @@ async def call_api() -> bool:
     return result.limited
 
 
-async def main():
+async def main() -> None:
     benchmark: utils.Benchmark = utils.Benchmark()
     denied_num: int = sum(await benchmark.async_serial(call_api, 100_000))
     print(f"❌ Denied: {denied_num} requests")

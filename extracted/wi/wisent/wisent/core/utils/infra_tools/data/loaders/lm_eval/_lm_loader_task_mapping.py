@@ -335,7 +335,8 @@ GROUP_TASK_EXPANSIONS = {
     "tinytruthfulqa": ["tinyTruthfulQA"],
     "tinywinogrande": ["tinyWinogrande"],
     # wmt* tasks
-    "wmt14": ["wmt14-en-fr", "wmt14-fr-en"],    "wmt14_en_fr": ["wmt14-en-fr"],
+    "wmt14": ["wmt14-en-fr", "wmt14-fr-en"],
+    "wmt14_en_fr": ["wmt14-en-fr"],
     "wmt14_fr_en": ["wmt14-fr-en"],
     "wmt16": ["wmt16-de-en", "wmt16-en-de", "wmt16-en-ro", "wmt16-ro-en"],
     "wmt16_de_en": ["wmt16-de-en"],

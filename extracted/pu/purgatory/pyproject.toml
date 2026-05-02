@@ -1,0 +1,104 @@
+[project]
+authors = [
+    { name = "Guillaume Gauvrit", email = "guillaume@gauvr.it" },
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Monitoring",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: System :: Networking",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Typing :: Typed",
+    "Development Status :: 5 - Production/Stable",
+]
+description = "A circuit breaker implementation for asyncio"
+name = "purgatory"
+readme = "README.rst"
+requires-python = ">=3.9"
+version = "3.0.1"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/mardiros/purgatory"
+Documentation = "https://mardiros.github.io/purgatory"
+Repository = "https://github.com/mardiros/purgatory.git"
+Issues = "https://github.com/mardiros/purgatory/issues"
+Changelog = "https://mardiros.github.io/purgatory/user/changelog.html"
+
+[project.optional-dependencies]
+redis = [
+    "redis >=5.2.0,<6",
+]
+
+[tool.pdm.build]
+includes = [
+    "src",
+    "CHANGELOG.rst",
+]
+excludes = [
+    "tests",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "I",
+    "F",
+    "UP",
+    "RUF",
+]
+ignore = [
+    "UP007",
+]
+
+[tool.pyright]
+include = [
+    "src",
+]
+typeCheckingMode = "strict"
+
+[tool.mypy]
+overrides = [
+    { module = "purgatory.*", disallow_untyped_defs = true, disallow_any_generics = true },
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "except ImportError",
+    "# coverage: ignore",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.4.1,<2",
+    "pytest>=8.3.3,<9",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0,<7",
+    "redis>=5.2.0,<6",
+    "types-redis>=4.6.0,<6",
+    "unasync>=0.6.0,<7",
+]
+doc = [
+    "esbonio>=0.16.1",
+    "sphinx>=7.0.0",
+    "sphinx-autodoc-typehints>=1.12.0,<2",
+    "furo>=2024.8.6",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

@@ -114,7 +114,7 @@ async def install_production_agent(
             ssh_key,
             hostname,
             "cat /opt/plato-agent-version 2>/dev/null || true",
-            timeout=5,
+            timeout=30,
         )
         if check_rc == 0 and check_out.strip() == expected:
             logger.info("Agent package %s already pre-baked on %s, skipping install", expected, hostname)

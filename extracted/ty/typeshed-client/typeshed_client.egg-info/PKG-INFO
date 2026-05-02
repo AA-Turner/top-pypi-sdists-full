@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typeshed_client
-Version: 2.10.0
+Version: 2.11.0
 Summary: A library for accessing stubs in typeshed.
 Home-page: https://github.com/JelleZijlstra/typeshed_client
 Author: Jelle Zijlstra
@@ -143,6 +143,10 @@ call ``resolver.get_fully_qualified_name('collections.Set')`` to retrieve the
 
 Changelog
 ---------
+
+Version 2.11.0 (May 1, 2026)
+
+- Update bundled typeshed
 
 Version 2.10.0 (April 17, 2026)
 

@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: springboardvr
+Version: 0.1.0
+Summary: Python library for interacting with Springboard VR API
+License: MIT
+Project-URL: Repository, https://github.com/nilaster/SpringboardVR-Python.git
+Keywords: springboardvr,api,vr
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+License-File: LICENSE
+Requires-Dist: httpx

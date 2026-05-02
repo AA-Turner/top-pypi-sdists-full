@@ -1,0 +1,1 @@
+from .sudoku_rust import __version__, check, solve

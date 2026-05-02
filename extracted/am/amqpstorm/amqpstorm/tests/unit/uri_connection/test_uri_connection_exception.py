@@ -6,16 +6,10 @@ from amqpstorm import AMQPConnectionError
 from amqpstorm import UriConnection
 from amqpstorm import compatibility
 from amqpstorm.tests.utility import TestFramework
-from amqpstorm.tests.utility import unittest
 
 
 class UriConnectionExceptionTests(TestFramework):
-    @unittest.skipIf(sys.version_info < (3, 3), 'Python 3.x test')
     def test_uri_py3_raises_on_invalid_uri(self):
-        self.assertRaises(ValueError, UriConnection, 'amqp://a:b', {}, True)
-
-    @unittest.skipIf(sys.version_info[0] == 3, 'Python 2.x test')
-    def test_uri_py2_raises_on_invalid_uri(self):
         self.assertRaises(ValueError, UriConnection, 'amqp://a:b', {}, True)
 
     def test_uri_raises_on_invalid_object(self):
@@ -37,17 +31,6 @@ class UriConnectionExceptionTests(TestFramework):
         self.assertIn("invalid option: unit_test",
                       self.get_last_log())
 
-    def test_uri_get_invalid_ssl_version(self):
-        connection = UriConnection(
-            'amqps://guest:guest@localhost:5672/%2F', lazy=True
-        )
-
-        self.assertEqual(connection._get_ssl_version('protocol_test'),
-                         ssl.PROTOCOL_TLSv1)
-        self.assertIn("ssl_options: ssl_version 'protocol_test' not found "
-                      "falling back to PROTOCOL_TLSv1.",
-                      self.get_last_log())
-
     def test_uri_get_invalid_ssl_validation(self):
         connection = UriConnection(
             'amqps://guest:guest@localhost:5672/%2F', lazy=True
@@ -59,7 +42,6 @@ class UriConnectionExceptionTests(TestFramework):
                       "falling back to CERT_NONE.",
                       self.get_last_log())
 
-    @unittest.skipIf(sys.version_info < (3, 3), 'Python 3.x test')
     def test_uri_ssl_not_supported(self):
         restore_func = sys.modules['ssl']
         try:

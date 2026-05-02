@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: rasterix
+Version: 0.2.1
+Summary: Raster extensions for Xarray
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: xarray
+Classifier: Development Status :: 4 - Beta
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Requires-Dist: affine
+Requires-Dist: numpy>=2
+Requires-Dist: pandas>=2
+Requires-Dist: xarray>=2025
+Requires-Dist: xproj>=0.2.0
+Provides-Extra: dask
+Requires-Dist: dask-geopandas; extra == 'dask'
+Provides-Extra: docs
+Requires-Dist: dask-geopandas; extra == 'docs'
+Requires-Dist: exactextract; extra == 'docs'
+Requires-Dist: furo; extra == 'docs'
+Requires-Dist: geodatasets; extra == 'docs'
+Requires-Dist: myst-nb; extra == 'docs'
+Requires-Dist: myst-parser; extra == 'docs'
+Requires-Dist: netcdf4; extra == 'docs'
+Requires-Dist: numpydoc; extra == 'docs'
+Requires-Dist: pooch; extra == 'docs'
+Requires-Dist: rasterio; extra == 'docs'
+Requires-Dist: rioxarray; extra == 'docs'
+Requires-Dist: rusterize>=0.7.1; extra == 'docs'
+Requires-Dist: sparse; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-autoapi; extra == 'docs'
+Requires-Dist: sphinx-autobuild>=2021.3.14; extra == 'docs'
+Requires-Dist: sphinx-codeautolink; extra == 'docs'
+Requires-Dist: sphinx-copybutton; extra == 'docs'
+Requires-Dist: sphinx-remove-toctrees; extra == 'docs'
+Requires-Dist: sphinxext-opengraph[social-cards]; extra == 'docs'
+Requires-Dist: xvec; extra == 'docs'
+Provides-Extra: exactextract
+Requires-Dist: exactextract; extra == 'exactextract'
+Requires-Dist: sparse; extra == 'exactextract'
+Provides-Extra: rasterize
+Requires-Dist: rasterio; extra == 'rasterize'
+Provides-Extra: rusterize
+Requires-Dist: rusterize>=0.7.1; extra == 'rusterize'
+Description-Content-Type: text/markdown
+
+# rasterix: Raster tricks for Xarray
+
+[![GitHub Workflow CI Status](https://img.shields.io/github/actions/workflow/status/xarray-contrib/rasterix/test.yml?branch=main&logo=github&style=flat)](https://github.com/xarray-contrib/rasterix/actions)
+[![Documentation Status](https://readthedocs.org/projects/rasterix/badge/?version=latest)](https://rasterix.readthedocs.io/en/latest/?badge=latest)
+[![PyPI](https://img.shields.io/pypi/v/rasterix.svg?style=flat)](https://pypi.org/project/rasterix/)
+[![Conda-forge](https://img.shields.io/conda/vn/conda-forge/rasterix.svg?style=flat)](https://anaconda.org/conda-forge/rasterix)
+
+<img src="_static/rasterix.png" width="300">
+
+This project contains tools to make it easier to analyze raster data with Xarray.
+It currently has two pieces.
+
+1. `RasterIndex` for indexing using the affine transform recorded in GeoTIFFs.
+1. Dask-aware rasterization wrappers around `exactextract`, `rasterio.features.rasterize`, and `rasterio.features.geometry_mask`.
+
+Our intent is to provide reusable building blocks for the many sub-ecosystems around: e.g. `rioxarray`, `odc.geo`, etc.
+
+## Installing
+
+`rasterix` releases are available on pypi
+
+```
+pip install rasterix
+```

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-celery
-Version: 3.18.0
+Version: 3.19.0
 Summary: Provider package apache-airflow-providers-celery for Apache Airflow
 Keywords: airflow-provider,celery,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -29,8 +29,8 @@ Requires-Dist: celery[redis]>=5.5.0,<6
 Requires-Dist: flower>=1.0.0
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.4.0 ; extra == "cncf-kubernetes"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.18.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.18.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.19.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-celery/3.19.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -62,7 +62,7 @@ Provides-Extra: cncf-kubernetes
 
 Package ``apache-airflow-providers-celery``
 
-Release: ``3.18.0``
+Release: ``3.19.0``
 
 
 `Celery <https://docs.celeryq.dev/en/stable/>`__
@@ -75,7 +75,7 @@ This is a provider package for ``celery`` provider. All classes for this provide
 are in ``airflow.providers.celery`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.18.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.19.0/>`_.
 
 Installation
 ------------
@@ -128,5 +128,5 @@ Extra                Dependencies
 ===================  ===================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.18.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-celery/3.19.0/changelog.html>`_.
 

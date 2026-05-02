@@ -1,0 +1,61 @@
+[project]
+name = "ncompress"
+version = "1.0.2"
+description = "LZW compression and decompression"
+readme = "README.md"
+authors = [{name = "Martin Valgur", email = "martin.valgur@gmail.com"}]
+urls."Homepage" = "https://github.com/valgur/ncompress"
+urls."Bug Reports" = "https://github.com/valgur/ncompress/issues"
+urls."Source" = "https://github.com/valgur/ncompress"
+license = {file = "LICENSE"}
+keywords = [
+    "LZW",
+    "compression",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: The Unlicense (Unlicense)",
+]
+requires-python = ">= 3.8"
+dependencies = []
+optional-dependencies.tests = ["pytest"]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[build-system]
+requires = ["scikit-build-core >=0.4.3", "nanobind >=1.3.2"]
+build-backend = "scikit_build_core.build"
+
+# For development, it is more efficient to install the build dependencies
+# in your environment once and use the following command that avoid
+# a costly creation of a new virtual environment at every compilation:
+# =====================================================================
+#  $ pip install nanobind scikit-build-core[pyproject]
+#  $ pip install --no-build-isolation -ve .
+# =====================================================================
+# You may optionally add -Ceditable.rebuild=true to auto-rebuild when
+# the package is imported. Otherwise, you need to re-run the above
+# after editing C++ files.
+
+[tool.scikit-build]
+cmake.minimum-version = "3.18"
+wheel.license-files = ["LICENSE"]
+build-dir = "build/{wheel_tag}"
+# Build stable ABI wheels for CPython 3.12+
+wheel.py-api = "cp312"
+
+[tool.cibuildwheel]
+build = "*"
+# Disable building of PyPy wheels on all platforms
+skip = "pp*"
+test-requires = "pytest"
+test-command = "pytest {project}/test --color=yes -v"
+build-verbosity = 1
+archs = "auto"
+
+# Needed for full C++17 support
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.14"

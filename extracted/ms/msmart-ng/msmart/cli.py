@@ -1,0 +1,445 @@
+import argparse
+import ast
+import asyncio
+import logging
+from typing import NoReturn, Union
+
+from msmart import __version__
+from msmart.base_device import Device
+from msmart.cloud import CloudError, NetHomePlusCloud, SmartHomeCloud
+from msmart.const import DEFAULT_CLOUD_REGION, DeviceType
+from msmart.device import AirConditioner as AC
+from msmart.device import CommercialAirConditioner as CC
+from msmart.discover import Discover
+from msmart.lan import AuthenticationError
+from msmart.utils import MideaIntEnum
+
+_LOGGER = logging.getLogger(__name__)
+
+# Use NetHome Plus cloud as default
+CLOUD_CREDENTIALS = NetHomePlusCloud.CLOUD_CREDENTIALS
+
+DEFAULT_CLOUD_ACCOUNT, DEFAULT_CLOUD_PASSWORD = CLOUD_CREDENTIALS[DEFAULT_CLOUD_REGION]
+
+DEVICE_TYPES = {
+    "AC": DeviceType.AIR_CONDITIONER,
+    "CC": DeviceType.COMMERCIAL_AC,
+}
+
+
+async def _discover(args) -> None:
+    """Discover Midea devices and print configuration information."""
+
+    devices = []
+    if args.host is None:
+        _LOGGER.info("Discovering all devices on local network.")
+        devices = await Discover.discover(region=args.region, account=args.account, password=args.password, discovery_packets=args.count)
+    else:
+        _LOGGER.info("Discovering %s on local network.", args.host)
+        dev = await Discover.discover_single(args.host, region=args.region, account=args.account, password=args.password, discovery_packets=args.count)
+        if dev:
+            devices.append(dev)
+
+    if len(devices) == 0:
+        _LOGGER.error("No devices found.")
+        return
+
+    # Dump only basic device info from the base class
+    _LOGGER.info("Found %d devices.", len(devices))
+    for device in devices:
+
+        if isinstance(device, AC):
+            device = super(AC, device)
+        elif isinstance(device, CC):
+            device = super(CC, device)
+
+        _LOGGER.info("Found device:\n%s", device.to_dict())
+
+
+async def _connect(args) -> Union[AC, CC]:
+    """Connect to a device directly or via discovery."""
+
+    if args.auto and (args.token or args.key or args.device_id or args.device_type):
+        _LOGGER.warning(
+            "--token, --key, --id and --device_type are ignored with --auto option.")
+
+    if args.auto:
+        # Use discovery to automatically connect and authenticate with device
+        _LOGGER.info("Discovering %s on local network.", args.host)
+        device = await Discover.discover_single(args.host, region=args.region, account=args.account, password=args.password)
+
+        if device is None:
+            _LOGGER.error("Device not found.")
+            exit(1)
+    else:
+        device = Device.construct(
+            type=DEVICE_TYPES.get(
+                args.device_type, DeviceType.AIR_CONDITIONER),
+            ip=args.host,
+            port=6444,
+            device_id=args.device_id
+        )
+
+        if args.token and args.key:
+            try:
+                await device.authenticate(args.token, args.key)
+            except AuthenticationError as e:
+                _LOGGER.error("Authentication failed. Error: %s", e)
+                exit(1)
+
+    if not isinstance(device, (AC, CC)):
+        _LOGGER.error("Device is not supported.")
+        exit(1)
+
+    return device
+
+
+async def _query(args) -> None:
+    """Query device state or capabilities."""
+
+    # Connect to the device
+    device = await _connect(args)
+
+    if args.capabilities:
+        _LOGGER.info("Querying device capabilities.")
+        await device.get_capabilities()
+
+        if not device.online:
+            _LOGGER.error("Device is not online.")
+            exit(1)
+
+        if isinstance(args.capabilities, str):
+            # Attempt to load yaml dependency
+            try:
+                import yaml
+            except ModuleNotFoundError:
+                _LOGGER.fatal(
+                    "Dumping capabilities to YAML requires the PyYAML module.")
+                exit(1)
+
+            filename = args.capabilities
+            _LOGGER.info("Writing capabilities to '%s'.", filename)
+
+            caps = device.serialize_capabilities()
+            with open(filename, "w") as f:
+                yaml.safe_dump(caps, f, sort_keys=False)
+
+        else:
+            _LOGGER.info("Device capabilities: %s", device.capabilities_dict())
+
+    # Enable energy requests
+    if args.energy:
+        if hasattr(device, "enable_energy_usage_requests"):
+            device.enable_energy_usage_requests = True
+        else:
+            _LOGGER.error("Device does not support energy data.")
+            exit(1)
+
+    _LOGGER.info("Querying device state.")
+    await device.refresh()
+
+    if not device.online:
+        _LOGGER.error("Device is not online.")
+        exit(1)
+
+    _LOGGER.info("Device state: %s", device)
+
+
+async def _control(args) -> None:
+    """Control device state."""
+
+    KEY_DISPLAY_ON = "display_on"
+
+    # Local function to attempt to parse and covert the value to the supplied type
+    def convert(v, t):
+        try:
+            return t(ast.literal_eval(v))
+        except (ValueError, SyntaxError):
+            _LOGGER.error("Value '%s' is not a valid %s",
+                          v, t.__qualname__)
+            exit(1)
+
+    # Create a dummy device instance for property validation
+    device_type = DEVICE_TYPES.get(
+        args.device_type, DeviceType.AIR_CONDITIONER)
+    dummy_device = Device.construct(
+        type=device_type,
+        ip="0.0.0.0",
+        device_id=0,
+        port=6444
+    )
+    device_class = type(dummy_device)
+
+    # Parse each setting, checking if the property exists and the supplied value is valid
+    new_properties = {}
+    for name, value in (s.split("=") for s in args.settings):
+        # Check if property exists on the device class
+        prop = getattr(device_class, name, None)
+        if prop is None or not isinstance(prop, property):
+            _LOGGER.error(
+                "'%s' is not a valid property for device type %02X.", name, device_type)
+            exit(1)
+
+        # Check if property has a setter, with special handling for the AC display
+        if prop.fset is None and not (device_class == AC and name == KEY_DISPLAY_ON):
+            _LOGGER.error("'%s' property is not writable.", name)
+            exit(1)
+
+        # Get the default value of the property and its type
+        attr_value = getattr(dummy_device, name)
+        attr_type = type(attr_value)
+
+        if isinstance(attr_value, MideaIntEnum):
+            # Attempt to parse input as a number
+            try:
+                value = ast.literal_eval(value)
+            except ValueError:
+                pass
+
+            if isinstance(value, (int, float)):
+                # Try to convert number to enum
+                try:
+                    new_properties[name] = attr_type(value)
+                except ValueError:
+                    # Allow raw integers for FanSpeed if device supports custom fan speeds
+                    if (attr_type == device_class.FanSpeed and
+                            getattr(dummy_device, 'supports_custom_fan_speed', False)):
+                        new_properties[name] = int(value)
+                    else:
+                        _LOGGER.error("Value '%d' is not a valid %s",
+                                      value, attr_type.__qualname__)
+                        exit(1)
+            else:
+                # Try to convert string to enum
+                try:
+                    new_properties[name] = attr_type[value.upper()]
+                except KeyError:
+                    _LOGGER.error("Value '%s' is not a valid %s",
+                                  value, attr_type.__qualname__)
+                    exit(1)
+        elif isinstance(attr_value, bool):
+            new_properties[name] = convert(value.capitalize(), bool)
+        else:
+            new_properties[name] = convert(value, attr_type)
+
+    # Connect to the device
+    device = await _connect(args)
+
+    # Get current state
+    _LOGGER.info("Querying device state.")
+    await device.refresh()
+
+    if not device.online:
+        _LOGGER.error("Device is not online.")
+        exit(1)
+
+    if args.capabilities:
+        _LOGGER.info("Querying device capabilities.")
+        await device.get_capabilities()
+
+    # Handle display which is unique to AC devices
+    if ((display := new_properties.pop(KEY_DISPLAY_ON, None)) is not None
+            and isinstance(device, AC)):
+        if display != device.display_on:
+            _LOGGER.info("Setting '%s' to %s.", KEY_DISPLAY_ON, display)
+            await device.toggle_display()
+
+    # Don't apply if there's not new settings
+    if not new_properties:
+        return
+
+    # Set remaining properties
+    for prop, value in new_properties.items():
+        _LOGGER.info("Setting '%s' to %r.", prop, value)
+        setattr(device, prop, value)
+
+    # Apply to device
+    await device.apply()
+
+
+async def _download(args) -> None:
+    """Download a device's protocol implementation from the cloud."""
+
+    # Use discovery to to find device information
+    _LOGGER.info("Discovering %s on local network.", args.host)
+    device = await Discover.discover_single(args.host, region=args.region, account=args.account, password=args.password, auto_connect=False)
+
+    if device is None:
+        _LOGGER.error("Device not found.")
+        exit(1)
+
+    if isinstance(device, AC):
+        device = super(AC, device)
+    elif isinstance(device, CC):
+        device = super(CC, device)
+
+    _LOGGER.info("Found device:\n%s", device.to_dict())
+
+    if device.sn is None:
+        _LOGGER.error("A device SN is required to download the protocol.")
+        exit(1)
+
+    # Get cloud connection
+    cloud = SmartHomeCloud(
+        args.region,
+        account=args.account,
+        password=args.password
+    )
+    try:
+        await cloud.login()
+    except CloudError as e:
+        _LOGGER.error("Failed to establish cloud connection. Error: %s", e)
+        exit(1)
+
+    _LOGGER.info("Downloading protocol from cloud.")
+    lua_name, lua_file = await cloud.get_protocol_lua(device.type, device.sn)
+
+    _LOGGER.info("Writing protocol to '%s'.", lua_name)
+    with open(lua_name, "w") as f:
+        f.write(lua_file)
+
+    _LOGGER.info("Downloading plugin from cloud.")
+    plugin_name, plugin_file = await cloud.get_plugin(device.type, device.sn)
+
+    _LOGGER.info("Writing plugin to '%s'.", plugin_name)
+    with open(plugin_name, "wb") as f:
+        f.write(plugin_file)
+
+
+def _run(args) -> NoReturn:
+    """Helper method to setup logging, validate args and execute the desired function."""
+
+    # Configure logging
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+        # Keep httpx as info level
+        logging.getLogger("httpx").setLevel(logging.INFO)
+        logging.getLogger("httpcore").setLevel(logging.INFO)
+    else:
+        logging.basicConfig(level=logging.INFO)
+        # Set httpx to warning level
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+    try:
+        asyncio.run(args.func(args))
+    except KeyboardInterrupt:
+        pass
+
+    exit(0)
+
+
+def main() -> NoReturn:
+    """Main entry point for msmart-ng command."""
+
+    # Define the main parser to select subcommands
+    parser = argparse.ArgumentParser(
+        description="Command line utility for msmart-ng."
+    )
+    parser.add_argument("-v", "--version",
+                        action="version", version=f"msmart-ng version: {__version__}")
+    subparsers = parser.add_subparsers(title="Command", dest="command",
+                                       required=True)
+
+    # Define some common arguments
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument("-d", "--debug",
+                               help="Enable debug logging.", action="store_true")
+    common_parser.add_argument("--region",
+                               help="Country/region for built-in cloud credential selection.",
+                               choices=CLOUD_CREDENTIALS.keys(),
+                               default=DEFAULT_CLOUD_REGION)
+    common_parser.add_argument("--account",
+                               help="Manually specify a username for cloud authentication.",
+                               default=None)
+    common_parser.add_argument("--password",
+                               help="Manually specify a password for cloud authentication.",
+                               default=None)
+
+    # Setup discover parser
+    discover_parser = subparsers.add_parser("discover",
+                                            description="Discover device(s) on the local network.",
+                                            parents=[common_parser])
+    discover_parser.add_argument("host",
+                                 help="Hostname or IP address of a single device to discover.",
+                                 nargs="?", default=None)
+    discover_parser.add_argument("--count",
+                                 help="Number of broadcast packets to send.",
+                                 default=3, type=int)
+    discover_parser.set_defaults(func=_discover)
+
+    # Setup query parser
+    query_parser = subparsers.add_parser("query",
+                                         description="Query information from a device on the local network.",
+                                         parents=[common_parser])
+    query_parser.add_argument("host",
+                              help="Hostname or IP address of device.")
+    query_parser.add_argument("--capabilities",
+                              help="Query device capabilities before state. If FILE is provided, write capabilities as YAML to the file.",
+                              metavar="FILE",
+                              nargs="?",
+                              const=True)
+    query_parser.add_argument("--device_type",
+                              help="Type of device.",
+                              choices=DEVICE_TYPES.keys())
+    query_parser.add_argument("--auto",
+                              help="Automatically identify, connect and authenticate with the device.",
+                              action="store_true")
+    query_parser.add_argument("--id",
+                              help="Device ID for V3 devices.",
+                              dest="device_id", type=int, default=0)
+    query_parser.add_argument("--token",
+                              help="Authentication token for V3 devices.",
+                              type=bytes.fromhex)
+    query_parser.add_argument("--key",
+                              help="Authentication key for V3 devices.",
+                              type=bytes.fromhex)
+    query_parser.add_argument("--energy",
+                              help="Request energy information along with state.",
+                              action="store_true")
+    query_parser.set_defaults(func=_query)
+
+    # Setup control parser
+    control_parser = subparsers.add_parser("control",
+                                           description="Control a device on the local network.",
+                                           parents=[common_parser])
+    control_parser.add_argument("host",
+                                help="Hostname or IP address of device.")
+    control_parser.add_argument("--capabilities",
+                                help="Query device capabilities before sending commands.",
+                                action="store_true")
+    control_parser.add_argument("--device_type",
+                                help="Type of device.",
+                                choices=DEVICE_TYPES.keys())
+    control_parser.add_argument("--auto",
+                                help="Automatically identify, connect and authenticate with the device.",
+                                action="store_true")
+    control_parser.add_argument("--id",
+                                help="Device ID for V3 devices.",
+                                dest="device_id", type=int, default=0)
+    control_parser.add_argument("--token",
+                                help="Authentication token for V3 devices.",
+                                type=bytes.fromhex)
+    control_parser.add_argument("--key",
+                                help="Authentication key for V3 devices.",
+                                type=bytes.fromhex)
+    control_parser.add_argument("settings",
+                                nargs="+",
+                                metavar="setting=value",
+                                help="Space separated key-value pairs of settings to control.")
+    control_parser.set_defaults(func=_control)
+
+    # Setup download parser
+    download = subparsers.add_parser("download",
+                                     description="Download a device's plugin and protocol implementation from the cloud.",
+                                     parents=[common_parser])
+    download.add_argument("host",
+                          help="Hostname or IP address of device.")
+    download.set_defaults(func=_download)
+
+    # Run with args
+    _run(parser.parse_args())
+
+
+if __name__ == "__main__":
+    main()

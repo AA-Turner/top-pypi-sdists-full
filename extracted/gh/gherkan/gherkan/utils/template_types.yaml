@@ -1,0 +1,28 @@
+#
+#1:
+#  Type: EQUALITY
+#  Template: "(?P<subject>\\w+)\\s*==\\s*(?P<value>\\w+)"
+#
+#2:
+#  Type: INEQUALITY
+#  Template: "(?P<subject>\\w+)\\s*!=\\s*(?P<value>\\w+)"
+#
+#3:
+#  Type: BOOL
+#  Template: "(\\w+)\\s*(?![=,!\\(\\w]+)"
+#
+#4:
+#  Type: EDGE
+#  Template: "edge\\([\\w ,]+\\)"
+#  Group: ACTION
+#
+#5:
+#  Type: FORCE
+#  Template: "force\\([\\w ,]+\\)"
+#  Group: ACTION
+#
+#6:
+#  Type: UNFORCE
+#  Template: "unforce\\([\\w ,]+\\)"
+#  Group: ACTION
+#

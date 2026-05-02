@@ -1052,6 +1052,8 @@ class AsyncChalkGRPCClient:
         inputs: "Union[Mapping[FeatureReference, Sequence[Any]], DataFrame, Table, RecordBatch]",
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
+        write_offline: bool = False,
+        write_online: Optional[bool] = None,
     ) -> UploadFeaturesResponse:
         """Upload feature values to be inserted into the online and offline stores.
 
@@ -1064,9 +1066,19 @@ class AsyncChalkGRPCClient:
             Timeout in seconds for the gRPC request.
         headers
             Additional headers to include with this specific request.
+        write_offline
+            Whether to write features to the offline store. Defaults to False.
+        write_online
+            Whether to write features to the online store. Defaults to True when not set.
         """
+        options = upload_features_pb2.UploadFeaturesOptions()
+        if write_offline:
+            options.write_offline = write_offline
+        if write_online is not None:
+            options.write_online = write_online
         request = upload_features_pb2.UploadFeaturesRequest(
-            inputs_table=get_features_feather_bytes(inputs, self._INPUT_ENCODE_OPTIONS)
+            inputs_table=get_features_feather_bytes(inputs, self._INPUT_ENCODE_OPTIONS),
+            options=options,
         )
         metadata = _canonicalize_headers(headers)
 

@@ -1,0 +1,70 @@
+name: Download Contracts and Split
+description: Download contract packets from Smartsheet and split them into individual documents.
+steps:
+  - DownloadFromSmartsheet:
+      sheet_id: '8504624500658052'
+      directory: /home/ubuntu/symbits/smartsheet/row_attachments/
+      overwrite: false
+      use_row_number: true
+      filename_columns:
+        - Vendor Type
+        - Company Name
+      filename_filter: '(?i).*Packet\.pdf$'
+      attachment_filter:
+        - .pdf
+      column_filter:
+        "Document Status": 'Send to TROC Processing'
+  - SplitPDF:
+      split_pattern:
+        HVAC:
+          sow: [0, 9]
+          w9: [10, 15]
+          ach: [16, 16]
+          eq_services: [17, 31]
+        Garage:
+          sow: [21, 30]
+          w9: [15, 20]
+          ach: [0, 0]
+          eq_services: [1, 14]
+        Pool:
+          sow: [21, 30]
+          w9: [15, 20]
+          ach: [0, 0]
+          eq_services: [1, 14]
+        Electrical:
+          sow: [21, 30]
+          w9: [15, 20]
+          ach: [0, 0]
+          eq_services: [1, 14]
+        Plumbing:
+          sow: [21, 30]
+          w9: [15, 20]
+          ach: [0, 0]
+          eq_services: [1, 14]
+        Septic:
+          sow: [21, 30]
+          w9: [0, 5]
+          ach: [6, 6]
+          eq_services: [7, 20]
+        Well:
+          sow: [21, 30]
+          w9: [0, 5]
+          ach: [6, 6]
+          eq_services: [7, 20]
+        Water Softener:
+          sow: [21, 30]
+          w9: [0, 5]
+          ach: [6, 6]
+          eq_services: [7, 20]
+      directory: /home/ubuntu/symbits/assurant/packets/
+  - UploadToSharepoint:
+      credentials:
+          client_id: SHAREPOINT_APP_ID
+          client_secret: SHAREPOINT_APP_SECRET
+          tenant_id: SHAREPOINT_TENANT_ID
+          site: AssurantPDFRepository
+      source:
+          directory: /home/ubuntu/symbits/assurant/packets/
+          whole_dir: true
+      destination:
+          directory: Contracts

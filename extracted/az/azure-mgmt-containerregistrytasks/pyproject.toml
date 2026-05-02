@@ -1,0 +1,36 @@
+
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "azure-mgmt-containerregistrytasks"
+authors = [
+    {name = "Microsoft Corporation", email = "azuresdkengsysadmins@microsoft.com"},
+]
+description = "This package will be released in the near future. Stay tuned!"
+keywords = ["azure", "azure sdk"]
+requires-python = ">=3.9"
+license = "MIT"
+version = "0.0.0"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = []
+dynamic = ["readme"]
+
+[project.urls]
+"Bug Reports" = "https://github.com/Azure/azure-sdk-for-python/issues"
+repository = "https://github.com/Azure/azure-sdk-for-python"
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md"], content-type = "text/markdown"}

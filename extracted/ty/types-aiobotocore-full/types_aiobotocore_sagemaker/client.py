@@ -33,6 +33,9 @@ from .paginator import (
     CreateHubContentPresignedUrlsPaginator,
     DescribeTrainingPlanExtensionHistoryPaginator,
     ListActionsPaginator,
+    ListAIBenchmarkJobsPaginator,
+    ListAIRecommendationJobsPaginator,
+    ListAIWorkloadConfigsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
     ListAppImageConfigsPaginator,
@@ -136,6 +139,12 @@ from .type_defs import (
     BatchReplaceClusterNodesResponseTypeDef,
     CreateActionRequestTypeDef,
     CreateActionResponseTypeDef,
+    CreateAIBenchmarkJobRequestTypeDef,
+    CreateAIBenchmarkJobResponseTypeDef,
+    CreateAIRecommendationJobRequestTypeDef,
+    CreateAIRecommendationJobResponseTypeDef,
+    CreateAIWorkloadConfigRequestTypeDef,
+    CreateAIWorkloadConfigResponseTypeDef,
     CreateAlgorithmInputTypeDef,
     CreateAlgorithmOutputTypeDef,
     CreateAppImageConfigRequestTypeDef,
@@ -269,6 +278,12 @@ from .type_defs import (
     CreateWorkteamResponseTypeDef,
     DeleteActionRequestTypeDef,
     DeleteActionResponseTypeDef,
+    DeleteAIBenchmarkJobRequestTypeDef,
+    DeleteAIBenchmarkJobResponseTypeDef,
+    DeleteAIRecommendationJobRequestTypeDef,
+    DeleteAIRecommendationJobResponseTypeDef,
+    DeleteAIWorkloadConfigRequestTypeDef,
+    DeleteAIWorkloadConfigResponseTypeDef,
     DeleteAlgorithmInputTypeDef,
     DeleteAppImageConfigRequestTypeDef,
     DeleteAppRequestTypeDef,
@@ -342,6 +357,12 @@ from .type_defs import (
     DeregisterDevicesRequestTypeDef,
     DescribeActionRequestTypeDef,
     DescribeActionResponseTypeDef,
+    DescribeAIBenchmarkJobRequestTypeDef,
+    DescribeAIBenchmarkJobResponseTypeDef,
+    DescribeAIRecommendationJobRequestTypeDef,
+    DescribeAIRecommendationJobResponseTypeDef,
+    DescribeAIWorkloadConfigRequestTypeDef,
+    DescribeAIWorkloadConfigResponseTypeDef,
     DescribeAlgorithmInputTypeDef,
     DescribeAlgorithmOutputTypeDef,
     DescribeAppImageConfigRequestTypeDef,
@@ -504,6 +525,12 @@ from .type_defs import (
     ImportHubContentResponseTypeDef,
     ListActionsRequestTypeDef,
     ListActionsResponseTypeDef,
+    ListAIBenchmarkJobsRequestTypeDef,
+    ListAIBenchmarkJobsResponseTypeDef,
+    ListAIRecommendationJobsRequestTypeDef,
+    ListAIRecommendationJobsResponseTypeDef,
+    ListAIWorkloadConfigsRequestTypeDef,
+    ListAIWorkloadConfigsResponseTypeDef,
     ListAlgorithmsInputTypeDef,
     ListAlgorithmsOutputTypeDef,
     ListAliasesRequestTypeDef,
@@ -702,6 +729,10 @@ from .type_defs import (
     StartPipelineExecutionResponseTypeDef,
     StartSessionRequestTypeDef,
     StartSessionResponseTypeDef,
+    StopAIBenchmarkJobRequestTypeDef,
+    StopAIBenchmarkJobResponseTypeDef,
+    StopAIRecommendationJobRequestTypeDef,
+    StopAIRecommendationJobResponseTypeDef,
     StopAutoMLJobRequestTypeDef,
     StopCompilationJobRequestTypeDef,
     StopEdgeDeploymentStageRequestTypeDef,
@@ -964,6 +995,40 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/batch_replace_cluster_nodes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#batch_replace_cluster_nodes)
+        """
+
+    async def create_ai_benchmark_job(
+        self, **kwargs: Unpack[CreateAIBenchmarkJobRequestTypeDef]
+    ) -> CreateAIBenchmarkJobResponseTypeDef:
+        """
+        Creates a benchmark job that runs performance benchmarks against inference
+        infrastructure using a predefined AI workload configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_ai_benchmark_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_ai_benchmark_job)
+        """
+
+    async def create_ai_recommendation_job(
+        self, **kwargs: Unpack[CreateAIRecommendationJobRequestTypeDef]
+    ) -> CreateAIRecommendationJobResponseTypeDef:
+        """
+        Creates a recommendation job that generates intelligent optimization
+        recommendations for generative AI inference deployments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_ai_recommendation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_ai_recommendation_job)
+        """
+
+    async def create_ai_workload_config(
+        self, **kwargs: Unpack[CreateAIWorkloadConfigRequestTypeDef]
+    ) -> CreateAIWorkloadConfigResponseTypeDef:
+        """
+        Creates a reusable AI workload configuration that defines datasets, data
+        sources, and benchmark tool settings for consistent performance testing of
+        generative AI inference deployments on Amazon SageMaker AI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_ai_workload_config.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_ai_workload_config)
         """
 
     async def create_action(
@@ -1663,6 +1728,36 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_workteam)
         """
 
+    async def delete_ai_benchmark_job(
+        self, **kwargs: Unpack[DeleteAIBenchmarkJobRequestTypeDef]
+    ) -> DeleteAIBenchmarkJobResponseTypeDef:
+        """
+        Deletes the specified AI benchmark job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_ai_benchmark_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_ai_benchmark_job)
+        """
+
+    async def delete_ai_recommendation_job(
+        self, **kwargs: Unpack[DeleteAIRecommendationJobRequestTypeDef]
+    ) -> DeleteAIRecommendationJobResponseTypeDef:
+        """
+        Deletes the specified AI recommendation job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_ai_recommendation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_ai_recommendation_job)
+        """
+
+    async def delete_ai_workload_config(
+        self, **kwargs: Unpack[DeleteAIWorkloadConfigRequestTypeDef]
+    ) -> DeleteAIWorkloadConfigResponseTypeDef:
+        """
+        Deletes the specified AI workload configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_ai_workload_config.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#delete_ai_workload_config)
+        """
+
     async def delete_action(
         self, **kwargs: Unpack[DeleteActionRequestTypeDef]
     ) -> DeleteActionResponseTypeDef:
@@ -2250,6 +2345,40 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/deregister_devices.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#deregister_devices)
+        """
+
+    async def describe_ai_benchmark_job(
+        self, **kwargs: Unpack[DescribeAIBenchmarkJobRequestTypeDef]
+    ) -> DescribeAIBenchmarkJobResponseTypeDef:
+        """
+        Returns details of an AI benchmark job, including its status, configuration,
+        target endpoint, and timing information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_ai_benchmark_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_ai_benchmark_job)
+        """
+
+    async def describe_ai_recommendation_job(
+        self, **kwargs: Unpack[DescribeAIRecommendationJobRequestTypeDef]
+    ) -> DescribeAIRecommendationJobResponseTypeDef:
+        """
+        Returns details of an AI recommendation job, including its status, model
+        source, performance targets, optimization recommendations, and deployment
+        configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_ai_recommendation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_ai_recommendation_job)
+        """
+
+    async def describe_ai_workload_config(
+        self, **kwargs: Unpack[DescribeAIWorkloadConfigRequestTypeDef]
+    ) -> DescribeAIWorkloadConfigResponseTypeDef:
+        """
+        Returns details of an AI workload configuration, including the dataset
+        configuration, benchmark tool settings, tags, and creation time.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_ai_workload_config.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#describe_ai_workload_config)
         """
 
     async def describe_action(
@@ -3090,6 +3219,36 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/import_hub_content.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#import_hub_content)
+        """
+
+    async def list_ai_benchmark_jobs(
+        self, **kwargs: Unpack[ListAIBenchmarkJobsRequestTypeDef]
+    ) -> ListAIBenchmarkJobsResponseTypeDef:
+        """
+        Returns a list of AI benchmark jobs in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_ai_benchmark_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_ai_benchmark_jobs)
+        """
+
+    async def list_ai_recommendation_jobs(
+        self, **kwargs: Unpack[ListAIRecommendationJobsRequestTypeDef]
+    ) -> ListAIRecommendationJobsResponseTypeDef:
+        """
+        Returns a list of AI recommendation jobs in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_ai_recommendation_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_ai_recommendation_jobs)
+        """
+
+    async def list_ai_workload_configs(
+        self, **kwargs: Unpack[ListAIWorkloadConfigsRequestTypeDef]
+    ) -> ListAIWorkloadConfigsResponseTypeDef:
+        """
+        Returns a list of AI workload configurations in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_ai_workload_configs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_ai_workload_configs)
         """
 
     async def list_actions(
@@ -4123,6 +4282,26 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#start_session)
         """
 
+    async def stop_ai_benchmark_job(
+        self, **kwargs: Unpack[StopAIBenchmarkJobRequestTypeDef]
+    ) -> StopAIBenchmarkJobResponseTypeDef:
+        """
+        Stops a running AI benchmark job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/stop_ai_benchmark_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#stop_ai_benchmark_job)
+        """
+
+    async def stop_ai_recommendation_job(
+        self, **kwargs: Unpack[StopAIRecommendationJobRequestTypeDef]
+    ) -> StopAIRecommendationJobResponseTypeDef:
+        """
+        Stops a running AI recommendation job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/stop_ai_recommendation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#stop_ai_recommendation_job)
+        """
+
     async def stop_auto_ml_job(
         self, **kwargs: Unpack[StopAutoMLJobRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -4759,6 +4938,39 @@ class SageMakerClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_training_plan_extension_history"]
     ) -> DescribeTrainingPlanExtensionHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ai_benchmark_jobs"]
+    ) -> ListAIBenchmarkJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ai_recommendation_jobs"]
+    ) -> ListAIRecommendationJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ai_workload_configs"]
+    ) -> ListAIWorkloadConfigsPaginator:
         """
         Create a paginator for an operation.
 

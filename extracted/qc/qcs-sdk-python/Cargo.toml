@@ -1,0 +1,44 @@
+[workspace]
+members = ["crates/lib"]
+resolver = "2"
+
+[workspace.dependencies]
+# ndarray is used by the `qcs` crate, but it is also used in the `python` crate via a
+# re-export through the numpy crate. They should be updated as a pair to keep both
+# crates' versions of ndarray in sync.
+# Similarly, pyo3 packages (`numpy`, `pyo3*`) track versions together
+# and need to be updated together.
+ndarray = { version = "0.17.2", features = ["serde"] }
+numpy = "0.27.1"
+opentelemetry = { version = "0.30.0" }
+opentelemetry_sdk = { version = "0.30.0" }
+pyo3 = { version = "0.27.2", features = ["num-complex", "multiple-pymethods"] }
+pyo3-async-runtimes = { version = "0.27", features = ["attributes", "tokio-runtime"] }
+pyo3-build-config = "0.27.2"
+pyo3-log = { version = "0.13.2" }
+pyo3-stub-gen = { version = "0.17.2", features = ["numpy"] }
+serde_json = "1.0.86"
+thiserror = "2.0.17"
+tokio = "1.36.0"
+tokio-util = "0.7"
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3.19" }
+
+# These dependencies we manage.
+optipy = "0.1.0"
+pyo3-opentelemetry = "0.6.0"
+pyo3-tracing-subscriber = { version = "0.4.0", default-features = false }
+qcs-api-client-common = "0.17.0"
+qcs-api-client-grpc = "0.17.0"
+qcs-api-client-openapi = "0.18.0"
+quil-rs = "0.35.0" 
+rigetti-pyo3 = "0.5.0"
+
+# The primary intent of these options is to reduce the binary size for Python wheels
+# since PyPi has limits on how much storage a project can use.
+# The LTO and codegen-units settings should have the added benefit of improving
+# performance. The only benefit of stripping symbols is reducing binary size.
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

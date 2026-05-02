@@ -1,0 +1,532 @@
+Metadata-Version: 2.4
+Name: solace-agent-mesh
+Version: 1.23.0
+Summary: Solace Agent Mesh is an open-source framework for building event-driven, multi-agent AI systems where specialized agents collaborate on complex tasks.
+Project-URL: Homepage, https://github.com/SolaceLabs/solace-agent-mesh
+Project-URL: Repository, https://github.com/SolaceLabs/solace-agent-mesh
+Author-email: SolaceLabs <solacelabs@solace.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Requires-Python: <3.14,>=3.10.16
+Requires-Dist: a2a-sdk[http-server]==0.3.7
+Requires-Dist: alembic==1.16.5
+Requires-Dist: apscheduler==3.10.4
+Requires-Dist: asteval==1.0.6
+Requires-Dist: authlib>=1.6.9
+Requires-Dist: azure-cognitiveservices-speech==1.41.1
+Requires-Dist: azure-identity>=1.17.0
+Requires-Dist: azure-storage-blob==12.28.0
+Requires-Dist: beautifulsoup4==4.13.5
+Requires-Dist: bm25s==0.2.14
+Requires-Dist: boto3==1.40.37
+Requires-Dist: cachetools==7.0.1
+Requires-Dist: click==8.1.8
+Requires-Dist: croniter==2.0.5
+Requires-Dist: cryptography==46.0.7
+Requires-Dist: fastapi==0.120.1
+Requires-Dist: filelock==3.20.3
+Requires-Dist: flask-cors==6.0.1
+Requires-Dist: flask==3.1.3
+Requires-Dist: gitpython==3.1.45
+Requires-Dist: google-adk==1.18.0
+Requires-Dist: google-cloud-storage==3.9.0
+Requires-Dist: google-genai==1.49.0
+Requires-Dist: holidays==0.81.0
+Requires-Dist: httpx==0.28.1
+Requires-Dist: itsdangerous==2.2.0
+Requires-Dist: jaraco-context==6.1.0
+Requires-Dist: jmespath==1.0.1
+Requires-Dist: jsonpath-ng==1.7.0
+Requires-Dist: jwcrypto==1.5.6
+Requires-Dist: kaleido==0.2.1
+Requires-Dist: litellm==1.83.0
+Requires-Dist: markdownify==1.2.0
+Requires-Dist: markitdown[all]==0.1.4
+Requires-Dist: mermaid-cli==0.1.2
+Requires-Dist: nanoid==2.0.0
+Requires-Dist: numpy==2.2.6
+Requires-Dist: openai==2.8.0
+Requires-Dist: openfeature-sdk==0.8.4
+Requires-Dist: pandas==2.3.2
+Requires-Dist: pillow==12.2.0
+Requires-Dist: playwright==1.58.0
+Requires-Dist: plotly==6.3.0
+Requires-Dist: protobuf==6.33.5
+Requires-Dist: psycopg2-binary==2.9.10
+Requires-Dist: pyasn1>=0.6.3
+Requires-Dist: pydantic==2.11.9
+Requires-Dist: pydub==0.25.1
+Requires-Dist: pyjwt>=2.12.0
+Requires-Dist: pypdf==6.10.2
+Requires-Dist: pystache==0.6.8
+Requires-Dist: python-docx==1.2.0
+Requires-Dist: python-dotenv==1.1.1
+Requires-Dist: python-jwt==4.1.0
+Requires-Dist: python-liquid==2.1.0
+Requires-Dist: python-multipart==0.0.26
+Requires-Dist: python-pptx==1.0.2
+Requires-Dist: pyyaml==6.0.2
+Requires-Dist: rich==13.9.4
+Requires-Dist: rouge==1.0.1
+Requires-Dist: setuptools==80.10.2
+Requires-Dist: solace-ai-connector==3.3.10
+Requires-Dist: sqlalchemy==2.0.40
+Requires-Dist: sse-starlette==3.0.2
+Requires-Dist: starlette==0.49.1
+Requires-Dist: toml==0.10.2
+Requires-Dist: uuid-utils>=0.11.1
+Requires-Dist: uvicorn[standard]==0.37.0
+Requires-Dist: werkzeug==3.1.6
+Requires-Dist: wheel==0.46.2
+Provides-Extra: employee-tools
+Requires-Dist: holidays==0.81.0; extra == 'employee-tools'
+Provides-Extra: test
+Requires-Dist: aiosqlite; extra == 'test'
+Requires-Dist: asyncpg; extra == 'test'
+Requires-Dist: fastmcp>=3.2.0; extra == 'test'
+Requires-Dist: httpx>=0.25; extra == 'test'
+Requires-Dist: psycopg2-binary; extra == 'test'
+Requires-Dist: pymysql>=1.1.0; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
+Requires-Dist: pytest-cov>=4.0.0; extra == 'test'
+Requires-Dist: pytest-httpx>=0.35.0; extra == 'test'
+Requires-Dist: pytest-mock>=3.0.0; extra == 'test'
+Requires-Dist: pytest-xdist>=3.5.0; extra == 'test'
+Requires-Dist: pytest>=8.0.0; extra == 'test'
+Requires-Dist: respx; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Requires-Dist: testcontainers[mysql,postgres]>=4.0.0; extra == 'test'
+Provides-Extra: vertex
+Requires-Dist: google-cloud-aiplatform==1.133.0; extra == 'vertex'
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <img src="./docs/static/img/logo.png" alt="Solace Agent Mesh Logo" width="100"/>
+</p>
+<h2 align="center">
+  Solace Agent Mesh
+</h2>
+<h3 align="center">Open-source framework for building event driven multi-agent AI systems</h3>
+<h5 align="center">Star ⭐️ this repo to stay updated as we ship new features and improvements.</h5>
+
+<p align="center">
+  <a href="https://github.com/SolaceLabs/solace-agent-mesh/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/SolaceLabs/solace-agent-mesh" alt="License">
+  </a>
+  <a href="https://pypi.org/project/solace-agent-mesh">
+    <img src="https://img.shields.io/pypi/v/solace-agent-mesh.svg" alt="PyPI - Version">
+  </a>
+  <a href="https://pypi.org/project/solace-agent-mesh">
+    <img src="https://img.shields.io/pypi/pyversions/solace-agent-mesh.svg" alt="PyPI - Python Version">
+  </a>
+  <a href="https://pypi.org/project/solace-agent-mesh">
+      <img alt="PyPI - Downloads" src="https://img.shields.io/pypi/dm/solace-agent-mesh?color=00C895">
+  </a>
+</p>
+<p align="center">
+  <a href="#-key-features">Key Features</a> •
+  <a href="#-quick-start-5-minutes">Quickstart</a> •
+  <a href="#️-next-steps">Next Steps</a> •
+  <a href="https://solacelabs.github.io/solace-agent-mesh/">Docs</a>
+</p>
+
+
+---
+
+**Solace Agent Mesh** is a framework that supports building AI applications where multiple specialized AI agents work together to solve complex problems. It uses the event messaging of [Solace Platform](https://solace.com) for true scalability and reliability.
+
+With Solace Agent Mesh (SAM), you can create teams of AI agents, each having distinct skills and access to specific tools. For example, you could have a Database Agent that can make SQL queries to fetch data or a MultiModal Agent that can help create images, audio files and reports.
+
+The framework handles the communication between agents automatically, so you can focus on building great AI experiences.
+
+SAM creates a standardized communication layer where AI agents can:
+* Delegate tasks to peer agents
+* Share data and artifacts
+* Connect with diverse user interfaces and external systems
+* Execute multi-step workflows with minimal coupling
+
+SAM is built on top of the Solace AI Connector (SAC) which allows Solace Platform Event Brokers to connect to AI models and services and Google's Agent Development Kit (ADK) for AI logic and tool integrations.
+
+<p align="center">
+<img src="docs/static/img/Solace_AI_Framework_With_Broker.png" width="640" alt="SAM Architecture Diagram" />
+</p>
+
+
+The result? A fully asynchronous, event-driven and decoupled AI agent architecture ready for production deployment. It is robust, reliable and easy to maintain. 
+
+
+---
+
+## 🔑 Key Features 
+- **[Multi-Agent Event-Driven Architecture](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/getting-started/architecture)** – Agents communicate via the Solace Event Mesh for true scalability
+- **[Agent Orchestration](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/components/agents)** – Complex tasks are automatically broken down and delegated by the [Orchestrator](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/components/orchestrator) agent
+- **[Flexible Interfaces](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/components/gateways)** – Integrate with REST API, web UI, [Slack](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/developing/tutorials/slack-integration), or build your own integration
+- **[Extensible](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/components/plugins)** – Add your own agents, gateways, or services with minimal code
+- **[Agent-to-Agent Communication](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/getting-started/architecture)** – Agents can discover and delegate tasks to each other seamlessly using the Agent2Agent (A2A) Protocol
+- **[Dynamic Embeds](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/components/builtin-tools/embeds)** – Embed dynamic content like real-time data, calculations and file contents in responses
+
+📚 **Want to know more?** Check out the full Solace Agent Mesh [documentation](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/getting-started/introduction/).
+
+---
+
+## 🚀 Quick Start (5 minutes)
+
+Set up Solace Agent Mesh in just a few steps.
+
+### ⚙️ System Requirements
+
+To run Solace Agent Mesh locally, you'll need:
+
+- **Python 3.10.16 – 3.13.x**
+- **pip** (comes with Python)
+- **OS**: MacOS, Linux, or Windows (with [WSL](https://learn.microsoft.com/en-us/windows/wsl/))
+- **LLM API key** (any major provider or custom endpoint)
+
+### 🎸 Vibe Coding
+To quickly setup and customize your Agent Mesh, check out the [Vibe Coding Quickstart Guide](docs/docs/documentation/vibe_coding.md). This guide walks you through the essential steps to get Solace Agent Mesh up and running with minimal effort.
+
+### 💻 Setup Steps
+
+#### 1. Create a directory for a new project
+```bash
+mkdir my-sam && cd my-sam
+```
+#### 2. Create and activate a Python virtual environment
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+```
+#### 3. Install Solace Agent Mesh (SAM)
+Check if you have a version of SAM already installed.
+```bash
+sam -v
+```
+If you have an earlier version, uninstall it and **start from scratch**:
+```bash
+pip3 uninstall solace-agent-mesh
+```
+Note: Optionally, you can try to upgrade versions but this action is not officially supported at this time. (`pip3 install --upgrade solace-agent-mesh`)
+
+If no previous version exists, install the latest version with:
+```bash
+pip3 install solace-agent-mesh
+```
+#### 4. Initialize the new project via a GUI tool
+```bash
+sam init --gui
+```
+Note: This initialization UI runs on port 5002
+#### 5. Run the project
+```bash
+sam run
+```
+#### 6. Verify SAM is running
+Open the Web UI at [http://localhost:8000](http://localhost:8000) for the chat interface and ask a question
+
+### 🔧 Customize SAM
+
+#### New agents can be added via a GUI interface
+```bash
+sam add agent --gui
+```
+
+#### Existing plugins can be installed
+```bash
+sam plugin add <your-component-name> --plugin <plugin-name>
+```
+
+---
+
+## 🏗️ Architecture Overview
+
+Solace Agent Mesh provides a "Universal A2A Agent Host," a flexible and configurable runtime environment built by integrating Google's Agent Development Kit (ADK) with the Solace AI Connector (SAC) framework.
+
+The system allows you to:
+
+- Host AI agents developed with Google ADK within the SAC framework
+- Define agent capabilities (LLM model, instructions, tools) primarily through SAC YAML configuration
+- Use Solace Platform as the transport for standard Agent-to-Agent (A2A) protocol communication
+- Enable dynamic discovery of peer agents running within the same ecosystem
+- Allow agents to delegate tasks to discovered peers via the A2A protocol over Solace
+- Manage file artifacts using built-in tools with automatic metadata injection
+- Perform data analysis using built-in SQL, JQ, and visualization tools
+- Use dynamic embeds for context-dependent information resolution
+
+### Key Components
+
+- **SAC** handles broker connections, configuration loading, and component lifecycle
+- **ADK** provides the agent runtime, LLM interaction, tool execution, and state management
+- **A2A Protocol** enables communication between clients and agents, and between peer agents
+- **Dynamic Embeds** allow placeholders in responses that are resolved with context-dependent information
+- **File Management** provides built-in tools for artifact creation, listing, loading, and metadata handling
+
+---
+
+## ➡️ Next Steps
+
+Want to go further? Here are some hands-on tutorials to help you get started:
+
+| 🔧 Integration | ⏱️ Est. Time | 📘 Tutorial |
+|----------------|--------------|-------------|
+| 🌤️ **Weather Agent**<br>Learn how to build an agent that gives Solace Agent Mesh the ability to access real-time weather information.  | **~15 min** | [Weather Agent Plugin](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/developing/tutorials/custom-agent) |
+| 🗃️ **SQL Database Integration**<br>Enable Solace Agent Mesh to answer company-specific questions using a sample coffee company database.| **~10–15 min** | [SQL Database Tutorial](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/developing/tutorials/sql-database) |
+| 🧠 **MCP Integration**<br>Integrating a Model Context Protocol (MCP) Servers into Solace Agent Mesh. | **~10–15 min** | [MCP Integration Tutorial](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/developing/tutorials/mcp-integration) |
+| 💬 **Slack Integration**<br>Chat with Solace Agent Mesh directly from Slack. | **~20–30 min** | [Slack Integration Tutorial](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/developing/tutorials/slack-integration) |
+| 👔 **Microsoft Teams Integration (Enterprise)**<br>Connect Solace Agent Mesh Enterprise to Microsoft Teams with Azure AD authentication. | **~30–40 min** | [Teams Integration Tutorial](https://solacelabs.github.io/solace-agent-mesh/docs/documentation/developing/tutorials/teams-integration) |
+
+---
+
+## 👥 Contributors
+
+Solace Agent Mesh is built with the help of our amazing community. Thanks to everyone who has contributed ideas, code and time to make this project better!
+
+View the full list of contributors here: [GitHub Contributors](https://github.com/SolaceLabs/solace-agent-mesh/graphs/contributors) 💚
+
+**Looking to contribute?** Check out [CONTRIBUTING.md](CONTRIBUTING.md) to get started and see how you can help!
+
+---
+
+## 📄 License
+
+This project is licensed under the **Apache 2.0 License**. See the full license text in the [LICENSE](LICENSE) file.
+
+---
+
+## 🧪 Running Tests
+
+This project uses `pytest` for testing. You can run tests using either `hatch` or `pytest` directly.
+
+### Using Hatch
+
+The recommended way to run tests is through the `hatch` environment, which ensures all dependencies are managed correctly.
+
+```bash
+# Run all tests
+hatch test
+
+# Run tests with tags
+hatch test -m "<tag>"
+```
+
+### Using Pytest Directly
+
+If you prefer to use `pytest` directly, you must first install the project with its test dependencies.
+
+```bash
+# Install the project in editable mode with the 'test' extras
+pip install -e .[test]
+
+# Run all tests
+pytest
+```
+
+---
+
+<h3 align="center">
+  <img src="./docs/static/img/solace-logo-text.svg" alt="Solace Agent Mesh Logo" width="100"/>
+</h3>

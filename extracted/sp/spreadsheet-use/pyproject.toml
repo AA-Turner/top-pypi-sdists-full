@@ -1,0 +1,47 @@
+[project]
+name = "spreadsheet-use"
+dynamic = ["version"]
+description = "Spreadsheet Use: Alias package for univer-use"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = [{ name = "Univer Team" }]
+keywords = ["spreadsheet", "univer", "langgraph", "langchain", "agents", "mcp"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",
+]
+license = { file = "LICENSE" }
+dependencies = [
+    "univer-use==0.1.2",
+]
+
+[dependency-groups]
+dev = [
+    "build>=1.3.0",
+    "twine>=6.2.0",
+]
+
+[build-system]
+requires = [ "hatchling>=1.25", "hatch-vcs>=0.4",]
+build-backend = "hatchling.build"
+
+[project.urls]
+Homepage = "https://github.com/dream-num/univer-use"
+Repository = "https://github.com/dream-num/univer-use"
+Issues = "https://github.com/dream-num/univer-use/issues"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.1.0"
+raw-options = { local_scheme = "no-local-version" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["spreadsheet_use"]
+include = [
+  "spreadsheet_use/py.typed",
+  "LICENSE",
+]

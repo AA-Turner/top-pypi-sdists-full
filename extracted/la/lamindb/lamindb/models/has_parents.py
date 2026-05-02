@@ -1,0 +1,645 @@
+# ruff: noqa: TC004
+from __future__ import annotations
+
+import builtins
+from typing import TYPE_CHECKING, Literal
+
+import lamindb_setup as ln_setup
+from lamin_utils import logger
+
+from ..errors import ValidationError
+from .query_set import SQLRecordList, get_default_branch_ids
+from .run import Run
+from .sqlrecord import HasType, format_field_value, get_name_field
+
+if TYPE_CHECKING:
+    from graphviz import Digraph
+
+    from lamindb.base.types import StrField
+
+    from .artifact import Artifact
+    from .collection import Collection
+    from .query_set import BasicQuerySet, QuerySet
+    from .sqlrecord import SQLRecord
+
+LAMIN_GREEN_LIGHTER = "#10b981"
+LAMIN_GREEN_DARKER = "#065f46"
+TRANSFORM_VIOLET = "#eff2ff"
+GREEN_FILL = "honeydew"
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
+
+
+# this is optimized to have fewer recursive calls
+# also len of QuerySet can be costly at times
+def _query_relatives(
+    records: BasicQuerySet | list[HasParents],
+    attr: Literal["children", "parents"] | str,
+) -> QuerySet:
+    branch_ids = get_default_branch_ids()
+
+    if hasattr(records, "values_list"):
+        model = records.model  # type: ignore
+        using_db = records.db  # type: ignore
+        frontier_ids = set(records.values_list("id", flat=True))
+    else:
+        record = records[0]
+        model = record.__class__
+        using_db = record._state.db  # type: ignore
+        frontier_ids = {r.id for r in records}  # type: ignore
+
+    if attr == "children":
+        attr_filter = "parents__id__in"
+    elif attr == "parents":
+        attr_filter = "children__id__in"
+    else:
+        attr_filter = "type__id__in"
+
+    seen_ids = set(frontier_ids)  # copies
+    results = set()
+
+    while frontier_ids:
+        relatives_qs = model.connect(using_db).filter(
+            branch_id__in=branch_ids, **{attr_filter: frontier_ids}
+        )
+        next_ids = set(relatives_qs.values_list("id", flat=True)) - seen_ids
+        if not next_ids:
+            break
+        results.update(next_ids)
+        seen_ids.update(next_ids)
+        frontier_ids = next_ids
+
+    return model.connect(using_db).filter(id__in=results)
+
+
+def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordList:
+    """Keep only the topmost (least specific) match."""
+    if not records:
+        return SQLRecordList([])
+
+    # Group by name
+    records_by_name: dict[str, list[HasType]] = {}
+    for record in records:
+        if record.name not in records_by_name:
+            records_by_name[record.name] = []
+        records_by_name[record.name].append(record)
+
+    # Fast path: single match per name
+    result: SQLRecordList = SQLRecordList([])
+    needs_depth_computation = {}
+
+    for name, name_records in records_by_name.items():
+        if len(name_records) == 1:
+            result.append(name_records[0])
+        else:
+            # Check if any have type_id=None (trivially topmost)
+            root_records = [r for r in name_records if r.type_id is None]
+            if len(root_records) == 1:
+                result.append(root_records[0])
+            elif len(root_records) > 1:
+                class_name = records[0].__class__.__name__
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(root_records)} "
+                    f"root-level {class_name.lower()}s"
+                )
+            else:
+                # All have type_id, need depth computation
+                needs_depth_computation[name] = name_records
+
+    # Only compute depths if necessary
+    if needs_depth_computation:
+
+        def get_depth(record):
+            current_type = record.type
+            depth = 1
+            while current_type.type_id is not None:
+                current_type = current_type.type
+                depth += 1
+            return depth
+
+        for name, name_records in needs_depth_computation.items():
+            records_with_depth = [(r, get_depth(r)) for r in name_records]
+            min_depth = min(depth for _, depth in records_with_depth)
+            topmost = [r for r, depth in records_with_depth if depth == min_depth]
+            class_name = records[0].__class__.__name__
+            if len(topmost) > 1:
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(topmost)} {class_name.lower()}s "
+                    f"at depth {min_depth} (under types: {[r.type.name for r in topmost]})"
+                )
+
+            result.append(topmost[0])
+
+    return result
+
+
+def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
+    from .query_set import get_default_branch_ids
+
+    branch_ids = get_default_branch_ids()
+    ancestors = []
+
+    current = getattr(record, attr)
+    while current is not None and current.branch_id in branch_ids:
+        ancestors.append(current)
+        current = getattr(current, attr)
+
+    return SQLRecordList(ancestors)
+
+
+class HasParents:
+    """Base class for hierarchical registries (ontologies)."""
+
+    def view_parents(
+        self,
+        field: StrField | None = None,
+        with_children: bool = False,
+        distance: int = 5,
+    ):
+        """View parents in an ontology.
+
+        Args:
+            field: Field to display on graph
+            with_children: Whether to also show children.
+            distance: Maximum distance still shown.
+
+        Ontological hierarchies: :class:`~lamindb.ULabel` (project & sub-project), :class:`~bionty.CellType` (cell type & subtype).
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.Tissue.from_source(name="subsegmental bronchus").save()
+            >>> record = bt.Tissue.get(name="respiratory tube")
+            >>> record.view_parents()
+            >>> tissue.view_parents(with_children=True)
+        """
+        if field is None:
+            field = get_name_field(self)
+        if not isinstance(field, str):
+            field = field.field.name
+
+        return view_parents(
+            record=self,  # type: ignore
+            field=field,
+            with_parents=True,
+            with_children=with_children,
+            distance=distance,
+        )
+
+    def view_children(
+        self,
+        field: StrField | None = None,
+        distance: int = 5,
+    ):
+        """View children in an ontology.
+
+        Args:
+            field: Field to display on graph
+            distance: Maximum distance still shown.
+
+        Ontological hierarchies: :class:`~lamindb.ULabel` (project & sub-project), :class:`~bionty.CellType` (cell type & subtype).
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.Tissue.from_source(name="subsegmental bronchus").save()
+            >>> record = bt.Tissue.get(name="respiratory tube")
+            >>> record.view_parents()
+            >>> tissue.view_parents(with_children=True)
+        """
+        if field is None:
+            field = get_name_field(self)
+        if not isinstance(field, str):
+            field = field.field.name
+
+        return view_parents(
+            record=self,  # type: ignore
+            field=field,
+            with_parents=False,
+            with_children=True,
+            distance=distance,
+        )
+
+    def query_parents(self) -> QuerySet:
+        """Query parents in an ontology."""
+        return _query_relatives([self], "parents")  # type: ignore
+
+    def query_children(self) -> QuerySet:
+        """Query children in an ontology."""
+        return _query_relatives([self], "children")  # type: ignore
+
+
+def view_digraph(u: Digraph):
+    from graphviz.backend import ExecutableNotFound
+
+    try:
+        if is_run_from_ipython:
+            from IPython import get_ipython
+            from IPython.display import display
+
+            #  True if the code is running in a Jupyter Notebook or Lab environment
+            if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
+                return u.view()
+            else:
+                # call u._repr_mimebundle_() manually that exception gets raised properly and not just printed by
+                # call to display()
+                display(u._repr_mimebundle_(), raw=True)
+        else:
+            return u.view()
+    except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
+        logger.error(
+            "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
+            " apt-get install graphviz`\n  - Windows:"
+            " https://graphviz.org/download/#windows\n  - Mac: `brew install graphviz`"
+        )
+
+
+def view_lineage(
+    data: Artifact | Collection, with_children: bool = True, return_graph: bool = False
+) -> Digraph | None:
+    """View data lineage graph."""
+    if ln_setup.settings.instance.is_on_hub:
+        instance_slug = ln_setup.settings.instance.slug
+        ui_url = ln_setup.settings.instance.ui_url
+        entity_slug = data.__class__.__name__.lower()
+        logger.important(
+            f"explore at: {ui_url}/{instance_slug}/{entity_slug}/{data.uid}"
+        )
+
+    import graphviz
+
+    df_values = _get_all_parent_runs(data)
+    if with_children:
+        df_values += _get_all_child_runs(data)
+    df_edges = _df_edges_from_runs(df_values)
+
+    def add_node(
+        record: Run | Artifact | Collection,
+        node_id: str,
+        node_label: str,
+        u: graphviz.Digraph,
+    ):
+        if isinstance(record, Run):
+            fillcolor = TRANSFORM_VIOLET
+        else:
+            fillcolor = "white"
+        u.node(
+            node_id,
+            label=node_label,
+            shape="box",
+            style="rounded,filled",
+            fillcolor=fillcolor,
+        )
+
+    u = graphviz.Digraph(
+        f"{data._meta.model_name}_{data.uid}",
+        node_attr={
+            "fillcolor": "white",
+            "color": "darkgrey",
+            "fontname": "Helvetica",
+            "fontsize": "10",
+        },
+        edge_attr={"arrowsize": "0.5"},
+    )
+
+    for _, row in df_edges.iterrows():
+        add_node(row["source_record"], row["source"], row["source_label"], u)
+        if row["target_record"] not in df_edges["source_record"]:
+            add_node(row["target_record"], row["target"], row["target_label"], u)
+
+        u.edge(row["source"], row["target"], color="dimgrey")
+
+    u.node(
+        f"{data._meta.model_name}_{data.uid}",
+        label=get_record_label(data),
+        style="rounded,filled",
+        fillcolor="white",
+        shape="box",
+    )
+
+    if return_graph:
+        return u
+    else:
+        return view_digraph(u)
+
+
+def view_parents(
+    record: SQLRecord,
+    field: str,
+    with_parents: bool = True,
+    with_children: bool = False,
+    distance: int = 100,
+    attr_name: Literal["parents", "predecessors"] = "parents",
+):
+    """Graph of parents."""
+    if not hasattr(record, attr_name):
+        raise NotImplementedError(
+            f"Parents view is not supported for {record.__class__.__name__}!"
+        )
+    import graphviz
+    import pandas as pd
+
+    df_edges = None
+    df_edges_parents = None
+    df_edges_children = None
+    if with_parents:
+        df_edges_parents = _df_edges_from_parents(
+            record=record, field=field, distance=distance, attr_name=attr_name
+        )
+    if with_children:
+        df_edges_children = _df_edges_from_parents(
+            record=record,
+            field=field,
+            distance=distance,
+            children=True,
+            attr_name=attr_name,
+        )
+        # Rename the columns to swap source and target
+        df_edges_children = df_edges_children.rename(
+            columns={
+                "source": "temp_target",
+                "source_label": "temp_target_label",
+                "source_record": "temp_target_record",
+                "target": "source",
+                "target_label": "source_label",
+                "target_record": "source_record",
+            }
+        )
+        df_edges_children = df_edges_children.rename(
+            columns={
+                "temp_target": "target",
+                "temp_target_label": "target_label",
+                "temp_target_record": "target_record",
+            }
+        )
+    if df_edges_parents is not None and df_edges_children is not None:
+        df_edges = pd.concat([df_edges_parents, df_edges_children]).drop_duplicates()
+    elif df_edges_parents is not None:
+        df_edges = df_edges_parents
+    elif df_edges_children is not None:
+        df_edges = df_edges_children
+    else:
+        return None
+
+    u = graphviz.Digraph(
+        record.uid,
+        node_attr={
+            "color": LAMIN_GREEN_DARKER,
+            "fillcolor": GREEN_FILL,
+            "shape": "box",
+            "style": "rounded,filled",
+            "fontname": "Helvetica",
+            "fontsize": "10",
+        },
+        edge_attr={"arrowsize": "0.5"},
+    )
+    u.node(
+        record.uid,
+        label=(get_record_label(record)),
+        fillcolor=LAMIN_GREEN_LIGHTER,
+    )
+    if df_edges is not None:
+        for _, row in df_edges.iterrows():
+            u.node(row["source"], label=row["source_label"])
+            u.node(row["target"], label=row["target_label"])
+            u.edge(row["source"], row["target"], color="dimgrey")
+
+    view_digraph(u)
+
+
+def _get_parents(
+    record: SQLRecord,
+    field: str,
+    distance: int,
+    children: bool = False,
+    attr_name: Literal["parents", "predecessors"] = "parents",
+):
+    """Recursively get parent records within a distance."""
+    if children:
+        key = attr_name
+    else:
+        key = "children" if attr_name == "parents" else "successors"  # type: ignore
+
+    using_db = record._state.db
+    model = record.__class__
+    condition = f"{key}__{field}"
+    field_value = getattr(record, field)
+
+    results = model.connect(using_db).filter(**{condition: field_value})
+    if distance < 2:
+        return results
+
+    d = 2
+    while d < distance:
+        # this grows in the loop,
+        # i.e. children__children__name -> children__children__children__name -> ...
+        condition = f"{key}__{condition}"
+        records = model.connect(using_db).filter(**{condition: field_value})
+
+        try:
+            if not records.exists():
+                return results
+
+            results = results | records
+            d += 1
+        except Exception:
+            # For OperationalError:
+            # SQLite does not support joins containing more than 64 tables
+            return results
+    return results
+
+
+def _df_edges_from_parents(
+    record: SQLRecord,
+    field: str,
+    distance: int,
+    children: bool = False,
+    attr_name: Literal["parents", "predecessors"] = "parents",
+):
+    """Construct a DataFrame of edges as the input of graphviz.Digraph."""
+    if attr_name == "parents":
+        key = "children" if children else "parents"
+    else:
+        key = "successors" if children else "predecessors"
+
+    parents = _get_parents(
+        record=record,
+        field=field,
+        distance=distance,
+        children=children,
+        attr_name=attr_name,
+    )
+    using_db = record._state.db
+    all = record.__class__.objects.using(using_db)
+    records = parents | all.filter(id=record.id)
+    df = records.distinct().to_dataframe(include=[f"{key}__id"])
+    if f"{key}__id" not in df.columns:
+        return None
+    df_edges = df[[f"{key}__id"]]
+    df_edges = df_edges.explode(f"{key}__id")
+    df_edges.index.name = "target"
+    df_edges = df_edges.reset_index()
+    df_edges.dropna(axis=0, inplace=True)
+    df_edges.rename(columns={f"{key}__id": "source"}, inplace=True)
+    df_edges = df_edges.drop_duplicates()
+
+    # colons messes with the node formatting:
+    # https://graphviz.readthedocs.io/en/stable/node_ports.html
+    df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
+    df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
+    if record.__class__.__name__ == "Transform":
+        df_edges["source_label"] = df_edges["source_record"].apply(get_record_label)
+        df_edges["target_label"] = df_edges["target_record"].apply(get_record_label)
+    else:
+        df_edges["source_label"] = df_edges["source_record"].apply(
+            lambda x: get_record_label(x, field)
+        )
+        df_edges["target_label"] = df_edges["target_record"].apply(
+            lambda x: get_record_label(x, field)
+        )
+    df_edges["source"] = df_edges["source_record"].apply(lambda x: x.uid)
+    df_edges["target"] = df_edges["target_record"].apply(lambda x: x.uid)
+    return df_edges
+
+
+def get_record_label(record: SQLRecord, field: str | None = None):
+    from .artifact import Artifact
+    from .collection import Collection
+    from .transform import Transform
+
+    if isinstance(record, (Artifact, Collection, Transform)):
+        title = (
+            record.key.replace("&", "&amp;") if record.key is not None else record.uid
+        )
+        return rf"<{title}>"
+    elif isinstance(record, Run):
+        title = record.transform.key.replace("&", "&amp;")
+        if record.entrypoint is not None:
+            title += f": {record.entrypoint}"
+        return (
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10">'
+            rf"run at {format_field_value(record.started_at)}</FONT>>"
+        )
+    else:
+        if field is None:
+            field = get_name_field(record)
+        title = record.__getattribute__(field)
+        return rf"<{title}>"
+
+
+def _get_all_parent_runs(data: Artifact | Collection) -> list:
+    """Get all input file/collection runs recursively."""
+    name = data._meta.model_name
+    run_inputs_outputs = []
+
+    runs = [data.run] if data.run is not None else []
+    while len(runs) > 0:
+        inputs = []
+        for r in runs:
+            inputs_run = (
+                r.__getattribute__(f"input_{name}s")
+                .all()
+                .filter(branch_id__in=[0, 1])
+                .to_list()
+            )
+            if name == "artifact":
+                inputs_run += (
+                    r.input_collections.all().filter(branch_id__in=[0, 1]).to_list()
+                )
+            outputs_run = (
+                r.__getattribute__(f"output_{name}s")
+                .all()
+                .filter(branch_id__in=[0, 1])
+                .to_list()
+            )
+            if name == "artifact":
+                outputs_run += (
+                    r.output_collections.all().filter(branch_id__in=[0, 1]).to_list()
+                )
+            # if inputs are outputs artifacts are the same, will result infinite loop
+            # so only show as outputs
+            overlap = set(inputs_run).intersection(outputs_run)
+            if overlap:
+                logger.warning(
+                    f"The following artifacts are both inputs and outputs of Run(uid={r.uid}): {overlap}\n   → Only showing as outputs."
+                )
+                inputs_run = list(set(inputs_run) - overlap)
+            if len(inputs_run) > 0:
+                run_inputs_outputs += [(inputs_run, r)]
+            if len(outputs_run) > 0:
+                run_inputs_outputs += [(r, outputs_run)]
+            inputs += inputs_run
+        runs = [f.run for f in inputs if f.run is not None]
+    return run_inputs_outputs
+
+
+def _get_all_child_runs(data: Artifact | Collection) -> list:
+    """Get all output file/collection runs recursively."""
+    name = data._meta.model_name
+    all_runs: set[Run] = set()
+    run_inputs_outputs = []
+
+    if data.run is not None:
+        runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
+    else:
+        runs = set()
+    if name == "artifact" and data.run is not None:
+        runs.update(
+            {
+                f.run
+                for f in data.run.output_collections.all().filter(branch_id__in=[0, 1])
+            }
+        )
+    while runs.difference(all_runs):
+        all_runs.update(runs)
+        child_runs: set[Run] = set()
+        for r in runs:
+            inputs_run = (
+                r.__getattribute__(f"input_{name}s")
+                .all()
+                .filter(branch_id__in=[0, 1])
+                .to_list()
+            )
+            if name == "artifact":
+                inputs_run += (
+                    r.input_collections.all().filter(branch_id__in=[0, 1]).to_list()
+                )
+            run_inputs_outputs += [(inputs_run, r)]
+
+            outputs_run = (
+                r.__getattribute__(f"output_{name}s")
+                .all()
+                .filter(branch_id__in=[0, 1])
+                .to_list()
+            )
+            if name == "artifact":
+                outputs_run += (
+                    r.output_collections.all().filter(branch_id__in=[0, 1]).to_list()
+                )
+            run_inputs_outputs += [(r, outputs_run)]
+
+            child_runs.update(
+                Run.filter(  # type: ignore
+                    **{f"input_{name}s__uid__in": [i.uid for i in outputs_run]}
+                ).to_list()
+            )
+            # for artifacts, also include collections in the lineage
+            if name == "artifact":
+                child_runs.update(
+                    Run.filter(  # type: ignore
+                        input_collections__uid__in=[i.uid for i in outputs_run]
+                    ).to_list()
+                )
+        runs = child_runs
+    return run_inputs_outputs
+
+
+def _df_edges_from_runs(df_values: list):
+    import pandas as pd
+
+    df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
+    df = df.explode("source_record")
+    df = df.explode("target_record")
+    df = df.drop_duplicates().dropna()
+    df["source"] = [f"{i._meta.model_name}_{i.uid}" for i in df["source_record"]]
+    df["target"] = [f"{i._meta.model_name}_{i.uid}" for i in df["target_record"]]
+    df["source_label"] = df["source_record"].apply(get_record_label)
+    df["target_label"] = df["target_record"].apply(get_record_label)
+    return df

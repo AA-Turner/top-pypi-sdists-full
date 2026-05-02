@@ -1,0 +1,84 @@
+[package]
+name = "hugr-core"
+version = "0.27.0"
+edition = { workspace = true }
+rust-version = { workspace = true }
+
+license = { workspace = true }
+readme = "README.md"
+documentation = "https://docs.rs/hugr/"
+homepage = { workspace = true }
+repository = { workspace = true }
+description = "Quantinuum's Hierarchical Unified Graph Representation"
+keywords = ["Quantum", "Quantinuum"]
+categories = ["compilers"]
+
+[lints]
+workspace = true
+
+[features]
+declarative = ["serde_yaml"]
+zstd = ["dep:zstd"]
+default = []
+
+[lib]
+bench = false
+
+[[test]]
+name = "model"
+
+[dependencies]
+hugr-model = { version = "0.27.0", path = "../hugr-model" }
+
+cgmath = { workspace = true, features = ["serde"] }
+delegate = { workspace = true }
+derive_more = { workspace = true, features = [
+    "display",
+    "error",
+    "from",
+    "into",
+] }
+downcast-rs = { workspace = true }
+enum_dispatch = { workspace = true }
+html-escape = { workspace = true }
+indexmap.workspace = true
+itertools = { workspace = true }
+pastey = { workspace = true }
+petgraph = { workspace = true }
+portgraph = { workspace = true, features = ["serde", "petgraph"] }
+regex = { workspace = true }
+rustc-hash.workspace = true
+# Rc used here for Extension, but unfortunately we must turn the feature on globally
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+serde_yaml = { workspace = true, optional = true }
+smol_str = { workspace = true, features = ["serde"] }
+static_assertions = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+typetag = { workspace = true }
+semver = { workspace = true, features = ["serde"] }
+zstd = { workspace = true, optional = true }
+ordered-float = { workspace = true, features = ["serde"] }
+base64.workspace = true
+relrc = { workspace = true, features = ["petgraph", "serde"] }
+smallvec = { workspace = true }
+tracing = "0.1.44"
+schemars = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+rstest = { workspace = true }
+cool_asserts = { workspace = true }
+insta = { workspace = true, features = ["yaml"] }
+jsonschema = { workspace = true, default-features = false, features = [
+    "resolve-file",
+] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+
+
+# Required for documentation examples
+hugr = { path = "../hugr" }
+serde_yaml = "0.9.34"
+anyhow = { workspace = true }

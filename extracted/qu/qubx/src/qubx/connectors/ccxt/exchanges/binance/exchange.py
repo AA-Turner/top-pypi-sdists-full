@@ -1,0 +1,703 @@
+from typing import Dict, List, cast
+
+import ccxt.pro as cxp
+import pandas as pd
+from ccxt.async_support.base.ws.cache import ArrayCache, ArrayCacheByTimestamp
+from ccxt.async_support.base.ws.client import Client
+from ccxt.base.errors import BadRequest, InsufficientFunds
+from ccxt.base.precise import Precise
+from ccxt.base.types import (
+    Any,
+    Balances,
+    Num,
+    Order,
+    OrderSide,
+    OrderType,
+    Strings,
+)
+
+from qubx.utils.time import now_utc, to_timedelta
+
+from ..base import CcxtFuturePatchMixin
+
+
+class BinanceQV(CcxtFuturePatchMixin, cxp.binance):
+    """
+    Extended binance exchange to provide quote asset volumes support and fix bulk subscription issues
+    """
+
+    def __init__(self, config={}):
+        super().__init__(config)
+
+    def describe(self):
+        """
+        Overriding watchTrades to use aggTrade instead of trade.
+        """
+        return self.deep_extend(
+            super().describe(),
+            {
+                "options": {
+                    "watchTrades": {
+                        "name": "aggTrade",
+                    },
+                    # "localOrderBookLimit": 50_000,  # set a large limit to avoid cutting off the orderbook
+                },
+                "exceptions": {
+                    "exact": {
+                        "-2019": InsufficientFunds,  # ccxt doesn't have this code for some weird reason !!
+                    },
+                },
+            },
+        )
+
+    async def un_watch_bids_asks(self, symbols: Strings = None, params: dict = {}) -> Any:
+        """
+        Unsubscribes from the bookTicker stream for the given symbols.
+
+        Upstream ccxt ships un_watch_bids_asks as a NotSupported stub, but the
+        companion watch_multi_ticker_helper has a working isUnsubscribe branch
+        that mirrors the subscribe path exactly (URL, sub-hashes, request body).
+        Delegating keeps us aligned with upstream's 2026-04 USDⓈ-M URL split
+        (/public/ws) and avoids duplicating internals that have already been
+        refactored once (get_message_hash was removed in ccxt 4.5.20).
+        """
+        await self.load_markets()
+        symbols = self.market_symbols(symbols, None, True, False, True)
+        return await self.watch_multi_ticker_helper(
+            "watchBidsAsks", "bookTicker", symbols, params, isUnsubscribe=True
+        )
+
+    def parse_ohlcv(self, ohlcv, market=None):
+        """
+        [
+            1499040000000,      // Kline open time                   0
+            "0.01634790",       // Open price                        1
+            "0.80000000",       // High price                        2
+            "0.01575800",       // Low price                         3
+            "0.01577100",       // Close price                       4
+            "148976.11427815",  // Volume                            5
+            1499644799999,      // Kline Close time                  6
+            "2434.19055334",    // Quote asset volume                7
+            308,                // Number of trades                  8
+            "1756.87402397",    // Taker buy base asset volume       9
+            "28.46694368",      // Taker buy quote asset volume     10
+            "0"                 // Unused field, ignore.
+        ]
+        """
+        return [
+            self.safe_integer(ohlcv, 0),
+            self.safe_number(ohlcv, 1),
+            self.safe_number(ohlcv, 2),
+            self.safe_number(ohlcv, 3),
+            self.safe_number(ohlcv, 4),
+            self.safe_number(ohlcv, 5),
+            self.safe_number(ohlcv, 7),  # Quote asset volume
+            self.safe_integer(ohlcv, 8),  # Number of trades
+            self.safe_number(ohlcv, 9),  # Taker buy base asset volume
+            self.safe_number(ohlcv, 10),  # Taker buy quote asset volume
+        ]
+
+    def handle_ohlcv(self, client: Client, message):
+        event = self.safe_string(message, "e")
+        eventMap: dict = {
+            "indexPrice_kline": "indexPriceKline",
+            "markPrice_kline": "markPriceKline",
+        }
+        event = self.safe_string(eventMap, event, event)
+        kline = self.safe_value(message, "k")
+        marketId = self.safe_string_2(kline, "s", "ps")
+        if event == "indexPriceKline":
+            # indexPriceKline doesn't have the _PERP suffix
+            marketId = self.safe_string(message, "ps")
+        interval = self.safe_string(kline, "i")
+        # use a reverse lookup in a static map instead
+        unifiedTimeframe = self.find_timeframe(interval)
+        parsed = [
+            self.safe_integer(kline, "t"),
+            self.safe_float(kline, "o"),
+            self.safe_float(kline, "h"),
+            self.safe_float(kline, "l"),
+            self.safe_float(kline, "c"),
+            self.safe_float(kline, "v"),
+            # - additional fields
+            self.safe_float(kline, "q"),  # - quote asset volume
+            self.safe_integer(kline, "n"),  # - number of trades
+            self.safe_float(kline, "V"),  # - taker buy base asset volume
+            self.safe_float(kline, "Q"),  # - taker buy quote asset volume
+        ]
+        isSpot = (client.url.find("/stream") > -1) or (client.url.find("/testnet.binance") > -1)
+        marketType = "spot" if (isSpot) else "contract"
+        symbol = self.safe_symbol(marketId, None, None, marketType)
+        messageHash = "ohlcv::" + symbol + "::" + unifiedTimeframe
+        self.ohlcvs[symbol] = self.safe_value(self.ohlcvs, symbol, {})
+        stored = self.safe_value(self.ohlcvs[symbol], unifiedTimeframe)
+        if stored is None:
+            limit = self.safe_integer(self.options, "OHLCVLimit", 1000)
+            stored = ArrayCacheByTimestamp(limit)
+            self.ohlcvs[symbol][unifiedTimeframe] = stored
+        stored.append(parsed)
+        resolveData = [symbol, unifiedTimeframe, stored]
+        client.resolve(resolveData, messageHash)
+
+    def handle_trade(self, client: Client, message):
+        """
+        There is a custom trade handler implementation, because Binance sends
+        some trades marked with "X" field, which is "MARKET" for market trades
+        and "INSURANCE_FUND" for insurance fund trades. We are interested only
+        in market trades, so we filter the rest out.
+
+        Update 07072024: Apparently insurance fund trades not aggregated so
+        we don't need to filter via "X" field, but let's keep it just in case.
+        """
+        # the trade streams push raw trade information in real-time
+        # each trade has a unique buyer and seller
+        isSpot = (client.url.find("wss://stream.binance.com") > -1) or (client.url.find("/testnet.binance") > -1)
+        marketType = "spot" if (isSpot) else "contract"
+        marketId = self.safe_string(message, "s")
+        market = self.safe_market(marketId, None, None, marketType)
+        symbol = market["symbol"]
+        messageHash = "trade::" + symbol
+        executionType = self.safe_string(message, "X")
+        if executionType == "INSURANCE_FUND":
+            return
+
+        # - fix 2025-04-16: filter out trades with zero price
+        trade = self.parse_ws_trade(message, market)
+        if trade["price"] == 0.0:
+            return
+
+        tradesArray = self.safe_value(self.trades, symbol)
+        if tradesArray is None:
+            limit = self.safe_integer(self.options, "tradesLimit", 1000)
+            tradesArray = ArrayCache(limit)
+        tradesArray.append(trade)
+        self.trades[symbol] = tradesArray
+        client.resolve(tradesArray, messageHash)
+
+    def handle_order_book_subscription(self, client: Client, message, subscription):
+        defaultLimit = self.safe_integer(self.options, "localOrderBookLimit", 4000)
+        # messageHash = self.safe_string(subscription, 'messageHash')
+        symbolOfSubscription = self.safe_string(subscription, "symbol")  # watchOrderBook
+        symbols = self.safe_value(subscription, "symbols", [symbolOfSubscription])  # watchOrderBookForSymbols
+        limit = self.safe_integer(subscription, "limit", defaultLimit)
+        # handle list of symbols
+        for i in range(0, len(symbols)):
+            symbol = symbols[i]
+            if symbol in self.orderbooks:
+                del self.orderbooks[symbol]
+            self.orderbooks[symbol] = self.order_book({}, limit)
+            subscription = self.extend(subscription, {"symbol": symbol})
+            # fetch the snapshot in a separate async call
+            self.spawn(self.fetch_order_book_snapshot, client, message, subscription)
+
+    # def clean_stream_state(self, subscription: dict):
+    #     """
+    #     Clean up stream state mappings during unsubscription to prevent UnsubscribeError.
+
+    #     This fixes the root cause of bulk unsubscription failures by properly cleaning up
+    #     stale stream mappings that cause state conflicts in CCXT.
+    #     """
+    #     symbols = self.safe_list(subscription, "symbols", [])
+    #     topic = self.safe_string(subscription, "topic", "")
+
+    #     if topic and len(symbols) > 1:
+    #         # Clean up bulk subscription stream mappings
+    #         subscription_hash = f"multiple{topic.upper()}"
+    #         streamBySubscriptionsHash = self.safe_dict(self.options, "streamBySubscriptionsHash", {})
+    #         if subscription_hash in streamBySubscriptionsHash:
+    #             stream = streamBySubscriptionsHash[subscription_hash]
+    #             del streamBySubscriptionsHash[subscription_hash]
+
+    #             # Clean up subscription counts to maintain accurate state
+    #             numSubscriptionsByStream = self.safe_dict(self.options, "numSubscriptionsByStream", {})
+    #             if stream in numSubscriptionsByStream:
+    #                 current_count = numSubscriptionsByStream[stream]
+    #                 new_count = max(0, current_count - len(symbols))
+    #                 if new_count == 0:
+    #                     del numSubscriptionsByStream[stream]
+    #                 else:
+    #                     numSubscriptionsByStream[stream] = new_count
+
+    # def clean_cache(self, subscription: dict):
+    #     """
+    #     Override clean_cache to include stream state cleanup.
+
+    #     This ensures proper cleanup during unsubscription operations.
+    #     """
+    #     super().clean_cache(subscription)
+    #     self.clean_stream_state(subscription)
+
+    # async def un_watch_ohlcv_for_symbols(self, symbolsAndTimeframes: List[List[str]], params={}):
+    #     """
+    #     Enhanced bulk OHLCV unsubscription with proper state validation and cleanup.
+
+    #     This override fixes UnsubscribeError issues by:
+    #     1. Validating subscription state before attempting unsubscription
+    #     2. Filtering to only valid subscriptions
+    #     3. Implementing graceful error handling for state conflicts
+    #     4. Forcing cleanup of remaining state on errors
+    #     """
+    #     await self.load_markets()
+
+    #     # Standard setup from parent class
+    #     type = "spot"
+    #     marketType = None
+    #     firstMarket = None
+
+    #     # Handle futures market detection
+    #     if len(symbolsAndTimeframes) > 0:
+    #         firstSymbol = symbolsAndTimeframes[0][0]
+    #         firstMarket = self.market(firstSymbol)
+    #         marketType, params = self.handle_market_type_and_params("unWatchOHLCVForSymbols", firstMarket, params)
+    #         if marketType != "spot":
+    #             type = "future"
+
+    #     # Build subscription hashes
+    #     messageHashes = []
+    #     subMessageHashes = []
+    #     rawHashes = []
+
+    #     for symbolAndTimeframe in symbolsAndTimeframes:
+    #         symbol = symbolAndTimeframe[0]
+    #         timeframe = symbolAndTimeframe[1]
+    #         market = self.market(symbol)
+    #         lowercaseId = market["lowercaseId"]
+    #         interval = self.timeframes[timeframe]
+    #         rawHash = lowercaseId + "@kline_" + interval
+    #         rawHashes.append(rawHash)
+    #         messageHash = "ohlcv:" + symbol + ":" + timeframe
+    #         messageHashes.append(messageHash)
+    #         subMessageHashes.append(rawHash)
+
+    #     # Get client and validate subscription state BEFORE attempting unsubscription
+    #     url = self.urls["api"]["ws"][type] + "/" + self.stream(type, "multipleOHLCV")
+    #     client = self.client(url)
+
+    #     # Filter to only valid subscriptions to prevent state conflicts
+    #     valid_messageHashes = []
+    #     valid_subMessageHashes = []
+    #     valid_rawHashes = []
+
+    #     for i, subHash in enumerate(subMessageHashes):
+    #         if subHash in client.subscriptions:
+    #             valid_messageHashes.append(messageHashes[i])
+    #             valid_subMessageHashes.append(subHash)
+    #             valid_rawHashes.append(rawHashes[i])
+
+    #     if not valid_messageHashes:
+    #         # Nothing to unsubscribe - return success
+    #         return True
+
+    #     # Build unsubscription request with only valid subscriptions
+    #     requestId = self.request_id(url)
+    #     request = {
+    #         "method": "UNSUBSCRIBE",
+    #         "params": valid_rawHashes,
+    #         "id": requestId,
+    #     }
+
+    #     subscription = {
+    #         "unsubscribe": True,
+    #         "id": str(requestId),
+    #         "subMessageHashes": valid_subMessageHashes,
+    #         "messageHashes": valid_messageHashes,
+    #         "symbols": [
+    #             st[0]
+    #             for st in symbolsAndTimeframes
+    #             if st[0] in [sh.split("@")[0].upper() for sh in valid_subMessageHashes]
+    #         ],
+    #         "topic": "ohlcv",
+    #     }
+
+    #     try:
+    #         # Attempt unsubscription with validated state
+    #         return await self.watch_multiple(
+    #             url, valid_messageHashes, self.extend(request, params), valid_messageHashes, subscription
+    #         )
+
+    #     except Exception as e:
+    #         # Handle UnsubscribeError and other state conflicts gracefully
+    #         from ccxt.base.errors import UnsubscribeError
+
+    #         if isinstance(e, UnsubscribeError) or "UnsubscribeError" in str(type(e)):
+    #             # Log the issue but don't crash - force cleanup instead
+    #             if hasattr(self, "logger"):
+    #                 self.logger.warning(f"Bulk OHLCV unsubscription state conflict, forcing cleanup: {e}")
+
+    #             # Force cleanup of remaining subscription state
+    #             for subHash in valid_subMessageHashes:
+    #                 if subHash in client.subscriptions:
+    #                     del client.subscriptions[subHash]
+    #                 if subHash in client.futures:
+    #                     try:
+    #                         client.futures[subHash].cancel()
+    #                     except:
+    #                         pass
+    #                     del client.futures[subHash]
+
+    #             # Clean up our stream state as well
+    #             self.clean_stream_state(subscription)
+
+    #             return True  # Return success after cleanup
+    #         else:
+    #             # Re-raise other errors
+    #             raise
+
+
+class BinanceQVUSDM(cxp.binanceusdm, BinanceQV):
+    """
+    The order of inheritance is important here, because we want
+    binanceusdm to take precedence over binanceqv. And this is how MRO is defined
+    in Python.
+
+    Describe method needs to be overriden, because of the way super is called in binanceusdm.
+    """
+
+    _funding_intervals: Dict[str, str]
+    _funding_intervals_updated_at: pd.Timestamp | None
+    _funding_interval_cache_ttl: pd.Timedelta
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._funding_intervals = {}
+        self._funding_intervals_updated_at = None
+        self._funding_interval_cache_ttl = to_timedelta(minutes=10)
+
+    def describe(self):
+        """
+        Overriding watchTrades to use aggTrade instead of trade.
+        """
+        return self.deep_extend(
+            super().describe(),
+            {
+                "options": {
+                    "watchTrades": {
+                        "name": "aggTrade",
+                    }
+                }
+            },
+        )
+
+    def parse_balance_custom(self, response, type=None, marginMode=None, isPortfolioMargin=False) -> Balances:
+        # TODO: make sure that PM works properly, balance should only be the realized portion, without the unrealized PNL
+        result = {
+            "info": response,
+        }
+        timestamp = None
+        isolated = marginMode == "isolated"
+        cross = (type == "margin") or (marginMode == "cross")
+        if isPortfolioMargin:
+            for i in range(0, len(response)):
+                entry = response[i]
+                account = self.account()
+                currencyId = self.safe_string(entry, "asset")
+                code = self.safe_currency_code(currencyId)
+                if type == "linear":
+                    account["free"] = self.safe_string(entry, "umWalletBalance")
+                    account["used"] = self.safe_string(entry, "umUnrealizedPNL")
+                elif type == "inverse":
+                    account["free"] = self.safe_string(entry, "cmWalletBalance")
+                    account["used"] = self.safe_string(entry, "cmUnrealizedPNL")
+                elif cross:
+                    borrowed = self.safe_string(entry, "crossMarginBorrowed")
+                    interest = self.safe_string(entry, "crossMarginInterest")
+                    account["debt"] = Precise.string_add(borrowed, interest)
+                    account["free"] = self.safe_string(entry, "crossMarginFree")
+                    account["used"] = self.safe_string(entry, "crossMarginLocked")
+                    # account['total'] = self.safe_string(entry, 'crossMarginAsset')
+                    account["total"] = self.safe_string(entry, "totalWalletBalance")
+                else:
+                    usedLinear = self.safe_string(entry, "umUnrealizedPNL")
+                    usedInverse = self.safe_string(entry, "cmUnrealizedPNL")
+                    totalUsed = Precise.string_add(usedLinear, usedInverse)
+                    totalWalletBalance = self.safe_string(entry, "totalWalletBalance")
+                    account["total"] = Precise.string_add(totalUsed, totalWalletBalance)
+                result[code] = account
+        elif not isolated and ((type == "spot") or cross):
+            timestamp = self.safe_integer(response, "updateTime")
+            balances = self.safe_list_2(response, "balances", "userAssets", [])
+            for i in range(0, len(balances)):
+                balance = balances[i]
+                currencyId = self.safe_string(balance, "asset")
+                code = self.safe_currency_code(currencyId)
+                account = self.account()
+                account["free"] = self.safe_string(balance, "free")
+                account["used"] = self.safe_string(balance, "locked")
+                if cross:
+                    debt = self.safe_string(balance, "borrowed")
+                    interest = self.safe_string(balance, "interest")
+                    account["debt"] = Precise.string_add(debt, interest)
+                result[code] = account
+        elif isolated:
+            assets = self.safe_list(response, "assets")
+            for i in range(0, len(assets)):
+                asset = assets[i]
+                marketId = self.safe_string(asset, "symbol")
+                symbol = self.safe_symbol(marketId, None, None, "spot")
+                base = self.safe_dict(asset, "baseAsset", {})
+                quote = self.safe_dict(asset, "quoteAsset", {})
+                baseCode = self.safe_currency_code(self.safe_string(base, "asset"))
+                quoteCode = self.safe_currency_code(self.safe_string(quote, "asset"))
+                subResult: dict = {}
+                subResult[baseCode] = self.parse_balance_helper(base)
+                subResult[quoteCode] = self.parse_balance_helper(quote)
+                result[symbol] = self.safe_balance(subResult)
+        elif type == "savings":
+            positionAmountVos = self.safe_list(response, "positionAmountVos", [])
+            for i in range(0, len(positionAmountVos)):
+                entry = positionAmountVos[i]
+                currencyId = self.safe_string(entry, "asset")
+                code = self.safe_currency_code(currencyId)
+                account = self.account()
+                usedAndTotal = self.safe_string(entry, "amount")
+                account["total"] = usedAndTotal
+                account["used"] = usedAndTotal
+                result[code] = account
+        elif type == "funding":
+            for i in range(0, len(response)):
+                entry = response[i]
+                account = self.account()
+                currencyId = self.safe_string(entry, "asset")
+                code = self.safe_currency_code(currencyId)
+                account["free"] = self.safe_string(entry, "free")
+                frozen = self.safe_string(entry, "freeze")
+                withdrawing = self.safe_string(entry, "withdrawing")
+                locked = self.safe_string(entry, "locked")
+                account["used"] = Precise.string_add(frozen, Precise.string_add(locked, withdrawing))
+                result[code] = account
+        else:
+            balances = response
+            if not isinstance(response, list):
+                balances = self.safe_list(response, "assets", [])
+            for i in range(0, len(balances)):
+                balance = balances[i]
+                currencyId = self.safe_string(balance, "asset")
+                code = self.safe_currency_code(currencyId)
+                account = self.account()
+                account["free"] = self.safe_string(balance, "availableBalance")
+                account["used"] = self.safe_string(balance, "initialMargin")
+                account["total"] = self.safe_string(balance, "walletBalance")
+                result[code] = account
+        result["timestamp"] = timestamp
+        result["datetime"] = self.iso8601(timestamp)
+        return result if isolated else self.safe_balance(result)
+
+    async def get_funding_interval_hours_for_symbol(self, symbol: str) -> float:
+        await self._update_funding_intervals()
+        return cast(float, self._funding_intervals.get(symbol, 8.0))
+
+    async def get_funding_interval_hours(self) -> dict[str, float]:
+        await self._update_funding_intervals()
+        return cast(dict[str, float], self._funding_intervals)
+
+    async def watch_funding_rates(self, symbols: List[str] | None = None):
+        symbol_count = len(symbols) if symbols else 0
+
+        try:
+            await self.load_markets()
+            await self._update_funding_intervals()
+
+            # Use watch_mark_prices which streams one symbol per WebSocket message
+            # This is normal behavior - WebSocket messages contain one symbol at a time
+            mark_prices = await self.watch_mark_prices(symbols)
+
+            if not mark_prices:
+                raise Exception("No mark price data received")
+
+            # Process whatever symbol(s) we received (usually 1 per WebSocket message)
+            funding_rates = {}
+            processed_count = 0
+
+            for symbol, info in mark_prices.items():
+                try:
+                    interval = self._funding_intervals.get(symbol, "8h")
+
+                    # Ensure we have the required fields for funding rate
+                    if "info" not in info or "r" not in info["info"]:
+                        continue
+
+                    funding_rates[symbol] = {
+                        "timestamp": info["timestamp"],
+                        "interval": interval,
+                        "fundingRate": float(info["info"]["r"]),
+                        "nextFundingTime": info["info"]["T"],
+                        "markPrice": info["markPrice"],
+                        "indexPrice": info["indexPrice"],
+                    }
+                    processed_count += 1
+
+                except Exception as e:
+                    continue
+
+            if processed_count == 0:
+                raise Exception("No funding rates could be processed from mark price data")
+
+            return funding_rates
+
+        except Exception as e:
+            raise
+
+    async def _update_funding_intervals(self):
+        # Check if cache is still valid (within TTL)
+        if self._funding_intervals and self._funding_intervals_updated_at:
+            cache_age = now_utc() - self._funding_intervals_updated_at
+            if cache_age < self._funding_interval_cache_ttl:
+                # Cache is still fresh, return early
+                return
+
+        # Cache is stale or empty, fetch new data
+        symbol_to_info = await self.fetch_funding_intervals()
+        self._funding_intervals = {str(s): str(info["interval"]) for s, info in symbol_to_info.items()}
+        self._funding_intervals_updated_at = now_utc()  # Record update time
+
+    async def create_order_ws(
+        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params={}
+    ) -> Order:
+        """
+        create a trade order
+        :see: https://developers.binance.com/docs/binance-spot-api-docs/web-socket-api#place-new-order-trade
+        :see: https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/websocket-api/New-Order
+        :param str symbol: unified symbol of the market to create an order in
+        :param str type: 'market' or 'limit'
+        :param str side: 'buy' or 'sell'
+        :param float amount: how much of currency you want to trade in units of base currency
+        :param float|None [price]: the price at which the order is to be fulfilled, in units of the quote currency, ignored in market orders
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param boolean params['test']: test order, default False
+        :param boolean params['returnRateLimits']: set to True to return rate limit information, default False
+        :returns dict: an `order structure <https://docs.ccxt.com/#/?id=order-structure>`
+        """
+        await self.load_markets()
+        market = self.market(symbol)
+        marketType = self.get_market_type("createOrderWs", market, params)
+        if marketType != "spot" and marketType != "future":
+            raise BadRequest(self.id + " createOrderWs only supports spot or swap markets")
+        url = self.urls["api"]["ws"]["ws-api"][marketType]
+        requestId = self.request_id(url)
+        messageHash = str(requestId)
+        sor = self.safe_bool_2(params, "sor", "SOR", False)
+        params = self.omit(params, "sor", "SOR")
+        payload = self.create_order_request(symbol, type, side, amount, price, params)
+        returnRateLimits = False
+        returnRateLimits, params = self.handle_option_and_params(params, "createOrderWs", "returnRateLimits", False)
+        payload["returnRateLimits"] = returnRateLimits
+        test = self.safe_bool(params, "test", False)
+        params = self.omit(params, "test")
+        # Here the ccxt code does an extend of payload with params which breaks the type parameter
+        message: dict = {
+            "id": messageHash,
+            "method": "order.place",
+            "params": self.sign_params(payload),
+        }
+        if test:
+            if sor:
+                message["method"] = "sor.order.test"
+            else:
+                message["method"] = "order.test"
+        subscription: dict = {
+            "method": self.handle_order_ws,
+        }
+        return await self.watch(url, messageHash, message, messageHash, subscription)
+
+    async def cancel_order_ws(self, id: str, symbol: str | None = None, params={}) -> Order:
+        """
+        cancel multiple orders
+
+        https://developers.binance.com/docs/binance-spot-api-docs/web-socket-api#cancel-order-trade
+        https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/websocket-api/Cancel-Order
+        https://developers.binance.com/docs/derivatives/coin-margined-futures/trade/websocket-api/Cancel-Order
+
+        :param str id: order id
+        :param str [symbol]: unified market symbol, default is None
+        :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str|None [params.cancelRestrictions]: Supported values: ONLY_NEW - Cancel will succeed if the order status is NEW. ONLY_PARTIALLY_FILLED - Cancel will succeed if order status is PARTIALLY_FILLED.
+        :returns dict: an list of `order structures <https://docs.ccxt.com/#/?id=order-structure>`
+        """
+        await self.load_markets()
+        if symbol is None:
+            raise BadRequest(self.id + " cancelOrderWs requires a symbol")
+        market = self.market(symbol)
+        type = self.get_market_type("cancelOrderWs", market, params)
+        url = self.urls["api"]["ws"]["ws-api"][type]
+        requestId = self.request_id(url)
+        messageHash = str(requestId)
+        returnRateLimits = False
+        returnRateLimits, params = self.handle_option_and_params(params, "cancelOrderWs", "returnRateLimits", False)
+        payload: dict = {
+            "symbol": self.market_id(symbol),
+            "returnRateLimits": returnRateLimits,
+        }
+        clientOrderId = self.safe_string_2(params, "origClientOrderId", "clientOrderId")
+        if clientOrderId is not None:
+            payload["origClientOrderId"] = clientOrderId
+        else:
+            payload["orderId"] = self.parse_to_int(id)
+        params = self.omit(params, ["origClientOrderId", "clientOrderId"])
+        # Same as in create_order_ws
+        message: dict = {
+            "id": messageHash,
+            "method": "order.cancel",
+            "params": self.sign_params(payload),
+        }
+        subscription: dict = {
+            "method": self.handle_order_ws,
+        }
+        return await self.watch(url, messageHash, message, messageHash, subscription)
+
+    async def un_watch_funding_rates(self):
+        """Unwatch funding rates to ensure fresh connections"""
+        from qubx import logger
+
+        logger.debug("un_watch_funding_rates called - resetting connection")
+
+        # Try to unwatch mark prices if possible
+        if hasattr(self, "un_watch_mark_prices"):
+            try:
+                await self.un_watch_mark_prices()
+            except Exception as e:
+                logger.debug(f"Error unwatching mark prices: {e}")
+
+        # Clear any internal caches that might exist
+        if hasattr(self, "markPrices") and self.markPrices:
+            self.markPrices.clear()
+            logger.debug("Cleared mark prices cache")
+
+        return None
+
+
+class BinancePortfolioMargin(BinanceQVUSDM):
+    def describe(self):
+        return self.deep_extend(
+            super().describe(),
+            {
+                "options": {
+                    "defaultType": "margin",
+                    "portfolioMargin": True,
+                    "defaultSubType": None,
+                    "fetchMarkets": ["spot", "linear", "inverse"],
+                }
+            },
+        )
+
+
+class BINANCE_UM_MM(BinanceQVUSDM):
+    def describe(self):
+        return self.deep_extend(
+            super().describe(),
+            {
+                "urls": {
+                    "api": {
+                        "fapiPublic": "https://fapi-mm.binance.com/fapi/v1",
+                        "fapiPublicV2": "https://fapi-mm.binance.com/fapi/v2",
+                        "fapiPublicV3": "https://fapi-mm.binance.com/fapi/v3",
+                        "fapiPrivate": "https://fapi-mm.binance.com/fapi/v1",
+                        "fapiPrivateV2": "https://fapi-mm.binance.com/fapi/v2",
+                        "fapiPrivateV3": "https://fapi-mm.binance.com/fapi/v3",
+                        "future": "wss://fstream-mm.binance.com/ws",
+                        "ws-api": {
+                            "future": "wss://ws-fapi-mm.binance.com/ws-fapi/v1",
+                        },
+                    }
+                }
+            },
+        )

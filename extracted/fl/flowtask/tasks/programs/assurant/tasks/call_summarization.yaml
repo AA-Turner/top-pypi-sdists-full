@@ -1,0 +1,31 @@
+name: Call Summarization
+description: Summarize Call Transcripts with LLM
+steps:
+  - QueryToPandas:
+      file_sql: get_calls.sql
+      conditions:
+        start_date: "{start_date}"
+        end_date: "{end_date}"
+      masks:
+        "{start_date}":
+          - yesterday
+          - mask: "%Y-%m-%d"
+        "{end_date}":
+          - today
+          - mask: "%Y-%m-%d"
+  - CallSummary:
+      eval_column: extracted_analysis
+      date_column: summary_date
+      output_column: call_summary
+  - FilterRows:
+      filter_conditions:
+        drop_columns:
+          columns:
+            - extracted_analysis
+  - TableOutput:
+      tablename: calls_summaries
+      schema: assurant
+      flavor: postgres
+      pk:
+        - summary_date
+        - caller_number

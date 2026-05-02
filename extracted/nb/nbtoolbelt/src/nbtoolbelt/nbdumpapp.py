@@ -7,8 +7,8 @@ This software is made available under the terms of the MIT License.
 """
 
 from argparse import _ArgumentGroup, SUPPRESS
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, List
 
 from nbformat import NotebookNode
 
@@ -137,7 +137,7 @@ class DumpTool(Tool):
         print('  Cell spacing lines: {}'.format(self._args.dump_cell_spacing))
 
 
-def main(cli_args: Optional[List[str]] = None) -> int:
+def main(cli_args: Sequence[str] | None = None) -> int:
     return DumpTool().main(cli_args)
 
 

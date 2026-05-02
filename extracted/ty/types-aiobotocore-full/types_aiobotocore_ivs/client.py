@@ -30,6 +30,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAdConfigurationsPaginator,
     ListChannelsPaginator,
     ListPlaybackKeyPairsPaginator,
     ListRecordingConfigurationsPaginator,
@@ -43,6 +44,8 @@ from .type_defs import (
     BatchGetStreamKeyResponseTypeDef,
     BatchStartViewerSessionRevocationRequestTypeDef,
     BatchStartViewerSessionRevocationResponseTypeDef,
+    CreateAdConfigurationRequestTypeDef,
+    CreateAdConfigurationResponseTypeDef,
     CreateChannelRequestTypeDef,
     CreateChannelResponseTypeDef,
     CreatePlaybackRestrictionPolicyRequestTypeDef,
@@ -51,12 +54,15 @@ from .type_defs import (
     CreateRecordingConfigurationResponseTypeDef,
     CreateStreamKeyRequestTypeDef,
     CreateStreamKeyResponseTypeDef,
+    DeleteAdConfigurationRequestTypeDef,
     DeleteChannelRequestTypeDef,
     DeletePlaybackKeyPairRequestTypeDef,
     DeletePlaybackRestrictionPolicyRequestTypeDef,
     DeleteRecordingConfigurationRequestTypeDef,
     DeleteStreamKeyRequestTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetAdConfigurationRequestTypeDef,
+    GetAdConfigurationResponseTypeDef,
     GetChannelRequestTypeDef,
     GetChannelResponseTypeDef,
     GetPlaybackKeyPairRequestTypeDef,
@@ -73,6 +79,10 @@ from .type_defs import (
     GetStreamSessionResponseTypeDef,
     ImportPlaybackKeyPairRequestTypeDef,
     ImportPlaybackKeyPairResponseTypeDef,
+    InsertAdBreakRequestTypeDef,
+    InsertAdBreakResponseTypeDef,
+    ListAdConfigurationsRequestTypeDef,
+    ListAdConfigurationsResponseTypeDef,
     ListChannelsRequestTypeDef,
     ListChannelsResponseTypeDef,
     ListPlaybackKeyPairsRequestTypeDef,
@@ -118,6 +128,7 @@ class Exceptions(BaseClientExceptions):
     PendingVerification: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailable: type[BotocoreClientError]
     StreamUnavailable: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
@@ -189,6 +200,16 @@ class IVSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#batch_start_viewer_session_revocation)
         """
 
+    async def create_ad_configuration(
+        self, **kwargs: Unpack[CreateAdConfigurationRequestTypeDef]
+    ) -> CreateAdConfigurationResponseTypeDef:
+        """
+        Creates a new ad configuration to be used for server-side ad insertion.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/create_ad_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#create_ad_configuration)
+        """
+
     async def create_channel(
         self, **kwargs: Unpack[CreateChannelRequestTypeDef]
     ) -> CreateChannelResponseTypeDef:
@@ -228,6 +249,16 @@ class IVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/create_stream_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#create_stream_key)
+        """
+
+    async def delete_ad_configuration(
+        self, **kwargs: Unpack[DeleteAdConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified ad configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/delete_ad_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#delete_ad_configuration)
         """
 
     async def delete_channel(
@@ -279,6 +310,16 @@ class IVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/delete_stream_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#delete_stream_key)
+        """
+
+    async def get_ad_configuration(
+        self, **kwargs: Unpack[GetAdConfigurationRequestTypeDef]
+    ) -> GetAdConfigurationResponseTypeDef:
+        """
+        Gets the ad configuration represented by the specified ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/get_ad_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#get_ad_configuration)
         """
 
     async def get_channel(
@@ -361,6 +402,28 @@ class IVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/import_playback_key_pair.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#import_playback_key_pair)
+        """
+
+    async def insert_ad_break(
+        self, **kwargs: Unpack[InsertAdBreakRequestTypeDef]
+    ) -> InsertAdBreakResponseTypeDef:
+        """
+        Inserts an ad marker in the playlist for the specified channel and duration
+        using the ad configuration associated with the channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/insert_ad_break.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#insert_ad_break)
+        """
+
+    async def list_ad_configurations(
+        self, **kwargs: Unpack[ListAdConfigurationsRequestTypeDef]
+    ) -> ListAdConfigurationsResponseTypeDef:
+        """
+        Gets summary information about all ad configurations in your account, in the
+        AWS region where the API request is processed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/list_ad_configurations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#list_ad_configurations)
         """
 
     async def list_channels(
@@ -511,6 +574,17 @@ class IVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/update_playback_restriction_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#update_playback_restriction_policy)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ad_configurations"]
+    ) -> ListAdConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ivs/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

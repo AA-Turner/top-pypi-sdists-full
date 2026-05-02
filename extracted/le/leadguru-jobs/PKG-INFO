@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: leadguru_jobs
+Version: 0.780.0
+Summary: LGT jobs builds
+Author-email: developer@leadguru.co
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Environment :: Console
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet
+Requires-Dist: cachetools==3.1.0
+Requires-Dist: pydantic
+Requires-Dist: wheel
+Requires-Dist: setuptools<81
+Requires-Dist: twine
+Requires-Dist: build
+Requires-Dist: kubernetes
+Requires-Dist: pyyaml
+Requires-Dist: pymongo
+Requires-Dist: pytz
+Requires-Dist: requests
+Requires-Dist: mongoengine
+Requires-Dist: google
+Requires-Dist: google-cloud-pubsub
+Requires-Dist: google-cloud-storage
+Requires-Dist: google-cloud-logging
+Requires-Dist: websockets
+Requires-Dist: aiohttp
+Requires-Dist: nameparser
+Requires-Dist: loguru
+Requires-Dist: redmail
+Requires-Dist: tenacity
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: summary

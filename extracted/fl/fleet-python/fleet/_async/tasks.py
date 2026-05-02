@@ -1,0 +1,541 @@
+"""Fleet SDK Task Model."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Dict, Optional, List, TYPE_CHECKING
+
+from pydantic import BaseModel, Field, validator, field_serializer
+
+# Import the shared VerifierFunction type that works for both async and sync
+from fleet.types import VerifierFunction
+
+if TYPE_CHECKING:
+    from fleet._async.models import VerifiersExecuteResponse
+
+
+class Task(BaseModel):
+    """A task model representing a single task in the Fleet system."""
+
+    key: str = Field(..., description="Unique task key identifier")
+    prompt: str = Field(..., description="Task prompt or instruction")
+    env_id: str = Field(..., description="Environment identifier")
+    env_variables: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Environment variables"
+    )
+    created_at: Optional[datetime] = Field(None, description="Task creation timestamp")
+    version: Optional[str] = Field(None, description="Task version")
+    data_id: Optional[str] = Field(None, description="Data identifier")
+    data_version: Optional[str] = Field(None, description="Data version")
+    verifier_func: Optional[str] = Field(None, description="Verifier function code")
+    verifier: Optional[Any] = Field(
+        None,
+        description="Verifier function with decorator (async or sync)",
+        exclude=True,  # Exclude from JSON serialization
+    )
+    verifier_id: Optional[str] = Field(None, description="Verifier identifier")
+    verifier_sha: Optional[str] = Field(None, description="Verifier SHA256 hash")
+    metadata: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Additional task metadata"
+    )
+    output_json_schema: Optional[Dict[str, Any]] = Field(
+        None, description="JSON schema for expected output format"
+    )
+
+    @validator("key")
+    def validate_key_format(cls, v):
+        return v
+
+    @validator("created_at", pre=True, always=True)
+    def set_created_at(cls, v):
+        """Set created_at to current time if not provided."""
+        return v or datetime.now()
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, dt: Optional[datetime], _info):
+        """Serialize datetime to ISO format string."""
+        return dt.isoformat() if dt else None
+
+    @property
+    def env_key(self) -> str:
+        """Get the environment key combining env_id and version."""
+        if self.version and self.version != "None" and ":" not in self.env_id:
+            return f"{self.env_id}:{self.version}"
+        return self.env_id
+
+    @property
+    def data_key(self) -> Optional[str]:
+        """Get the data key combining data_id and data_version."""
+        if self.data_id and self.data_version:
+            return f"{self.data_id}:{self.data_version}"
+        elif self.data_id:
+            return self.data_id
+        return None
+
+    class Config:
+        """Pydantic model configuration."""
+
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+        }
+        # Allow arbitrary types for the verifier field
+        arbitrary_types_allowed = True
+
+    def verify(self, env, *args, **kwargs) -> float:
+        """Verify the task using the verifier function (sync version).
+
+        For sync environments, calls the sync verifier directly.
+        For async verifiers, automatically runs them with asyncio.run().
+        """
+        # If verifier doesn't exist but verifier_func does, rebuild it
+        if not self.verifier and self.verifier_func:
+            self._rebuild_verifier()
+
+        if self.verifier:
+            import asyncio
+            import inspect
+
+            result = self.verifier.remote(env, *args, **kwargs)
+
+            # If the result is a coroutine, we need to run it
+            if inspect.iscoroutine(result):
+                # Check if we're already in an event loop
+                try:
+                    asyncio.get_running_loop()
+                    # We're in an async context, can't use asyncio.run()
+                    raise RuntimeError(
+                        "Cannot run async verifier in sync mode while event loop is running. "
+                        "Use await task.verify_async() instead."
+                    )
+                except RuntimeError:
+                    # No event loop running, safe to use asyncio.run()
+                    return asyncio.run(result)
+            else:
+                return result
+        else:
+            raise ValueError("No verifier function found for this task")
+
+    async def verify_async(self, *args, **kwargs) -> float:
+        """Verify the task using the verifier function (async version).
+
+        For async environments, awaits the async verifier.
+        Works with both sync and async verifiers in async contexts.
+        """
+        # If verifier doesn't exist but verifier_func does, rebuild it
+        if not self.verifier and self.verifier_func:
+            self._rebuild_verifier()
+
+        if self.verifier:
+            result = self.verifier.remote(*args, **kwargs)
+            # If it's a coroutine, await it
+            import inspect
+
+            if inspect.iscoroutine(result):
+                return await result
+            else:
+                return result
+        else:
+            raise ValueError("No verifier function found for this task")
+
+    async def verify_detailed_async(
+        self, *args, **kwargs
+    ) -> "VerifiersExecuteResponse":
+        """Verify the task and return the full execute response model.
+
+        For async environments, awaits the async verifier.
+        Works with both sync and async verifiers in async contexts.
+        """
+        # If verifier doesn't exist but verifier_func does, rebuild it
+        if not self.verifier and self.verifier_func:
+            self._rebuild_verifier()
+
+        if self.verifier:
+            result = self.verifier.remote_with_response(*args, **kwargs)
+            # If it's a coroutine, await it
+            import inspect
+
+            if inspect.iscoroutine(result):
+                return await result
+            else:
+                return result
+        else:
+            raise ValueError("No verifier function found for this task")
+
+    def verify_detailed(self, env, *args, **kwargs) -> "VerifiersExecuteResponse":
+        """Verify the task and return the full execute response model (sync version).
+
+        For sync environments, calls the sync verifier directly.
+        For async verifiers, automatically runs them with asyncio.run().
+        """
+        # If verifier doesn't exist but verifier_func does, rebuild it
+        if not self.verifier and self.verifier_func:
+            self._rebuild_verifier()
+
+        if self.verifier:
+            import asyncio
+            import inspect
+
+            # Check if verifier has remote_with_response method (for decorated verifiers)
+            result = self.verifier.remote_with_response(env, *args, **kwargs)
+
+            # If the result is a coroutine, we need to run it
+            if inspect.iscoroutine(result):
+                # Check if we're already in an event loop
+                try:
+                    asyncio.get_running_loop()
+                    # We're in an async context, can't use asyncio.run()
+                    raise RuntimeError(
+                        "Cannot run async verifier in sync mode while event loop is running. "
+                        "Use await task.verify_detailed_async() instead."
+                    )
+                except RuntimeError:
+                    # No event loop running, safe to use asyncio.run()
+                    return asyncio.run(result)
+            else:
+                return result
+        else:
+            raise ValueError("No verifier function found for this task")
+
+    def _rebuild_verifier(self):
+        """Rebuild the verifier from verifier_func string if it exists."""
+        if self.verifier_func:
+            # Use the same logic as in verifier_from_string
+            verifier_id = self.verifier_id or self.key
+            verifier = verifier_from_string(
+                verifier_func=self.verifier_func,
+                verifier_id=verifier_id,
+                verifier_key=self.key,
+                sha256=self.verifier_sha or "",
+            )
+            self.verifier = verifier
+
+    async def make_env(
+        self,
+        region: Optional[str] = None,
+        image_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        run_id: Optional[str] = None,
+        heartbeat_interval: Optional[int] = None,
+    ):
+        """Create an environment instance for this task's environment.
+
+        Alias for make() method. Uses the task's env_id (and version if present) to create the env.
+        """
+        return await self.make(
+            region=region,
+            image_type=image_type,
+            ttl_seconds=ttl_seconds,
+            run_id=run_id,
+            heartbeat_interval=heartbeat_interval,
+        )
+
+    async def make(
+        self,
+        region: Optional[str] = None,
+        image_type: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        run_id: Optional[str] = None,
+        heartbeat_interval: Optional[int] = None,
+    ):
+        """Create an environment instance with task's configuration.
+
+        Auto-populates environment creation with:
+        - env_key (env_id + version)
+        - data_key (data_id + data_version, if present)
+        - env_variables (if present)
+        - run_id (if present)
+        - heartbeat_interval (if present)
+
+        Args:
+            region: Optional AWS region for the environment
+            image_type: Optional image type for the environment
+            ttl_seconds: Optional TTL in seconds for the instance
+            run_id: Optional run ID to group instances
+            heartbeat_interval: Optional heartbeat interval in seconds (30-3600)
+
+        Returns:
+            Environment instance configured for this task
+
+        Example:
+            task = fleet.Task(key="my-task", prompt="...", env_id="my-env",
+                            data_id="my-data", data_version="v1.0")
+            env = await task.make(region="us-west-2", run_id="my-batch-123", heartbeat_interval=60)
+        """
+        if not self.env_id:
+            raise ValueError("Task has no env_id defined")
+
+        # Deferred import to avoid circular dependencies
+        from fleet.env import make_async
+
+        return await make_async(
+            env_key=self.env_key,
+            data_key=self.data_key,
+            region=region,
+            env_variables=self.env_variables if self.env_variables else None,
+            image_type=image_type,
+            ttl_seconds=ttl_seconds,
+            run_id=run_id,
+            heartbeat_interval=heartbeat_interval,
+        )
+
+
+def verifier_from_string(
+    verifier_func: str, verifier_id: str, verifier_key: str, sha256: str = "", verifier_runtime_version: str = ""
+) -> "VerifierFunction":
+    """Create a verifier function from string code.
+
+    Args:
+        verifier_func: The verifier function code as a string
+        verifier_id: Unique identifier for the verifier
+        verifier_key: Key/name for the verifier
+        sha256: SHA256 hash of the verifier code
+        verifier_runtime_version: Verifier runtime version
+
+    Returns:
+        VerifierFunction instance that can be used to verify tasks
+    """
+    try:
+        import inspect
+        import re
+        import json
+        import string
+        from .verifiers.verifier import AsyncVerifierFunction
+        from fleet.verifiers.code import TASK_SUCCESSFUL_SCORE, TASK_FAILED_SCORE
+        from fleet.verifiers.db import IgnoreConfig
+
+        # Strip @verifier decorator if present to avoid double-wrapping
+        # Remove lines like: @verifier(key="...")
+        cleaned_code = re.sub(r"@verifier\([^)]*\)\s*\n", "", verifier_func)
+        # Also remove the verifier import if present
+        # Use MULTILINE flag to match beginning of lines with ^
+        cleaned_code = re.sub(r"^from fleet\.verifiers.*import.*verifier.*$\n?", "", cleaned_code, flags=re.MULTILINE)
+        cleaned_code = re.sub(r"^from fleet import verifier.*$\n?", "", cleaned_code, flags=re.MULTILINE)
+        cleaned_code = re.sub(r"^import fleet\.verifiers.*$\n?", "", cleaned_code, flags=re.MULTILINE)
+        cleaned_code = re.sub(r"^import fleet$\n?", "", cleaned_code, flags=re.MULTILINE)
+
+        # Define helper functions for verifier execution
+        _TRANSLATOR = str.maketrans(string.punctuation, " " * len(string.punctuation))
+        
+        def _normalize_text(value: str) -> str:
+            text = value.lower().translate(_TRANSLATOR)
+            return "".join(text.split())
+        
+        def _stringify_content(content: Any) -> str:
+            if isinstance(content, (dict, list)):
+                return json.dumps(content, sort_keys=True)
+            return str(content)
+        
+        def normalized_contains(target: str, blob: Any) -> bool:
+            normalized_target = _normalize_text(target)
+            normalized_blob = _normalize_text(_stringify_content(blob))
+            return normalized_target in normalized_blob
+        
+        def extract_numbers(text: str) -> list:
+            cleaned_text = text.replace(',', '')
+            pattern = r'-?\d+\.?\d*'
+            matches = re.findall(pattern, cleaned_text)
+            return [float(num) for num in matches]
+        
+        def contains_number(text: str, target_number) -> bool:
+            numbers = extract_numbers(text)
+            try:
+                if isinstance(target_number, str):
+                    target_number = target_number.replace(',', '')
+                target = float(target_number)
+            except (ValueError, AttributeError):
+                return False
+            return target in numbers
+
+        # Create a local namespace for executing the code
+        local_namespace = {
+            "TASK_SUCCESSFUL_SCORE": TASK_SUCCESSFUL_SCORE,
+            "TASK_FAILED_SCORE": TASK_FAILED_SCORE,
+            "IgnoreConfig": IgnoreConfig,
+            "Environment": object,  # Add Environment type if needed
+            "normalized_contains": normalized_contains,
+            "extract_numbers": extract_numbers,
+            "contains_number": contains_number,
+            "json": json,
+            "re": re,
+            "string": string,
+        }
+
+        # Execute the cleaned verifier code in the namespace
+        exec(cleaned_code, globals(), local_namespace)
+
+        # Find the function that was defined (not imported)
+        # Functions defined via exec have co_filename == '<string>'
+        # Imported functions have their actual module file path
+        func_obj = None
+        for name, obj in local_namespace.items():
+            if inspect.isfunction(obj) and obj.__code__.co_filename == "<string>":
+                func_obj = obj
+                break
+
+        if func_obj is None:
+            raise ValueError("No function found in verifier code")
+
+        # Create an AsyncVerifierFunction instance with raw code
+        verifier_instance = AsyncVerifierFunction(
+            func_obj,
+            verifier_key,
+            verifier_id=verifier_id,
+            sha256=sha256,
+            raw_code=verifier_func,
+            verifier_runtime_version=verifier_runtime_version if verifier_runtime_version else None,
+        )
+
+        return verifier_instance
+
+    except Exception as e:
+        raise ValueError(f"Failed to create verifier from string: {e}")
+
+
+async def load_tasks_from_file(filename: str) -> List[Task]:
+    """Load tasks from a JSON file.
+
+    Example:
+        tasks = await fleet.load_tasks_from_file("my_tasks.json")
+    """
+    from .global_client import get_client
+
+    client = get_client()
+    return await client.load_tasks_from_file(filename)
+
+
+async def load_tasks(
+    env_key: Optional[str] = None,
+    keys: Optional[List[str]] = None,
+    version: Optional[str] = None,
+    team_id: Optional[str] = None,
+    project_key: Optional[str] = None,
+    task_project_key: Optional[str] = None,
+    data_id: Optional[str] = None,
+    data_version: Optional[str] = None,
+) -> List[Task]:
+    """Convenience function to load tasks with optional filtering.
+
+    Args:
+        env_key: Optional environment key to filter tasks by
+        keys: Optional list of task keys to filter by
+        version: Optional version to filter tasks by
+        team_id: Optional team_id to filter by (admin only)
+        project_key: Optional project key to filter tasks by
+        task_project_key: Optional task project key to filter tasks by
+        data_id: Optional data identifier to filter tasks by
+        data_version: Optional data version to filter tasks by
+
+    Examples:
+        tasks = await fleet.load_tasks(env_key="fira")
+        tasks = await fleet.load_tasks(keys=["task1", "task2"])
+        tasks = await fleet.load_tasks(env_key="fira", version="v1.0")
+        tasks = await fleet.load_tasks(data_id="my-data", data_version="v1.0")
+    """
+    # Use the global client by default so users can pre-configure it once
+    from .global_client import get_client
+
+    client = get_client()
+    return await client.load_tasks(
+        env_key=env_key,
+        keys=keys,
+        version=version,
+        team_id=team_id,
+        project_key=project_key,
+        task_project_key=task_project_key,
+        data_id=data_id,
+        data_version=data_version,
+    )
+
+
+async def update_task(
+    task_key: str, prompt: Optional[str] = None, verifier_code: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
+):
+    """Convenience function to update an existing task.
+
+    Args:
+        task_key: The key of the task to update
+        prompt: New prompt text for the task (optional)
+        verifier_code: Python code for task verification (optional)
+        metadata: Additional metadata for the task (optional)
+
+    Returns:
+        TaskResponse containing the updated task details
+
+    Examples:
+        response = await fleet.update_task("my-task", prompt="New prompt text")
+        response = await fleet.update_task("my-task", verifier_code="def verify(env): return True")
+        response = await fleet.update_task("my-task", metadata={"seed": 42, "story": "Updated story"})
+    """
+    from .global_client import get_client
+
+    client = get_client()
+    return await client.update_task(
+        task_key=task_key, prompt=prompt, verifier_code=verifier_code, metadata=metadata
+    )
+
+
+async def get_task(
+    task_key: str, version_id: Optional[str] = None, team_id: Optional[str] = None
+):
+    """Convenience function to get a task by key and optional version.
+
+    Args:
+        task_key: The key of the task to retrieve
+        version_id: Optional version ID to filter by
+        team_id: Optional team_id to filter by (admin only)
+
+    Returns:
+        TaskResponse containing the task details
+
+    Examples:
+        response = await fleet.get_task("my-task")
+        response = await fleet.get_task("my-task", version_id="v1")
+        response = await fleet.get_task("my-task", team_id="team-123")
+    """
+    from .global_client import get_client
+
+    client = get_client()
+    return await client.get_task(
+        task_key=task_key, version_id=version_id, team_id=team_id
+    )
+
+
+async def import_task(task: Task, project_key: Optional[str] = None):
+    """Convenience function to import a single task.
+
+    Args:
+        task: Task object to import
+        project_key: Optional project key to associate with the task
+
+    Returns:
+        Response from the API, or None if the import failed
+
+    Examples:
+        task = fleet.Task(key="my-task", prompt="Do something", env_id="my-env")
+        response = await fleet.import_task(task)
+        response = await fleet.import_task(task, project_key="my-project")
+    """
+    from .global_client import get_client
+
+    client = get_client()
+    return await client.import_single_task(task, project_key=project_key)
+
+
+async def import_tasks(filename: str, project_key: Optional[str] = None):
+    """Convenience function to import tasks from a JSON file.
+
+    Args:
+        filename: Path to the JSON file of Task objects to import
+        project_key: Optional project key to associate with the tasks
+
+    Returns:
+        List of responses from the API for successfully imported tasks
+
+    Examples:
+        responses = await fleet.import_tasks("tasks.json")
+        responses = await fleet.import_tasks("tasks.json", project_key="my-project")
+    """
+    from .global_client import get_client
+
+    client = get_client()
+    return await client.import_tasks(filename, project_key=project_key)

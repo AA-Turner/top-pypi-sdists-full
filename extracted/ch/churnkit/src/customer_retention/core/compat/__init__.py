@@ -862,7 +862,21 @@ def safe_select(conditions: list, choices: list, default: Any = "") -> Any:
     return conditions[0].spark.transform(lambda _: expr)
 
 
-def safe_describe(df: Any) -> Any:
+def safe_describe(df: Any) -> _pandas.DataFrame:
+    """Return ``df.describe()`` shape as a *native* pandas DataFrame.
+
+    Pandas branch: native ``df.describe()``; falls back to numeric-only
+    when the full call raises (e.g. mixed-dtype frames with TIMESTAMP_NTZ
+    columns that pandas can't summarise).
+
+    Spark branch: batched aggregations via ``_spark_bulk_describe`` —
+    two ``.agg()`` calls regardless of column count, plan size O(N),
+    runtime independent of column-count growth. Replaces pyspark.pandas's
+    per-column describe path which scaled linearly in Spark jobs (200
+    cols ≈ 200+ jobs, ~45 min on the SPS opportunity dataset).
+    """
+    if _is_spark_pandas(df):
+        return _spark_safe_describe(df)
     try:
         return df.describe()
     except Exception:
@@ -870,6 +884,124 @@ def safe_describe(df: Any) -> Any:
         if len(numeric.columns) == 0:
             return _pandas.DataFrame()
         return numeric.describe()
+
+
+def _spark_safe_describe(df: Any) -> _pandas.DataFrame:
+    """Spark dispatcher for :func:`safe_describe` — numeric-cols only."""
+    from pyspark.sql.types import NumericType
+
+    spark_df = as_spark_df(df)
+    numeric_cols = [
+        f.name for f in spark_df.schema.fields
+        if isinstance(f.dataType, NumericType)
+    ]
+    if not numeric_cols:
+        return _pandas.DataFrame()
+    return _spark_bulk_describe(spark_df, numeric_cols)
+
+
+def _spark_bulk_describe(spark_df: Any, numeric_cols: list[str]) -> _pandas.DataFrame:
+    """Compute pandas-equivalent describe stats in batched Spark aggs.
+
+    Produces the standard 8-row describe shape
+    (``count, mean, std, min, 25%, 50%, 75%, max``) with one column per
+    input numeric field. Uses two batched ``.agg()`` passes per
+    Coding_Practices.md:
+
+    - **Batch A (basic stats):** count + mean + stddev + min + max,
+      40 cols per batch (≈ 200 expressions per Catalyst plan).
+    - **Batch B (quantiles):** ``percentile_approx(c, [0.25, 0.5, 0.75])``
+      returning a 3-element array per column, 200 cols per batch.
+
+    Each batch issues one Spark job that scans the data once. With
+    typical wide-table column counts (150-300), total job count is
+    bounded at ≈ 5-10 — independent of column-count growth — and
+    runtime drops from minutes-per-column to a single distributed scan
+    per batch. Stays distributed (no driver-side aggregation),
+    O(N) plan size, no shuffle, no cached state held across batches.
+    """
+    import math
+
+    from pyspark.sql import functions as F  # noqa: N812
+
+    n = len(numeric_cols)
+    counts: dict[str, float] = {}
+    means: dict[str, float] = {}
+    stds: dict[str, float] = {}
+    mins: dict[str, Any] = {}
+    maxs: dict[str, Any] = {}
+
+    # Batch A: count, mean, stddev, min, max — 5 exprs per col.
+    # 40 cols × 5 exprs = 200 exprs per Catalyst plan (sweet spot per
+    # Coding_Practices.md table).
+    _BATCH_A = 40
+    for start in range(0, n, _BATCH_A):
+        batch = numeric_cols[start : start + _BATCH_A]
+        exprs: list[Any] = []
+        for c in batch:
+            col = F.col(f"`{c}`")
+            exprs.append(F.count(col).alias(f"__cnt__{c}"))
+            exprs.append(F.mean(col).alias(f"__mean__{c}"))
+            exprs.append(F.stddev(col).alias(f"__std__{c}"))
+            exprs.append(F.min(col).alias(f"__min__{c}"))
+            exprs.append(F.max(col).alias(f"__max__{c}"))
+        row = spark_df.agg(*exprs).head()
+        if row is None:
+            for c in batch:
+                counts[c] = 0
+                means[c] = math.nan
+                stds[c] = math.nan
+                mins[c] = math.nan
+                maxs[c] = math.nan
+            continue
+        for c in batch:
+            cnt_val = row[f"__cnt__{c}"]
+            counts[c] = float(cnt_val) if cnt_val is not None else 0.0
+            mean_val = row[f"__mean__{c}"]
+            means[c] = float(mean_val) if mean_val is not None else math.nan
+            std_val = row[f"__std__{c}"]
+            stds[c] = float(std_val) if std_val is not None else math.nan
+            min_val = row[f"__min__{c}"]
+            mins[c] = float(min_val) if min_val is not None else math.nan
+            max_val = row[f"__max__{c}"]
+            maxs[c] = float(max_val) if max_val is not None else math.nan
+
+    # Batch B: percentile_approx with array argument returns a 3-element
+    # list per column → 1 expr per col, 200 cols per batch.
+    _BATCH_B = 200
+    q1s: dict[str, float] = {}
+    q2s: dict[str, float] = {}
+    q3s: dict[str, float] = {}
+    for start in range(0, n, _BATCH_B):
+        batch = numeric_cols[start : start + _BATCH_B]
+        exprs = [
+            F.percentile_approx(F.col(f"`{c}`"), [0.25, 0.5, 0.75]).alias(f"__pct__{c}")
+            for c in batch
+        ]
+        row = spark_df.agg(*exprs).head()
+        if row is None:
+            for c in batch:
+                q1s[c] = math.nan
+                q2s[c] = math.nan
+                q3s[c] = math.nan
+            continue
+        for c in batch:
+            arr = row[f"__pct__{c}"]
+            if arr is None or len(arr) < 3:
+                q1s[c] = math.nan
+                q2s[c] = math.nan
+                q3s[c] = math.nan
+            else:
+                q1s[c] = float(arr[0]) if arr[0] is not None else math.nan
+                q2s[c] = float(arr[1]) if arr[1] is not None else math.nan
+                q3s[c] = float(arr[2]) if arr[2] is not None else math.nan
+
+    index = ["count", "mean", "std", "min", "25%", "50%", "75%", "max"]
+    data = {
+        c: [counts[c], means[c], stds[c], mins[c], q1s[c], q2s[c], q3s[c], maxs[c]]
+        for c in numeric_cols
+    }
+    return _pandas.DataFrame(data, index=index)
 
 
 def temporal_quantile(series: Any, q: float) -> _pandas.Timestamp:
@@ -1435,8 +1567,13 @@ def batched_missingness_corr(
     """Pairwise correlation of null-indicator columns.
 
     On pandas: ``df[cols].isnull().corr()``.
-    On Spark: batched ``F.corr`` on ``isnull().cast("double")`` indicators,
-    processing column-pairs in groups to keep Catalyst plans small.
+    On Spark: single-job MLlib ``Correlation.corr`` over a vectorised
+    null-indicator frame. Plan size is O(N) regardless of column count;
+    no per-pair Catalyst expressions, no quadratic plan fan-in. This is
+    the durable replacement for the previous batched ``F.corr`` loop
+    that scaled as O(N²/batch) jobs and OOMed driver heaps on wide
+    parallel-task workloads (e.g. opportunity, ~150+ nullable cols, run
+    concurrently across 4 NB02 tasks on a shared cluster).
 
     Returns a symmetric *native* pandas DataFrame (small — cols × cols).
     """
@@ -1451,52 +1588,58 @@ def batched_missingness_corr(
         return df[cols].isnull().corr()
 
     import pyspark.sql.functions as F  # noqa: N812
+    from pyspark.ml.feature import VectorAssembler
+    from pyspark.ml.stat import Correlation
 
     spark_df = as_spark_df(df[cols])
-    # Build null-indicator columns: 1.0 if null, 0.0 otherwise
-    null_cols = [F.when(F.col(f"`{c}`").isNull(), 1.0).otherwise(0.0).alias(c) for c in cols]
-    null_df = spark_df.select(*null_cols).localCheckpoint(eager=True)
+    # Build null-indicator columns: 1.0 if null, 0.0 otherwise. Use safe
+    # alias names (`__nm_<i>`) so VectorAssembler doesn't choke on column
+    # names containing dots, spaces, or other Spark-reserved characters.
+    safe_aliases = [f"__nm_{i}" for i in range(len(cols))]
+    null_cols = [
+        F.when(F.col(f"`{c}`").isNull(), 1.0).otherwise(0.0).alias(safe_aliases[i])
+        for i, c in enumerate(cols)
+    ]
+    null_df = spark_df.select(*null_cols)
 
-    # Pre-filter: only columns with at least one null have meaningful variance
-    _BATCH_NC = 200
-    has_nulls: set[str] = set()
-    for start in range(0, len(cols), _BATCH_NC):
-        batch = cols[start : start + _BATCH_NC]
-        exprs = [F.coalesce(F.sum(F.col(c).cast("int")), F.lit(0)).alias(c) for c in batch]
-        row = null_df.agg(*exprs).head()
-        for c in batch:
-            if row[c] and int(row[c]) > 0:
-                has_nulls.add(c)
-
+    # Identify zero-variance columns (no nulls OR all nulls): MLlib reports
+    # them as NaN throughout their row/col, but pandas' isnull().corr() also
+    # reports NaN for zero-variance columns, so the contract matches.
+    # We compute null counts in a single agg job to know which columns to
+    # mark as "has nulls" for the later post-processing.
+    sum_exprs = [F.sum(F.col(safe_aliases[i])).alias(safe_aliases[i]) for i in range(len(cols))]
+    sum_row = null_df.agg(*sum_exprs).head()
     n = len(cols)
-    matrix = _np.full((n, n), _np.nan)
-    _np.fill_diagonal(matrix, 1.0)
-    idx = {c: i for i, c in enumerate(cols)}
+    has_nulls: set[int] = set()
+    for i in range(n):
+        v = sum_row[safe_aliases[i]] if sum_row is not None else None
+        if v is not None and float(v) > 0:
+            has_nulls.add(i)
 
-    # Only compute pairs where both columns have nulls (non-zero variance)
-    active = sorted(has_nulls, key=cols.index)
-    pairs = [(i, j) for ii, a in enumerate(active) for j_idx, b in enumerate(active[ii + 1:], ii + 1)
-             if (i := idx[a]) is not None and (j := idx[b]) is not None]
+    # Single Spark job: vectorise + compute the full N×N correlation matrix.
+    # Plan size is O(N), not O(N²). MLlib's MultivariateStatisticalSummary
+    # accumulates moments per partition, then aggregates — no driver-side
+    # per-pair Catalyst plan, no cached null-indicator frame held across
+    # batches.
+    assembler = VectorAssembler(
+        inputCols=safe_aliases, outputCol="__nm_features", handleInvalid="keep",
+    )
+    vec_df = assembler.transform(null_df).select("__nm_features")
+    corr_row = Correlation.corr(vec_df, "__nm_features", method="pearson").head()
+    matrix = _np.array(corr_row[0].toArray(), dtype=float)
 
-    _BATCH_CORR = 500
-    for start in range(0, len(pairs), _BATCH_CORR):
-        batch = pairs[start : start + _BATCH_CORR]
-        exprs = [_safe_corr_expr(cols[i], cols[j]).alias(f"c_{i}_{j}") for i, j in batch]
-        row = null_df.select(*exprs).head()
-        for i, j in batch:
-            val = row[f"c_{i}_{j}"]
-            val = float(val) if val is not None else _np.nan
-            matrix[i, j] = val
-            matrix[j, i] = val
-
-    null_df.unpersist()
-    del null_df
-
-    # Columns with zero nulls have no variance → corr = NaN with everything (already set),
-    # except self-correlation = NaN for zero-variance (consistent with pandas behavior)
-    for c in cols:
-        if c not in has_nulls:
-            matrix[idx[c], idx[c]] = _np.nan
+    # Pandas isnull().corr() contract:
+    #   - NaN diagonal for zero-variance columns
+    #   - NaN row/col for zero-variance columns (already what MLlib emits)
+    # MLlib already returns NaN for zero-variance entries, but it sets the
+    # diagonal to 1.0 even when the column has zero variance. Override the
+    # diagonal for zero-variance columns to match pandas.
+    for i in range(n):
+        if i not in has_nulls:
+            matrix[i, :] = _np.nan
+            matrix[:, i] = _np.nan
+        else:
+            matrix[i, i] = 1.0
 
     return _pandas.DataFrame(matrix, columns=cols, index=cols)
 

@@ -352,15 +352,15 @@ TOP_LEVEL_MARKUP_SKIP_MENUS.extend(["X","P","B"])
 INDEX_SKIP_MENUS_1_To_4 = ["W","E","M","Z","0","5","6","7","8","9","10","11","12","13","14","S","15"]
 INDEX_SKIP_MENUS_5_TO_9 = ["W","E","M","Z","N","0","1","2","3","4","10","11","12","13","14","S","15"]
 INDEX_SKIP_MENUS_10_TO_15 = ["W","E","M","Z","N","0","1","2","3","4","5","6","7","8","9","S"]
-SCANNER_SKIP_MENUS_1_TO_6 = ["0","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_SKIP_MENUS_7_TO_12 = ["0","1","2","3","4","5","6","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_SKIP_MENUS_13_TO_18 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_SKIP_MENUS_19_TO_25 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_SKIP_MENUS_26_TO_31 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_SKIP_MENUS_32_TO_37 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","38","39","40","41","42","43","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_SKIP_MENUS_38_TO_43 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","44","45","46","47","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_1_TO_6 = ["0","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_7_TO_12 = ["0","1","2","3","4","5","6","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_13_TO_18 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_19_TO_25 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_26_TO_31 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_32_TO_37 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","38","39","40","41","42","43","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
+SCANNER_SKIP_MENUS_38_TO_43 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","44","45","46","47","48","49","M","Z",str(MAX_MENU_OPTION)]
 SCANNER_SKIP_MENUS_44_TO_47 = ["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","M","Z",str(MAX_MENU_OPTION)]
-SCANNER_MENUS_WITH_NO_SUBMENUS = ["1","2","3","10","11","12","13","14","15","16","17","18","19","20","21","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47"]
+SCANNER_MENUS_WITH_NO_SUBMENUS = ["1","2","3","10","11","12","13","14","15","16","17","18","19","20","21","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49"]
 SCANNER_MENUS_WITH_SUBMENU_SUPPORT = ["6", "7", "21","22","30","32","33","40"]
 SCANNER_SUBMENUS_CHILDLEVEL_SUPPORT = {"6":[ "7","10"], "7":[ "3","6","7","9"],}
 INDEX_COMMANDS_SKIP_MENUS_SCANNER = ["W", "E", "M", "Z", "S"]
@@ -2636,7 +2636,7 @@ def command_handler(update: Update, context: CallbackContext) -> None:
                 f"{cmdText}\n\n{cmd_item.commandTextKey()} for {cmd_item.commandTextLabel()}"
             )
         if cmd in ["x"]:
-            cmdText = f"{cmdText}\n\nFor option 0 <Screen stocks by the stock name>, please type in the command in the following format\n/X_0 SBIN\n or \n/X_0_0 SBIN\nand hit send where SBIN is the NSE stock code.For multiple stocks, you can type in \n/X_0 SBIN,ICICIBANK,OtherStocks\nYou can put in any number of stocks separated by space or comma(,)."
+            cmdText = f"{cmdText}\n\nFor option 0 [Screen stocks by the stock name], please type in the command in the following format\n/X_0 SBIN\n or \n/X_0_0 SBIN\nand hit send where SBIN is the NSE stock code.For multiple stocks, you can type in \n/X_0 SBIN,ICICIBANK,OtherStocks\nYou can put in any number of stocks separated by space or comma(,)."
         """Send a message when the command /help is issued."""
         cmdText = f"{cmdText}\nClick /start if you want to restart the session."
         update.message.reply_text(sanitiseTexts(f"Choose an option:\n{cmdText}"), reply_markup=default_markup(user=user), parse_mode="HTML")
@@ -2673,7 +2673,7 @@ def command_handler(update: Update, context: CallbackContext) -> None:
             return START_ROUTES
         else:
             if cmd in ["x"]:
-                cmdText = "For option 0 <Screen stocks by the stock name>, please type in the command in the following format\n/X_0 SBIN or /X_0_0 SBIN and hit send where SBIN is the NSE stock code.For multiple stocks, you can type in /X_0 SBIN,ICICIBANK,OtherStocks . You can put in any number of stocks separated by space or comma(,)."
+                cmdText = "For option 0 [Screen stocks by the stock name], please type in the command in the following format\n/X_0 SBIN or /X_0_0 SBIN and hit send where SBIN is the NSE stock code.For multiple stocks, you can type in /X_0 SBIN,ICICIBANK,OtherStocks . You can put in any number of stocks separated by space or comma(,)."
             """Send a message when the command /help is issued."""
             cmdText = f"{cmdText}\nClick /start if you want to restart the session."
             update.message.reply_text(sanitiseTexts(f"Choose an option:\n{cmdText}"), reply_markup=default_markup(user=user), parse_mode="HTML")
@@ -2779,7 +2779,7 @@ def command_handler(update: Update, context: CallbackContext) -> None:
             elif (
                 "x_" in cmd and selectedMenu.menuKey == "0"
             ):  # a specific stock by name
-                cmdText = "For option 0 <Screen stocks by the stock name>, please type in the command in the following format\n/X_0 SBIN or /X_0_0 SBIN and hit send where SBIN is the NSE stock code.For multiple stocks, you can type in /X_0 SBIN,ICICIBANK,OtherStocks. You can put in any number of stocks separated by space or comma(,)."
+                cmdText = "For option 0 [Screen stocks by the stock name], please type in the command in the following format\n/X_0 SBIN or /X_0_0 SBIN and hit send where SBIN is the NSE stock code.For multiple stocks, you can type in /X_0 SBIN,ICICIBANK,OtherStocks. You can put in any number of stocks separated by space or comma(,)."
                 """Send a message when the command /help is issued."""
                 cmdText = f"{cmdText}\nClick /start if you want to restart the session."
                 update.message.reply_text(sanitiseTexts(f"Choose an option:\n{cmdText}"), reply_markup=default_markup(user=user), parse_mode="HTML")

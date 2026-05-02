@@ -13,7 +13,7 @@ class SomeClass:
     def twice(self, b):
         pass
 
-    def some_function():
+    def some_function(self):
         pass
 
 

@@ -14,7 +14,7 @@ from jedi.api.interpreter import MixedModuleContext
 # For interpreter tests sometimes the path of this directory is in the sys
 # path, which we definitely don't want. So just remove it globally.
 try:
-    sys.path.remove(helpers.test_dir)
+    sys.path.remove(str(helpers.test_dir))
 except ValueError:
     pass
 

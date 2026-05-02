@@ -237,8 +237,8 @@ InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]
 ListAvailableManagementCidrRangesPaginatorName = Literal["list_available_management_cidr_ranges"]
 LogUploadEnumType = Literal["DISABLED", "ENABLED"]
-ModificationResourceEnumType = Literal["COMPUTE_TYPE", "ROOT_VOLUME", "USER_VOLUME"]
-ModificationStateEnumType = Literal["UPDATE_INITIATED", "UPDATE_IN_PROGRESS"]
+ModificationResourceEnumType = Literal["COMPUTE_TYPE", "PROTOCOL", "ROOT_VOLUME", "USER_VOLUME"]
+ModificationStateEnumType = Literal["UPDATE_FAILED", "UPDATE_INITIATED", "UPDATE_IN_PROGRESS"]
 OSVersionType = Literal["Windows_10", "Windows_11"]
 OperatingSystemNameType = Literal[
     "AMAZON_LINUX_2",

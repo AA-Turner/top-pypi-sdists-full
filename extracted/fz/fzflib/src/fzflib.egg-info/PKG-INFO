@@ -1,0 +1,105 @@
+Metadata-Version: 2.1
+Name: fzflib
+Version: 0.1.17
+Summary: A Python library for interacting with FZF.
+Home-page: https://github.com/AceofSpades5757/fzflib
+Author: Kyle L. Davis
+Author-email: AceofSpades5757.github@gmail.com
+License: MIT
+Project-URL: Documentation, https://fzflib.readthedocs.io/en/latest/
+Project-URL: Author, https://github.com/AceofSpades5757
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+
+[![PyPI](https://img.shields.io/pypi/v/fzflib?color=darkred)](https://pypi.org/project/fzflib/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fzflib?label=Python%20Version&logo=python&logoColor=yellow)](https://pypi.org/project/fzflib/)
+[![PyPI - License](https://img.shields.io/pypi/l/fzflib?color=green)](https://github.com/AceofSpades5757/fzflib/blob/main/LICENSE)
+
+[![Tests](https://github.com/AceofSpades5757/fzflib/actions/workflows/tests.yml/badge.svg)](https://github.com/AceofSpades5757/fzflib/actions/workflows/tests.yml)
+
+[![Read the Docs](https://img.shields.io/readthedocs/fzflib)](https://fzflib.readthedocs.io/en/latest/)
+
+# Description
+
+Bring the incredible utility of FZF to Python.
+
+Probably one of the best tools I've ever found.
+
+# Installation
+
+Using the official The Python Package Index (PyPI).
+
+`pip install fzflib`
+
+## Requirements
+
+- [FZF](https://github.com/junegunn/fzf)
+
+# Documentation
+
+View the documentation at [Read the Docs](https://img.shields.io/readthedocs/fzflib)
+
+# Usage
+
+Create an FZF instance.
+
+`fzf = FZF()`
+
+Create an FZF instance, with additional options during instantiation.
+
+`fzf = FZF(fzf='~/fzf.exe', multi=True)`
+
+## Change Options
+
+Use the FZF instance to search for various options.
+
+```python
+fzf.input = ['option 1', 'option 2']
+fzf.prompt()
+```
+
+Set different working directory, when running FZF.
+
+`fzf.cwd: PathLike = '~'`
+
+## Command Line Utility
+
+Use the FZF Python class as a command line utility.
+
+Note that FZF is _already_ a command line utility and is far more powerful than this package when used from the command line.
+
+```sh
+$ py -m fzflib --help
+
+usage: __main__.py [-h] [--multi]
+
+optional arguments:
+  -h, --help  show this help message and exit
+  --multi     Mutliple selections. Default: False
+```
+
+## Install FZF
+
+This will attempt to install FZF on your machine.
+
+`FZF.install()`
+
+# Contribution
+
+This package follows a similar style found in the Python standard library of using a central class, or set of classes, to generate a set of useful functions (e.g. `difflib`).
+
+Feel free to submit an Issue for any bugs, or suggestions.
+
+Support the people behind [FZF](https://github.com/junegunn/fzf).

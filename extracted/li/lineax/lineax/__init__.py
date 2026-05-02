@@ -18,7 +18,6 @@ from . import internal as internal
 from ._operator import (
     AbstractLinearOperator as AbstractLinearOperator,
     AddLinearOperator as AddLinearOperator,
-    AuxLinearOperator as AuxLinearOperator,
     ComposedLinearOperator as ComposedLinearOperator,
     conj as conj,
     diagonal as diagonal,
@@ -50,6 +49,7 @@ from ._solution import RESULTS as RESULTS, Solution as Solution
 from ._solve import (
     AbstractLinearSolver as AbstractLinearSolver,
     AutoLinearSolver as AutoLinearSolver,
+    invert as invert,
     linear_solve as linear_solve,
 )
 from ._solver import (

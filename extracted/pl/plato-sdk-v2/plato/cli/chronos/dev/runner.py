@@ -301,9 +301,9 @@ class DevRunner:
                         env = Env.resource(
                             simulator=f"dev-{world_package}",
                             sim_config=SimConfigCompute(
-                                cpus=world_runtime.cpus,
-                                memory=world_runtime.memory,
-                                disk=world_runtime.disk,
+                                cpus=world_runtime.vm.cpus,
+                                memory=world_runtime.vm.memory,
+                                disk=world_runtime.vm.disk,
                             ),
                             alias="runtime",
                             docker_image_url=self.world_image,
@@ -312,7 +312,7 @@ class DevRunner:
                         )
                         self.session = await self.plato.sessions.create(
                             envs=[env],
-                            timeout=world_runtime.timeout or 7200,
+                            timeout=world_runtime.vm.timeout,
                         )
                         if not self.session:
                             raise RuntimeError("Failed to create session")

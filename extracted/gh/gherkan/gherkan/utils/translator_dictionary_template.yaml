@@ -1,0 +1,45 @@
+# This is YAML dictionary for speech recognition
+# Add words with this structure:
+# word:
+#   hmps: [...] # list of quasi-homophones (same pronunciation) that can be mistaken for this word
+#   syms: [...] # list of synonyms - words that should be "translated" into this word
+#
+# Example of the structure:
+# dictionary:
+#   tear:                    # as in "tear a piece of paper"
+#   hmps: [pear, seer]
+#   syms: [rip, shred]
+#
+# Either of the sets (homophones or synonymes) can be ommitted. For convenience,
+# single list can be written for a word instead of the two sets. The purpose
+# of the list is determined by the value of "listMode" (either "hmps" or "syms"),
+# defined before the dictionary.
+# Example:
+#   tear: [pear, seer]
+#
+# Multiple entries can be added for the same "proto" word. These will be combined during the parsing process.
+# However, all alternatives MUST be UNIQUE!
+# Example:
+#   and: [and also]
+#   someotherword: [whatever]
+#   and: [and as well]
+# - this will create two alternatives for the word and, but:
+#   after: [afterwards]
+#   then: [and then, afterwards]
+# - this will result in an ambiguity error
+
+%YAML 1.2
+---
+listMode: hmps
+dictionary:
+  then:
+    hmps: [men]
+    syms: [and then]
+  glue: [blue, blew, blow]
+  bolt: [boat, box, bold, balls, bird, bald]
+  corner: [koruna]
+  and: [end] # Maybe, add some advanced restrictions, like what is before/after the word.
+  point: [bind]
+  then place: [and place]
+
+...

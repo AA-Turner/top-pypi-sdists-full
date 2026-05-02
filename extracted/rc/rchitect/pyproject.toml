@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "cffi>=1.10.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+authors = [{name="Randy Lai",email = "randy.cs.lai@gmail.com"}]
+name = "rchitect"
+dynamic = ["version"]
+description = "Mapping R API to Python"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.7"
+dependencies = ['cffi>=1.10.0', 'packaging>=23.0']
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-mock", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/randy3k/rchitect"
+
+[tool.setuptools]
+packages = { find = { where = ["."], exclude = ["tests*"] } }
+
+[tool.setuptools.package-data]
+rchitect = ["reticulate/*.R", "_cffi/*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "rchitect.__version__"}

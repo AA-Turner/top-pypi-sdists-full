@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.sql_queries_pb2 import (
+    GetSqlQueryPlanRequest,
+    GetSqlQueryPlanResponse,
     GetSqlQueryRequest,
     GetSqlQueryResponse,
     GetSqlQuerySignedUrlsRequest,
@@ -34,6 +36,11 @@ class SqlQueriesServiceStub:
         GetSqlQueryResponse,
     ]
     """Get a specific SQL query by ID"""
+    GetSqlQueryPlan: UnaryUnaryMultiCallable[
+        GetSqlQueryPlanRequest,
+        GetSqlQueryPlanResponse,
+    ]
+    """Get the persisted SQL query plan artifact for a specific query by ID."""
     GetSqlQuerySignedUrls: UnaryUnaryMultiCallable[
         GetSqlQuerySignedUrlsRequest,
         GetSqlQuerySignedUrlsResponse,
@@ -55,6 +62,13 @@ class SqlQueriesServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetSqlQueryResponse:
         """Get a specific SQL query by ID"""
+    @abstractmethod
+    def GetSqlQueryPlan(
+        self,
+        request: GetSqlQueryPlanRequest,
+        context: ServicerContext,
+    ) -> GetSqlQueryPlanResponse:
+        """Get the persisted SQL query plan artifact for a specific query by ID."""
     @abstractmethod
     def GetSqlQuerySignedUrls(
         self,

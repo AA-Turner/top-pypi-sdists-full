@@ -66,7 +66,6 @@ from chalk.features.resolver import (
     Resolver,
     ResolverArgErrorHandler,
     SinkResolver,
-    StateDescriptor,
     StreamResolver,
 )
 from chalk.features.underscore import convert_value_to_proto_expr
@@ -87,12 +86,7 @@ from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.sql.finalized_query import Finalizer, IncrementalSettings
 from chalk.stores.online_store_config import OnlineStoreConfig
 from chalk.streams import StreamSource
-from chalk.streams.types import (
-    StreamResolverParam,
-    StreamResolverParamKeyedState,
-    StreamResolverParamMessage,
-    StreamResolverParamMessageWindow,
-)
+from chalk.streams.types import StreamResolverParam, StreamResolverParamMessage, StreamResolverParamMessageWindow
 from chalk.utils import paths
 from chalk.utils.collections import get_unique_item, unwrap_annotated_if_needed
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
@@ -621,13 +615,10 @@ class ToProtoConverter:
     @staticmethod
     def convert_resolver_inputs(
         resolver_inputs: Sequence[Union[Feature, FeatureWrapper, type[DataFrame]]],
-        state: Optional[StateDescriptor],
         default_args: Sequence[object],
     ) -> Sequence[pb.ResolverInput]:
         inputs: list[pb.ResolverInput] = []
         raw_inputs: list[Optional[Union[Feature, FeatureWrapper, type[DataFrame]]]] = list(resolver_inputs)
-        if state is not None:
-            raw_inputs.insert(state.pos, None)
 
         is_sole_dataframe_input = (
             len(resolver_inputs) == 1
@@ -661,19 +652,7 @@ class ToProtoConverter:
 
         for i in range(len(raw_inputs)):
             raw_input = raw_inputs[i]
-            if state and i == state.pos:
-                converter = make_feature_converter(
-                    name="state", is_nullable=False, rich_type=state.typ, rich_default=state.initial
-                )
-                inputs.append(
-                    pb.ResolverInput(
-                        state=pb.ResolverState(
-                            initial=converter.from_rich_to_protobuf(state.initial),
-                            arrow_type=converter.protobuf_dtype,
-                        )
-                    )
-                )
-            elif isinstance(raw_input, type) and issubclass(
+            if isinstance(raw_input, type) and issubclass(
                 raw_input, DataFrame
             ):  # pyright: ignore[reportUnnecessaryIsInstance]
                 inputs.append(pb.ResolverInput(df=ToProtoConverter.convert_dataframe(raw_input)))
@@ -1241,7 +1220,7 @@ class ToProtoConverter:
                 if isinstance(r, OnlineResolver)
                 else pb.ResolverKind.RESOLVER_KIND_OFFLINE
             ),
-            inputs=ToProtoConverter.convert_resolver_inputs(r.inputs, r.state, r.default_args),
+            inputs=ToProtoConverter.convert_resolver_inputs(r.inputs, r.default_args),
             outputs=outputs,
             is_generator=inspect.isgeneratorfunction(r.fn) or inspect.isasyncgenfunction(r.fn),
             data_sources_v2=[ToProtoConverter.create_database_source_reference(s) for s in (r.data_sources or [])],
@@ -1334,34 +1313,6 @@ class ToProtoConverter:
                     arrow_type=maybe_type,
                 )
             )
-        elif isinstance(p, StreamResolverParamKeyedState):
-            try:
-                converter = make_feature_converter(
-                    name="helper", is_nullable=False, rich_type=p.typ, rich_default=p.default_value
-                )
-            except Exception:
-                converter = None
-            arrow_type = None
-            if converter:
-                try:
-                    arrow_type = converter.protobuf_dtype
-                except:
-                    # TODO: Stream message types are often more expressive than we can
-                    #       currently serialize. But we don't want to block `chalk apply`
-                    #       until we absolutely must need the Arrow type to be serialized.
-                    pass
-
-            initial = None
-            if converter:
-                try:
-                    initial = converter.from_rich_to_protobuf(p.default_value)
-                except:
-                    # TODO: Stream message types are often more expressive than we can
-                    #       currently serialize. But we don't want to block `chalk apply`
-                    #       until we absolutely must need the Arrow type to be serialized.
-                    pass
-
-            return pb.StreamResolverParam(state=pb.ResolverState(arrow_type=arrow_type, initial=initial))
         else:
             raise TypeError(f"Unknown param type: {type(p).__name__}")
 
@@ -1515,7 +1466,7 @@ class ToProtoConverter:
 
         ans = pb.SinkResolver(
             fqn=r.fqn,
-            inputs=ToProtoConverter.convert_resolver_inputs(r.inputs, r.state, r.default_args),
+            inputs=ToProtoConverter.convert_resolver_inputs(r.inputs, r.default_args),
             buffer_size=r.buffer_size if r.buffer_size is not None else None,
             debounce_duration=timedelta_to_proto_duration(r.debounce) if r.debounce is not None else None,
             max_delay_duration=timedelta_to_proto_duration(r.max_delay) if r.max_delay is not None else None,

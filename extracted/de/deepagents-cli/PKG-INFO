@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-cli
-Version: 0.0.46
+Version: 0.0.48
 Summary: Terminal interface for Deep Agents - interactive AI agent with file operations, shell access, and sub-agent capabilities.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -27,7 +27,7 @@ Classifier: Topic :: Terminals
 Requires-Python: <4.0,>=3.11
 Requires-Dist: aiosqlite<1.0.0,>=0.19.0
 Requires-Dist: deepagents-acp>=0.0.4
-Requires-Dist: deepagents==0.5.5
+Requires-Dist: deepagents==0.5.6
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: langchain-anthropic<2.0.0,>=1.4.2
 Requires-Dist: langchain-google-genai<5.0.0,>=4.2.2
@@ -51,7 +51,7 @@ Requires-Dist: rich<15.0.0,>=14.0.0
 Requires-Dist: tavily-python<1.0.0,>=0.7.21
 Requires-Dist: textual-autocomplete<5.0.0,>=3.0.0
 Requires-Dist: textual-speedups<1.0.0,>=0.2.1
-Requires-Dist: textual<9.0.0,>=8.0.0
+Requires-Dist: textual<9.0.0,>=8.2.5
 Requires-Dist: tomli-w<2.0.0,>=1.0.0
 Requires-Dist: uuid-utils<1.0.0,>=0.10.0
 Provides-Extra: agentcore
@@ -141,13 +141,13 @@ Description-Content-Type: text/markdown
 ## Quick Install
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/langchain-ai/deepagents/main/libs/cli/scripts/install.sh | bash
+curl -LsSf https://langch.in/gh-da-cli | bash
 ```
 
 ```bash
 # With model provider extras
 # OpenAI, Anthropic, and Gemini are included by default
-DEEPAGENTS_EXTRAS="nvidia,ollama" curl -LsSf https://raw.githubusercontent.com/langchain-ai/deepagents/main/libs/cli/scripts/install.sh | bash
+DEEPAGENTS_EXTRAS="nvidia,ollama" curl -LsSf https://langch.in/gh-da-cli | bash
 ```
 
 Or install directly with `uv`:

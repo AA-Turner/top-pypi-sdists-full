@@ -1,0 +1,195 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quacc"
+description="A platform to enable high-throughput, database-driven quantum chemistry and computational materials science"
+version = "1.2.6"
+readme = "README.md"
+license = { text = "BSD-3" }
+authors = [{ name = "Andrew S. Rosen", email = "asrosen@princeton.edu" }]
+maintainers = [{ name = "Andrew S. Rosen", email = "asrosen@princeton.edu" }]
+keywords = ["high-throughput", "automated", "workflow", "dft", "materials science"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "ase>=3.27.0", # for Atoms object and calculators
+    "custodian>=2025.12.14", # for automated error corrections
+    "emmet-core>=0.86.1", # for pre-made schemas
+    "frozendict>=2.4.6", # for caching of dictionaries in @lru_cache
+    "monty>=2024.5.15", # miscellaneous Python utilities
+    "numpy>=1.25.0", # for array handling
+    "psutil", # for getting compute architecture details
+    "pydantic>=2.0.1", # for settings management
+    "pydantic-settings>=2.2.0", # for settings management
+    "pymatgen>=2025.10.7", # for structure manipulation and I/O
+    "ruamel.yaml>=0.17.40", # for YAML
+    "typer>=0.12.1", # for the CLI
+]
+
+[project.optional-dependencies]
+dask = ["dask[distributed]>=2023.12.1", "dask-jobqueue>=0.8.2"]
+defects = ["pymatgen-analysis-defects>=2024.10.22", "shakenbreak>=3.2.0"]
+fairchem = ["fairchem-data-omat>=0.2", "fairchem-data-oc>=1.0.2", "fairchem-core>=2.2.0"]
+jobflow = ["jobflow>=0.3.0", "jobflow-remote>=1.0.0"]
+orb = ["orb-models>=0.4.1"]
+mace = ["mace-torch>=0.3.3", "mace-models>=0.1.6"]
+matgl = ["matgl>=2.0.2"]
+mp = ["atomate2>=0.0.14"]
+newtonnet = ["newtonnet>=1.1,<2.0", "numpy<=1.26.4"]
+parsl = ["parsl[monitoring]>=2024.5.27; platform_system!='Windows'"]
+phonons = ["phonopy>=2.20.0", "seekpath>=2.1.0"]
+prefect = ["prefect[dask]>=3.3.6", "dask-jobqueue>=0.8.2"]
+redun = ["redun>=0.16.2"]
+sella = ["sella>=2.3.5"]
+sevenn = ["sevenn>=0.10.1"]
+tblite = ["tblite>=0.3.0; platform_system=='Linux'"]
+torchsim = ["torch-sim-atomistic>=0.5.0"]
+dev = ["pytest>=7.4.0", "pytest-cov>=7.0.0", "ruff>=0.0.285", "pytest-asyncio>=0.26.0"]
+docs = [
+    "blacken-docs>=1.16.0",
+    "mkdocstrings-python>=2.0.0",
+    "zensical>=0.0.24",
+    "pillow>=10.0.0",
+    "cairosvg>=2.7.1"
+]
+
+[project.scripts]
+quacc = "quacc._cli.quacc:app"
+
+[project.urls]
+repository = "https://github.com/Quantum-Accelerators/quacc"
+documentation = "https://quantum-accelerators.github.io/quacc/"
+changelog = "https://github.com/Quantum-Accelerators/quacc/blob/main/CHANGELOG.md"
+
+[tool.setuptools.package-data]
+quacc = ["py.typed"]
+"quacc.calculators.vasp.presets" = ["*.yaml"]
+"quacc.calculators.espresso.presets" = ["*.yaml"]
+
+[tool.pyright]
+include = ["quacc"]
+exclude = ["**/__pycache__"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+minversion = "6.0"
+addopts = ["-p no:warnings", "--import-mode=importlib"]
+xfail_strict = true
+log_cli_level = "warn"
+pythonpath = "src"
+testpaths = ["tests/core"]
+
+[tool.black]
+exclude = '''
+/(
+    \.git
+  | \.tox
+)/
+'''
+skip-magic-trailing-comma = true
+
+[tool.isort]
+profile = 'black'
+skip_gitignore = true
+
+[tool.coverage.run]
+source = ["src"]
+patch = ["subprocess"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "except ImportError:",
+]
+
+[tool.ruff]
+lint.select = [
+  "A",      # flake8-builtins
+  "ARG",    # flake8-unused-arguments
+  "ASYNC",  # flake8-async
+  "ASYNC1", # flake8-async1
+  "B",      # flake8-bugbear
+  "C4",     # flake8-comprehensions
+  "DTZ",    # flake8-datetimez
+  "E",      # pycodestyle error
+  "EXE",    # flake8-executable
+  "F",      # pyflakes
+  "FA",     # flake8-future-annotations
+  "FLY",    # flynt
+  "I",      # isort
+  "ICN",    # flake8-import-conventions
+  "INT",    # flake8-gettext
+  "ISC",    # flake8-implicit-str-concat
+  "LOG",    # flake8-logging
+  "NPY",    # numpy-specific rules
+  "PD",     # pandas-vet
+  "PERF",   # perflint
+  "PIE",    # flake8-pie
+  "PL",     # pylint
+  "PT",     # flake8-pytest-style
+  "PTH",    # flake8-use-pathlib
+  "PYI",    # flake8-pyi
+  "Q",      # flake8-quotes
+  "RET",    # flake8-return
+  "RSE",    # flake8-raise
+  "RUF",    # Ruff-specific rules
+  "SIM",    # flake8-simplify
+  "SLOT",   # flake8-slots
+  "T20",    # flake8-print
+  "TCH",    # flake8-type-checking
+  "TID",    # flake8-tidy-imports
+  "UP",     # pyupgrade
+  "W",      # pycodestyle warning
+  "YTT",    # flake8-2020
+]
+lint.ignore = [
+  "A005",  # Module shadows
+  "E501",   # Line too long
+  "ISC001",   # single-line-implicit-string-concatenation
+  "PLR",    # Design related pylint codes
+  "PERF203",  # try-except-in-loop
+  "RET505", # Unnecessary `elif` after `return`
+  "PTH208", # os-listdir
+  "PLC0415", # `import` should be at the top-level of a file
+]
+src = ["src"]
+lint.pydocstyle.convention = "numpy"
+lint.isort.known-first-party = ["quacc"]
+lint.isort.required-imports = ["from __future__ import annotations"]
+lint.isort.split-on-trailing-comma=false
+extend-include = ["*.ipynb"]
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**" = ["ANN", "ARG", "D", "E402", "PTH", "S101"]
+"src/quacc/settings.py" = ["FBT003", "TCH002", "UP007"]
+
+[tool.docformatter]
+pre-summary-newline = true
+black = true
+
+[tool.mypy]
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+no_implicit_optional = false
+disable_error_code = "annotation-unchecked"

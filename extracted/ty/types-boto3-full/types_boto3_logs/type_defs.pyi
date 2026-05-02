@@ -393,6 +393,7 @@ __all__ = (
     "SubstituteStringTypeDef",
     "SubstituteStringUnionTypeDef",
     "SuppressionPeriodTypeDef",
+    "TagFilterTypeDef",
     "TagLogGroupRequestTypeDef",
     "TagResourceRequestTypeDef",
     "TestMetricFilterRequestTypeDef",
@@ -1079,6 +1080,10 @@ class ListLogGroupsForQueryRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
+class TagFilterTypeDef(TypedDict):
+    key: str
+    values: NotRequired[Sequence[str]]
+
 class LogGroupSummaryTypeDef(TypedDict):
     logGroupName: NotRequired[str]
     logGroupArn: NotRequired[str]
@@ -1650,16 +1655,6 @@ class ListAggregateLogGroupSummariesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     limit: NotRequired[int]
 
-class ListLogGroupsRequestTypeDef(TypedDict):
-    logGroupNamePattern: NotRequired[str]
-    logGroupClass: NotRequired[LogGroupClassType]
-    includeLinkedAccounts: NotRequired[bool]
-    accountIdentifiers: NotRequired[Sequence[str]]
-    nextToken: NotRequired[str]
-    limit: NotRequired[int]
-    dataSources: NotRequired[Sequence[DataSourceFilterTypeDef]]
-    fieldIndexNames: NotRequired[Sequence[str]]
-
 DateTimeConverterUnionTypeDef = Union[DateTimeConverterTypeDef, DateTimeConverterOutputTypeDef]
 DeleteKeysUnionTypeDef = Union[DeleteKeysTypeDef, DeleteKeysOutputTypeDef]
 
@@ -1935,6 +1930,17 @@ class PutLogEventsRequestTypeDef(TypedDict):
 class ListIntegrationsResponseTypeDef(TypedDict):
     integrationSummaries: list[IntegrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListLogGroupsRequestTypeDef(TypedDict):
+    logGroupNamePattern: NotRequired[str]
+    logGroupClass: NotRequired[LogGroupClassType]
+    includeLinkedAccounts: NotRequired[bool]
+    accountIdentifiers: NotRequired[Sequence[str]]
+    nextToken: NotRequired[str]
+    limit: NotRequired[int]
+    dataSources: NotRequired[Sequence[DataSourceFilterTypeDef]]
+    fieldIndexNames: NotRequired[Sequence[str]]
+    logGroupTags: NotRequired[Sequence[TagFilterTypeDef]]
 
 class ListLogGroupsResponseTypeDef(TypedDict):
     logGroups: list[LogGroupSummaryTypeDef]

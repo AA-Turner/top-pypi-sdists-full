@@ -1,6 +1,7 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.planner.v1 import batch_udf_pb2 as _batch_udf_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -45,6 +46,7 @@ class LogicalTableNodeType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     LOGICAL_TABLE_NODE_TYPE_TIMELINE_TRACER: _ClassVar[LogicalTableNodeType]
     LOGICAL_TABLE_NODE_TYPE_SOURCE_OPERATOR_MARKER: _ClassVar[LogicalTableNodeType]
     LOGICAL_TABLE_NODE_TYPE_EMPTY_RELATION: _ClassVar[LogicalTableNodeType]
+    LOGICAL_TABLE_NODE_TYPE_TOP_N_ROW_NUMBER: _ClassVar[LogicalTableNodeType]
 
 LOGICAL_TABLE_NODE_TYPE_UNSPECIFIED: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_NAMED_TABLE: LogicalTableNodeType
@@ -74,6 +76,7 @@ LOGICAL_TABLE_NODE_TYPE_TABLE_WRITE: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_TIMELINE_TRACER: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_SOURCE_OPERATOR_MARKER: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_EMPTY_RELATION: LogicalTableNodeType
+LOGICAL_TABLE_NODE_TYPE_TOP_N_ROW_NUMBER: LogicalTableNodeType
 
 class LogicalPlan(_message.Message):
     __slots__ = ("nodes",)
@@ -123,6 +126,7 @@ class LogicalPlanArgument(_message.Message):
         "uint64_value",
         "bool_value",
         "bytes_value",
+        "duration_value",
         "arrow_schema",
         "list_value",
         "unordered_dict_value",
@@ -136,6 +140,7 @@ class LogicalPlanArgument(_message.Message):
     UINT64_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
     BYTES_VALUE_FIELD_NUMBER: _ClassVar[int]
+    DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
     ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -148,6 +153,7 @@ class LogicalPlanArgument(_message.Message):
     uint64_value: int
     bool_value: bool
     bytes_value: bytes
+    duration_value: _duration_pb2.Duration
     arrow_schema: _arrow_pb2.Schema
     list_value: LogicalPlanArgumentList
     unordered_dict_value: LogicalPlanUnorderedDict
@@ -162,6 +168,7 @@ class LogicalPlanArgument(_message.Message):
         uint64_value: _Optional[int] = ...,
         bool_value: bool = ...,
         bytes_value: _Optional[bytes] = ...,
+        duration_value: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
         list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[LogicalPlanUnorderedDict, _Mapping]] = ...,

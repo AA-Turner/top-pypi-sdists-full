@@ -23,6 +23,71 @@ class CreateScimTokenResponse(_message.Message):
     token: str
     def __init__(self, token: _Optional[str] = ...) -> None: ...
 
+class SsoEmailDomain(_message.Message):
+    __slots__ = ("id", "team_id", "email_domain", "chalk_approved", "provider_ids")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    EMAIL_DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    CHALK_APPROVED_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_IDS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    team_id: str
+    email_domain: str
+    chalk_approved: bool
+    provider_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        email_domain: _Optional[str] = ...,
+        chalk_approved: bool = ...,
+        provider_ids: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class ListSsoEmailDomainsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListSsoEmailDomainsResponse(_message.Message):
+    __slots__ = ("email_domains",)
+    EMAIL_DOMAINS_FIELD_NUMBER: _ClassVar[int]
+    email_domains: _containers.RepeatedCompositeFieldContainer[SsoEmailDomain]
+    def __init__(self, email_domains: _Optional[_Iterable[_Union[SsoEmailDomain, _Mapping]]] = ...) -> None: ...
+
+class CreateSsoEmailDomainRequest(_message.Message):
+    __slots__ = ("email_domain",)
+    EMAIL_DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    email_domain: SsoEmailDomain
+    def __init__(self, email_domain: _Optional[_Union[SsoEmailDomain, _Mapping]] = ...) -> None: ...
+
+class CreateSsoEmailDomainResponse(_message.Message):
+    __slots__ = ("email_domain",)
+    EMAIL_DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    email_domain: SsoEmailDomain
+    def __init__(self, email_domain: _Optional[_Union[SsoEmailDomain, _Mapping]] = ...) -> None: ...
+
+class UpdateSsoEmailDomainRequest(_message.Message):
+    __slots__ = ("email_domain",)
+    EMAIL_DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    email_domain: SsoEmailDomain
+    def __init__(self, email_domain: _Optional[_Union[SsoEmailDomain, _Mapping]] = ...) -> None: ...
+
+class UpdateSsoEmailDomainResponse(_message.Message):
+    __slots__ = ("email_domain",)
+    EMAIL_DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    email_domain: SsoEmailDomain
+    def __init__(self, email_domain: _Optional[_Union[SsoEmailDomain, _Mapping]] = ...) -> None: ...
+
+class DeleteSsoEmailDomainRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteSsoEmailDomainResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class SignOnProviderSamlConfig(_message.Message):
     __slots__ = ("issuer", "idp_login_url", "idp_logout_url", "certificate", "is_primary_sso_config")
     ISSUER_FIELD_NUMBER: _ClassVar[int]
@@ -53,15 +118,17 @@ class SignOnProviderOidcConfig(_message.Message):
     def __init__(self, client_id: _Optional[str] = ..., client_secret: _Optional[str] = ...) -> None: ...
 
 class SignOnProviderConfiguration(_message.Message):
-    __slots__ = ("name", "id", "idp_type", "saml_config", "oidc_config")
+    __slots__ = ("name", "id", "idp_type", "team_id", "saml_config", "oidc_config")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     IDP_TYPE_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     SAML_CONFIG_FIELD_NUMBER: _ClassVar[int]
     OIDC_CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
     id: str
     idp_type: str
+    team_id: str
     saml_config: SignOnProviderSamlConfig
     oidc_config: SignOnProviderOidcConfig
     def __init__(
@@ -69,6 +136,7 @@ class SignOnProviderConfiguration(_message.Message):
         name: _Optional[str] = ...,
         id: _Optional[str] = ...,
         idp_type: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
         saml_config: _Optional[_Union[SignOnProviderSamlConfig, _Mapping]] = ...,
         oidc_config: _Optional[_Union[SignOnProviderOidcConfig, _Mapping]] = ...,
     ) -> None: ...
@@ -118,6 +186,20 @@ class DeleteSignOnProviderConfigurationRequest(_message.Message):
 class DeleteSignOnProviderConfigurationResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetSignOnProvidersForEmailRequest(_message.Message):
+    __slots__ = ("email",)
+    EMAIL_FIELD_NUMBER: _ClassVar[int]
+    email: str
+    def __init__(self, email: _Optional[str] = ...) -> None: ...
+
+class GetSignOnProvidersForEmailResponse(_message.Message):
+    __slots__ = ("providers",)
+    PROVIDERS_FIELD_NUMBER: _ClassVar[int]
+    providers: _containers.RepeatedCompositeFieldContainer[SignOnProviderConfiguration]
+    def __init__(
+        self, providers: _Optional[_Iterable[_Union[SignOnProviderConfiguration, _Mapping]]] = ...
+    ) -> None: ...
 
 class GetSamlConfigurationByIssuerRequest(_message.Message):
     __slots__ = ("issuer",)

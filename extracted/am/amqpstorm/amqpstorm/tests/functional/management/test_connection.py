@@ -84,4 +84,5 @@ class ApiConnectionFunctionalTests(TestFunctionalFramework):
             connection_found,
             'Could not find connection'
         )
+
         self.assertTrue(connection.is_closed)

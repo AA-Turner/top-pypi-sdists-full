@@ -1,0 +1,133 @@
+Metadata-Version: 1.1
+Name: springboard
+Version: 3.1.4
+Summary: Springboard
+Home-page: http://github.com/smn/springboard
+Author: Praekelt Foundation
+Author-email: dev@praekelt.com
+License: BSD
+Description: Springboard
+        ===========
+        
+        .. image:: https://travis-ci.org/universalcore/springboard.svg?branch=develop
+            :target: https://travis-ci.org/universalcore/springboard
+            :alt: Continuous Integration
+        
+        .. image:: https://coveralls.io/repos/universalcore/springboard/badge.png?branch=develop
+            :target: https://coveralls.io/r/universalcore/springboard?branch=develop
+            :alt: Code Coverage
+        
+        .. image:: https://readthedocs.org/projects/springboard/badge/?version=latest
+            :target: https://springboard.readthedocs.org
+            :alt: Springboard Documentation
+        
+        .. image:: https://pypip.in/version/springboard/badge.svg
+            :target: https://pypi.python.org/pypi/springboard
+            :alt: Pypi Package
+        
+        .. image:: docs/springboard.gif
+        
+        Usage
+        ~~~~~
+        
+        Make sure elasticsearch_ is running, then::
+        
+            $ pip install springboard
+            $ springboard startapp myapp
+            $ cd myapp
+            $ springboard import git://example.com/content/repo.git -v
+            $ pserve development.ini --reload
+        
+            Starting server in PID 70411.
+            serving on http://0.0.0.0:6543
+        
+        
+        Installing for local dev
+        ~~~~~~~~~~~~~~~~~~~~~~~~
+        
+        Make sure elasticsearch_ is running, then::
+        
+            $ git clone https://github.com/universalcore/springboard.git
+            $ cd springboard
+            $ virtualenv ve
+            $ source ve/bin/activate
+            (ve)$ pip install -e .
+            (ve)$ springboard bootstrap -v
+            (ve)$ pserve development.ini --reload
+        
+        
+        .. _elasticsearch: http://www.elasticsearch.org
+        
+        
+        CHANGELOG
+        =========
+        3.1.4
+        -----
+        - redirect to 'next' GET parameter when changing language
+        
+        3.1.3
+        -----
+        - add fallback for unknown languages
+        
+        3.1.2
+        -----
+        - exclude system paths from GA pageviews
+        
+        3.1.0
+        -----
+        - enable i18n for new springboard apps
+        - add update_messages command to manage translations
+        
+        3.0.5
+        -----
+        - add uwsgi to dependencies
+        
+        3.0.3
+        -----
+        - ensure GA titles for non-page views are set
+        - ensure celery is configured
+        
+        3.0.2
+        -----
+        - fix package manifest
+        
+        3.0.1
+        -----
+        - add `pyramid_redis` to dependencies for use in celery
+        
+        3.0.0
+        -----
+        - Added Remote repo support for use with `unicore.distribute`
+        
+        2.0.1
+        -----
+        - fix thumbor filter
+        
+        2.0.0
+        -----
+        - deprecate unicore_repo_urls in favour of unicore_repos, fix markdown filter
+        
+        1.2.1
+        -----
+        - correct raven pin, add gunicorn, fix clone
+        
+        1.2.0
+        -----
+        - search functionality and raven
+        
+        1.0.1
+        -----
+        - pagination and language direction filters
+        
+        1.0.0
+        -----
+        - new view classes, more standard views
+        
+        <1.0
+        ----
+        - beta
+Keywords: web
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application

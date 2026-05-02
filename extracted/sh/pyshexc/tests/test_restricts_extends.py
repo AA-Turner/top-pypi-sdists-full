@@ -516,11 +516,9 @@ shexj = """{
 }"""
 
 
-class RestrictExtendTestCase(SimpleShexTestCase):
+class Test(SimpleShexTestCase):
     def test_erics_example(self):
         self.shex_test(shexc, shexj,
                        base="https://rawgit.com/shexSpec/shex.js/on-shape-expression/examples/inheritance/")
 
 
-if __name__ == '__main__':
-    unittest.main()

@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: ghostlogic-demo
+Version: 1.6.0
+Summary: Replay 642K real forensic events from an APT breach through GhostLogic Blackbox in 20 minutes
+Author-email: Adam Scott Thomas <adam@mcmkg.com>
+License: Apache-2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Security
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# ghostlogic-demo
+
+22-minute forensic breach replay for GhostLogic. Ships 352K events to a Blackbox server, escalating from normal telemetry through a full APT compromise. Forces capsule seal after each batch.
+
+## Install
+
+```bash
+pip install .
+```
+
+## Usage
+
+```bash
+# Live — sends to your Blackbox server
+ghostlogic-demo --url https://api.ghostlogic.tech --key glk_YOUR_KEY
+
+# Dry run — generates events, doesn't send
+ghostlogic-demo --dry-run
+
+# Quick test — 3 batches instead of 22
+ghostlogic-demo --url https://api.ghostlogic.tech --key glk_YOUR_KEY --batches 3
+```
+
+## What It Does
+
+Sends 16,000 events every 60 seconds (22 batches = 352,000 events total). Forces a capsule seal after each batch so the Blackbox seals immediately.
+
+**Phase timeline:**
+- Batches 1-6 (min 0-6): Normal telemetry (processes, network, disk, services)
+- Batches 7-9 (min 6-9): Initial access (Chrome extension attack)
+- Batches 10-13 (min 9-13): C2 + persistence (DNS C2, rogue ports, scheduled tasks)
+- Batches 14-17 (min 13-17): Credential access (lsass targeting, registry persistence)
+- Batches 18-22 (min 17-22): Data exfiltration (staging, upload, network spike)
+
+## Zero Dependencies
+
+Standard library only. No pip requirements.

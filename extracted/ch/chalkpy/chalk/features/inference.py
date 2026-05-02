@@ -119,7 +119,6 @@ def generate_inference_resolver(
                 fqn=f"{model_version.name}__{output_feature.namespace}_{output_feature.name}",
                 doc=None,
                 inputs=[DataFrame[[pkey, *ensure_tuple(cleaned_inputs)]]],
-                state=None,
                 output=Features[DataFrame[output_feature, pkey]],
                 fn=fn,
                 environment=None,

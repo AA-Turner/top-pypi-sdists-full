@@ -1,0 +1,18 @@
+Metadata-Version: 1.0
+Name: springfield-mongo
+Version: 0.7.2
+Summary: UNKNOWN
+Home-page: UNKNOWN
+Author: Mike Thornton
+Author-email: six8@devdetails.com
+License: MIT
+Description: =================
+        springfield-mongo
+        =================
+        
+        Bridge the gap between `Springfield <https://github.com/six8/springfield>`_ and `PyMongo <https://github.com/mongodb/mongo-python-driver>`_
+Keywords: packaging
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

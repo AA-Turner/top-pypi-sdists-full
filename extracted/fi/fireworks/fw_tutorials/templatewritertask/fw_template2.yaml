@@ -1,0 +1,8 @@
+spec:
+  _tasks:
+  - _fw_name: TemplateWriterTask
+    template_file: simple_template.txt
+    context:
+      opt1: 10.0
+      opt2: stable method
+    output_file: inputs.txt

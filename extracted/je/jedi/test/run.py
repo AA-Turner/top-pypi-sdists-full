@@ -104,10 +104,7 @@ import os
 import re
 import sys
 import operator
-if sys.version_info < (3, 8):
-    literal_eval = eval
-else:
-    from ast import literal_eval
+from ast import literal_eval
 from io import StringIO
 from functools import reduce
 from unittest.mock import ANY
@@ -134,7 +131,7 @@ TEST_GOTO = 2
 TEST_REFERENCES = 3
 
 
-grammar36 = parso.load_grammar(version='3.6')
+grammar313 = parso.load_grammar(version='3.13')
 
 
 class BaseTestCase(object):
@@ -168,6 +165,8 @@ class BaseTestCase(object):
 
 
 class IntegrationTestCase(BaseTestCase):
+    source: str  # Defined as a side effect
+
     def __init__(self, test_type, correct, line_nr, column, start, line,
                  path=None, skip_version_info=None):
         super().__init__(skip_version_info)
@@ -238,7 +237,7 @@ class IntegrationTestCase(BaseTestCase):
             should_be = set()
             for match in re.finditer('(?:[^ ]+)', correct):
                 string = match.group(0)
-                parser = grammar36.parse(string, start_symbol='eval_input', error_recovery=False)
+                parser = grammar313.parse(string, start_symbol='eval_input', error_recovery=False)
                 parser_utils.move(parser.get_root_node(), self.line_nr)
                 node = parser.get_root_node()
                 module_context = script._get_module_context()
@@ -446,7 +445,7 @@ Options:
     --pdb           Enable pdb debugging on fail.
     -d, --debug     Enable text output debugging (please install ``colorama``).
     --thirdparty    Also run thirdparty tests (in ``completion/thirdparty``).
-    --env <dotted>  A Python version, like 3.9, 3.8, etc.
+    --env <dotted>  A Python version, like 3.14, 3.13, etc.
 """
 if __name__ == '__main__':
     import docopt
@@ -504,7 +503,7 @@ if __name__ == '__main__':
     if arguments['--env']:
         environment = get_system_environment(arguments['--env'])
     else:
-        # Will be 3.6.
+        # Will be 3.13.
         environment = get_default_environment()
 
     import traceback

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: htmltools
-Version: 0.6.0
+Version: 0.6.1
 Summary: Tools for HTML generation and output.
 Author-email: Carson Sievert <carson@rstudio.com>
 License: MIT License
@@ -32,15 +32,16 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions>=3.10.0.0
@@ -57,6 +58,7 @@ Requires-Dist: pyright>=1.1.348; extra == "dev"
 Requires-Dist: pre-commit>=2.15.0; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: build; extra == "dev"
+Dynamic: license-file
 
 # htmltools
 

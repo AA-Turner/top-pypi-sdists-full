@@ -9977,6 +9977,35 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
     """Explicit freshness threshold in minutes"""
 
 
+class GetConversationExplanationInput(sgqlc.types.Input):
+    """Input for getConversationExplanation query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "conversation_id",
+        "start_time",
+        "end_time",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent"""
+
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation id to explain"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+
 class GetConversationMessageContentV2Input(sgqlc.types.Input):
     """Input for getConversationMessageContentV2 query."""
 
@@ -10237,6 +10266,29 @@ class GetNodeDetailInput(sgqlc.types.Input):
 
     to_timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="toTimestamp")
     """End of the active filter period (inclusive)"""
+
+
+class GetTraceExplanationInput(sgqlc.types.Input):
+    """Input for getTraceExplanation query."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon", "trace_id", "start_time", "end_time")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent"""
+
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Trace id to explain"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
 
 
 class GetTraceOverviewInput(sgqlc.types.Input):
@@ -11548,6 +11600,40 @@ class PowerBiUpdateConnectionDetails(sgqlc.types.Input):
     """Password when auth as a primary user. Required if auth_mode is
     primary_user.
     """
+
+
+class PrAgentRiskFactorWeightsInput(sgqlc.types.Input):
+    """Input for setting PR Risk Rubric category weights.  All 6 fields
+    are required because the values must sum to 100; partial payloads
+    are not meaningful.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "lineage_blast_radius",
+        "asset_criticality",
+        "schema_contract",
+        "code_review",
+        "monitoring",
+        "historical_signal",
+    )
+    lineage_blast_radius = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="lineageBlastRadius"
+    )
+
+    asset_criticality = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="assetCriticality"
+    )
+
+    schema_contract = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="schemaContract")
+
+    code_review = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="codeReview")
+
+    monitoring = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitoring")
+
+    historical_signal = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="historicalSignal"
+    )
 
 
 class ProjectFilterInput(sgqlc.types.Input):
@@ -20066,9 +20152,14 @@ class CiGateConfig(sgqlc.types.Type):
     """CI gate policy configuration for a GitHub app installation."""
 
     __schema__ = schema
-    __field_names__ = ("fail_on",)
-    fail_on = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="failOn")
-    """Which verdicts block CI: warn_and_fail, fail_only, or none"""
+    __field_names__ = ("block_on", "fail_on")
+    block_on = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="blockOn")
+    """Which risk tiers cause the CI step to fail: low+, medium+, high+,
+    or none
+    """
+
+    fail_on = sgqlc.types.Field(String, graphql_name="failOn")
+    """Deprecated alias for blockOn"""
 
 
 class CircuitBreakerState(sgqlc.types.Type):
@@ -20945,6 +21036,28 @@ class Conversation(sgqlc.types.Type):
 
     status = sgqlc.types.Field(sgqlc.types.non_null(ConversationStatus), graphql_name="status")
     """ERROR if any trace had a root span error, otherwise OK"""
+
+
+class ConversationExplanationResult(sgqlc.types.Type):
+    """Result of getConversationExplanation: an AI-authored summary of
+    one conversation.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("conversation_id", "summary", "model_id")
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation id"""
+
+    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
+    """Explanation of the conversation — a single comprehensive markdown
+    paragraph covering what the user was trying to accomplish, the
+    steps the agent took across turns, errors encountered, slow calls,
+    and the outcome. Identifiers are wrapped in inline code; the
+    paragraph does not use headings, fenced code blocks, or lists.
+    """
+
+    model_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="modelId")
+    """Identifier of the LLM that produced this explanation"""
 
 
 class ConversationFilter(sgqlc.types.Type):
@@ -39539,7 +39652,7 @@ class Mutation(sgqlc.types.Type):
                 (
                     "agent_enabled_repos",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
                         graphql_name="agentEnabledRepos",
                         default=None,
                     ),
@@ -39550,6 +39663,14 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
                     ),
                 ),
+                (
+                    "risk_factor_weights",
+                    sgqlc.types.Arg(
+                        PrAgentRiskFactorWeightsInput,
+                        graphql_name="riskFactorWeights",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -39558,10 +39679,12 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `agent_enabled_repos` (`[String!]!`): Repos that PR Agent is
+    * `agent_enabled_repos` (`[String!]`): Repos that PR Agent is
       allowed to review
     * `installation_uuid` (`UUID!`): UUID of the installation to
       configure
+    * `risk_factor_weights` (`PrAgentRiskFactorWeightsInput`): PR Risk
+      Rubric category weights — integer percentages summing to 100.
     """
 
     update_ci_gate_config = sgqlc.types.Field(
@@ -39569,6 +39692,7 @@ class Mutation(sgqlc.types.Type):
         graphql_name="updateCiGateConfig",
         args=sgqlc.types.ArgDict(
             (
+                ("block_on", sgqlc.types.Arg(String, graphql_name="blockOn", default=None)),
                 ("fail_on", sgqlc.types.Arg(String, graphql_name="failOn", default=None)),
                 (
                     "installation_uuid",
@@ -39583,8 +39707,10 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `fail_on` (`String`): Which verdicts block CI: warn_and_fail,
-      fail_only, or none
+    * `block_on` (`String`): Which risk tiers cause the CI step to
+      fail: low+, medium+, high+, or none
+    * `fail_on` (`String`): Deprecated alias for blockOn. Use blockOn
+      instead.
     * `installation_uuid` (`UUID!`): UUID of the installation to
       configure
     """
@@ -57309,7 +57435,12 @@ class PrAgentConfig(sgqlc.types.Type):
     """PR Agent configuration for a GitHub app installation."""
 
     __schema__ = schema
-    __field_names__ = ("is_enabled", "available_repos", "agent_enabled_repos")
+    __field_names__ = (
+        "is_enabled",
+        "available_repos",
+        "agent_enabled_repos",
+        "risk_factor_weights",
+    )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether PR Agent is enabled for this account"""
 
@@ -57324,6 +57455,47 @@ class PrAgentConfig(sgqlc.types.Type):
         graphql_name="agentEnabledRepos",
     )
     """Repos that PR Agent is allowed to review for this installation"""
+
+    risk_factor_weights = sgqlc.types.Field(
+        sgqlc.types.non_null("PrAgentRiskFactorWeights"), graphql_name="riskFactorWeights"
+    )
+    """Effective PR Risk Rubric category weights for this installation.
+    Returns the configured override when one exists, otherwise the
+    system defaults — never null.
+    """
+
+
+class PrAgentRiskFactorWeights(sgqlc.types.Type):
+    """Customer-configured weights for the PR Risk Rubric categories.
+    Values are integer percentages (0-100) summing to 100.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "lineage_blast_radius",
+        "asset_criticality",
+        "schema_contract",
+        "code_review",
+        "monitoring",
+        "historical_signal",
+    )
+    lineage_blast_radius = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="lineageBlastRadius"
+    )
+
+    asset_criticality = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="assetCriticality"
+    )
+
+    schema_contract = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="schemaContract")
+
+    code_review = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="codeReview")
+
+    monitoring = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitoring")
+
+    historical_signal = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="historicalSignal"
+    )
 
 
 class Predicate(sgqlc.types.Type):
@@ -57602,6 +57774,8 @@ class Query(sgqlc.types.Type):
         "get_conversation_thread_v2",
         "get_conversation_message_content_v2",
         "get_node_detail",
+        "get_trace_explanation",
+        "get_conversation_explanation",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
@@ -59081,6 +59255,55 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetNodeDetailInput!`)None
+    """
+
+    get_trace_explanation = sgqlc.types.Field(
+        "TraceExplanationResult",
+        graphql_name="getTraceExplanation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetTraceExplanationInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Generate an AI explanation of a single trace. Each
+    call regenerates — explanations are not persisted.
+
+    Arguments:
+
+    * `input` (`GetTraceExplanationInput!`)None
+    """
+
+    get_conversation_explanation = sgqlc.types.Field(
+        ConversationExplanationResult,
+        graphql_name="getConversationExplanation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationExplanationInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Generate an AI explanation of a full conversation
+    across all its turns. Each call regenerates — explanations are not
+    persisted.
+
+    Arguments:
+
+    * `input` (`GetConversationExplanationInput!`)None
     """
 
     get_table_monitor_metric = sgqlc.types.Field(
@@ -85272,6 +85495,28 @@ class TraceEdge(sgqlc.types.Type):
     """Cursor for this edge"""
 
 
+class TraceExplanationResult(sgqlc.types.Type):
+    """Result of getTraceExplanation: an AI-authored summary of one
+    trace.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("trace_id", "summary", "model_id")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Trace id"""
+
+    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
+    """Explanation of the trace — a single comprehensive markdown
+    paragraph covering what the agent was doing, the steps it took,
+    errors it encountered, slow calls, and anything else worth
+    flagging. Identifiers are wrapped in inline code; the paragraph
+    does not use headings, fenced code blocks, or lists.
+    """
+
+    model_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="modelId")
+    """Identifier of the LLM that produced this explanation"""
+
+
 class TraceFilter(sgqlc.types.Type):
     """Metadata about a trace filter."""
 
@@ -86801,7 +87046,13 @@ class UpdatePowerBiCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdatePrAgentConfig(sgqlc.types.Type):
-    """Update PR Agent configuration for a GitHub app installation."""
+    """Update PR Agent configuration for a GitHub app installation.  Each
+    optional argument is independent: when its value is non-null the
+    field is validated and persisted; when omitted or explicitly null
+    the field is left unchanged. Empty list / empty input object still
+    count as a real value (e.g. ``agentEnabledRepos: []`` clears the
+    allowlist).
+    """
 
     __schema__ = schema
     __field_names__ = ("success",)

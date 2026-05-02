@@ -1,0 +1,58 @@
+[project]
+name = "sprig-aes"
+version = "0.7.0"
+description = ""
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Isman Firmansyah"},
+    {email = "isman.firmansyah@gmail.com"}
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+dependencies = [
+    "cryptography",
+    "click"
+]
+requires-python = ">=3.9"
+
+[project.scripts]
+sprig-aes = "sprig_aes.cli:cli"
+
+[project.urls]
+"Homepage" = "https://github.com/iromli/sprig-aes"
+
+[build-system]
+requires = [
+    # The minimum setuptools version is specific to the PEP 517 backend,
+    # and may be stricter than the version required in `setup.cfg`
+    "setuptools>=40.6.0,!=60.9.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.mypy]
+strict = true
+# follow_imports = "silent"
+# implicit_reexport = true
+pretty = true
+show_error_context = true
+show_column_numbers = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sprig_aes.*"
+]
+ignore_missing_imports = true

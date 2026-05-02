@@ -1,0 +1,358 @@
+Metadata-Version: 2.4
+Name: mage-ai
+Version: 0.9.79
+Summary: Mage is a tool for building and deploying data pipelines.
+Home-page: https://github.com/mage-ai/mage-ai
+Author: Mage
+Author-email: eng@mage.ai
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cachetools
+Requires-Dist: click<8.2.0
+Requires-Dist: Faker==4.14.0
+Requires-Dist: GitPython==3.1.41
+Requires-Dist: Jinja2==3.1.3
+Requires-Dist: Pillow==10.3.0
+Requires-Dist: PyGithub==1.59.0
+Requires-Dist: PyJWT==2.6.0
+Requires-Dist: aiofiles==22.1.0
+Requires-Dist: aiohttp==3.10.0
+Requires-Dist: alembic>=1.7.5
+Requires-Dist: bcrypt==4.0.1
+Requires-Dist: cron-converter==1.2.1
+Requires-Dist: cryptography==42.0.4
+Requires-Dist: dask>=2022.2.0
+Requires-Dist: datadog==0.44.0
+Requires-Dist: freezegun==1.2.2
+Requires-Dist: great-expectations==0.18.12
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: inflection==0.5.1
+Requires-Dist: ipykernel==6.15.0
+Requires-Dist: ipython==8.10.0
+Requires-Dist: itsdangerous~=1.1.0
+Requires-Dist: joblib>=1.1.0
+Requires-Dist: jupyter-server==2.14.1
+Requires-Dist: jupyter_client==7.4.4
+Requires-Dist: ldap3==2.9.1
+Requires-Dist: memory_profiler
+Requires-Dist: newrelic==8.8.0
+Requires-Dist: numpy>=1.22.0
+Requires-Dist: pandas>=1.3.0
+Requires-Dist: paramiko==3.5.1
+Requires-Dist: polars==1.30.0
+Requires-Dist: protobuf>=4.25.0
+Requires-Dist: psutil==5.9.8
+Requires-Dist: pyairtable>=2.3.3
+Requires-Dist: pyarrow>=14.0.1
+Requires-Dist: python-dateutil==2.8.2
+Requires-Dist: pytz>=2022.2.1
+Requires-Dist: pyyaml~=6.0
+Requires-Dist: redis~=5.0.1
+Requires-Dist: requests~=2.31.0
+Requires-Dist: ruamel.yaml==0.17.17
+Requires-Dist: scikit-learn<1.8
+Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
+Requires-Dist: setuptools==70.0.0
+Requires-Dist: simplejson
+Requires-Dist: six>=1.15.0
+Requires-Dist: sqlalchemy<2.0.0,>=1.4.20
+Requires-Dist: sqlglot[rs]
+Requires-Dist: terminado==0.17.1
+Requires-Dist: thefuzz[speedup]==0.19.0
+Requires-Dist: tornado==6.4.2
+Requires-Dist: typer[all]==0.9.0
+Requires-Dist: typing_extensions==4.11.0
+Requires-Dist: watchdog==4.0.0
+Requires-Dist: Werkzeug==3.0.3
+Provides-Extra: ai
+Requires-Dist: astor>=0.8.1; extra == "ai"
+Requires-Dist: langchain==0.2.5; extra == "ai"
+Requires-Dist: langchain_community==0.2.5; extra == "ai"
+Requires-Dist: openai==1.82.0; extra == "ai"
+Provides-Extra: airtable
+Requires-Dist: pyairtable>=2.3.3; extra == "airtable"
+Provides-Extra: azure
+Requires-Dist: azure-eventhub==5.11.2; extra == "azure"
+Requires-Dist: azure-identity==1.12.0; extra == "azure"
+Requires-Dist: azure-keyvault-secrets==4.6.0; extra == "azure"
+Requires-Dist: azure-keyvault-certificates==4.6.0; extra == "azure"
+Requires-Dist: azure-mgmt-containerinstance==10.1.0; extra == "azure"
+Requires-Dist: azure-storage-blob==12.14.1; extra == "azure"
+Provides-Extra: bigquery
+Requires-Dist: google-cloud-bigquery~=3.0; extra == "bigquery"
+Requires-Dist: db-dtypes==1.0.5; extra == "bigquery"
+Provides-Extra: chroma
+Requires-Dist: chromadb>=0.4.17; extra == "chroma"
+Provides-Extra: clickhouse
+Requires-Dist: clickhouse-connect~=0.6.23; extra == "clickhouse"
+Provides-Extra: dbt
+Requires-Dist: dbt-adapters==1.8.0; extra == "dbt"
+Requires-Dist: dbt-bigquery==1.8.3; extra == "dbt"
+Requires-Dist: dbt-clickhouse==1.8.5; extra == "dbt"
+Requires-Dist: dbt-core==1.8.7; extra == "dbt"
+Requires-Dist: dbt-duckdb==1.8.4; extra == "dbt"
+Requires-Dist: dbt-postgres==1.8.2; extra == "dbt"
+Requires-Dist: dbt-redshift==1.8.1; extra == "dbt"
+Requires-Dist: dbt-snowflake==1.8.4; extra == "dbt"
+Requires-Dist: dbt-spark==1.8.0; extra == "dbt"
+Requires-Dist: dbt-sqlserver==1.8.4; extra == "dbt"
+Requires-Dist: dbt-synapse==1.8.2; extra == "dbt"
+Requires-Dist: dbt-trino==1.8.4; extra == "dbt"
+Requires-Dist: trino~=0.326; extra == "dbt"
+Provides-Extra: google-cloud-storage
+Requires-Dist: google-cloud-storage==2.5.0; extra == "google-cloud-storage"
+Requires-Dist: gspread==5.7.2; extra == "google-cloud-storage"
+Provides-Extra: hdf5
+Requires-Dist: tables==3.7.0; python_version < "3.11" and extra == "hdf5"
+Requires-Dist: tables==3.10.1; python_version >= "3.11" and extra == "hdf5"
+Provides-Extra: mysql
+Requires-Dist: mysql-connector-python~=8.4.0; python_version < "3.11" and extra == "mysql"
+Requires-Dist: mysql-connector-python~=9.0.0; python_version >= "3.11" and extra == "mysql"
+Provides-Extra: oracle
+Requires-Dist: oracledb==1.3.1; python_version < "3.12" and extra == "oracle"
+Requires-Dist: oracledb==2.4.1; python_version >= "3.12" and extra == "oracle"
+Provides-Extra: postgres
+Requires-Dist: psycopg2==2.9.3; extra == "postgres"
+Requires-Dist: psycopg2-binary==2.9.3; extra == "postgres"
+Requires-Dist: sshtunnel==0.4.0; extra == "postgres"
+Provides-Extra: qdrant
+Requires-Dist: qdrant-client==1.6.9; extra == "qdrant"
+Requires-Dist: sentence-transformers==2.2.2; extra == "qdrant"
+Provides-Extra: redshift
+Requires-Dist: boto3==1.26.60; extra == "redshift"
+Requires-Dist: redshift-connector==2.0.915; extra == "redshift"
+Requires-Dist: lxml==4.9.4; extra == "redshift"
+Provides-Extra: s3
+Requires-Dist: boto3==1.26.60; extra == "s3"
+Requires-Dist: botocore==1.29.60; extra == "s3"
+Provides-Extra: snowflake
+Requires-Dist: snowflake-connector-python==3.7.1; extra == "snowflake"
+Provides-Extra: spark
+Requires-Dist: boto3==1.26.60; extra == "spark"
+Requires-Dist: botocore==1.29.60; extra == "spark"
+Provides-Extra: streaming
+Requires-Dist: confluent-avro~=1.8.0; extra == "streaming"
+Requires-Dist: elasticsearch==8.15.1; extra == "streaming"
+Requires-Dist: influxdb_client==1.36.1; extra == "streaming"
+Requires-Dist: kafka-python==2.3.0; extra == "streaming"
+Requires-Dist: nats-py==2.6.0; extra == "streaming"
+Requires-Dist: nkeys~=0.2.0; extra == "streaming"
+Requires-Dist: opensearch-py==2.0.0; extra == "streaming"
+Requires-Dist: pika==1.3.1; extra == "streaming"
+Requires-Dist: pymongo==4.3.3; extra == "streaming"
+Requires-Dist: requests_aws4auth==1.1.2; extra == "streaming"
+Requires-Dist: stomp.py==8.1.0; extra == "streaming"
+Provides-Extra: all
+Requires-Dist: PyGithub==1.59.0; extra == "all"
+Requires-Dist: astor>=0.8.1; extra == "all"
+Requires-Dist: aws-secretsmanager-caching==1.1.1.5; extra == "all"
+Requires-Dist: azure-eventhub==5.11.2; extra == "all"
+Requires-Dist: azure-identity==1.12.0; extra == "all"
+Requires-Dist: azure-keyvault-certificates==4.6.0; extra == "all"
+Requires-Dist: azure-keyvault-secrets==4.6.0; extra == "all"
+Requires-Dist: azure-mgmt-containerinstance==10.1.0; extra == "all"
+Requires-Dist: azure-storage-blob==12.14.1; extra == "all"
+Requires-Dist: boto3==1.26.60; extra == "all"
+Requires-Dist: botocore==1.29.60; extra == "all"
+Requires-Dist: clickhouse-connect~=0.6.23; extra == "all"
+Requires-Dist: confluent-avro~=1.8.0; extra == "all"
+Requires-Dist: db-dtypes==1.0.5; extra == "all"
+Requires-Dist: dbt-adapters==1.8.0; extra == "all"
+Requires-Dist: dbt-bigquery==1.8.3; extra == "all"
+Requires-Dist: dbt-clickhouse==1.8.5; extra == "all"
+Requires-Dist: dbt-core==1.8.7; extra == "all"
+Requires-Dist: dbt-duckdb==1.8.4; extra == "all"
+Requires-Dist: dbt-postgres==1.8.2; extra == "all"
+Requires-Dist: dbt-redshift==1.8.1; extra == "all"
+Requires-Dist: dbt-snowflake==1.8.4; extra == "all"
+Requires-Dist: dbt-spark==1.8.0; extra == "all"
+Requires-Dist: dbt-sqlserver==1.8.4; extra == "all"
+Requires-Dist: dbt-synapse==1.8.2; extra == "all"
+Requires-Dist: dbt-trino==1.8.4; extra == "all"
+Requires-Dist: duckdb==1.0.0; extra == "all"
+Requires-Dist: elasticsearch==8.15.1; extra == "all"
+Requires-Dist: google-api-core~=2.15.0; extra == "all"
+Requires-Dist: google-api-python-client~=2.70.0; extra == "all"
+Requires-Dist: google-cloud-bigquery~=3.14.1; extra == "all"
+Requires-Dist: google-cloud-iam~=2.13.0; extra == "all"
+Requires-Dist: google-cloud-pubsub~=2.19.0; extra == "all"
+Requires-Dist: google-cloud-run~=0.10.1; extra == "all"
+Requires-Dist: google-cloud-storage~=2.5.0; extra == "all"
+Requires-Dist: great-expectations==0.18.12; extra == "all"
+Requires-Dist: gspread==5.7.2; extra == "all"
+Requires-Dist: influxdb_client==1.36.1; extra == "all"
+Requires-Dist: kafka-python==2.0.2; extra == "all"
+Requires-Dist: kubernetes==33.1.0; extra == "all"
+Requires-Dist: langchain==0.2.5; extra == "all"
+Requires-Dist: langchain_community==0.2.5; extra == "all"
+Requires-Dist: ldap3==2.9.1; extra == "all"
+Requires-Dist: nats-py==2.6.0; extra == "all"
+Requires-Dist: nkeys~=0.2.0; extra == "all"
+Requires-Dist: openai==1.82.0; extra == "all"
+Requires-Dist: opensearch-py==2.0.0; extra == "all"
+Requires-Dist: opentelemetry-api==1.22.0; extra == "all"
+Requires-Dist: opentelemetry-exporter-prometheus==0.43b0; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-tornado==0.43b0; extra == "all"
+Requires-Dist: opentelemetry-exporter-otlp==1.22.0; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy==0.43b0; extra == "all"
+Requires-Dist: oracledb==1.3.1; extra == "all"
+Requires-Dist: pika==1.3.1; extra == "all"
+Requires-Dist: pinotdb==5.6.0; extra == "all"
+Requires-Dist: prometheus_client>=0.18.0; extra == "all"
+Requires-Dist: protobuf>=4.25.0; extra == "all"
+Requires-Dist: psycopg2-binary==2.9.3; extra == "all"
+Requires-Dist: psycopg2==2.9.3; extra == "all"
+Requires-Dist: pyairtable==2.3.3; extra == "all"
+Requires-Dist: pydruid==0.6.5; extra == "all"
+Requires-Dist: pymongo==4.3.3; extra == "all"
+Requires-Dist: pyodbc==4.0.35; python_version < "3.12" and extra == "all"
+Requires-Dist: pyodbc==5.0.1; python_version >= "3.12" and extra == "all"
+Requires-Dist: redshift-connector==2.0.915; extra == "all"
+Requires-Dist: lxml==4.9.4; extra == "all"
+Requires-Dist: requests_aws4auth==1.1.2; extra == "all"
+Requires-Dist: snowflake-connector-python==3.7.1; extra == "all"
+Requires-Dist: sshtunnel==0.4.0; extra == "all"
+Requires-Dist: stomp.py==8.1.0; extra == "all"
+Requires-Dist: thefuzz[speedup]==0.19.0; extra == "all"
+Requires-Dist: trino~=0.326; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Mage OSS
+
+### Build modern data pipelines locally — fast, visual, and production-ready.
+
+<br />
+
+Mage OSS is a self-hosted development environment designed to help teams create production-grade data pipelines with confidence.
+
+Ideal for automating ETL tasks, architecting data flow, or orchestrating transformations — all in a fast, notebook-style interface powered by modular code.
+
+When it’s time to scale, [Mage Pro](https://mage.ai) — our core platform — unlocks enterprise orchestration, collaboration, and AI-powered workflows.
+
+<br />
+
+<a href="https://mage.ai"><img alt="Mage AI GitHub repo stars" src="https://img.shields.io/github/stars/mage-ai/mage-ai?style=for-the-badge&logo=github&labelColor=000000&logoColor=FFFFFF&label=stars&color=0500ff" /></a>
+<a href="https://hub.docker.com/r/mageai/mageai"><img alt="Mage AI Docker downloads" src="https://img.shields.io/docker/pulls/mageai/mageai?style=for-the-badge&logo=docker&labelColor=000000&logoColor=FFFFFF&label=pulls&color=6A35FF" /></a>
+<a href="https://github.com/mage-ai/mage-ai/blob/master/LICENSE"><img alt="Mage AI license" src="https://img.shields.io/github/license/mage-ai/mage-ai?style=for-the-badge&logo=codeigniter&labelColor=000000&logoColor=FFFFFF&label=license&color=FFCC19" /></a>
+<a href="https://www.mage.ai/chat"><img alt="Join the Mage AI community" src="https://img.shields.io/badge/Join%20the%20community-black.svg?style=for-the-badge&logo=lightning&labelColor=000000&logoColor=FFFFFF&label=&color=DD55FF&logoWidth=20" /></a>
+
+<br />
+
+## What you can do with Mage OSS
+
+- Build pipelines locally with Python, SQL, or R in a modular notebook-style UI
+
+- Run jobs manually or on a schedule (cron supported)
+
+- Connect to databases, APIs, and cloud storage with prebuilt connectors
+
+- Debug visually with logs, live previews, and step-by-step execution
+
+- Set up quickly with Docker, pip, or conda — no cloud account required
+
+- Your go-to workspace for local pipeline development — fully in your control.
+  
+<img width="100%" alt="mage" src="https://github.com/user-attachments/assets/75992872-20a6-4120-8bf0-9c22a3d66450" />
+
+
+<br /><br />
+
+## Start local. Scale when you're ready.
+
+Use Mage OSS to build and run pipelines on your machine. When you're ready for advanced tooling, performance, and AI-assisted productivity, Mage Pro is just one click away.
+
+[**Try Mage Pro free →**](https://mage.ai)
+
+<br />
+
+### Quickstart
+
+Install using Docker (recommended):
+
+```bash
+docker pull mageai/mageai:latest
+```
+
+Or with pip:
+
+```bash
+pip install mage-ai
+```
+
+Or with conda:
+
+```bash
+conda install -c conda-forge mage-ai
+```
+
+Full setup guide and docs: [docs.mage.ai](https://docs.mage.ai/getting-started/setup#%E2%9B%B5%EF%B8%8F-mage-oss-overview)
+
+<br />
+
+## Core Features
+
+| Feature | Description |
+| :- | :- |
+| Modular pipelines | Build pipelines block-by-block using Python, SQL, or R |
+| Notebook UI | Interactive editor for writing and documenting logic |
+| Data integrations | Prebuilt connectors to databases, APIs, and cloud storage |
+| Scheduling | Trigger pipelines manually or on a schedule |
+| Visual debugging | Step-by-step logs, data previews, and error handling |
+| dbt support | Build and run dbt models directly inside Mage |
+
+<br />
+
+## Example Use Cases
+
+- Move data from Google Sheets to Snowflake with a Python transform
+- Schedule a daily SQL pipeline to clean and aggregate product data
+- Develop dbt models in a visual notebook-style interface
+- Run simple ETL/ELT jobs locally with full transparency
+
+<br />
+
+## Documentation
+
+Looking for how-to guides, examples, or advanced configuration?
+
+Explore our full documentation at [docs.mage.ai](https://docs.mage.ai).
+
+
+<br />
+
+## Contributing
+
+We welcome contributions of all kinds — bug fixes, docs, new features, or community examples.
+
+Start with our [contributing guide](https://docs.mage.ai/contributing/overview), check out open issues, or suggest improvements.
+
+<br />
+
+## Ready to scale? Mage Pro has you covered.
+
+Mage Pro is a powered-up platform built for teams.
+It adds everything you need for production pipelines, at scale.
+
+- Magical AI-assisted development and debugging
+- Multi-environment orchestration
+- Role-based access control
+- Real-time monitoring & alerts
+- Powerful CI/CD & version control
+- Powerful enterprise features
+- Available fully managed, hybrid, or on-premises
+
+[**Try Mage Pro free →**](https://mage.ai)

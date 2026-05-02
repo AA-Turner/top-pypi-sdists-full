@@ -9,7 +9,7 @@ Parts of this code are reworked from the rendernb checklet for Momotor <momotor.
 """
 
 import base64
-from typing import Any, Dict, Tuple
+from typing import Any
 from urllib.parse import quote
 
 from nbconvert.preprocessors import Preprocessor
@@ -30,8 +30,9 @@ class InlineAttachmentsPreprocessor(Preprocessor):
         'image/bmp',
     )
 
-    def preprocess_cell(self, cell: NotebookNode, resources: Dict[str, Any], index: int) -> \
-            Tuple[NotebookNode, Dict[str, Any]]:
+    def preprocess_cell(
+            self, cell: NotebookNode, resources: dict[str, Any], index: int
+    ) -> tuple[NotebookNode, dict[str, Any]]:
         """Take a Jupyter Notebook cell and inline all attachments as data.
 
         .. note:: **Modifies**: ``cell``
@@ -55,6 +56,7 @@ class InlineAttachmentsPreprocessor(Preprocessor):
                         break
 
                 if data_content:
+                    assert data_type is not None
                     # Re-encode base64 to strip whitespace
                     try:
                         decoded_content = base64.b64decode(data_content)

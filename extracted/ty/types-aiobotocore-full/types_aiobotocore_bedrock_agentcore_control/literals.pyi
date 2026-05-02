@@ -10,7 +10,7 @@ Usage::
     ```python
     from types_aiobotocore_bedrock_agentcore_control.literals import AgentManagedRuntimeTypeType
 
-    data: AgentManagedRuntimeTypeType = "PYTHON_3_10"
+    data: AgentManagedRuntimeTypeType = "NODE_22"
     ```
 """
 
@@ -35,6 +35,7 @@ __all__ = (
     "ClaimMatchOperatorTypeType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
+    "ConfigurationBundleStatusType",
     "ContentLevelType",
     "ContentTypeType",
     "CredentialProviderTypeType",
@@ -50,8 +51,13 @@ __all__ = (
     "GatewayInterceptionPointType",
     "GatewayPolicyEngineModeType",
     "GatewayProtocolTypeType",
+    "GatewayRuleStatusType",
     "GatewayStatusType",
+    "HarnessStatusType",
+    "HarnessToolTypeType",
+    "HarnessTruncationStrategyType",
     "InboundTokenClaimValueTypeType",
+    "IncludedDataType",
     "KeyTypeType",
     "ListAgentRuntimeEndpointsPaginatorName",
     "ListAgentRuntimeVersionsPaginatorName",
@@ -60,9 +66,13 @@ __all__ = (
     "ListBrowserProfilesPaginatorName",
     "ListBrowsersPaginatorName",
     "ListCodeInterpretersPaginatorName",
+    "ListConfigurationBundleVersionsPaginatorName",
+    "ListConfigurationBundlesPaginatorName",
     "ListEvaluatorsPaginatorName",
+    "ListGatewayRulesPaginatorName",
     "ListGatewayTargetsPaginatorName",
     "ListGatewaysPaginatorName",
+    "ListHarnessesPaginatorName",
     "ListMemoriesPaginatorName",
     "ListOauth2CredentialProvidersPaginatorName",
     "ListOnlineEvaluationConfigsPaginatorName",
@@ -73,6 +83,7 @@ __all__ = (
     "ListRegistriesPaginatorName",
     "ListRegistryRecordsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
+    "ListingModeType",
     "MemoryCreatedWaiterName",
     "MemoryStatusType",
     "MemoryStrategyStatusType",
@@ -93,6 +104,7 @@ __all__ = (
     "PolicyGenerationStatusType",
     "PolicyStatusType",
     "PolicyValidationModeType",
+    "PrincipalMatchOperatorType",
     "RegistryAuthorizerTypeType",
     "RegistryRecordCredentialProviderTypeType",
     "RegistryRecordOAuthGrantTypeType",
@@ -105,13 +117,15 @@ __all__ = (
     "SearchTypeType",
     "ServerProtocolType",
     "ServiceName",
+    "StatusType",
     "SynchronizationTypeType",
+    "TargetProtocolTypeType",
     "TargetStatusType",
     "WaiterName",
 )
 
 AgentManagedRuntimeTypeType = Literal[
-    "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
+    "NODE_22", "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
 ]
 AgentRuntimeEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
@@ -120,7 +134,7 @@ AgentRuntimeStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
-AuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT", "NONE"]
+AuthorizerTypeType = Literal["AUTHENTICATE_ONLY", "AWS_IAM", "CUSTOM_JWT", "NONE"]
 BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserNetworkModeType = Literal["PUBLIC", "VPC"]
 BrowserProfileStatusType = Literal["DELETED", "DELETING", "READY", "SAVING"]
@@ -132,9 +146,14 @@ CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
+ConfigurationBundleStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 ContentLevelType = Literal["FULL_CONTENT", "METADATA_ONLY"]
 ContentTypeType = Literal["MEMORY_RECORDS"]
-CredentialProviderTypeType = Literal["API_KEY", "GATEWAY_IAM_ROLE", "OAUTH"]
+CredentialProviderTypeType = Literal[
+    "API_KEY", "CALLER_IAM_CREDENTIALS", "GATEWAY_IAM_ROLE", "JWT_PASSTHROUGH", "OAUTH"
+]
 CredentialProviderVendorTypeType = Literal[
     "AtlassianOauth2",
     "Auth0Oauth2",
@@ -186,10 +205,23 @@ FindingTypeType = Literal[
 GatewayInterceptionPointType = Literal["REQUEST", "RESPONSE"]
 GatewayPolicyEngineModeType = Literal["ENFORCE", "LOG_ONLY"]
 GatewayProtocolTypeType = Literal["MCP"]
+GatewayRuleStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
 ]
+HarnessStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+HarnessToolTypeType = Literal[
+    "agentcore_browser",
+    "agentcore_code_interpreter",
+    "agentcore_gateway",
+    "inline_function",
+    "remote_mcp",
+]
+HarnessTruncationStrategyType = Literal["none", "sliding_window", "summarization"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
+IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
 ListAgentRuntimeVersionsPaginatorName = Literal["list_agent_runtime_versions"]
@@ -198,9 +230,13 @@ ListApiKeyCredentialProvidersPaginatorName = Literal["list_api_key_credential_pr
 ListBrowserProfilesPaginatorName = Literal["list_browser_profiles"]
 ListBrowsersPaginatorName = Literal["list_browsers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
+ListConfigurationBundleVersionsPaginatorName = Literal["list_configuration_bundle_versions"]
+ListConfigurationBundlesPaginatorName = Literal["list_configuration_bundles"]
 ListEvaluatorsPaginatorName = Literal["list_evaluators"]
+ListGatewayRulesPaginatorName = Literal["list_gateway_rules"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
+ListHarnessesPaginatorName = Literal["list_harnesses"]
 ListMemoriesPaginatorName = Literal["list_memories"]
 ListOauth2CredentialProvidersPaginatorName = Literal["list_oauth2_credential_providers"]
 ListOnlineEvaluationConfigsPaginatorName = Literal["list_online_evaluation_configs"]
@@ -211,6 +247,7 @@ ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
 ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
+ListingModeType = Literal["DEFAULT", "DYNAMIC"]
 MemoryCreatedWaiterName = Literal["memory_created"]
 MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
@@ -221,7 +258,7 @@ MemoryViewType = Literal["full", "without_decryption"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
 OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
 OnlineEvaluationConfigStatusType = Literal[
-    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "ERROR", "UPDATE_FAILED", "UPDATING"
 ]
 OnlineEvaluationExecutionStatusType = Literal["DISABLED", "ENABLED"]
 OverrideTypeType = Literal[
@@ -244,6 +281,7 @@ PolicyStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 PolicyValidationModeType = Literal["FAIL_ON_ANY_FINDINGS", "IGNORE_ALL_FINDINGS"]
+PrincipalMatchOperatorType = Literal["StringEquals", "StringLike"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 RegistryRecordCredentialProviderTypeType = Literal["IAM", "OAUTH"]
 RegistryRecordOAuthGrantTypeType = Literal["CLIENT_CREDENTIALS"]
@@ -266,7 +304,11 @@ RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST",
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
+StatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
 SynchronizationTypeType = Literal["URL"]
+TargetProtocolTypeType = Literal["HTTP", "MCP"]
 TargetStatusType = Literal[
     "CREATE_PENDING_AUTH",
     "CREATING",
@@ -717,9 +759,13 @@ PaginatorName = Literal[
     "list_browser_profiles",
     "list_browsers",
     "list_code_interpreters",
+    "list_configuration_bundle_versions",
+    "list_configuration_bundles",
     "list_evaluators",
+    "list_gateway_rules",
     "list_gateway_targets",
     "list_gateways",
+    "list_harnesses",
     "list_memories",
     "list_oauth2_credential_providers",
     "list_online_evaluation_configs",

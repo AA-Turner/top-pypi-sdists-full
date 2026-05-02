@@ -1,0 +1,126 @@
+# -*- coding: utf-8 -*-
+
+
+import os
+
+import numexpr
+
+from policyengine_core.enums import EnumArray
+
+from .test_from_situation import generate_test_from_situation
+
+
+def assert_near(
+    value,
+    target_value,
+    absolute_error_margin=None,
+    message="",
+    relative_error_margin=None,
+):
+    """
+
+    :param value: Value returned by the test
+    :param target_value: Value that the test should return to pass
+    :param absolute_error_margin: Absolute error margin authorized
+    :param message: Error message to be displayed if the test fails
+    :param relative_error_margin: Relative error margin authorized
+
+    Limit : This function cannot be used to assert near periods.
+
+    """
+
+    import numpy as np
+
+    if absolute_error_margin is None and relative_error_margin is None:
+        absolute_error_margin = 0
+    if not isinstance(value, np.ndarray):
+        value = np.array(value)
+    if isinstance(value, EnumArray):
+        return assert_enum_equals(value, target_value, message)
+    if np.issubdtype(value.dtype, np.datetime64):
+        target_value = np.array(target_value, dtype=value.dtype)
+        assert_datetime_equals(value, target_value, message)
+    if isinstance(target_value, str):
+        target_value = eval_expression(target_value)
+
+    # Choose comparison dtype:
+    # - Default to float64 so we don't silently lose precision on values
+    #   above ~16M (float32 only carries ~7 decimal digits). Under
+    #   float32, ``25_000_001`` and ``25_000_000`` round to the same
+    #   number and a test expecting one would pass on the other (bug H6).
+    # - But if ``value`` is already float32 (because it came out of a
+    #   float-typed Variable, which PolicyEngine stores as float32),
+    #   promoting to float64 would surface the float32 rounding that's
+    #   baked into storage — ``8.91`` stored as float32 compares unequal
+    #   to the Python-literal ``8.91``. That rounding is not a regression
+    #   surfaced by the H6 fix; it's a property of the storage dtype.
+    #   Compare at float32 in that case to keep H6's coverage for real
+    #   precision bugs (float64/int operands) without surfacing
+    #   pre-existing float32 storage artefacts.
+    _value_array = np.asarray(value)
+    _compare_dtype = np.float32 if _value_array.dtype == np.float32 else np.float64
+    target_value = np.array(target_value).astype(_compare_dtype)
+    value = _value_array.astype(_compare_dtype)
+    diff = abs(target_value - value)
+    if absolute_error_margin is not None:
+        assert (diff <= absolute_error_margin).all(), (
+            "{}{} differs from {} with an absolute margin {} > {}".format(
+                message, value, target_value, diff, absolute_error_margin
+            )
+        )
+    if relative_error_margin is not None:
+        assert (diff <= abs(relative_error_margin * target_value)).all(), (
+            "{}{} differs from {} with a relative margin {} > {}".format(
+                message,
+                value,
+                target_value,
+                diff,
+                abs(relative_error_margin * target_value),
+            )
+        )
+
+
+def assert_datetime_equals(value, target_value, message=""):
+    assert (value == target_value).all(), "{}{} differs from {}.".format(
+        message, value, target_value
+    )
+
+
+def assert_enum_equals(value, target_value, message=""):
+    value = value.decode_to_str()
+    assert (value == target_value).all(), "{}{} differs from {}.".format(
+        message, value, target_value
+    )
+
+
+def indent(text):
+    return "  {}".format(text.replace(os.linesep, "{}  ".format(os.linesep)))
+
+
+def get_trace_tool_link(scenario, variables, api_url, trace_tool_url):
+    import json
+    import urllib
+
+    scenario_json = scenario.to_json()
+    simulation_json = {
+        "scenarios": [scenario_json],
+        "variables": variables,
+    }
+    url = (
+        trace_tool_url
+        + "?"
+        + urllib.urlencode(
+            {
+                "simulation": json.dumps(simulation_json),
+                "api_url": api_url,
+            }
+        )
+    )
+    return url
+
+
+def eval_expression(expression):
+    try:
+        return numexpr.evaluate(expression)
+    except (KeyError, TypeError):
+        return expression

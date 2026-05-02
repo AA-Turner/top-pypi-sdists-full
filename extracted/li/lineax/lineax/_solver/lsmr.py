@@ -44,7 +44,7 @@ from jaxtyping import Array, PyTree
 
 from .._misc import complex_to_real_dtype
 from .._norm import two_norm
-from .._operator import AbstractLinearOperator, conj
+from .._operator import AbstractLinearOperator, conj, linearise
 from .._solution import RESULTS
 from .._solve import AbstractLinearSolver
 
@@ -89,7 +89,7 @@ class LSMR(AbstractLinearSolver[_LSMRState]):
                 )
 
     def init(self, operator: AbstractLinearOperator, options: dict[str, Any]):
-        return operator
+        return linearise(operator)
 
     def compute(
         self,
@@ -193,6 +193,11 @@ class LSMR(AbstractLinearSolver[_LSMRState]):
             normr=beta,
             normAr=alpha * beta,
         )
+        # beta == 0 means x exactly solves the well posed problem
+        # alpha == 0 means x exactly solves the least squares problem
+        # we check this here to shortcut the loop to avoid division by zero
+        loop_state["istop"] = lax.select(alpha == 0, 2, loop_state["istop"])
+        loop_state["istop"] = lax.select(beta == 0, 1, loop_state["istop"])
 
         def condfun(loop_state):
             return loop_state["istop"] == 0

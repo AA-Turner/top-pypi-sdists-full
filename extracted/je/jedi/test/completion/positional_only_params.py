@@ -1,5 +1,3 @@
-# python >= 3.8
-
 def positional_only_call(a, /, b):
     #? str()
     a

@@ -134,15 +134,39 @@ class ToolExecutionRecorderLike(Protocol):
 start_tool_step_span = start_step_span
 
 
+def update_tool_execution_context_trace(
+    trace_id: str,
+    span_id: str,
+    path: Path = DEFAULT_TOOL_EXECUTION_CONTEXT_PATH,
+) -> None:
+    """Update the on-disk tool execution context with a new parent span.
+
+    Lets the agent process re-anchor the parent context after opening its own
+    deeper spans (e.g. a ``session`` span) so out-of-band hooks reading this
+    file emit spans nested inside the agent's subtree rather than at the
+    agent.task level.
+    """
+    if not path.exists():
+        return
+    try:
+        context = ToolExecutionContext.model_validate_json(path.read_text())
+    except Exception:
+        logger.warning("Failed to load context for span update at %s", path)
+        return
+    context.trace_id = trace_id
+    context.span_id = span_id
+    path.write_text(context.model_dump_json())
+
+
 def load_tool_execution_context(
     path: Path = DEFAULT_TOOL_EXECUTION_CONTEXT_PATH,
 ) -> ToolExecutionContext | None:
     """Load tool execution context from disk when available."""
     if not path.exists():
-        logger.info("Tool execution context missing at %s", path)
+        logger.debug("Tool execution context missing at %s", path)
         return None
     context = ToolExecutionContext.model_validate_json(path.read_text())
-    logger.info(
+    logger.debug(
         "Loaded tool execution context from %s: agent_id=%s spool_path=%s scopes=%s",
         path,
         context.agent_id,

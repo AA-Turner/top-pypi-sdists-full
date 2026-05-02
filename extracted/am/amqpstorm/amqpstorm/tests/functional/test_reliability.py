@@ -2,7 +2,6 @@ import importlib
 import sys
 import threading
 import time
-import unittest
 
 from amqpstorm import AMQPChannelError
 from amqpstorm import AMQPConnectionError
@@ -179,7 +178,6 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
         self.channel = self.connection.channel()
         self.assertTrue(self.connection.is_open)
 
-    @unittest.skipIf(sys.version_info < (3, 3), 'Python 3.x test')
     def test_functional_ssl_connection_without_ssl(self):
         restore_func = sys.modules['ssl']
         try:
@@ -225,10 +223,10 @@ class ReliabilityFunctionalTests(TestFunctionalFramework):
         self.connection.close()
 
 
-class PublishAndConsume5kTest(TestFunctionalFramework):
-    messages_to_send = 5000
-    messages_consumed = {}
-    number_of_threads = 4
+class PublishAndConsume1kTest(TestFunctionalFramework):
+    messages_to_send = 1000
+    messages_consumed = 0
+    lock = threading.Lock()
 
     def configure(self):
         self.disable_logging_validation()
@@ -239,33 +237,35 @@ class PublishAndConsume5kTest(TestFunctionalFramework):
                                        routing_key=self.queue_name)
 
     def consume_messages(self):
-        thread_id = threading.current_thread()
-        self.messages_consumed[thread_id] = 0
         channel = self.connection.channel()
         channel.basic.consume(queue=self.queue_name,
                               no_ack=False)
         for message in channel.build_inbound_messages(
                 break_on_empty=False):
-            self.messages_consumed[thread_id] += 1
+            self.increment_message_count()
             message.ack()
             if self.messages_consumed == self.messages_to_send:
                 break
 
+    def increment_message_count(self):
+        with self.lock:
+            self.messages_consumed += 1
+
     @setup(queue=True)
-    def test_functional_publish_and_consume_5k_messages(self):
+    def test_functional_publish_and_consume_1k_messages(self):
         self.channel.queue.declare(self.queue_name)
 
         publish_thread = threading.Thread(target=self.publish_messages, )
         publish_thread.daemon = True
         publish_thread.start()
 
-        for _ in range(self.number_of_threads):
+        for _ in range(4):
             consumer_thread = threading.Thread(target=self.consume_messages, )
             consumer_thread.daemon = True
             consumer_thread.start()
 
         start_time = time.time()
-        while sum(self.messages_consumed.values()) != self.messages_to_send:
+        while self.messages_consumed != self.messages_to_send:
             if time.time() - start_time >= 60:
                 break
             time.sleep(0.1)
@@ -274,10 +274,8 @@ class PublishAndConsume5kTest(TestFunctionalFramework):
             channel.stop_consuming()
             channel.close()
 
-        self.assertEqual(
-            sum(self.messages_consumed.values()), self.messages_to_send,
-            'test took too long'
-        )
+        self.assertEqual(self.messages_consumed, self.messages_to_send,
+                         'test took too long')
 
 
 class Consume1kUntilEmpty(TestFunctionalFramework):

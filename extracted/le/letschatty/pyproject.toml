@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "letschatty"
+version = "0.4.401"
+description = "Models and custom classes to work across the Chattyverse"
+authors = ["Axel <axel@letschatty.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "letschatty", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic = "^2.9.2"
+pycountry = "^24.6.1"
+python-dotenv = "^1.0.1"
+phonenumbers = "^9.0.2"
+pymongo = { version = "^4.10.1", optional = true }
+motor = { version = "^3.6.0", optional = true }
+toml = "^0.10.2"
+redis = {extras = ["hiredis"], version = "^5.0.0"}
+
+[tool.poetry.extras]
+db = ["pymongo", "motor"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
+fakeredis = "^2.35.1"
+mongomock-motor = "^0.0.36"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

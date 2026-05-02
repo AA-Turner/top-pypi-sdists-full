@@ -1,0 +1,116 @@
+Metadata-Version: 2.4
+Name: g2cv-casm
+Version: 0.3.2
+Summary: CASM: Continuous Attack Surface Monitoring
+License: AGPL-3.0-or-later
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: PyYAML==6.0.3
+Requires-Dist: jsonschema==4.26.0
+Requires-Dist: reportlab>=4.0.0
+Dynamic: license-file
+
+# CASM
+## Continuous Attack Surface Monitoring
+
+![CASM logo](docs/assets/casm-dark-logo-with-parent-stacked.svg)
+
+Evidence-first attack surface monitoring with safe, scope-bound verification and run-over-run change tracking.
+
+CASM helps security teams continuously monitor external exposure in authorized environments. It discovers assets, verifies HTTP/TLS posture, and compares each run against a baseline to show exactly what changed.
+
+## Quick Start
+
+```bash
+# Install
+pip install g2cv-casm
+
+# Create a minimal scope and targets file
+cat > scope.yaml <<'YAML'
+engagement_id: quickstart
+allowed_domains: [example.com]
+allowed_ips: []
+allowed_ports: [443]
+allowed_protocols: [https]
+seed_targets: [example.com]
+max_rate: 5
+max_concurrency: 2
+active_allowed: false
+auth_allowed: false
+YAML
+
+cat > targets.json <<'JSON'
+{
+  "targets": [
+    {"url": "https://example.com", "method": "HEAD"}
+  ]
+}
+JSON
+
+# Run a unified scan
+casm run unified --config scope.yaml --targets-file targets.json --dry-run false
+
+# Compare with a previous run
+casm diff --old runs/baseline/results.sarif --new runs/current/results.sarif
+```
+
+By default, CASM auto-resolves tool binaries in this order: bundled wheel tools,
+local `hands/bin` (source tree), cache, then optional download configured with
+`CASM_TOOL_DOWNLOAD_URL_TEMPLATE` and `CASM_TOOL_MANIFEST_URL`.
+
+In a source checkout, if `hands/bin/<tool>` is missing and Go is installed,
+CASM auto-builds the tool on first use.
+
+## What CASM Does
+
+- Discover exposed assets across HTTP, DNS, and TLS contexts.
+- Verify web hardening signals and transport/security headers.
+- Track change between scans with baseline-aware diffs.
+- Report in SARIF, Markdown, PDF, and JSONL evidence streams.
+
+## Safety by Default
+
+- Authorization-first scope controls (domains, IPs, ports, protocols).
+- Dry-run support, deterministic blocking reasons, and rate/concurrency guardrails.
+
+## Screenshots
+
+Executive Summary (PDF)
+![Executive Summary](docs/assets/screenshots/executive-summary.png)
+
+Changes Since Last Scan (PDF)
+![Changes Since Last Scan](docs/assets/screenshots/changes-since-last-scan.png)
+
+## Documentation
+
+- Full docs: `docs/` (or run `mkdocs serve`)
+- Tutorials: `docs/tutorials/`
+- CLI reference: `docs/reference/cli.md`
+- Configuration reference: `docs/reference/configuration.md`
+- GitHub Auto-Diff Bot guide: `docs/how-to/github-auto-diff.md`
+- Release guide: `docs/how-to/release-python-package.md`
+- Security model: `docs/explanation/security-model.md`
+
+## Project Notes
+
+- Package name on PyPI: `g2cv-casm`
+- CLI commands: `casm` and `g2cv-casm`
+- Versioning is tag-driven (`vMAJOR.MINOR.PATCH`)
+
+## Contributing and Security
+
+- Contribution guide: `CONTRIBUTING.md`
+- Security policy: `SECURITY.md`
+- Code of conduct: `CODE_OF_CONDUCT.md`
+
+## Support
+
+If CASM is useful for your team, consider starring the repository.
+It helps others discover the project and supports ongoing development.
+
+## License
+
+AGPL-3.0. See `LICENSE`.
+
+Questions or partnerships: `contact@g2cv.com`

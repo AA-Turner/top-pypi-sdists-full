@@ -1,0 +1,87 @@
+Metadata-Version: 2.1
+Name: ga4gh.vrsatile.pydantic
+Version: 0.2.0
+Summary: "Translation of the GA4GH VRS and VRSATILE Schemas to a Pydantic data model"
+Home-page: https://github.com/ga4gh/vrs-pydantic
+Author: Alex H. Wagner
+Author-email: alex.wagner@nationwidechildrens.org
+Keywords: bioinformatics,ga4gh,genomics,hgvs,spdi,variation
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# vrsatile-pydantic
+Translation of the GA4GH [VRS](https://vrs.ga4gh.org/en/stable/) and [VRSATILE](https://vrsatile.readthedocs.io/en/latest/) schemas to a Pydantic data model
+
+The ga4gh/vrsatile/pydantic repo depends on VRS and VRSATILE models, and therefore each ga4gh.vrsatile.pydantic package on PyPI uses a particular version of VRS and VRSATILE. The correspondences between the packages may be summarized as:
+
+| ga4gh.vrsatile.pydantic branch | ga4gh.vrsatile.pydantic version | VRS version | VRSATILE version |
+| ---- | --- | --- | --- |
+| main | 0.2.X | [1.X.X](https://github.com/ga4gh/vrs) | [main](https://github.com/ga4gh/vrsatile/tree/main) |
+| metaschema-update | 0.1.X | [metaschema-update](https://github.com/ga4gh/vrs/tree/metaschema-update) | [metaschema-update](https://github.com/ga4gh/vrsatile/tree/metaschema-update) |
+
+
+## Installation
+
+vrsatile-pydantic is available via PyPI:
+```commandline
+pip install ga4gh.vrsatile.pydantic
+```
+
+## Developer Instructions
+
+Following are sections include instructions specifically for developers.
+
+### Installation
+
+For a development install, we recommend using Pipenv. See the
+[pipenv docs](https://pipenv-fork.readthedocs.io/en/latest/#install-pipenv-today)
+for direction on installing pipenv in your compute environment.
+
+Once installed, clone the repo and initialize the environment:
+
+```commandline
+git clone https://github.com/ga4gh/vrsatile-pydantic
+cd vrsatile-pydantic
+pipenv shell
+pipenv update
+pipenv install --dev
+```
+
+### Init coding style tests
+
+Code style is managed by [flake8](https://github.com/PyCQA/flake8) and checked prior to commit.
+
+We use [pre-commit](https://pre-commit.com/#usage) to run conformance tests.
+
+This ensures:
+
+* Check code style
+* Check for added large files
+* Detect AWS Credentials
+* Detect Private Key
+
+Before first commit run:
+
+```commandline
+pre-commit install
+```
+
+### Running unit tests
+
+Running unit tests is as easy as pytest.
+
+```commandline
+pipenv run pytest tests
+```

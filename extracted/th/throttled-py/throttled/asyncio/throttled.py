@@ -3,19 +3,31 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from functools import wraps
 from types import TracebackType
+from typing import Any
 
+from .. import types
 from ..exceptions import DataError, LimitedError
 from ..hooks import HookContext
 from ..throttled import BaseThrottledMixin
-from ..types import KeyT, StoreP
 from ..utils import now_mono_f
-from .hooks import build_hook_chain
-from .rate_limiter import RateLimiterRegistry, RateLimitResult, RateLimitState
+from .hooks import Hook, build_hook_chain
+from .rate_limiter import (
+    BaseRateLimiter,
+    RateLimiterRegistry,
+    RateLimitResult,
+    RateLimitState,
+)
 from .store import MemoryStore
 
+AsyncFunc = Callable[types.P, Coroutine[Any, Any, types.R]]
 
-class BaseThrottled(BaseThrottledMixin, abc.ABC):
+
+class BaseThrottled(
+    BaseThrottledMixin[BaseRateLimiter, Hook, types.AsyncStoreP], abc.ABC
+):
     """Abstract class for all throttled classes."""
+
+    _ALLOWED_HOOK_TYPES = (Hook,)
 
     @abc.abstractmethod
     async def __aenter__(self) -> RateLimitResult:
@@ -31,18 +43,8 @@ class BaseThrottled(BaseThrottledMixin, abc.ABC):
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ):
+    ) -> None:
         """Exit the context manager."""
-
-    @abc.abstractmethod
-    def __call__(
-        self, func: Callable[..., Coroutine] | None = None
-    ) -> (
-        Callable[..., Coroutine]
-        | Callable[[Callable[..., Coroutine]], Callable[..., Coroutine]]
-    ):
-        """Decorator to apply rate limiting to an async function."""
-        raise NotImplementedError
 
     @abc.abstractmethod
     async def _wait(self, timeout: float, retry_after: float) -> None:
@@ -51,7 +53,10 @@ class BaseThrottled(BaseThrottledMixin, abc.ABC):
 
     @abc.abstractmethod
     async def limit(
-        self, key: KeyT | None = None, cost: int = 1, timeout: float | None = None
+        self,
+        key: types.KeyT | None = None,
+        cost: int = 1,
+        timeout: float | None = None,
     ) -> RateLimitResult:
         """Apply rate limiting logic to a given key with a specified cost.
 
@@ -72,7 +77,7 @@ class BaseThrottled(BaseThrottledMixin, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def peek(self, key: KeyT) -> RateLimitState:
+    async def peek(self, key: types.KeyT) -> RateLimitState:
         """Retrieve the current state of rate limiter for the given key.
 
         This does not modify the rate limiter state.
@@ -90,7 +95,7 @@ class Throttled(BaseThrottled):
 
     _REGISTRY_CLASS: type[RateLimiterRegistry] = RateLimiterRegistry
 
-    _DEFAULT_GLOBAL_STORE: StoreP = MemoryStore()
+    _DEFAULT_GLOBAL_STORE: types.AsyncStoreP = MemoryStore()
 
     async def __aenter__(self) -> RateLimitResult:
         result: RateLimitResult = await self.limit()
@@ -111,7 +116,9 @@ class Throttled(BaseThrottled):
             if self._is_exit_waiting(start_time, retry_after, timeout):
                 break
 
-    async def _do_limit(self, key: KeyT, cost: int, timeout: float) -> RateLimitResult:
+    async def _do_limit(
+        self, key: types.KeyT, cost: int, timeout: float
+    ) -> RateLimitResult:
         """Execute rate limit check with retry logic.
 
         This method contains the entire limit logic including
@@ -142,20 +149,23 @@ class Throttled(BaseThrottled):
         return result
 
     async def limit(
-        self, key: KeyT | None = None, cost: int = 1, timeout: float | None = None
+        self,
+        key: types.KeyT | None = None,
+        cost: int = 1,
+        timeout: float | None = None,
     ) -> RateLimitResult:
         self._validate_cost(cost)
-        key: KeyT = self._get_key(key)
-        timeout: float = self._get_timeout(timeout)
+        current_key = self._get_key(key)
+        current_timeout = self._get_timeout(timeout)
 
         if not self._hooks:
-            return await self._do_limit(key, cost, timeout)
+            return await self._do_limit(current_key, cost, current_timeout)
 
         async def do_limit() -> RateLimitResult:
-            return await self._do_limit(key, cost, timeout)
+            return await self._do_limit(current_key, cost, current_timeout)
 
         context = HookContext(
-            key=key,
+            key=current_key,
             cost=cost,
             algorithm=self._limiter_cls.Meta.type,
             store_type=self._store.TYPE,
@@ -163,15 +173,10 @@ class Throttled(BaseThrottled):
         chain = build_hook_chain(self._hooks, do_limit, context)
         return await chain()
 
-    async def peek(self, key: KeyT) -> RateLimitState:
+    async def peek(self, key: types.KeyT) -> RateLimitState:
         return await self.limiter.peek(key)
 
-    def __call__(
-        self, func: Callable[..., Coroutine] | None = None
-    ) -> (
-        Callable[..., Coroutine]
-        | Callable[[Callable[..., Coroutine]], Callable[..., Coroutine]]
-    ):
+    def __call__(self, func: AsyncFunc[types.P, types.R]) -> AsyncFunc[types.P, types.R]:
         """Decorator to apply rate limiting to an async function.
 
         The cost value is taken from the Throttled instance's initialization.
@@ -185,20 +190,19 @@ class Throttled(BaseThrottled):
         async def func(): pass
         """
 
-        def decorator(f: Callable[..., Coroutine]) -> Callable[..., Coroutine]:
+        def decorator(
+            f: AsyncFunc[types.P, types.R],
+        ) -> AsyncFunc[types.P, types.R]:
             if not self.key:
                 raise DataError(f"Invalid key: {self.key}, must be a non-empty key.")
 
             @wraps(f)
-            async def _inner(*args, **kwargs):
+            async def _inner(*args: types.P.args, **kwargs: types.P.kwargs) -> types.R:
                 result: RateLimitResult = await self.limit(cost=self._cost)
                 if result.limited:
                     raise LimitedError(rate_limit_result=result)
                 return await f(*args, **kwargs)
 
             return _inner
-
-        if func is None:
-            return decorator
 
         return decorator(func)

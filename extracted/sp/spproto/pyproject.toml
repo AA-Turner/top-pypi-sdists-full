@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spproto"
+description = "Secure Peer Protocol"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    { name = "Lifr0m" }
+]
+keywords = [
+    "chat", "message", "peer", "protocol", "secure", "cryptography", "ec",
+    "eddsa", "ecdsa", "ed25519", "dh", "ecdh", "ecdhe", "kdf", "concatkdf",
+    "chacha20", "poly1305", "chacha20-poly1305"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed"
+]
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography~=43.0.0"
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/lifr0m/spproto"
+
+[project.optional-dependencies]
+dev = [
+    "mypy",
+    "ruff"
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "_version.py"
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+follow_imports = "silent"

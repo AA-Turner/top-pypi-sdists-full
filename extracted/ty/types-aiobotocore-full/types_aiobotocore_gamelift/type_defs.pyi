@@ -109,6 +109,7 @@ __all__ = (
     "ContainerFleetLocationAttributesTypeDef",
     "ContainerFleetTypeDef",
     "ContainerGroupDefinitionTypeDef",
+    "ContainerGroupPortMappingTypeDef",
     "ContainerHealthCheckOutputTypeDef",
     "ContainerHealthCheckTypeDef",
     "ContainerHealthCheckUnionTypeDef",
@@ -117,6 +118,7 @@ __all__ = (
     "ContainerPortConfigurationOutputTypeDef",
     "ContainerPortConfigurationTypeDef",
     "ContainerPortConfigurationUnionTypeDef",
+    "ContainerPortMappingTypeDef",
     "ContainerPortRangeTypeDef",
     "CreateAliasInputTypeDef",
     "CreateAliasOutputTypeDef",
@@ -182,6 +184,8 @@ __all__ = (
     "DescribeContainerFleetOutputTypeDef",
     "DescribeContainerGroupDefinitionInputTypeDef",
     "DescribeContainerGroupDefinitionOutputTypeDef",
+    "DescribeContainerGroupPortMappingsInputTypeDef",
+    "DescribeContainerGroupPortMappingsOutputTypeDef",
     "DescribeEC2InstanceLimitsInputTypeDef",
     "DescribeEC2InstanceLimitsOutputTypeDef",
     "DescribeFleetAttributesInputPaginateTypeDef",
@@ -560,6 +564,15 @@ class LogConfigurationTypeDef(TypedDict):
     S3BucketName: NotRequired[str]
     LogGroupArn: NotRequired[str]
 
+ContainerPortMappingTypeDef = TypedDict(
+    "ContainerPortMappingTypeDef",
+    {
+        "ContainerPort": NotRequired[int],
+        "ConnectionPort": NotRequired[int],
+        "Protocol": NotRequired[IpProtocolType],
+    },
+)
+
 class ContainerHealthCheckOutputTypeDef(TypedDict):
     Command: list[str]
     Interval: NotRequired[int]
@@ -764,6 +777,13 @@ class DescribeContainerFleetInputTypeDef(TypedDict):
 class DescribeContainerGroupDefinitionInputTypeDef(TypedDict):
     Name: str
     VersionNumber: NotRequired[int]
+
+class DescribeContainerGroupPortMappingsInputTypeDef(TypedDict):
+    FleetId: str
+    ContainerGroupType: ContainerGroupTypeType
+    ComputeName: NotRequired[str]
+    InstanceId: NotRequired[str]
+    ContainerName: NotRequired[str]
 
 class DescribeEC2InstanceLimitsInputTypeDef(TypedDict):
     EC2InstanceType: NotRequired[EC2InstanceTypeType]
@@ -1370,6 +1390,11 @@ class ContainerFleetTypeDef(TypedDict):
     LogConfiguration: NotRequired[LogConfigurationTypeDef]
     LocationAttributes: NotRequired[list[ContainerFleetLocationAttributesTypeDef]]
     PlayerGatewayMode: NotRequired[PlayerGatewayModeType]
+
+class ContainerGroupPortMappingTypeDef(TypedDict):
+    ContainerName: NotRequired[str]
+    ContainerRuntimeId: NotRequired[str]
+    ContainerPortMappings: NotRequired[list[ContainerPortMappingTypeDef]]
 
 ContainerHealthCheckUnionTypeDef = Union[
     ContainerHealthCheckTypeDef, ContainerHealthCheckOutputTypeDef
@@ -2069,6 +2094,16 @@ class ListContainerFleetsOutputTypeDef(TypedDict):
 
 class UpdateContainerFleetOutputTypeDef(TypedDict):
     ContainerFleet: ContainerFleetTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeContainerGroupPortMappingsOutputTypeDef(TypedDict):
+    FleetId: str
+    Location: str
+    ContainerGroupDefinitionArn: str
+    ContainerGroupType: ContainerGroupTypeType
+    ComputeName: str
+    InstanceId: str
+    ContainerGroupPortMappings: list[ContainerGroupPortMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GameServerContainerDefinitionTypeDef(TypedDict):

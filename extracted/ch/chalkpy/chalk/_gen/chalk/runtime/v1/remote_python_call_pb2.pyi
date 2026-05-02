@@ -91,6 +91,28 @@ class PollRemoteCallResponse(_message.Message):
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...
 
+class PurgeQueueRequest(_message.Message):
+    __slots__ = ("function_name", "all")
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    ALL_FIELD_NUMBER: _ClassVar[int]
+    function_name: str
+    all: bool
+    def __init__(self, function_name: _Optional[str] = ..., all: bool = ...) -> None: ...
+
+class PurgeQueueResponse(_message.Message):
+    __slots__ = ("items_removed_by_function",)
+    class ItemsRemovedByFunctionEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: int
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
+
+    ITEMS_REMOVED_BY_FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    items_removed_by_function: _containers.ScalarMap[str, int]
+    def __init__(self, items_removed_by_function: _Optional[_Mapping[str, int]] = ...) -> None: ...
+
 class FunctionCallInfo(_message.Message):
     __slots__ = ("call_id", "function_name", "enqueued_at", "status", "result_summary", "trace_id")
     CALL_ID_FIELD_NUMBER: _ClassVar[int]

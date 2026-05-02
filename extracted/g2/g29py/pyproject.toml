@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "g29py"
+version = "0.0.14"
+description = "python driver for g29 wheel/pedals"
+authors = ["Soulja Sim <sim@vapor.autos>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "g29py"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+hidapi = "^0.14.0.post4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.2"
+twine = "6.2.0"
+pkginfo = "1.12.1.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

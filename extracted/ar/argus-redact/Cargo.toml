@@ -1,0 +1,14 @@
+[package]
+name = "argus-redact-core"
+version = "0.1.0"
+edition = "2024"
+readme = "README.md"
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+path = "rust/src/lib.rs"
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["extension-module"] }
+fancy-regex = "0.17"

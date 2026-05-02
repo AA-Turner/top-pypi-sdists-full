@@ -1,0 +1,70 @@
+Metadata-Version: 2.1
+Name: ga-attribution-scrape
+Version: 0.2.1
+Summary: Scrapes attribution data from GAs Model Comparison Tool through JS Network and sends to Bigquery.
+Home-page: https://github.com/lewisaustinbryan/ga-attribution-scrape
+Author: Lewis Bryan
+Author-email: lewis.a.bryan@googlemail.com
+License: UNKNOWN
+Description: # ga-attribution-scrape
+        ## Scrapes attribution data from GA through JS Network in Python for CSV exports.
+        
+        ##### Notes
+        - The program assumes separate conversions and does not currently try to sum conversions together from separate conversion IDs.
+        - When dealing with GA goals, will pull all goals as separate requests.
+        - Works on a Service Account for authentication.
+        - Will fill in missing dates in Bigquery if they exist. For example if a date is to be configured on 2020-12-01 and the earliest date in bq is 2020-12-03 then a dates list is generated for all dates between the two.
+        
+        
+        ##### How to run 
+        
+        First import the Scrape function:
+        
+        `from ga_attribution_scrape import Scrape`
+        
+        Then initialise ga_attribution_scrape with the Scrape() function which must contain a `config` dictionary, which can be found at <https://github.com/lewisaustinbryan/ga-attribution-scrape/blob/main/empty_config.yaml>  
+        
+        `Scrape().Goals(congig)`
+        
+        ### config
+        #### Service Account
+        
+        You have to create a service account in Google Cloud Platform that has Bigquery access and GA access if you want to use a goal as a kpi for attribution reports.
+        Help on creating one can be found here. <https://cloud.google.com/iam/docs/creating-managing-service-accounts> 
+        Separate Service accounts can be created for GA and Bigquery
+        
+        There are four main parts to the **configuration**:
+        
+        ##### GA
+        
+        Here you need to include account ID, Property ID and view ID. 
+        
+        ##### Bigquery
+        
+        For including the dataset ID and Table ID to tell Bigquery where to put the attribution reports.
+        
+        ##### Backdate
+        
+        If `backdate` is `True` then will just pull yesterdays data, otherwise it will loop through each day on the specified `start_date` and `end_date` 
+        
+        Unless you explicitly set GOOGLE_APPLICATION_CREDENTIALS in the environment (e.g. using `os` module), be aware that the program expects you to **backdate first** with service account, then when `backdate` is `False` it refreshes the service used. There is no other option but it makes it very easy to put into a Cloud/Gamma Function.
+        
+        ##### Request
+        
+        This is where we copy the request from the JS network in Google analytics in the "Conversions -> Multi Channel Funnels -> Model Comparison Tool" report for the request url <https://analytics.google.com/analytics/web/exportReport/>, which will have various query parameters associated with it.
+        
+        Copy everything from Request Headers and and Form Data, which is included in the empty_config.     
+        
+        ### Get Attribution Report and send to Bigquery
+        
+            from from ga_attribution_scrape import Scrape
+            ga_attribution  = Scrape().Goals(config)
+            ga_attribution.to_bq()
+        
+        
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

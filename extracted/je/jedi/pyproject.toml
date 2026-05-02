@@ -1,0 +1,14 @@
+[tool.zuban]
+strict = true
+enable_error_code = ["ignore-without-code"]
+
+# Revert some --strict specific flags:
+allow_untyped_calls = true
+allow_untyped_defs = true
+allow_incomplete_defs = true
+allow_untyped_globals = true
+untyped_strict_optional = false
+implicit_reexport = true
+
+# Exclude our copies of external stubs
+exclude = "^jedi/third_party|^test/(completion|refactor|static_analysis|examples)/"

@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: spotlight-monitor
+Version: 0.5.1
+Summary: AI-powered service monitoring SDK
+Author: Lore
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Requires-Dist: httpx>=0.24.0
+Requires-Dist: starlette>=0.27.0
+Provides-Extra: fastapi
+Requires-Dist: fastapi>=0.100.0; extra == "fastapi"
+Provides-Extra: airflow
+Requires-Dist: apache-airflow>=2.0.0; extra == "airflow"
+Provides-Extra: all
+Requires-Dist: fastapi>=0.100.0; extra == "all"
+Requires-Dist: apache-airflow>=2.0.0; extra == "all"
+Dynamic: author
+Dynamic: classifier
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

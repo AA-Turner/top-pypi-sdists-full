@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cog
-Version: 0.19.1
+Version: 0.19.2
 Summary: Containers for machine learning
 Author-email: Replicate <team@replicate.com>
 License: 
@@ -218,7 +218,7 @@ Requires-Dist: typing_extensions>=4.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: structlog>=21.0.0
 Requires-Dist: requests>=2.25.0
-Requires-Dist: coglet<1.0,>=0.19.1
+Requires-Dist: coglet<1.0,>=0.19.2
 Dynamic: license-file
 
 # Cog: Containers for machine learning

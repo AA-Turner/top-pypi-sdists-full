@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rich-argparse
-Version: 1.7.2
+Version: 1.8.0
 Summary: Rich help formatters for argparse and optparse
 Project-URL: Homepage, https://github.com/hamdanal/rich-argparse
 Project-URL: Documentation, https://github.com/hamdanal/rich-argparse#rich-argparse
@@ -13,9 +13,7 @@ Keywords: argparse,help-formatter,optparse,rich
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: User Interfaces
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: rich>=11.0.0
 Description-Content-Type: text/markdown
 
@@ -281,8 +279,12 @@ syntax. The following formatters are available:
   breaks. A paragraph break is defined as two consecutive newlines (`\n\n`) in the help or
   description text. Leading and trailing trailing whitespace are stripped similar to
   `RichHelpFormatter`.
+* `ExtendedParagraphRichHelpFormatter`: A formatter that preserves paragraph breaks similar to
+  `ParagraphRichHelpFormatter` but with control over paragraph spacing. A paragraph break with
+  spacing is defined as three consecutive newlines (`\n\n\n`) and a paragraph break without spacing
+  is defined as two consecutive newlines (`\n\n`).
 
-_More formatters will be added in the future._
+_Your use case is not covered by the existing formatters? Please open an issue on GitHub!_
 
 ## Django support
 

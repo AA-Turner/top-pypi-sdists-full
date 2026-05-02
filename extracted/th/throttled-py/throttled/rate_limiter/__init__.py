@@ -1,3 +1,5 @@
+"""Rate limiter implementations and shared quota utilities."""
+
 from .base import (
     BaseRateLimiter,
     BaseRateLimiterMixin,

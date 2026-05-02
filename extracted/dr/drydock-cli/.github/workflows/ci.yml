@@ -1,0 +1,11 @@
+name: CI
+
+on:
+  workflow_dispatch:  # manual trigger only — our testing is via shakedown harness
+
+jobs:
+  placeholder:
+    name: CI disabled (testing via shakedown harness)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "CI tests are run locally via scripts/shakedown.py and scripts/shakedown_interactive.py"

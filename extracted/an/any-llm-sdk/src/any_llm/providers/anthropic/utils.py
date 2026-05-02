@@ -187,7 +187,7 @@ def _create_openai_chunk_from_anthropic_chunk(chunk: Any, model_id: str) -> Chat
             delta = {
                 "tool_calls": [
                     {
-                        "index": 0,
+                        "index": chunk.index,
                         "id": chunk.content_block.id,
                         "type": "function",
                         "function": {"name": chunk.content_block.name, "arguments": ""},
@@ -204,7 +204,7 @@ def _create_openai_chunk_from_anthropic_chunk(chunk: Any, model_id: str) -> Chat
             delta = {
                 "tool_calls": [
                     {
-                        "index": 0,
+                        "index": chunk.index,
                         "function": {"arguments": chunk.delta.partial_json},
                     }
                 ]
@@ -328,7 +328,7 @@ def _convert_tool_spec(openai_tools: list[dict[str, Any]]) -> list[dict[str, Any
         generic_tool = {
             "name": function["name"],
             "description": function.get("description", ""),
-            "parameters": function.get("parameters", {}),
+            "parameters": function.get("parameters") or {},
         }
         generic_tools.append(generic_tool)
 
@@ -339,7 +339,7 @@ def _convert_tool_spec(openai_tools: list[dict[str, Any]]) -> list[dict[str, Any
             "description": tool["description"],
             "input_schema": {
                 "type": "object",
-                "properties": tool["parameters"]["properties"],
+                "properties": tool["parameters"].get("properties") or {},
                 "required": tool["parameters"].get("required", []),
             },
         }

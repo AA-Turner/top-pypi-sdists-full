@@ -140,6 +140,7 @@ __all__ = (
     "ListTagsForResourceOutputTypeDef",
     "MatchGroupTypeDef",
     "MatchedRecordTypeDef",
+    "MatchingConfigTypeDef",
     "MatchingWorkflowSummaryTypeDef",
     "NamespaceProviderPropertiesOutputTypeDef",
     "NamespaceProviderPropertiesTypeDef",
@@ -463,6 +464,9 @@ class MatchedRecordTypeDef(TypedDict):
     inputSourceARN: str
     recordId: str
 
+class MatchingConfigTypeDef(TypedDict):
+    enableTransitiveMatching: NotRequired[bool]
+
 class NamespaceProviderPropertiesTypeDef(TypedDict):
     providerServiceArn: str
     providerConfiguration: NotRequired[Mapping[str, Any]]
@@ -781,9 +785,11 @@ class ProviderEndpointConfigurationTypeDef(TypedDict):
 
 class RuleConditionPropertiesOutputTypeDef(TypedDict):
     rules: list[RuleConditionTypeDef]
+    matchingConfig: NotRequired[MatchingConfigTypeDef]
 
 class RuleConditionPropertiesTypeDef(TypedDict):
     rules: Sequence[RuleConditionTypeDef]
+    matchingConfig: NotRequired[MatchingConfigTypeDef]
 
 class IdNamespaceIdMappingWorkflowPropertiesOutputTypeDef(TypedDict):
     idMappingType: IdMappingTypeType

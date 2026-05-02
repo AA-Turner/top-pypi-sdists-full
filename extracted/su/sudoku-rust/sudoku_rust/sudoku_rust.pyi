@@ -1,0 +1,6 @@
+import numpy.typing as npt
+
+__version__: str
+
+def solve(x: npt.NDArray) -> npt.NDArray: ...
+def check(x: npt.NDArray) -> bool: ...

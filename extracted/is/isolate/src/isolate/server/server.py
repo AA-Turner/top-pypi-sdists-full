@@ -36,6 +36,15 @@ from isolate.server import definitions, health
 from isolate.server.health_server import HealthServicer
 from isolate.server.interface import from_grpc, to_grpc
 
+# Server-level logger for events that aren't tied to a RunTask (startup,
+# signals, auth interceptor, lifecycle). Routes to stdout as JSON via
+# IsolateLogger.log -> print(json.dumps(record)). Critical: this makes the
+# very first line written to isolate-server.stdout a JSON record with a
+# microsecond-precision logged_at, so Vector's default content-based file
+# fingerprint (checksum, lines: 1) is unique per alloc instead of colliding
+# on the constant "Started listening at 0.0.0.0:NNNNN" prefix.
+_SERVER_LOGGER = IsolateLogger.from_env()
+
 EMPTY_MESSAGE_INTERVAL = float(os.getenv("ISOLATE_EMPTY_MESSAGE_INTERVAL", "600"))
 SKIP_EMPTY_LOGS = os.getenv("ISOLATE_SKIP_EMPTY_LOGS") == "1"
 MAX_GRPC_WAIT_TIMEOUT = float(os.getenv("ISOLATE_MAX_GRPC_WAIT_TIMEOUT", "10.0"))
@@ -442,7 +451,12 @@ class IsolateServicer(definitions.IsolateServicer):
         task.future = self._thread_pool.submit(self._run_task_in_background, task)
         task_id = str(uuid.uuid4())
 
-        print(f"Submitted a task {task_id}")
+        _SERVER_LOGGER.log(
+            LogLevel.INFO,
+            f"Submitted a task {task_id}",
+            source=LogSource.BRIDGE,
+            line_labels={},
+        )
 
         self.background_tasks[task_id] = task
 
@@ -452,7 +466,12 @@ class IsolateServicer(definitions.IsolateServicer):
                 msg += f" error: {exc!r}"
             else:
                 msg += f" result: {future.result()!r}"
-            print(msg)
+            _SERVER_LOGGER.log(
+                LogLevel.INFO,
+                msg,
+                source=LogSource.BRIDGE,
+                line_labels={},
+            )
             self.background_tasks.pop(task_id, None)
 
         task.future.add_done_callback(_callback)
@@ -518,7 +537,12 @@ class IsolateServicer(definitions.IsolateServicer):
     ) -> definitions.CancelResponse:
         task_id = request.task_id
 
-        print(f"Canceling task {task_id}")
+        _SERVER_LOGGER.log(
+            LogLevel.INFO,
+            f"Canceling task {task_id}",
+            source=LogSource.BRIDGE,
+            line_labels={},
+        )
         task = self.background_tasks.get(task_id)
         if task is not None:
             task.cancel()
@@ -527,14 +551,29 @@ class IsolateServicer(definitions.IsolateServicer):
 
     def shutdown(self) -> None:
         if self._shutting_down:
-            print("Shutdown already in progress...")
+            _SERVER_LOGGER.log(
+                LogLevel.INFO,
+                "Shutdown already in progress...",
+                source=LogSource.BRIDGE,
+                line_labels={},
+            )
             return
 
         self._shutting_down = True
         task_count = len(self.background_tasks)
-        print(f"Shutting down, canceling {task_count} tasks...")
+        _SERVER_LOGGER.log(
+            LogLevel.INFO,
+            f"Shutting down, canceling {task_count} tasks...",
+            source=LogSource.BRIDGE,
+            line_labels={},
+        )
         self.cancel_tasks()
-        print("All tasks canceled.")
+        _SERVER_LOGGER.log(
+            LogLevel.INFO,
+            "All tasks canceled.",
+            source=LogSource.BRIDGE,
+            line_labels={},
+        )
 
     def watch_queue_until_completed(
         self, queue: Queue, is_completed: Callable[[], bool]
@@ -703,11 +742,21 @@ class SingleTaskInterceptor(ServerBoundInterceptor):
             def _wrapper(request: Any, context: grpc.ServicerContext) -> Any:
                 def termination() -> None:
                     if is_run:
-                        print("Stopping server since run is finished")
+                        _SERVER_LOGGER.log(
+                            LogLevel.INFO,
+                            "Stopping server since run is finished",
+                            source=LogSource.BRIDGE,
+                            line_labels={},
+                        )
                         self.servicer.shutdown()
                         # Stop the server after the Run task is finished
                         self.server.stop(grace=0.1)
-                        print("Server stopped")
+                        _SERVER_LOGGER.log(
+                            LogLevel.INFO,
+                            "Server stopped",
+                            source=LogSource.BRIDGE,
+                            line_labels={},
+                        )
 
                     elif is_submit:
                         # Wait until the task_id is assigned
@@ -731,10 +780,20 @@ class SingleTaskInterceptor(ServerBoundInterceptor):
                             def _stop(*args):
                                 # Small sleep to make sure the cancellation is processed
                                 time.sleep(0.3)
-                                print("Stopping server since the task is finished")
+                                _SERVER_LOGGER.log(
+                                    LogLevel.INFO,
+                                    "Stopping server since the task is finished",
+                                    source=LogSource.BRIDGE,
+                                    line_labels={},
+                                )
                                 self.servicer.shutdown()
                                 self.server.stop(grace=0.1)
-                                print("Server stopped")
+                                _SERVER_LOGGER.log(
+                                    LogLevel.INFO,
+                                    "Server stopped",
+                                    source=LogSource.BRIDGE,
+                                    line_labels={},
+                                )
 
                             # Add a callback which will stop the server
                             # after the task is finished
@@ -771,7 +830,12 @@ class ControllerAuthInterceptor(ServerBoundInterceptor):
         ]
 
         if handler_call_details.method in skipped_auth_methods:
-            print(f"[debug] Skipping authentication for {handler_call_details.method}")
+            _SERVER_LOGGER.log(
+                LogLevel.DEBUG,
+                f"Skipping authentication for {handler_call_details.method}",
+                source=LogSource.BRIDGE,
+                line_labels={},
+            )
             # Let these requests pass through without authentication
             return continuation(handler_call_details)
 
@@ -816,9 +880,12 @@ def main(argv: list[str] | None = None) -> None:
         # Set an interceptor to only accept requests with the correct auth key
         interceptors.append(ControllerAuthInterceptor(controller_auth_key))
     else:
-        print(
-            "[WARN] ISOLATE_CONTROLLER_AUTH_KEY is not set, all requests will be "
-            "accepted without authentication."
+        _SERVER_LOGGER.log(
+            LogLevel.WARNING,
+            "ISOLATE_CONTROLLER_AUTH_KEY is not set, all requests will be "
+            "accepted without authentication.",
+            source=LogSource.BRIDGE,
+            line_labels={},
         )
 
     server = grpc.server(
@@ -839,6 +906,12 @@ def main(argv: list[str] | None = None) -> None:
         definitions.register_isolate(servicer, server)
         health.register_health(HealthServicer(), server)
 
+        # Signal handlers intentionally use bare print(): IsolateLogger.log()
+        # calls datetime.now() and json.dumps() which allocate memory, and
+        # heap allocation in a Python signal handler is unsafe (can deadlock
+        # if the main thread is mid-allocation). These messages also fire at
+        # shutdown — well past the first stdout line — so they don't affect
+        # Vector's file fingerprint.
         def handle_termination(*args):
             print("Termination signal received, shutting down...")
             servicer.shutdown()
@@ -853,11 +926,21 @@ def main(argv: list[str] | None = None) -> None:
         signal.signal(signal.SIGCHLD, handle_child_termination)
 
         server.add_insecure_port(f"[::]:{options.port}")
-        print(f"Started listening at {options.host}:{options.port}")
+        _SERVER_LOGGER.log(
+            LogLevel.INFO,
+            f"Started listening at {options.host}:{options.port}",
+            source=LogSource.BRIDGE,
+            line_labels={},
+        )
 
         server.start()
         server.wait_for_termination()
-        print("Server shut down")
+        _SERVER_LOGGER.log(
+            LogLevel.INFO,
+            "Server shut down",
+            source=LogSource.BRIDGE,
+            line_labels={},
+        )
 
 
 if __name__ == "__main__":

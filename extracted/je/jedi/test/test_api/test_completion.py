@@ -3,6 +3,7 @@ import os
 from textwrap import dedent
 from itertools import count
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -301,7 +302,7 @@ def test_file_path_should_have_completions(Script):
     assert Script('r"').complete()  # See GH #1503
 
 
-_dict_keys_completion_tests = [
+_dict_keys_completion_tests: "list[tuple[str, int | None, list[str | Any]]]" = [
     ('ints[', 5, ['1', '50', Ellipsis]),
     ('ints[]', 5, ['1', '50', Ellipsis]),
     ('ints[1]', 5, ['1', '50', Ellipsis]),

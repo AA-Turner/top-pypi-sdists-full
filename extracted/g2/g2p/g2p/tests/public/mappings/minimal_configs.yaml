@@ -1,0 +1,68 @@
+<<: &shared
+  language_name: Minimal
+mappings:
+  - language_name: Minimal
+    display_name: Minimal CSV to Minimal
+    rules_path: minimal.csv
+    in_lang: min
+    out_lang: min
+    rule_ordering: as-written
+    case_sensitive: false
+    escape_special: true
+    norm_form: 'NFD'
+    reverse: true
+    authors:
+      - Aidan Pine
+    <<: *shared
+  - language_name: Minimal
+    display_name: Minimal TSV to Minimal
+    rules_path: minimal.tsv
+    in_lang: min
+    out_lang: min
+    rule_ordering: as-written
+    case_sensitive: false
+    escape_special: true
+    norm_form: 'NFD'
+    reverse: true
+    authors:
+      - Aidan Pine
+    <<: *shared
+  - language_name: Minimal
+    display_name: Minimal PSV to Minimal
+    rules_path: minimal.psv
+    in_lang: min
+    out_lang: min
+    rule_ordering: as-written
+    case_sensitive: false
+    escape_special: true
+    norm_form: 'NFD'
+    reverse: true
+    authors:
+      - Aidan Pine
+    <<: *shared
+  - language_name: Minimal
+    display_name: Minimal JSON to Minimal
+    rules_path: minimal.json
+    in_lang: min
+    out_lang: min
+    rule_ordering: as-written
+    case_sensitive: false
+    escape_special: true
+    norm_form: 'NFD'
+    reverse: true
+    authors:
+      - Aidan Pine
+    <<: *shared
+  - language_name: Minimal
+    display_name: Minimal XLSX to Minimal
+    rules_path: minimal.xlsx
+    in_lang: min
+    out_lang: min
+    rule_ordering: as-written
+    case_sensitive: false
+    escape_special: true
+    norm_form: 'NFD'
+    reverse: true
+    authors:
+      - Aidan Pine
+    <<: *shared

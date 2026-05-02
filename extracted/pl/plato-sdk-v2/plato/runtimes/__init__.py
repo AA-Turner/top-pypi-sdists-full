@@ -15,6 +15,7 @@ from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.config import (
     AppleRuntimeConfig,
     RuntimeConfig,
+    VMResources,
     VMRuntimeConfig,
 )
 from plato.runtimes.settings import RuntimeSettings, get_settings
@@ -25,6 +26,7 @@ __all__ = [
     "RuntimeConfig",
     "RuntimeInfo",
     "RuntimeSettings",
+    "VMResources",
     "VMRuntimeConfig",
     "create_runtime",
     "get_settings",
@@ -54,15 +56,15 @@ def create_runtime(
             raise ValueError("VMRuntimeConfig requires a session")
         if ssh_key_path is None:
             raise ValueError("VMRuntimeConfig requires ssh_key_path")
+        vm = config.vm
         return VMRuntime(
             config.image,
             session=session,
             ssh_key_path=ssh_key_path,
-            cpus=config.cpus,
-            memory=config.memory,
-            disk=config.disk,
-            timeout=config.timeout,
-            heartbeat_timeout=config.heartbeat_timeout,
+            cpus=vm.cpus,
+            memory=vm.memory,
+            disk=vm.disk,
+            timeout=vm.timeout,
         )
 
     if isinstance(config, AppleRuntimeConfig):

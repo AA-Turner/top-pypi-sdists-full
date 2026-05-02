@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: spotiwise
+Version: 0.10.8
+Summary: Custom Spotify library using true Python objects
+Author: Wisdom Wolf
+Author-email: wisdomwolf@gmail.com
+Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Dist: requests (>=2.3.0)
+Requires-Dist: six (>=1.10.0)

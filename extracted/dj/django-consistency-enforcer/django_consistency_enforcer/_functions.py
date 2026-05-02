@@ -1,0 +1,314 @@
+from __future__ import annotations
+
+import inspect
+import sys
+import types
+import typing
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, ForwardRef, NotRequired, Required, Self, TypedDict, Unpack
+
+import attrs
+from typing_extensions import get_annotations
+
+
+@attrs.frozen
+class FunctionArg:
+    """
+    Holds onto the information for a single argument on a django view function/method.
+    """
+
+    name: str
+    """The name of the argument"""
+
+    required: bool
+    """Whether python will fail if this argument is not passed into the function"""
+
+    keyword_only: bool
+    """Whether this argument can only be passed in as a keyword"""
+
+    annotation: object
+    """The annotation associated with this argument"""
+
+    is_self: bool = False
+    """Whether this argument represents the instance passed into a method (idiomatically, the self argument)"""
+
+    is_variable_keywords: bool = False
+    """Whether this argument is a `**kwargs`"""
+
+    is_variable_positional: bool = False
+    """Whether this argument is a `*args`"""
+
+    def matches(self, annotation: object) -> bool:
+        """
+        Returns whether the annotation on the argument matches some specific annotation.
+
+        Takes into account:
+
+        * Matches if this argument is typed as `Any`
+        * Matches if this argument is `**kwargs: object`
+        * Union types on both this arg and the provided annotation
+        """
+        if self.annotation == Any or (self.is_variable_keywords and self.annotation == object):
+            return True
+
+        accepts: list[object] = []
+        if typing.get_origin(self.annotation) in (types.UnionType, typing.Union):
+            accepts.extend(typing.get_args(self.annotation))
+        else:
+            accepts.append(self.annotation)
+
+        requires: list[object] = []
+        if typing.get_origin(annotation) in (types.UnionType, typing.Union):
+            requires.extend(typing.get_args(annotation))
+        else:
+            requires.append(annotation)
+
+        return all(req in accepts for req in requires)
+
+
+@attrs.frozen
+class Function:
+    """
+    Holds onto the information to a specific django function/method.
+    """
+
+    name: str
+    """The name of the function"""
+
+    module: str
+    """The import path to the module the function is defined in"""
+
+    function_args: Sequence[FunctionArg]
+    """The arguments to this function"""
+
+    allows_arbitrary: bool
+    """Whether there is a `**kwargs: object` or `**kwargs: Any`"""
+
+    view_class: type | None = None
+    """The class this function is defined on if it's a method"""
+
+    defined_on: type | None = None
+    """
+    The specific class this function comes from
+
+    (may be different to view_class if defined on a parent)
+    """
+
+    @classmethod
+    def from_callback(
+        cls,
+        callback: Callable[..., object],
+        view_class: type | None = None,
+    ) -> Self:
+        """
+        Return an instance of this class provided some function and the view class
+        it was found on if it's a method.
+
+        Will attempt to resolve any stringified annotations and do things like
+        work out which class in the MRO the function is defined on if it's a method.
+
+        Will also find any `**kwargs: Unpack[...]` and treat those as if they
+        were defined as individual keyword arguments.
+        """
+        callback_module = inspect.getmodule(callback)
+
+        globalns: dict[str, object] | None = None
+        if callback_module is not None:
+            globalns = callback_module.__dict__
+        localns: Mapping[str, object] | None = None
+
+        defined_on: type | None = None
+        if view_class is not None:
+            for kls in reversed(inspect.getmro(view_class)):
+                if callback.__name__ in kls.__dict__:
+                    defined_on = kls
+
+        if defined_on is not None:
+            localns = defined_on.__dict__
+
+        signature = inspect.signature(callback)
+        annotations = typing.get_type_hints(callback, globalns=globalns, localns=localns)
+        if not annotations and getattr(callback, "__no_type_check__", False):
+            annotations = get_annotations(callback, eval_str=True)
+
+        function_args: list[FunctionArg] = []
+        allows_arbitary = False
+        for i, param in enumerate(signature.parameters.values()):
+            if view_class is not None and i == 0:
+                assert param.kind in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                )
+                function_args.append(
+                    FunctionArg(
+                        name=param.name,
+                        required=False,
+                        keyword_only=False,
+                        annotation=view_class,
+                        is_variable_keywords=False,
+                        is_variable_positional=False,
+                        is_self=True,
+                    )
+                )
+                continue
+
+            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                function_args.append(
+                    FunctionArg(
+                        name=param.name,
+                        required=False,
+                        keyword_only=False,
+                        annotation=annotations.get(param.name, Any),
+                        is_variable_keywords=False,
+                        is_variable_positional=True,
+                        is_self=False,
+                    )
+                )
+                continue
+
+            if param.kind == inspect.Parameter.VAR_KEYWORD and (
+                param.annotation is param.empty or annotations[param.name] in (object, Any)
+            ):
+                allows_arbitary = True
+
+            annotation = annotations.get(param.name, Any)
+
+            if typing.get_origin(annotation) == Unpack:
+                typed_dict = typing.get_args(annotation)[0]
+                globalns = inspect.getmodule(typed_dict).__dict__
+                for name, typ in inspect.get_annotations(typed_dict).items():
+                    if isinstance(typ, ForwardRef):
+                        if sys.version_info >= (3, 14):
+                            typ = typing.evaluate_forward_ref(
+                                typ, globals=globalns, locals=localns
+                            )
+                        else:
+                            typ = typ._evaluate(
+                                globalns, localns, type_params=(), recursive_guard=frozenset()
+                            )
+
+                    required = True
+                    origin = typing.get_origin(typ)
+                    if origin == Required:  # type: ignore[comparison-overlap]
+                        typ = typing.get_args(typ)[0]
+                    elif origin == NotRequired:  # type: ignore[comparison-overlap]
+                        required = False
+                        typ = typing.get_args(typ)[0]
+
+                    function_args.append(
+                        FunctionArg(
+                            name=name, required=required, keyword_only=True, annotation=typ
+                        )
+                    )
+            else:
+                function_args.append(
+                    FunctionArg(
+                        name=param.name,
+                        required=(
+                            param.default == param.empty
+                            and param.kind
+                            not in (
+                                inspect.Parameter.VAR_POSITIONAL,
+                                inspect.Parameter.VAR_KEYWORD,
+                            )
+                        ),
+                        keyword_only=(
+                            param.kind
+                            in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+                        ),
+                        annotation=annotation,
+                        is_variable_keywords=param.kind == inspect.Parameter.VAR_KEYWORD,
+                    )
+                )
+
+        return cls(
+            name=callback.__name__,
+            module=("" if callback_module is None else callback_module.__file__ or ""),
+            view_class=view_class,
+            defined_on=defined_on,
+            function_args=function_args,
+            allows_arbitrary=allows_arbitary,
+        )
+
+    def display(self, *, indent: str = "  ") -> str:
+        """
+        Return a string representation of the information held by this object.
+
+        Will be a multi line string of one line per specific information,
+        with the specified indent. Does not include function args.
+        """
+        parts: list[str] = []
+        parts.append(f"module = {self.module}")
+
+        if self.defined_on:
+            parts.append(f"class = {self.defined_on.__name__}")
+            parts.append(f"method = {self.name}")
+        else:
+            parts.append(f"function = {self.name}")
+        return f"\n{indent}".join(parts)
+
+
+@attrs.frozen
+class DispatchFunction:
+    """
+    This represents a :class:`Function` that is used as by django for dispatching
+    a request. Essentially it proxies a :class:`Function` and also includes
+    an understanding of any required positional arguments.
+    """
+
+    _function: Function
+
+    positional: Sequence[tuple[str, object]]
+    """Any required arguments as a tuple of `(name, annotation)` that is expected of this function"""
+
+    @property
+    def name(self) -> str:
+        """Proxy `name` from the function"""
+        return self._function.name
+
+    @property
+    def module(self) -> str:
+        """Proxy `module` from the function"""
+        return self._function.module
+
+    @property
+    def function_args(self) -> Sequence[FunctionArg]:
+        """Proxy `function_args` from the function"""
+        return self._function.function_args
+
+    @property
+    def allows_arbitrary(self) -> bool:
+        """Proxy `allows_arbitrary` from the function"""
+        return self._function.allows_arbitrary
+
+    @property
+    def view_class(self) -> type | None:
+        """Proxy `view_class` from the function"""
+        return self._function.view_class
+
+    @property
+    def defined_on(self) -> type | None:
+        """Proxy `defined_on` from the function"""
+        return self._function.defined_on
+
+    class _DisplayArgs(TypedDict):
+        indent: NotRequired[str]
+
+    def display(self, **kwargs: Unpack[_DisplayArgs]) -> str:
+        """Proxy `display` from the function"""
+        return self._function.display(**kwargs)
+
+    @classmethod
+    def from_callback(
+        cls,
+        callback: Callable[..., object],
+        view_class: type | None = None,
+        *,
+        positional: Sequence[tuple[str, object]],
+    ) -> Self:
+        """
+        Create an instance given some callback, the view it is found on if it's
+        a method, and the positional arguments that are considered required.
+        """
+        function = Function.from_callback(callback, view_class=view_class)
+        return cls(function=function, positional=positional)

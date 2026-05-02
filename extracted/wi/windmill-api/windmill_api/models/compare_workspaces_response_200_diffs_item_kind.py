@@ -1,0 +1,14 @@
+from enum import Enum
+
+
+class CompareWorkspacesResponse200DiffsItemKind(str, Enum):
+    APP = "app"
+    FLOW = "flow"
+    RAW_APP = "raw_app"
+    RESOURCE = "resource"
+    RESOURCE_TYPE = "resource_type"
+    SCRIPT = "script"
+    VARIABLE = "variable"
+
+    def __str__(self) -> str:
+        return str(self.value)

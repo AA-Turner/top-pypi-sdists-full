@@ -1,0 +1,136 @@
+image: rust:latest
+
+# Optional: Pick zero or more services to be used on all builds.
+# Only needed when using a docker container to run your tests in.
+# Check out: https://docs.gitlab.com/ee/ci/services/index.html
+# services:
+#   - mysql:latest
+#   - redis:latest
+#   - postgres:latest
+
+# Optional: Install a C compiler, cmake and git into the container.
+# You will often need this when you (or any of your dependencies) depends on C code.
+# before_script:
+#   - apt-get update -yqq
+#   - apt-get install -yqq --no-install-recommends build-essential
+
+stages:
+  - build
+  - test
+  - deploy
+
+# build:
+#   stage: build
+#   image: rust:latest
+#   tags:
+#     - 8-core
+#   timeout: 1h
+#   parallel:
+#     matrix:
+#       - CHANNEL: [stable, beta, nightly]
+#         PROFILE: [release]
+#         TARGET: [x86_64-unknown-linux-gnu]
+#         CARGO_OPTS: [ "--verbose" ]
+
+#   script:
+#     - cargo build --target $TARGET $([[ $PROFILE == "release" ]] && echo "--release" || echo "") $CARGO_OPTS
+#   artifacts:
+#     paths:
+#       - target/$TARGET/$PROFILE/*
+
+variables:
+  RUST_BACKTRACE: 1
+
+.build-base:
+  stage: build
+  image: $CI_REGISTRY/syseng-platform/luwen/rust-ci-build:latest
+  tags:
+    - 8-core
+  timeout: 1h
+  variables:
+    CHANNEL: stable
+    PROFILE: release
+    TARGET: x86_64-unknown-linux-gnu
+    CARGO_OPTS: "--verbose"
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - apt install -y protobuf-compiler
+    - cargo build --target $TARGET $([[ $PROFILE == "release" ]] && echo "--release" || echo "") $CARGO_OPTS
+  artifacts:
+    paths:
+      - target/$TARGET/$PROFILE/*
+
+build:stable:release:
+  extends: .build-base
+  variables:
+    CHANNEL: stable
+
+build:stable:debug:
+  extends: .build-base
+  variables:
+    PROFILE: debug
+
+build:nightly:
+  extends: .build-base
+  image: rustlang/rust:nightly
+  variables:
+    CHANNEL: nightly
+  allow_failure: true
+
+# Use cargo to test the project
+.cargo_test_setup:
+  extends: .build-base
+  stage: test
+  needs: ["build:stable:release"]
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo test --workspace --target $TARGET $([[ $PROFILE == "release" ]] && echo "--release" || echo "") $CARGO_OPTS
+
+test:cargo:gs:
+  extends: .cargo_test_setup
+  tags:
+    - gs-1-card
+
+test:cargo:wh:
+  extends: .cargo_test_setup
+  tags:
+    - wh-nebula_x2-card
+
+# Optional: Use a third party library to generate gitlab junit reports
+# test:junit-report:
+#   script:
+#     Should be specified in Cargo.toml
+#     - cargo install junitify
+#     - cargo test -- --format=json -Z unstable-options --report-time | junitify --out $CI_PROJECT_DIR/tests/
+#   artifacts:
+#     when: always
+#     reports:
+#       junit: $CI_PROJECT_DIR/tests/*.xml
+
+deploy:
+  tags:
+    - 8-core
+  stage: deploy
+  before_script:
+    - cargo install --locked cargo-deb
+  script:
+    - make deb
+  environment: production
+
+# The default cross riscv image doesn't work with
+# simd instructions, so I've made a manual job here
+# to deploy the image to the container registry
+deploy-cross:
+  tags:
+    - 8-core
+  when: manual
+  # Seems to be how we setup docker in docker
+  image: rust:latest
+  services:
+    - docker:20.10.16-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - git clone https://github.com/TTDRosen/cross
+    - cd cross
+    - CROSS_CONTAINER_IN_CONTAINER=true cargo build-docker-image riscv64gc-unknown-linux-gnu --tag latest --repo $CI_REGISTRY/syseng-platform/luwen
+    - docker push $CI_REGISTRY/syseng-platform/luwen/riscv64gc-unknown-linux-gnu:latest

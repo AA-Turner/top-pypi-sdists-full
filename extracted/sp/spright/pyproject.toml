@@ -1,0 +1,33 @@
+[project]
+name = "spright"
+version = "25.06.03"
+description = 'Bayesian radius-density-mass relation for small planets.'
+authors=[{name='Hannu Parviainen', email='hpparvi@gmail.com'}]
+classifiers=[
+  "Topic :: Scientific/Engineering",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+]
+keywords = ['astronomy',  'astrophysics',  'exoplanets']
+dependencies = ["numpy", "numba", "scipy", "uncertainties", "pandas", "plotext",
+  "astropy", "pytransit", "arviz", "corner", "tqdm", "celerite", "emcee", "mpltern"]
+
+[project.urls]
+homepage = 'https://github.com/hpparvi/spright'
+
+[project.scripts]
+spright = "spright.scripts.spright:__main__"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ['spright', 'spright.data']
+
+[tool.setuptools.package-data]
+"spright.data" = ["*.fits", "*.txt", "*.csv"]

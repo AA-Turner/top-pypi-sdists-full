@@ -178,23 +178,8 @@ class UpsertStreamResolverParamMessageGQL:
 
 @dataclasses_json.dataclass_json
 @dataclass
-class UpsertStreamResolverParamKeyedStateGQL:
-    """
-    GQL split union input pattern
-    """
-
-    name: str
-    typeName: str
-    bases: List[str]
-    schema: Optional[Any] = None
-    defaultValue: Optional[Any] = None
-
-
-@dataclasses_json.dataclass_json
-@dataclass
 class UpsertStreamResolverParamGQL:
     message: Optional[UpsertStreamResolverParamMessageGQL]
-    state: Optional[UpsertStreamResolverParamKeyedStateGQL]
 
 
 @dataclasses_json.dataclass_json

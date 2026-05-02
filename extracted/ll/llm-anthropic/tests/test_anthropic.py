@@ -1,0 +1,390 @@
+import json
+import llm
+import os
+import pytest
+from pydantic import BaseModel
+
+TINY_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\xa6\x00\x00\x01\x1a"
+    b"\x02\x03\x00\x00\x00\xe6\x99\xc4^\x00\x00\x00\tPLTE\xff\xff\xff"
+    b"\x00\xff\x00\xfe\x01\x00\x12t\x01J\x00\x00\x00GIDATx\xda\xed\xd81\x11"
+    b"\x000\x08\xc0\xc0.]\xea\xaf&Q\x89\x04V\xe0>\xf3+\xc8\x91Z\xf4\xa2\x08EQ\x14E"
+    b"Q\x14EQ\x14EQ\xd4B\x91$I3\xbb\xbf\x08EQ\x14EQ\x14EQ\x14E\xd1\xa5"
+    b"\xd4\x17\x91\xc6\x95\x05\x15\x0f\x9f\xc5\t\x9f\xa4\x00\x00\x00\x00IEND\xaeB`"
+    b"\x82"
+)
+
+ANTHROPIC_API_KEY = os.environ.get("PYTEST_ANTHROPIC_API_KEY", None) or "sk-..."
+
+
+@pytest.mark.vcr
+def test_prompt():
+    model = llm.get_model("claude-sonnet-4.5")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt("Two names for a pet pelican, be brief")
+    assert str(response) == "- Captain\n- Scoop"
+    response_dict = dict(response.response_json)
+    response_dict.pop("id")  # differs between requests
+    response_dict.pop("stop_details", None)  # added in anthropic>=0.96
+    assert response_dict == {
+        "container": None,
+        "content": [
+            {
+                "citations": None,
+                "parsed_output": None,
+                "text": "- Captain\n- Scoop",
+                "type": "text",
+            }
+        ],
+        "model": "claude-sonnet-4-5-20250929",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+    }
+    assert response.input_tokens == 17
+    assert response.output_tokens == 10
+    assert response.token_details is None
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_async_prompt():
+    model = llm.get_async_model("claude-sonnet-4.5")
+    model.key = model.key or ANTHROPIC_API_KEY  # don't override existing key
+    conversation = model.conversation()
+    response = await conversation.prompt("Two names for a pet pelican, be brief")
+    assert await response.text() == "- Captain\n- Scoop"
+    response_dict = dict(response.response_json)
+    response_dict.pop("id")  # differs between requests
+    response_dict.pop("stop_details", None)
+    assert response_dict == {
+        "container": None,
+        "content": [
+            {
+                "citations": None,
+                "parsed_output": None,
+                "text": "- Captain\n- Scoop",
+                "type": "text",
+            }
+        ],
+        "model": "claude-sonnet-4-5-20250929",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+    }
+    assert response.input_tokens == 17
+    assert response.output_tokens == 10
+    assert response.token_details is None
+    response2 = await conversation.prompt("in french")
+    assert await response2.text() == "- Capitaine\n- Bec (beak)"
+
+
+EXPECTED_IMAGE_TEXT = "Red square, green square."
+
+
+@pytest.mark.vcr
+def test_image_prompt():
+    model = llm.get_model("claude-sonnet-4.5")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt(
+        "Describe image in three words",
+        attachments=[llm.Attachment(content=TINY_PNG)],
+    )
+    assert str(response) == EXPECTED_IMAGE_TEXT
+    response_dict = response.response_json
+    response_dict.pop("id")  # differs between requests
+    response_dict.pop("stop_details", None)
+    assert response_dict == {
+        "container": None,
+        "content": [
+            {
+                "citations": None,
+                "parsed_output": None,
+                "text": EXPECTED_IMAGE_TEXT,
+                "type": "text",
+            }
+        ],
+        "model": "claude-sonnet-4-5-20250929",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+    }
+
+    assert response.input_tokens == 83
+    assert response.output_tokens == 9
+    assert response.token_details is None
+
+
+@pytest.mark.vcr
+def test_image_with_no_prompt():
+    model = llm.get_model("claude-sonnet-4.5")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt(
+        prompt=None,
+        attachments=[llm.Attachment(content=TINY_PNG)],
+    )
+    assert str(response) == (
+        "I need to describe what I see in this image.\n\n"
+        "The image shows two solid colored rectangles arranged vertically on a white background:\n\n"
+        "1. **Top rectangle**: A bright red rectangle positioned in the upper portion of the image\n"
+        "2. **Bottom rectangle**: A bright green (lime green) rectangle positioned in the lower portion of the image\n\n"
+        "Both rectangles appear to be roughly the same size and shape (horizontal rectangles/landscape orientation), "
+        "and they are separated by white space between them."
+    )
+
+
+@pytest.mark.vcr
+def test_url_prompt():
+    model = llm.get_model("claude-sonnet-4.5")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt(
+        prompt="describe image",
+        attachments=[
+            llm.Attachment(
+                url="https://static.simonwillison.net/static/2024/pelican.jpg"
+            )
+        ],
+    )
+    assert str(response) == (
+        "This image shows a **brown pelican** perched on rocky terrain at what appears "
+        "to be a marina or harbor. The pelican is captured in profile, displaying its "
+        "distinctive features:\n\n"
+        "- **Long, prominent bill** with the characteristic pelican pouch\n"
+        "- **White head and neck** with darker gray-brown plumage on its body and wings\n"
+        "- **Sturdy build** with detailed feather texture visible in the wings\n\n"
+        "The background shows several **boats docked in a marina**, slightly out of "
+        "focus, creating a typical coastal or waterfront setting. The lighting suggests "
+        "this photo was taken during daytime, with bright natural light that creates "
+        "a slight halo effect around the bird's head.\n\n"
+        "The pelican appears calm and at rest, which is common behavior for these "
+        "seabirds in harbor areas where they often wait for fishing opportunities or "
+        "scraps from nearby boats. The rocky perch and marina setting are typical "
+        "habitats where pelicans congregate along coastlines."
+    )
+
+
+class Dog(BaseModel):
+    name: str
+    age: int
+    bio: str
+
+
+@pytest.mark.vcr
+def test_schema_prompt():
+    model = llm.get_model("claude-sonnet-4.5")
+
+    response = model.prompt("Invent a good dog", schema=Dog, key=ANTHROPIC_API_KEY)
+    dog = json.loads(response.text())
+    assert dog == {
+        "name": "Biscuit",
+        "age": 4,
+        "bio": (
+            "Biscuit is a golden retriever with a gentle soul and boundless "
+            "enthusiasm. He greets every person with a wagging tail and has an uncanny "
+            "ability to sense when someone needs comfort. His favorite activities "
+            "include playing fetch at the beach, napping in sunny spots, and stealing "
+            "socks to add to his secret collection under the bed."
+        ),
+    }
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_schema_prompt_async():
+    model = llm.get_async_model("claude-sonnet-4.5")
+    response = await model.prompt(
+        "Invent a terrific dog", schema=Dog, key=ANTHROPIC_API_KEY
+    )
+    dog_json = await response.text()
+    dog = json.loads(dog_json)
+    assert dog == {
+        "name": "Luna",
+        "age": 4,
+        "bio": (
+            "Luna is a brilliant Golden Retriever with a heart of gold who serves as "
+            "a certified therapy dog at children's hospitals. She has an uncanny "
+            "ability to sense when someone needs comfort and gently rests her head on "
+            "their lap. Luna loves swimming in lakes, playing fetch with her favorite "
+            "tennis ball, and has learned over 50 commands including helping her owner "
+            "retrieve items from around the house."
+        ),
+    }
+
+
+@pytest.mark.vcr
+def test_prompt_with_prefill_and_stop_sequences():
+    model = llm.get_model("claude-haiku-4.5")
+    response = model.prompt(
+        "Very short function describing a pelican",
+        prefill="```python",
+        stop_sequences=["```"],
+        hide_prefill=True,
+        key=ANTHROPIC_API_KEY,
+    )
+    text = response.text()
+    assert text == (
+        "\ndef pelican():\n"
+        '    return "A large waterbird with a long bill and a throat pouch for catching fish."\n'
+    )
+
+
+@pytest.mark.vcr
+def test_thinking_prompt():
+    model = llm.get_model("claude-sonnet-4.5")
+    conversation = model.conversation()
+    response = conversation.prompt(
+        "Two names for a pet pelican, be brief", thinking=True, key=ANTHROPIC_API_KEY
+    )
+    assert response.text() == "- Captain\n- Scoop"
+    response_dict = dict(response.response_json)
+    response_dict.pop("id")  # differs between requests
+    response_dict.pop("stop_details", None)
+    assert response_dict == {
+        "container": None,
+        "content": [
+            {
+                "signature": "EvoCCkYICxgCKkCY593DZILKPT3+cK6Py3Hcu8WYGSW2vk6yge13JAuAYlQFzUC2c6UlsIWiBMvJjtDc6zfh73EOpWqxYB+pOh5zEgxoquY58aQkL5YJ9YUaDJpBRqMUVxU6SPYLRCIwcxSHXlhIWQw0QhiPV+lrMXgTdk4SuJnWVpHc+uTSxYmxetnHugsdCo6xWShRJaQLKuEBsfQzKHid0WmA8hdgz0mVpI+nAPvnhpHFIZbnGl2HQi7cc87o/HZzCod2tF8mEuqdyNtPHgx+H+Zyr/Pi0kmJF6hOoylmR5nGrXeqR1ttWFzzPF7XpmIr+vw3y/rNCDQVRWxmG/IDyHVLKXtALaFnDpNfvSGv6L3udrgkeWuV2VEzfGPclEIaailiMsxesYC/LJGUcPlqZ9kL18GQ16lr15u6kOUMlyYKA7AoeL6K7U3qCvpSdfGpMfgkasK5ugj0FL3UgFpUrrFbPlpLAdLsNeG2G+XBiOY0TtfokCiI1P7LGAE=",
+                "thinking": "The user wants two names for a pet pelican, and wants me to be brief. I'll give two simple, fitting names.\n\nSome options:\n- Pete\n- Percy\n- Captain\n- Scoop\n- Bill\n- Gully\n\nI'll pick two good ones and keep it very short.",
+                "type": "thinking",
+            },
+            {
+                "citations": None,
+                "parsed_output": None,
+                "text": "- Captain\n- Scoop",
+                "type": "text",
+            },
+        ],
+        "model": "claude-sonnet-4-5-20250929",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+    }
+
+    assert response.input_tokens == 46
+    assert response.output_tokens == 84
+    assert response.token_details is None
+
+
+@pytest.mark.vcr
+def test_tools():
+    model = llm.get_model("claude-haiku-4.5")
+    names = ["Charles", "Sammy"]
+    chain_response = model.chain(
+        "Two names for a pet pelican",
+        tools=[
+            llm.Tool.function(lambda: names.pop(0), name="pelican_name_generator"),
+        ],
+        key=ANTHROPIC_API_KEY,
+    )
+    text = chain_response.text()
+    assert text == (
+        " Here are two great names for your pet pelican:\n\n"
+        "1. **Charles** - A sophisticated and dignified name, perfect for a pelican with personality!\n"
+        "2. **Sammy** - A friendly and playful name that gives off warm, approachable vibes.\n\n"
+        "Either of these would make an excellent name for your feathered friend! \U0001f985"
+    )
+    tool_calls = chain_response._responses[0].tool_calls()
+    assert len(tool_calls) == 2
+    assert all(call.name == "pelican_name_generator" for call in tool_calls)
+    assert [
+        result.output for result in chain_response._responses[1].prompt.tool_results
+    ] == ["Charles", "Sammy"]
+
+
+@pytest.mark.vcr
+def test_web_search():
+    model = llm.get_model("claude-opus-4.1")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt(
+        "What is the current weather in San Francisco?", web_search=True
+    )
+    response_text = str(response)
+    assert len(response_text) > 0
+    assert any(
+        word in response_text.lower()
+        for word in ["weather", "temperature", "san francisco", "degree", "forecast"]
+    )
+    response_dict = dict(response.response_json)
+    assert "content" in response_dict
+    assert len(response_dict["content"]) > 0
+
+
+@pytest.mark.vcr
+def test_opus_46_prompt():
+    model = llm.get_model("claude-opus-4.6")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt("Two names for a pet pelican, be brief")
+    text = response.text()
+    assert len(text) > 0
+    response_dict = dict(response.response_json)
+    assert response_dict["model"] == "claude-opus-4-6"
+    assert response.input_tokens > 0
+    assert response.output_tokens > 0
+
+
+@pytest.mark.vcr
+def test_sonnet_46_prompt():
+    model = llm.get_model("claude-sonnet-4.6")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt("Two names for a pet pelican, be brief")
+    text = response.text()
+    assert len(text) > 0
+    response_dict = dict(response.response_json)
+    assert response_dict["model"] == "claude-sonnet-4-6"
+    assert response.input_tokens > 0
+    assert response.output_tokens > 0
+
+
+@pytest.mark.vcr
+def test_opus_46_adaptive_thinking():
+    model = llm.get_model("claude-opus-4.6")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt("Two names for a pet pelican, be brief", thinking=True)
+    text = response.text()
+    assert len(text) > 0
+    response_dict = dict(response.response_json)
+    # Should have thinking content in the response
+    content_types = [block["type"] for block in response_dict["content"]]
+    assert "thinking" in content_types
+    assert "text" in content_types
+
+
+@pytest.mark.vcr
+def test_sonnet_46_effort_without_thinking():
+    model = llm.get_model("claude-sonnet-4.6")
+    model.key = model.key or ANTHROPIC_API_KEY
+    response = model.prompt(
+        "Two names for a pet pelican, be brief", thinking_effort="low"
+    )
+    text = response.text()
+    assert len(text) > 0
+
+
+def test_46_prefill_rejected():
+    model = llm.get_model("claude-opus-4.6")
+    model.key = "test-key"
+    with pytest.raises(
+        ValueError, match="Prefilling assistant messages is not supported"
+    ):
+        model.prompt("Hello", prefill="{").text()
+
+
+def test_46_max_effort_opus_only():
+    model = llm.get_model("claude-sonnet-4.6")
+    model.key = "test-key"
+    with pytest.raises(ValueError, match="thinking_effort='max' is only supported"):
+        model.prompt("Hello", thinking_effort="max").text()
+
+
+@pytest.mark.vcr
+def test_opus_46_schema():
+    model = llm.get_model("claude-opus-4.6")
+    response = model.prompt("Invent a good dog", schema=Dog, key=ANTHROPIC_API_KEY)
+    dog = json.loads(response.text())
+    assert "name" in dog
+    assert "age" in dog
+    assert "bio" in dog

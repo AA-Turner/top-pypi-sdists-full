@@ -1,6 +1,4 @@
 import re
-from typing import Optional
-
 from ShExJSG import ShExJ
 from pyjsg.jsglib import *
 from rdflib import RDF, XSD
@@ -24,9 +22,9 @@ class ParserContext:
     """
     def __init__(self):
         self.schema = ShExJ.Schema()
-        self.ld_prefixes: Dict[PREFIXstr, IRIstr] = {}       # prefixes in the JSON-LD module
-        self.prefixes: Dict[PREFIXstr, IRIstr] = {}          # Assigned prefixes
-        self.base: Optional[IRIstr] = None
+        self.ld_prefixes: dict[PREFIXstr, IRIstr] = {}       # prefixes in the JSON-LD module
+        self.prefixes: dict[PREFIXstr, IRIstr] = {}          # Assigned prefixes
+        self.base: IRIstr | None = None
 
     def _lookup_prefix(self, prefix: PREFIXstr) -> str:
         if len(prefix) == 0:
@@ -89,7 +87,7 @@ class ParserContext:
         return ShExJ.IRIREF(self.iri_to_str(iri_))
 
     def tripleexprlabel_to_iriref(self, tripleExprLabel: ShExDocParser.TripleExprLabelContext) \
-            -> Union[ShExJ.BNODE, ShExJ.IRIREF]:
+            -> ShExJ.BNODE | ShExJ.IRIREF:
         """ tripleExprLabel: iri | blankNode """
         if tripleExprLabel.iri():
             return self.iri_to_iriref(tripleExprLabel.iri())
@@ -97,7 +95,7 @@ class ParserContext:
             return ShExJ.BNODE(tripleExprLabel.blankNode().getText())
 
     def shapeexprlabel_to_IRI(self, shapeExprLabel: ShExDocParser.ShapeExprLabelContext) \
-            -> Union[ShExJ.BNODE, ShExJ.IRIREF]:
+            -> ShExJ.BNODE | ShExJ.IRIREF:
         """ shapeExprLabel: iri | blankNode """
         if shapeExprLabel.iri():
             return self.iri_to_iriref(shapeExprLabel.iri())
@@ -112,7 +110,7 @@ class ParserContext:
             return RDF_TYPE
 
     @staticmethod
-    def numeric_literal_to_type(numlit: ShExDocParser.NumericLiteralContext) -> Union[Integer, Number]:
+    def numeric_literal_to_type(numlit: ShExDocParser.NumericLiteralContext) -> Integer | Number:
         """ numericLiteral: INTEGER | DECIMAL | DOUBLE """
         if numlit.INTEGER():
             rval = Integer(str(int(numlit.INTEGER().getText())))
@@ -173,8 +171,8 @@ class ParserContext:
                 return matchobj.group(1) + matchobj.group(2)
 
         # match rule -- zero or more pairs of backslashes w/ an odd number in front of the 'u' or 'U'
-        txt1 = re.sub(r'(\\*)(\\u[a-fA-F0-9]{4})', _subf2, txt, re.MULTILINE + re.DOTALL + re.UNICODE)
-        return re.sub(r'(\\*)(\\U[a-fA-F0-9]{8})', _subf2, txt1, re.MULTILINE + re.DOTALL + re.UNICODE)
+        txt1 = re.sub(r'(\\*)(\\u[a-fA-F0-9]{4})', _subf2, txt, flags=re.MULTILINE + re.DOTALL + re.UNICODE)
+        return re.sub(r'(\\*)(\\U[a-fA-F0-9]{8})', _subf2, txt1, flags=re.MULTILINE + re.DOTALL + re.UNICODE)
 
     def fix_text_escapes(self, txt: str, quote_char: str) -> str:
         """ Fix the various text escapes """

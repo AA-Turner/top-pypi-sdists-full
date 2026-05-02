@@ -1,0 +1,35 @@
+name: Test SFTP
+description: Test SFTP component
+steps:
+  - DownloadFromSFTP:
+      file:
+        pattern: "/incoming/MerchWarehouses-TROC-{yesterday}.csv"
+        yesterday:
+          - yesterday
+          - mask: "%m%d%Y"
+      host: "POKEMON_SFTP_HOST"
+      port: "POKEMON_SFTP_PORT"
+      credentials:
+        username: "POKEMON_SFTP_USER"
+        password: "POKEMON_SFTP_PASSWORD"
+      directory: "/home/ubuntu/symbits/pokemon/files/warehouses/"
+  - DownloadFromSFTP:
+      file:
+        pattern: "/incoming/indirect_troc_extract_dly_{yesterday}.dat"
+        yesterday:
+          - "yesterday"
+          - mask: "%Y%m%d"
+      host: ATT_SFTP_HOST
+      port: ATT_SFTP_PORT
+      credentials:
+        username: ATT_SFTP_USER
+        password: ATT_SFTP_PASSWORD
+        known_hosts: null
+      directory: "/home/ubuntu/symbits/att/files/customer_orders"
+      create_destination: true
+      overwrite: true
+      rename: "indirect_troc_extract_dly_{yesterday}.csv"
+      masks:
+        "{yesterday}":
+          - yesterday
+          - mask: "%Y%m%d"

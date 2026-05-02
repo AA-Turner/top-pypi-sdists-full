@@ -1,0 +1,84 @@
+Metadata-Version: 2.1
+Name: cdk-sns-notify
+Version: 0.0.948
+Summary: cdk-sns-notify
+Home-page: https://github.com/clarencetw/cdk-sns-notify.git
+Author: Clarence<mr.lin.clarence@gmail.com>
+License: Apache-2.0
+Project-URL: Source, https://github.com/clarencetw/cdk-sns-notify.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aws-cdk.aws-cloudwatch-actions<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-cloudwatch<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-ec2<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-iam<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-lambda-nodejs<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-lambda<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-sns-subscriptions<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.aws-sns<2.0.0,>=1.72.0
+Requires-Dist: aws-cdk.core<2.0.0,>=1.72.0
+Requires-Dist: constructs<4.0.0,>=3.2.27
+Requires-Dist: jsii<2.0.0,>=1.103.1
+Requires-Dist: publication>=0.0.3
+Requires-Dist: typeguard<5.0.0,>=2.13.3
+
+[![NPM version](https://badge.fury.io/js/cdk-sns-notify.svg)](https://badge.fury.io/js/cdk-sns-notify)
+[![PyPI version](https://badge.fury.io/py/cdk-sns-notify.svg)](https://badge.fury.io/py/cdk-sns-notify)
+![Release](https://github.com/clarencetw/cdk-sns-notify/workflows/Release/badge.svg)
+
+# cdk-sns-notify
+
+A CDK construct library to send line notify or discord webhook
+
+# Sample
+
+```python
+import * as sns from "@aws-cdk/aws-sns";
+import * as cloudwatch from "@aws-cdk/aws-cloudwatch";
+import * as cw_actions from "@aws-cdk/aws-cloudwatch-actions";
+
+import { SnsNotify } from "cdk-sns-notify";
+
+const topic = new sns.Topic(stack, "Topic");
+
+const metric = new cloudwatch.Metric({
+  namespace: "AWS/EC2",
+  metricName: "CPUUtilization",
+  dimensions: {
+    InstanceId: instance.instanceId,
+  },
+  period: cdk.Duration.minutes(1),
+});
+
+const alarm = new cloudwatch.Alarm(stack, "Alarm", {
+  metric,
+  threshold: 5,
+  evaluationPeriods: 1,
+});
+
+alarm.addAlarmAction(new cw_actions.SnsAction(topic));
+
+const snsLineNotify = new SnsNotify(stack, "sns-line-notify", {
+  lineNotifyToken: "lineNotifyToken",
+});
+
+topic.addSubscription(snsLineNotify.lambdaSubscription);
+```
+
+# Deploy
+
+```sh
+cdk deploy
+```

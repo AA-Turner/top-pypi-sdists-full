@@ -1,0 +1,58 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # Needed to create GitHub Release
+  id-token: write # Needed for PyPI Trusted Publisher (OIDC)
+
+jobs:
+  build-and-publish:
+    name: Build and publish to PyPI and GitHub
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/ocp-gordon/
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build dependencies
+        run: pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI (via Trusted Publisher OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Generate Release Notes (Conventional Commits)
+        uses: TriPSs/conventional-changelog-action@v5
+        id: changelog
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag-prefix: "v"
+          output-file: false
+          skip-commit: true
+          skip-git-pull: true
+
+      - name: Create GitHub Release with Conventional Notes
+        uses: softprops/action-gh-release@v2.0.6
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          # Set draft: false and prerelease: false to publish the release automatically
+          draft: false
+          prerelease: false

@@ -1,0 +1,47 @@
+[project]
+name = "click-prompt"
+version = "0.7.1"
+description = "click-prompt provides more beautiful interactive options for the Python click library"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE.md"}
+keywords = ["cli"]
+authors = [
+  { name = "Markus Grotz", email = "grotz@uw.edu" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+]
+
+dependencies = [
+    "click>=8.0.4",
+    "questionary>=1.10.0"
+]
+
+
+[project.urls]
+homepage = "https://github.com/markusgrotz/click-prompt"
+repository = "https://github.com/markusgrotz/click-prompt"
+documentation = "https://github.com/markusgrotz/click-prompt"
+tracker = "https://github.com/markusgrotz/click-prompt/issues"
+
+[project.optional-dependencies]
+dev = ["pytest", "toml", "myst-parser", "sphinx-rtd-theme", "ruff"]
+
+[build-system]
+requires = ["uv_build>=0.9.4,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "click_prompt"
+module-root = ""

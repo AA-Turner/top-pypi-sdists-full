@@ -1,0 +1,167 @@
+- name: base
+  items:
+    - name: import deal
+      setup: |
+        import sys
+        for name in list(sys.modules):
+          if name == 'deal' or name.startswith('deal.'):
+            del sys.modules[name]
+      test: import deal
+    - name: import PyYAML
+      setup: |
+        import sys
+        for name in list(sys.modules):
+          if name == 'yaml' or name.startswith('yaml.'):
+            del sys.modules[name]
+      test: import yaml
+
+- name: classic contracts
+  items:
+    - name: decorate
+      setup: import deal
+      test: |
+        @deal.pre(lambda: True)
+        def f():
+            pass
+    - name: call once
+      setup: |
+        import deal
+        @deal.pre(lambda: True)
+        def f():
+            pass
+      test: f()
+    - name: call many times
+      setup: |
+        import deal
+        @deal.pre(lambda: True)
+        def f():
+            pass
+      test: |
+        for _ in range(100):
+          f()
+    - name: call with args
+      setup: |
+        import deal
+        @deal.pre(lambda a, b: True)
+        def f(a, b):
+            pass
+      test: f(1, b=2)
+    - name: contract error
+      setup: |
+        import deal
+        @deal.pre(lambda: False)
+        def f():
+            pass
+      test: |
+        try:
+            f()
+        except deal.ContractError:
+            pass
+        else:
+            raise Exception
+
+- name: vaa simple contracts
+  items:
+    - name: decorate
+      setup: import deal
+      test: |
+        @deal.pre(lambda _: True)
+        def f():
+            pass
+    - name: call once
+      setup: |
+        import deal
+        @deal.pre(lambda _: True)
+        def f():
+            pass
+      test: f()
+    - name: call many times
+      setup: |
+        import deal
+        @deal.pre(lambda _: True)
+        def f():
+            pass
+      test: |
+        for _ in range(100):
+          f()
+    - name: call with args
+      setup: |
+        import deal
+        @deal.pre(lambda _: True)
+        def f(a, b):
+            pass
+      test: f(1, b=2)
+    - name: contract error
+      setup: |
+        import deal
+        @deal.pre(lambda _: False)
+        def f():
+            pass
+      test: |
+        try:
+            f()
+        except deal.ContractError:
+            pass
+        else:
+            raise Exception
+
+- name: invariant
+  items:
+    - name: decorate
+      setup: import deal
+      test: |
+        @deal.inv(lambda a: True)
+        class A:
+            b: int
+    - name: create instance
+      setup: |
+        import deal
+        @deal.inv(lambda a: a.b >= 0)
+        class A:
+            b: int = 0
+      test: A()
+    - name: set attribute
+      setup: |
+        import deal
+        @deal.inv(lambda a: a.b >= 0)
+        class A:
+            b: int = 0
+        a = A()
+      test: a.b = 4
+    - name: set attribute many times
+      setup: |
+        import deal
+        @deal.inv(lambda a: a.b >= 0)
+        class A:
+            b: int = 0
+        a = A()
+      test: |
+        for i in range(100):
+            a.b = i
+
+- name: class without invariant
+  items:
+    - name: declare
+      test: |
+        lambda a: True
+        class A:
+            b: int
+    - name: create instance
+      setup: |
+        class A:
+            b: int = 0
+      test: A()
+    - name: set attribute
+      setup: |
+        class A:
+            b: int = 0
+        a = A()
+      test: a.b = 4
+    - name: set attribute many times
+      setup: |
+        class A:
+            b: int = 0
+        a = A()
+      test: |
+        for i in range(100):
+            a.b = i

@@ -1,0 +1,290 @@
+from __future__ import annotations
+
+import os
+from typing import Optional
+
+import torch
+from cortex.kernels.cuda.extension_loader import safe_load_extension
+from cortex.utils import autograd_function_vmap_passthrough
+from torch.autograd import Function
+
+_mod_path = os.path.dirname(__file__)
+_ext: Optional[object] = None
+
+
+def _load_ext() -> object:
+    global _ext
+    if _ext is not None:
+        return _ext
+
+    _ext = safe_load_extension(
+        name="rtu_seq_full",
+        sources=[
+            os.path.join(_mod_path, "rtu_seq_full_binding.cpp"),
+            os.path.join(_mod_path, "rtu_seq_full_kernels.cu"),
+        ],
+        extra_cflags=["-O3"],
+        extra_cuda_cflags=["-O3", "-Xptxas", "-O3"],
+        verbose=False,
+    )
+    return _ext
+
+
+def _act_to_id(name: str) -> int:
+    n = name.lower()
+    if n in ("silu", "swish"):
+        return 0
+    if n == "relu":
+        return 1
+    if n == "tanh":
+        return 2
+    if n in ("linear", "identity"):
+        return 3
+    raise ValueError(f"Unsupported activation: {name}")
+
+
+class _RTUStreamFullCUDASeq(Function):
+    @staticmethod
+    def forward(  # type: ignore[override]
+        x_btd: torch.Tensor,  # [B,T,D]
+        nu_log: torch.Tensor,  # [H]
+        theta_log: torch.Tensor,  # [H]
+        Wc1: torch.Tensor,  # [D,H]
+        Wc2: torch.Tensor,  # [D,H]
+        activation_name: str,
+        hc1_init_bh: torch.Tensor,  # [B,H]
+        hc2_init_bh: torch.Tensor,  # [B,H]
+        trace_in: Optional[tuple[torch.Tensor, ...]] = None,
+        resets_bt: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, tuple[torch.Tensor, ...], torch.Tensor, torch.Tensor]:
+        B, T, D = x_btd.shape
+        H = nu_log.shape[0]
+        assert Wc1.shape == (D, H) and Wc2.shape == (D, H)
+
+        if resets_bt is None:
+            resets_bt = torch.zeros(B, T, dtype=torch.bool, device=x_btd.device)
+        else:
+            if resets_bt.dim() == 1:
+                resets_bt = resets_bt.view(B, 1).expand(B, T)
+            resets_bt = resets_bt.to(dtype=torch.bool, device=x_btd.device)
+
+        if trace_in is None:
+            zeros_bh = torch.zeros(B, H, device=x_btd.device, dtype=x_btd.dtype)
+            zeros_bdh = torch.zeros(B, D, H, device=x_btd.device, dtype=x_btd.dtype)
+            trace_in = (zeros_bh, zeros_bh, zeros_bh, zeros_bh, zeros_bdh, zeros_bdh, zeros_bdh, zeros_bdh)
+
+        (
+            E_nu_c1_in,
+            E_nu_c2_in,
+            E_th_c1_in,
+            E_th_c2_in,
+            E_W1_c1_in,
+            E_W1_c2_in,
+            E_W2_c1_in,
+            E_W2_c2_in,
+        ) = trace_in
+
+        act_id = _act_to_id(activation_name)
+
+        (
+            y_btd_2h,
+            pre1_bth,
+            pre2_bth,
+            final_hc1_bh,
+            final_hc2_bh,
+            E_nu_c1_out,
+            E_nu_c2_out,
+            E_th_c1_out,
+            E_th_c2_out,
+            E_W1_c1_out,
+            E_W1_c2_out,
+            E_W2_c1_out,
+            E_W2_c2_out,
+        ) = _load_ext().forward_full(
+            x_btd.contiguous(),
+            nu_log.contiguous(),
+            theta_log.contiguous(),
+            Wc1.contiguous(),
+            Wc2.contiguous(),
+            hc1_init_bh.contiguous(),
+            hc2_init_bh.contiguous(),
+            E_nu_c1_in.contiguous(),
+            E_nu_c2_in.contiguous(),
+            E_th_c1_in.contiguous(),
+            E_th_c2_in.contiguous(),
+            E_W1_c1_in.contiguous(),
+            E_W1_c2_in.contiguous(),
+            E_W2_c1_in.contiguous(),
+            E_W2_c2_in.contiguous(),
+            resets_bt.to(torch.uint8).contiguous(),
+            act_id,
+        )
+
+        trace_out = (
+            E_nu_c1_out,
+            E_nu_c2_out,
+            E_th_c1_out,
+            E_th_c2_out,
+            E_W1_c1_out,
+            E_W1_c2_out,
+            E_W2_c1_out,
+            E_W2_c2_out,
+        )
+        return y_btd_2h, final_hc1_bh, final_hc2_bh, trace_out, pre1_bth, pre2_bth
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        (
+            x_btd,
+            nu_log,
+            theta_log,
+            Wc1,
+            Wc2,
+            activation_name,
+            hc1_init_bh,
+            hc2_init_bh,
+            trace_in,
+            resets_bt,
+        ) = inputs
+        _y_btd_2h, _final_hc1_bh, _final_hc2_bh, _trace_out, pre1_bth, pre2_bth = output
+        B, T, D = x_btd.shape
+        H = nu_log.shape[0]
+        if resets_bt is None:
+            resets_u8 = torch.zeros(B, T, dtype=torch.uint8, device=x_btd.device)
+        else:
+            if resets_bt.dim() == 1:
+                resets_bt = resets_bt.view(B, 1).expand(B, T)
+            resets_u8 = resets_bt.to(dtype=torch.uint8, device=x_btd.device)
+        if trace_in is None:
+            zeros_bh = torch.zeros(B, H, device=x_btd.device, dtype=x_btd.dtype)
+            zeros_bdh = torch.zeros(B, D, H, device=x_btd.device, dtype=x_btd.dtype)
+            trace_in = (zeros_bh, zeros_bh, zeros_bh, zeros_bh, zeros_bdh, zeros_bdh, zeros_bdh, zeros_bdh)
+        ctx.save_for_backward(
+            x_btd,
+            nu_log,
+            theta_log,
+            Wc1,
+            Wc2,
+            pre1_bth,
+            pre2_bth,
+            hc1_init_bh,
+            hc2_init_bh,
+            resets_u8,
+            *trace_in,
+        )
+        ctx.act_id = _act_to_id(activation_name)
+
+    @staticmethod
+    def backward(  # type: ignore[override]
+        ctx,
+        grad_y_btd_2h: torch.Tensor,
+        grad_final_hc1: torch.Tensor,
+        grad_final_hc2: torch.Tensor,
+        grad_trace_out,
+        _grad_pre1_bth: torch.Tensor,
+        _grad_pre2_bth: torch.Tensor,
+    ):
+        (
+            x_btd,
+            nu_log,
+            theta_log,
+            Wc1,
+            Wc2,
+            pre1_bth,
+            pre2_bth,
+            hc1_init_bh,
+            hc2_init_bh,
+            resets_u8,
+            E_nu_c1_in,
+            E_nu_c2_in,
+            E_th_c1_in,
+            E_th_c2_in,
+            E_W1_c1_in,
+            E_W1_c2_in,
+            E_W2_c1_in,
+            E_W2_c2_in,
+        ) = ctx.saved_tensors
+        act_id = ctx.act_id
+
+        (
+            grad_x_btd,
+            grad_nu_log_h,
+            grad_theta_log_h,
+            grad_Wc1,
+            grad_Wc2,
+            grad_hc1_init,
+            grad_hc2_init,
+        ) = _load_ext().backward_full(
+            grad_y_btd_2h.contiguous(),
+            x_btd.contiguous(),
+            nu_log.contiguous(),
+            theta_log.contiguous(),
+            Wc1.contiguous(),
+            Wc2.contiguous(),
+            pre1_bth.contiguous(),
+            pre2_bth.contiguous(),
+            hc1_init_bh.contiguous(),
+            hc2_init_bh.contiguous(),
+            resets_u8.contiguous(),
+            E_nu_c1_in.contiguous(),
+            E_nu_c2_in.contiguous(),
+            E_th_c1_in.contiguous(),
+            E_th_c2_in.contiguous(),
+            E_W1_c1_in.contiguous(),
+            E_W1_c2_in.contiguous(),
+            E_W2_c1_in.contiguous(),
+            E_W2_c2_in.contiguous(),
+            act_id,
+        )
+
+        return (
+            grad_x_btd,
+            grad_nu_log_h,
+            grad_theta_log_h,
+            grad_Wc1,
+            grad_Wc2,
+            None,
+            grad_hc1_init,
+            grad_hc2_init,
+            None,
+            None,
+        )
+
+    @staticmethod
+    def vmap(info, in_dims, *args):
+        return autograd_function_vmap_passthrough("rtu_stream_full_cuda", _RTUStreamFullCUDASeq.forward, in_dims, *args)
+
+
+def rtu_stream_full_cuda(
+    *,
+    x_btd: torch.Tensor,
+    nu_log: torch.Tensor,
+    theta_log: torch.Tensor,
+    Wc1: torch.Tensor,
+    Wc2: torch.Tensor,
+    activation_name: str,
+    hc1_init_bh: torch.Tensor,
+    hc2_init_bh: torch.Tensor,
+    trace_in: Optional[tuple[torch.Tensor, ...]] = None,
+    resets_bt: Optional[torch.Tensor] = None,
+):
+    """CUDA full-rank RTU streaming kernel.
+
+    Computes streaming RTU with full-rank input weights using fused CUDA kernels.
+    """
+    y, h1, h2, trace, _pre1_bth, _pre2_bth = _RTUStreamFullCUDASeq.apply(
+        x_btd,
+        nu_log,
+        theta_log,
+        Wc1,
+        Wc2,
+        activation_name,
+        hc1_init_bh,
+        hc2_init_bh,
+        trace_in,
+        resets_bt,
+    )
+    return y, (h1, h2), trace
+
+
+__all__ = ["rtu_stream_full_cuda"]

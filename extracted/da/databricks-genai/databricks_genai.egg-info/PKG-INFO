@@ -1,0 +1,55 @@
+Metadata-Version: 2.2
+Name: databricks-genai
+Version: 1.1.8
+Summary: Interact with the Databricks Generative AI APIs in python
+Home-page: https://docs.mosaicml.com/projects/mcli/en/latest/finetuning/finetuning.html
+Author: Databricks
+Author-email: genai-eng-team@databricks.com
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: databricks-sdk<0.43,>=0.29.0
+Requires-Dist: datasets<=3.2,>=2.16.1
+Requires-Dist: gql[websockets]>=3.4.0
+Requires-Dist: mlflow<=2.20.2,>=2.14.2
+Requires-Dist: mosaicml-cli<1,>=0.7.2
+Requires-Dist: requests<3,>=2.26.0
+Requires-Dist: typing_extensions>=4.7.1
+Requires-Dist: IPython<9,>=8
+Provides-Extra: dev
+Requires-Dist: isort>=5.9.3; extra == "dev"
+Requires-Dist: packaging<23,>=21; extra == "dev"
+Requires-Dist: pre-commit>=2.17.0; extra == "dev"
+Requires-Dist: pylint>=3.0.0; extra == "dev"
+Requires-Dist: pyright==1.1.256; extra == "dev"
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: yapf>=0.40.0; extra == "dev"
+Provides-Extra: release
+Requires-Dist: build>=0.10.0; extra == "release"
+Requires-Dist: twine>=4.0.2; extra == "release"
+Provides-Extra: notebook
+Requires-Dist: ipywidgets<9,>=8; extra == "notebook"
+Provides-Extra: all
+Requires-Dist: build>=0.10.0; extra == "all"
+Requires-Dist: packaging<23,>=21; extra == "all"
+Requires-Dist: twine>=4.0.2; extra == "all"
+Requires-Dist: pre-commit>=2.17.0; extra == "all"
+Requires-Dist: yapf>=0.40.0; extra == "all"
+Requires-Dist: ipywidgets<9,>=8; extra == "all"
+Requires-Dist: pyright==1.1.256; extra == "all"
+Requires-Dist: pytest>=7.4.0; extra == "all"
+Requires-Dist: pylint>=3.0.0; extra == "all"
+Requires-Dist: isort>=5.9.3; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

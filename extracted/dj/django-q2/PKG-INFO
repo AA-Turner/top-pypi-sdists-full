@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-q2
-Version: 1.9.0
+Version: 1.10.0
 Summary: A multiprocessing distributed task queue for Django
 License: MIT
 License-File: LICENSE

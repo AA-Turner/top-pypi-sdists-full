@@ -588,7 +588,7 @@ class CloudWatchClient(BaseClient):
         """
         Enables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
-        AWS resources</a> in the account.
+        Amazon Web Services resources</a> in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/start_otel_enrichment.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#start_otel_enrichment)
@@ -608,7 +608,7 @@ class CloudWatchClient(BaseClient):
         """
         Disables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
-        AWS resources</a> in the account.
+        Amazon Web Services resources</a> in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/stop_otel_enrichment.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#stop_otel_enrichment)

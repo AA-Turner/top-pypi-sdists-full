@@ -1,0 +1,36 @@
+# Run tests using oldest available dependency versions.
+#
+# TODO: It might make more sense to test with an older Ubuntu or Fedora version
+# here, and consider that our "oldest suppported environment".
+
+image: alpine/3.19 # python 3.11
+packages:
+  - docker
+  - docker-cli
+  - docker-compose
+  - py3-pip
+  - python3-dev
+sources:
+  - https://github.com/pimutils/vdirsyncer
+environment:
+  BUILD: test
+  CI: true
+  CODECOV_TOKEN: b834a3c5-28fa-4808-9bdb-182210069c79
+  DAV_SERVER: radicale xandikos
+  REQUIREMENTS: minimal
+tasks:
+  - venv: |
+      python3 -m venv $HOME/venv
+      echo "export PATH=$HOME/venv/bin:$PATH" >> $HOME/.buildenv
+  - docker: |
+      sudo addgroup $(whoami) docker
+      sudo service docker start
+  - setup: |
+      cd vdirsyncer
+      # Hack, no idea why it's needed
+      sudo ln -s /usr/include/python3.11/cpython/longintrepr.h /usr/include/python3.11/longintrepr.h
+      make -e install-dev
+  - test: |
+      cd vdirsyncer
+      make -e ci-test
+      make -e ci-test-storage

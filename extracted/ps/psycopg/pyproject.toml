@@ -7,7 +7,7 @@ name = "psycopg"
 description = "PostgreSQL database adapter for Python"
 
 # STOP AND READ! if you change:
-version = "3.3.3"
+version = "3.3.4"
 # also change:
 # - `docs/news.rst` to declare this as the current version or an unreleased one;
 # - `psycopg_c/pyproject.toml` to the same version;
@@ -60,10 +60,10 @@ content-type = "text/x-rst"
 
 [project.optional-dependencies]
 c = [
-    "psycopg-c == 3.3.3; implementation_name != \"pypy\"",
+    "psycopg-c == 3.3.4; implementation_name != \"pypy\"",
 ]
 binary = [
-    "psycopg-binary == 3.3.3; implementation_name != \"pypy\"",
+    "psycopg-binary == 3.3.4; implementation_name != \"pypy\"",
 ]
 pool = [
     "psycopg-pool",
@@ -93,10 +93,10 @@ dev = [
     "wheel >= 0.37",
 ]
 docs = [
-    "Sphinx >= 5.0",
-    "furo == 2022.6.21",
-    "sphinx-autobuild >= 2021.3.14",
-    "sphinx-autodoc-typehints >= 1.12",
+    "Sphinx >= 9.1",
+    "furo == 2025.12.19",
+    "sphinx-autobuild >= 2025.8.25",
+    "sphinx-autodoc-typehints >= 3.10.2",
 ]
 
 [tool.setuptools]

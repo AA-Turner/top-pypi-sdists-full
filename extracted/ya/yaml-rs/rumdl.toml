@@ -1,0 +1,15 @@
+[global]
+respect-gitignore = true
+
+disable = [
+    "MD012",
+    "MD013",
+    "MD029",
+    "MD033",
+    "MD036",
+    "MD041",
+]
+
+include = [
+    "README.md",
+]

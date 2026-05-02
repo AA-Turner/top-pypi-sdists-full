@@ -1,0 +1,10 @@
+description: Intermediate rate for Constant Attendance Allowance
+metadata:
+  economy: false
+  period: week
+  label: Constant Attendance Allowance intermediate rate
+  uprating: gov.benefit_uprating_cpi
+  reference: https://www.gov.uk/constant-attendance-allowance/what-youll-get
+  unit: currency-GBP
+values:
+  2015-04-01: 109.2

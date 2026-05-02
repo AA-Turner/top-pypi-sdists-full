@@ -1,0 +1,18 @@
+[package]
+name = "corvic-engine"
+version = { workspace = true }
+edition = { workspace = true }
+# without this specific "include" the release will not pick up files from
+# corvic_generated since they are ignored by git
+include = ["corvic_generated", "corvic", "buf", "!__pycache__"]
+publish = { workspace = true }
+
+[lib]
+name = "engine"
+crate-type = ["cdylib"]
+
+[dependencies]
+numpy = { workspace = true }
+pyo3 = { workspace = true, features = ["abi3-py38"] }
+rayon = { workspace = true }
+thread_local = { workspace = true }

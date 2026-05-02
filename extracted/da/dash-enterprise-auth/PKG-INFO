@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: dash_enterprise_auth
+Version: 0.2.5
+Summary: Authentication integrations for apps using Dash Enterprise
+Home-page: https://plotly.com/dash
+Author: Antoine Roy-Gobeil
+Author-email: antoine@plotly.com
+License: MIT
+Keywords: dash dash-enterprise dash-auth plotly
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Framework :: Dash
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Dash Enterprise Auth
+
+Authentication for apps deployed to [Dash Enterprise](https://plotly.com/dash)
+
+Learn more at https://dash.plotly.com/dash-enterprise/app-authentication
+
+<div align="center">
+  <a href="https://dash.plotly.com/project-maintenance">
+    <img src="https://dash.plotly.com/assets/images/maintained-by-plotly.png" width="400px" alt="Maintained by Plotly">
+  </a>
+</div>
+
+```py
+import dash_enterprise_auth as auth
+
+@callback(...)
+def private_data(...):
+    username = auth.get_username()
+    if username:
+        return get_view_for_user(username)
+    else:
+        return public_view()
+```
+
+

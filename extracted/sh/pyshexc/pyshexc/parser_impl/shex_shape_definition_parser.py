@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from pyshexc.parser.ShExDocParser import ShExDocParser
 from pyshexc.parser.ShExDocVisitor import ShExDocVisitor
 
@@ -10,7 +8,7 @@ from ShExJSG.ShExJ import IRIREF, BNODE, Shape
 
 
 class ShexShapeDefinitionParser(ShExDocVisitor):
-    def __init__(self, context: ParserContext, label: Optional[Union[IRIREF, BNODE]]=None):
+    def __init__(self, context: ParserContext, label: IRIREF | BNODE | None=None):
         ShExDocVisitor.__init__(self)
         self.context = context
         self.shape = Shape(label)

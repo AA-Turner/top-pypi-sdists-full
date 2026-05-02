@@ -97,6 +97,11 @@ class AsyncRemoteCallServiceStub(object):
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.SerializeToString,
             response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.FromString,
         )
+        self.PurgeQueue = channel.unary_unary(
+            "/chalk.runtime.v1.AsyncRemoteCallService/PurgeQueue",
+            request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueRequest.SerializeToString,
+            response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueResponse.FromString,
+        )
 
 
 class AsyncRemoteCallServiceServicer(object):
@@ -117,6 +122,12 @@ class AsyncRemoteCallServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PurgeQueue(self, request, context):
+        """Drop pending items from one or all per-function queues for the tenant."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_AsyncRemoteCallServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -129,6 +140,11 @@ def add_AsyncRemoteCallServiceServicer_to_server(servicer, server):
             servicer.PollRemoteCall,
             request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.FromString,
             response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.SerializeToString,
+        ),
+        "PurgeQueue": grpc.unary_unary_rpc_method_handler(
+            servicer.PurgeQueue,
+            request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueRequest.FromString,
+            response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -189,6 +205,35 @@ class AsyncRemoteCallService(object):
             "/chalk.runtime.v1.AsyncRemoteCallService/PollRemoteCall",
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.SerializeToString,
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PurgeQueue(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.runtime.v1.AsyncRemoteCallService/PurgeQueue",
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueRequest.SerializeToString,
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PurgeQueueResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,8 +1,8 @@
-from throttled import RateLimiterType, Throttled, rate_limiter, utils
+from throttled import RateLimiterType, Throttled, utils
 
 throttle = Throttled(
     using=RateLimiterType.GCRA.value,
-    quota=rate_limiter.per_sec(100, burst=100),
+    quota="100/s burst 100",
     # ⏳ Set timeout to 1 second, which allows waiting for retry,
     # and returns the last RateLimitResult if the wait exceeds 1 second.
     timeout=1,

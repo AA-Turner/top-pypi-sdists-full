@@ -1572,6 +1572,11 @@ class MultipartUploadPart(AIOBoto3ServiceResource):
     checksum_crc64_nvme: Awaitable[str]
     checksum_sha1: Awaitable[str]
     checksum_sha256: Awaitable[str]
+    checksum_sha512: Awaitable[str]
+    checksum_md5: Awaitable[str]
+    checksum_xxhash64: Awaitable[str]
+    checksum_xxhash3: Awaitable[str]
+    checksum_xxhash128: Awaitable[str]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -1632,6 +1637,11 @@ class Object(AIOBoto3ServiceResource):
     checksum_crc64_nvme: Awaitable[str]
     checksum_sha1: Awaitable[str]
     checksum_sha256: Awaitable[str]
+    checksum_sha512: Awaitable[str]
+    checksum_md5: Awaitable[str]
+    checksum_xxhash64: Awaitable[str]
+    checksum_xxhash3: Awaitable[str]
+    checksum_xxhash128: Awaitable[str]
     checksum_type: Awaitable[ChecksumTypeType]
     e_tag: Awaitable[str]
     missing_meta: Awaitable[int]

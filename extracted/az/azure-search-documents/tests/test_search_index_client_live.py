@@ -4,19 +4,25 @@
 # license information.
 # --------------------------------------------------------------------------
 
+from datetime import timedelta
+
 import pytest
 from azure.core import MatchConditions
 from azure.core.exceptions import HttpResponseError
 from azure.search.documents.indexes.models import (
     AnalyzeTextOptions,
     CorsOptions,
+    FreshnessScoringFunction,
+    FreshnessScoringParameters,
+    SearchField,
     SearchIndex,
+    ScoringFunctionAggregation,
     ScoringProfile,
     SimpleField,
     SearchFieldDataType,
 )
 from azure.search.documents.indexes import SearchIndexClient
-from devtools_testutils import AzureRecordedTestCase, recorded_by_proxy
+from devtools_testutils import AzureRecordedTestCase, recorded_by_proxy, get_credential
 from search_service_preparer import SearchEnvVarPreparer, search_decorator
 
 
@@ -24,8 +30,8 @@ class TestSearchIndexClient(AzureRecordedTestCase):
     @SearchEnvVarPreparer()
     @search_decorator(schema=None, index_batch=None)
     @recorded_by_proxy
-    def test_search_index_client(self, api_key, endpoint, index_name):
-        client = SearchIndexClient(endpoint, api_key, retry_backoff_factor=60)
+    def test_search_index_client(self, endpoint, index_name):
+        client = SearchIndexClient(endpoint, get_credential(), retry_backoff_factor=60)
         index_name = "hotels"
         self._test_get_service_statistics(client)
         self._test_list_indexes_empty(client)
@@ -41,8 +47,8 @@ class TestSearchIndexClient(AzureRecordedTestCase):
 
     def _test_get_service_statistics(self, client):
         result = client.get_service_statistics()
-        assert isinstance(result, dict)
-        assert set(result.keys()) == {"counters", "limits"}
+        assert "counters" in set(result.keys())
+        assert "limits" in set(result.keys())
 
     def _test_list_indexes_empty(self, client):
         result = client.list_indexes()
@@ -64,14 +70,14 @@ class TestSearchIndexClient(AzureRecordedTestCase):
     def _test_get_index_statistics(self, client, index_name):
         result = client.get_index_statistics(index_name)
         keys = set(result.keys())
-        assert "document_count" in keys
-        assert "storage_size" in keys
-        assert "vector_index_size" in keys
+        assert "documentCount" in keys
+        assert "storageSize" in keys
+        assert "vectorIndexSize" in keys
 
     def _test_create_index(self, client, index_name):
         fields = [
-            SimpleField(name="hotelId", type=SearchFieldDataType.String, key=True),
-            SimpleField(name="baseRate", type=SearchFieldDataType.Double),
+            SimpleField(name="hotelId", type=SearchFieldDataType.STRING, key=True),
+            SimpleField(name="baseRate", type=SearchFieldDataType.DOUBLE),
         ]
         scoring_profile = ScoringProfile(name="MyProfile")
         scoring_profiles = []
@@ -92,8 +98,8 @@ class TestSearchIndexClient(AzureRecordedTestCase):
     def _test_create_or_update_index(self, client):
         name = "hotels-cou"
         fields = [
-            SimpleField(name="hotelId", type=SearchFieldDataType.String, key=True),
-            SimpleField(name="baseRate", type=SearchFieldDataType.Double),
+            SimpleField(name="hotelId", type=SearchFieldDataType.STRING, key=True),
+            SimpleField(name="baseRate", type=SearchFieldDataType.DOUBLE),
         ]
         cors_options = CorsOptions(allowed_origins=["*"], max_age_in_seconds=60)
         scoring_profiles = []
@@ -146,14 +152,10 @@ class TestSearchIndexClient(AzureRecordedTestCase):
 
         index.e_tag = etag
         with pytest.raises(HttpResponseError):
-            client.create_or_update_index(
-                index, match_condition=MatchConditions.IfNotModified
-            )
+            client.create_or_update_index(index, match_condition=MatchConditions.IfNotModified)
 
     def _test_analyze_text(self, client, index_name):
-        analyze_request = AnalyzeTextOptions(
-            text="One's <two/>", analyzer_name="standard.lucene"
-        )
+        analyze_request = AnalyzeTextOptions(text="One's <two/>", analyzer_name="standard.lucene")
         result = client.analyze_text(index_name, analyze_request)
         assert len(result.tokens) == 2
 
@@ -187,3 +189,50 @@ class TestSearchIndexClient(AzureRecordedTestCase):
     def _test_delete_indexes(self, client):
         for index in client.list_indexes():
             client.delete_index(index)
+
+    @SearchEnvVarPreparer()
+    @recorded_by_proxy
+    def test_scoring_profile_product_aggregation(self, search_service_endpoint, search_service_name):
+        del search_service_name  # unused
+        endpoint = search_service_endpoint
+        client = SearchIndexClient(endpoint, get_credential(), retry_backoff_factor=60)
+
+        index_name = self.get_resource_name("agg-product")
+        fields = [
+            SimpleField(name="hotelId", type=SearchFieldDataType.STRING, key=True),
+            SimpleField(
+                name="lastUpdated",
+                type=SearchFieldDataType.DATE_TIME_OFFSET,
+                filterable=True,
+            ),
+        ]
+        scoring_profile = ScoringProfile(
+            name="product-score",
+            function_aggregation=ScoringFunctionAggregation.PRODUCT,
+            functions=[
+                FreshnessScoringFunction(
+                    field_name="lastUpdated",
+                    boost=2.5,
+                    parameters=FreshnessScoringParameters(boosting_duration=timedelta(days=7)),
+                )
+            ],
+        )
+        index = SearchIndex(name=index_name, fields=fields, scoring_profiles=[scoring_profile])
+
+        created = client.create_index(index)
+        try:
+            assert created.scoring_profiles[0].function_aggregation == ScoringFunctionAggregation.PRODUCT
+
+            fetched = client.get_index(index_name)
+            assert fetched.scoring_profiles[0].function_aggregation == ScoringFunctionAggregation.PRODUCT
+
+            fetched.scoring_profiles[0].function_aggregation = ScoringFunctionAggregation.SUM
+            client.create_or_update_index(index=fetched)
+
+            updated = client.get_index(index_name)
+            assert updated.scoring_profiles[0].function_aggregation == ScoringFunctionAggregation.SUM
+        finally:
+            try:
+                client.delete_index(index_name)
+            except HttpResponseError:
+                pass

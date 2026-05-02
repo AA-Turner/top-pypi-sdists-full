@@ -30,6 +30,8 @@ from chalk._gen.chalk.server.v1.kube_pb2 import (
     GetKubernetesStatefulSetsResponse,
     GetPodStackTraceDumpRequest,
     GetPodStackTraceDumpResponse,
+    GetPodVenvSizeRequest,
+    GetPodVenvSizeResponse,
 )
 from grpc import (
     Channel,
@@ -40,6 +42,11 @@ from grpc import (
 
 class KubeServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    GetPodVenvSize: UnaryUnaryMultiCallable[
+        GetPodVenvSizeRequest,
+        GetPodVenvSizeResponse,
+    ]
+    """GetPodVenvSize runs `du -sh` on the venv site-packages directory inside the pod"""
     GetPodStackTraceDump: UnaryUnaryMultiCallable[
         GetPodStackTraceDumpRequest,
         GetPodStackTraceDumpResponse,
@@ -92,6 +99,13 @@ class KubeServiceStub:
     ]
 
 class KubeServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def GetPodVenvSize(
+        self,
+        request: GetPodVenvSizeRequest,
+        context: ServicerContext,
+    ) -> GetPodVenvSizeResponse:
+        """GetPodVenvSize runs `du -sh` on the venv site-packages directory inside the pod"""
     @abstractmethod
     def GetPodStackTraceDump(
         self,

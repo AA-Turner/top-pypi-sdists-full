@@ -154,7 +154,16 @@ class Team(_message.Message):
     ) -> None: ...
 
 class Project(_message.Message):
-    __slots__ = ("id", "team_id", "name", "environments", "git_repo", "internal_metadata", "customer_metadata")
+    __slots__ = (
+        "id",
+        "team_id",
+        "name",
+        "environments",
+        "git_repo",
+        "internal_metadata",
+        "customer_metadata",
+        "default_environment_id",
+    )
     class InternalMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -182,6 +191,7 @@ class Project(_message.Message):
     GIT_REPO_FIELD_NUMBER: _ClassVar[int]
     INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     team_id: str
     name: str
@@ -189,6 +199,7 @@ class Project(_message.Message):
     git_repo: str
     internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    default_environment_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -198,6 +209,7 @@ class Project(_message.Message):
         git_repo: _Optional[str] = ...,
         internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        default_environment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateTeamRequest(_message.Message):
@@ -1215,7 +1227,15 @@ class GetProjectRequest(_message.Message):
     def __init__(self, project_id: _Optional[str] = ...) -> None: ...
 
 class ProjectDescription(_message.Message):
-    __slots__ = ("id", "name", "team_id", "git_repo", "internal_metadata", "customer_metadata")
+    __slots__ = (
+        "id",
+        "name",
+        "team_id",
+        "git_repo",
+        "internal_metadata",
+        "customer_metadata",
+        "default_environment_id",
+    )
     class InternalMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1242,12 +1262,14 @@ class ProjectDescription(_message.Message):
     GIT_REPO_FIELD_NUMBER: _ClassVar[int]
     INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     team_id: str
     git_repo: str
     internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    default_environment_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -1256,6 +1278,7 @@ class ProjectDescription(_message.Message):
         git_repo: _Optional[str] = ...,
         internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        default_environment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetProjectResponse(_message.Message):

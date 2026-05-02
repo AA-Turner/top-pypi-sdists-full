@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: springtownai-rag
+Version: 0.1.1
+Summary: A simple S3 file downloader
+Home-page: https://github.com/dhruvgm/springtownai-rag
+Author: Your Name
+Author-email: dhruv.307@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+## springtownai-rag
+
+A simple tool to create a chatbot on your s3 data using just 3 lines on python code 
+
+## Usage
+
+Connect to your s3 data and start querying

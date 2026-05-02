@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sprig_essentials"
+version = "0.5.0"
+authors = [
+  { name="Sooraj Sannabhadti", email="developer.soorajs@gmail.com" },
+]
+description = "Simplifying the process of creating games and apps for the Sprig."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/WhenLifeHandsYouLemons/sprig_essentials"
+"Bug Tracker" = "https://github.com/WhenLifeHandsYouLemons/sprig_essentials/issues"

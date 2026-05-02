@@ -1,0 +1,6 @@
+description: Fraction of employer NI that is borne by employees.
+values:
+  2010-01-01: 1
+metadata:
+  label: Employer NI employee incidence
+  unit: /1

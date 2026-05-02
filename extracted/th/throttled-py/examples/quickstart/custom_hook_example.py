@@ -1,7 +1,7 @@
 import time
 from collections.abc import Callable
 
-from throttled import Hook, HookContext, RateLimitResult, Throttled, per_sec
+from throttled import Hook, HookContext, RateLimitResult, Throttled
 
 
 class TimingHook(Hook):
@@ -18,14 +18,10 @@ class TimingHook(Hook):
         return result
 
 
-throttle = Throttled(
-    key="/api/users",
-    quota=per_sec(10),
-    hooks=[TimingHook()],
-)
+throttle = Throttled(key="/api/users", quota="10/s", hooks=[TimingHook()])
 
 
-def main():
+def main() -> None:
     result = throttle.limit()
     print(f"limited={result.limited}")
 

@@ -1,0 +1,16 @@
+name: Download Row Attachments with Filter
+description: Download PDF and Excel attachments from a specific row
+steps:
+  - DownloadFromSmartsheet:
+      sheet_id: '8504624500658052'
+      directory: /home/ubuntu/symbits/smartsheet/row_attachments/
+      overwrite: false
+      use_row_number: true
+      filename_columns:
+        - Vendor Type
+        - Company Name
+      filename_filter: '(?i).*Packet\.pdf$'
+      attachment_filter:
+        - .pdf
+      column_filter:
+        "Document Status": 'Send to TROC Processing'

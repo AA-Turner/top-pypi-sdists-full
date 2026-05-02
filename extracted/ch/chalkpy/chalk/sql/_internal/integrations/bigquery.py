@@ -179,7 +179,7 @@ def monkeypatch_bq_table_download():
             else:
                 _download_func_name = "_download_table_bqstorage_stream"
                 if hasattr(google.cloud.bigquery._pandas_helpers, _download_func_name):
-                    _logger.info("Monkeypatching BQ table download function")
+                    _logger.debug("Monkeypatching BQ table download function")
                     setattr(
                         google.cloud.bigquery._pandas_helpers,
                         _download_func_name,

@@ -1,0 +1,36 @@
+[project]
+name = "opening_hours_py"
+keywords = ["openstreetmap", "parser", "time", "schedule"]
+homepage = "https://github.com/remi-dupre/opening-hours-rs/tree/master/opening-hours-py"
+documentation = "https://remi-dupre.github.io/opening-hours-rs/opening_hours.html"
+repository = "https://github.com/remi-dupre/opening-hours-rs"
+changelog = "https://github.com/remi-dupre/opening-hours-rs/blob/master/CHANGELOG.md"
+readme = "opening-hours-py/README.md"
+dynamic = ["authors", "description", "version", "license", "license-files", "requires-python"]
+
+[tool.poetry]
+name = "opening_hours_py"
+version = "1.2.0"
+description = "A parser for the opening_hours fields from OpenStreetMap."
+authors = ["Rémi Dupré <remi@dupre.io>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+maturin = ">=1"
+pdoc = "^16"
+ruff = "^0.15"
+
+[build-system]
+requires = ["poetry>=0.12", "maturin>=1,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+manifest-path = "opening-hours-py/Cargo.toml"
+features = [
+    # This feature must only be enabled during builds as it would break tests, see
+    # https://pyo3.rs/v0.23.3/faq.html#i-cant-run-cargo-test-or-i-cant-build-in-a-cargo-workspace-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
+    "pyo3/extension-module",
+]

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from typing import Any, Awaitable, Iterable
+from typing import Any, Awaitable, Callable, Iterable
 import uuid
 
 from absl import logging
@@ -30,6 +30,7 @@ from orbax.checkpoint._src.logging import event_tracking
 from orbax.checkpoint._src.metadata import step_metadata_serialization
 from orbax.checkpoint._src.path import atomicity
 from orbax.checkpoint._src.path import atomicity_types
+from orbax.checkpoint._src.path.snapshot import snapshot as snapshot_lib
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.handlers import resolution as handler_resolution
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
@@ -97,6 +98,7 @@ class _SaveResponse(AsyncResponse[None]):
       custom_metadata: tree_types.JsonType | None,
       context: context_lib.Context,
       async_origin: bool,
+      partial_save: bool = False,
   ):
     self._operation_id = operation_id
     self._temporary_path = temporary_path
@@ -106,6 +108,7 @@ class _SaveResponse(AsyncResponse[None]):
     self._custom_metadata = custom_metadata
     self._context = context
     self._async_origin = async_origin
+    self._partial_save = partial_save
     self._thread_runner = thread_utils.BackgroundThreadRunner[None](
         self._finalize_save()
     )
@@ -121,6 +124,7 @@ class _SaveResponse(AsyncResponse[None]):
       context: context_lib.Context,
       custom_metadata: tree_types.JsonType | None,
       async_origin: bool,
+      partial_save: bool = False,
   ) -> _SaveResponse:
     """Creates and returns the final AsyncResponse for a save operation."""
     blocking_duration_secs = time.time() - start_time
@@ -146,6 +150,7 @@ class _SaveResponse(AsyncResponse[None]):
         custom_metadata=custom_metadata,
         context=context,
         async_origin=async_origin,
+        partial_save=partial_save,
     )
 
   async def _finalize_save(self):
@@ -225,6 +230,9 @@ class _SaveResponse(AsyncResponse[None]):
 
   def result(self, timeout: float | None = None) -> None:
     return self._thread_runner.result(timeout=timeout)
+
+  def on_complete(self, callback: Callable[[None], None]) -> None:
+    self._thread_runner.on_complete(callback)
 
 
 async def _run_blocking_save(
@@ -330,10 +338,12 @@ class _TemporaryPathAwaitingCreation:
       path: path_types.Path,
       subdirectories: Iterable[str],
       *,
-      use_snapshot: bool,
+      snapshot_type: snapshot_lib.SnapshotType | None,
   ):
     self._temporary_path = saving_path_utils.get_temporary_path(
-        path, context=context_lib.get_context(), use_snapshot=use_snapshot
+        path,
+        context=context_lib.get_context(),
+        snapshot_type=snapshot_type,
     )
     self._temporary_path_awaiting_creation = (
         path_async_utils.PathAwaitingCreation.build(
@@ -365,7 +375,7 @@ def save_checkpointables_impl(
     partial_save: bool = False,
 ) -> async_types.AsyncResponse[None]:
   """See caller docstrings."""
-  validation.validate_abstract_checkpointables(checkpointables)
+  validation.validate_save_checkpointables(checkpointables)
   start_time = time.time()
   event_tracking.OperationRecorder(
       path,
@@ -386,10 +396,11 @@ def save_checkpointables_impl(
       checkpointables, context=context
   )
   subdirectories = [] if path_exists else checkpointables.keys()
+  snapshot_type = snapshot_lib.SnapshotType.IN_PLACE if path_exists else None
   temporary_path = _TemporaryPathAwaitingCreation(
       path,
       subdirectories=subdirectories,
-      use_snapshot=path_exists,
+      snapshot_type=snapshot_type,
   )
   background_awaitable = asyncio_utils.run_sync(
       _run_blocking_save(
@@ -408,4 +419,5 @@ def save_checkpointables_impl(
       context=context,
       custom_metadata=custom_metadata,
       async_origin=async_origin,
+      partial_save=partial_save,
   )

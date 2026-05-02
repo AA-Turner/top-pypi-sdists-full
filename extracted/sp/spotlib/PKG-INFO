@@ -1,0 +1,30 @@
+Metadata-Version: 1.2
+Name: spotlib
+Version: 0.2.10
+Summary: Library for retrieving Amazon EC2 Spot Price Data
+Home-page: https://github.com/fstab50/spotlib
+Author: Blake Huber
+Author-email: blakeca00@gmail.com
+License: GPL-3.0
+Description: 
+        **spotlib** | Library for use with Amazon EC2 Spot Prices
+        -----------------------------------------------------------
+        
+        PACKAGE: spotlib
+        
+        ``spotlib``: reusable library for retrieval, conversion, and storage 
+                     of Amazon EC2 spot price history data (json format).
+        
+        Includes:
+        * class for setting historical window for data
+        * class for spot price data retrieval and transformation
+        
+Keywords: Amazon AWS EC2 spot prices lambda reports cost management
+Platform: UNKNOWN
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.6, <4

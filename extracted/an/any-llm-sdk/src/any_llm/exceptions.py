@@ -1,7 +1,12 @@
 # ruff: noqa: D107
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from typing_extensions import override
+
+if TYPE_CHECKING:
+    from any_llm.types.completion import ParsedChatCompletion
 
 
 class AnyLLMError(Exception):
@@ -39,9 +44,25 @@ class AnyLLMError(Exception):
 
 
 class RateLimitError(AnyLLMError):
-    """Raised when the API rate limit is exceeded."""
+    """Raised when the API rate limit is exceeded.
+
+    Attributes:
+        retry_after: Value of the ``Retry-After`` header, when the server
+            provides one.  May be a number of seconds or an HTTP-date string.
+
+    """
 
     default_message = "Rate limit exceeded"
+
+    def __init__(
+        self,
+        message: str | None = None,
+        original_exception: Exception | None = None,
+        provider_name: str | None = None,
+        retry_after: str | None = None,
+    ) -> None:
+        super().__init__(message, original_exception, provider_name)
+        self.retry_after = retry_after
 
 
 class AuthenticationError(AnyLLMError):
@@ -117,3 +138,66 @@ class UnsupportedParameterError(AnyLLMError):
             message = f"{message}.\n{additional_message}"
 
         super().__init__(message, provider_name=provider_name)
+
+
+class InsufficientFundsError(AnyLLMError):
+    """Raised when the user's budget or credits are exhausted (HTTP 402)."""
+
+    default_message = "Insufficient funds or budget exceeded"
+
+
+class UpstreamProviderError(AnyLLMError):
+    """Raised when the upstream provider is unreachable or returns an error (HTTP 502)."""
+
+    default_message = "Upstream provider error"
+
+
+class GatewayTimeoutError(AnyLLMError):
+    """Raised when the gateway times out waiting for the upstream provider (HTTP 504)."""
+
+    default_message = "Gateway timeout waiting for upstream provider"
+
+
+class _FinishReasonError(AnyLLMError):
+    """Base for errors raised when structured output parsing is stopped by a non-stop finish reason.
+
+    Attributes:
+        completion: The partial ``ParsedChatCompletion`` that was returned
+            before the finish reason interrupted parsing.
+
+    """
+
+    def __init__(self, *, completion: ParsedChatCompletion[Any], message: str | None = None) -> None:
+        self.completion = completion
+        super().__init__(message=message)
+
+
+class LengthFinishReasonError(_FinishReasonError):
+    """Raised when a structured output response is truncated (``finish_reason='length'``).
+
+    The partial completion is available via the ``completion`` attribute.
+    """
+
+    default_message = "Could not parse response content as the length limit was reached"
+
+
+class ContentFilterFinishReasonError(_FinishReasonError):
+    """Raised when a structured output response is blocked by a content filter.
+
+    The partial completion is available via the ``completion`` attribute.
+    """
+
+    default_message = "Could not parse response content as the request was rejected by the content filter"
+
+
+class BatchNotCompleteError(AnyLLMError):
+    """Raised when retrieve_batch_results is called on a non-completed batch."""
+
+    def __init__(self, batch_id: str, status: str, provider_name: str | None = None):
+        self.batch_id = batch_id
+        self.batch_status = status
+        message = (
+            f"Batch '{batch_id}' is not yet complete (status: {status}). "
+            f"Call retrieve_batch() to check the current status."
+        )
+        super().__init__(message=message, provider_name=provider_name)

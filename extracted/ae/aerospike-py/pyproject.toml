@@ -1,0 +1,180 @@
+[project]
+name = "aerospike-py"
+dynamic = ["version"]
+description = "High-performance Aerospike Python client with sync and async APIs, built with PyO3 and Rust"
+readme = "README.md"
+authors = [
+    { name = "KimSoungRyoul", email = "KimSoungRyoul@gmail.com" }
+]
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = []
+keywords = ["aerospike", "database", "nosql", "client", "async", "rust", "pyo3", "high-performance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+]
+
+[project.urls]
+Homepage = "https://github.com/KimSoungRyoul/aerospike-py"
+Documentation = "https://kimsoungryoul.github.io/aerospike-py/"
+Repository = "https://github.com/KimSoungRyoul/aerospike-py"
+Issues = "https://github.com/KimSoungRyoul/aerospike-py/issues"
+Changelog = "https://github.com/KimSoungRyoul/aerospike-py/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+numpy = ["numpy>=2.0"]
+otel = ["opentelemetry-api>=1.20"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "maturin>=1.9,<2",
+    "numpy>=2.0",
+    "pyright>=1.1",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.0",
+    "pre-commit>=4.5.1",
+]
+test = ["pytest", "pytest-asyncio", "numpy>=2.0", "pytest-cov>=5.0"]
+test-integration = [{include-group = "test"}, "fastapi", "httpx", "prometheus-client"]
+test-fastapi = ["pytest", "pytest-asyncio", "fastapi", "httpx"]
+test-gunicorn = ["pytest", "pytest-asyncio", "gunicorn", "httpx"]
+test-compat = ["pytest", "pytest-asyncio", "aerospike"]
+test-all = [{include-group = "test-integration"}, "gunicorn"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+minversion = "7.0"
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+markers = [
+    "unit: unit tests (no server required)",
+    "integration: integration tests (Aerospike server required)",
+    "compatibility: compatibility tests with official C client",
+    "concurrency: thread safety tests",
+    "slow: slow tests (>5 seconds)",
+]
+
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",    # line length (handled by formatter)
+    "UP007",   # use X | Y for union types (requires 3.10+ syntax everywhere)
+    "UP045",   # Optional[X] → X | None (same as UP007, keep Optional for readability)
+    "UP037",   # remove quotes from type annotations in stubs
+    "UP035",   # import from collections.abc (keep typing imports for compatibility)
+    "RUF022",  # unsorted __all__ (intentionally grouped by category)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "B007", "B905", "SIM105", "RUF059", "RUF100", "E402"]
+"examples/sample-fastapi/**" = ["B008", "TC001", "TC002"]
+"src/aerospike_py/__init__.py" = ["I001", "RUF100"]
+"src/aerospike_py/_client.py" = ["I001"]
+"src/aerospike_py/_async_client.py" = ["I001"]
+"src/aerospike_py/_observability.py" = ["I001"]
+"src/aerospike_py/exception.py" = ["I001"]
+"*.pyi" = ["I001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aerospike_py"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+include = ["src/aerospike_py"]
+reportMissingModuleSource = false
+venvPath = "."
+venv = ".venv"
+
+# ── tox (via tox-uv) ─────────────────────────────────────
+
+[tool.tox]
+requires = ["tox-uv>=1.25"]
+env_list = ["py{310,311,312,313,314}", "py314t"]
+
+[tool.tox.env_run_base]
+package = "wheel"
+dependency_groups = ["test"]
+pass_env = ["AEROSPIKE_HOST", "AEROSPIKE_PORT", "AEROSPIKE_CLUSTER_NAME"]
+commands = [["pytest", "tests/unit/", "-v"]]
+
+[tool.tox.env.py314t]
+base_python = ["python3.14t"]
+
+[tool.tox.env.integration]
+dependency_groups = ["test-integration"]
+commands = [["pytest", "tests/integration/", "-v"]]
+
+[tool.tox.env.concurrency]
+commands = [["pytest", "tests/concurrency/", "-v", "--ignore=tests/concurrency/test_freethreading.py"]]
+
+[tool.tox.env.freethreading]
+base_python = ["python3.14t"]
+commands = [["pytest", "tests/concurrency/", "-v"]]
+
+[tool.tox.env.feasibility]
+dependency_groups = ["test-fastapi", "test-gunicorn"]
+commands = [["pytest", "tests/feasibility/", "-v"]]
+
+[tool.tox.env.fastapi]
+dependency_groups = ["test-fastapi"]
+commands = [["pytest", "tests/feasibility/test_fastapi.py", "-v"]]
+
+[tool.tox.env.gunicorn]
+dependency_groups = ["test-gunicorn"]
+commands = [["pytest", "tests/feasibility/test_gunicorn.py", "-v"]]
+
+[tool.tox.env.compat]
+dependency_groups = ["test-compat"]
+commands = [["pytest", "tests/compatibility/", "-v"]]
+
+[tool.tox.env.all]
+dependency_groups = ["test-all"]
+commands = [["pytest", "tests/", "-v"]]
+
+# ── maturin ──────────────────────────────────────────────
+
+[tool.maturin]
+python-source = "src"
+module-name = "aerospike_py._aerospike"
+manifest-path = "rust/Cargo.toml"
+features = ["extension-module", "otel"]
+include = ["LICENSE"]

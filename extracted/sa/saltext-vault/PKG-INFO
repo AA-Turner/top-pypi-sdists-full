@@ -1,0 +1,164 @@
+Metadata-Version: 2.2
+Name: saltext.vault
+Version: 1.5.0
+Summary: Salt Extension for interacting with Vault (or OpenBao)
+Author-email: Salt Core Team <saltproject@vmware.com>
+License: Apache Software License
+Project-URL: Homepage, https://github.com/salt-extensions/saltext-vault
+Project-URL: Documentation, https://salt-extensions.github.io/saltext-vault/
+Project-URL: Source, https://github.com/salt-extensions/saltext-vault
+Project-URL: Tracker, https://github.com/salt-extensions/saltext-vault/issues
+Keywords: salt-extension
+Platform: any
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: salt>=3006
+Requires-Dist: cryptography>=36
+Provides-Extra: changelog
+Requires-Dist: towncrier==25.8.0; extra == "changelog"
+Provides-Extra: dev
+Requires-Dist: nox[uv]!=2025.05.01,>=2024.3; extra == "dev"
+Requires-Dist: pre-commit>=2.21.0; extra == "dev"
+Provides-Extra: dev-extra
+Requires-Dist: black==26.1.0; extra == "dev-extra"
+Requires-Dist: isort==7.0.0; extra == "dev-extra"
+Requires-Dist: coverage==7.13.2; extra == "dev-extra"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-prompt; extra == "docs"
+Requires-Dist: sphinxcontrib-spelling; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: towncrier==25.8.0; extra == "docs"
+Requires-Dist: sphinxcontrib-towncrier; extra == "docs"
+Requires-Dist: myst_parser; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx-inline-tabs; extra == "docs"
+Requires-Dist: sphinx-togglebutton; extra == "docs"
+Provides-Extra: docsauto
+Requires-Dist: sphinx-autobuild; extra == "docsauto"
+Provides-Extra: lint
+Requires-Dist: pylint==4.0.4; extra == "lint"
+Provides-Extra: tests
+Requires-Dist: pytest>=7.2.0; extra == "tests"
+Requires-Dist: pytest-salt-factories>=1.0.0; sys_platform == "win32" and extra == "tests"
+Requires-Dist: pytest-salt-factories[docker]>=1.0.0; sys_platform != "win32" and extra == "tests"
+Requires-Dist: pytest-instafail; extra == "tests"
+Requires-Dist: pytest-timeout; extra == "tests"
+
+# Salt Extension for HashiCorp Vault
+
+Salt Extension for interacting with Vault (or OpenBao)
+
+## Security
+
+If you discover a security vulnerability, please refer
+to [Salt's security guide][security].
+
+## User Documentation
+
+For setup and usage instructions, please refer to the
+[User Documentation][docs].
+
+## Contributing
+
+The saltext-vault project welcomes contributions from anyone!
+
+The [Salt Extensions guide][salt-extensions-guide] provides comprehensive instructions on all aspects
+of Salt extension development, including [writing tests][writing-tests], [running tests][running-tests],
+[writing documentation][writing-docs] and [rendering the docs][rendering-docs].
+
+### Quickstart
+
+To get started contributing, first clone this repository (or your fork):
+
+```bash
+# Clone the repo
+git clone --origin upstream git@github.com:salt-extensions/saltext-vault.git
+
+# Change to the repo dir
+cd saltext-vault
+```
+
+#### Automatic
+If you have installed [direnv][direnv], copying the included `.envrc.example` to `.envrc` and
+allowing it to run ensures a proper development environment is present and the virtual environment is active.
+
+Without `direnv`, you can still run the automation explicitly:
+
+```bash
+make dev  # or python3 tools/initialize.py
+source .venv/bin/activate
+```
+
+#### Manual
+Please follow the [first steps][first-steps], skipping the repository initialization and first commit.
+
+### Pull request
+
+Always make changes in a feature branch:
+
+```bash
+git switch -c my-feature-branch
+```
+
+Please ensure you include a [news fragment](https://salt-extensions.github.io/salt-extension-copier/topics/documenting/changelog.html#procedure)
+describing your changes. This is a requirement for all user-facing changes (bug fixes, new features),
+with the exception of documentation changes.
+
+To [submit a Pull Request][submitting-pr], you'll need a fork of this repository in
+your own GitHub account. If you followed the instructions above,
+set your fork as the `origin` remote now:
+
+```bash
+git remote add origin git@github.com:<your_fork>.git
+```
+
+Ensure you followed the [first steps][first-steps] and commit your changes, fixing any
+failing `pre-commit` hooks. Then push the feature branch to your fork and submit a PR.
+
+### Ways to contribute
+
+Contributions come in many forms, and they’re all valuable! Here are some ways you can help
+without writing code:
+
+* **Documentation**: Especially examples showing how to use this project
+  to solve specific problems.
+* **Triaging issues**: Help manage [issues][issues] and participate in [discussions][discussions].
+* **Reviewing [Pull Requests][PRs]**: We especially appreciate reviews using [Conventional Comments][comments].
+
+You can also contribute by:
+
+* Writing blog posts
+* Sharing your experiences using Salt + HashiCorp Vault
+  on social media
+* Giving talks at conferences
+* Publishing videos
+* Engaging in IRC, Discord or email groups
+
+Any of these things are super valuable to our community, and we sincerely
+appreciate every contribution!
+
+[security]: https://github.com/saltstack/salt/blob/master/SECURITY.md
+[salt-extensions-guide]: https://salt-extensions.github.io/salt-extension-copier/
+[writing-tests]: https://salt-extensions.github.io/salt-extension-copier/topics/testing/writing.html
+[running-tests]: https://salt-extensions.github.io/salt-extension-copier/topics/testing/running.html
+[writing-docs]: https://salt-extensions.github.io/salt-extension-copier/topics/documenting/writing.html
+[rendering-docs]: https://salt-extensions.github.io/salt-extension-copier/topics/documenting/building.html
+[first-steps]: https://salt-extensions.github.io/salt-extension-copier/topics/creation.html#initialize-the-python-virtual-environment
+[submitting-pr]: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork
+[direnv]: https://direnv.net
+[issues]: https://github.com/salt-extensions/saltext-vault/issues
+[PRs]: https://github.com/salt-extensions/saltext-vault/pulls
+[discussions]: https://github.com/salt-extensions/saltext-vault/discussions
+[comments]: https://conventionalcomments.org/
+[docs]: https://salt-extensions.github.io/saltext-vault/

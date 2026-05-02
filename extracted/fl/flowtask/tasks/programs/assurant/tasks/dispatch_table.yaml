@@ -1,0 +1,76 @@
+name: Extract Dispatch.me Providers
+description: Extract service providers from Dispatch.me.
+steps:
+  - QueryToPandas:
+      query: "select zipcode from datasets.zipcode_zcta WHERE state_code = '{state_code}' LIMIT 10;"
+      conditions:
+        state_code: CA
+  - DispatchMe:
+      radius: "20mi"
+      sort: distance
+      zipcode_column: zipcode
+      # filters:
+      #   status[]: "Prospect"
+  - TransformRows:
+      replace_columns: true
+      fields:
+        provider_id: id
+        geoloc: _geoloc
+        object_id: objectID
+        highlighted: _highlightResult
+        score: _score
+  - TransformRows:
+      fields:
+        geoloc:
+          value:
+            - column_to_json
+        organization_address:
+          value:
+            - column_to_json
+        latitude:
+          value:
+            - extract_from_object
+            - column: geoloc
+              key: lat
+        longitude:
+          value:
+            - extract_from_object
+            - column: geoloc
+              key: lng
+        city:
+          value:
+            - extract_from_object
+            - column: organization_address
+              key: city
+        zipcode:
+          value:
+            - extract_from_object
+            - column: organization_address
+              key: postal_code
+        state_code:
+          value:
+            - extract_from_object
+            - column: organization_address
+              key: state
+        street_address:
+          value:
+            - extract_from_object
+            - column: organization_address
+              key: street_1
+  - UniqueRows:
+      unique:
+        - provider_id
+      keep: last
+  - TableOutput:
+      flavor: postgres
+      schema: assurant
+      tablename: providers
+      jsonb_columns:
+        - geoloc
+        - organization_address
+        - highlighted
+        - trades
+        - account_markets
+      pk:
+        - provider_id
+      if_exists: append

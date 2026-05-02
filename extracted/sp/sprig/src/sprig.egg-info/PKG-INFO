@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: sprig
+Version: 0.5.1
+Summary: A home to code that would otherwise be homeless
+Home-page: https://github.com/apljungquist/sprig
+Author: AP Ljungquist
+Author-email: ap@ljungquist.eu
+License: MIT
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Sprig
+
+*A home to code that would otherwise be homeless*
+
+[![ReadTheDocs](https://readthedocs.org/projects/sprig/badge/?version=stable)](https://sprig.readthedocs.io/en/stable/?badge=stable)
+
+

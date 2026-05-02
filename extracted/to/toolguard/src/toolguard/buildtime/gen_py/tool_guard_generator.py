@@ -1,0 +1,430 @@
+import asyncio
+import inspect
+import re
+from importlib import import_module
+from pathlib import Path
+from types import ModuleType
+from typing import Callable, List, Optional, Tuple, Type, cast
+
+from loguru import logger
+
+from toolguard.buildtime.gen_py import prompts
+from toolguard.buildtime.gen_py.naming_conv import (
+    guard_fn_module_name,
+    guard_fn_name,
+    guard_item_fn_module_name,
+    guard_item_fn_name,
+    test_fn_module_name,
+)
+from toolguard.buildtime.gen_py.templates import load_template
+from toolguard.buildtime.gen_py.tool_dependencies import tool_dependencies
+from toolguard.buildtime.llm.i_tg_llm import I_TG_LLM
+from toolguard.buildtime.utils import py, pyright, pytest
+from toolguard.buildtime.utils.llm_py import get_code_content
+from toolguard.buildtime.utils.py_doc_str import extract_docstr_args
+from toolguard.runtime.data_types import (
+    FileTwin,
+    RuntimeDomain,
+    ToolGuardCodeResult,
+    ToolGuardSpec,
+    ToolGuardSpecItem,
+)
+
+MAX_TOOL_IMPROVEMENTS = 5
+MAX_TEST_GEN_TRIALS = 3
+
+DEBUG_DIR = Path("debug")
+TESTS_DIR = Path("tests")
+
+
+class ToolGuardGenerator:
+    app_name: str
+    py_path: Path
+    tool_policy: ToolGuardSpec
+    domain: RuntimeDomain
+    common: FileTwin
+
+    def __init__(
+        self,
+        app_name: str,
+        tool_policy: ToolGuardSpec,
+        py_path: Path,
+        domain: RuntimeDomain,
+        llm: I_TG_LLM,
+    ) -> None:
+        self.py_path = py_path
+        self.app_name = app_name
+        self.tool_policy = tool_policy
+        self.domain = domain
+        self.llm = llm
+
+    def _create_dirs(self):
+        app_path = self.py_path / py.to_py_module_name(self.app_name)
+        app_path.mkdir(parents=True, exist_ok=True)
+        (app_path / py.to_py_module_name(self.tool_policy.tool_name)).mkdir(
+            parents=True, exist_ok=True
+        )
+        debug_path = self.py_path / DEBUG_DIR
+        debug_path.mkdir(parents=True, exist_ok=True)
+        debug_tool_path = debug_path / py.to_py_module_name(self.tool_policy.tool_name)
+        debug_tool_path.mkdir(parents=True, exist_ok=True)
+        for item in self.tool_policy.policy_items:
+            debug_tool_item_path = debug_tool_path / py.to_py_module_name(item.name)
+            debug_tool_item_path.mkdir(parents=True, exist_ok=True)
+
+        tests_path = self.py_path / TESTS_DIR
+        tests_path.mkdir(parents=True, exist_ok=True)
+
+    def _setup_files(self):
+        self._create_dirs()
+        return self._create_initial_tool_guards()
+
+    async def generate(self) -> ToolGuardCodeResult:
+        tool_guard, init_item_guards = await asyncio.to_thread(self._setup_files)
+
+        # Generate guards for all tool items
+        tests_and_guards = await asyncio.gather(
+            *[
+                self._generate_item_tests_and_guard(item, item_guard)
+                for item, item_guard in zip(
+                    self.tool_policy.policy_items, init_item_guards
+                )
+            ]
+        )
+
+        item_tests, item_guards = zip(*tests_and_guards)
+        return ToolGuardCodeResult(
+            tool=self.tool_policy,
+            guard_fn_name=guard_fn_name(self.tool_policy),
+            guard_file=tool_guard,
+            item_guard_files=list(item_guards),
+            test_files=list(item_tests),
+        )
+
+    async def _generate_item_tests_and_guard(
+        self, item: ToolGuardSpecItem, init_guard: FileTwin
+    ) -> Tuple[FileTwin | None, FileTwin]:
+        # Dependencies of this tool
+        tool_fn_name = py.to_py_func_name(self.tool_policy.tool_name)
+        tool_fn = self._find_api_function(tool_fn_name)
+        sig_str = f"{tool_fn_name}{str(inspect.signature(tool_fn))}"
+        dep_tools = []
+        if self.domain.app_api_size > 1:
+            dep_tools = list(
+                await tool_dependencies(
+                    item.description, sig_str, self.domain, self.llm
+                )
+            )
+        logger.debug(f"Dependencies of '{item.name}': {dep_tools}")
+
+        # Generate tests
+        try:
+            guard_tests = await self._generate_tests(item, init_guard, dep_tools)
+        except Exception as ex:
+            logger.warning(f"Tests generation failed for item {item.name}. {str(ex)}")
+            try:
+                logger.warning("try to generate the code without tests...")
+                guard = await self._improve_guard(item, init_guard, [], dep_tools)
+                return None, guard
+            except Exception as ex:
+                logger.exception(ex)
+                logger.warning("guard generation failed. returning initial guard")
+                return None, init_guard
+
+        # Tests generated, now generate guards
+        try:
+            guard = await self._improve_guard_green_loop(
+                item, init_guard, guard_tests, dep_tools
+            )
+            logger.debug(
+                f"tool item generated successfully '{item.name}'"
+            )  # 😄🎉 Happy path
+            return guard_tests, guard
+        except Exception as ex:
+            logger.exception(ex)
+            logger.warning(
+                f"guard generation failed. returning initial guard: {str(ex)}"
+            )
+            return None, init_guard
+
+    async def _generate_tests(
+        self, item: ToolGuardSpecItem, guard: FileTwin, dep_tools: List[str]
+    ) -> FileTwin:
+        test_file_name = (
+            TESTS_DIR / self.tool_policy.tool_name / f"{test_fn_module_name(item)}.py"
+        )
+        errors = []
+        test_file = None
+        trials = "a b c".split()
+        for trial_no in trials:
+            logger.debug(
+                f"Generating tests iteration '{trial_no}' for tool {self.tool_policy.tool_name} '{item.name}'."
+            )
+            domain = self.domain.get_definitions_only()  # remove runtime fields
+            first_time = trial_no == "a"
+            if first_time:
+                # pylint: disable-next=redundant-keyword-arg  # Decorator modifies signature
+                res = await prompts.generate_init_tests(
+                    self.llm,
+                    fn_src=guard,
+                    policy_item=item,
+                    domain=domain,
+                    dependent_tool_names=dep_tools,
+                )
+                res = cast(str, res)
+            else:
+                assert test_file
+                # pylint: disable-next=redundant-keyword-arg  # Decorator modifies signature
+                res = await prompts.improve_tests(
+                    self.llm,
+                    prev_impl=test_file.content,
+                    domain=domain,
+                    policy_item=item,
+                    review_comments=errors,
+                    dependent_tool_names=dep_tools,
+                )
+                res = cast(str, res)
+
+            test_content = get_code_content(res)  # type: ignore[arg-type]
+            test_file = FileTwin(file_name=test_file_name, content=test_content).save(
+                self.py_path
+            )
+            test_file.save_as(
+                self.py_path, self.debug_file(item, f"test_{trial_no}.py")
+            )
+
+            syntax_report = await pyright.run(self.py_path, test_file.file_name)
+            FileTwin(
+                file_name=self.debug_file(item, f"test_{trial_no}_pyright.json"),
+                content=syntax_report.model_dump_json(indent=2),
+            ).save(self.py_path)
+
+            if syntax_report.summary.errorCount > 0:
+                logger.warning(
+                    f"{syntax_report.summary.errorCount} syntax errors in tests iteration '{trial_no}' in item '{item.name}'."
+                )
+                errors = syntax_report.list_error_messages(test_file.content)
+                continue
+
+            # syntax ok, try to run it...
+            logger.debug(
+                f"Generated Tests for tool '{self.tool_policy.tool_name}' '{item.name}'(trial='{trial_no}')"
+            )
+            return test_file
+
+        raise Exception("Generated tests contain syntax errors")
+
+    async def _improve_guard_green_loop(
+        self,
+        item: ToolGuardSpecItem,
+        guard: FileTwin,
+        tests: FileTwin,
+        dep_tools: List[str],
+    ) -> FileTwin:
+        errors: List[str] = []
+        for trial_no in range(MAX_TOOL_IMPROVEMENTS):
+            if trial_no > 0:
+                try:
+                    guard = await self._improve_guard(
+                        item, guard, errors, dep_tools, trial_no
+                    )
+                except Exception:
+                    continue  # probably a syntax error in the generated code. lets retry...
+
+            pytest_report_file = self.debug_file(item, f"guard_{trial_no}_pytest.json")
+            test_result = await pytest.run(
+                self.py_path, tests.file_name, pytest_report_file
+            )
+            errors = test_result.list_errors()
+            if guard and not errors:
+                logger.debug(
+                    f"'{item.name}' guard function generated succefully and is Green 😄🎉. "
+                )
+                return guard  # Green
+            else:
+                logger.debug(f"'{item.name}' guard function tests failed. Retrying...")
+                continue
+
+        raise Exception(
+            f"Failed {MAX_TOOL_IMPROVEMENTS} times to generate guard function for tool {py.to_py_func_name(self.tool_policy.tool_name)} policy: {item.name}"
+        )
+
+    async def _improve_guard(
+        self,
+        item: ToolGuardSpecItem,
+        prev_guard: FileTwin,
+        review_comments: List[str],
+        dep_tools: List[str],
+        round: int = 0,
+    ) -> FileTwin:
+        module_name = guard_item_fn_module_name(item)
+        errors: list[str] = []
+        trials = "a b c".split()
+        for trial in trials:
+            logger.debug(
+                f"Improving guard function '{module_name}'... (trial = {round}.{trial})"
+            )
+            domain = self.domain.get_definitions_only()  # omit runtime fields
+            prev_python = get_code_content(prev_guard.content)
+            res = await prompts.improve_tool_guard(  # pylint: disable=redundant-keyword-arg
+                self.llm,
+                policy_txt=item.description,
+                dependent_tool_names=dep_tools,
+                prev_impl=prev_python,
+                review_comments=review_comments + errors,
+                api=domain.app_api,
+                data_types=domain.app_types,
+            )
+            res = cast(str, res)
+
+            guard = FileTwin(
+                file_name=prev_guard.file_name, content=get_code_content(res)
+            ).save(self.py_path)
+            guard.save_as(
+                self.py_path, self.debug_file(item, f"guard_{round}_{trial}.py")
+            )
+
+            syntax_report = await pyright.run(self.py_path, guard.file_name)
+            FileTwin(
+                file_name=self.debug_file(item, f"guard_{round}_{trial}.pyright.json"),
+                content=syntax_report.model_dump_json(indent=2),
+            ).save(self.py_path)
+            logger.info(
+                f"Generated function {module_name} with {syntax_report.summary.errorCount} errors."
+            )
+
+            if syntax_report.summary.errorCount > 0:
+                # Syntax errors. retry...
+                errors = syntax_report.list_error_messages(guard.content)
+                continue
+
+            guard.save_as(
+                self.py_path, self.debug_file(item, f"guard_{round}_final.py")
+            )
+            return (
+                guard  # Happy path. improved vesion of the guard with no syntax errors
+            )
+
+        # Failed to generate valid python after iterations
+        raise Exception(f"Syntax error generating for tool '{item.name}'.")
+
+    def _find_api_function(self, tool_fn_name: str):
+        module = import_module(py.path_to_module(self.domain.app_api.file_name))
+        assert module, f"File not found {self.domain.app_api.file_name}"
+        cls = find_class_in_module(module, self.domain.app_api_class_name)
+        return getattr(cls, tool_fn_name)
+
+    def _create_initial_tool_guards(self) -> Tuple[FileTwin, List[FileTwin]]:
+        tool_fn_name = py.to_py_func_name(self.tool_policy.tool_name)
+        tool_fn = self._find_api_function(tool_fn_name)
+        assert tool_fn, f"Function not found, {tool_fn_name}"
+
+        # __init__.py
+        path = Path(py.to_py_module_name(self.app_name)) / tool_fn_name / "__init__.py"
+        FileTwin(file_name=path, content="").save(self.py_path)
+
+        # item guards files
+        item_files = [
+            self._create_item_module(item, tool_fn)
+            for item in self.tool_policy.policy_items
+        ]
+        # tool guard file
+        tool_file = self._create_tool_module(tool_fn, item_files)
+
+        # Save to debug folder
+        for item_guard_fn, policy_item in zip(
+            item_files, self.tool_policy.policy_items
+        ):
+            item_guard_fn.save_as(self.py_path, self.debug_file(policy_item, "g0.py"))
+
+        return (tool_file, item_files)
+
+    def _create_tool_module(
+        self, tool_fn: Callable, item_files: List[FileTwin]
+    ) -> FileTwin:
+        file_path = (
+            Path(py.to_py_module_name(self.app_name))
+            / py.to_py_module_name(self.tool_policy.tool_name)
+            / py.py_extension(guard_fn_module_name(self.tool_policy))
+        )
+
+        items = [
+            {"guard_fn": guard_item_fn_name(item), "file_name": file.file_name}
+            for (item, file) in zip(self.tool_policy.policy_items, item_files)
+        ]
+        sig = inspect.signature(tool_fn)
+        sig_str = self._signature_str(sig)
+        args_call = ", ".join([p for p in sig.parameters if p != "self"])
+        args_doc_str = extract_docstr_args(tool_fn)
+        extra_imports = []
+        if "Decimal" in sig_str:
+            extra_imports.append("from decimal import Decimal")
+
+        return FileTwin(
+            file_name=file_path,
+            content=load_template("tool_guard.j2").render(
+                domain=self.domain,
+                method={
+                    "name": guard_fn_name(self.tool_policy),
+                    "rule_name": self.tool_policy.tool_name,
+                    "signature": sig_str,
+                    "args_call": args_call,
+                    "args_doc_str": args_doc_str,
+                },
+                items=items,
+                extra_imports=extra_imports,
+            ),
+        ).save(self.py_path)
+
+    def _signature_str(self, sig: inspect.Signature):
+        sig_str = str(sig)
+        sig_str = sig_str[
+            sig_str.find("self,") + len("self,") : sig_str.rfind(")")
+        ].strip()
+        # Strip module prefixes like airline.airline_types.XXX → XXX
+        clean_sig_str = re.sub(r"\b(?:\w+\.)+(\w+)", r"\1", sig_str)
+        return clean_sig_str
+
+    def _create_item_module(
+        self, tool_item: ToolGuardSpecItem, tool_fn: Callable
+    ) -> FileTwin:
+        file_name = (
+            Path(py.to_py_module_name(self.app_name))
+            / py.to_py_module_name(self.tool_policy.tool_name)
+            / py.py_extension(guard_item_fn_module_name(tool_item))
+        )
+
+        sig_str = self._signature_str(inspect.signature(tool_fn))
+        args_doc_str = extract_docstr_args(tool_fn)
+        extra_imports = []
+        if "Decimal" in sig_str:
+            extra_imports.append("from decimal import Decimal")
+        return FileTwin(
+            file_name=file_name,
+            content=load_template("tool_item_guard.j2").render(
+                domain=self.domain,
+                method={
+                    "name": guard_item_fn_name(tool_item),
+                    "rule_name": tool_item.name,
+                    "signature": sig_str,
+                    "args_doc_str": args_doc_str,
+                },
+                policy=tool_item.description,
+                extra_imports=extra_imports,
+            ),
+        ).save(self.py_path)
+
+    def debug_file(self, policy_item: ToolGuardSpecItem, file: str | Path):
+        return (
+            DEBUG_DIR
+            / py.to_py_module_name(self.tool_policy.tool_name)
+            / py.to_py_module_name(policy_item.name)
+            / file
+        )
+
+
+def find_class_in_module(module: ModuleType, class_name: str) -> Optional[Type]:
+    cls = getattr(module, class_name, None)
+    if isinstance(cls, type):
+        return cls
+    return None
