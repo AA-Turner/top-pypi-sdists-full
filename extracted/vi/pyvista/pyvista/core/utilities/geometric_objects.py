@@ -10,9 +10,9 @@ from typing import cast
 import numpy as np
 
 import pyvista as pv
+from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
 from pyvista.core import _validation
-from pyvista.core import _vtk_core as _vtk
 
 from .arrays import _coerce_pointslike_arg
 from .geometric_sources import ArrowSource
@@ -193,6 +193,8 @@ def Cylinder(  # noqa: PLR0917
     >>> pl.show()
 
     The above examples are similar in terms of their behavior.
+
+    See :ref:`chemistry_molecule_example` for more examples using this function.
 
     """
     algo = CylinderSource(
@@ -957,6 +959,12 @@ def SolidSphereGeneric(  # noqa: PLR0917
             )
             celltypes.append(pv.CellType.PYRAMID)
 
+    def _reorder_wedge(points: list[int]) -> list[int]:
+        """Swap points 1,2 and 4,5 for wedge cells."""
+        points[1], points[2] = points[2], points[1]
+        points[4], points[5] = points[5], points[4]
+        return points
+
     # Wedges form between two r levels at first and last phi position
     #   At each r level, the triangle is formed with axis point,  two theta positions
     # First go upwards
@@ -964,17 +972,20 @@ def SolidSphereGeneric(  # noqa: PLR0917
         for ir, itheta in product(range(nr - 1), range(ntheta - 1)):
             axis0 = ir + 1 if include_origin else ir
             axis1 = ir + 2 if include_origin else ir + 1
+
+            raw_points = [
+                axis0,
+                _index(ir, 0, itheta),
+                _index(ir, 0, itheta + 1),
+                axis1,
+                _index(ir + 1, 0, itheta),
+                _index(ir + 1, 0, itheta + 1),
+            ]
+            if pv.vtk_version_info < (9, 6, 99):  # < (9,7,0)
+                raw_points = _reorder_wedge(raw_points)
+
             cells.append(6)
-            cells.extend(
-                [
-                    axis0,
-                    _index(ir, 0, itheta + 1),
-                    _index(ir, 0, itheta),
-                    axis1,
-                    _index(ir + 1, 0, itheta + 1),
-                    _index(ir + 1, 0, itheta),
-                ],
-            )
+            cells.extend(raw_points)
             celltypes.append(pv.CellType.WEDGE)
 
     # now go downwards
@@ -982,17 +993,20 @@ def SolidSphereGeneric(  # noqa: PLR0917
         for ir, itheta in product(range(nr - 1), range(ntheta - 1)):
             axis0 = npoints_on_pos_axis + ir
             axis1 = npoints_on_pos_axis + ir + 1
+
+            raw_points = [
+                axis0,
+                _index(ir, nphi - 1, itheta + 1),
+                _index(ir, nphi - 1, itheta),
+                axis1,
+                _index(ir + 1, nphi - 1, itheta + 1),
+                _index(ir + 1, nphi - 1, itheta),
+            ]
+            if pv.vtk_version_info < (9, 6, 99):  # < (9,7,0)
+                raw_points = _reorder_wedge(raw_points)
+
             cells.append(6)
-            cells.extend(
-                [
-                    axis0,
-                    _index(ir, nphi - 1, itheta),
-                    _index(ir, nphi - 1, itheta + 1),
-                    axis1,
-                    _index(ir + 1, nphi - 1, itheta),
-                    _index(ir + 1, nphi - 1, itheta + 1),
-                ],
-            )
+            cells.extend(raw_points)
             celltypes.append(pv.CellType.WEDGE)
 
     # Form Hexahedra
@@ -1142,6 +1156,9 @@ def MultipleLines(points: MatrixLike[float] | None = None) -> PolyData:
     >>> pl.camera.azimuth = 45
     >>> pl.camera.zoom(0.8)
     >>> pl.show()
+
+    See :ref:`create_multiple_lines_example` and :ref:`color_lines_example`
+    for more examples.
 
     """
     if points is None:
@@ -1624,6 +1641,8 @@ def Text3D(  # noqa: PLR0917
     ... )
     >>> text_mesh.plot(cpos='xy', show_bounds=True)
 
+    See :ref:`create_text_3d_example` for more examples using this function.
+
     """
     return Text3DSource(
         string,
@@ -1791,6 +1810,9 @@ def CircularArc(  # noqa: PLR0917
     >>> _ = pl.view_xy()
     >>> pl.show()
 
+    See :ref:`create_circular_arc_example` and :ref:`flight_paths_example`
+    for more examples using this function.
+
     """
     check_valid_vector(pointa, 'pointa')
     check_valid_vector(pointb, 'pointb')
@@ -1880,6 +1902,8 @@ def CircularArcFromNormal(  # noqa: PLR0917
     >>> _ = pl.show_bounds(location='all', font_size=30, use_2d=True)
     >>> _ = pl.view_xy()
     >>> pl.show()
+
+    See :ref:`create_circular_arc_example` for more examples using this function.
 
     """
     check_valid_vector(center, 'center')

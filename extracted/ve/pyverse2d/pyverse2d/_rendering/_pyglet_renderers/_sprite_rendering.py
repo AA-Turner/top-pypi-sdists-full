@@ -64,7 +64,6 @@ class PygletSpriteRenderer:
         self._offset: Vector = None
         self._flip_x: bool = flip_x
         self._flip_y: bool = flip_y
-        self._rotation: float = rotation
         self._opacity: float = opacity
         self._color: Color = color
         self._z: int = z
@@ -123,54 +122,27 @@ class PygletSpriteRenderer:
 
     # ======================================== GETTERS ========================================
     @property
-    def image(self) -> Image:
-        """Descripteur d'image"""
-        return self._image
-    
+    def image(self) -> Image: return self._image
     @property
-    def transform(self) -> Transform:
-        """Transformation monde"""
-        return self._transform
-    
+    def transform(self) -> Transform: return self._transform
     @property
-    def offset(self) -> Vector | None:
-        """Décalage au transform"""
-        return self._offset
+    def offset(self) -> Vector | None: return self._offset
+    @property
+    def flip_x(self) -> bool: return self._flip_x
+    @property
+    def flip_y(self) -> bool: return self._flip_y
 
     @property
-    def flip_x(self) -> bool:
-        """Renvoie le miroir horizontal"""
-        return self._flip_x
+    def opacity(self) -> float: return self._opacity
+    @property
+    def color(self) -> Color: return self._color
 
     @property
-    def flip_y(self) -> bool:
-        """Renvoie le miroir vertical"""
-        return self._flip_y
-
+    def z(self) -> int: return self._z
     @property
-    def opacity(self) -> float:
-        """Renvoie l'opacité"""
-        return self._opacity
-
+    def pipeline(self) -> Pipeline: return self._pipeline
     @property
-    def color(self) -> Color:
-        """Renvoie la teinte multiplicative"""
-        return self._color
-
-    @property
-    def z(self) -> int:
-        """Renvoie le z-order"""
-        return self._z
-
-    @property
-    def pipeline(self) -> Pipeline:
-        """Renvoie la pipeline de rendu"""
-        return self._pipeline
-    
-    @property
-    def parent(self) -> Group:
-        """Renvoie le groupe parent"""
-        return self._parent
+    def parent(self) -> Group: return self._parent
     
     @property
     def width(self) -> int:

@@ -128,6 +128,9 @@ Keyword arguments:
         Replaces default close icon. If set, `iconSize` prop is
         ignored.
 
+    - ButtonProps (dict; optional):
+        props passed down to `Button` component *.
+
 - clearable (boolean; optional):
     Determines whether input value can be cleared, adds clear button
     to right section, False by default.
@@ -936,7 +939,8 @@ Keyword arguments:
             "disabled": NotRequired[bool],
             "iconSize": NotRequired[typing.Union[str, NumberType]],
             "children": NotRequired[ComponentType],
-            "icon": NotRequired[ComponentType]
+            "icon": NotRequired[ComponentType],
+            "ButtonProps": NotRequired[dict]
         }
     )
 

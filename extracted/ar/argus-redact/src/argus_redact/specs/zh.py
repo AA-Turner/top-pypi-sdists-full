@@ -8,11 +8,13 @@ list that can replace the hand-written PATTERNS in lang/zh/patterns.py.
 from argus_redact.lang.zh.patterns import (
     _validate_bank_card,
     _validate_credit_code,
+    _validate_hkid,
     _validate_id_number,
+    _validate_twid,
 )
 
 from .fakers_numeric import fake_age_noise, fake_date_of_birth_noise
-from .fakers_zh import (
+from .fakers_zh_real import (
     fake_address,
     fake_bank_card,
     fake_credit_code,
@@ -31,12 +33,16 @@ from .fakers_zh import (
 from .fakers_zh_reserved import (
     fake_address_reserved,
     fake_bank_card_reserved,
+    fake_hkid_reserved,
     fake_id_number_reserved,
     fake_license_plate_reserved,
+    fake_macau_id_reserved,
     fake_passport_reserved,
     fake_person_reserved,
     fake_phone_landline_reserved,
     fake_phone_reserved,
+    fake_taiwan_arc_reserved,
+    fake_twid_reserved,
 )
 from .registry import PIITypeDef, list_types, register
 
@@ -175,6 +181,124 @@ register(
         faker_reserved=fake_id_number_reserved,
         source="GB 11643-1999《公民身份号码》",
         description="Chinese 18-digit national ID",
+    )
+)
+
+# ── Hong Kong Identity Card ──
+
+register(
+    PIITypeDef(
+        name="hk_id",
+        lang="zh",
+        format="L(L)NNNNNN(C)",
+        length=(9, 11),
+        charset="alpha + digits + parens",
+        checksum="HKID mod-11",
+        validate=_validate_hkid,
+        strategy="remove",
+        label="[HKID-REDACTED]",
+        examples=("A123456(9)", "Z684325(1)", "WX123456(8)"),
+        counterexamples=("A123456(0)", "A12345(7)", "1A12345(7)"),
+        _patterns=(
+            {
+                "type": "hk_id",
+                "label": "[HKID-REDACTED]",
+                "pattern": r"(?<![A-Z])[A-Z]{1,2}\d{6}\((?:\d|X)\)",
+                "validate": _validate_hkid,
+                "description": "Hong Kong Identity Card (1-2 letter + 6 digit + parenthesized check, mod-11)",
+            },
+        ),
+        sensitivity=4,
+        faker_reserved=fake_hkid_reserved,
+        source="Hong Kong Immigration Department; Wikipedia HKID",
+        description="Hong Kong Identity Card — 1-2 letter + 6 digit + parenthesized check",
+    )
+)
+
+# ── Taiwan Identity Card ──
+
+register(
+    PIITypeDef(
+        name="tw_id",
+        lang="zh",
+        format="LNNNNNNNNN",
+        length=10,
+        charset="alpha + digits",
+        checksum="TWID weighted mod-10",
+        validate=_validate_twid,
+        strategy="remove",
+        label="[TWID-REDACTED]",
+        examples=("A123456789", "B142536472", "F131011128"),
+        counterexamples=("A123456780", "A12345678", "1A12345678"),
+        _patterns=(
+            {
+                "type": "tw_id",
+                "label": "[TWID-REDACTED]",
+                "pattern": r"(?<![A-Za-z0-9])[A-Z]\d{9}(?!\d)",
+                "validate": _validate_twid,
+                "description": "Taiwan (ROC) national ID (1 letter + 9 digits, weighted mod-10)",
+            },
+        ),
+        sensitivity=4,
+        faker_reserved=fake_twid_reserved,
+        source="ROC household registration; Wikipedia ROC ID",
+        description="Republic of China (Taiwan) national ID",
+    )
+)
+
+# ── Macau Resident Identity Card ──
+
+register(
+    PIITypeDef(
+        name="macau_id",
+        lang="zh",
+        format="N/NNNNNN/N",
+        length=10,
+        charset="digits + slashes",
+        strategy="remove",
+        label="[MACAU-ID-REDACTED]",
+        examples=("1/234567/8", "5/123456/0", "7/000001/2"),
+        counterexamples=("0/234567/8", "1/234567"),
+        _patterns=(
+            {
+                "type": "macau_id",
+                "label": "[MACAU-ID-REDACTED]",
+                "pattern": r"(?<!\d)[1-9]/\d{6}/\d(?!\d)",
+                "description": "Macau Resident ID Card — format-only (no public check-digit algorithm)",
+            },
+        ),
+        sensitivity=4,
+        faker_reserved=fake_macau_id_reserved,
+        source="Macau Identification Services Bureau",
+        description="Macau Resident ID Card — format-only validation",
+    )
+)
+
+# ── Taiwan Alien Resident Certificate (ARC, post-2020) ──
+
+register(
+    PIITypeDef(
+        name="taiwan_arc",
+        lang="zh",
+        format="LLNNNNNNNN",
+        length=10,
+        charset="alpha + digits",
+        strategy="remove",
+        label="[ARC-REDACTED]",
+        examples=("AB12345678", "AC98765432", "WX00000001"),
+        counterexamples=("A123456789", "AB1234567"),
+        _patterns=(
+            {
+                "type": "taiwan_arc",
+                "label": "[ARC-REDACTED]",
+                "pattern": r"(?<![A-Za-z0-9])[A-Z]{2}\d{8}(?!\d)",
+                "description": "Taiwan Alien Resident Certificate (post-2020 LL+8-digit format)",
+            },
+        ),
+        sensitivity=4,
+        faker_reserved=fake_taiwan_arc_reserved,
+        source="ROC National Immigration Agency",
+        description="Taiwan Alien Resident Certificate (post-2020)",
     )
 )
 

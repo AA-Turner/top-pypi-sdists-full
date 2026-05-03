@@ -4,7 +4,7 @@ import datetime
 import ipaddress
 import re
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 import cryptography.hazmat.primitives.asymmetric.rsa
 import cryptography.x509
@@ -50,7 +50,7 @@ ZaW/2R7DvQDtxCkFkVaxUeHvENm6IyqVhf6Q5oN12kDSrJozzx7I7tHjhBK7V5Xo
 TyS4NU4EhSyzGgj2x6axDd1hHRjblEpJ80LoiXlmUDzputBXyO5mkcrplcVvlIJi
 WmKjrDn2zzKxDX5nwvkskpIjYlJcrQu4iCX1/YwZ1yNqF9LryjlilphHCACiHbhI
 RnGfN8j8KLDVmWyTYMk8V+6j0LI4+4zFh2upqGMQHL3VFVFWBek6vCDWhB/b
- -----END CERTIFICATE-----"""
+-----END CERTIFICATE-----"""
 # Added aws root CA as AWS returns chain you gave it + root CA (provided or not)
 # so for now a cheap response is just give any old root CA
 
@@ -64,12 +64,12 @@ def datetime_to_epoch(date: datetime.datetime) -> float:
     return float(calendar.timegm(aware_dt.timetuple()))
 
 
-class TagHolder(dict[str, Optional[str]]):
+class TagHolder(dict[str, str | None]):
     MAX_TAG_COUNT = 50
     MAX_KEY_LENGTH = 128
     MAX_VALUE_LENGTH = 256
 
-    def _validate_kv(self, key: str, value: Optional[str], index: int) -> None:
+    def _validate_kv(self, key: str, value: str | None, index: int) -> None:
         if len(key) > self.MAX_KEY_LENGTH:
             raise AWSValidationException(
                 f"Value '{key}' at 'tags.{index}.member.key' failed to satisfy constraint: Member must have length less than or equal to {self.MAX_KEY_LENGTH}"
@@ -127,19 +127,21 @@ class CertBundle(BaseModel):
         account_id: str,
         certificate: bytes,
         private_key: bytes,
-        chain: Optional[bytes] = None,
+        chain: bytes | None = None,
         region: str = "us-east-1",
-        arn: Optional[str] = None,
+        arn: str | None = None,
         cert_type: str = "IMPORTED",
         cert_status: str = "ISSUED",
-        cert_authority_arn: Optional[str] = None,
-        cert_options: Optional[dict[str, Any]] = None,
+        cert_authority_arn: str | None = None,
+        cert_options: dict[str, Any] | None = None,
     ):
         self.created_at = utcnow()
         self.cert = certificate
         self.key = private_key
         # AWS always returns your chain + root CA
-        self.chain = chain + b"\n" + AWS_ROOT_CA if chain else AWS_ROOT_CA
+        self.chain = (
+            chain + b"\n" + AWS_ROOT_CA + b"\n" if chain else AWS_ROOT_CA + b"\n"
+        )
         self.tags = TagHolder()
         self.type = cert_type  # Should really be an enum
         self.status = cert_status  # Should really be an enum
@@ -173,8 +175,8 @@ class CertBundle(BaseModel):
         domain_name: str,
         account_id: str,
         region: str,
-        sans: Optional[list[str]] = None,
-        cert_authority_arn: Optional[str] = None,
+        sans: list[str] | None = None,
+        cert_authority_arn: str | None = None,
     ) -> "CertBundle":
         unique_sans: set[str] = set(sans) if sans else set()
 
@@ -475,7 +477,7 @@ class AWSCertificateManagerBackend(BaseBackend):
         cert_bundle = self._certificates[arn]
         cert_bundle.in_use_by.append(load_balancer_name)
 
-    def _get_arn_from_idempotency_token(self, token: str) -> Optional[str]:
+    def _get_arn_from_idempotency_token(self, token: str) -> str | None:
         """
         If token doesnt exist, return None, later it will be
         set with an expiry and arn.
@@ -508,8 +510,8 @@ class AWSCertificateManagerBackend(BaseBackend):
         self,
         certificate: bytes,
         private_key: bytes,
-        chain: Optional[bytes],
-        arn: Optional[str],
+        chain: bytes | None,
+        arn: str | None,
         tags: list[dict[str, str]],
     ) -> str:
         if arn is not None:
@@ -592,8 +594,8 @@ class AWSCertificateManagerBackend(BaseBackend):
         idempotency_token: str,
         subject_alt_names: list[str],
         tags: list[dict[str, str]],
-        cert_authority_arn: Optional[str] = None,
-        cert_options: Optional[dict[str, Any]] = None,
+        cert_authority_arn: str | None = None,
+        cert_options: dict[str, Any] | None = None,
     ) -> str:
         """
         The parameter DomainValidationOptions has not yet been implemented

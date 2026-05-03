@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: galois
-Version: 0.4.10
+Version: 0.4.11
 Summary: A performant NumPy extension for Galois fields and their applications
 Author-email: Matt Hostetter <matthostetter@gmail.com>
 License: MIT
@@ -123,7 +123,7 @@ Import the `galois` package in Python.
 In [1]: import galois
 
 In [2]: galois.__version__
-Out[2]: '0.4.10'
+Out[2]: '0.4.11'
 ```
 
 ### Create a [`FieldArray`](https://mhostetter.github.io/galois/latest/api/galois.FieldArray/) subclass

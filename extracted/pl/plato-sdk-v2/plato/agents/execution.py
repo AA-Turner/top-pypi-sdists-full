@@ -68,6 +68,9 @@ class AgentExecutionManager:
             image=agent_config.image,
             max_size=agent_config.max_parallel,
             pre_warm=0,
+            health_check_timeout=agent_config.ssh_probe_timeout,
+            health_check_attempts=agent_config.ssh_probe_retries,
+            reset_attempts=agent_config.ssh_probe_retries,
             vm_timeout=vm_timeout,
         )
         self._integration_lock = asyncio.Lock()

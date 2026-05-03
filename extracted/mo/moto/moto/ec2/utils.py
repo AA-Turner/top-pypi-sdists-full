@@ -4,7 +4,8 @@ import hashlib
 import ipaddress
 import re
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Optional, TypedDict, TypeVar, Union
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, TypeAlias, TypedDict, TypeVar
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -15,16 +16,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
+from moto.core.serialize import TimestampSerializer
 from moto.core.types import Base64EncodedString
-from moto.core.utils import utcnow
 from moto.ec2.exceptions import InvalidUserDataError
 from moto.iam import iam_backends
 from moto.moto_api._internal import mock_random as random
 from moto.utilities.utils import md5_hash
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
     HashType: TypeAlias = hashlib._Hash
 
 EC2_RESOURCE_TO_PREFIX = {
@@ -57,6 +56,8 @@ EC2_RESOURCE_TO_PREFIX = {
     "subnet": "subnet",
     "subnet-ipv6-cidr-block-association": "subnet-cidr-assoc",
     "reservation": "r",
+    "traffic-mirror-filter": "traf-mir-fil",
+    "traffic-mirror-target": "traf-mir-tar",
     "volume": "vol",
     "vpc": "vpc",
     "vpc-endpoint": "vpce",
@@ -225,6 +226,14 @@ def random_transit_gateway_id() -> str:
     return random_id(prefix=EC2_RESOURCE_TO_PREFIX["transit-gateway"])
 
 
+def random_traffic_mirror_filter_id() -> str:
+    return random_id(prefix=EC2_RESOURCE_TO_PREFIX["traffic-mirror-filter"])
+
+
+def random_traffic_mirror_target_id() -> str:
+    return random_id(prefix=EC2_RESOURCE_TO_PREFIX["traffic-mirror-target"])
+
+
 def random_transit_gateway_route_table_id() -> str:
     return random_id(prefix=EC2_RESOURCE_TO_PREFIX["transit-gateway-route-table"])
 
@@ -261,7 +270,7 @@ def random_dedicated_host_id() -> str:
     return random_id(prefix=EC2_RESOURCE_TO_PREFIX["dedicated_host"])
 
 
-def random_private_ip(cidr: Optional[str] = None, ipv6: bool = False) -> str:
+def random_private_ip(cidr: str | None = None, ipv6: bool = False) -> str:
     # prefix - ula.prefixlen : get number of remaing length for the IP.
     #                          prefix will be 32 for IPv4 and 128 for IPv6.
     #  random.getrandbits() will generate remaining bits for IPv6 or Ipv4 in decimal format
@@ -286,7 +295,7 @@ def generate_dns_from_ip(ip: Any, dns_type: str = "internal") -> str:
 
 
 def random_mac_address() -> str:
-    return f"02:00:00:{random.randint(0, 255)}02x:{random.randint(0, 255)}02x:{random.randint(0, 255)}02x"
+    return f"02:00:00:{random.randint(0, 255):02x}:{random.randint(0, 255):02x}:{random.randint(0, 255):02x}"
 
 
 def randor_ipv4_cidr() -> str:
@@ -303,9 +312,9 @@ def random_subnet_cidr_reservation_id() -> str:
 
 def generate_route_id(
     route_table_id: str,
-    cidr_block: Optional[str],
-    ipv6_cidr_block: Optional[str] = None,
-    prefix_list: Optional[str] = None,
+    cidr_block: str | None,
+    ipv6_cidr_block: str | None = None,
+    prefix_list: str | None = None,
 ) -> str:
     if ipv6_cidr_block and not cidr_block:
         cidr_block = ipv6_cidr_block
@@ -321,10 +330,8 @@ def create_dns_entries(service_name: str, vpc_endpoint_id: str) -> dict[str, str
     }
 
 
-def utc_date_and_time() -> str:
-    x = utcnow()
-    # Better performing alternative to x.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    return f"{x.year}-{x.month:02d}-{x.day:02d}T{x.hour:02d}:{x.minute:02d}:{x.second:02d}.000Z"
+def format_timestamp(dt: datetime) -> str:
+    return dt.strftime(TimestampSerializer.ISO8601_MICRO_ZEROED)
 
 
 def split_route_id(route_id: str) -> tuple[str, str]:
@@ -360,7 +367,7 @@ def is_tag_filter(filter_name: str) -> bool:
     )
 
 
-def get_obj_tag(obj: Any, filter_name: str) -> Optional[str]:
+def get_obj_tag(obj: Any, filter_name: str) -> str | None:
     tag_name = filter_name.replace("tag:", "", 1)
     tags = {tag["key"]: tag["value"] for tag in obj.get_tags()}
     return tags.get(tag_name)
@@ -371,7 +378,7 @@ def get_obj_tag_names(obj: Any) -> set[str]:
     return tags
 
 
-def get_obj_tag_values(obj: Any, key: Optional[str] = None) -> set[str]:
+def get_obj_tag_values(obj: Any, key: str | None = None) -> set[str]:
     tags = {tag["value"] for tag in obj.get_tags() if tag["key"] == key or key is None}
     return tags
 
@@ -518,6 +525,11 @@ def is_filter_matching(obj: Any, _filter: str, filter_value: Any) -> bool:
 
     if isinstance(value, bool):
         if str(value).lower() in filter_value:
+            return True
+        return False
+
+    if isinstance(value, datetime):
+        if format_timestamp(value) in filter_value:
             return True
         return False
 
@@ -745,7 +757,7 @@ def _convert_rfc4716(data: bytes) -> bytes:
     return b" ".join(result_parts)
 
 
-def public_key_parse(key_material: bytes) -> Union[RSAPublicKey, Ed25519PublicKey]:
+def public_key_parse(key_material: bytes) -> RSAPublicKey | Ed25519PublicKey:
     try:
         if key_material.startswith(b"---- BEGIN SSH2 PUBLIC KEY ----"):
             # cryptography doesn't parse RFC4716 key format, so we have to convert it first
@@ -762,7 +774,7 @@ def public_key_parse(key_material: bytes) -> Union[RSAPublicKey, Ed25519PublicKe
 
 
 def public_key_fingerprint(
-    public_key: Union[RSAPublicKey, Ed25519PublicKey],
+    public_key: RSAPublicKey | Ed25519PublicKey,
     hash_constructor: Callable[[bytes], "HashType"],
 ) -> str:
     key_data = public_key.public_bytes(
@@ -775,7 +787,7 @@ def public_key_fingerprint(
 
 
 def select_hash_algorithm(
-    public_key: Union[RSAPublicKey, Ed25519PublicKey], is_imported: bool = True
+    public_key: RSAPublicKey | Ed25519PublicKey, is_imported: bool = True
 ) -> Callable[[bytes], "HashType"]:
     if isinstance(public_key, Ed25519PublicKey):
         return hashlib.sha256
@@ -810,8 +822,8 @@ def filter_iam_instance_profile_associations(
 def filter_iam_instance_profiles(
     account_id: str,
     partition: str,
-    iam_instance_profile_arn: Optional[str],
-    iam_instance_profile_name: Optional[str],
+    iam_instance_profile_arn: str | None,
+    iam_instance_profile_name: str | None,
 ) -> Any:
     instance_profile = None
     instance_profile_by_name = None
@@ -933,7 +945,7 @@ def convert_tag_spec(
     return tags
 
 
-def parse_user_data(value: Any) -> Optional[Base64EncodedString]:
+def parse_user_data(value: Any) -> Base64EncodedString | None:
     if value is None:
         return None
     try:

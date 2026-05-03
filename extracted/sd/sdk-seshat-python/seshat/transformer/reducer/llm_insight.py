@@ -403,7 +403,7 @@ class LLMInsightExtractor(SFrameReducer):
         )
         results = []
         for d in inputs:
-            results.extend(extract_func(**d))
+            results.extend(extract_func(**d) or [])
         results = pd.DataFrame(results)
 
         if self.expand_on_id and not results.empty:

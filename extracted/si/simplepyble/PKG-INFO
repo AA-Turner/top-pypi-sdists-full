@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simplepyble
-Version: 0.12.1
+Version: 0.14.0
 Summary: The ultimate fully-fledged cross-platform BLE library, designed for simplicity and ease of use.
 Home-page: https://github.com/simpleble/simpleble
 Author: Kevin Dewald

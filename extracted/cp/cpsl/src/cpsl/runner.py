@@ -268,6 +268,23 @@ def _wants_request_context(fn) -> bool:
         return False
 
 
+def _wants_session(fn) -> bool:
+    """True if fn declares a parameter named 'session' or type-hinted as Session."""
+    try:
+        sig = inspect.signature(fn)
+        for param in sig.parameters.values():
+            if param.name == "session":
+                return True
+            hint = param.annotation
+            if hint is inspect.Parameter.empty:
+                continue
+            if hint is Session or (isinstance(hint, str) and "Session" in hint):
+                return True
+    except (ValueError, TypeError):
+        return False
+    return False
+
+
 class Runner:
     # Latest Runner instance for this process. Task subprocess shims reuse this
     # slot to attach gateway stubs to helper APIs that run outside the main
@@ -708,6 +725,45 @@ class Runner:
             db=getattr(self._instance, "db", None),
             app=self._app_obj,
         )
+
+    async def _build_request_session(self, request: web.Request) -> Session:
+        """Build a Session from gateway-forwarded request headers.
+
+        Data handlers use this for ``session: cpsl.Session`` parameters.
+        When a real session id is present, hydrate history/data from the
+        session service. Otherwise return an identity-only session shell.
+        """
+        session_id = request.headers.get(HEADER_SESSION_ID, "")
+        user_id = request.headers.get(HEADER_USER_ID, "")
+        email = request.headers.get(HEADER_EMAIL, "")
+        owner_id = request.headers.get(HEADER_ORG_ID, "")
+
+        if session_id and session_id in self._sessions:
+            session = self._sessions[session_id]
+        else:
+            session = Session(
+                id=session_id,
+                user=UserInfo(
+                    id=user_id,
+                    email=email or None,
+                    org_id=UserInfo.org_id_from_owner_id(owner_id),
+                ),
+                channel=SessionChannel(type=DEFAULT_CHANNEL_TYPE),
+                history=[],
+                data={},
+                integrations=await self._fetch_integrations(email=email) if email else {},
+            )
+            if session_id:
+                self._sessions[session_id] = session
+
+        if session_id:
+            await self._hydrate_session(session)
+        self._bind_session_db(session)
+        session._runner = self
+        session._runner_stub = self._runner_stub
+        session._session_stub = self._session_stub
+        session._app_id = self._app_id
+        return session
 
     def _registered_home(self) -> dict[str, Any] | None:
         from .app import _REGISTERED_CLASSES
@@ -1605,6 +1661,8 @@ class Runner:
         data_sources: list[dict] = []
         theme: dict | None = None
         home: dict | None = None
+        chat: dict | None = None
+        shell: dict | None = None
         has_message_handler = bool(self._hooks.get(_MESSAGE_ATTR))
         for reg in _REGISTERED_CLASSES:
             has_message_handler = has_message_handler or bool(reg.get("has_message_handler"))
@@ -1626,6 +1684,10 @@ class Runner:
                         theme[key] = _asset_to_data_uri(asset)
             if reg.get("home"):
                 home = dict(reg["home"])
+            if reg.get("chat"):
+                chat = dict(reg["chat"])
+            if reg.get("shell"):
+                shell = dict(reg["shell"])
 
         collections = self._get_all_collections()
         settings = self._get_all_settings()
@@ -1695,6 +1757,8 @@ class Runner:
 
         if home and home.get("widget_tree"):
             home["widget_tree"] = _resolve_widget(home["widget_tree"])
+        if chat and chat.get("widget_tree"):
+            chat["widget_tree"] = _resolve_widget(chat["widget_tree"])
 
         meta: dict = {
             "endpoints": endpoints,
@@ -1712,6 +1776,10 @@ class Runner:
             meta["theme"] = theme
         if home:
             meta["home"] = home
+        if chat:
+            meta["chat"] = chat
+        if shell:
+            meta["shell"] = shell
         return meta
 
     def _mount_endpoints(self, app: web.Application) -> None:
@@ -1860,6 +1928,7 @@ class Runner:
     def _wrap_data_source(self, fn):
         access = getattr(fn, _ACCESS_ATTR, ACCESS_PUBLIC)
         needs_ctx = _wants_request_context(fn)
+        needs_session = _wants_session(fn)
 
         async def handler(request: web.Request) -> web.Response:
             if (
@@ -1867,9 +1936,14 @@ class Runner:
                 and request.headers.get(HEADER_AUTHENTICATED) != "true"
             ):
                 return web.json_response({"error": "authentication_required"}, status=401)
-            identity_token = self._set_session_on_refs(self._build_request_identity(request))
+            session = await self._build_request_session(request) if needs_session else None
+            identity_token = self._set_session_on_refs(
+                session if session is not None else self._build_request_identity(request)
+            )
             try:
                 kwargs = {k: v for k, v in request.query.items() if k not in _RESERVED_QUERY_KEYS}
+                if needs_session:
+                    kwargs.setdefault("session", session)
                 if needs_ctx:
                     ctx = await self._build_request_context(request)
                     result = await _maybe_await(fn(ctx, **kwargs))

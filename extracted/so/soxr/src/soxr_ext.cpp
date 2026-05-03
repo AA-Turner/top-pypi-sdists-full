@@ -13,7 +13,6 @@ Python-SoXR is a Python wrapper of libsoxr.
 #include <algorithm>
 #include <cmath>
 #include <memory>
-#include <typeinfo>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
@@ -23,7 +22,6 @@ Python-SoXR is a Python wrapper of libsoxr.
 #include "csoxr_version.h"
 
 
-using std::type_info;
 using std::make_unique;
 
 namespace nb = nanobind;
@@ -31,56 +29,49 @@ using namespace nb::literals;
 using nb::ndarray;
 
 
-static soxr_datatype_t to_soxr_datatype(const type_info& ntype) {
-    if (ntype == typeid(float))
-        return SOXR_FLOAT32_I;
-    else if (ntype == typeid(double))
-        return SOXR_FLOAT64_I;
-    else if (ntype == typeid(int32_t))
-        return SOXR_INT32_I;
-    else if (ntype == typeid(int16_t))
-        return SOXR_INT16_I;
-    else
-        throw nb::type_error("Data type not support");
-}
+template <typename T> constexpr soxr_datatype_t to_i_dtype = [] {
+    static_assert(sizeof(T) == 0, "Unsupported type for SOXR");
+}();
+template <> constexpr soxr_datatype_t to_i_dtype<float>   = SOXR_FLOAT32_I;
+template <> constexpr soxr_datatype_t to_i_dtype<double>  = SOXR_FLOAT64_I;
+template <> constexpr soxr_datatype_t to_i_dtype<int32_t> = SOXR_INT32_I;
+template <> constexpr soxr_datatype_t to_i_dtype<int16_t> = SOXR_INT16_I;
 
-static soxr_datatype_t to_soxr_split_dtype(const type_info& ntype) {
-    if (ntype == typeid(float))
-        return SOXR_FLOAT32_S;
-    else if (ntype == typeid(double))
-        return SOXR_FLOAT64_S;
-    else if (ntype == typeid(int32_t))
-        return SOXR_INT32_S;
-    else if (ntype == typeid(int16_t))
-        return SOXR_INT16_S;
-    else
-        throw nb::type_error("Data type not support");
-}
+template <typename T> constexpr soxr_datatype_t to_s_dtype = [] {
+    static_assert(sizeof(T) == 0, "Unsupported type for SOXR");
+}();
+template <> constexpr soxr_datatype_t to_s_dtype<float>   = SOXR_FLOAT32_S;
+template <> constexpr soxr_datatype_t to_s_dtype<double>  = SOXR_FLOAT64_S;
+template <> constexpr soxr_datatype_t to_s_dtype<int32_t> = SOXR_INT32_S;
+template <> constexpr soxr_datatype_t to_s_dtype<int16_t> = SOXR_INT16_S;
 
 
 class CSoxr {
     soxr_t _soxr = nullptr;
-    const double _oi_rate;
+    double _oi_ratio;           // out_rate/in_rate
+    std::unique_ptr<uint8_t[]> _y_buf;
+    size_t _y_buf_bytes = 0;    // _y_buf size in bytes
+    size_t _olen = 0;           // _y_buf size in frames
 
 public:
     const double _in_rate;
     const double _out_rate;
     const soxr_datatype_t _ntype;
     const unsigned _channels;
-    const size_t _div_len;
+    const size_t _div_len;      // length to divide long input (in frames)
     bool _ended = false;
 
     CSoxr(double in_rate, double out_rate, unsigned num_channels,
-          soxr_datatype_t ntype, unsigned long quality) :
+          soxr_datatype_t ntype, unsigned long quality, bool vr) :
             _in_rate(in_rate),
             _out_rate(out_rate),
-            _oi_rate(out_rate / in_rate),
+            _oi_ratio(out_rate / in_rate),
             _ntype(ntype),
             _channels(num_channels),
             _div_len(std::max(1000., 48000 * _in_rate / _out_rate)) {
         soxr_error_t err = NULL;
         soxr_io_spec_t io_spec = soxr_io_spec(ntype, ntype);
-        soxr_quality_spec_t quality_spec = soxr_quality_spec(quality, 0);
+        soxr_quality_spec_t quality_spec = soxr_quality_spec(quality, vr ? SOXR_VR : 0);
 
         _soxr = soxr_create(
             in_rate, out_rate, num_channels,
@@ -96,6 +87,46 @@ public:
     }
 
     template <typename T>
+    T* _resize_ybuf(size_t req_size, bool copy) {
+        if (_y_buf && req_size < _y_buf_bytes)
+            return reinterpret_cast<T*>(_y_buf.get());
+
+        // Grow to next power of 2
+        size_t new_size = 1024;
+        while (new_size < req_size) new_size <<= 1;
+
+        auto new_buf = std::make_unique<uint8_t[]>(new_size);
+        if (copy && _y_buf) {
+            std::copy_n(_y_buf.get(), _y_buf_bytes, new_buf.get());
+        }
+        _y_buf = std::move(new_buf);
+        _y_buf_bytes = new_size;
+        _olen = _y_buf_bytes / (sizeof(T) * _channels);
+
+        return reinterpret_cast<T*>(_y_buf.get());
+    }
+
+    template <typename T>
+    T* _flush(soxr_in_t input, size_t& out_pos) {
+        // flush until no more output
+        T* y = reinterpret_cast<T*>(_y_buf.get());
+        size_t odone = 0;
+        do {
+            if (_olen <= out_pos) {
+                y = _resize_ybuf<T>(_y_buf_bytes * 2, true);
+            }
+            soxr_error_t err = soxr_process(
+                _soxr,
+                input, 0, NULL,
+                &y[out_pos*_channels], _olen-out_pos, &odone);
+            out_pos += odone;
+
+            if (err != NULL) throw std::runtime_error(err);
+        } while (0 < odone);
+        return y;
+    }
+
+    template <typename T>
     auto process(
             ndarray<const T, nb::ndim<2>, nb::c_contig, nb::device::cpu> x,
             bool last=false) {
@@ -107,7 +138,7 @@ public:
         if (channels != _channels)
             throw std::invalid_argument("Channel num mismatch");
 
-        const soxr_datatype_t ntype = to_soxr_datatype(typeid(T));
+        constexpr soxr_datatype_t ntype = to_i_dtype<T>;
 
         if (ntype != _ntype)
             throw nb::type_error("Data type mismatch");
@@ -121,12 +152,10 @@ public:
 
             const size_t ilen = x.shape(0);
 
-            // This is slower then allocating fixed `ilen * _oi_rate`.
-            // But it insures lowest output delay provided by libsoxr.
-            const size_t olen = soxr_delay(_soxr) + ilen * _oi_rate + 1;
-
-            // alloc
-            y = new T[olen * channels] { 0 };
+            // This is slower than returning fixed `ilen * _oi_ratio` buffers w/o copying.
+            // But it ensures the lowest output delay provided by libsoxr.
+            const size_t req_len = soxr_delay(_soxr) + ilen * _oi_ratio + 1;
+            y = _resize_ybuf<T>(sizeof(T) * req_len * channels, false);
 
             // divide long input and process
             size_t odone = 0;
@@ -134,31 +163,28 @@ public:
                 err = soxr_process(
                     _soxr,
                     &x.data()[idx*channels], std::min(_div_len, ilen-idx), NULL,
-                    &y[out_pos*channels], olen-out_pos, &odone);
+                    &y[out_pos*channels], _olen-out_pos, &odone);
                 out_pos += odone;
+
+                if (_olen <= out_pos) {
+                    // for VR mode, output buffer may be full
+                    y = _flush<T>(&x.data()[idx*channels], out_pos);
+                }
             }
 
             // flush if last input
             if (last) {
                 _ended = true;
-                err = soxr_process(
-                    _soxr,
-                    NULL, 0, NULL,
-                    &y[out_pos*channels], olen-out_pos, &odone);
-                out_pos += odone;
+                y = _flush<T>(NULL, out_pos);
             }
         }
 
         if (err) {
-            delete[] y;
             throw std::runtime_error(err);
         }
 
-        // Delete 'y' when the 'owner' capsule expires
-        nb::capsule owner(y, [](void *p) noexcept {
-            delete[] (T *) p;
-        });
-        return ndarray<nb::numpy, T>(y, { out_pos, channels }, owner);
+        // Return a copy
+        return ndarray<nb::numpy, T>(y, { out_pos, channels }).cast();
     }
 
     size_t num_clips() { return *soxr_num_clips(_soxr); }
@@ -169,6 +195,12 @@ public:
         soxr_error_t err = soxr_clear(_soxr);
         if (err != NULL) throw std::runtime_error(err);
         _ended = false;
+    }
+
+    void set_io_ratio(double io_ratio, size_t slew_len=0) {
+        soxr_error_t err = soxr_set_io_ratio(_soxr, io_ratio, slew_len);
+        if (err != NULL) throw std::runtime_error(err);
+        _oi_ratio = std::max(_oi_ratio, 1 / io_ratio);
     }
 };
 
@@ -189,7 +221,7 @@ auto csoxr_divide_proc(
     do {
         nb::gil_scoped_release release;
 
-        const soxr_datatype_t ntype = to_soxr_datatype(typeid(T));
+        constexpr soxr_datatype_t ntype = to_i_dtype<T>;
 
         // init soxr
         const soxr_io_spec_t io_spec = soxr_io_spec(ntype, ntype);
@@ -264,7 +296,7 @@ auto csoxr_split_ch(
     do {
         nb::gil_scoped_release release;
 
-        const soxr_datatype_t ntype = to_soxr_split_dtype(typeid(T));
+        constexpr soxr_datatype_t ntype = to_s_dtype<T>;
 
         // init soxr
         const soxr_io_spec_t io_spec = soxr_io_spec(ntype, ntype);
@@ -336,7 +368,7 @@ auto csoxr_oneshot(
     const size_t olen = ilen * out_rate / in_rate + 1;
     unsigned channels = x.shape(1);
 
-    const soxr_datatype_t ntype = to_soxr_datatype(typeid(T));
+    constexpr soxr_datatype_t ntype = to_i_dtype<T>;
 
     // make soxr config
     soxr_error_t err = NULL;
@@ -379,7 +411,7 @@ NB_MODULE(soxr_ext, m) {
         .def_ro("ntype", &CSoxr::_ntype)
         .def_ro("channels", &CSoxr::_channels)
         .def_ro("ended", &CSoxr::_ended)
-        .def(nb::init<double, double, unsigned, soxr_datatype_t, unsigned long>())
+        .def(nb::init<double, double, unsigned, soxr_datatype_t, unsigned long, bool>())
         .def("process_float32", &CSoxr::process<float>)
         .def("process_float64", &CSoxr::process<double>)
         .def("process_int32", &CSoxr::process<int32_t>)
@@ -387,7 +419,8 @@ NB_MODULE(soxr_ext, m) {
         .def("num_clips", &CSoxr::num_clips)
         .def("delay", &CSoxr::delay)
         .def("engine", &CSoxr::engine)
-        .def("clear", &CSoxr::clear);
+        .def("clear", &CSoxr::clear)
+        .def("set_io_ratio", &CSoxr::set_io_ratio);
 
     m.def("csoxr_divide_proc_float32", csoxr_divide_proc<float>);
     m.def("csoxr_divide_proc_float64", csoxr_divide_proc<double>);

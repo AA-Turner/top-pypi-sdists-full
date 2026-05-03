@@ -55,7 +55,7 @@ from litestar_vite.plugin._utils import (
 from litestar_vite.utils import read_hotfile_url
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncGenerator, Generator
 
     from click import Group
     from litestar import Litestar
@@ -483,7 +483,7 @@ class VitePlugin(InitPluginProtocol, CLIPlugin):
         if self._config.inertia is not None:
             app_config = self._configure_inertia(app_config)
 
-        if JINJA_INSTALLED and self._config.mode in {"template", "htmx"}:
+        if JINJA_INSTALLED and self._config.mode == "template":
             self._configure_jinja_callables(app_config)
 
         skip_static = self._config.mode == "external" and self._config.is_dev_mode
@@ -600,7 +600,7 @@ class VitePlugin(InitPluginProtocol, CLIPlugin):
             log_warn(f"Type export failed: {e}")
 
     @contextmanager
-    def server_lifespan(self, app: "Litestar") -> "Iterator[None]":
+    def server_lifespan(self, app: "Litestar") -> "Generator[None, None, None]":
         """Server-level lifespan context manager (runs ONCE per server, before workers).
 
         This is called by Litestar CLI before workers start. It handles:
@@ -657,7 +657,7 @@ class VitePlugin(InitPluginProtocol, CLIPlugin):
             yield
 
     @asynccontextmanager
-    async def lifespan(self, app: "Litestar") -> "AsyncIterator[None]":
+    async def lifespan(self, app: "Litestar") -> "AsyncGenerator[None, None]":
         """Worker-level lifespan context manager (runs per worker process).
 
         This is auto-registered in `on_app_init` and handles per-worker initialization:

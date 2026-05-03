@@ -40,21 +40,69 @@ class Page(_Widget):
 class Row(_Widget):
     _type = "row"
 
-    def __init__(self, children: list[_Widget]) -> None:
+    def __init__(
+        self,
+        children: list[_Widget],
+        *,
+        columns: list[str | int | float] | None = None,
+        min_widths: list[int | str] | int | str | None = None,
+        gap: int | str | None = None,
+        fill: bool = False,
+        align: Literal["start", "center", "end", "stretch"] | None = None,
+    ) -> None:
         self.children = children
+        self.columns = columns
+        self.min_widths = min_widths
+        self.gap = gap
+        self.fill = fill
+        self.align = align
 
     def to_dict(self) -> dict[str, Any]:
-        return {"type": self._type, "children": [c.to_dict() for c in self.children]}
+        d: dict[str, Any] = {"type": self._type, "children": [c.to_dict() for c in self.children]}
+        if self.columns is not None:
+            d["columns"] = list(self.columns)
+        if self.min_widths is not None:
+            d["min_widths"] = (
+                list(self.min_widths) if isinstance(self.min_widths, list) else self.min_widths
+            )
+        if self.gap is not None:
+            d["gap"] = self.gap
+        if self.fill:
+            d["fill"] = True
+        if self.align is not None:
+            d["align"] = self.align
+        return d
 
 
 class Column(_Widget):
     _type = "column"
 
-    def __init__(self, children: list[_Widget]) -> None:
+    def __init__(
+        self,
+        children: list[_Widget],
+        *,
+        width: int | str | None = None,
+        flex: int | float | str | None = None,
+        gap: int | str | None = None,
+        fill: bool = False,
+    ) -> None:
         self.children = children
+        self.width = width
+        self.flex = flex
+        self.gap = gap
+        self.fill = fill
 
     def to_dict(self) -> dict[str, Any]:
-        return {"type": self._type, "children": [c.to_dict() for c in self.children]}
+        d: dict[str, Any] = {"type": self._type, "children": [c.to_dict() for c in self.children]}
+        if self.width is not None:
+            d["width"] = self.width
+        if self.flex is not None:
+            d["flex"] = self.flex
+        if self.gap is not None:
+            d["gap"] = self.gap
+        if self.fill:
+            d["fill"] = True
+        return d
 
 
 class Card(_Widget):
@@ -652,6 +700,7 @@ class FileBrowser(_Widget):
         allow_delete: bool = True,
         allow_rename: bool = True,
         allow_mkdir: bool = True,
+        fill: bool = False,
     ) -> None:
         if not mount or not mount.startswith("/"):
             raise ValueError("FileBrowser mount must be an absolute app path, e.g. '/data'")
@@ -667,6 +716,7 @@ class FileBrowser(_Widget):
         self.allow_delete = allow_delete
         self.allow_rename = allow_rename
         self.allow_mkdir = allow_mkdir
+        self.fill = fill
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -678,9 +728,45 @@ class FileBrowser(_Widget):
             "allow_delete": self.allow_delete,
             "allow_rename": self.allow_rename,
             "allow_mkdir": self.allow_mkdir,
+            "fill": self.fill,
         }
         if self.title is not None:
             d["title"] = self.title
+        return d
+
+
+class ChatPanel(_Widget):
+    """Placeholder for the active chat session inside ``@app.chat_page()``.
+
+    ``ChatPanel`` does not create a separate conversation. The hosted UI
+    replaces it with the normal chat stream/composer for the active session.
+    """
+
+    _type = "chat_panel"
+
+    def __init__(
+        self,
+        *,
+        title: str | None = None,
+        placeholder: str | None = None,
+        height: int | None = None,
+        show_header: bool = True,
+    ) -> None:
+        if height is not None and height <= 0:
+            raise ValueError("ChatPanel height must be positive")
+        self.title = title
+        self.placeholder = placeholder
+        self.height = height
+        self.show_header = show_header
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"type": self._type, "show_header": self.show_header}
+        if self.title is not None:
+            d["title"] = self.title
+        if self.placeholder is not None:
+            d["placeholder"] = self.placeholder
+        if self.height is not None:
+            d["height"] = self.height
         return d
 
 

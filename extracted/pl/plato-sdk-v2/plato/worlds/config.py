@@ -143,6 +143,19 @@ class AgentConfig(BaseModel):
         ge=1,
         description="Max concurrent pooled agent runtimes for this config.",
     )
+    ssh_probe_timeout: int = Field(
+        default=30,
+        ge=1,
+        description=(
+            "Timeout in seconds for short agent VM SSH probes, such as warm-pool "
+            "health checks and pre-execution setup checks."
+        ),
+    )
+    ssh_probe_retries: int = Field(
+        default=3,
+        ge=1,
+        description=("Attempts for short agent VM SSH probes before treating the VM as unhealthy."),
+    )
     browser_tooling: bool = Field(
         default=False,
         description=(

@@ -41,6 +41,7 @@ TRAINING_STATUS_URL = (
 ENDURANCE_SCORE_URL = f"{GARMIN_CONNECT_API}/metrics-service/metrics/endurancescore"
 HILL_SCORE_URL = f"{GARMIN_CONNECT_API}/metrics-service/metrics/hillscore"
 FITNESS_AGE_URL = f"{GARMIN_CONNECT_API}/fitnessage-service/fitnessage"
+SENSORS_URL = f"{GARMIN_CONNECT_API}/device-service/sensors"
 LACTATE_THRESHOLD_URL = (
     f"{GARMIN_CONNECT_API}/biometric-service/biometric/latestLactateThreshold"
 )

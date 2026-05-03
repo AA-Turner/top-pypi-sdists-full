@@ -83,19 +83,47 @@ class CallbackList:
         new._inject(self._exctract())
         return new
 
-    def __call__(self, callback: Callable) -> Callable:
-        """Ajoute une fonction"""
+    def __call__(self, callback: Callable, once: bool = False) -> Callable:
+        """Ajoute une fonction
+        
+        Args:
+            callback: fonction à ajouter
+            once: supprime la fonction après le premier appel
+
+        Returns:
+            token: fonction de suppression automatique du callback
+        """
+        if once:
+            token_holder = [None]
+            def _once(*args, **kwargs):
+                token_holder[0]()
+                callback(*args, **kwargs)
+            token_holder[0] = self._make_delete_token(_once)
+            self._callbacks.append(_once)
+            return token_holder[0]
+        
         self._callbacks.append(callback)
-        return callback
+        return self._make_delete_token(callback)
     
-    def remove(self, func: Callable) -> Callable:
-        """Supprime une fonction"""
-        self._callbacks.remove(func)
+    def remove(self, callback: Callable) -> Callable:
+        """Supprime une fonction
+        
+        Args:
+            callback: fonction à supprimer
+
+        Returns:
+            callback: fonction supprimée
+        """
+        self._callbacks.remove(callback)
 
     def trigger(self, *args, **kwargs) -> None:
         """Appelle les fonctions"""
         for func in self._callbacks:
             func(*args, **kwargs)
+
+    def __len__(self) -> int:
+        """Renvoie le nombre de callbacks assignés"""
+        return len(self._callbacks)
     
     # ======================================== INTERNALS ========================================
     def _inject(self, callbacks: list[Callable]) -> None:
@@ -105,6 +133,12 @@ class CallbackList:
     def _exctract(self) -> list[Callable]:
         """Extrait les callbacks"""
         return self._callbacks
+    
+    def _make_delete_token(self, func: Callable) -> Callable[[], None]:
+        """Génère un token de suppression"""
+        def delete() -> None:
+            self._callbacks.remove(func)
+        return delete
 
 # ======================================== EXPORTS ========================================
 __all__ = [

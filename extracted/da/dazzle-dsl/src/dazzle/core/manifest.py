@@ -336,6 +336,64 @@ class TenantConfig:
 
 
 @dataclass
+class NotificationsConfig:
+    """Transactional-notification provider configuration (#952).
+
+    Cycle 2 ships the dataclass + parser; cycle 3+ wires real SMTP /
+    SendGrid / SES adapters that consume it. The default ``log``
+    provider — used when no ``[notifications]`` block is declared —
+    writes every send to the Python logger so adopters can wire
+    notifications into their templates and confirm dispatch shape
+    before turning on real delivery.
+
+    Attributes:
+        provider: Adapter key. ``"log"`` (default) sends to the logger
+            only — no network. ``"smtp"`` (cycle 3) talks to an SMTP
+            server. ``"sendgrid"`` / ``"ses"`` (cycle 6) hit the
+            respective HTTP APIs.
+        from_address: Default ``From:`` for outbound email. Per-
+            notification ``from:`` overrides land in cycle 3.
+        smtp_host / smtp_port / smtp_username / smtp_password: SMTP
+            connection details. Empty in the default config; populated
+            from ``[notifications.smtp]`` block when ``provider="smtp"``.
+        api_key: Provider API token for ``sendgrid`` / ``ses``. Empty
+            when ``provider="log"`` / ``"smtp"``.
+    """
+
+    provider: str = "log"  # log | smtp | sendgrid | ses
+    from_address: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    api_key: str = ""
+
+
+@dataclass
+class I18nConfig:
+    """Internationalisation configuration (#955).
+
+    Cycle 1 — locale-resolution scaffolding only. The ``_()`` Jinja filter
+    is identity-passthrough until cycle 2 wires gettext catalogues.
+
+    Attributes:
+        default_locale: Locale to fall back to when no Accept-Language
+            header / cookie / user pref resolves to a supported locale.
+            Defaults to ``"en"``.
+        supported_locales: Allow-list. The middleware narrows the
+            Accept-Language candidates to this set before picking. An
+            empty list means "every locale is supported" — useful when
+            a project hasn't decided on a translation matrix yet.
+        cookie_name: Name of the cookie that carries an explicit user
+            override (set by the locale-switcher UI primitive in cycle 6).
+    """
+
+    default_locale: str = "en"
+    supported_locales: list[str] = field(default_factory=list)
+    cookie_name: str = "dazzle_locale"
+
+
+@dataclass
 class ExtensionsConfig:
     """Registration of project-supplied extensions (closes #786).
 
@@ -431,6 +489,8 @@ class ProjectManifest:
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     dev: DevConfig = field(default_factory=DevConfig)
     tenant: TenantConfig = field(default_factory=TenantConfig)
+    i18n: I18nConfig = field(default_factory=I18nConfig)  # #955
+    notifications: NotificationsConfig = field(default_factory=NotificationsConfig)  # #952
     framework_version: str | None = None
     cdn: bool = False  # Local-first; opt-in via [ui] cdn = true in dazzle.toml
     # Asset bundling mode. Resolved at request time by `should_bundle_assets()`:
@@ -699,6 +759,40 @@ def load_manifest(path: Path) -> ProjectManifest:
         base_domain=tenant_data.get("base_domain", ""),
     )
 
+    # Parse i18n config (#955)
+    i18n_data = data.get("i18n", {}) if isinstance(data.get("i18n"), dict) else {}
+    raw_supported = i18n_data.get("supported", [])
+    if not isinstance(raw_supported, list):
+        raw_supported = []
+    i18n_config = I18nConfig(
+        default_locale=str(i18n_data.get("default", "en")),
+        supported_locales=[str(loc) for loc in raw_supported if isinstance(loc, str)],
+        cookie_name=str(i18n_data.get("cookie_name", "dazzle_locale")),
+    )
+
+    # Parse [notifications] config (#952). Allows nested [notifications.smtp]
+    # so SMTP credentials live in a dedicated subtable rather than
+    # cluttering the top level.
+    notif_data = (
+        data.get("notifications", {}) if isinstance(data.get("notifications"), dict) else {}
+    )
+    smtp_data = notif_data.get("smtp", {}) if isinstance(notif_data.get("smtp"), dict) else {}
+    valid_providers = {"log", "smtp", "sendgrid", "ses"}
+    provider = str(notif_data.get("provider", "log")).lower()
+    if provider not in valid_providers:
+        raise ValueError(
+            f"[notifications] provider must be one of {sorted(valid_providers)!r}; got {provider!r}"
+        )
+    notifications_config = NotificationsConfig(
+        provider=provider,
+        from_address=str(notif_data.get("from", "") or notif_data.get("from_address", "")),
+        smtp_host=str(smtp_data.get("host", "")),
+        smtp_port=int(smtp_data.get("port", 587)),
+        smtp_username=str(smtp_data.get("username", "")),
+        smtp_password=str(smtp_data.get("password", "")),
+        api_key=str(notif_data.get("api_key", "")),
+    )
+
     # Parse URLs config
     urls_data = data.get("urls", {})
     urls_config = URLsConfig(
@@ -754,6 +848,8 @@ def load_manifest(path: Path) -> ProjectManifest:
         database=database_config,
         dev=dev_config,
         tenant=tenant_config,
+        i18n=i18n_config,
+        notifications=notifications_config,
         framework_version=project.get("framework_version"),
         cdn=cdn_enabled,
         assets=assets_mode,

@@ -469,10 +469,19 @@ class DazzleBackendApp:
             assert self._database_url is not None, "database_url required for tenant isolation"
             registry = TenantRegistry(self._database_url)
             registry.ensure_table()
+
+            # #957 cycle 8 — pull per_tenant_config schema off the
+            # linked tenancy spec so the middleware can coerce the
+            # JSONB config and expose `request.state.tenant_config`.
+            _per_tenant_schema: dict[str, str] = {}
+            if self._appspec and self._appspec.tenancy:
+                _per_tenant_schema = dict(self._appspec.tenancy.per_tenant_config)
+
             self._app.add_middleware(
                 TenantMiddleware,
                 resolver=resolver,
                 registry=registry,
+                per_tenant_config_schema=_per_tenant_schema,
             )
 
         # Exception handlers (v0.28.0)
@@ -707,6 +716,27 @@ class DazzleBackendApp:
                 service.on_updated(h.function)
             for h in registry.get_hooks("entity.post_delete", entity_name):
                 service.on_deleted(h.function)
+
+        # #956 cycle 4 — wire the audit emitter callbacks against
+        # services for every `audit on X:` block. Silent no-op when
+        # the AppSpec has no audit declarations.
+        from dazzle_back.runtime.audit_wiring import register_audit_callbacks
+
+        register_audit_callbacks(self._services, list(self._appspec.audits))
+
+        # #953 cycle 6 — wire job-trigger callbacks. Pure-scheduled
+        # jobs (no triggers) are skipped here; cycle-7's cron
+        # scheduler enqueues those instead. The in-memory queue
+        # accumulates messages even before a worker is running;
+        # cycle-7+ will start the worker loop. Cycle-8 will swap
+        # the in-memory queue for `RedisJobQueue` satisfying the
+        # same Protocol — no caller change required.
+        if self._appspec.jobs:
+            from dazzle_back.runtime.job_queue import InMemoryJobQueue
+            from dazzle_back.runtime.job_triggers import register_job_triggers
+
+            self._job_queue = InMemoryJobQueue()
+            register_job_triggers(self._services, list(self._appspec.jobs), self._job_queue)
 
         # Wire post_upload hooks to file upload callbacks (v0.39.0, #437)
         if hasattr(self, "_upload_callbacks"):
@@ -1030,6 +1060,13 @@ class DazzleBackendApp:
 
         entity_storage_bindings = build_entity_storage_bindings(self._appspec)
 
+        # #957 cycle 6: pull admin_personas off the linked tenancy spec.
+        # `_appspec.tenancy` may be None for apps without a `tenancy:`
+        # block — empty list is the safe default.
+        _admin_personas: list[str] = []
+        if self._appspec and self._appspec.tenancy:
+            _admin_personas = list(self._appspec.tenancy.admin_personas)
+
         route_generator = RouteGenerator(
             services=self._services,
             models=self._models,
@@ -1054,6 +1091,7 @@ class DazzleBackendApp:
             entity_display_fields=entity_display_fields,
             db_manager=self._db_manager,
             entity_storage_bindings=entity_storage_bindings,
+            admin_personas=_admin_personas,
         )
 
         # Cycle 249 (EX-049): populate persona_backed_entities from appspec
@@ -1100,6 +1138,22 @@ class DazzleBackendApp:
                 auth_dep=auth_dep,
             )
             self._app.include_router(grant_router)
+
+        # #956 cycle 11 — audit-history HTMX fragment route. Only
+        # registered when the AppSpec declares at least one
+        # `audit on X:` block (cycle-2's linker injects the
+        # AuditEntry service in that case).
+        if self._appspec and self._appspec.audits:
+            from dazzle_back.runtime.audit_history_routes import (
+                create_audit_history_routes,
+            )
+
+            audit_history_router = create_audit_history_routes(
+                audit_service=self._services.get("AuditEntry"),
+                audits=list(self._appspec.audits),
+                auth_dep=auth_dep,
+            )
+            self._app.include_router(audit_history_router)
 
         # File uploads
         if self._enable_files:

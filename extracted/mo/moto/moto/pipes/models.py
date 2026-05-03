@@ -1,10 +1,12 @@
 """EventBridgePipesBackend class with methods for supported APIs."""
 
-from typing import Any, Optional
+from enum import Enum
+from typing import Any
 
 from moto.core.base_backend import BackendDict, BaseBackend
 from moto.core.common_models import BaseModel
 from moto.core.utils import utcnow
+from moto.moto_api._internal.managed_state_model import ManagedState
 from moto.utilities.paginator import paginate
 from moto.utilities.utils import get_partition
 
@@ -20,7 +22,27 @@ PAGINATION_MODEL = {
 }
 
 
-class Pipe(BaseModel):
+class PipeStatus(str, Enum):
+    CREATING = "CREATING"
+    RUNNING = "RUNNING"
+    STARTING = "STARTING"
+    STOPPING = "STOPPING"
+    STOPPED = "STOPPED"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
+
+    @classmethod
+    def status_transitions(self) -> list[tuple[str | None, str]]:
+        return [
+            (PipeStatus.CREATING.value, PipeStatus.RUNNING.value),
+            (PipeStatus.STARTING.value, PipeStatus.RUNNING.value),
+            (PipeStatus.STOPPING.value, PipeStatus.STOPPED),
+            (PipeStatus.STOPPED.value, PipeStatus.STARTING.value),
+            (PipeStatus.DELETING.value, PipeStatus.DELETED.value),
+        ]
+
+
+class Pipe(BaseModel, ManagedState):
     """Represents an EventBridge Pipe."""
 
     def __init__(
@@ -31,22 +53,26 @@ class Pipe(BaseModel):
         source: str,
         target: str,
         role_arn: str,
-        description: Optional[str] = None,
-        desired_state: Optional[str] = None,
-        source_parameters: Optional[dict[str, Any]] = None,
-        enrichment: Optional[str] = None,
-        enrichment_parameters: Optional[dict[str, Any]] = None,
-        target_parameters: Optional[dict[str, Any]] = None,
-        tags: Optional[dict[str, str]] = None,
-        log_configuration: Optional[dict[str, Any]] = None,
-        kms_key_identifier: Optional[str] = None,
+        description: str | None = None,
+        desired_state: str | None = None,
+        source_parameters: dict[str, Any] | None = None,
+        enrichment: str | None = None,
+        enrichment_parameters: dict[str, Any] | None = None,
+        target_parameters: dict[str, Any] | None = None,
+        tags: dict[str, str] | None = None,
+        log_configuration: dict[str, Any] | None = None,
+        kms_key_identifier: str | None = None,
     ):
+        ManagedState.__init__(
+            self, "pipes::pipe", transitions=PipeStatus.status_transitions()
+        )
+
         self.name = name
         self.account_id = account_id
         self.region_name = region_name
         self.description = description
-        self.desired_state = desired_state or "RUNNING"
-        self.current_state = "RUNNING"
+        self.desired_state = desired_state or PipeStatus.RUNNING.value
+        self.status = PipeStatus.CREATING.value
         self.source = source
         self.source_parameters = source_parameters
         self.enrichment = enrichment
@@ -60,6 +86,10 @@ class Pipe(BaseModel):
         self.creation_time = utcnow()
         self.last_modified_time = utcnow()
         self.state_reason = None
+
+    @property
+    def current_state(self) -> str | None:
+        return self.status
 
     @property
     def arn(self) -> str:
@@ -77,18 +107,18 @@ class EventBridgePipesBackend(BaseBackend):
     def create_pipe(
         self,
         name: str,
-        description: Optional[str],
-        desired_state: Optional[str],
+        description: str | None,
+        desired_state: str | None,
         source: str,
-        source_parameters: Optional[dict[str, Any]],
-        enrichment: Optional[str],
-        enrichment_parameters: Optional[dict[str, Any]],
+        source_parameters: dict[str, Any] | None,
+        enrichment: str | None,
+        enrichment_parameters: dict[str, Any] | None,
         target: str,
-        target_parameters: Optional[dict[str, Any]],
+        target_parameters: dict[str, Any] | None,
         role_arn: str,
-        tags: Optional[dict[str, str]],
-        log_configuration: Optional[dict[str, Any]],
-        kms_key_identifier: Optional[str],
+        tags: dict[str, str] | None,
+        log_configuration: dict[str, Any] | None,
+        kms_key_identifier: str | None,
     ) -> Pipe:
         pipe = Pipe(
             name=name,
@@ -115,14 +145,16 @@ class EventBridgePipesBackend(BaseBackend):
     def describe_pipe(self, name: str) -> Pipe:
         if name not in self.pipes:
             raise NotFoundException(f"Pipe {name} not found")
-        return self.pipes[name]
+        pipe = self.pipes[name]
+        pipe.advance()
+        return pipe
 
     def delete_pipe(self, name: str) -> Pipe:
         if name not in self.pipes:
             raise NotFoundException(f"Pipe {name} not found")
         pipe = self.pipes.pop(name)
-        pipe.desired_state = "DELETED"
-        pipe.current_state = "DELETING"
+        pipe.desired_state = PipeStatus.DELETED.value
+        pipe.status = PipeStatus.DELETING.value
         return pipe
 
     def tag_resource(self, resource_arn: str, tags: dict[str, str]) -> None:
@@ -165,14 +197,21 @@ class EventBridgePipesBackend(BaseBackend):
     @paginate(pagination_model=PAGINATION_MODEL)
     def list_pipes(  # type: ignore[misc]
         self,
-        name_prefix: Optional[str],
-        desired_state: Optional[str],
-        current_state: Optional[str],
-        source_prefix: Optional[str],
-        target_prefix: Optional[str],
+        name_prefix: str | None,
+        desired_state: str | None,
+        current_state: str | None,
+        source_prefix: str | None,
+        target_prefix: str | None,
     ) -> list[dict[str, Any]]:
         """List pipes with optional filtering and pagination."""
         filtered_pipes = list(self.pipes.values())
+
+        for p in filtered_pipes:
+            # Change if needed their status to a terminal node
+            # for example RUNNING or STOPPED
+            # TODO: Here we're assumming that UPDATING/CREATING are short enough
+            # to exclude them for queries, is that True?
+            p.advance()
 
         if name_prefix:
             filtered_pipes = [
@@ -222,6 +261,28 @@ class EventBridgePipesBackend(BaseBackend):
             pipe_summaries.append(summary)
 
         return pipe_summaries
+
+    def start_pipe(self, name: str) -> Pipe:
+        if name not in self.pipes:
+            raise NotFoundException(f"Pipe {name} not found")
+        pipe: Pipe = self.pipes[name]
+        pipe.advance()
+        pipe.desired_state = PipeStatus.RUNNING.value
+        if pipe.status == PipeStatus.STOPPED.value:
+            pipe.status = PipeStatus.STARTING.value
+        pipe.last_modified_time = utcnow()
+        return pipe
+
+    def stop_pipe(self, name: str) -> Pipe:
+        if name not in self.pipes:
+            raise NotFoundException(f"Pipe {name} not found")
+        pipe: Pipe = self.pipes[name]
+        pipe.advance()
+        pipe.desired_state = PipeStatus.STOPPED.value
+        if pipe.status == PipeStatus.RUNNING.value:
+            pipe.status = PipeStatus.STOPPING.value
+        pipe.last_modified_time = utcnow()
+        return pipe
 
 
 pipes_backends = BackendDict(EventBridgePipesBackend, "pipes")

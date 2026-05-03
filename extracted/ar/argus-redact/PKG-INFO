@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: argus-redact
-Version: 0.5.8
+Version: 0.5.10
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -89,6 +89,36 @@ pip install argus-redact
 | 🔄 | **Reversible** — you get everything back, intact | Per-message key, one-line restore |
 
 Other tools shred your PII — it's gone forever. argus-redact encrypts it with a different key every time. [ETH Zurich research](https://arxiv.org/abs/2602.16800) shows LLMs can deanonymize users for $1-4/person when pseudonyms are fixed. We generate **fresh random keys per call** — the cloud sees unrelated pseudonyms every time.
+
+## Default redaction output
+
+`redact()` emits **per-type pseudonym codes**, not Chinese label literals:
+
+```python
+>>> redact("员工张三，身份证110101199003074610，电话13812345678", mode='fast', lang='zh')
+('员工P-83811，身份证ID-89732，电话138****5678',
+ {'P-83811': '张三', 'ID-89732': '110101199003074610', '138****5678': '13812345678'})
+```
+
+| Type group | Default output | Strategy | Reversible |
+|---|---|---|:---:|
+| `person` / `organization` | `P-NNNNN` / `O-NNNNN` | `pseudonym` | ✓ |
+| `phone` / `email` / `bank_card` | `138****5678` (partial digits visible) | `mask` | ✗ |
+| `id_number` / `medical` / `ssn` / ... | `ID-NNNNN` / `MED-NNNNN` / `SSN-NNNNN` | `remove` → per-type code | ✓ |
+| `self_reference` | `我` / `我妈` (kept verbatim) | `keep` | ✓ |
+
+To **unify all reversible types** under one prefix (hides PII type from the LLM):
+
+```python
+redact(text, config={
+    "_unified_prefix": "R",
+    "phone": {"strategy": "remove"},   # mask types must opt in to participate
+    "email": {"strategy": "remove"},
+})
+# → "员工R-83811，身份证R-89732，电话R-12345"
+```
+
+`<TYPE_N>` 1-based sequential token style is roadmapped for v0.6.x. See [docs/configuration.md](docs/configuration.md#unified-prefix-hide-pii-type) for full strategy reference.
 
 ## Privacy Levels
 
@@ -184,7 +214,7 @@ Pre-built wheels for all major platforms — no Rust toolchain needed to install
 
 ## North Star
 
-| Dimension | Current (v0.5.8) | Next milestone |
+| Dimension | Current (v0.5.10) | Next milestone |
 |-----------|:----------------:|:---:|
 | **Protected** | ~47 PII types, L1-L4. PII leak 0% across GPT-4o / Claude / Gemini. Cross-layer hints in 8 langs (zh/en/ja/ko/de/uk/in/br). MCP token-only key handling. Windows CI | Adversarial testing |
 | **Usable** | PRvL U=100%. Pseudonym codes + realistic mode (zh + en + RFC shared) + per-call strategy overrides + `keep` strategy + resumable streaming sessions + incremental streaming default + cross-language alias restore (zh ↔ en) | Task-aware guidance |
@@ -317,6 +347,7 @@ Meets **PIPL** · **GDPR** · **HIPAA** technical requirements as a byproduct of
 | [CLI Reference](docs/cli-reference.md) | Commands, flags, serve, MCP server |
 | [Configuration](docs/configuration.md) | Per-type strategies, enterprise mask rules, false positive reduction |
 | [Sensitive Info](docs/sensitive-info.md) | Taxonomy, privacy levels, roadmap |
+| [PII Type Catalog](docs/pii-types.md) | All 52 types — strategy, sensitivity, PIPL/GDPR/HIPAA mapping (auto-generated) |
 | [Architecture](docs/architecture.md) | Three-layer engine, cross-layer hints, pure/impure separation |
 | [Language Packs](docs/language-packs.md) | Adding new languages |
 | [Security Model](docs/security-model.md) | Threat model, compliance, per-message keys |

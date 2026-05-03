@@ -491,6 +491,7 @@ class WorldLauncher:
             "--exclude=dist",
             "--exclude=.mypy_cache",
             "--exclude=.pytest_cache",
+            "--exclude=plato-fuse",
             "-e",
             ssh_cmd,
             f"{sdk_root}/",

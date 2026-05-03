@@ -26,7 +26,7 @@ from pyhanko.sign.diff_analysis import (
     DiffResult,
     ModificationLevel,
 )
-from pyhanko.sign.general import SigningError
+from pyhanko.sign.general import SigningError, find_unique_cms_attribute
 from pyhanko.sign.signers import cms_embedder
 from pyhanko.sign.signers.pdf_byterange import BuildProps
 from pyhanko.sign.signers.pdf_cms import (
@@ -37,13 +37,10 @@ from pyhanko.sign.signers.pdf_cms import (
 from pyhanko.sign.signers.pdf_signer import PdfTBSDocument
 from pyhanko.sign.validation import (
     DocumentSecurityStore,
-    RevocationInfoValidationType,
     SignatureCoverageLevel,
     add_validation_info,
-    apply_adobe_revocation_info,
     async_validate_detached_cms,
     read_certification_data,
-    validate_pdf_ltv_signature,
     validate_pdf_signature,
     validate_pdf_timestamp,
 )
@@ -495,8 +492,10 @@ def test_ocsp_embed():
 
     val_trusted(s)
 
-    vc = apply_adobe_revocation_info(s.signer_info)
-    assert len(vc.ocsps) == 1
+    revinfo = find_unique_cms_attribute(
+        s.signer_info['signed_attrs'], "adobe_revocation_info_archival"
+    )
+    assert len(revinfo['ocsp']) == 1
 
 
 @freeze_time('2020-11-01')
@@ -528,37 +527,15 @@ def test_ocsp_without_nextupdate_embed(requests_mock):
     )
     r = PdfFileReader(out)
     s = r.embedded_signatures[0]
-    vc = apply_adobe_revocation_info(s.signer_info)
-    assert len(vc.ocsps) == 1
-    assert len(vc.crls) == 1
+    revinfo = find_unique_cms_attribute(
+        s.signer_info['signed_attrs'], "adobe_revocation_info_archival"
+    )
+    assert len(revinfo['ocsp']) == 1
+    assert len(revinfo['crl']) == 1
 
     simple_response = vc.ocsps[0]['response_bytes']['response']
     rdata = simple_response.parsed['tbs_response_data']
     assert rdata['responses'][0]['next_update'].native is None
-
-
-# noinspection PyDeprecation
-@freeze_time('2020-11-01')
-def test_adobe_revinfo_live(requests_mock, expect_deprecation):
-    w = IncrementalPdfFileWriter(BytesIO(MINIMAL_ONE_FIELD))
-    vc = live_testing_vc(requests_mock)
-    out = signers.sign_pdf(
-        w,
-        signers.PdfSignatureMetadata(
-            field_name='Sig1',
-            validation_context=vc,
-            subfilter=fields.SigSeedSubFilter.ADOBE_PKCS7_DETACHED,
-            embed_validation_info=True,
-        ),
-        signer=FROM_CA,
-        timestamper=DUMMY_TS,
-    )
-    r = PdfFileReader(out)
-    rivt_adobe = RevocationInfoValidationType.ADOBE_STYLE
-    status = validate_pdf_ltv_signature(
-        r.embedded_signatures[0], rivt_adobe, {'trust_roots': TRUST_ROOTS}
-    )
-    assert status.valid and status.trusted
 
 
 @freeze_time('2020-11-01')
@@ -575,46 +552,6 @@ async def test_meta_tsa_verify():
     with pytest.raises(PathValidationError):
         cv = CertificateValidator(TSA_CERT, validation_context=vc)
         await cv.async_validate_usage({'time_stamping'})
-
-
-# noinspection PyDeprecation
-@freeze_time('2020-11-01')
-def test_adobe_revinfo_live_nofullchain(expect_deprecation):
-    w = IncrementalPdfFileWriter(BytesIO(MINIMAL_ONE_FIELD))
-    out = signers.sign_pdf(
-        w,
-        signers.PdfSignatureMetadata(
-            field_name='Sig1',
-            validation_context=dummy_ocsp_vc(),
-            subfilter=fields.SigSeedSubFilter.ADOBE_PKCS7_DETACHED,
-            embed_validation_info=True,
-        ),
-        signer=FROM_CA,
-        timestamper=DUMMY_TS,
-    )
-    r = PdfFileReader(out)
-    rivt_adobe = RevocationInfoValidationType.ADOBE_STYLE
-    # same as for the pades test above
-    with pytest.raises(SignatureValidationError):
-        validate_pdf_ltv_signature(
-            r.embedded_signatures[0],
-            rivt_adobe,
-            {
-                'trust_roots': TRUST_ROOTS,
-                'allow_fetching': False,
-                'ocsps': [FIXED_OCSP],
-            },
-        )
-    from requests_mock import Mocker
-
-    with Mocker() as m:
-        live_testing_vc(m)
-        status = validate_pdf_ltv_signature(
-            r.embedded_signatures[0],
-            rivt_adobe,
-            {'trust_roots': TRUST_ROOTS, 'allow_fetching': True},
-        )
-        assert status.valid and not status.trusted, status.summary()
 
 
 @freeze_time('2020-11-01')
@@ -1065,96 +1002,6 @@ def test_no_revinfo_to_be_added(requests_mock, in_place):
     new_dss = DocumentSecurityStore.read_dss(PdfFileReader(output))
     assert len(new_dss.ocsps) == 1
     assert len(new_dss.crls) == 1
-
-
-# noinspection PyDeprecation
-@pytest.mark.parametrize('with_vri', [True, False])
-def test_add_revinfo_timestamp_separate_no_dss(
-    requests_mock, with_vri, expect_deprecation
-):
-    buf = BytesIO(MINIMAL)
-    w = IncrementalPdfFileWriter(buf)
-
-    # create signature & timestamp without revocation info
-    with freeze_time('2020-11-01'):
-        signers.sign_pdf(
-            w,
-            signers.PdfSignatureMetadata(field_name='Sig1'),
-            signer=FROM_CA,
-            in_place=True,
-        )
-        signers.PdfTimeStamper(timestamper=DUMMY_TS).timestamp_pdf(
-            IncrementalPdfFileWriter(buf), 'sha256', in_place=True
-        )
-
-    # fast forward 1 month
-    with freeze_time('2020-12-01'):
-        vc = live_testing_vc(requests_mock)
-        r = PdfFileReader(buf)
-        emb_sig = r.embedded_signatures[0]
-        add_validation_info(emb_sig, vc, in_place=True, add_vri_entry=with_vri)
-
-        r = PdfFileReader(buf)
-        emb_sig = r.embedded_signatures[0]
-
-        # without retroactive revinfo, the validation should fail
-        status = validate_pdf_ltv_signature(
-            emb_sig,
-            RevocationInfoValidationType.PADES_LT,
-            {'trust_roots': TRUST_ROOTS},
-        )
-        assert status.valid and not status.trusted
-
-        # with retroactive revinfo, it should be OK
-        status = validate_pdf_ltv_signature(
-            emb_sig,
-            RevocationInfoValidationType.PADES_LT,
-            {'trust_roots': TRUST_ROOTS, 'retroactive_revinfo': True},
-        )
-        assert status.valid and status.trusted
-        assert status.modification_level == ModificationLevel.LTA_UPDATES
-
-
-# noinspection PyDeprecation
-def test_add_revinfo_without_timestamp(requests_mock, expect_deprecation):
-    w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
-
-    # create signature without revocation info
-    with freeze_time('2020-11-01'):
-        out = signers.sign_pdf(
-            w,
-            signers.PdfSignatureMetadata(field_name='Sig1'),
-            signer=FROM_CA,
-            in_place=True,
-        )
-
-    # fast forward 1 month
-    with freeze_time('2020-12-01'):
-        vc = live_testing_vc(requests_mock)
-        r = PdfFileReader(out)
-        emb_sig = r.embedded_signatures[0]
-        out = add_validation_info(emb_sig, vc)
-
-        r = PdfFileReader(out)
-        emb_sig = r.embedded_signatures[0]
-
-        # even with revinfo, this should fail for lack of a timestamp
-        with pytest.raises(
-            SignatureValidationError, match='.*trusted timestamp.*'
-        ):
-            validate_pdf_ltv_signature(
-                emb_sig,
-                RevocationInfoValidationType.PADES_LT,
-                {'trust_roots': TRUST_ROOTS, 'retroactive_revinfo': True},
-            )
-
-        # ... and certainly for LTA
-        with pytest.raises(SignatureValidationError, match='Purported.*LTA.*'):
-            validate_pdf_ltv_signature(
-                emb_sig,
-                RevocationInfoValidationType.PADES_LTA,
-                {'trust_roots': TRUST_ROOTS, 'retroactive_revinfo': True},
-            )
 
 
 @pytest.mark.asyncio
@@ -1653,7 +1500,7 @@ def test_ed448():
     status = val_untrusted(s)
     assert status.md_algorithm == 'shake256_len'
 
-    assert len(s.external_digest) == 64
+    assert len(s.compute_digest()) == 64
 
     extn1, extn2 = r.root['/Extensions']['/ISO_']
     assert {extn1['/ExtensionLevel'], extn2['/ExtensionLevel']} == {
@@ -1910,3 +1757,36 @@ def test_sign_appearance_noop():
     r = PdfFileReader(out)
     appearance_new = r.root['/AcroForm']['/Fields'][0]['/AP']['/N'].data
     assert appearance_old == appearance_new
+
+
+@freeze_time('2020-11-01')
+@pytest.mark.parametrize('presign_ap', ['present', 'removed'])
+def test_sign_visible_with_separate_annot(presign_ap):
+    out = BytesIO(MINIMAL)
+    w = IncrementalPdfFileWriter(out)
+    field_spec = fields.SigFieldSpec(
+        sig_field_name='Sig1',
+        combine_annotation=False,
+        empty_field_appearance=False,
+        box=(20, 20, 80, 40),
+    )
+    fields.append_signature_field(w, sig_field_spec=field_spec)
+    w.write_in_place()
+
+    if presign_ap == 'removed':
+        w = IncrementalPdfFileWriter(out)
+        del w.root['/AcroForm']['/Fields'][0]['/Kids'][0]['/AP']
+        w.update_container(w.root['/AcroForm']['/Fields'][0]['/Kids'][0])
+        w.write_in_place()
+    w = IncrementalPdfFileWriter(out)
+    meta = signers.PdfSignatureMetadata(field_name='Sig1')
+    signer = signers.PdfSigner(signature_meta=meta, signer=FROM_CA)
+    signer.sign_pdf(w, in_place=True)
+
+    r = PdfFileReader(out)
+    emb = r.embedded_signatures[0]
+    assert emb.field_name == 'Sig1'
+    assert '/AP' not in emb.sig_field
+    assert '/AP' in emb.sig_field['/Kids'][0]
+    assert b'Digitally signed' in emb.sig_field['/Kids'][0]['/AP']['/N'].data
+    val_trusted(emb)

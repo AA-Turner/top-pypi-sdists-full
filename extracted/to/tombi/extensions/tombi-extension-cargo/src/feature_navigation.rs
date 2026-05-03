@@ -30,9 +30,9 @@ pub(crate) struct CargoTargetLocation {
 }
 
 impl CargoTargetLocation {
-    pub(crate) fn definition_location(&self) -> Option<tombi_extension::DefinitionLocation> {
+    pub(crate) fn get_location(&self) -> Option<tombi_extension::Location> {
         let uri = tombi_uri::Uri::from_file_path(&self.cargo_toml_path).ok()?;
-        Some(tombi_extension::DefinitionLocation {
+        Some(tombi_extension::Location {
             uri,
             range: self.range,
         })
@@ -335,18 +335,20 @@ pub(crate) fn feature_key_at_accessors<'a>(
     dig_keys(document_tree, &["features", feature_name.as_str()]).map(|(key, _)| key)
 }
 
-pub(crate) fn optional_dependency_value_at_accessors<'a>(
+pub(crate) fn is_optional_dependency<'a>(
     document_tree: &'a tombi_document_tree::DocumentTree,
     accessors: &'a [Accessor],
-) -> Option<&'a tombi_document_tree::Boolean> {
-    let dependency_accessors = dependency_optional_accessors(accessors)?;
+) -> bool {
+    let Some(dependency_accessors) = dependency_optional_accessors(accessors) else {
+        return false;
+    };
     let Some((_, Value::Table(table))) = dig_accessors(document_tree, dependency_accessors) else {
-        return None;
+        return false;
     };
-    let Value::Boolean(optional) = table.get("optional")? else {
-        return None;
+    let Some(Value::Boolean(optional)) = table.get("optional") else {
+        return false;
     };
-    Some(optional)
+    optional.value()
 }
 
 pub(crate) fn feature_usage_target_for_optional_dependency(

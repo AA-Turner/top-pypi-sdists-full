@@ -85,6 +85,8 @@ from .SubMenuTarget import SubMenuTarget
 from .ManagedModal import ManagedModal
 from .Modal import Modal
 from .ModalStack import ModalStack
+from .NavLink import NavLink
+from .NavLinkContext import NavLinkContext
 from .Popover import Popover
 from .PopoverDropdown import PopoverDropdown
 from .PopoverTarget import PopoverTarget
@@ -145,7 +147,6 @@ from .Kbd import Kbd
 from .Loader import Loader
 from .LoadingOverlay import LoadingOverlay
 from .Mark import Mark
-from .NavLink import NavLink
 from .NumberFormatter import NumberFormatter
 from .Overlay import Overlay
 from .Pagination import Pagination
@@ -284,6 +285,8 @@ __all__ = [
     "ManagedModal",
     "Modal",
     "ModalStack",
+    "NavLink",
+    "NavLinkContext",
     "Popover",
     "PopoverDropdown",
     "PopoverTarget",
@@ -344,7 +347,6 @@ __all__ = [
     "Loader",
     "LoadingOverlay",
     "Mark",
-    "NavLink",
     "NumberFormatter",
     "Overlay",
     "Pagination",

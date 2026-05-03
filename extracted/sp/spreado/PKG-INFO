@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: spreado
-Version: 1.1.0
+Version: 1.2.0
 Summary: 全平台内容发布工具 - 支持抖音、小红书、快手、视频号等平台
 Project-URL: Homepage, https://github.com/yourname/spreado
 Project-URL: Repository, https://github.com/yourname/spreado
 Project-URL: Issues, https://github.com/yourname/spreado/issues
 Author-email: wangruiyu <wry10150@163.com>
 License-Expression: MIT
+License-File: LICENSE
 Keywords: automation,douyin,kuaishou,social-media,upload,video,xiaohongshu
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -36,11 +37,12 @@ Description-Content-Type: text/markdown
 ## 🚀 功能特性
 
 - **多平台支持**: 一键上传至抖音、小红书、快手、腾讯视频号
-- **智能认证**: 自动处理登录和Cookie管理
+- **智能认证**: 自动处理登录和Cookie管理，支持二维码扫码登录全流程
 - **灵活调度**: 支持定时发布和草稿保存
 - **丰富配置**: 标题、描述、标签、封面、地理位置等完整设置
 - **命令行界面**: 简单易用的CLI工具
 - **程序接口**: 支持Python API集成
+- **插件化架构**: 新平台无需改动核心代码，放入 `plugins/` 目录即可自动发现
 
 ## 🤖 Agent Skill
 
@@ -59,7 +61,7 @@ Description-Content-Type: text/markdown
 
 ## 📋 系统要求
 
-- Python 3.9 或更高版本
+- Python **3.9** 或更高版本（推荐 3.10+）
 - 操作系统：Windows, macOS, Linux
 - 浏览器：自动检测系统已安装的 Chrome/Edge，或使用 Playwright Chromium
 
@@ -69,11 +71,11 @@ Description-Content-Type: text/markdown
 
 如果你不想安装 Python 环境，可以直接从 GitHub 下载官方编译好的可执行文件：
 
-| 操作系统 | 下载链接 |
-| :--- | :--- |
-| **Windows** | [Download (x64)](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-windows-x64.exe) \| [Download (ARM64)](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-windows-arm64.exe) |
-| **macOS** | [Download (Apple Silicon)](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-macos-arm64) \| [Download (Intel)](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-macos-x64) |
-| **Linux** | [Download (x64)](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-linux-x64) \| [Download (ARM64)](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-linux-arm64) |
+| 操作系统 | 下载链接 | 国内加速 |
+| :--- | :--- | :--- |
+| **Windows** | [x64](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-windows-x64.exe) \| [ARM64](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-windows-arm64.exe) | [🚀 x64](https://gh-proxy.org/https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-windows-x64.exe) \| [ARM64](https://gh-proxy.org/https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-windows-arm64.exe) |
+| **macOS** | [Silicon](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-macos-arm64) \| [Intel](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-macos-x64) | [🚀 Silicon](https://gh-proxy.org/https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-macos-arm64) \| [Intel](https://gh-proxy.org/https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-macos-x64) |
+| **Linux** | [x64](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-linux-x64) \| [ARM64](https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-linux-arm64) | [🚀 x64](https://gh-proxy.org/https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-linux-x64) \| [ARM64](https://gh-proxy.org/https://github.com/BadKid90s/Spreado/releases/latest/download/spreado-linux-arm64) |
 
 > 更多版本请前往 [GitHub Releases](https://github.com/BadKid90s/Spreado/releases) 页面。
 
@@ -115,21 +117,23 @@ pip install .
 
 ### 1. 平台登录认证
 
-首次使用需要登录各个平台：
+首次使用需要登录各个平台（会打开浏览器窗口）：
 
 ```bash
-# 登录抖音（会打开浏览器，手动完成登录）
+# 登录抖音（支持扫码/账密，等待手机确认后自动保存）
 spreado login douyin
 
 # 登录小红书
 spreado login xiaohongshu
 
-# 登录快手
+# 登录快手（跨域扫码：在 passport 页扫码，手机确认后自动跳转）
 spreado login kuaishou
 
 # 登录腾讯视频号
 spreado login shipinhao
 ```
+
+> **提示**：快手使用独立的 passport 域名登录，扫码后请在手机上确认，不要关闭浏览器，等待自动跳转即可。
 
 ### 2. 验证认证状态
 
@@ -201,16 +205,27 @@ spreado upload --help
 
 ```
 cookies/
-├── douyin_uploader/account.json
-├── xiaohongshu_uploader/account.json
-├── kuaishou_uploader/account.json
-└── shipinhao_uploader/account.json
+├── douyin/
+│   └── default/
+│       └── account.json
+├── xiaohongshu/
+│   └── default/
+│       └── account.json
+├── kuaishou/
+│   └── default/
+│       └── account.json
+└── shipinhao/
+    └── default/
+        └── account.json
 ```
+
+> 多账号支持：使用 `--cookies` 参数可指定自定义路径，或在目录中使用不同账号名替换 `default`。
 
 ### 自定义 Cookie 路径
 
 ```bash
-spreado upload douyin --video video.mp4 --title "标题" --cookies /path/to/cookies/
+# 指定自定义 Cookie 文件路径
+spreado upload douyin --video video.mp4 --title "标题" --cookies /path/to/cookies/douyin/myaccount/account.json
 ```
 
 ## 🐍 Python API 使用示例
@@ -218,13 +233,13 @@ spreado upload douyin --video video.mp4 --title "标题" --cookies /path/to/cook
 ```python
 import asyncio
 from pathlib import Path
-from spreado.publisher.douyin_uploader import DouYinUploader
+from spreado.plugins.douyin.uploader import DouYinUploader
 
 
 async def upload_video():
     # 初始化上传器
     uploader = DouYinUploader(
-        cookie_file_path=Path("cookies/douyin_uploader/account.json")
+        cookie_file_path=Path("cookies/douyin/default/account.json")
     )
 
     # 上传视频
@@ -305,9 +320,13 @@ playwright install chromium
 
 2. **Cookie 过期怎么办？**
    ```bash
-   # 重新登录
+   # 重新登录（Cookie 过期会在下次上传时自动检测并提示）
    spreado login douyin
    ```
+
+3. **快手扫码后页面跳走了？**
+   
+   扫码后请在手机上点击"确认"，不要关闭浏览器。登录检测会等待手机确认完成后再跳转，无需手动操作。
 
 3. **上传失败？**
    ```bash

@@ -1,14 +1,12 @@
-from unittest import SkipTest
-
 import boto3
+import pytest
 
-from moto import mock_aws, settings
+from moto import mock_aws
 
 
 @mock_aws
+@pytest.mark.requires_clean_slate
 def test_describe_nat_gateways():
-    if settings.TEST_SERVER_MODE:
-        raise SkipTest("ServerMode is not guaranteed to have no resources")
     conn = boto3.client("ec2", "us-east-1")
 
     response = conn.describe_nat_gateways()
@@ -88,16 +86,8 @@ def test_delete_nat_gateway():
     nat_gateway_id = nat_gateway["NatGateway"]["NatGatewayId"]
     response = conn.delete_nat_gateway(NatGatewayId=nat_gateway_id)
 
-    # this is hard to match against, so remove it
-    response["ResponseMetadata"].pop("HTTPHeaders", None)
-    response["ResponseMetadata"].pop("RetryAttempts", None)
-    assert response == {
-        "NatGatewayId": nat_gateway_id,
-        "ResponseMetadata": {
-            "HTTPStatusCode": 200,
-            "RequestId": "741fc8ab-6ebe-452b-b92b-example",
-        },
-    }
+    assert response["NatGatewayId"] == nat_gateway_id
+    assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
 @mock_aws

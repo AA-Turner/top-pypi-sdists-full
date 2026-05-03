@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from moto.core.common_models import CloudFormationModel
 from moto.moto_api._internal import mock_random
@@ -28,22 +28,48 @@ class VPCServiceConfiguration(TaggedEC2Resource, CloudFormationModel):
 
         self.gateway_load_balancer_arns = []
         self.network_load_balancer_arns = []
+        self._service_type_name = "Interface"
         for lb in load_balancers:
             if lb.type == "network":
-                self.service_type = "Interface"
+                self._service_type_name = "Interface"
                 self.network_load_balancer_arns.append(lb.arn)
             else:
-                self.service_type = "Gateway"
+                self._service_type_name = "Gateway"
                 self.gateway_load_balancer_arns.append(lb.arn)
 
         self.acceptance_required = acceptance_required
         self.manages_vpc_endpoints = False
         self.private_dns_name = private_dns_name
         self.endpoint_dns_name = f"{self.id}.{region}.vpce.amazonaws.com"
-        self.supported_regions = supported_regions
+        self._supported_region_names = supported_regions
 
         self.principals: list[str] = []
         self.ec2_backend = ec2_backend
+
+    @property
+    def service_id(self) -> str:
+        return self.id
+
+    @property
+    def service_type(self) -> list[dict[str, str]]:
+        return [{"ServiceType": self._service_type_name}]
+
+    @property
+    def base_endpoint_dns_names(self) -> list[str]:
+        return [self.endpoint_dns_name]
+
+    @property
+    def private_dns_name_configuration(self) -> dict[str, str]:
+        if self.private_dns_name:
+            return {"State": "verified", "Type": "TXT", "Value": "val", "Name": "n"}
+        return {}
+
+    @property
+    def supported_regions(self) -> list[dict[str, str]]:
+        return [
+            {"Region": region, "ServiceState": "Available"}
+            for region in self._supported_region_names
+        ]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,7 +82,7 @@ class VPCServiceConfiguration(TaggedEC2Resource, CloudFormationModel):
             "PrivateDnsNames": [{"PrivateDnsName": self.private_dns_name}],
             "ServiceId": self.id,
             "ServiceName": self.service_name,
-            "ServiceType": [{"ServiceType": self.service_type}],
+            "ServiceType": [{"ServiceType": self._service_type_name}],
             "VpcEndpointPolicySupported": True,
         }
 
@@ -73,7 +99,7 @@ class VPCServiceConfigurationBackend:
 
     def get_vpc_endpoint_service(
         self, resource_id: str
-    ) -> Optional[VPCServiceConfiguration]:
+    ) -> VPCServiceConfiguration | None:
         return self.configurations.get(resource_id)
 
     def create_vpc_endpoint_service_configuration(
@@ -100,7 +126,7 @@ class VPCServiceConfigurationBackend:
         return config
 
     def describe_vpc_endpoint_service_configurations(
-        self, service_ids: Optional[list[str]]
+        self, service_ids: list[str] | None
     ) -> list[VPCServiceConfiguration]:
         """
         The Filters, MaxResults, NextToken parameters are not yet implemented
@@ -141,8 +167,8 @@ class VPCServiceConfigurationBackend:
     def modify_vpc_endpoint_service_configuration(
         self,
         service_id: str,
-        acceptance_required: Optional[str],
-        private_dns_name: Optional[str],
+        acceptance_required: str | None,
+        private_dns_name: str | None,
         add_network_lbs: list[str],
         remove_network_lbs: list[str],
         add_gateway_lbs: list[str],
@@ -167,6 +193,6 @@ class VPCServiceConfigurationBackend:
         for lb in remove_gateway_lbs:
             config.gateway_load_balancer_arns.remove(lb)
         for reg in add_supported_regions:
-            config.supported_regions.append(reg)
+            config._supported_region_names.append(reg)
         for reg in remove_supported_regions:
-            config.supported_regions.remove(reg)
+            config._supported_region_names.remove(reg)

@@ -112,7 +112,7 @@ class RoundedRect(Shape):
         ], dtype=np.float32)
 
         # Plages angulaires pour chaque coin
-        starts = [0.0, -0.5 * math.pi, -math.pi, -1.5 * math.pi]
+        starts = [0.5 * math.pi, 0.0, -0.5 * math.pi, -math.pi]
 
         arcs = []
         for (cx, cy), start in zip(centers, starts):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista
-Version: 0.47.3
+Version: 0.48.0
 Summary: Easier Pythonic interface to VTK
 Author-email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT
@@ -42,16 +42,18 @@ Requires-Dist: cmcrameri; extra == "colormaps"
 Requires-Dist: cmocean; extra == "colormaps"
 Requires-Dist: colorcet; extra == "colormaps"
 Provides-Extra: io
+Requires-Dist: fsspec; extra == "io"
 Requires-Dist: imageio; extra == "io"
 Requires-Dist: meshio>=5.2; extra == "io"
+Requires-Dist: pyvista-zstd>=0.2.2; extra == "io"
 Provides-Extra: jupyter
 Requires-Dist: ipywidgets; extra == "jupyter"
 Requires-Dist: jupyter-server-proxy; extra == "jupyter"
 Requires-Dist: nest-asyncio2; extra == "jupyter"
 Requires-Dist: trame-client>=2.12.7; extra == "jupyter"
 Requires-Dist: trame-server!=3.7.*,!=3.8.0,>=2.11.7; extra == "jupyter"
-Requires-Dist: trame-vtk!=2.10.3,!=2.11.*; extra == "jupyter"
-Requires-Dist: trame-vtk<2.10.3,>=2.5.8; extra == "jupyter"
+Requires-Dist: trame-vtk!=2.10.3,!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,!=2.11.5,!=2.11.6; extra == "jupyter"
+Requires-Dist: trame-vtk<2.11.9,>=2.5.8; extra == "jupyter"
 Requires-Dist: trame-vuetify>=2.3.1; extra == "jupyter"
 Requires-Dist: trame>=2.5.2; extra == "jupyter"
 Dynamic: license-file
@@ -295,7 +297,7 @@ Made with `contrib rocks`_.
 Contributing
 ============
 
-.. |Contributor Covenant| image:: https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg
+.. |Contributor Covenant| image:: https://img.shields.io/badge/Contributor%20Covenant-3.0-4baaaa.svg
    :target: CODE_OF_CONDUCT.md
 
 .. |codetriage| image:: https://www.codetriage.com/pyvista/pyvista/badges/users.svg
@@ -320,13 +322,6 @@ their ideas. To learn more about contributing to PyVista, please see the
 
 .. _Contributing Guide: https://github.com/pyvista/pyvista/blob/main/CONTRIBUTING.rst
 .. _Code of Conduct: https://github.com/pyvista/pyvista/blob/main/CODE_OF_CONDUCT.md
-
-Star History
-============
-
-.. image:: https://api.star-history.com/svg?repos=pyvista/pyvista&type=Date
-   :alt: Star History Chart
-   :target: https://star-history.com/#pyvista/pyvista&Date
 
 Citing PyVista
 ==============

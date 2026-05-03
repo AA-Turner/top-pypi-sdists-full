@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
+from .._internal import expect, CallbackList
 
 from ..abc import Component
 
@@ -34,7 +34,8 @@ class Entity:
         tags(Iterable[str], optional): labels de l'entité
     """
     __slots__ = (
-        "_id", "_tags", "_active",
+        "_id", "_tags", "_active", "_dead",
+        "_on_activate", "_on_deactivate", "_on_kill",
         *_COMPONENTS.values()
         )
 
@@ -43,6 +44,12 @@ class Entity:
         self._id: str = str(uuid.uuid4())
         self._tags: set[str] = set(tags)
         self._active: bool = True
+        self._dead: bool = False
+
+        # Callbacks
+        self._on_activate: CallbackList = None
+        self._on_deactivate: CallbackList = None
+        self._on_kill: CallbackList = None
 
         # Composants
         self._transform: Transform = None
@@ -182,14 +189,58 @@ class Entity:
         """Vérifie l'activité de l'entité"""
         return self._active
     
+    def is_dead(self) -> bool:
+        """Vérifie l'état de l'entité"""
+        return self._dead
+    
+    # ======================================== HOOKS ========================================
+    @property
+    def on_activate(self) -> CallbackList:
+        """Hook d'activation"""
+        if self._on_activate is None:
+            self._on_activate = CallbackList()
+        return self._on_activate
+    
+    @property
+    def on_deactive(self) -> CallbackList:
+        """Hook de désactivation"""
+        if self._on_deactivate is None:
+            self._on_deactivate = CallbackList()
+        return self._on_deactivate
+    
+    @property
+    def on_kill(self) -> CallbackList:
+        """Hook de mort"""
+        if self._on_kill is None:
+            self._on_kill = CallbackList()
+        return self._on_kill
+    
     # ======================================== INTERFACE ========================================
     def activate(self):
         """Active l'entité"""
+        if self._active:
+            return
         self._active = True
+        if self._on_activate:
+            self._on_activate.trigger()
 
     def deactivate(self):
         """Désactive l'entité"""
+        if not self._active:
+            return
         self._active = False
+        if self._on_deactivate:
+            self._on_deactivate.trigger()
+
+    def kill(self) -> None:
+        """Détruit l'entité"""
+        if self._dead:
+            return
+        self._active = False
+        self.clear()
+        self._dead = True
+        if self._on_kill:
+            self._on_kill.trigger()
     
     # ======================================== COMPONENTS ========================================
     def add(self, component: Component) -> Entity:
@@ -219,9 +270,8 @@ class Entity:
         setattr(self, _COMPONENTS[T], component)
         return self
     
-    def remove(self, component_type: Type[Component] | str) -> Entity:
-        """
-        Supprime un composant de l'entité
+    def remove(self, component_type: Type[Component] | str) -> None:
+        """Supprime un composant de l'entité
 
         Args:
             component_type(Type[Component]): type du composant
@@ -229,12 +279,16 @@ class Entity:
         if isinstance(component_type, str):
             if component_type not in _COMPONENTS:
                 raise ValueError(f"Entity has no {component_type} component")
-            setattr(self, component_type, None)
+            setattr(self, f"_{component_type}", None)
         else:
             if component_type not in self.get_all_types():
                 raise ValueError(f"Entity has no {component_type} component")
             setattr(self, _COMPONENTS[component_type], None)
-        return self
+    
+    def clear(self) -> None:
+        """Supprime l'ensemble des composants"""
+        for component in _COMPONENTS.values():
+            setattr(self, component, None)
     
     def get(self, component_type: Type[Component] | str) -> Component:
         """

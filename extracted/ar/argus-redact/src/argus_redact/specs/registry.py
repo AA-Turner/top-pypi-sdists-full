@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Callable
+
+from argus_redact.specs._compliance import gdpr_special_for as _gdpr_special_for
+from argus_redact.specs._compliance import hipaa_for as _hipaa_for
+from argus_redact.specs._compliance import pipl_articles_for as _pipl_articles_for
 
 
 @dataclass(frozen=True)
@@ -49,6 +54,13 @@ class PIITypeDef:
     # ── Risk / Compliance ──
     sensitivity: int = 2  # 1=low, 2=medium, 3=high, 4=critical
 
+    # PIPL / GDPR / HIPAA classification — read by `assess_risk()` and
+    # exposed in `docs/pii-types.md` so downstream DPIA generators don't
+    # need to mirror the rules. (v0.5.9+)
+    pipl_articles: tuple[str, ...] = ()  # e.g. ("PIPL Art.13", "PIPL Art.51")
+    gdpr_special_category: bool = False  # GDPR Art.9 special category
+    hipaa_phi_category: str | None = None  # one of HIPAA Safe Harbor 18
+
     # ── Description ──
     description: str = ""
 
@@ -61,6 +73,15 @@ class PIITypeDef:
         if self._patterns:
             return list(self._patterns)
         return []
+
+    @property
+    def is_reversible(self) -> bool:
+        """Whether ``replace()→restore()`` recovers the original. Derived
+        from ``self.strategy``. Lazy import avoids registry → replacer cycle.
+        """
+        from argus_redact.pure.replacer import is_strategy_reversible
+
+        return is_strategy_reversible(self.strategy)
 
     def to_fixtures(self) -> list[dict]:
         """Generate test fixture entries from examples and counterexamples."""
@@ -94,7 +115,27 @@ _REGISTRY: dict[tuple[str, str], PIITypeDef] = {}
 
 
 def register(typedef: PIITypeDef) -> PIITypeDef:
-    """Register a PII type definition."""
+    """Register a PII type definition.
+
+    Compliance metadata fields are auto-derived from `name + sensitivity` via
+    `specs/_compliance.py` rules. Each field falls back independently — a
+    caller can pre-populate `pipl_articles` while still letting `gdpr_*` /
+    `hipaa_*` derive from the central rule book.
+    """
+    pipl = typedef.pipl_articles or _pipl_articles_for(typedef.name, typedef.sensitivity)
+    gdpr = typedef.gdpr_special_category or _gdpr_special_for(typedef.name)
+    hipaa = typedef.hipaa_phi_category or _hipaa_for(typedef.name)
+    if (pipl, gdpr, hipaa) != (
+        typedef.pipl_articles,
+        typedef.gdpr_special_category,
+        typedef.hipaa_phi_category,
+    ):
+        typedef = dataclasses.replace(
+            typedef,
+            pipl_articles=pipl,
+            gdpr_special_category=gdpr,
+            hipaa_phi_category=hipaa,
+        )
     key = (typedef.lang, typedef.name)
     _REGISTRY[key] = typedef
     return typedef

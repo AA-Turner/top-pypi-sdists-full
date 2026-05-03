@@ -10,6 +10,7 @@ from typing import Literal
 
 import numpy as np
 
+from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
 from pyvista.core import _validation
 from pyvista.core._typing_core import BoundsTuple
@@ -20,7 +21,6 @@ from pyvista.core.utilities.misc import _BoundsSizeMixin
 from pyvista.core.utilities.misc import _NameMixin
 from pyvista.core.utilities.misc import _NoNewAttrMixin
 from pyvista.core.utilities.transform import Transform
-from pyvista.plotting import _vtk
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -508,7 +508,7 @@ class Prop3D(_NoNewAttrMixin, _NameMixin, _BoundsSizeMixin, DisableVtkSnakeCase,
 
         >>> actor.rotation_from([[0, 1, 0], [1, 0, 0], [0, 0, 1]])
         >>> actor.orientation
-        (0.0, -180.0, -89.99999999999999)
+        (0.0, -180.0, -90.0)
 
         """
         self.orientation = _rotation_matrix_as_orientation(rotation)  # type: ignore[arg-type]

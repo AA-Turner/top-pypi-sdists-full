@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pyvista as pv
+from pyvista import _vtk
 from pyvista import vtk_version_info
 from pyvista._deprecate_positional_args import _deprecate_positional_args
 from pyvista._warn_external import warn_external
@@ -10,7 +11,6 @@ from pyvista.core._vtk_utilities import DisableVtkSnakeCase
 from pyvista.core.utilities.misc import _check_range
 from pyvista.core.utilities.misc import _NoNewAttrMixin
 
-from . import _vtk
 from .colors import Color
 from .opts import InterpolationType
 
@@ -333,7 +333,7 @@ class Property(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkProperty):
         >>> import pyvista as pv
         >>> prop = pv.Property()
         >>> prop.color
-        Color(name='lightblue', hex='#add8e6ff', opacity=255)
+        Color(name='light_blue', hex='#add8e6ff', opacity=255)
 
         >>> prop.plot()
 
@@ -1061,7 +1061,7 @@ class Property(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkProperty):
         >>> import pyvista as pv
         >>> prop = pv.Property()
         >>> prop.ambient_color
-        Color(name='lightblue', hex='#add8e6ff', opacity=255)
+        Color(name='light_blue', hex='#add8e6ff', opacity=255)
 
         >>> prop.ambient = 0.5
         >>> prop.plot()
@@ -1094,7 +1094,7 @@ class Property(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkProperty):
         >>> import pyvista as pv
         >>> prop = pv.Property()
         >>> prop.specular_color
-        Color(name='lightblue', hex='#add8e6ff', opacity=255)
+        Color(name='light_blue', hex='#add8e6ff', opacity=255)
 
         >>> prop.specular = 0.5
         >>> prop.interpolation = 'phong'
@@ -1132,7 +1132,7 @@ class Property(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkProperty):
         >>> import pyvista as pv
         >>> prop = pv.Property()
         >>> prop.ambient_color
-        Color(name='lightblue', hex='#add8e6ff', opacity=255)
+        Color(name='light_blue', hex='#add8e6ff', opacity=255)
 
         >>> prop.diffuse = 0.5
         >>> prop.plot()

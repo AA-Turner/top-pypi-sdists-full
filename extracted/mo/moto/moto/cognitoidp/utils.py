@@ -3,7 +3,10 @@ import hashlib
 import hmac
 import re
 import string
-from typing import Any, Optional
+from typing import Any
+
+from cryptography.hazmat.primitives.hashes import SHA1
+from cryptography.hazmat.primitives.twofactor.totp import TOTP
 
 from moto.moto_api._internal import mock_random as random
 
@@ -75,7 +78,7 @@ def check_secret_hash(
     app_client_secret: str,
     app_client_id: str,
     username: str,
-    secret_hash: Optional[str],
+    secret_hash: str | None,
 ) -> bool:
     key = bytes(str(app_client_secret).encode("latin-1"))
     msg = bytes(str(username + app_client_id).encode("latin-1"))
@@ -102,7 +105,7 @@ def expand_attrs(attrs: dict[str, Any]) -> list[dict[str, Any]]:
 ID_HASH_STRATEGY = "HASH"
 
 
-def generate_id(strategy: Optional[str], *args: Any) -> str:
+def generate_id(strategy: str | None, *args: Any) -> str:
     if strategy == ID_HASH_STRATEGY:
         return _generate_id_hash(args)
     else:
@@ -120,3 +123,19 @@ def _generate_id_hash(args: Any) -> str:
         hasher.update(str(arg).encode())
 
     return hasher.hexdigest()
+
+
+def cognito_totp(key: str) -> TOTP:
+    key_padded = key
+    # Pad the secret if required before converting it to bytes
+    padding = len(key) % 8
+    if padding != 0:
+        key_padded += "=" * (8 - padding)
+    # https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-mfa-totp.html
+    return TOTP(
+        key=base64.b32decode(key_padded, casefold=True),
+        length=6,
+        algorithm=SHA1(),
+        time_step=30,
+        enforce_key_length=False,
+    )

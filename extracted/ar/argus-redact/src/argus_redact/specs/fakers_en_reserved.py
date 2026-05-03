@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import random
 
+from argus_redact.specs._fakers_util import rand_digits
+
 
 RESERVED_PERSON_NAMES_EN = (
     "John Doe",
@@ -53,6 +55,17 @@ RESERVED_ADDRESSES_EN = (
     "31 Spooner Street, Quahog, USA",
 )
 
+# v0.5.10: zh transliterations the LLM might emit when it rephrases en fake
+# addresses into Chinese script. `restore()` matches both forms.
+RESERVED_ADDRESSES_EN_ALIASES: dict[str, list[str]] = {
+    "1313 Mockingbird Lane, Springfield, USA": ["美国斯普林菲尔德嘲鸫巷1313号"],
+    "742 Evergreen Terrace, Springfield, USA": ["美国斯普林菲尔德常青露台742号"],
+    "221B Baker Street, London, UK": ["英国伦敦贝克街221B号"],
+    "12 Grimmauld Place, London, UK": ["英国伦敦格里莫广场12号"],
+    "1630 Revello Drive, Sunnydale, USA": ["美国阳光镇雷维洛大道1630号"],
+    "31 Spooner Street, Quahog, USA": ["美国奎霍格斯普纳街31号"],
+}
+
 
 def fake_phone_en_reserved(value: str, rng: random.Random) -> tuple[str, list[str]]:
     """Generate a (555) 555-01XX number — NANP fictional reservation."""
@@ -71,7 +84,7 @@ def fake_credit_card_en_reserved(value: str, rng: random.Random) -> tuple[str, l
     """Generate a 999999-BIN 16-digit credit card with valid Luhn."""
     from argus_redact.lang.shared.patterns import luhn_check_digit
 
-    body = "999999" + "".join(str(rng.randint(0, 9)) for _ in range(9))
+    body = "999999" + rand_digits(rng, 9)
     return body + str(luhn_check_digit(body)), []
 
 
@@ -82,6 +95,6 @@ def fake_person_en_reserved(value: str, rng: random.Random) -> tuple[str, list[s
 
 
 def fake_address_en_reserved(value: str, rng: random.Random) -> tuple[str, list[str]]:
-    """Pick a fictional pop-culture address from the fixed table."""
-    # Address transliteration deferred to v0.6+ (see fakers_zh_reserved.py rationale).
-    return rng.choice(RESERVED_ADDRESSES_EN), []
+    """Pick a fictional pop-culture address; emit zh transliteration aliases."""
+    fake = rng.choice(RESERVED_ADDRESSES_EN)
+    return fake, list(RESERVED_ADDRESSES_EN_ALIASES.get(fake, []))

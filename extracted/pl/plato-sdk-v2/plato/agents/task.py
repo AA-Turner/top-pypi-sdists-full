@@ -409,6 +409,8 @@ class AgentTask:
                 config=self._agent.config,
                 instruction="",
                 display_name=current_display_name,
+                ssh_probe_timeout=self._agent.ssh_probe_timeout,
+                ssh_probe_retries=self._agent.ssh_probe_retries,
                 runtime=runtime_dict,
                 agent_code_path=self._agent_code_path,
             )
@@ -495,6 +497,8 @@ class AgentTask:
                         config=agent_config,
                         instruction=current_instruction,
                         display_name=current_display_name,
+                        ssh_probe_timeout=self._agent.ssh_probe_timeout,
+                        ssh_probe_retries=self._agent.ssh_probe_retries,
                         runtime=runtime_dict,
                         agent_code_path=self._agent_code_path,
                     )

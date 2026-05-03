@@ -1,8 +1,9 @@
 from collections import OrderedDict
-from typing import Any, Optional
+from typing import Any
 
 from moto.core.common_models import CloudFormationModel
 from moto.core.types import Base64EncodedString
+from moto.core.utils import utcnow
 
 from ..exceptions import (
     InvalidLaunchTemplateIdNotFound,
@@ -20,7 +21,6 @@ from ..utils import (
     parse_user_data,
     random_launch_template_id,
     random_launch_template_name,
-    utc_date_and_time,
 )
 from .core import TaggedEC2Resource
 
@@ -37,7 +37,7 @@ class LaunchTemplateVersion:
         self.number = number
         self.data = data
         self.description = description
-        self.create_time = utc_date_and_time()
+        self.create_time = utcnow()
         self.instance_tags = convert_tag_spec(data.get("TagSpecifications", [])).get(
             "instance", {}
         )
@@ -55,7 +55,7 @@ class LaunchTemplateVersion:
         return self.data.get("SecurityGroups", [])
 
     @property
-    def user_data(self) -> Optional[Base64EncodedString]:
+    def user_data(self) -> Base64EncodedString | None:
         user_data = self.data.get("UserData")
         # UserData can be specified via multiple services/api endpoints,
         # so we make an assertion here that it's in the format we expect.
@@ -75,7 +75,7 @@ class LaunchTemplate(TaggedEC2Resource, CloudFormationModel):
         self.ec2_backend = backend
         self.name = name
         self.id = random_launch_template_id()
-        self.create_time = utc_date_and_time()
+        self.create_time = utcnow()
         tag_map: dict[str, str] = tag_spec.get("launch-template", {})
         self.add_tags(tag_map)
         self.tags = self.get_tags()
@@ -119,9 +119,7 @@ class LaunchTemplate(TaggedEC2Resource, CloudFormationModel):
     def physical_resource_id(self) -> str:
         return self.id
 
-    def get_filter_value(
-        self, filter_name: str, method_name: Optional[str] = None
-    ) -> Any:
+    def get_filter_value(self, filter_name: str, method_name: str | None = None) -> Any:
         if filter_name == "launch-template-name":
             return self.name
         else:
@@ -246,8 +244,8 @@ class LaunchTemplateBackend:
     def modify_launch_template(
         self,
         default_version: str,
-        template_name: Optional[str] = None,
-        template_id: Optional[str] = None,
+        template_name: str | None = None,
+        template_id: str | None = None,
     ) -> LaunchTemplate:
         if template_name:
             template_id = self.launch_template_name_to_ids.get(template_name)
@@ -273,7 +271,7 @@ class LaunchTemplateBackend:
             raise InvalidLaunchTemplateNameNotFoundWithNameError(name)
         return self.get_launch_template(self.launch_template_name_to_ids[name])
 
-    def delete_launch_template(self, name: str, tid: Optional[str]) -> LaunchTemplate:
+    def delete_launch_template(self, name: str, tid: str | None) -> LaunchTemplate:
         if name:
             tid = self.launch_template_name_to_ids.get(name)
         if tid is None:
@@ -286,8 +284,8 @@ class LaunchTemplateBackend:
 
     def describe_launch_templates(
         self,
-        template_names: Optional[list[str]] = None,
-        template_ids: Optional[list[str]] = None,
+        template_names: list[str] | None = None,
+        template_ids: list[str] | None = None,
         filters: Any = None,
     ) -> list[LaunchTemplate]:
         if template_names and not template_ids:

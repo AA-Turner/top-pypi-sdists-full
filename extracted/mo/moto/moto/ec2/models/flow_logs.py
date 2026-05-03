@@ -1,7 +1,8 @@
 import itertools
-from typing import Any, Optional
+from typing import Any
 
 from moto.core.common_models import CloudFormationModel
+from moto.core.utils import utcnow
 
 from ..exceptions import (
     FlowLogAlreadyExists,
@@ -13,7 +14,6 @@ from ..exceptions import (
 from ..utils import (
     generic_filter,
     random_flow_log_id,
-    utc_date_and_time,
 )
 from .core import TaggedEC2Resource
 
@@ -32,7 +32,7 @@ class FlowLogs(TaggedEC2Resource, CloudFormationModel):
         log_destination_type: str,
         log_format: str,
         deliver_logs_status: str = "SUCCESS",
-        deliver_logs_error_message: Optional[str] = None,
+        deliver_logs_error_message: str | None = None,
     ):
         self.ec2_backend = ec2_backend
         self.id = flow_log_id
@@ -46,8 +46,8 @@ class FlowLogs(TaggedEC2Resource, CloudFormationModel):
         self.max_aggregation_interval = max_aggregation_interval
         self.log_destination_type = log_destination_type
         self.log_format = log_format
-
-        self.created_at = utc_date_and_time()
+        self.flow_log_status = "ACTIVE"
+        self.creation_time = utcnow()
 
     @staticmethod
     def cloudformation_name_type() -> str:
@@ -104,9 +104,7 @@ class FlowLogs(TaggedEC2Resource, CloudFormationModel):
     def physical_resource_id(self) -> str:
         return self.id
 
-    def get_filter_value(
-        self, filter_name: str, method_name: Optional[str] = None
-    ) -> Any:
+    def get_filter_value(self, filter_name: str, method_name: str | None = None) -> Any:
         """
         API Version 2016-11-15 defines the following filters for DescribeFlowLogs:
 
@@ -280,7 +278,7 @@ class FlowLogsBackend:
         return flow_logs_set, unsuccessful
 
     def describe_flow_logs(
-        self, flow_log_ids: Optional[list[str]] = None, filters: Any = None
+        self, flow_log_ids: list[str] | None = None, filters: Any = None
     ) -> list[FlowLogs]:
         matches = list(itertools.chain(list(self.flow_logs.values())))
         if flow_log_ids:

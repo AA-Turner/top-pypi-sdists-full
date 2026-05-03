@@ -33,13 +33,13 @@ requires-python = ">=3.10"
 dependencies = [
     "asn1crypto>=1.5.1",
     "tzlocal>=4.3",
-    "pyhanko-certvalidator>=0.30.0,<0.31",
+    "pyhanko-certvalidator>=0.31.0,<0.32",
     "requests>=2.31.0",
     "pyyaml>=6.0",
-    "cryptography>=43.0.3",
+    "cryptography>=47.0.0",
     "lxml>=5.4.0",
 ]
-version = "0.34.1"
+version = "0.35.0"
 
 
 [project.readme]
@@ -75,7 +75,7 @@ etsi = [
 ]
 
 [dependency-groups]
-testing-base = ["pytest>=6.1.1", "requests-mock>=1.8.0", "freezegun>=1.1.0", "certomancer>=0.13.0,<0.14", "pytest-cov>=4.0,<7.1", "pytest-asyncio>=1.1.0,<2.0"]
+testing-base = ["pytest>=6.1.1", "requests-mock>=1.8.0", "freezegun>=1.1.0", "certomancer>=0.13.0,<0.15", "pytest-cov>=4.0,<7.2", "pytest-asyncio>=1.1.0,<2.0"]
 testing-aiohttp = [
     "aiohttp>=3.9,<3.14",
     "pytest-aiohttp>=1.0.4,<1.2.0",
@@ -109,6 +109,7 @@ markers = [
     "hsm: run test on HSM platform",
     "algo: indicate signing algorithm used in test",  # so far only used in PKCS#11 suite
 ]
+strict = true
 
 [tool.coverage.run]
 omit = ["*docs*", "*test*", "*venv*", "setup.py", "_saslprep.py"]

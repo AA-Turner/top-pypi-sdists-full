@@ -71,9 +71,6 @@ class Label(Widget):
             margin: int = 0,
             clipping: bool = False
         ):
-        # Initialisation du widget
-        super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
-
         # Texte
         self._text: Text = text
         self._text_renderer: PygletLabelRenderer = None
@@ -96,12 +93,15 @@ class Label(Widget):
         self._margin: int = positive(expect(margin, int))
 
         # Cache du AABB
-        self._hitbox_key: bool = True
+        self._hitbox_key: tuple = None
         self._hitbox_cache: Rect = None
 
+        # Initialisation du widget
+        super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
+
         # Hooks
-        self.on_show(self._on_show)
-        self.on_hide(self._on_hide)
+        self.on_show(self._show_hook)
+        self.on_hide(self._hide_hook)
     
     # ======================================== PROPERTIES ========================================
     @property
@@ -114,7 +114,9 @@ class Label(Widget):
     
     @text.setter
     def text(self, value: Text) -> None:
-        self._text = expect(value, Text)
+        if __debug__:
+            expect(value, Text)
+        self._text = value
         self._invalidate_scissor()
 
     @property
@@ -127,7 +129,9 @@ class Label(Widget):
     
     @weight.setter
     def weight(self, value: str) -> None:
-        self._weight = expect(value, str)
+        if __debug__:
+            expect(value, str)
+        self._weight = value
 
     @property
     def italic(self) -> bool:
@@ -139,7 +143,9 @@ class Label(Widget):
     
     @italic.setter
     def italic(self, value: bool) -> None:
-        self._italic = expect(value, bool)
+        if __debug__:
+            expect(value, bool)
+        self._italic = value
 
     @property
     def underline(self) -> Color | None:
@@ -177,7 +183,9 @@ class Label(Widget):
     
     @width.setter
     def width(self, value: int | None) -> None:
-        self._width = positive(not_null(expect(value, int))) if value is not None else None
+        if __debug__:
+            if value is not None: positive(not_null(expect(value, int)))
+        self._width = value
         self._invalidate_scissor()
 
     @property
@@ -191,7 +199,9 @@ class Label(Widget):
     
     @height.setter
     def height(self, value: int | None) -> None:
-        self._height = positive(not_null(expect(value, int))) if value is not None else None
+        if __debug__:
+            if value is not None: positive(not_null(expect(value, int)))
+        self._height = value
         self._invalidate_scissor()
 
     @property
@@ -204,7 +214,9 @@ class Label(Widget):
     
     @multiline.setter
     def multiline(self, value: bool) -> None:
-        self._multiline = expect(value, bool)
+        if __debug__:
+            expect(value, bool)
+        self._multiline = value
         self._invalidate_scissor()
 
     @property
@@ -217,7 +229,9 @@ class Label(Widget):
     
     @line_spacing.setter
     def line_spacing(self, value: int | None) -> None:
-        self._line_spacing = expect(value, int) if value is not None else None
+        if __debug__:
+            if value is not None: expect(value, int)
+        self._line_spacing = value
         self._invalidate_scissor()
     
     @property
@@ -231,7 +245,9 @@ class Label(Widget):
     
     @wrap_lines.setter
     def wrap_lines(self, value: bool) -> None:
-        self._wrap_lines = expect(value, bool)
+        if __debug__:
+            expect(value, bool)
+        self._wrap_lines = value
         self._invalidate_scissor()
 
     @property
@@ -245,7 +261,9 @@ class Label(Widget):
     
     @align.setter
     def align(self, value: HorizontalAlign) -> None:
-        self._align = expect(value, HorizontalAlign)
+        if __debug__:
+            expect(value, HorizontalAlign)
+        self._align = value
 
     @property
     def margin(self) -> int:
@@ -258,17 +276,16 @@ class Label(Widget):
     
     @margin.setter
     def margin(self, value: int) -> None:
-        self._margin = positive(not_null(expect(value, int)))
+        if __debug__:
+            positive(not_null(expect(value, int)))
+        self._margin = value
         self._invalidate_scissor()
 
     @property
     def hitbox(self):
         """Hitbox du label"""
-        if self._text_renderer is None:
+        if self._hitbox_cache is None:
             return Rect(1, 1)
-        key = (self._text_renderer.content_width, self._text_renderer.content_height)
-        if key != self._hitbox_key:
-            self._hitbox_cache = Rect(*key)
         return self._hitbox_cache
     
     # ======================================== INTERFACE ========================================
@@ -276,10 +293,10 @@ class Label(Widget):
         """Renvoie une copie du widget"""
         return Label(
             text = self._text,
-            position = self._position,
-            anchor = self._anchor,
-            scale = self._scale,
-            rotation = self._rotation,
+            position = self._transform.position,
+            anchor = self._transform.anchor,
+            scale = self._transform.scale,
+            rotation = self._transform.rotation,
             weight = self._weight,
             italic = self._italic,
             underline = self._underline,
@@ -296,13 +313,13 @@ class Label(Widget):
         )
     
     # ======================================== HOOKS ========================================
-    def _on_show(self) -> None:
+    def _show_hook(self) -> None:
         """Devient visible"""
         if self._text_renderer is None:
             return
         self._text_renderer.visible = True
 
-    def _on_hide(self) -> None:
+    def _hide_hook(self) -> None:
         """Devient invisible"""
         if self._text_renderer is None:
             return
@@ -310,7 +327,11 @@ class Label(Widget):
         
     # ======================================== LIFE CYCLE ========================================
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+
+        Args:
+            dt: delta-time
+        """
         ...
 
     def _draw(self, pipeline: Pipeline, context: RenderContext) -> None:
@@ -319,12 +340,7 @@ class Label(Widget):
         if self._text_renderer is None:
             self._text_renderer = PygletLabelRenderer(
                 text = self._text,
-                x = context.x,
-                y = context.y,
-                anchor_x = self.anchor_x,
-                anchor_y = self.anchor_y,
-                scale= context.scale,
-                rotation = context.rotation,
+                transform = self._world_transform,
                 weight = self._weight,
                 italic = self._italic,
                 underline = self._underline,
@@ -346,12 +362,7 @@ class Label(Widget):
         else:
             self._text_renderer.update(
                 text = self._text,
-                x = context.x,
-                y = context.y,
-                anchor_x = self.anchor_x,
-                anchor_y = self.anchor_y,
-                scale= context.scale,
-                rotation = context.rotation,
+                transform = self._world_transform,
                 weight = self._weight,
                 italic = self._italic,
                 underline = self._underline,
@@ -365,9 +376,13 @@ class Label(Widget):
                 margin = self._margin,
                 line_spacing = self._line_spacing,
                 z = context.z,
-                pipeline = pipeline,
                 parent=context.group,
             )
+
+        key = (self._text_renderer.content_width, self._text_renderer.content_height)
+        if key != self._hitbox_key:
+            self._hitbox_cache = Rect(*key)
+            self._invalidate_geometry()
 
     def _destroy(self) -> None:
         """Libère les ressources pyglet"""

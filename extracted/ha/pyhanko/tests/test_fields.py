@@ -637,3 +637,20 @@ def test_sign_field_with_needappearances():
 
     r = PdfFileReader(buf)
     assert '/NeedAppearances' not in r.root['/AcroForm']
+
+
+def test_create_with_separate_annot():
+    out = BytesIO(MINIMAL)
+    w = IncrementalPdfFileWriter(out)
+    field_spec = fields.SigFieldSpec(
+        sig_field_name='Sig1',
+        combine_annotation=False,
+        box=(20, 20, 80, 40),
+    )
+    fields.append_signature_field(w, sig_field_spec=field_spec)
+    w.write_in_place()
+    r = PdfFileReader(out)
+    form_fields = r.root['/AcroForm']['/Fields']
+    assert '/AP' not in form_fields[0]
+    assert '/AP' in form_fields[0]['/Kids'][0]
+    assert form_fields[0]['/Kids'] == r.root['/Pages']['/Kids'][0]['/Annots']

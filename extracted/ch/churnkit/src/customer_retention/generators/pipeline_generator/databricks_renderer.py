@@ -566,7 +566,13 @@ def run_bronze():
 
 result = run_bronze()
 _summary = f"{result.count():,} rows, {len(result.columns)} columns"
-display(result)
+# Narrow-projection display (see silver template for full rationale): rendering
+# wide DataFrames through Databricks' display widget serialises the entire
+# logical plan to protobuf, which trips Catalyst attribute-id resolution at
+# wide schemas. Project to entity/key cols + row-limit; the table is already
+# committed to Delta above.
+_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date") if c in result.columns] or list(result.columns[:10])
+display(result.select(*_disp).limit(20))
 dbutils.notebook.exit(_summary)
 """,
     "databricks_bronze_event.py.j2": """# Databricks notebook source
@@ -987,7 +993,9 @@ def run_bronze_event():
 
 result = run_bronze_event()
 _summary = f"{result.count():,} rows, {len(result.columns)} columns"
-display(result)
+# Narrow-projection display (see silver template for full rationale).
+_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date", "feature_timestamp") if c in result.columns] or list(result.columns[:10])
+display(result.select(*_disp).limit(20))
 dbutils.notebook.exit(_summary)
 """,
     "databricks_bronze_entity.py.j2": """# Databricks notebook source
@@ -1239,7 +1247,9 @@ def run_bronze_entity():
 
 result = run_bronze_entity()
 _summary = f"{result.count():,} rows, {len(result.columns)} columns"
-display(result)
+# Narrow-projection display (see silver template for full rationale).
+_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date") if c in result.columns] or list(result.columns[:10])
+display(result.select(*_disp).limit(20))
 dbutils.notebook.exit(_summary)
 """,
     "databricks_silver.py.j2": """# Databricks notebook source
@@ -1354,7 +1364,10 @@ def merge_sources(bronze_outputs):
         for name, df in bronze_outputs.items():
             if raw_entity_key in df.columns:
                 bronze_outputs[name] = df.withColumnRenamed(raw_entity_key, "entity_id")
-    merger = SparkTemporalMerger(MergeConfig(entity_key="entity_id"))
+    merger = SparkTemporalMerger(MergeConfig(
+        entity_key="entity_id",
+        scratch_namespace=f"{CATALOG}.{SCHEMA}",
+    ))
     spine = merger.build_spine(entity_ids, GRID_DATES)
     inputs = []
     for meta in MERGE_SOURCE_META:
@@ -1368,9 +1381,14 @@ def merge_sources(bronze_outputs):
             granularity=granularity,
             feature_timestamp_column=meta.get("feature_timestamp_column"),
         ))
-    merged, _report = merger.merge_all(spine, inputs)
-    if hasattr(merged, "to_spark"):
-        merged = merged.to_spark()
+    try:
+        merged, _report = merger.merge_all(spine, inputs)
+        if hasattr(merged, "to_spark"):
+            merged = merged.to_spark()
+    finally:
+        _dropped = merger.cleanup_scratch_tables(spark)
+        if _dropped:
+            print(f"  silver scratch cleanup: dropped {_dropped} _silver_merge_ckpt_* table(s)")
     print(f"  merge complete: {len(merged.columns)} columns, datasets={_report.datasets_merged}")
     print(f"  spine: {_report.spine_rows:,} rows = {_report.spine_entities:,} entities x {_report.spine_dates} dates ({_report.spine_stats_seconds:.1f}s)")
     print(f"  checkpoints: {_report.checkpoint_count} ({_report.checkpoint_seconds:.1f}s), validation: {_report.validation_seconds:.1f}s, merge_total: {_report.merge_total_seconds:.1f}s")
@@ -1552,7 +1570,17 @@ print("SILVER RESULTS")
 print("=" * 60)
 print(json.dumps(_silver_results, indent=2, default=str))
 
-display(_result)
+# Narrow-projection display: the silver Delta table is already committed (row
+# count + OPTIMIZE done above); rendering the full 2620-col DataFrame through
+# Databricks' display widget serialises the entire logical plan to protobuf,
+# which trips Catalyst attribute-id resolution at very wide schemas (same class
+# of bug as the merge-time XX000). Display the spine columns only — operators
+# inspect the full table via spark.table(...) when they need it.
+_display_cols = [c for c in ("entity_id", "as_of_date", TARGET_COLUMN if "TARGET_COLUMN" in dir() else None) if c and c in _result.columns]
+if _display_cols:
+    display(_result.select(*_display_cols).limit(20))
+else:
+    display(_result.limit(20))
 dbutils.notebook.exit(json.dumps(_silver_results, default=str))
 """,
     "databricks_gold.py.j2": r"""# Databricks notebook source
@@ -1869,7 +1897,14 @@ if _NAMESPACE is not None:
     except Exception as _fm_exc:
         print(f"feature_meta sidecar aborted: {type(_fm_exc).__name__}: {_fm_exc}")
 
-display(result.limit(1000))
+# Narrow-projection display: gold is the widest stage (silver ~2620 cols +
+# one-hot expansion + label encoding). Rendering the full plan through
+# Databricks' display widget serialises the entire logical plan to protobuf,
+# which trips Catalyst attribute-id resolution at this width. The Delta table
+# is already committed above; operators inspect the full schema via
+# spark.table(...) when needed.
+_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date", TARGET_COLUMN if "TARGET_COLUMN" in dir() else None) if c and c in result.columns] or list(result.columns[:10])
+display(result.select(*_disp).limit(20))
 dbutils.notebook.exit(_summary)
 """,
     "databricks_training.py.j2": """# Databricks notebook source
@@ -2700,7 +2735,8 @@ def run_landing():
 
 result = run_landing()
 _summary = f"{result.count():,} rows, {len(result.columns)} columns"
-display(result)
+# Row-limited display (landing is narrow but uniform pattern across stages).
+display(result.limit(20))
 dbutils.notebook.exit(_summary)
 """,
     "databricks_runner.py.j2": """# Databricks notebook source

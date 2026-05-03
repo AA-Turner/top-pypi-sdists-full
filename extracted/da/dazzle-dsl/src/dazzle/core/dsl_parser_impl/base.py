@@ -38,6 +38,7 @@ class ParserProtocol(Protocol):
     def match(self, *token_types: TokenType) -> bool: ...
     def error(self, message: str) -> NoReturn: ...
     def skip_newlines(self) -> None: ...
+    def _is_keyword_as_identifier(self) -> bool: ...
     def _parse_construct_header(
         self,
         token_type: TokenType,
@@ -738,6 +739,11 @@ KEYWORD_AS_IDENTIFIER_TYPES = (
     TokenType.CRON,
     TokenType.UPSERT,
     TokenType.REGEX,
+    # Search-block keywords (#954) — also valid as CSS class identifiers
+    # / field names elsewhere in the DSL.
+    TokenType.HIGHLIGHT,
+    TokenType.RANKING,
+    TokenType.TOKENIZER,
     # Field types that are also keywords
     TokenType.URL,
     # Workspace keywords that can be field names

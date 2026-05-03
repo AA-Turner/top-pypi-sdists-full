@@ -4,8 +4,8 @@ from ._border import Border
 from ._label import Label
 from ._sprite import Sprite
 
-from ._button import Button
-from ._toggle import ToggleButton
+from ._classic_button import ClassicButton
+from ._toggle_button import ToggleButton
 
 # ======================================== EXPORTS ========================================
 __all__ = [
@@ -14,6 +14,6 @@ __all__ = [
     "Label",
     "Sprite",
 
-    "Button",
+    "ClassicButton",
     "ToggleButton",
 ]

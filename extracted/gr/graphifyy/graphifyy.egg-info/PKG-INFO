@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.6.2
-Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
+Version: 0.6.7
+Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License: MIT License
         
         Copyright (c) 2026 Safi Shamsi
@@ -27,7 +27,7 @@ License: MIT License
 Project-URL: Homepage, https://github.com/safishamsi/graphify
 Project-URL: Repository, https://github.com/safishamsi/graphify
 Project-URL: Issues, https://github.com/safishamsi/graphify/issues
-Keywords: claude,claude-code,codex,opencode,cursor,gemini,aider,kiro,knowledge-graph,rag,graphrag,obsidian,community-detection,tree-sitter,leiden,llm
+Keywords: claude,claude-code,codex,opencode,cursor,gemini,aider,kiro,pi,knowledge-graph,rag,graphrag,obsidian,community-detection,tree-sitter,leiden,llm
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -75,6 +75,7 @@ Requires-Dist: faster-whisper; extra == "video"
 Requires-Dist: yt-dlp; extra == "video"
 Provides-Extra: kimi
 Requires-Dist: openai; extra == "kimi"
+Requires-Dist: tiktoken; extra == "kimi"
 Provides-Extra: sql
 Requires-Dist: tree-sitter-sql; extra == "sql"
 Provides-Extra: all
@@ -90,6 +91,7 @@ Requires-Dist: faster-whisper; extra == "all"
 Requires-Dist: yt-dlp; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: openai; extra == "all"
+Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: tree-sitter-sql; extra == "all"
 Dynamic: license-file
 
@@ -116,7 +118,7 @@ Dynamic: license-file
   </a>
 </p>
 
-**An AI coding assistant skill.** Type `/graphify` in Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot CLI, VS Code Copilot Chat, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, or Google Antigravity - it reads your files, builds a knowledge graph, and gives you back structure you didn't know was there. Understand a codebase faster. Find the "why" behind architectural decisions.
+**An AI coding assistant skill.** Type `/graphify` in Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot CLI, VS Code Copilot Chat, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, or Google Antigravity - it reads your files, builds a knowledge graph, and gives you back structure you didn't know was there. Understand a codebase faster. Find the "why" behind architectural decisions.
 
 Fully multimodal. Drop in code, PDFs, markdown, screenshots, diagrams, whiteboard photos, images in other languages, or video and audio files - graphify extracts concepts and relationships from all of it and connects them into one graph. Videos are transcribed with Whisper using a domain-aware prompt derived from your corpus. YAML/YML files (Kubernetes, Kustomize, Helm, config) are indexed for semantic extraction. SQL files are AST-extracted deterministically — tables, views, functions, foreign keys, and FROM/JOIN relationships map directly into the graph with no LLM needed. 25 languages supported via tree-sitter AST (Python, JS, TS, Go, Rust, Java, C, C++, Ruby, C#, Kotlin, Scala, PHP, Swift, Lua, Zig, PowerShell, Elixir, Objective-C, Julia, Verilog, SystemVerilog, Vue, Svelte, Dart).
 
@@ -156,7 +158,7 @@ Every relationship is tagged `EXTRACTED` (found directly in source), `INFERRED` 
 
 ## Install
 
-**Requires:** Python 3.10+ and one of: [Claude Code](https://claude.ai/code), [Codex](https://openai.com/codex), [OpenCode](https://opencode.ai), [Cursor](https://cursor.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli), [VS Code Copilot Chat](https://code.visualstudio.com/docs/copilot/overview), [Aider](https://aider.chat), [OpenClaw](https://openclaw.ai), [Factory Droid](https://factory.ai), [Trae](https://trae.ai), [Kiro](https://kiro.dev), Hermes, or [Google Antigravity](https://antigravity.google)
+**Requires:** Python 3.10+ and one of: [Claude Code](https://claude.ai/code), [Codex](https://openai.com/codex), [OpenCode](https://opencode.ai), [Cursor](https://cursor.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli), [VS Code Copilot Chat](https://code.visualstudio.com/docs/copilot/overview), [Aider](https://aider.chat), [OpenClaw](https://openclaw.ai), [Factory Droid](https://factory.ai), [Trae](https://trae.ai), [Kiro](https://kiro.dev), [Pi](https://pi.dev), Hermes, or [Google Antigravity](https://antigravity.google)
 
 ```bash
 # Recommended — works on Mac and Linux with no PATH setup needed
@@ -189,6 +191,7 @@ pip install graphifyy && graphify install
 | Gemini CLI | `graphify install --platform gemini` |
 | Hermes | `graphify install --platform hermes` |
 | Kiro IDE/CLI | `graphify kiro install` |
+| Pi coding agent | `graphify install --platform pi` |
 | Cursor | `graphify cursor install` |
 | Google Antigravity | `graphify antigravity install` |
 
@@ -222,6 +225,7 @@ After building a graph, run this once in your project:
 | Gemini CLI | `graphify gemini install` |
 | Hermes | `graphify hermes install` |
 | Kiro IDE/CLI | `graphify kiro install` |
+| Pi coding agent | `graphify pi install` |
 | Google Antigravity | `graphify antigravity install` |
 
 **Claude Code** does two things: writes a `CLAUDE.md` section telling Claude to read `graphify-out/GRAPH_REPORT.md` before answering architecture questions, and installs a **PreToolUse hook** (`settings.json`) that fires before every Glob and Grep call. If a knowledge graph exists, Claude sees: _"graphify: Knowledge graph exists. Read GRAPH_REPORT.md for god nodes and community structure before searching raw files."_ — so Claude navigates via the graph instead of grepping through every file.
@@ -235,6 +239,8 @@ After building a graph, run this once in your project:
 **Gemini CLI** copies the skill to `~/.gemini/skills/graphify/SKILL.md`, writes a `GEMINI.md` section, and installs a `BeforeTool` hook in `.gemini/settings.json` that fires before file-read tool calls — same always-on mechanism as Claude Code.
 
 **Aider, OpenClaw, Factory Droid, Trae, and Hermes** write the same rules to `AGENTS.md` in your project root and copy the skill to the platform's global skill directory. These platforms don't support tool hooks, so AGENTS.md is the always-on mechanism.
+
+**Pi coding agent** copies the skill to `~/.pi/agent/skills/graphify/SKILL.md`. Run `graphify pi install` to set it up.
 
 **Kiro IDE/CLI** writes the skill to `.kiro/skills/graphify/SKILL.md` (invoked via `/graphify`) and a steering file to `.kiro/steering/graphify.md` with `inclusion: always` — Kiro injects this into every conversation automatically, no hook needed.
 
@@ -503,7 +509,7 @@ Audio never leaves your machine. All transcription runs locally.
 
 **Auto-sync** (`--watch`) - run in a background terminal and the graph updates itself as your codebase changes. Code file saves trigger an instant rebuild (AST only, no LLM). Doc/image changes notify you to run `--update` for the LLM re-pass.
 
-**Git hooks** (`graphify hook install`) - installs post-commit and post-checkout hooks. Graph rebuilds automatically after every commit and every branch switch. If a rebuild fails, the hook exits with a non-zero code so git surfaces the error instead of silently continuing. No background process needed.
+**Git hooks** (`graphify hook install`) - installs post-commit and post-checkout hooks. Graph rebuilds automatically after every commit and every branch switch. Rebuilds run detached in the background so `git commit` returns instantly — log written to `~/.cache/graphify-rebuild.log` (`tail -f` for status).
 
 **Wiki** (`--wiki`) - Wikipedia-style markdown articles per community and god node, with an `index.md` entry point. Point any agent at `index.md` and it can navigate the knowledge base by reading files instead of parsing JSON.
 
@@ -520,6 +526,14 @@ Token reduction scales with corpus size. 6 files fits in a context window anyway
 ## Privacy
 
 graphify sends file contents to your AI coding assistant's underlying model API for semantic extraction of docs, papers, and images — Anthropic (Claude Code), OpenAI (Codex), or whichever provider your platform uses. Code files are processed locally via tree-sitter AST — no file contents leave your machine for code. Video and audio files are transcribed locally with faster-whisper — audio never leaves your machine. No telemetry, usage tracking, or analytics of any kind. The only network calls are to your platform's model API during extraction, using your own API key.
+
+## Optional integrations
+
+Runbooks for setting up extra tooling alongside graphify. None of these are required.
+
+| Integration | Doc |
+|---|---|
+| Docker MCP Toolkit + SQLite MCP server (lightweight persistent SQL workspace exposed to any MCP client) | [`docs/docker-mcp-sqlite.md`](docs/docker-mcp-sqlite.md) |
 
 ## Tech stack
 

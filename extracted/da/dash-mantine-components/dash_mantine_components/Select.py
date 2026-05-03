@@ -114,6 +114,9 @@ Keyword arguments:
         Replaces default close icon. If set, `iconSize` prop is
         ignored.
 
+    - ButtonProps (dict; optional):
+        props passed down to `Button` component *.
+
 - clearSearchOnFocus (boolean; default False):
     Clears search value when dropdown is opened.  Ignored if
     searchable=False.
@@ -1048,7 +1051,8 @@ Keyword arguments:
             "disabled": NotRequired[bool],
             "iconSize": NotRequired[typing.Union[str, NumberType]],
             "children": NotRequired[ComponentType],
-            "icon": NotRequired[ComponentType]
+            "icon": NotRequired[ComponentType],
+            "ButtonProps": NotRequired[dict]
         }
     )
 

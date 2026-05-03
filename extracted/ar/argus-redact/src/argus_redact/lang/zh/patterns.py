@@ -4,6 +4,10 @@ Person name detection is handled separately by person.py (candidate + scoring).
 This module only contains structural PII patterns (phone, ID, bank card, etc.).
 """
 
+import re
+
+from argus_redact.lang.shared.patterns import validate_luhn as _validate_luhn
+
 # Leading verbs/particles/questions stripped from org/school candidates before validation.
 # Matched via one-pass longest-prefix scan, so order within the tuple is irrelevant.
 _LEADING_NOISE = (
@@ -142,6 +146,78 @@ def gb11643_check_char(body17: str) -> str:
     return GB11643_CHECK_CHARS[total % 11]
 
 
+def hkid_check_digit(letters: str, digits: str) -> str:
+    """Compute HKID check digit per Wikipedia HKID algorithm.
+
+    `letters` is 1-2 uppercase ASCII letters; `digits` is 6 digits.
+    Single-letter HKIDs are padded with a leading space (value 36) so the
+    body+letter is always 8 chars before the check digit. Letters map
+    A=1..Z=26; weights [9,8,7,6,5,4,3,2] over the 8-char body+letter.
+    Returns the check character ('0'-'9' or 'X' for 10).
+    """
+    pad = " " if len(letters) == 1 else ""
+    body = pad + letters + digits
+    weights = [9, 8, 7, 6, 5, 4, 3, 2]
+    total = 0
+    for ch, w in zip(body, weights):
+        if ch == " ":
+            v = 36
+        elif ch.isalpha():
+            v = ord(ch) - ord("A") + 1
+        else:
+            v = int(ch)
+        total += v * w
+    rem = total % 11
+    check = (11 - rem) % 11
+    return "X" if check == 10 else str(check)
+
+
+_HKID_BODY_RE = re.compile(r"([A-Z]{1,2})(\d{6})\((\d|X)\)")
+
+
+def _validate_hkid(value: str) -> bool:
+    """Validate HKID format L(L)NNNNNN(C). Strips parens to extract check."""
+    m = _HKID_BODY_RE.fullmatch(value)
+    if not m:
+        return False
+    letters, digits, check = m.group(1), m.group(2), m.group(3)
+    return hkid_check_digit(letters, digits) == check
+
+
+_TWID_LETTER_TO_CODE = {
+    "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15, "G": 16,
+    "H": 17, "I": 34, "J": 18, "K": 19, "L": 20, "M": 21, "N": 22,
+    "O": 35, "P": 23, "Q": 24, "R": 25, "S": 26, "T": 27, "U": 28,
+    "V": 29, "W": 32, "X": 30, "Y": 31, "Z": 33,
+}
+
+
+def twid_check_digit(letter: str, digits: str) -> str:
+    """Compute TWID check per ROC weighted-sum mod-10 algorithm.
+
+    `digits` is the 8-digit body; returns 1-char check digit.
+    Letter maps to a 2-digit region code (A=10..Z=33); first digit is
+    multiplied by 1, second by 9, then body digits use weights [8..1].
+    """
+    code = _TWID_LETTER_TO_CODE[letter]
+    n1, n2 = code // 10, code % 10
+    weights_body = [8, 7, 6, 5, 4, 3, 2, 1]
+    total = n1 * 1 + n2 * 9
+    for d, w in zip(digits, weights_body):
+        total += int(d) * w
+    rem = total % 10
+    return str((10 - rem) % 10)
+
+
+def _validate_twid(value: str) -> bool:
+    """Validate Republic of China (Taiwan) national ID card number."""
+    if len(value) != 10 or not value[0].isalpha() or not value[1:].isdigit():
+        return False
+    if value[0] not in _TWID_LETTER_TO_CODE:
+        return False
+    return twid_check_digit(value[0], value[1:9]) == value[9]
+
+
 # Known Chinese bank BIN prefixes (6 digits)
 _BANK_BINS = {
     "621700",
@@ -198,8 +274,6 @@ _BANK_BINS = {
     "622692",  # 邮储银行
 }
 
-
-from argus_redact.lang.shared.patterns import validate_luhn as _validate_luhn
 
 # GB 32100-2015 Unified Social Credit Code constants
 _CREDIT_CODE_CHARSET = "0123456789ABCDEFGHJKLMNPQRTUWXY"
@@ -287,6 +361,32 @@ PATTERNS = [
             r"\d{3}(?!\d)"
         ),
         "description": "Chinese 15-digit national ID (pre-1999, no checksum)",
+    },
+    {
+        "type": "hk_id",
+        "label": "[HKID-REDACTED]",
+        "pattern": r"(?<![A-Z])[A-Z]{1,2}\d{6}\((?:\d|X)\)",
+        "validate": _validate_hkid,
+        "description": "Hong Kong Identity Card (1-2 letter + 6 digit + parenthesized check, mod-11)",
+    },
+    {
+        "type": "tw_id",
+        "label": "[TWID-REDACTED]",
+        "pattern": r"(?<![A-Za-z0-9])[A-Z]\d{9}(?!\d)",
+        "validate": _validate_twid,
+        "description": "Taiwan (ROC) national ID (1 letter + 9 digits, weighted mod-10)",
+    },
+    {
+        "type": "macau_id",
+        "label": "[MACAU-ID-REDACTED]",
+        "pattern": r"(?<!\d)[1-9]/\d{6}/\d(?!\d)",
+        "description": "Macau Resident ID Card — format-only (no public check-digit algorithm)",
+    },
+    {
+        "type": "taiwan_arc",
+        "label": "[ARC-REDACTED]",
+        "pattern": r"(?<![A-Za-z0-9])[A-Z]{2}\d{8}(?!\d)",
+        "description": "Taiwan Alien Resident Certificate (post-2020 LL+8-digit format)",
     },
     {
         "type": "bank_card",

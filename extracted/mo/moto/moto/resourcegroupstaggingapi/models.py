@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 
 from moto.acm.models import AWSCertificateManagerBackend, acm_backends
 from moto.appsync.models import AppSyncBackend, appsync_backends
@@ -15,7 +15,6 @@ from moto.connectcampaigns.models import (
     connectcampaigns_backends,
 )
 from moto.core.base_backend import BackendDict, BaseBackend
-from moto.core.exceptions import RESTError
 from moto.directconnect.models import DirectConnectBackend, directconnect_backends
 from moto.dms.models import DatabaseMigrationServiceBackend, dms_backends
 from moto.dynamodb.models import DynamoDBBackend, dynamodb_backends
@@ -45,6 +44,9 @@ from moto.moto_api._internal import mock_random
 from moto.quicksight.models import QuickSightBackend, quicksight_backends
 from moto.rds.models import RDSBackend, rds_backends
 from moto.redshift.models import RedshiftBackend, redshift_backends
+from moto.resourcegroupstaggingapi.exceptions import (
+    ResourceGroupsTaggingAPIError as RESTError,
+)
 from moto.s3.models import S3Backend, s3_backends
 from moto.sagemaker.models import SageMakerModelBackend, sagemaker_backends
 from moto.secretsmanager import secretsmanager_backends
@@ -56,6 +58,7 @@ from moto.sqs.models import SQSBackend, sqs_backends
 from moto.ssm.models import SimpleSystemManagerBackend, ssm_backends
 from moto.ssm.utils import parameter_arn
 from moto.stepfunctions.models import StepFunctionBackend, stepfunctions_backends
+from moto.swf.models import SWFBackend, swf_backends
 from moto.utilities.tagging_service import TaggingService
 from moto.utilities.utils import get_partition
 from moto.vpclattice.models import VPCLatticeBackend, vpclattice_backends
@@ -206,21 +209,21 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         return dynamodb_backends[self.account_id][self.region_name]
 
     @property
-    def workspaces_backend(self) -> Optional[WorkSpacesBackend]:
+    def workspaces_backend(self) -> WorkSpacesBackend | None:
         # Workspaces service has limited region availability
         if self.region_name in workspaces_backends[self.account_id].regions:
             return workspaces_backends[self.account_id][self.region_name]
         return None
 
     @property
-    def workspacesweb_backends(self) -> Optional[WorkSpacesWebBackend]:
+    def workspacesweb_backends(self) -> WorkSpacesWebBackend | None:
         # WorkspacesWeb service has limited region availability
         if self.region_name in workspacesweb_backends[self.account_id].regions:
             return workspacesweb_backends[self.account_id][self.region_name]
         return None
 
     @property
-    def comprehend_backend(self) -> Optional[ComprehendBackend]:
+    def comprehend_backend(self) -> ComprehendBackend | None:
         # aws Comprehend has limited region availability
         if self.region_name in comprehend_backends[self.account_id].regions:
             return comprehend_backends[self.account_id][self.region_name]
@@ -235,13 +238,13 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         return sagemaker_backends[self.account_id][self.region_name]
 
     @property
-    def lexv2_backend(self) -> Optional[LexModelsV2Backend]:
+    def lexv2_backend(self) -> LexModelsV2Backend | None:
         if self.region_name in lexv2models_backends[self.account_id].regions:
             return lexv2models_backends[self.account_id][self.region_name]
         return None
 
     @property
-    def clouddirectory_backend(self) -> Optional[CloudDirectoryBackend]:
+    def clouddirectory_backend(self) -> CloudDirectoryBackend | None:
         if self.region_name in clouddirectory_backends[self.account_id].regions:
             return clouddirectory_backends[self.account_id][self.region_name]
         return None
@@ -251,18 +254,22 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         return cloudfront_backends[self.account_id][self.partition]
 
     @property
+    def swf_backend(self) -> SWFBackend:
+        return swf_backends[self.account_id][self.region_name]
+
+    @property
     def cloudwatch_backend(self) -> CloudWatchBackend:
         return cloudwatch_backends[self.account_id][self.region_name]
 
     @property
-    def connectcampaigns_backend(self) -> Optional[ConnectCampaignServiceBackend]:
+    def connectcampaigns_backend(self) -> ConnectCampaignServiceBackend | None:
         # Connect Campaigns service has limited region availability
         if self.region_name in connectcampaigns_backends[self.account_id].regions:
             return connectcampaigns_backends[self.account_id][self.region_name]
         return None
 
     @property
-    def quicksight_backend(self) -> Optional[QuickSightBackend]:
+    def quicksight_backend(self) -> QuickSightBackend | None:
         if self.region_name in quicksight_backends[self.account_id].regions:
             return quicksight_backends[self.account_id][self.region_name]
         return None
@@ -281,8 +288,8 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
 
     def _get_resources_generator(
         self,
-        tag_filters: Optional[list[dict[str, Any]]] = None,
-        resource_type_filters: Optional[list[str]] = None,
+        tag_filters: list[dict[str, Any]] | None = None,
+        resource_type_filters: list[str] | None = None,
     ) -> Iterator[dict[str, Any]]:
         # Look at
         # https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
@@ -1191,6 +1198,21 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
                     continue
                 yield {"ResourceARN": state_machine.arn, "Tags": tags}
 
+        # SWF
+        if (
+            not resource_type_filters
+            or "swf" in resource_type_filters
+            or "swf:domain" in resource_type_filters
+        ):
+            for domain in self.swf_backend.domains:
+                domain_arn = domain.to_short_dict()["arn"]
+                tags = self.swf_backend.tagger.list_tags_for_resource(domain_arn)[
+                    "Tags"
+                ]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {"ResourceARN": domain_arn, "Tags": tags}
+
         # VPC Lattice
         if not resource_type_filters or "vpc-lattice" in resource_type_filters:
             # Service
@@ -1210,6 +1232,81 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
                 if not tags or not tag_filter(tags):
                     continue
                 yield {"ResourceARN": f"{service_network.arn}", "Tags": tags}
+
+            # Service Network VPC Associations
+            for (
+                assoc
+            ) in self.vpclattice_backend.service_network_vpc_associations.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(assoc.arn)[
+                    "Tags"
+                ]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {"ResourceARN": f"{assoc.arn}", "Tags": tags}
+
+            # Rules
+            for rule in self.vpclattice_backend.rules.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(rule.arn)[
+                    "Tags"
+                ]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {"ResourceARN": f"{rule.arn}", "Tags": tags}
+
+            # Access Log Subscriptions
+            for sub in self.vpclattice_backend.access_log_subscriptions.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(sub.arn)[
+                    "Tags"
+                ]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {"ResourceARN": f"{sub.arn}", "Tags": tags}
+
+            # Listener
+            for listener in self.vpclattice_backend.listeners.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(
+                    listener.arn
+                )["Tags"]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {"ResourceARN": f"{listener.arn}", "Tags": tags}
+
+            # Target Group
+            for vpc_target_group in self.vpclattice_backend.target_groups.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(
+                    vpc_target_group.arn
+                )["Tags"]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {"ResourceARN": f"{vpc_target_group.arn}", "Tags": tags}
+
+            # Service Network Resource Association
+            for (
+                service_network_resource_association
+            ) in self.vpclattice_backend.service_network_resource_associations.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(
+                    service_network_resource_association.arn
+                )["Tags"]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {
+                    "ResourceARN": f"{service_network_resource_association.arn}",
+                    "Tags": tags,
+                }
+
+            # Service Network Service Association
+            for (
+                service_network_service_association
+            ) in self.vpclattice_backend.service_network_service_associations.values():
+                tags = self.vpclattice_backend.tagger.list_tags_for_resource(
+                    service_network_service_association.arn
+                )["Tags"]
+                if not tags or not tag_filter(tags):
+                    continue
+                yield {
+                    "ResourceARN": f"{service_network_service_association.arn}",
+                    "Tags": tags,
+                }
 
         # Workspaces
         if self.workspaces_backend and (
@@ -1484,12 +1581,12 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
 
     def get_resources(
         self,
-        pagination_token: Optional[str] = None,
+        pagination_token: str | None = None,
         resources_per_page: int = 50,
         tags_per_page: int = 100,
-        tag_filters: Optional[list[dict[str, Any]]] = None,
-        resource_type_filters: Optional[list[str]] = None,
-    ) -> tuple[Optional[str], list[dict[str, Any]]]:
+        tag_filters: list[dict[str, Any]] | None = None,
+        resource_type_filters: list[str] | None = None,
+    ) -> tuple[str | None, list[dict[str, Any]]]:
         # Simple range checking
         if 100 >= tags_per_page >= 500:
             raise RESTError(
@@ -1553,8 +1650,8 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         return new_token, result
 
     def get_tag_keys(
-        self, pagination_token: Optional[str] = None
-    ) -> tuple[Optional[str], list[str]]:
+        self, pagination_token: str | None = None
+    ) -> tuple[str | None, list[str]]:
         if pagination_token:
             if pagination_token not in self._pages:
                 raise RESTError(
@@ -1600,8 +1697,8 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         return new_token, result
 
     def get_tag_values(
-        self, pagination_token: Optional[str], key: str
-    ) -> tuple[Optional[str], list[str]]:
+        self, pagination_token: str | None, key: str
+    ) -> tuple[str | None, list[str]]:
         if pagination_token:
             if pagination_token not in self._pages:
                 raise RESTError(
@@ -1650,7 +1747,7 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         self, resource_arns: list[str], tags: dict[str, str]
     ) -> dict[str, dict[str, Any]]:
         """
-        Only CloudFront, DynamoDB, EFS, Elasticache, Lambda Logs, Quicksight RDS, SageMaker, and SES resources are currently supported
+        Only CloudFront, DynamoDB, EFS, Elasticache, Lambda, Logs, Quicksight, RDS, SageMaker, SES, and SWF resources are currently supported
         """
         missing_resources = []
         missing_error: dict[str, Any] = {
@@ -1714,6 +1811,10 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
                 self.cloudfront_backend.tag_resource(
                     arn, TaggingService.convert_dict_to_tags_input(tags)
                 )
+            elif arn.startswith(f"arn:{get_partition(self.region_name)}:swf:"):
+                self.swf_backend.tagger.tag_resource(
+                    arn, TaggingService.convert_dict_to_tags_input(tags)
+                )
             else:
                 missing_resources.append(arn)
         return dict.fromkeys(missing_resources, missing_error)
@@ -1722,7 +1823,7 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
         self, resource_arn_list: list[str], tag_keys: list[str]
     ) -> dict[str, dict[str, Any]]:
         """
-        Only CloudFront, EFS, Elasticache, Lambda, Quicksight, and SES resources are currently supported
+        Only CloudFront, EFS, Elasticache, Lambda, Quicksight, SES, and SWF resources are currently supported
         """
         missing_resources = []
         missing_error: dict[str, Any] = {
@@ -1750,6 +1851,8 @@ class ResourceGroupsTaggingAPIBackend(BaseBackend):
                 self.sesv2_backend.untag_resource(arn, tag_keys)
             elif arn.startswith(f"arn:{get_partition(self.region_name)}:cloudfront:"):
                 self.cloudfront_backend.untag_resource(arn, tag_keys)
+            elif arn.startswith(f"arn:{get_partition(self.region_name)}:swf:"):
+                self.swf_backend.tagger.untag_resource_using_names(arn, tag_keys)
             else:
                 missing_resources.append(arn)
 

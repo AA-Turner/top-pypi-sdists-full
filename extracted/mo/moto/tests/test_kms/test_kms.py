@@ -425,6 +425,49 @@ def test_list_aliases_for_key_arn():
         } in aliases
 
 
+@mock_aws
+def test_update_alias_using_arn_as_target_key_id():
+    client = boto3.client("kms", region_name="us-east-1")
+
+    key1 = client.create_key()
+    key1_arn = key1["KeyMetadata"]["Arn"]
+    key2 = client.create_key()
+    key2_id = key2["KeyMetadata"]["KeyId"]
+    key2_arn = key2["KeyMetadata"]["Arn"]
+
+    alias_name = "alias/my-alias"
+    client.create_alias(AliasName=alias_name, TargetKeyId=key1_arn)
+
+    # Update alias using full ARN as TargetKeyId
+    client.update_alias(AliasName=alias_name, TargetKeyId=key2_arn)
+
+    aliases = client.list_aliases(KeyId=key2_id)["Aliases"]
+    matched = [a for a in aliases if a["AliasName"] == alias_name]
+    assert len(matched) == 1
+    assert matched[0]["TargetKeyId"] == key2_id
+
+    aliases = client.list_aliases(KeyId=key1_arn)["Aliases"]
+    assert not any(a["AliasName"] == alias_name for a in aliases)
+
+
+@mock_aws
+def test_update_alias_same_target_key():
+    client = boto3.client("kms", region_name="us-east-1")
+
+    key = client.create_key()
+    key_id = key["KeyMetadata"]["KeyId"]
+    key_arn = key["KeyMetadata"]["Arn"]
+
+    alias_name = "alias/my-alias"
+    client.create_alias(AliasName=alias_name, TargetKeyId=key_id)
+
+    # Update alias to point to the same key using ARN (no-op)
+    client.update_alias(AliasName=alias_name, TargetKeyId=key_arn)
+
+    aliases = client.list_aliases(KeyId=key_id)["Aliases"]
+    assert any(a["AliasName"] == alias_name for a in aliases)
+
+
 @pytest.mark.parametrize(
     "key_id",
     [
@@ -732,6 +775,33 @@ def test_generate_data_key_decrypt():
     resp2 = client.decrypt(CiphertextBlob=resp1["CiphertextBlob"])
 
     assert resp1["Plaintext"] == resp2["Plaintext"]
+
+
+@mock_aws
+def test_decrypt_validates_key_id():
+    client = boto3.client("kms", region_name="us-east-1")
+    key1 = client.create_key(Description="key-1")
+    key2 = client.create_key(Description="key-2")
+    key1_id = key1["KeyMetadata"]["KeyId"]
+    key2_id = key2["KeyMetadata"]["KeyId"]
+
+    # Encrypt with key1
+    encrypt_resp = client.encrypt(KeyId=key1_id, Plaintext=b"hello world")
+
+    # Decrypt with correct key-id should succeed
+    decrypt_resp = client.decrypt(
+        CiphertextBlob=encrypt_resp["CiphertextBlob"], KeyId=key1_id
+    )
+    assert decrypt_resp["Plaintext"] == b"hello world"
+
+    # Decrypt without key-id should still succeed (key-id is optional)
+    decrypt_resp = client.decrypt(CiphertextBlob=encrypt_resp["CiphertextBlob"])
+    assert decrypt_resp["Plaintext"] == b"hello world"
+
+    # Decrypt with wrong key-id should raise AccessDeniedException
+    with pytest.raises(ClientError) as exc:
+        client.decrypt(CiphertextBlob=encrypt_resp["CiphertextBlob"], KeyId=key2_id)
+    assert exc.value.response["Error"]["Code"] == "AccessDeniedException"
 
 
 @pytest.mark.parametrize(

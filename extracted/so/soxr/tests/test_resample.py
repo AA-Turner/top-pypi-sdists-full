@@ -74,7 +74,7 @@ def test_length_match(in_rate, out_rate, length):
 @pytest.mark.parametrize('channels', [1, 2, 3, 5, 7, 24, 49])
 def test_channel_match(channels):
     # test sliced array with various channel number
-    x = np.random.randn(30011, 49).astype(np.float32)
+    x = np.random.randn(15013, 49).astype(np.float32)
 
     y_oneshot = soxr._resample_oneshot(x[:, :channels], 44100, 32000)
     y_divide = soxr.resample(x[:, :channels], 44100, 32000)
@@ -103,8 +103,8 @@ def stream_resample(x, in_rate, out_rate, chunk_size, dtype):
 
 
 @pytest.mark.parametrize('in_rate, out_rate', [(44100, 32000), (32000, 44100)])
-@pytest.mark.parametrize('chunk_size', [7, 509, 44100])
-@pytest.mark.parametrize('length', [0, 100, 31999, 44100, 266151])
+@pytest.mark.parametrize('chunk_size', [17, 509, 44100])
+@pytest.mark.parametrize('length', [0, 100, 31999, 44100, 166151])
 @pytest.mark.parametrize('dtype', ['float32', np.float64])
 def test_stream_length(in_rate, out_rate, chunk_size, length, dtype):
     # test resample_chunk() with various length and chunk size

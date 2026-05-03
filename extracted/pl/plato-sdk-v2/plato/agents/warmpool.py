@@ -52,14 +52,20 @@ class WarmPool:
         *,
         max_size: int = 4,
         pre_warm: int = 0,
-        health_check_timeout: int = 10,
-        reset_timeout: int = 30,
+        health_check_timeout: int = 30,
+        reset_timeout: int = 60,
+        health_check_attempts: int = 3,
+        reset_attempts: int = 3,
         vm_timeout: int | None = None,
     ) -> None:
         if max_size < 1:
             raise ValueError("max_size must be at least 1")
         if pre_warm < 0:
             raise ValueError("pre_warm must be non-negative")
+        if health_check_attempts < 1:
+            raise ValueError("health_check_attempts must be at least 1")
+        if reset_attempts < 1:
+            raise ValueError("reset_attempts must be at least 1")
 
         self._runtime_factory = runtime_factory
         self._image = image
@@ -67,6 +73,8 @@ class WarmPool:
         self._pre_warm_target = min(pre_warm, max_size)
         self.health_check_timeout = health_check_timeout
         self.reset_timeout = reset_timeout
+        self.health_check_attempts = health_check_attempts
+        self.reset_attempts = reset_attempts
         self._vm_timeout = vm_timeout
 
         self._available: deque[PooledVM] = deque()
@@ -415,9 +423,9 @@ class WarmPool:
         stderr = ""
         # Every segment is wrapped in `(...) || true`, so a non-zero exit can
         # only come from the ssh transport itself (typically 255 when the
-        # session drops mid-command). Retry once with a fresh connection before
+        # session drops mid-command). Retry with a fresh connection before
         # giving up — drops here are usually transient.
-        for attempt in range(2):
+        for attempt in range(self.reset_attempts):
             exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
                 pooled_vm.runtime_info.runtime_id,
                 command,
@@ -425,8 +433,8 @@ class WarmPool:
             )
             if exit_code == 0 and "warm-pool-reset-ok" in stdout:
                 return True
-            if attempt == 0:
-                await asyncio.sleep(1)
+            if attempt + 1 < self.reset_attempts:
+                await asyncio.sleep(min(float(2**attempt), 5.0))
 
         logger.warning(
             "Warm pool reset failed on %s (exit=%d): stdout=%s stderr=%s",
@@ -438,12 +446,18 @@ class WarmPool:
         return False
 
     async def _health_check(self, pooled_vm: PooledVM) -> bool:
-        exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
-            pooled_vm.runtime_info.runtime_id,
-            "echo warm-pool-ok",
-            timeout=self.health_check_timeout,
-        )
-        healthy = exit_code == 0 and stdout.strip() == "warm-pool-ok"
+        healthy = False
+        for attempt in range(self.health_check_attempts):
+            exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
+                pooled_vm.runtime_info.runtime_id,
+                "echo warm-pool-ok",
+                timeout=self.health_check_timeout,
+            )
+            healthy = exit_code == 0 and stdout.strip() == "warm-pool-ok"
+            if healthy:
+                break
+            if attempt + 1 < self.health_check_attempts:
+                await asyncio.sleep(min(float(2**attempt), 5.0))
         pooled_vm.healthy = healthy
         return healthy
 

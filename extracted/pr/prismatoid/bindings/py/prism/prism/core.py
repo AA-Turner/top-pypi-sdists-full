@@ -1,5 +1,4 @@
 import sys
-import warnings
 from dataclasses import dataclass, field, fields
 from enum import IntEnum
 
@@ -24,6 +23,7 @@ class BackendId(IntEnum):
     ZOOM_TEXT = 0xAE439D62DC7B1479
     BOY_PC_READER = 0x285aba1c16f3300f
     PC_TALKER = 0x344B951962E3B835
+    SENSE_READER = 0xED4760890B55C2F2
     SYSTEM_ACCESS = 0x8380F2A37B2C3EB6
     WINDOW_EYES = 0x9120D89908785C13
 
@@ -113,6 +113,9 @@ class PrismInternalBackendLimitExceededError(PrismError, RuntimeError):
     """PRISM_ERROR_INVALID_AUDIO_FORMAT"""
 
 
+class PrismBackendEnteredUndefinedStateError(PrismError, RuntimeError):
+    """PRISM_ERROR_BACKEND_ENTERED_UNDEFINED_STATE"""
+
 _ERROR_MAP = {
     lib.PRISM_ERROR_NOT_INITIALIZED: PrismNotInitializedError,
     lib.PRISM_ERROR_INVALID_PARAM: PrismInvalidParamError,
@@ -133,6 +136,7 @@ _ERROR_MAP = {
     lib.PRISM_ERROR_UNKNOWN: PrismUnknownError,
     lib.PRISM_ERROR_INVALID_AUDIO_FORMAT: PrismInvalidAudioFormatError,
     lib.PRISM_ERROR_INTERNAL_BACKEND_LIMIT_EXCEEDED: PrismInternalBackendLimitExceededError,
+    lib.PRISM_ERROR_BACKEND_ENTERED_UNDEFINED_STATE: PrismBackendEnteredUndefinedStateError,
 }
 
 

@@ -52,6 +52,7 @@ inline constexpr auto ZDSR = "ZDSR"_bid;
 inline constexpr auto ZoomText = "ZoomText"_bid;
 inline constexpr auto BoyPCReader = "BoyPCReader"_bid;
 inline constexpr auto PCTalker = "PCTalker"_bid;
+inline constexpr auto SenseReader = "SenseReader"_bid;
 inline constexpr auto SystemAccess = "SystemAccess"_bid;
 inline constexpr auto WindowEyes = "WindowEyes"_bid;
 } // namespace Backends
@@ -106,12 +107,23 @@ private:
 };
 
 template <typename T> struct BackendRegistrar {
-  BackendRegistrar(BackendId id, std::string_view name, int priority) noexcept {
-    BackendRegistry::instance().register_backend(
-        id, name, priority, []() { return std::make_shared<T>(); });
+  BackendRegistrar(BackendId id, const char *name, int priority) noexcept {
+    try {
+      BackendRegistry::instance().register_backend(
+          id, std::string_view{name}, priority,
+          []() { return std::make_shared<T>(); });
+    } catch (...) {
+    }
   }
-  BackendRegistrar(std::string_view name, int priority) noexcept
-      : BackendRegistrar(make_backend_id(name), name, priority) {}
+  BackendRegistrar(const char *name, int priority) noexcept {
+    try {
+      const std::string_view name_sv{name};
+      BackendRegistry::instance().register_backend(
+          make_backend_id(name_sv), name_sv, priority,
+          []() { return std::make_shared<T>(); });
+    } catch (...) {
+    }
+  }
 };
 
 #define REGISTER_BACKEND(cls, name, priority)                                  \

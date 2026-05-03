@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxocr-ppocrv5
-Version: 0.0.15
+Version: 0.0.16
 Summary: ONNX-based OCR (PP-OCRv5) inference pipeline.
 Author-email: Your Name <your.email@example.com>
 License:                                  Apache License

@@ -489,10 +489,6 @@ class RenyiELBO(ELBO):
         Here :math:`\alpha \neq 1`. Default is 0.
     :param num_particles: The number of particles/samples
         used to form the objective (gradient) estimator. Default is 2.
-    :param vectorize_particles: Whether to use `jax.vmap` to compute ELBOs over the
-        num_particles-many particles in parallel. If False use `jax.lax.map`.
-        Defaults to True. You can also pass a callable to specify a custom vectorization
-        strategy, for example `jax.pmap`.
 
     Example::
 
@@ -982,7 +978,11 @@ def get_importance_trace_enum(
                     site["kl"] = to_funsor(
                         kl_qp, output=funsor.Real, dim_to_name=dim_to_name
                     )
-                elif not is_model and (model_trace[name].get("kl") is not None):
+                elif (
+                    not is_model
+                    and name in model_trace
+                    and (model_trace[name].get("kl") is not None)
+                ):
                     # skip logq computation if analytic kl was computed
                     pass
                 else:

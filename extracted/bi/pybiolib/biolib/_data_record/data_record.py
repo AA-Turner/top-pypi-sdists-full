@@ -173,6 +173,15 @@ class DataRecord:
 
         return files
 
+    def get_file(self, path: str) -> LazyLoadedFile:
+        try:
+            files = self.list_files(path_filter=path, max_count=1)
+        except FileMaxCountExceededError:
+            raise FileNotFoundError(f'Multiple files matched the path: {path}') from None
+        if not files:
+            raise FileNotFoundError(f'File not found in data record: {path}')
+        return files[0]
+
     def download_zip(self, output_path: str):
         remote_storage_endpoint = DataRecordRemoteStorageEndpoint(uri=self.uri)
         HttpClient.request(url=remote_storage_endpoint.get_remote_url(), response_path=output_path)

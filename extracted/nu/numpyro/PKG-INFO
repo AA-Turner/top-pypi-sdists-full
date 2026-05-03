@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpyro
-Version: 0.20.1
+Version: 0.21.0
 Summary: Probabilistic programming with NumPy powered by JAX for autograd and JIT compilation to GPU/TPU/CPU.
 Author-email: Uber AI Labs <fehiepsi@gmail.com>
 Project-URL: Changelog, https://github.com/pyro-ppl/numpyro/blob/main/CHANGELOG.md

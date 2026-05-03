@@ -1,4 +1,4 @@
-.PHONY: install dev test cov lint build clean release
+.PHONY: install dev test cov lint build clean release catalog catalog-check
 
 install:
 	pip install -e .
@@ -28,8 +28,17 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
 
 release:
-	@VERSION=$$(python -c "from src.argus_redact import __version__; print(__version__)"); \
+	@VERSION=$$(awk -F'"' '/^version = "/ {print $$2; exit}' pyproject.toml); \
+	if [ -z "$$VERSION" ]; then echo "ERROR: could not extract version from pyproject.toml" >&2; exit 1; fi; \
 	echo "Releasing v$$VERSION"; \
 	git tag "v$$VERSION" && \
 	git push origin main --tags && \
 	echo "Tag v$$VERSION pushed — GitHub Actions will handle PyPI + GitHub Release + HF Space"
+
+catalog:
+	PYTHONPATH=src python -m argus_redact.specs.gen_catalog > docs/pii-types.md
+
+catalog-check:
+	@PYTHONPATH=src python -m argus_redact.specs.gen_catalog | diff -u docs/pii-types.md - >/dev/null \
+		|| (echo "docs/pii-types.md is out of sync with the registry. Run: make catalog" && exit 1)
+	@echo "docs/pii-types.md is in sync"

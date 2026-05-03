@@ -2233,18 +2233,19 @@ def _ensure_model_available(
                     "Install build prereqs (cmake + a C++ compiler) or run via Ollama: "
                     f"sage pull ollama:{model_name} && sage use ollama:{model_name}"
                 )
-            if allow_fallback:
-                renderer.warning(base_message)
-                if _llama_cpp_runtime_bootstrap_error:
-                    renderer.info(f"Bootstrap detail: {_llama_cpp_runtime_bootstrap_error}")
-                renderer.info(hint)
-                renderer.info("SAGE will use a cloud fallback for now.")
-                cfg._llama_cpp_fallback_needed = True
-                return cfg
-            message = f"{base_message} {hint}"
+            # System-wide runtime failure: the user's `sage use <model>` pinning
+            # can't be honored regardless of `allow_fallback`. Pinning means
+            # "don't substitute a different model" — it doesn't mean "refuse
+            # to start when llama-cpp-python is broken." Always signal
+            # fallback so `_prepare_model_for_use` picks an Ollama or cloud
+            # target.
+            renderer.warning(base_message)
             if _llama_cpp_runtime_bootstrap_error:
-                message = f"{message} Bootstrap detail: {_llama_cpp_runtime_bootstrap_error}"
-            raise RuntimeError(message)
+                renderer.info(f"Bootstrap detail: {_llama_cpp_runtime_bootstrap_error}")
+            renderer.info(hint)
+            renderer.info("SAGE will use a cloud/Ollama fallback for now.")
+            cfg._llama_cpp_fallback_needed = True
+            return cfg
 
     elif resolved.startswith("ollama:"):
         ollama_name = resolved.removeprefix("ollama:")
@@ -2593,10 +2594,55 @@ def _llama_cpp_install_attempts(
 _LLAMA_CPP_SUPPORTED_PYTHON = (3, 13)
 
 
+def _pick_runtime_fallback(cfg: SageConfig) -> str | None:
+    """Pick a non-llama_cpp fallback model for when the local GGUF runtime is broken.
+
+    Order:
+      1. Ollama if it's running and has any model pulled — pick the first one.
+      2. A cloud provider with a configured API key (gemini → groq → openrouter →
+         the rest in PROVIDER_KEYS order). Returns the prefixed id, e.g.
+         ``gemini:gemini-2.0-flash``, ``groq:llama-3.1-8b-instant``.
+    Returns None when nothing usable is configured — caller should hard-error.
+    """
+    # Ollama probe — same shape used elsewhere in this file.
+    try:
+        import httpx as _hx
+
+        resp = _hx.get("http://localhost:11434/api/tags", timeout=2)
+        if resp.status_code == 200:
+            tags = [m.get("name", "") for m in resp.json().get("models", [])]
+            tags = [t for t in tags if t]
+            if tags:
+                # tags look like "gemma4:latest" — strip the tag suffix
+                first = tags[0].split(":", 1)[0]
+                return f"ollama:{first}"
+    except Exception:
+        pass
+
+    # Cloud fallbacks keyed by configured API keys. Defaults are stable, free-tier
+    # models so a logged-in user with just one API key still has a working CLI.
+    cloud_defaults: list[tuple[str, str]] = [
+        ("gemini", "gemini-2.0-flash"),
+        ("groq", "llama-3.1-8b-instant"),
+        ("openrouter", "meta-llama/llama-3.1-8b-instruct:free"),
+        ("cerebras", "llama3.1-8b"),
+        ("together", "meta-llama/Llama-3.1-8B-Instruct-Turbo"),
+        ("mistral", "mistral-small-latest"),
+        ("cohere", "command-r"),
+        ("deepseek", "deepseek-chat"),
+        ("deepinfra", "meta-llama/Meta-Llama-3.1-8B-Instruct"),
+    ]
+    for provider, model in cloud_defaults:
+        if cfg.has_provider(provider):
+            return f"{provider}:{model}"
+
+    return None
+
+
 def _prepare_model_for_use(
     cfg: SageConfig,
     requested_model: str,
-    fallback_model: str = "llama_cpp:llama3.2-3b",
+    fallback_model: str | None = None,
 ) -> tuple[SageConfig, str]:
     """Resolve, ensure, and fall back a requested model into a runnable model id."""
     explicit_request = _should_lock_requested_model(requested_model, cfg)
@@ -2605,7 +2651,19 @@ def _prepare_model_for_use(
 
     if getattr(cfg, "_llama_cpp_fallback_needed", False):
         delattr(cfg, "_llama_cpp_fallback_needed")
-        model_id = fallback_model
+        # Fallback target must NOT be another llama_cpp model — the runtime
+        # itself is unavailable on this machine. Pick Ollama or cloud
+        # dynamically based on what's actually configured.
+        target = fallback_model or _pick_runtime_fallback(cfg)
+        if not target:
+            raise RuntimeError(
+                "llama-cpp-python is unavailable and no cloud/Ollama fallback is configured.\n"
+                "Pick one of:\n"
+                "  • Install Ollama and run: sage pull ollama:gemma3 && sage use ollama:gemma3\n"
+                "  • Set a cloud API key, e.g. SAGE_GEMINI_API_KEY, then: sage use gemini-2.0-flash\n"
+                "  • Run sage from Python 3.13 (which has llama-cpp-python wheels)."
+            )
+        model_id = target
         renderer.info(f"Using fallback: {model_id}")
 
     return cfg, model_id

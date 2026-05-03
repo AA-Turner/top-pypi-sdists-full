@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .analytics import AnalyticsSpec
 from .approvals import ApprovalSpec
 from .archetype import ArchetypeSpec
+from .audit import AuditSpec
 from .domain import DomainSpec, EntitySpec
 from .e2e import FixtureSpec, FlowPriority, FlowSpec
 from .enums import EnumSpec
@@ -39,6 +40,7 @@ from .hless import (
 )
 from .integrations import IntegrationSpec
 from .islands import IslandSpec
+from .jobs import JobSpec
 from .layout import UXLayouts
 from .ledgers import (
     LedgerSpec,
@@ -68,6 +70,7 @@ from .questions import QuestionSpec
 from .rhythm import RhythmSpec
 from .rules import RuleSpec
 from .scenarios import ScenarioSpec
+from .search import SearchSpec
 from .security import SecurityConfig
 from .services import APISpec, DomainServiceSpec
 from .sla import SLASpec
@@ -181,6 +184,12 @@ class AppSpec(BaseModel):
     islands: list[IslandSpec] = Field(default_factory=list)
     # Notifications (v0.34.0)
     notifications: list[NotificationSpec] = Field(default_factory=list)
+    # Background Jobs (#953)
+    jobs: list[JobSpec] = Field(default_factory=list)
+    # Audit trail (#956)
+    audits: list[AuditSpec] = Field(default_factory=list)
+    # Full-text search (#954)
+    searches: list[SearchSpec] = Field(default_factory=list)
     # Rhythms (v0.39.0 Longitudinal UX Evaluation)
     rhythms: list[RhythmSpec] = Field(default_factory=list)
     # Grant Schemas (v0.42.0 Runtime RBAC)

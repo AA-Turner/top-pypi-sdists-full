@@ -41,9 +41,6 @@ class Surface(Widget):
             opacity: Real = 1.0,
             clipping: bool = False,
         ):
-        # Initialisation du widget
-        super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
-
         # Forme
         self._shape: Shape = expect(shape, Shape)
         self._shape_renderer: PygletShapeRenderer = None
@@ -51,60 +48,63 @@ class Surface(Widget):
         # Affichage
         self._color: Color = Color(color)
 
-        # Hooks
-        self.on_show(self._on_show)
-        self.on_hide(self._on_hide)
+        # Initialisation du widget
+        super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
 
-    # ======================================== GETTERS ========================================
+        # Hooks
+        self.on_show(self._show_hook)
+        self.on_hide(self._hide_hook)
+
+    # ======================================== PROPERTIES ========================================
     @property
     def shape(self) -> Shape:
-        """Renvoie la forme de la surface"""
+        """Forme de la surface"""
         return self._shape
+    
+    @shape.setter
+    def shape(self, value: Shape) -> None:
+        if __debug__:
+            expect(value, Shape)
+        self._shape = value
+        self._invalidate_geometry()
+        self._invalidate_scissor()
     
     @property
     def color(self) -> Color:
-        """Renvoie la couleur de remplissage"""
+        """Couleur de remplissage"""
         return self._color
+    
+    @color.setter
+    def color(self, value: Color) -> None:
+        self._color = Color(value)
     
     @property
     def hitbox(self) -> Shape:
         """Renvoie la hitbox de la surface"""
         return self._shape
-    
-    # ======================================== SETTERS ========================================
-    @shape.setter
-    def shape(self, value: Shape) -> None:
-        """Fixe la forme de la surface"""
-        self._shape = expect(value, Shape)
-        self._invalidate_scissor()
-    
-    @color.setter
-    def color(self, value: Color) -> None:
-        """Fixe la couleur de remplissage"""
-        self._color = Color(value)
 
     # ======================================== INTERFACE ========================================
     def copy(self) -> Surface:
         """Renvoie une copie du widget"""
         return Surface(
             shape = self._shape,
-            position = self._position,
-            anchor = self._anchor,
-            scale = self._scale,
-            rotation = self._rotation,
+            position = self._transform.position,
+            anchor = self._transform.anchor,
+            scale = self._transform.scale,
+            rotation = self._transform.rotation,
             color=self._color,
             opacity = self._opacity,
             clipping = self._clipping,
         )
     
     # ======================================== HOOKS ========================================
-    def _on_show(self) -> None:
+    def _show_hook(self) -> None:
         """Devient visible"""
         if self._shape_renderer is None:
             return
         self._shape_renderer.visible = True
 
-    def _on_hide(self) -> None:
+    def _hide_hook(self) -> None:
         """Devient invisible"""
         if self._shape_renderer is None:
             return
@@ -120,13 +120,7 @@ class Surface(Widget):
         # Construction du renderer
         if self._shape_renderer is None:
             self._shape_renderer = PygletShapeRenderer(
-                shape = self._shape,
-                x = context.x,
-                y = context.y,
-                anchor_x = self.anchor_x,
-                anchor_y = self.anchor_y,
-                scale = context.scale,
-                rotation = context.rotation,
+                geometry = self._geometry,
                 color = self._color,
                 opacity = context.opacity,
                 pipeline = pipeline,
@@ -137,15 +131,9 @@ class Surface(Widget):
         # Mise à jour du renderer
         else:
             self._shape_renderer.update(
-                x = context.x,
-                y = context.y,
-                anchor_x = self.anchor_x,
-                anchor_y = self.anchor_y,
-                scale = context.scale,
-                rotation = context.rotation,
+                geometry = self._geometry,
                 color = self._color,
                 opacity = context.opacity,
-                pipeline=pipeline,
                 z=context.z,
                 parent=context.group,
             )

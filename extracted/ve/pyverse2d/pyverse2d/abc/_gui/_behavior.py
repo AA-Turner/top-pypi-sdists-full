@@ -50,8 +50,6 @@ class Behavior(ABC):
             return widget.add_behavior(self)
         if self._owner is not None:
             raise ValueError("This behavior is already attached")
-        if __debug__:
-            expect(widget, Widget)
         self._owner = widget
         for tween in self._tweens.values():
             if tween.widget is None:
@@ -88,8 +86,6 @@ class Behavior(ABC):
             target: widget cible (par défaut le possesseur)
         """
         widget = target or self._owner
-        if __debug__:
-            expect(widget, Widget)
         if widget is not None:
             tween.bind(widget)
         self._tweens[type(tween)] = tween

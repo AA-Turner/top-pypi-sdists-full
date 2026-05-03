@@ -229,6 +229,71 @@ class SearchReplace(
                         ),
                     )
                     return
+            if err_msg.startswith("File does not exist:"):
+                # Convert to advisory result with directory listing so the
+                # model can correct its path without retrying blindly.
+                # Previously raised as ToolError → model retried 18+ times
+                # (admiral_history shows "retry_after_error:search_replace:
+                # <tool_error>search_replace failed: File does not exist").
+                bad_path_str = args.file_path.strip()
+                bad_path = Path(bad_path_str).expanduser()
+                if not bad_path.is_absolute():
+                    bad_path = Path.cwd() / bad_path
+                bad_path = bad_path.resolve()
+                parent = bad_path.parent
+                # Track repeat offenses so escalation fires on 2nd+ call.
+                fne_state = self.state.__dict__.setdefault("_sr_fne_history", {})
+                fne_key = str(bad_path)
+                fne_entry = fne_state.get(fne_key, {"count": 0})
+                fne_entry["count"] += 1
+                fne_state[fne_key] = fne_entry
+                fne_count = fne_entry["count"]
+                try:
+                    if parent.is_dir():
+                        sibling_files = sorted(
+                            p.name for p in parent.iterdir() if p.is_file()
+                        )[:20]
+                        dir_listing = (
+                            f"Files in {parent}:\n"
+                            + "\n".join(f"  {f}" for f in sibling_files)
+                        ) if sibling_files else f"Directory {parent} is empty."
+                    else:
+                        dir_listing = f"Parent directory {parent} does not exist."
+                except OSError:
+                    dir_listing = f"Could not list {parent}."
+                extra = ""
+                if fne_count >= 2:
+                    try:
+                        py_files = sorted(
+                            str(p.relative_to(Path.cwd()))
+                            for p in Path.cwd().rglob("*.py")
+                            if "__pycache__" not in str(p) and ".git" not in str(p)
+                        )[:20]
+                        extra = (
+                            f"\n[REPEATED ERROR #{fne_count}: '{bad_path.name}' still "
+                            f"does not exist. Stop retrying this path. "
+                            f"Project .py files you can edit:\n"
+                            + "\n".join(f"  {f}" for f in py_files)
+                            + "\nTo CREATE a new file use write_file instead of search_replace.]"
+                        )
+                    except Exception:
+                        extra = (
+                            f"\n[REPEATED ERROR #{fne_count}: use write_file to create "
+                            f"'{bad_path.name}' before trying to edit it.]"
+                        )
+                yield SearchReplaceResult(
+                    file=bad_path_str,
+                    blocks_applied=0,
+                    lines_changed=0,
+                    content=(
+                        f"FILE NOT FOUND: '{bad_path}' does not exist and cannot be edited.\n"
+                        f"{dir_listing}\n"
+                        f"If you need to CREATE this file, use write_file. "
+                        f"If you meant to edit a different file, use the exact path from the listing above."
+                        + extra
+                    ),
+                )
+                return
             if err_msg.startswith("NO_BLOCKS:"):
                 # Gemma 4 sent raw code without SEARCH/REPLACE markers.
                 # CAREFULLY fall back to full file overwrite — but refuse if
@@ -408,6 +473,17 @@ class SearchReplace(
         # the result content and pivots to read_file.
         read_state = ctx.read_file_state if ctx else None
         path_key = str(file_path)
+        # When the model passed a directory and we inferred the actual file,
+        # we scanned the file content during inference — register it as "read"
+        # so the read-before-edit check below passes instead of blocking.
+        if read_state is not None:
+            _orig = Path(args.file_path.strip()).expanduser()
+            if not _orig.is_absolute():
+                _orig = Path.cwd() / _orig
+            _orig = _orig.resolve()
+            if _orig.is_dir() and file_path.is_file() and _orig != file_path:
+                import time as _time
+                read_state.setdefault(path_key, {"timestamp": int(_time.time() * 1e9)})
         if read_state is not None and file_path.exists():
             prior = read_state.get(path_key)
             if prior is None:
@@ -470,11 +546,68 @@ class SearchReplace(
                     "remaining code", "code continues", "etc.",
                 ]
             ):
-                raise ToolError(
-                    f"Your replacement contains a placeholder ('{replacement[:50]}') "
-                    f"that would delete existing code. Provide the COMPLETE replacement "
-                    f"code, not a summary. If the code is unchanged, don't edit it."
+                yield SearchReplaceResult(
+                    file=str(file_path),
+                    blocks_applied=0,
+                    lines_changed=0,
+                    warnings=[],
+                    content=(
+                        f"REFUSED: your REPLACE block contains a placeholder "
+                        f"('{replacement[:60]}') that would delete existing code. "
+                        f"Provide the COMPLETE replacement — every line that should "
+                        f"remain, plus your changes. Do NOT summarise unchanged code."
+                    ),
                 )
+                return
+
+        # Detect no-op edits where SEARCH and REPLACE are byte-identical.
+        # Short-circuit before _apply_blocks so we never reach the ambiguous
+        # "edited successfully (+0 lines)" path for this structural no-op.
+        noop_blocks = [b for b in search_replace_blocks if b.search == b.replace]
+        if noop_blocks:
+            noop_state = self.state.__dict__.setdefault("_sr_noop_history", {})
+            noop_key = str(file_path)
+            noop_entry = noop_state.get(noop_key, {"count": 0})
+            noop_entry["count"] += 1
+            noop_state[noop_key] = noop_entry
+            noop_count = noop_entry["count"]
+            if noop_count >= 2:
+                try:
+                    body = original_content[:3000]
+                    tail = (
+                        f"\n...[truncated, {original_content.count(chr(10))} lines total]"
+                        if len(original_content) > 3000 else ""
+                    )
+                    extra = (
+                        f"\n\n[HARD-STOP: #{noop_count} consecutive SEARCH==REPLACE no-op "
+                        f"on {file_path.name}. Your SEARCH and REPLACE blocks are still "
+                        f"byte-identical — this call can never change anything. "
+                        f"DO NOT retry search_replace on this file again. "
+                        f"REQUIRED: call write_file with overwrite=True and the complete "
+                        f"corrected file content. Current file:\n"
+                        f"-----FILE START-----\n{body}{tail}\n-----FILE END-----]"
+                    )
+                except Exception:
+                    extra = (
+                        f"\n\n[HARD-STOP: #{noop_count} consecutive SEARCH==REPLACE no-op "
+                        f"on {file_path.name}. Stop retrying. Use write_file overwrite=True.]"
+                    )
+            else:
+                extra = (
+                    f" Re-read the file with read_file, identify what you actually need "
+                    f"to change, and send a corrected SEARCH/REPLACE block."
+                )
+            yield SearchReplaceResult(
+                file=str(file_path),
+                blocks_applied=0,
+                lines_changed=0,
+                warnings=[],
+                content=(
+                    f"{file_path.name}: ALREADY CORRECT — the SEARCH and REPLACE text "
+                    f"are byte-identical, so this block can never make any change.{extra}"
+                ),
+            )
+            return
 
         block_result = self._apply_blocks(
             original_content,
@@ -503,7 +636,23 @@ class SearchReplace(
             entry = state.get(fail_key, {"count": 0})
             entry["count"] += 1
             state[fail_key] = entry
-            if entry["count"] >= 2:
+            if entry["count"] == 1:
+                # First failure: embed file head so model sees actual content
+                # without waiting for a second retry cycle. Reduces
+                # retry_after_error:search_replace events significantly.
+                try:
+                    head = original_content[:1500]
+                    line_count = original_content.count("\n")
+                    error_message += (
+                        f"\n\n[HINT: search text not found in {file_path.name}. "
+                        f"File may have changed. Current file head "
+                        f"({line_count} lines total):\n"
+                        f"-----FILE HEAD-----\n{head}\n-----FILE HEAD END-----\n"
+                        f"Adjust your SEARCH text to match the actual content above.]"
+                    )
+                except Exception:
+                    pass
+            elif entry["count"] >= 2:
                 try:
                     line_count = original_content.count("\n")
                     count = entry["count"]
@@ -717,7 +866,47 @@ class SearchReplace(
             raise ToolError(f"File does not exist: {file_path}")
 
         if not file_path.is_file():
-            raise ToolError(f"Path is not a file: {file_path}")
+            # Model passed a directory. Try to infer the correct file by
+            # scanning for a file in the directory that contains the search text.
+            # This avoids the retry loop where the model gets "is a directory"
+            # and keeps passing the same directory path. Only attempt when we have
+            # SEARCH content — otherwise fall through to the "Path is not a file" handler.
+            if file_path.is_dir() and content:
+                blocks_for_infer = self._parse_search_replace_blocks(content)
+                if blocks_for_infer:
+                    search_text = blocks_for_infer[0].search.strip()
+                    if search_text and len(search_text) >= 10:
+                        # Scan files in the directory first (most likely match),
+                        # then fall back to the entire project.
+                        candidates: list[Path] = []
+                        scan_dirs = [file_path] + [project_root]
+                        files_checked = 0
+                        for scan_dir in scan_dirs:
+                            for f in scan_dir.rglob("*.py"):
+                                if files_checked > 200:
+                                    break
+                                if "__pycache__" in str(f) or ".git" in str(f):
+                                    continue
+                                if f in candidates:
+                                    continue
+                                files_checked += 1
+                                try:
+                                    text = f.read_text(encoding="utf-8", errors="replace")
+                                    if len(text) > 100_000:
+                                        continue
+                                    if search_text in text:
+                                        candidates.append(f)
+                                except Exception:
+                                    continue
+                            if candidates:
+                                break
+                        if len(candidates) == 1:
+                            file_path = candidates[0]
+                        elif candidates:
+                            candidates.sort(key=lambda p: len(str(p)))
+                            file_path = candidates[0]
+            if not file_path.is_file():
+                raise ToolError(f"Path is not a file: {file_path}")
 
         search_replace_blocks = self._parse_search_replace_blocks(content)
         if not search_replace_blocks:

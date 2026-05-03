@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import tempfile
@@ -11,8 +12,7 @@ import click
 
 from .. import terminal
 
-VALID_TEMPLATES = ("default", "quickstart", "media-studio", "browser-agent", "background-agent")
-TEMPLATE_ALIASES: dict[str, str] = {}
+DEFAULT_TEMPLATE = "default"
 EXAMPLES_ARCHIVE_URL = "https://github.com/beam-cloud/capsule-examples/archive/refs/heads/main.zip"
 TEXT_EXTENSIONS = {".baml", ".gitignore", ".md", ".py", ".toml", ".txt", ".yaml", ".yml"}
 
@@ -37,12 +37,18 @@ def _repo_root() -> Path:
 def _local_examples_dir() -> Path | None:
     root = _repo_root()
     candidates = [
+        Path(os.environ["CAPSULE_EXAMPLES_DIR"]).expanduser()
+        if os.environ.get("CAPSULE_EXAMPLES_DIR")
+        else None,
         Path.cwd() / "capsule-examples",
         Path.cwd().parent / "capsule-examples",
+        Path.home() / "beam" / "capsule-examples",
         root.parent / "capsule-examples",
         root / "capsule-examples",
     ]
     for candidate in candidates:
+        if candidate is None:
+            continue
         if _is_examples_dir(candidate):
             return candidate
         legacy = candidate / "templates"
@@ -52,7 +58,17 @@ def _local_examples_dir() -> Path | None:
 
 
 def _is_examples_dir(path: Path) -> bool:
-    return all((path / name / "template.yaml").exists() for name in VALID_TEMPLATES)
+    return (path / DEFAULT_TEMPLATE / "template.yaml").exists() and bool(_template_names(path))
+
+
+def _template_names(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    return sorted(
+        child.name
+        for child in path.iterdir()
+        if child.is_dir() and (child / "template.yaml").exists()
+    )
 
 
 def _download_examples_dir(tmp: Path) -> Path:
@@ -142,15 +158,10 @@ def _secret_lines(secrets: list[str]) -> list[str]:
 
 @click.command("create")
 @click.argument("name")
-@click.option("--template", "template_name", default="default", show_default=True, help="Template to use.")
+@click.option("--template", "template_name", default=DEFAULT_TEMPLATE, show_default=True, help="Template to use.")
 @click.option("--force", is_flag=True, help="Overwrite an existing non-empty project directory.")
 def create(name: str, template_name: str, force: bool) -> None:
     """Create a production-shaped Capsule project from a template."""
-    template_name = TEMPLATE_ALIASES.get(template_name, template_name)
-    if template_name not in VALID_TEMPLATES:
-        valid = ", ".join(VALID_TEMPLATES)
-        raise click.ClickException(f"Unknown template {template_name!r}. Choose one of: {valid}.")
-
     requested = Path(name).expanduser()
     target = requested if requested.is_absolute() or requested.parent != Path(".") else Path.cwd() / requested
     slug = _project_slug(target.name)
@@ -158,9 +169,11 @@ def create(name: str, template_name: str, force: bool) -> None:
 
     with tempfile.TemporaryDirectory() as td:
         examples = _examples_dir(Path(td))
+        available = _template_names(examples)
+        if template_name not in available:
+            valid = ", ".join(available) if available else "none found"
+            raise click.ClickException(f"Unknown template {template_name!r}. Choose one of: {valid}.")
         source = examples / template_name
-        if not source.exists():
-            raise click.ClickException(f"Template {template_name!r} was not found in capsule-examples.")
         manifest = _read_manifest(source)
         _copy_template(source, target, force=force)
         _copy_shared_files(examples, target)

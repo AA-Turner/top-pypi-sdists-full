@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sdk-seshat-python
-Version: 0.6.6
+Version: 0.6.7
 Summary: Seshat python SDK is a library to help create ML data pipelines.
 License: Commercial - see LICENSE.txt
 Author: SeshatLabs
@@ -19,6 +19,7 @@ Requires-Dist: croniter (>=6.0.0,<7.0.0)
 Requires-Dist: cryptography (==46.0.3)
 Requires-Dist: dask[array,complete,dataframe,distributed] (>=2024.10.0,<2025.0.0)
 Requires-Dist: google-cloud-aiplatform (>=1.120.0,<2.0.0)
+Requires-Dist: kafka-python (>=2.3.0,<3.0.0)
 Requires-Dist: langchain (==0.3.27)
 Requires-Dist: langchain-aws (==0.2.35)
 Requires-Dist: langchain-community (==0.3.31)

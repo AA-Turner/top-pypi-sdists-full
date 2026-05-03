@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdk-seshat-python"
-version = "0.6.6"
+version = "0.6.7"
 description = "Seshat python SDK is a library to help create ML data pipelines."
 authors = ["SeshatLabs <info@seshatlabs.xyz>"]
 packages = [{ include = "seshat", from = "." }]
@@ -40,6 +40,7 @@ langchain-google-vertexai = "^2.1.2"
 google-cloud-aiplatform = "^1.120.0"
 simplejson = "^3.20.2"
 beautifulsoup4 = "^4.14.3"
+kafka-python = "^2.3.0"
 
 
 [tool.poetry.group.dev.dependencies]

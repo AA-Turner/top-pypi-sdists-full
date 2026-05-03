@@ -41,6 +41,7 @@ from PKDevTools.classes.multiprocessing_logging import LogQueueReader
 from PKDevTools.classes.SuppressOutput import SuppressOutput
 from PKDevTools.classes.FunctionTimeouts import exit_after
 
+from pkscreener.classes.PKAnalytics import track_performance
 from pkscreener.classes.StockScreener import StockScreener
 from pkscreener.classes.CandlePatterns import CandlePatterns
 from pkscreener.classes.ConfigManager import parser, tools
@@ -109,6 +110,7 @@ class PKScanRunner:
         return screenResults, saveResults
 
     @staticmethod
+    @track_performance("PKScanRunner.initQueues")
     def initQueues(minimumCount=0, userPassedArgs=None):
         """
         Initialize multiprocessing queues with optimized consumer count.
@@ -131,10 +133,10 @@ class PKScanRunner:
         # OPTIMIZATION: For specific stock scans with known stockCodes, use fewer consumers
         # Process creation overhead is significant; fewer consumers = faster startup
         if userPassedArgs and getattr(userPassedArgs, 'stocklist', None):
-            # For specific stock lists, use 2 consumers maximum (balanced for performance)
-            totalConsumers = min(2, multiprocessing.cpu_count())
+            # For specific stock lists, use 3 consumers maximum (balanced for performance)
+            totalConsumers = min(3, multiprocessing.cpu_count())
             default_logger().debug(f"Using {totalConsumers} consumers for specific stock list")
-        elif userPassedArgs and userPassedArgs.options and ":0:" in userPassedArgs.options:
+        elif userPassedArgs and userPassedArgs.options and userPassedArgs.options.split(":")[1] == "0":
             # For individual stock analysis, use single consumer (no parallel overhead needed)
             totalConsumers = 1
             default_logger().debug(f"Using single consumer for individual stock analysis")
@@ -147,7 +149,7 @@ class PKScanRunner:
         # Process creation overhead increases significantly with more consumers
         # On Mac, creating more than 4 processes takes ~2s each
         # On Windows/Linux, similar overhead exists but slightly less
-        max_consumers = max(2, cpu_count // 2) if sys.platform.startswith('win') else (max(2, int(cpu_count * 0.66)) if sys.platform.startswith('darwin') else cpu_count)
+        max_consumers = max(3, cpu_count // 2) if sys.platform.startswith('win') else (max(4, int(cpu_count * 0.5)) if sys.platform.startswith('darwin') else cpu_count)
         if totalConsumers > max_consumers:
             default_logger().debug(f"Capping consumers from {totalConsumers} to {max_consumers} for faster startup")
             totalConsumers = max_consumers
@@ -483,6 +485,7 @@ class PKScanRunner:
             worker.refreshDatabase = True
     
     @staticmethod
+    @track_performance("PKScanRunner.runScanWithParams")
     def runScanWithParams(userPassedArgs, keyboardInterruptEvent, screenCounter, screenResultsCounter,
                           stockDictPrimary, stockDictSecondary, testing, backtestPeriod, menuOption,
                           executeOption, samplingDuration, items, screenResults, saveResults,
@@ -523,9 +526,19 @@ class PKScanRunner:
                 menuOption, keyboardInterruptEvent, screenCounter, screenResultsCounter,
                 stockDictPrimary, stockDictSecondary, items, executeOption, userPassedArgs)
             try:
-                if logging_queue is not None:
-                    log_queue_reader = LogQueueReader(logging_queue)
-                    log_queue_reader.start()
+                if logging_queue is None:
+                    logging_queue = multiprocessing.Queue()
+                    default_logger().warning("logging_queue was None, created new one")
+                try:
+                    if logging_queue is not None:
+                        log_queue_reader = LogQueueReader(logging_queue)
+                        log_queue_reader.daemon = True
+                        log_queue_reader.start()
+                        default_logger().info("LogQueueReader started successfully")
+                    else:
+                        default_logger().warning("logging_queue is None, log reader not started")
+                except Exception as e:
+                    default_logger().error(f"Failed to start LogQueueReader: {e}", exc_info=True)
             except:  # pragma: no cover
                 pass
 
@@ -560,6 +573,7 @@ class PKScanRunner:
         return screenResults, saveResults, backtest_df, tasks_queue, results_queue, consumers, logging_queue
 
     @exit_after(180)  # Should not remain stuck starting the multiprocessing clients beyond this time
+    @track_performance("PKScanRunner.prepareToRunScan")
     @Halo(text='  [+] Creating multiple processes for faster processing...', spinner='dots')
     def prepareToRunScan(menuOption, keyboardInterruptEvent, screenCounter, screenResultsCounter,
                          stockDictPrimary, stockDictSecondary, items, executeOption, userPassedArgs):
@@ -628,6 +642,7 @@ class PKScanRunner:
         return tasks_queue, results_queue, consumers, logging_queue
 
     @staticmethod
+    @track_performance("PKScanRunner.startWorkersParallel")
     def startWorkersParallel(consumers):
         """
         Start all worker processes in parallel across all platforms.
@@ -643,12 +658,6 @@ class PKScanRunner:
         """
         import time
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        
-        OutputControls().printOutput(
-            colorText.FAIL
-            + f"\n  [+] Using Period:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.period}{colorText.END}{colorText.FAIL} and Duration:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.duration}{colorText.END}{colorText.FAIL} for scan! You can change this in user config."
-            + colorText.END
-        )
         
         start_time = time.time()
         total_workers = len(consumers)
@@ -666,6 +675,12 @@ class PKScanRunner:
         else:
             max_workers = min(total_workers, os.cpu_count() or 8)
         
+        OutputControls().printOutput(
+            colorText.FAIL
+            + f"\n  [+] Using Period:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.period}{colorText.END}{colorText.FAIL} and Duration:{colorText.END}{colorText.GREEN}{PKScanRunner.configManager.duration}{colorText.END}{colorText.FAIL} with {total_workers} consumers and {max_workers} workers for scan! You can change this in user config."
+            + colorText.END
+        )
+
         # Start all workers in parallel using threads
         # This is safe because Process.start() is non-blocking and returns quickly
         with ThreadPoolExecutor(max_workers=max_workers) as executor:

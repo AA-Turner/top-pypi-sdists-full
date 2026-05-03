@@ -408,15 +408,15 @@ fn diff_children(
     if has_keys {
         // Warn about mixed keyed/unkeyed children — a common source of suboptimal diffs.
         // Keyed siblings should ideally ALL have keys for best diffing performance.
+        // (#1254) Promoted from `vdom_trace!` to `tracing::warn!` so the warning
+        // fires by default; see error code DJE-050.
         if !new.children.iter().all(|n| n.key.is_some()) {
             let keyed_count = new.children.iter().filter(|n| n.key.is_some()).count();
             let total = new.children.len();
-            vdom_trace!(
-                "  WARNING: Mixed keyed/unkeyed children ({}/{} keyed). \
-                 For optimal diffing, add keys to all siblings or none. \
-                 Parent tag=<{}> id={:?}. \
-                 Run with DJUST_VDOM_TRACE=1 for detailed diff output. \
-                 See: https://djust.org/errors/DJE-050",
+            tracing::warn!(
+                "[DJE-050] Mixed keyed/unkeyed children ({}/{} keyed) on parent \
+                 tag=<{}> id={:?}. For optimal diffing, add keys to ALL siblings \
+                 or NONE. Run with DJUST_VDOM_TRACE=1 for detailed diff output.",
                 keyed_count,
                 total,
                 new.tag,
@@ -452,15 +452,19 @@ fn diff_keyed_children(
 ) -> Vec<Patch> {
     let mut patches = Vec::new();
 
-    // Build key-to-index maps, warning on duplicate keys
+    // Build key-to-index maps, warning on duplicate keys.
+    // (#1254) Promoted from `vdom_trace!` to `tracing::warn!` — duplicate
+    // keys silently overwrite earlier siblings in the key→index HashMap,
+    // making them invisible to the keyed diff. See error code DJE-051.
     let mut old_keys: HashMap<String, usize> = HashMap::new();
     for (i, node) in old.iter().enumerate() {
         if let Some(k) = &node.key {
             if let Some(&prev_idx) = old_keys.get(k) {
-                vdom_trace!(
-                    "WARNING: Duplicate key '{}' in old children at indices {} and {}. \
-                     Earlier element will be invisible to the keyed diff. \
-                     See: https://djust.org/errors/DJE-051",
+                tracing::warn!(
+                    "[DJE-051] Duplicate dj-key '{}' in OLD children at indices {} \
+                     and {}. The earlier element will be INVISIBLE to the keyed \
+                     diff (silently overwritten in the key→index map). Each keyed \
+                     sibling must have a unique key.",
                     k,
                     prev_idx,
                     i
@@ -474,10 +478,11 @@ fn diff_keyed_children(
     for (i, node) in new.iter().enumerate() {
         if let Some(k) = &node.key {
             if let Some(&prev_idx) = new_keys.get(k) {
-                vdom_trace!(
-                    "WARNING: Duplicate key '{}' in new children at indices {} and {}. \
-                     Earlier element will be invisible to the keyed diff. \
-                     See: https://djust.org/errors/DJE-051",
+                tracing::warn!(
+                    "[DJE-051] Duplicate dj-key '{}' in NEW children at indices {} \
+                     and {}. The earlier element will be INVISIBLE to the keyed \
+                     diff (silently overwritten in the key→index map). Each keyed \
+                     sibling must have a unique key.",
                     k,
                     prev_idx,
                     i
@@ -532,11 +537,34 @@ fn diff_keyed_children(
         lis_set.insert(new_idx_for_surviving[lis_pos]);
     }
 
+    // Issue #1260 / audit weakness #5/#6: the LIS-skip optimisation is only
+    // sound for FULLY-KEYED sibling lists. With unkeyed siblings interleaved,
+    // the assumption "MoveChild patches for non-LIS keyed children — plus
+    // implicit shifts from inserts/removes — will land in-LIS keyed children
+    // at their new absolute positions" breaks: unkeyed-sibling patches use
+    // RELATIVE-position pairing among unkeyed nodes and don't coordinate with
+    // keyed-sibling positions. A surviving keyed child can be left stranded
+    // (proptest-shrunk reproducer:
+    //   tree_a = section[#text*4, div key=f]
+    //   tree_b = section[div key=f, #text*2]
+    // — with the old algorithm the keyed div_f had a single-element LIS,
+    // was marked "in place", and never received a MoveChild even though its
+    // absolute index changed from 4 to 0.)
+    //
+    // Fix: when the sibling list is mixed (any unkeyed child in either old or
+    // new), emit MoveChild for every surviving keyed child whose old_idx
+    // differs from its new_idx. The LIS optimisation still applies to the
+    // fully-keyed case, where it correctly minimises the patch count.
+    let has_unkeyed_siblings =
+        old.iter().any(|n| n.key.is_none()) || new.iter().any(|n| n.key.is_none());
+
     vdom_trace!(
-        "  LIS optimization: {} surviving keyed nodes, LIS length={}, moves needed={}",
+        "  LIS optimization: {} surviving keyed nodes, LIS length={}, moves needed={}, \
+         has_unkeyed_siblings={}",
         old_indices_in_new_order.len(),
         lis_positions.len(),
-        old_indices_in_new_order.len() - lis_positions.len()
+        old_indices_in_new_order.len() - lis_positions.len(),
+        has_unkeyed_siblings
     );
 
     // Find keyed nodes to add, move, or diff
@@ -563,11 +591,19 @@ fn diff_keyed_children(
                     // order and don't need MoveChild patches. All non-LIS
                     // elements must be moved because other moves may shift
                     // their positions even when old_idx == new_idx.
-                    if lis_set.contains(&new_idx) {
+                    //
+                    // (#1260) The skip is only safe in a FULLY-KEYED list.
+                    // With unkeyed siblings interleaved, the implicit "other
+                    // patches will land me at new_idx" assumption breaks —
+                    // see the comment on `has_unkeyed_siblings` above. In
+                    // that case, fall back to "always emit MoveChild when
+                    // old_idx != new_idx" for surviving keyed children.
+                    let lis_skip_safe = lis_set.contains(&new_idx) && !has_unkeyed_siblings;
+                    if lis_skip_safe {
                         if old_idx != new_idx {
-                            vdom_trace!("  SKIP MOVE key={} (in LIS, stays in place)", key);
+                            vdom_trace!("  SKIP MOVE key={} (in LIS, fully-keyed list)", key);
                         }
-                    } else {
+                    } else if !lis_set.contains(&new_idx) || old_idx != new_idx {
                         vdom_trace!("  MOVE key={} from {} to {}", key, old_idx, new_idx);
                         patches.push(Patch::MoveChild {
                             path: path.to_vec(),

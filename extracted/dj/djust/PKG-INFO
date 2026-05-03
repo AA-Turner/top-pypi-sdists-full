@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djust
-Version: 0.9.1
+Version: 0.9.2
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
@@ -21,6 +21,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: django>=4.2.29,<6
 Requires-Dist: channels[daphne]>=4.0.0,<5
 Requires-Dist: msgpack>=1.0.0,<2
+Requires-Dist: markdown>=3.0,<4
+Requires-Dist: nh3>=0.2,<1
 Requires-Dist: djust[redis,compression,performance,admin,deploy,theming,components,s3,gcs,azure] ; extra == 'all'
 Requires-Dist: azure-storage-blob>=12.19,<13 ; extra == 'azure'
 Requires-Dist: markdown>=3.0,<4 ; extra == 'components'
@@ -46,8 +48,6 @@ Requires-Dist: requests>=2.28,<3 ; extra == 'dev'
 Requires-Dist: requests-mock>=1.11,<2 ; extra == 'dev'
 Requires-Dist: mcp[cli]>=1.2.0,<2 ; extra == 'dev'
 Requires-Dist: fakeredis>=2.20,<3 ; extra == 'dev'
-Requires-Dist: markdown>=3.0,<4 ; extra == 'dev'
-Requires-Dist: nh3>=0.2,<1 ; extra == 'dev'
 Requires-Dist: google-cloud-storage>=2.10,<4 ; extra == 'gcs'
 Requires-Dist: requests>=2.28,<3 ; extra == 'gcs'
 Requires-Dist: orjson>=3.11.6,<4 ; extra == 'performance'

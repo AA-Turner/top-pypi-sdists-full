@@ -5,11 +5,9 @@ from ...abc import System
 from .._world import World, Entity
 from .._component import Transform, SpriteRenderer, ShapeRenderer, TextRenderer
 from ..._rendering import Pipeline, PygletShapeRenderer, PygletSpriteRenderer, PygletLabelRenderer
+from ..._core import Geometry
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..._rendering import Pipeline
+from typing import Callable
 
 # ======================================== RENDER ORDER ========================================
 _ORDER_SHAPE = 0
@@ -19,20 +17,28 @@ _ORDER_LABEL = 2
 # ======================================== SYSTEM ========================================
 class RenderSystem(System):
     """Système gérant le rendu des entités"""
-    __slots__ = ("_sprites", "_shapes", "_labels")
+    __slots__ = (
+        "_sprites", "_shapes", "_labels",
+        "_geometries_cache", "_geometries_keys",
+    )
     
     order = 100
     exclusive = True
 
     def __init__(self):
+        # Caches des renderers
         self._sprites: dict[int, PygletSpriteRenderer] = {}
         self._shapes: dict[int, PygletShapeRenderer] = {}
         self._labels: dict[int, PygletLabelRenderer] = {}
 
+        # Caches des géométries
+        self._geometries_cache: dict[int, Geometry] = {}
+        self._geometries_keys: dict[int, tuple] = {}
+
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
         """Renvoie une représentation du système"""
-        return f"RenderSystem()"
+        return f"RenderSystem(sprites={len(self._sprites)}, shapes={len(self._shapes)}, labels={len(self._labels)})"
 
     # ======================================== LIFE CYCLE ========================================
     def update(self, world: World, dt: float):
@@ -87,25 +93,36 @@ class RenderSystem(System):
     # ======================================== SYNC SHAPE ========================================
     def _sync_shape(self, entity: Entity, tr: Transform, pipeline: Pipeline):
         """Crée ou met à jour le renderer de shape de l'entité"""
+        # Raccourcis
         sr: ShapeRenderer = entity.get(ShapeRenderer)
         eid = entity.id
 
+        # Invisible
         if not sr.is_visible():
             if eid in self._shapes:
                 self._shapes[eid].visible = False
             return
+        
+        # Construction de la géométrie si nécessaire
+        key = (id(sr), id(tr))
+        geom_key = self._geometries_keys.get(eid)
 
+        if geom_key != key:
+            self._geometries_cache[eid] = Geometry(sr.shape, tr, sr.offset)
+            self._geometries_keys[eid] = key
+
+            if geom_key is None:
+                entity.on_kill(self._make_clear_geometry_func(eid))
+
+        geometry = self._geometries_cache[eid]
+
+        # Calcul du z-order
         z = sr.z * 3 + _ORDER_SHAPE
 
+        # Construction du renderer
         if eid not in self._shapes:
             self._shapes[eid] = PygletShapeRenderer(
-                shape = sr.shape,
-                x = (tr.x + sr.offset_x * tr.scale),
-                y = (tr.y + sr.offset_y * tr.scale),
-                anchor_x = tr.anchor_x,
-                anchor_y = tr.anchor_y,
-                scale = tr.scale,
-                rotation = tr.rotation,
+                geometry = geometry,
                 filling = sr.filling,
                 color = sr.filling_color,
                 border_width = sr.border_width,
@@ -115,14 +132,11 @@ class RenderSystem(System):
                 z = z,
                 pipeline = pipeline,
             )
+
+        # Actualisation du renderer
         else:
             self._shapes[eid].update(
-                x = (tr.x + sr.offset_x * tr.scale),
-                y = (tr.y + sr.offset_y * tr.scale),
-                anchor_x = tr.anchor_x,
-                anchor_y = tr.anchor_y,
-                scale = tr.scale,
-                rotation = tr.rotation,
+                geometry = geometry,
                 filling = sr.filling,
                 color = sr.filling_color,
                 border_width = sr.border_width,
@@ -136,45 +150,41 @@ class RenderSystem(System):
     # ======================================== SYNC SPRITE ========================================
     def _sync_sprite(self, entity: Entity, tr: Transform, pipeline: Pipeline):
         """Crée ou met à jour le renderer de sprite de l'entité"""
+        # Raccourcis
         sr: SpriteRenderer = entity.get(SpriteRenderer)
         eid = entity.id
 
+        # Invisible
         if not sr.is_visible():
             if eid in self._sprites:
                 self._sprites[eid].visible = False
             return
 
+        # Calcul du z-order
         z = sr.z * 3 + _ORDER_SPRITE
 
+        # Construction du renderer
         if eid not in self._sprites:
             self._sprites[eid] = PygletSpriteRenderer(
                 image = sr.image,
-                x = (tr.x + sr.offset[0] * tr.scale),
-                y = (tr.y + sr.offset[1] * tr.scale),
-                anchor_x = tr.anchor.x,
-                anchor_y = tr.anchor.y,
-                scale_x = tr.scale,
-                scale_y = tr.scale,
+                transform = tr,
+                offset = sr.offset,
                 flip_x = sr.flip_x,
                 flip_y = sr.flip_y,
-                rotation = tr.rotation,
                 opacity = sr.opacity,
                 color = sr.tint,
                 z = z,
                 pipeline = pipeline,
             )
+
+        # Actualisation du renderer
         else:
             self._sprites[eid].update(
                 image = sr.image,
-                x = (tr.x + sr.offset[0] * tr.scale),
-                y = (tr.y + sr.offset[1] * tr.scale),
-                anchor_x = tr.anchor.x,
-                anchor_y = tr.anchor.y,
-                scale_x = tr.scale,
-                scale_y = tr.scale,
+                transform = tr,
+                offset = sr.offset,
                 flip_x = sr.flip_x,
                 flip_y = sr.flip_y,
-                rotation = tr.rotation,
                 opacity = sr.opacity,
                 color = sr.tint,
                 z = z,
@@ -184,24 +194,25 @@ class RenderSystem(System):
     # ======================================== SYNC TEXT ========================================
     def _sync_text(self, entity: Entity, tr: Transform, pipeline: Pipeline):
         """Crée ou met à jour le renderer de label de l'entité"""
+        # Raccourcis
         tc: TextRenderer = entity.get(TextRenderer)
         eid = entity.id
 
+        # Invisible
         if not tc.is_visible():
             if eid in self._labels:
                 self._labels[eid].visible = False
             return
 
+        # Calcul du z-order
         z = tc.z * 3 + _ORDER_LABEL
 
+        # Construction du renderer
         if eid not in self._labels:
             self._labels[eid] = PygletLabelRenderer(
                 text = tc.text,
-                x = (tr.x + tc.offset[0] * tr.scale),
-                y = (tr.y + tc.offset[1] * tr.scale),
-                anchor_x = tr.anchor[0],
-                anchor_y = tr.anchor[1],
-                rotation = tr.rotation,
+                transform = tr,
+                offset = tc.offset,
                 weight = tc.weight,
                 italic = tc.italic,
                 color = tc.color,
@@ -212,14 +223,13 @@ class RenderSystem(System):
                 z = z,
                 pipeline = pipeline,
             )
+
+        # Actualisation du renderer
         else:
             self._labels[eid].update(
                 text = tc.text,
-                x = (tr.x + tc.offset[0] * tr.scale),
-                y = (tr.y + tc.offset[1] * tr.scale),
-                anchor_x = tr.anchor[0],
-                anchor_y = tr.anchor[1],
-                rotation = tr.rotation,
+                transform = tr,
+                offset = tc.offset,
                 weight = tc.weight,
                 italic = tc.italic,
                 color = tc.color,
@@ -230,3 +240,13 @@ class RenderSystem(System):
                 z = z,
             )
             self._labels[eid].visible = True
+
+    # ======================================== INTERNALS ========================================
+    def _make_clear_geometry_func(self, eid: int) -> Callable[[], None]:
+        """Construit un token de suppresion d'une géométrie"""
+
+        def clear_geometry() -> None:
+            self._geometries_cache.pop(eid, None)
+            self._geometries_keys.pop(eid, None)
+
+        return clear_geometry

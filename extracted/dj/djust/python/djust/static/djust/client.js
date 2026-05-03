@@ -1793,11 +1793,29 @@ class LiveViewSSE {
             ? window.djust.sseUrl(`sse/${this.sessionId}/`)
             : `/djust/sse/${this.sessionId}/`;
 
+        // GET-time mount via ?view= is preserved for back-compat: clients
+        // pinned to the pre-#1237 server still mount that way. New clients
+        // ALSO post a mount frame on open (idempotent server-side via the
+        // runtime's early-return when view_instance is already set), which
+        // is the only path that includes ``url`` for URL-kwarg resolution
+        // (fixes #1237 bug 1).
         const urlParams = new URLSearchParams(params);
         urlParams.set('view', viewPath);
         const streamUrl = `${this.sseBaseUrl}?${urlParams.toString()}`;
 
-        this.eventSource = new EventSource(streamUrl);
+        // withCredentials: true ensures the Django session cookie is sent
+        // with the EventSource GET. Without it, authenticated views fail
+        // their `check_view_auth` server-side and the user is redirected
+        // to login on every mount — an infinite mount→navigate loop.
+        // Closes #1277. Same-origin cookies SHOULD be sent by default
+        // per the EventSource spec, but explicit `withCredentials: true`
+        // is the conventional opt-in that avoids any browser-version
+        // ambiguity (some older browsers treat default as "omit").
+        this.eventSource = new EventSource(streamUrl, { withCredentials: true });
+
+        // Stash these so onopen can post the mount frame.
+        this._pendingViewPath = viewPath;
+        this._pendingMountParams = params;
 
         this.eventSource.onopen = () => {
             // Connection state CSS classes
@@ -1809,6 +1827,15 @@ class LiveViewSSE {
                 if (window.djust) window.djust._isReconnect = true;
             }
             this._hasConnectedBefore = true;
+
+            // #1237: send a WS-shaped mount frame so the runtime can resolve
+            // URL kwargs from window.location.pathname (the SSE endpoint
+            // path is NOT the page URL). Idempotent server-side.
+            if (this._pendingViewPath) {
+                this._sendMountFrame(this._pendingViewPath, this._pendingMountParams || {});
+                this._pendingViewPath = null;
+                this._pendingMountParams = null;
+            }
         };
 
         this.eventSource.onmessage = (event) => {
@@ -2037,6 +2064,10 @@ class LiveViewSSE {
      * Returns true if the event was dispatched, false if not (mirrors
      * LiveViewWebSocket.sendEvent so 11-event-handler.js works unchanged).
      *
+     * Since #1237, this delegates to ``sendMessage`` so every existing
+     * ``liveViewWS.sendEvent(...)`` call site flows through the same
+     * one POST per frame path used by mount / url_change / etc.
+     *
      * @param {string}      eventName      Handler name on the LiveView
      * @param {Object}      params         Event parameters
      * @param {Element|null} triggerElement DOM element that triggered the event
@@ -2049,13 +2080,42 @@ class LiveViewSSE {
         this.lastEventName = eventName;
         this.lastTriggerElement = triggerElement;
 
-        const body = JSON.stringify({ event: eventName, params });
+        return this.sendMessage({ type: 'event', event: eventName, params });
+    }
+
+    /**
+     * Send a wire-shape message to the server via HTTP POST.
+     *
+     * #1237 parity with ``LiveViewWebSocket.sendMessage``. Every call site
+     * in 18-navigation.js / 02-response-handler.js / 13-lazy-hydration.js
+     * / 15-uploads.js that does ``liveViewWS.sendMessage({type, ...})``
+     * works transparently when the SSE transport is active.
+     *
+     * Returns true on accepted dispatch, false if the transport is
+     * disabled. Errors during the underlying ``fetch`` are caught and
+     * reported via ``[SSE]`` console error + loading-manager teardown
+     * (mirrors the legacy sendEvent error-handling).
+     *
+     * @param {Object} data  Wire message; must include ``type``.
+     */
+    sendMessage(data) {
+        if (!this.enabled) return false;
+
+        const body = JSON.stringify(data);
         this.stats.sent++;
         this.stats.sentBytes += body.length;
 
-        fetch(`${this.sseBaseUrl}event/`, {
+        const triggerElement = this.lastTriggerElement;
+        const eventName = (data && data.type === 'event') ? data.event : null;
+
+        fetch(`${this.sseBaseUrl}message/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            // Explicit credentials: 'include' to mirror the EventSource
+            // GET's withCredentials: true. Without this, the Django session
+            // cookie isn't sent on the message POST and dispatch fails
+            // auth. Closes #1277 (sibling — same root cause).
+            credentials: 'include',
             body,
         })
             .then(r => {
@@ -2063,13 +2123,36 @@ class LiveViewSSE {
                 return r.json();
             })
             .catch(err => {
-                console.error('[SSE] Event POST failed:', err);
-                globalLoadingManager.stopLoading(eventName, triggerElement);
-                this.lastEventName = null;
-                this.lastTriggerElement = null;
+                console.error('[SSE] Message POST failed:', err);
+                if (eventName) {
+                    globalLoadingManager.stopLoading(eventName, triggerElement);
+                    this.lastEventName = null;
+                    this.lastTriggerElement = null;
+                }
             });
 
         return true;
+    }
+
+    /**
+     * Send a mount frame to the server.
+     *
+     * #1237: introduces a WS-shaped mount frame containing
+     * ``url: window.location.pathname`` so the runtime resolves URL
+     * kwargs (pk, slug, ...) from the actual page URL — fixing the bug
+     * where SSE-mounted views with path params received empty kwargs.
+     */
+    _sendMountFrame(viewPath, params = {}) {
+        let tz = null;
+        try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* noop */ }
+        return this.sendMessage({
+            type: 'mount',
+            view: viewPath,
+            params,
+            url: window.location.pathname,
+            has_prerendered: false,
+            client_timezone: tz,
+        });
     }
 
     /**
@@ -3685,6 +3768,16 @@ async function _handleDjSubmit(element, e) {
         return; // User cancelled
     }
 
+    // Closes #1278 — flush pending debounced dj-input handlers in this form
+    // BEFORE dispatching submit. Without this, a user who types a field then
+    // immediately clicks submit (within the 300 ms debounce window) hits a
+    // race: submit fires while per-field dj-input events are still pending,
+    // so the server-side state populated by those handlers is empty when the
+    // submit handler reads it. FormData on the form element captures the
+    // typed values, but views that depend on dj-input updating server state
+    // per-keystroke (e.g., WizardMixin's wizard_step_data) see stale data.
+    _flushPendingDebouncesInForm(element);
+
     // Read attribute at fire time so morphElement attribute updates take effect
     const submitHandler = element.getAttribute('dj-submit');
 
@@ -4390,17 +4483,68 @@ function _applyRateLimitAttrs(element, handler) {
     return handler;
 }
 
-// Helper: Debounce function
+/**
+ * Flush all pending debounced dj-input handlers on inputs inside a form.
+ *
+ * Iterates the form's [dj-input] descendants; for each, looks up the
+ * cached rate-limit state in `_inputRateLimitState` and calls
+ * `wrapped.flush()` if the wrapped handler exposes one (only the
+ * `debounce` rate-limit type does; throttle / passthrough / blur don't
+ * need flushing here).
+ *
+ * Closes #1278 — see `_handleDjSubmit` for context.
+ *
+ * @param {HTMLFormElement} form
+ */
+function _flushPendingDebouncesInForm(form) {
+    const inputs = form.querySelectorAll('[dj-input]');
+    for (let i = 0; i < inputs.length; i++) {
+        const state = _inputRateLimitState.get(inputs[i]);
+        if (state && state.wrapped && typeof state.wrapped.flush === 'function') {
+            state.wrapped.flush();
+        }
+    }
+}
+
+// Helper: Debounce function with .flush() method.
+//
+// flush() fires the pending invocation immediately and clears the timer.
+// No-op if no invocation is pending. Used by _handleDjSubmit to ensure
+// debounced dj-input events fire before form submission, otherwise
+// per-field server-state updates (set by dj-input handlers) would race
+// the submit handler that reads them. Closes #1278.
 function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
+    let timeout = null;
+    let pendingArgs = null;
+    let pendingThis = null;
+
+    function debounced(...args) {
+        pendingArgs = args;
+        pendingThis = this;
         const later = () => {
-            clearTimeout(timeout);
-            func(...args);
+            timeout = null;
+            const a = pendingArgs;
+            const t = pendingThis;
+            pendingArgs = null;
+            pendingThis = null;
+            func.apply(t, a);
         };
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
+    }
+
+    debounced.flush = function () {
+        if (timeout === null) return;
+        clearTimeout(timeout);
+        timeout = null;
+        const a = pendingArgs;
+        const t = pendingThis;
+        pendingArgs = null;
+        pendingThis = null;
+        func.apply(t, a);
     };
+
+    return debounced;
 }
 
 // Helper: Throttle function
@@ -5525,6 +5669,20 @@ function createNodeFromVNode(vnode, inSvgContext = false) {
     // Check if tag is in our whitelists
     const isSvgTag = SVG_TAGS.has(tagLower);
     const isAllowedHtml = ALLOWED_HTML_TAGS.has(tagLower);
+    // (#1255) Web Components: per the HTML spec, custom elements MUST contain
+    // a hyphen in their tag name. The hyphen rule is a safe, spec-grounded
+    // discriminator — `document.createElement` rejects malformed tag names
+    // outright, and the server is the source of truth for emitted markup
+    // (standard LiveView trust model). This unblocks Shoelace, Lit, Stencil,
+    // model-viewer, etc. without weakening the allow-listed core tags.
+    const isCustomElement = tagLower.includes('-');
+    // (#1255) Optional opt-in extension hook for non-hyphenated proprietary
+    // tags (rare). App code can populate `window.djustAllowedTags` with a
+    // Set of additional tag names to allow.
+    const isUserAllowed = typeof window !== 'undefined'
+        && window.djustAllowedTags
+        && typeof window.djustAllowedTags.has === 'function'
+        && window.djustAllowedTags.has(tagLower);
 
     // Determine SVG context for child element creation
     const useSvgNamespace = isSvgTag || inSvgContext;
@@ -5538,6 +5696,20 @@ function createNodeFromVNode(vnode, inSvgContext = false) {
     } else if (isAllowedHtml) {
         // HTML tag: use switch for known values only
         elem = createHtmlElement(tagLower);
+    } else if (isCustomElement || isUserAllowed) {
+        // (#1255) Web Component or user-allow-listed tag. The browser's
+        // createElement validates the tag name format — invalid tag names
+        // throw `InvalidCharacterError`, which is a hard failure rather
+        // than a silent bypass. Wrap in try/catch so a malformed tag still
+        // falls back to <span> safely.
+        try {
+            elem = document.createElement(tagLower);
+        } catch (e) {
+            if (globalThis.djustDebug) {
+                console.warn('[LiveView] createElement threw for tag %s; using span placeholder', tagLower);
+            }
+            elem = document.createElement('span');
+        }
     } else {
         // Unknown tag - use safe span placeholder
         if (globalThis.djustDebug) {
@@ -11573,7 +11745,13 @@ window.djust.bindModelElements = bindModelElements;
         _waitForWs(function (ws) {
             // Monkey-patch sendMessage so that when the WS is not OPEN the
             // serialized payload is handed to the SW instead of dropped.
+            // Skip the patch when the active transport is SSE: SSE's
+            // sendMessage uses fetch (not a persistent socket), and ws.ws
+            // is undefined, so the state check would always treat the
+            // transport as closed and buffer every payload. (#1237)
             if (ws._djustBridgePatched) return;
+            if (globalThis.djust && globalThis.djust.LiveViewSSE
+                && ws instanceof globalThis.djust.LiveViewSSE) return;
             ws._djustBridgePatched = true;
 
             var originalSend = ws.sendMessage.bind(ws);
@@ -11995,13 +12173,52 @@ globalThis.djust.formPolish = {
 // (which adds backdrop, focus-trap, and Escape handling — all browser-native).
 // When it changes from open → close, close() is called.
 //
+// Reverse sync (closes #1267):
+//   <dialog id="settings"
+//           dj-dialog="open"
+//           dj-dialog-close-event="close_settings">
+//     ...
+//   </dialog>
+//
+// When the user closes the dialog client-side (Escape, backdrop click, or
+// dialog.close() from JS), djust dispatches the configured event name to
+// the server so server state stays in sync (e.g., flip
+// ``self.show_settings`` to False). Without this, the dialog closes
+// locally but the server still thinks it's open — re-opening from the
+// server is a no-op because the morph re-asserting ``dj-dialog="open"``
+// doesn't change the attribute value.
+//
 // Leverages the HTML <dialog> element's own modal behavior so djust doesn't
 // re-implement focus management. A MutationObserver watches every <dialog>
 // on the page; VDOM morphs that swap the dj-dialog value fire the right
 // showModal/close call automatically.
 
+// Tracks which dialog elements have had a `close` listener installed so we
+// don't double-bind on subsequent attribute changes. WeakMap so detached
+// dialogs are GC'd.
+const _dialogsWithCloseListener = new WeakMap();
+
+function _installCloseListenerOnce(el) {
+    if (_dialogsWithCloseListener.has(el)) return;
+    _dialogsWithCloseListener.set(el, true);
+    el.addEventListener('close', function () {
+        // Read at fire time so morph attribute updates take effect.
+        const eventName = el.getAttribute('dj-dialog-close-event');
+        if (!eventName) return;
+        // handleEvent is defined globally by 11-event-handler.js. Pass
+        // the dialog element as the trigger for loading-state and
+        // activity-gate machinery.
+        if (typeof handleEvent === 'function') {
+            handleEvent(eventName, { _targetElement: el });
+        }
+    });
+}
+
 function _syncDialogState(el) {
     if (!(el instanceof HTMLDialogElement)) return;
+    // Install native `close` listener on first encounter (idempotent).
+    // Closes #1267.
+    _installCloseListenerOnce(el);
     const state = (el.getAttribute('dj-dialog') || '').trim().toLowerCase();
     if (state === 'open') {
         if (!el.open) {
@@ -12070,6 +12287,7 @@ globalThis.djust = globalThis.djust || {};
 globalThis.djust.djDialog = {
     _syncDialogState,
     _syncAllDialogs,
+    _installCloseListenerOnce,
 };
 /**
  * Dev-mode error overlay — Next.js/Vite-style full-screen error display.
@@ -12742,17 +12960,26 @@ globalThis.djust.djLayout = {
 // application (start → active → end) so template authors can drive
 // CSS transitions without writing a dj-hook.
 //
-// Usage:
+// Usage — three-token form (preferred for explicit phase control):
 //   <div dj-transition="opacity-0 transition-opacity-300 opacity-100">
 //     Fades in from 0 to 100 opacity over 300 ms.
 //   </div>
 //
-// The attribute value is three space-separated tokens — start, active,
-// end — each a single class name. Commas, parens, or other separators
-// are NOT supported: `classList.add` would throw InvalidCharacterError
-// on the resulting tokens. (A future enhancement could accept
-// parenthesised multi-class groups; one-class-per-phase is the common
-// case and keeps the parsing trivial.)
+// Usage — single-token short form (matches dj-remove's short form):
+//   <div dj-transition="fade-in">
+//     Applies the "fade-in" class on the next frame and waits for
+//     transitionend. Useful for simple keyframe-driven transitions
+//     where one class drives the animation.
+//   </div>
+//
+// The three-token form is "start active end" — each a single class
+// name. Commas, parens, or other separators are NOT supported:
+// `classList.add` would throw InvalidCharacterError on the resulting
+// tokens. (A future enhancement could accept parenthesised multi-class
+// groups; one-class-per-phase is the common case and keeps the
+// parsing trivial.) Two-token form is rejected as ambiguous (matches
+// dj-remove). Closes #1273 for the `dj-transition-group` short-form
+// docs claim that depended on this 1-token form working.
 //
 // Re-trigger from JS: calling `el.setAttribute('dj-transition', spec)`
 // re-runs the sequence, even when `spec` is identical to the current
@@ -12792,7 +13019,20 @@ function _parseSpec(raw) {
         return null;
     }
     const parts = input.split(/\s+/).filter(Boolean);
-    if (parts.length < 3) return null;
+    if (parts.length === 0) return null;
+    // 1-token form: apply one class on the next frame, wait for
+    // transitionend. Mirrors dj-remove's 1-token shape so dj-transition-group
+    // short-form (e.g. `dj-transition-group="fade-in | fade-out"`) works
+    // as documented at 43-dj-transition-group.js:22-23. Closes #1273.
+    if (parts.length === 1) return { single: parts[0] };
+    // 2-token: ambiguous — could be (start, active) or (active, end).
+    // Reject up-front (matches dj-remove's behavior at 42-dj-remove.js:55).
+    if (parts.length === 2) {
+        if (globalThis.djustDebug) {
+            console.warn('[djust] dj-transition: 2-token spec is invalid, use 1 or 3 tokens:', raw);
+        }
+        return null;
+    }
     return { start: parts[0], active: parts[1], end: parts[2] };
 }
 
@@ -12802,15 +13042,44 @@ function _runTransition(el, spec) {
     if (prev && prev.fallback) clearTimeout(prev.fallback);
     if (prev && prev.onEnd) el.removeEventListener('transitionend', prev.onEnd);
 
-    // Phase 1 — start state.
-    el.classList.add(spec.start);
-
+    const _raf = globalThis.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
     const state = {};
     _djTransitionState.set(el, state);
 
+    // 1-token short form: apply the single class on the next frame and
+    // wait for transitionend. No phase-cycling cleanup — the class stays
+    // on the element after the transition (the author can remove it
+    // separately via VDOM patch if desired). Closes #1273.
+    if (spec.single) {
+        _raf(function () {
+            el.classList.add(spec.single);
+
+            function cleanup() {
+                if (!el.isConnected) {
+                    _djTransitionState.delete(el);
+                    return;
+                }
+                if (state.fallback) clearTimeout(state.fallback);
+                el.removeEventListener('transitionend', onEnd);
+                _djTransitionState.delete(el);
+            }
+
+            function onEnd(ev) {
+                if (ev.target !== el) return;
+                cleanup();
+            }
+            state.onEnd = onEnd;
+            el.addEventListener('transitionend', onEnd);
+            state.fallback = setTimeout(cleanup, _FALLBACK_MS);
+        });
+        return;
+    }
+
+    // Phase 1 — start state.
+    el.classList.add(spec.start);
+
     // Phase 2 + 3 — schedule on the next frame so the browser commits
     // the phase-1 layout before the transition classes land.
-    const _raf = globalThis.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
     _raf(function () {
         el.classList.remove(spec.start);
         el.classList.add(spec.active);

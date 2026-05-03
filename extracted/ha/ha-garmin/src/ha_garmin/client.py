@@ -20,6 +20,7 @@ from .const import (
     DEVICES_URL,
     ENDURANCE_SCORE_URL,
     FITNESS_AGE_URL,
+    SENSORS_URL,
     GARMIN_CN_CONNECT_API,
     GARMIN_CONNECT_API,
     GEAR_DEFAULTS_URL,
@@ -416,12 +417,12 @@ def _add_computed_fields(data: dict[str, Any]) -> dict[str, Any]:
     training_status = result.get("trainingStatus") or {}
     if training_status:
         result["trainingStatusPhrase"] = training_status.get("trainingStatusPhrase")
-        # Try nested mostRecentVO2Max.generic first, fall back to top-level
-        vo2_generic = (training_status.get("mostRecentVO2Max") or {}).get(
-            "generic"
-        ) or {}
-        result["vo2MaxValue"] = vo2_generic.get("vo2MaxValue") or training_status.get(
-            "vo2MaxValue"
+        most_recent_vo2 = training_status.get("mostRecentVO2Max")
+        vo2_generic = (most_recent_vo2.get("generic") or {} if isinstance(most_recent_vo2, dict) else {})
+        result["vo2MaxValue"] = (
+            vo2_generic.get("vo2MaxValue")
+            or (most_recent_vo2 if isinstance(most_recent_vo2, (int, float)) else None)
+            or training_status.get("vo2MaxValue")
         )
         result["vo2MaxPreciseValue"] = vo2_generic.get(
             "vo2MaxPreciseValue"
@@ -973,8 +974,17 @@ class GarminClient:
         """Get lactate threshold data."""
         data = await self._request("GET", LACTATE_THRESHOLD_URL)
         if isinstance(data, list):
-            data = data[0] if data else {}
+            merged: dict[str, Any] = {}
+            for item in data:
+                if isinstance(item, dict):
+                    merged.update({k: v for k, v in item.items() if v is not None})
+            return merged
         return data if isinstance(data, dict) else {}
+
+    async def get_sensors(self) -> list[dict[str, Any]]:
+        """Get paired ANT+/BLE sensors and their battery status."""
+        data = await self._request("GET", SENSORS_URL)
+        return data if isinstance(data, list) else []
 
     async def get_power_to_weight(
         self, target_date: date | None = None
@@ -1404,19 +1414,34 @@ class GarminClient:
         _LOGGER.debug("Hydration payload: %s", payload)
         return await self._put_request(HYDRATION_LOG_URL, payload)
 
-    async def _get_nutrition_meal(self, log_date: str) -> tuple[int | None, str | None]:
-        """Fetch the first available meal slot from the nutrition log.
+    async def _get_nutrition_meal(
+        self, log_date: str, meal_time: str | None = None
+    ) -> tuple[int | None, str | None]:
+        """Fetch the meal slot whose startTime best matches meal_time.
 
         Returns (mealId, mealStartTime) — both None if no meals are configured.
+        Picks the slot with the latest startTime that is <= meal_time so that
+        e.g. a 12:00 log goes to Lunch rather than always Breakfast.
         """
         try:
             data = await self._request("GET", f"{NUTRITION_LOGS_URL}/{log_date}")
             if isinstance(data, dict):
+                meals: list[tuple[int, str | None]] = []
                 for detail in data.get("mealDetails") or []:
                     meal = detail.get("meal") or {}
                     meal_id = meal.get("mealId")
                     if meal_id is not None:
-                        return int(meal_id), meal.get("startTime")
+                        meals.append((int(meal_id), meal.get("startTime")))
+                if not meals:
+                    return None, None
+                if meal_time is None or len(meals) == 1:
+                    return meals[0]
+                # Pick the meal whose startTime is the latest one <= meal_time.
+                best = meals[0]
+                for mid, start in meals:
+                    if start is not None and start <= meal_time:
+                        best = (mid, start)
+                return best
         except Exception:
             pass
         return None, None
@@ -1463,22 +1488,21 @@ class GarminClient:
                 + f"{dt_utc.microsecond // 1000:03d}Z"
             )
 
+        if meal_time is None:
+            meal_time = (
+                dt_utc.strftime("%H:%M:%S")
+                if timestamp is not None
+                else now.strftime("%H:%M:%S")
+            )
+
         if meal_id is None:
-            meal_id, fetched_meal_time = await self._get_nutrition_meal(log_date)
+            meal_id, _ = await self._get_nutrition_meal(log_date, meal_time)
             if meal_id is not None:
                 _LOGGER.debug("Using mealId %s from nutrition log", meal_id)
             else:
                 _LOGGER.debug(
                     "No meal slot found — nutrition setup may be required in app"
                 )
-        else:
-            fetched_meal_time = None
-
-        if meal_time is None:
-            if timestamp is not None:
-                meal_time = dt_utc.strftime("%H:%M:%S")
-            else:
-                meal_time = fetched_meal_time or now.strftime("%H:%M:%S")
 
         entry: dict[str, Any] = {
             "name": name,
@@ -1854,11 +1878,10 @@ class GarminClient:
                 unmeasurable_sleep_seconds = daily_sleep.get("unmeasurableSleepSeconds")
                 sleep_need_data = daily_sleep.get("sleepNeed") or {}
                 next_sleep_need_data = daily_sleep.get("nextSleepNeed") or {}
-                next_sleep_need_baseline = next_sleep_need_data.get("baseline")
                 sleep_need = (
-                    next_sleep_need_baseline
-                    if next_sleep_need_baseline is not None
-                    else sleep_need_data.get("baseline")
+                    next_sleep_need_data.get("actual")
+                    if next_sleep_need_data.get("actual") is not None
+                    else sleep_need_data.get("actual")
                 )
                 sleep_calendar_date = daily_sleep.get("calendarDate") or target_date
                 sleep_tz_offset_minutes = _extract_sleep_timezone_offset_minutes(
@@ -1883,7 +1906,7 @@ class GarminClient:
 
                 # Prefer nextSleepNeed bedtime recommendation for "tonight" values.
                 # recommendedBedtime* are minutes from midnight for bedtime, while
-                # optimal wake is derived from bedtime + sleep need baseline.
+                # optimal wake is derived from bedtime + sleep need actual.
                 recommended_bedtime_start = next_sleep_need_data.get(
                     "recommendedBedtimeStartMins"
                 )

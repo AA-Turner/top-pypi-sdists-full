@@ -17,7 +17,7 @@ NumberType = typing.Union[
 
 class NavLink(Component):
     """A NavLink component.
-NavLink
+Navigation link with nested collapse support. Automatically styles as active based on URL matching.
 
 Keyword arguments:
 
@@ -29,8 +29,14 @@ Keyword arguments:
 
 - active (boolean; default False):
     Controls whether the link is styled as active (default: `False`).
-    - `exact`: Active if `pathname` matches `href` exactly. -
-    `partial`: Active if `pathname` starts with `href` (for subpages).
+    - `False`: never active, overrides all matching behavior. -
+    `True`: always active, overrides all matching behavior. - `exact`:
+    active when the current `pathname` matches `href` pathname
+    exactly. - `partial`: active when the current `pathname` starts
+    with `href` pathname. - `exact-with-search`: active when both
+    `pathname` and query parameters   match `href`. Query parameters
+    are compared after decoding and are   order-insensitive.   -
+    `children`: active if any nested NavLink is active.
 
 - aria-* (string; optional):
     Wild card aria attributes.
@@ -380,7 +386,7 @@ Keyword arguments:
         description: typing.Optional[ComponentType] = None,
         leftSection: typing.Optional[ComponentType] = None,
         rightSection: typing.Optional[ComponentType] = None,
-        active: typing.Optional[typing.Union[bool, Literal["exact"], Literal["partial"]]] = None,
+        active: typing.Optional[typing.Union[bool, Literal["children"], Literal["exact"], Literal["partial"], Literal["exact-with-search"]]] = None,
         color: typing.Optional[typing.Optional[str]] = None,
         href: typing.Optional[str] = None,
         target: typing.Optional[Literal["_blank", "_self"]] = None,
@@ -436,7 +442,7 @@ Keyword arguments:
         bgsz: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         bgp: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         bgr: typing.Optional[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]] = None,
-        bga: typing.Optional[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"], Literal["scroll"]]] = None,
+        bga: typing.Optional[typing.Union[dict, Literal["local"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["scroll"]]] = None,
         pos: typing.Optional[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]] = None,
         top: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         left: typing.Optional[typing.Union[str, NumberType, dict]] = None,

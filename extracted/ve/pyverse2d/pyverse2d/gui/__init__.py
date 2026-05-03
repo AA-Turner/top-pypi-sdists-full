@@ -23,7 +23,7 @@ from ._widget import (
     Label,
     Sprite,
 
-    Button,
+    ClassicButton,
     ToggleButton,
 )
 
@@ -48,6 +48,6 @@ __all__ = [
     "Label",
     "Sprite",
 
-    "Button",
+    "ClassicButton",
     "ToggleButton",
 ]

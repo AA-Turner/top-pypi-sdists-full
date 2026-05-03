@@ -370,6 +370,90 @@ def _truncate_filter(value: Any, length: int = 50) -> str:
     return text[:length] + "..."
 
 
+def _gettext(message: str, **kwargs: Any) -> str:
+    """gettext filter — translates against the per-request locale.
+
+    Cycle 2 (#955): looks up *message* in :class:`~dazzle.i18n.MessageCatalogue`
+    keyed by the locale on :data:`~dazzle.i18n.locale_ctxvar` (set by
+    :class:`~dazzle_back.runtime.locale_middleware.LocaleMiddleware`).
+    Falls back to *message* on miss — projects with no translations
+    registered see the source text everywhere, same as cycle 1.
+
+    Reading the locale from a ContextVar (rather than the Jinja render
+    context) means templates don't have to thread ``current_locale``
+    through every render call site. Mirrors the ``theme_variant``
+    ContextVar pattern in :mod:`dazzle_ui.runtime.theme`.
+
+    Templates use either filter or call form::
+
+        <h1>{{ _("Welcome, {name}!", name=user.name) }}</h1>
+        <p>{{ "Sign in" | _ }}</p>
+
+    Projects register translations via :func:`dazzle.i18n.register_translations`::
+
+        from dazzle.i18n import register_translations
+
+        register_translations("fr", {"Welcome": "Bienvenue"})
+    """
+    from dazzle.i18n import get_catalogue, get_current_locale
+
+    locale = get_current_locale()
+    translation = get_catalogue().lookup(locale, message) if locale else None
+    out = translation if translation is not None else message
+    if not kwargs:
+        return out
+    try:
+        return out.format(**kwargs)
+    except (KeyError, IndexError, ValueError):
+        # Malformed format string — return the unsubstituted (translated
+        # or source) text rather than raising.
+        return out
+
+
+def _pagination_pages(current: int, total: int, window: int = 2) -> list[int | None]:
+    """Build an ellipsis-collapsed list of page numbers for pagination controls (#984).
+
+    Returns a list of ``int`` page numbers interleaved with ``None`` markers
+    representing ellipses. Always includes page 1 and the last page; shows a
+    window of ``window`` pages on either side of *current*.
+
+    Examples (with the default window=2):
+        current=1,  total=5    → [1, 2, 3, 4, 5]
+        current=7,  total=120  → [1, None, 5, 6, 7, 8, 9, None, 120]
+        current=3,  total=120  → [1, 2, 3, 4, 5, None, 120]
+        current=118, total=120 → [1, None, 116, 117, 118, 119, 120]
+
+    The output length is bounded — for any total it returns at most
+    ``2 * window + 5`` items (1 + ellipsis + 2*window+1 + ellipsis + last).
+    Linear in ``window``, constant w.r.t. ``total``, so the pagination row's
+    rendered width is bounded regardless of how many pages the table has.
+    """
+    if total <= 0:
+        return []
+    if total == 1:
+        return [1]
+
+    # Below this threshold, every page fits without an ellipsis being useful.
+    # 7 = first + last + 2*window+1 window + 2 ellipses; if total is at or
+    # below the explicit page count we'd render anyway, just show all pages.
+    explicit_count = 2 * window + 3  # first + window-around-current + last
+    if total <= explicit_count + 2:  # +2 to absorb both ellipsis slots
+        return list(range(1, total + 1))
+
+    pages: list[int | None] = [1]
+    win_start = max(2, current - window)
+    win_end = min(total - 1, current + window)
+
+    if win_start > 2:
+        pages.append(None)  # left ellipsis
+    pages.extend(range(win_start, win_end + 1))
+    if win_end < total - 1:
+        pages.append(None)  # right ellipsis
+
+    pages.append(total)
+    return pages
+
+
 def create_jinja_env(project_templates_dir: Path | None = None) -> Environment:
     """Create and configure the Jinja2 environment.
 
@@ -463,6 +547,18 @@ def create_jinja_env(project_templates_dir: Path | None = None) -> Environment:
     env.filters["ref_display"] = _ref_display_filter
     env.filters["resolve_fk_id"] = _resolve_fk_id_filter
     env.filters["humanize"] = _humanize_filter
+
+    # #984: ellipsis-collapsed pagination — keeps the row's rendered width
+    # bounded regardless of total page count.
+    env.globals["pagination_pages"] = _pagination_pages
+
+    # #955 cycle 1: identity-passthrough gettext filter. Templates can
+    # mark translatable strings with `_("...")` today; cycle 2 wires the
+    # actual catalogue lookup keyed off `request.state.locale` (set by
+    # LocaleMiddleware). Registered as both global and filter so
+    # `_("Hello")` and `"Hello" | _` both work.
+    env.globals["_"] = _gettext
+    env.filters["_"] = _gettext
 
     # #929: radar widget needs explicit polar-to-cartesian conversion
     # for vertex placement. Jinja can't call cos/sin directly, so the

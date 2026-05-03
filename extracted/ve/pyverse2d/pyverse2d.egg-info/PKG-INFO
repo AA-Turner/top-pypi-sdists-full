@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pyverse2d
-Version: 0.62.12
+Version: 0.63.24
 Summary: 2D Game Engine using pyglet (OpenGL) for rendering
 Author: WhiteWolf45380
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/WhiteWolf45380/pyverse2d
 Keywords: game,engine,2d,pyglet,opengl
 Requires-Python: >=3.10

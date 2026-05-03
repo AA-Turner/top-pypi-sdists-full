@@ -1,4 +1,4 @@
-__version__ = "1.6.0.dev20260501"
+__version__ = "1.6.0.dev20260502"
 __author__ = "TensorCircuit-NG Authors"
 __creator__ = "refraction-ray"
 
@@ -100,14 +100,14 @@ def __dir__() -> List[str]:
 
 
 try:
-    import qiskit
+    from qiskit import QuantumCircuit
 
-    qiskit.QuantumCircuit.cnot = qiskit.QuantumCircuit.cx
-    qiskit.QuantumCircuit.toffoli = qiskit.QuantumCircuit.ccx
-    qiskit.QuantumCircuit.fredkin = qiskit.QuantumCircuit.cswap
+    QuantumCircuit.cnot = QuantumCircuit.cx
+    QuantumCircuit.toffoli = QuantumCircuit.ccx
+    QuantumCircuit.fredkin = QuantumCircuit.cswap
 
     # amazing qiskit 1.0 nonsense...
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass
 
 # just for fun

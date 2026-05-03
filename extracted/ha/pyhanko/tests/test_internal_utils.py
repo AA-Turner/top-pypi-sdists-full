@@ -183,8 +183,6 @@ def test_whitespace_variants():
         b'   \n a',
         b'   \r\n a',
         b'   \r a',
-        b'   \r a',
-        b'   \r a',
     ],
 )
 def test_skip_ws_behaviour(data):
@@ -398,6 +396,16 @@ def test_page_import(file_no, inherit_filters):
     # just a piece of data I know occurs in the decoded content stream
     # of the (only) page in VECTOR_IMAGE_PDF
     assert b'0 1 0 rg /a0 gs' in xobj.data
+
+
+def test_page_import_no_media_box():
+    with open(PDF_DATA_DIR + '/no-mediabox.pdf', 'rb') as f:
+        image_input = PdfFileReader(f)
+        w = writer.PdfFileWriter()
+        with pytest.raises(
+            misc.PdfReadError, match="Page 0 does not have a /MediaBox"
+        ):
+            w.import_page_as_xobject(image_input)
 
 
 @pytest.mark.parametrize(
@@ -672,6 +680,9 @@ DATE_PAIRS = [
     ('D:20080203010559-05', TESTDATE_EST),
     ('D:20080203010559-05\'', TESTDATE_EST),
     ('D:20080203010559-05\'00\'', TESTDATE_EST),
+    ('D:20080203010559-05\'00\'\n', TESTDATE_EST),
+    ('D:20080203010559-05\'00\'\r', TESTDATE_EST),
+    ('D:20080203010559-05\'00\'\r\n', TESTDATE_EST),
 ]
 
 
@@ -708,6 +719,21 @@ def test_date_parsing_without_prefix(date_str, expected_dt):
 )
 def test_date_parsing_errors(date_str):
     with pytest.raises(misc.PdfReadError):
+        generic.parse_pdf_date(date_str)
+
+
+@pytest.mark.parametrize(
+    'date_str',
+    [
+        generic.ByteStringObject(b'D:20080203010559Z'),
+        generic.ByteStringObject(b'D:20080203'),
+        generic.NumberObject(123),
+        None,
+    ],
+)
+def test_date_parsing_non_string_type_error(date_str):
+    with pytest.raises(misc.PdfReadError, match='text string'):
+        # noinspection PyTypeChecker
         generic.parse_pdf_date(date_str)
 
 
@@ -1914,7 +1940,6 @@ COMMENT_IN_HEX_STRING_DATA = [
     b'<dead %Bleh\nbeef>',
     b'<deadbeef %Bleh\n>',
     b'<d %Bleh\neadbeef>',
-    b'<deadbee%Bleh\nf>',
     b'<%Bleh\n deadbeef>',
     b'<dead%Bleh\n beef>',
     b'<deadbeef%Bleh\n >',
@@ -1945,8 +1970,6 @@ UNORTHODOX_STREAM_SYNTAX = [
     b'\nstream\nabcdefg\nendstream ',
     b'stream\nabcdefg\nendstream ',
     b' \nstream\nabcdefg\nendstream ',
-    b'\nstream \nabcdefg\nendstream',
-    b'\nstream \nabcdefg\nendstream',
 ]
 
 

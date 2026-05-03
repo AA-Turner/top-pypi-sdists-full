@@ -16,6 +16,7 @@ from ._constants import ConstantsDataset
 
 from dataclasses import dataclass, field
 from math import sqrt
+from typing import Callable
 
 # ======================================== CONTEXTE ========================================
 @dataclass(slots=True)
@@ -59,26 +60,26 @@ update_processor = Processor("update")
 
 @update_processor.step
 def _query_entities(ctx: UpdateContext):
+    """Récupération des entités"""
     ctx.entities = ctx.world.query(Collider, Transform)
     
 @update_processor.step
 def _update_geometries(ctx: UpdateContext):
-    active_ids = {e.id for e in ctx.entities}
-
-    # Nettoyage orphelins
-    for eid in list(ctx.geometry_cache):
-        if eid not in active_ids:
-            del ctx.geometry_cache[eid]
-            del ctx.geometry_keys[eid]
-    
+    """Actualisation des géométries monde"""
     # Création/mise à jour si component remplacé
     for entity in ctx.entities:
         col = entity.collider
         tr = entity.transform
+
         key = (id(col), id(tr))
-        if ctx.geometry_keys.get(entity.id) != key:
+        geom_key = ctx.geometry_keys.get(entity.id)
+
+        if geom_key != key:
             ctx.geometry_cache[entity.id] = Geometry(col.shape, tr, col.offset)
             ctx.geometry_keys[entity.id] = key
+
+            if geom_key is None:
+                entity.on_kill(_make_clear_geometry_func(entity.id, ctx.geometry_cache, ctx.geometry_keys))
 
 @update_processor.step
 def _reset_sensors(ctx: UpdateContext):
@@ -266,3 +267,12 @@ def _try_step(a, b, nx: float, ny: float, depth: float, geom_a: Geometry, geom_b
         return True
 
     return False
+
+def _make_clear_geometry_func(eid: int, g_cache: dict, g_keys: dict) -> Callable[[], None]:
+    """Construit le token de suppression d'une clé"""
+
+    def clear_geometry() -> None:
+        g_cache.pop(eid, None)
+        g_keys.pop(eid, None)
+
+    return clear_geometry

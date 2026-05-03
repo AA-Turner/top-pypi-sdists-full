@@ -32,6 +32,12 @@ from .archetype import (
     ArchetypeSpec,
 )
 
+# Audit trail (#956)
+from .audit import (
+    AuditShowTo,
+    AuditSpec,
+)
+
 # Computed Fields
 from .computed import (
     AggregateCall,
@@ -334,6 +340,14 @@ from .islands import (
     IslandSpec,
 )
 
+# Background Jobs (#953)
+from .jobs import (
+    JobBackoff,
+    JobSchedule,
+    JobSpec,
+    JobTrigger,
+)
+
 # Layout Engine
 from .layout import (
     AttentionSignalKind,
@@ -558,6 +572,12 @@ from .scenarios import (
     DemoFixture,
     PersonaScenarioEntry,
     ScenarioSpec,
+)
+
+# Full-text search (#954)
+from .search import (
+    SearchField,
+    SearchSpec,
 )
 
 # Security (v0.11.0)
@@ -1253,6 +1273,17 @@ __all__ = [
     "ParamConstraints",
     "ParamRef",
     "ParamSpec",
+    # Audit trail (#956)
+    "AuditShowTo",
+    "AuditSpec",
+    # Background Jobs (#953)
+    "JobBackoff",
+    "JobSchedule",
+    "JobSpec",
+    "JobTrigger",
+    # Full-text search (#954)
+    "SearchField",
+    "SearchSpec",
     # Notifications (v0.34.0)
     "NotificationChannel",
     "NotificationPreference",

@@ -123,6 +123,9 @@ Keyword arguments:
         Replaces default close icon. If set, `iconSize` prop is
         ignored.
 
+    - ButtonProps (dict; optional):
+        props passed down to `Button` component *.
+
 - clearable (boolean; optional):
     Determines whether input value can be cleared, adds clear button
     to right section, False by default.
@@ -990,6 +993,9 @@ Keyword arguments:
         - icon (a list of or a singular dash component, string or number; optional):
             Replaces default close icon. If set, `iconSize` prop is
             ignored.
+
+        - ButtonProps (dict; optional):
+            props passed down to `Button` component *.
 
         - hiddenFrom (string; optional):
             Breakpoint above which the component is hidden with
@@ -1881,7 +1887,8 @@ Keyword arguments:
             "disabled": NotRequired[bool],
             "iconSize": NotRequired[typing.Union[str, NumberType]],
             "children": NotRequired[ComponentType],
-            "icon": NotRequired[ComponentType]
+            "icon": NotRequired[ComponentType],
+            "ButtonProps": NotRequired[dict]
         }
     )
 
@@ -1993,6 +2000,7 @@ Keyword arguments:
             "iconSize": NotRequired[typing.Union[str, NumberType]],
             "children": NotRequired[ComponentType],
             "icon": NotRequired[ComponentType],
+            "ButtonProps": NotRequired[dict],
             "hiddenFrom": NotRequired[str],
             "visibleFrom": NotRequired[str],
             "mod": NotRequired[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]],

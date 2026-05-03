@@ -1,37 +1,40 @@
-"""Risk assessment — pure function that scores privacy risk from detected entities."""
+"""Risk assessment — pure function that scores privacy risk from detected entities.
+
+PIPL/GDPR/HIPAA classification is sourced from `PIITypeDef` metadata (v0.5.9+);
+the previous hardcoded inference rules are now centralized in
+`specs/_compliance.py` so downstream DPIA generators can read the same data
+via `argus_redact.specs.get(...)` without mirroring rules.
+"""
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
+
+from argus_redact.specs._compliance import (
+    PIPL_ART_55,
+    PIPL_SENSITIVE_PI,
+    PIPL_SORT_ORDER,
+)
+from argus_redact.specs.registry import get as _registry_get
+from argus_redact.specs.registry import lookup as _registry_lookup
 
 # Sensitivity level labels
 _LEVEL_LABELS = {1: "low", 2: "medium", 3: "high", 4: "critical"}
 
-# Quasi-identifier combinations that amplify risk
+# Quasi-identifier combinations that amplify the risk *score*. (Compliance
+# article assignment lives on PIITypeDef now; this set is purely for scoring.)
 _QUASI_ID_COMBOS = [
     {"date_of_birth", "address"},
     {"date_of_birth", "phone"},
     {"address", "phone"},
 ]
 
-# PIPL article mapping
-_PIPL_ART_13 = "PIPL Art.13"  # Lawful basis for processing personal information
-_PIPL_ART_28 = "PIPL Art.28"  # De-identification requirement (any PII)
-_PIPL_ART_29 = "PIPL Art.29"  # Separate consent for sensitive PI
-_PIPL_ART_51 = "PIPL Art.51"  # Sensitive personal information definition
-_PIPL_ART_55 = "PIPL Art.55"  # Personal information protection impact assessment
-_PIPL_ART_56 = "PIPL Art.56"  # Record-keeping obligation for PI processors
+# Types that amplify the risk score when combined with self_reference.
+# Composed from the central PIPL_SENSITIVE_PI set plus three structural-PII
+# types — keeps the score rule in sync with the compliance classification.
+_SELF_REF_AMPLIFY_WITH = PIPL_SENSITIVE_PI | {"phone", "id_number", "bank_card"}
 
-# Types that trigger specific PIPL articles beyond the baseline
-_SENSITIVE_PI_TYPES = {
-    "medical",
-    "financial",
-    "religion",
-    "political",
-    "sexual_orientation",
-    "criminal_record",
-    "biometric",
-}
 
 
 @dataclass(frozen=True)
@@ -41,13 +44,31 @@ class RiskResult:
     entities: tuple[dict, ...] = ()
     reasons: tuple[str, ...] = ()
     pipl_articles: tuple[str, ...] = ()
+    gdpr_special_category: bool = False  # v0.5.9+
+    hipaa_categories: tuple[str, ...] = ()  # v0.5.9+
+
+
+@functools.lru_cache(maxsize=512)
+def _lookup_typedef(type_name: str, lang: str):
+    """Resolve a typedef by (lang, name), falling back to any-lang lookup.
+
+    Cached because `assess_risk()` may iterate many entities of the same type
+    (a long form with 50 phone numbers shouldn't do 50 dict lookups). The
+    registry is frozen at import, so caching is safe.
+    """
+    try:
+        return _registry_get(lang, type_name)
+    except KeyError:
+        candidates = _registry_lookup(type_name)
+        return candidates[0] if candidates else None
 
 
 def assess_risk(entities: list[dict], lang: str = "zh") -> RiskResult:
     """Assess privacy risk from a list of detected entities.
 
     Each entity dict must have 'type' and 'sensitivity' keys.
-    Returns a RiskResult with score (0.0-1.0), level, reasons, and PIPL articles.
+    Returns a RiskResult with score (0.0-1.0), level, reasons, and PIPL articles
+    plus GDPR Art.9 / HIPAA category aggregates (v0.5.9+).
     """
     if not entities:
         return RiskResult(score=0.0, level="none")
@@ -74,9 +95,7 @@ def assess_risk(entities: list[dict], lang: str = "zh") -> RiskResult:
 
     # Self-reference amplification: "我" + any sensitive type = directly about user
     if "self_reference" in types_found:
-        sensitive_with_self = types_found & (
-            _SENSITIVE_PI_TYPES | {"phone", "id_number", "bank_card"}
-        )
+        sensitive_with_self = types_found & _SELF_REF_AMPLIFY_WITH
         if sensitive_with_self:
             score += 0.15
             reasons.append("self-reference amplification: PII directly linked to user")
@@ -100,19 +119,40 @@ def assess_risk(entities: list[dict], lang: str = "zh") -> RiskResult:
     else:
         level = "critical"
 
-    # PIPL articles
-    pipl = [_PIPL_ART_13, _PIPL_ART_28]  # any PII triggers lawful basis + de-identification
-    if max_sens >= 3:
-        pipl.append(_PIPL_ART_51)  # sensitive PI definition
-        pipl.append(_PIPL_ART_29)  # separate consent required
-    if len(entities) >= 3 or any(e["type"] in _SENSITIVE_PI_TYPES for e in entities):
-        pipl.append(_PIPL_ART_55)  # impact assessment required
-    pipl.append(_PIPL_ART_56)  # record-keeping obligation (always applies when PII found)
+    # ── Compliance metadata aggregation (v0.5.9+) ──
+    # Read PIPL articles, GDPR special-category flag, and HIPAA category from
+    # each entity's PIITypeDef. Skips entities whose type isn't in the
+    # registry (e.g., test fixtures with arbitrary type names).
+    pipl_set: set[str] = set()
+    gdpr_special = False
+    hipaa_set: set[str] = set()
+
+    for e in entities:
+        td = _lookup_typedef(e["type"], lang)
+        if td is None:
+            continue
+        pipl_set.update(td.pipl_articles)
+        if td.gdpr_special_category:
+            gdpr_special = True
+        if td.hipaa_phi_category:
+            hipaa_set.add(td.hipaa_phi_category)
+
+    # Cardinality rule: ≥ 3 entities → impact assessment required (Art.55).
+    # Independent of typedef so a high-volume single-type query still
+    # triggers it.
+    if len(entities) >= 3:
+        pipl_set.add("PIPL Art.55")
+
+    pipl_articles = tuple(
+        sorted(pipl_set, key=lambda art: PIPL_SORT_ORDER.get(art, 999))
+    )
 
     return RiskResult(
         score=round(score, 2),
         level=level,
         entities=tuple({"type": e["type"], "sensitivity": e["sensitivity"]} for e in entities),
         reasons=tuple(reasons),
-        pipl_articles=tuple(pipl),
+        pipl_articles=pipl_articles,
+        gdpr_special_category=gdpr_special,
+        hipaa_categories=tuple(sorted(hipaa_set)),
     )

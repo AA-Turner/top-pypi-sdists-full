@@ -167,6 +167,20 @@ pub async fn document_link(
         )?);
     }
 
+    // Handle [build-system] section
+    if let Some((_, tombi_document_tree::Value::Array(requires))) =
+        dig_keys(document_tree, &["build-system", "requires"])
+    {
+        document_links.extend(document_link_for_project_dependencies(
+            requires,
+            pyproject_sources,
+            &pyproject_toml_path,
+            toml_version,
+            pyproject_toml_document_link_enabled.value(),
+            pypi_org_document_link_enabled.value(),
+        )?);
+    }
+
     document_links.extend(document_link_for_tool_uv_dependencies(
         document_tree,
         pyproject_sources,
@@ -275,7 +289,7 @@ fn document_link_for_member_pyproject_toml(
     if let Some((workspace_key, tombi_document_tree::Value::Boolean(is_workspace))) =
         source.get_key_value("workspace")
         && is_workspace.value()
-        && let Some((member_project_toml_path, _)) = find_member_project_toml(
+        && let Some((package_location, _)) = find_member_project_toml(
             &package_name_key.value,
             &workspace_pyproject_toml_document_tree,
             &workspace_pyproject_toml_path,
@@ -283,7 +297,7 @@ fn document_link_for_member_pyproject_toml(
         )
     {
         if let Ok(member_project_toml_uri) =
-            tombi_uri::Uri::from_file_path(&member_project_toml_path)
+            tombi_uri::Uri::from_file_path(&package_location.pyproject_toml_path)
         {
             document_links.push(tombi_extension::DocumentLink {
                 target: member_project_toml_uri,

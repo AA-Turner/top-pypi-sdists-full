@@ -37,25 +37,21 @@ keysets:
     keys:
       root:
         path: root_ca.key.pem
-        password: secret
       interm:
         path: intermediate_ca.key.pem
-        password: secret
       tsa:
         path: tsa.key.pem
-        password: secret
       tsa2:
         path: tsa2.key.pem
+      tsa-rsa:
+        path: tsa_rsa.key.pem
         password: secret
       interm-ocsp:
         path: ocsp.key.pem
-        password: secret
       signer1:
         path: signer.key.pem
-        password: secret
       signer2:
         path: signer2.key.pem
-        password: secret
       decrypter1:
         path: decrypter1.key.pem  # secp256r1
       decrypter2:
@@ -333,6 +329,20 @@ pki-architectures:
   testing-ca-ecdsa:
     template: testing-ca
     keyset: testing-ca-ecdsa
+    entities:
+      tsa-rsa:
+        common-name: Time Stamping Authority (RSA)
+    certs:
+      tsa-rsa:
+        template: tsa
+        subject: tsa-rsa
+        subject-key: tsa-rsa
+    services:
+      time-stamping:
+        tsa-rsa:
+          signing-key: tsa-rsa
+          signing-cert: tsa-rsa
+          digest-algo: sha512
   ecc-testing-ca-with-decrypters:
     template: testing-ca
     keyset: testing-ca-ecdsa

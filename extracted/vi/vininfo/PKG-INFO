@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vininfo
-Version: 1.10.0
+Version: 1.11.0
 Summary: Extracts useful information from Vehicle Identification Number (VIN)
 Project-URL: Homepage, https://github.com/idlesign/vininfo
 Author-email: Igor Starikov <idlesign@yandex.ru>
@@ -34,6 +34,7 @@ https://github.com/idlesign/vininfo
 Additional info available for many vehicles from:
 
 * AvtoVAZ
+* Ford Australia
 * Nissan
 * Opel
 * Renault
@@ -126,7 +127,7 @@ $ uv tool install makeapp
 $ uv tool upgrade makeapp
 ```
 
-Clone the source code the repository and switch into its directory:
+Clone the source code from the repository and switch into its directory:
 
 ```shell
 # bootstrap the utilities

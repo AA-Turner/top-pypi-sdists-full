@@ -31,11 +31,14 @@ from pyhanko.sign.attributes import (
 )
 from pyhanko.sign.general import (
     CMSExtractionError,
-    CMSStructuralError,
+    MultivaluedAttributeError,
+    NonexistentAttributeError,
     SigningError,
     as_signing_certificate,
     as_signing_certificate_v2,
     find_cms_attribute,
+    find_cms_attribute_iter,
+    find_unique_cms_attribute,
     simple_cms_attribute,
 )
 from pyhanko.sign.signers import cms_embedder
@@ -48,24 +51,34 @@ from pyhanko.sign.validation import (
     StandardCMSSignatureStatus,
     async_validate_cms_signature,
     async_validate_detached_cms,
-    async_validate_pdf_ltv_signature,
     async_validate_pdf_signature,
     collect_validation_info,
     validate_cms_signature,
+    validate_pdf_signature,
 )
+from pyhanko.sign.validation.ades import ades_lta_validation
 from pyhanko.sign.validation.errors import (
-    DisallowedAlgorithmError,
     SignatureValidationError,
 )
 from pyhanko.sign.validation.generic_cms import validate_sig_integrity
+from pyhanko.sign.validation.policy_decl import (
+    PdfSignatureValidationSpec,
+    SignatureValidationSpec,
+)
 from pyhanko.sign.validation.status import ClaimedAttributes
 from pyhanko.sign.validation.utils import CMSAlgorithmUsagePolicy
 from pyhanko_certvalidator import ValidationContext
+from pyhanko_certvalidator.context import CertValidationPolicySpec
 from pyhanko_certvalidator.policy_decl import (
+    REQUIRE_REVINFO,
     AlgorithmUsageConstraint,
+    CertRevTrustPolicy,
     DisallowWeakAlgorithmsPolicy,
 )
-from pyhanko_certvalidator.registry import SimpleCertificateStore
+from pyhanko_certvalidator.registry import (
+    SimpleCertificateStore,
+    SimpleTrustManager,
+)
 from pyhanko_testing_commons.test_data.samples import (
     CERTOMANCER,
     CRYPTO_DATA_DIR,
@@ -277,6 +290,84 @@ async def test_detached_cms_with_tst():
     assert status.intact
 
 
+class _SignatureTSWithDifferentDigestAlgos(UnsignedAttributeProviderSpec):
+    def unsigned_attr_providers(
+        self,
+        signature: bytes,
+        signed_attrs: cms.CMSAttributes,
+        digest_algorithm: str,
+    ):
+        yield TSTProvider(
+            'sha512',
+            data_to_ts=signature,
+            timestamper=DUMMY_TS,
+        )
+        yield TSTProvider(
+            'sha3_256',
+            data_to_ts=signature,
+            timestamper=DUMMY_TS,
+        )
+
+
+@freeze_time('2020-11-01')
+@pytest.mark.asyncio
+async def test_detached_cms_with_multiple_signature_timestamps():
+
+    signer = signers.SimpleSigner(
+        signing_cert=FROM_CA.signing_cert,
+        signing_key=FROM_CA.signing_key,
+        cert_registry=FROM_CA.cert_registry,
+    )
+    signer.unsigned_attr_prov_spec = _SignatureTSWithDifferentDigestAlgos()
+    payload = await signer.async_sign_general_data(
+        b'Hello world!',
+        'sha256',
+        detached=True,
+        timestamper=None,
+    )
+    sd = cms.ContentInfo.load(payload.dump())['content']
+    result = await async_validate_detached_cms(
+        b'Hello world!',
+        sd,
+        signer_validation_context=ValidationContext(trust_roots=[ROOT_CERT]),
+    )
+    assert result.bottom_line
+    assert result.timestamp_validity.md_algorithm in ('sha512', 'sha3_256')
+
+
+@freeze_time('2020-11-01')
+@pytest.mark.asyncio
+@pytest.mark.parametrize('excluded', ['sha3_256', 'sha512'])
+async def test_detached_cms_with_multiple_signature_timestamps_algo_policy(
+    excluded,
+):
+
+    signer = signers.SimpleSigner(
+        signing_cert=FROM_CA.signing_cert,
+        signing_key=FROM_CA.signing_key,
+        cert_registry=FROM_CA.cert_registry,
+    )
+    signer.unsigned_attr_prov_spec = _SignatureTSWithDifferentDigestAlgos()
+    payload = await signer.async_sign_general_data(
+        b'Hello world!',
+        'sha256',
+        detached=True,
+        timestamper=None,
+    )
+    sd = cms.ContentInfo.load(payload.dump())['content']
+    result = await async_validate_detached_cms(
+        b'Hello world!',
+        sd,
+        signer_validation_context=ValidationContext(trust_roots=[ROOT_CERT]),
+        algorithm_policy=CMSAlgorithmUsagePolicy.lift_policy(
+            DisallowWeakAlgorithmsPolicy(weak_hash_algos=(excluded,))
+        ),
+    )
+    assert result.bottom_line
+    assert result.timestamp_validity.md_algorithm in ('sha512', 'sha3_256')
+    assert result.timestamp_validity.md_algorithm != excluded
+
+
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
 async def test_detached_cms_with_content_tst():
@@ -446,7 +537,9 @@ async def test_detached_cms_with_duplicated_attr():
         timestamper=DUMMY_TS,
     )
     signature = cms.ContentInfo.load(signature.dump())
-    with pytest.raises(SignatureValidationError, match='structural.*duplicate'):
+    with pytest.raises(
+        SignatureValidationError, match='multiple message digest attributes'
+    ):
         await async_validate_cms_signature(
             signature['content'],
         )
@@ -720,7 +813,7 @@ def test_duplicate_content_type_oid():
     emb = r.embedded_signatures[0]
     digest = emb.compute_digest()
 
-    with pytest.raises(CMSStructuralError):
+    with pytest.raises(SignatureValidationError):
         validate_sig_integrity(emb.signer_info, emb.signer_cert, 'data', digest)
 
 
@@ -760,8 +853,11 @@ def test_sign_weak_digest():
     r = PdfFileReader(out)
     emb = r.embedded_signatures[0]
     assert emb.field_name == 'Sig1'
-    with pytest.raises(DisallowedAlgorithmError):
-        val_trusted(emb)
+    result = validate_pdf_signature(emb, simple_v_context(), skip_diff=True)
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
     lenient_vc = ValidationContext(
         trust_roots=[ROOT_CERT], weak_hash_algos=set()
@@ -794,8 +890,13 @@ def test_forbidden_signature_algorithm():
             weak_signature_algos={'rsassa_pkcs1v15'}
         ),
     )
-    with pytest.raises(DisallowedAlgorithmError, match="rsa"):
-        val_trusted(r.embedded_signatures[0], vc=rsa_banned_vc)
+    result = validate_pdf_signature(
+        r.embedded_signatures[0], rsa_banned_vc, skip_diff=True
+    )
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
 
 async def _generate_sig_with_mismatching_digest_algos():
@@ -838,7 +939,7 @@ async def _generate_sig_with_mismatching_digest_algos():
     bad_algo = SignedDigestAlgorithm({'algorithm': 'md5_rsa'})
     si_obj['signature_algorithm'] = signer._signature_mechanism = bad_algo
     attrs = si_obj['signed_attrs']
-    cms_prot = find_cms_attribute(attrs, 'cms_algorithm_protection')[0]
+    cms_prot = find_unique_cms_attribute(attrs, 'cms_algorithm_protection')
     cms_prot['signature_algorithm'] = bad_algo
     # recompute the signature
     si_obj['signature'] = signer.sign_raw(attrs.untag().dump(), 'md5')
@@ -851,15 +952,17 @@ async def _generate_sig_with_mismatching_digest_algos():
 async def test_sign_weak_sig_digest_mismatch():
     output = await _generate_sig_with_mismatching_digest_algos()
     r = PdfFileReader(output)
-    emb = r.embedded_signatures[0]
 
     lenient_vc = ValidationContext(
         trust_roots=[ROOT_CERT], weak_hash_algos=set()
     )
-    with pytest.raises(
-        SignatureValidationError, match="sha256 does not match.*md5"
-    ):
-        await async_val_trusted(emb, vc=lenient_vc)
+    result = await async_validate_pdf_signature(
+        r.embedded_signatures[0], lenient_vc, skip_diff=True
+    )
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
 
 @freeze_time('2020-11-01')
@@ -935,13 +1038,16 @@ async def test_sign_digest_mismatch_allowed_but_inner_banned():
 
     policy = DisallowWeakAlgorithmsPolicy(weak_hash_algos=frozenset(['md5']))
 
-    with pytest.raises(SignatureValidationError, match="md5.*not allowed"):
-        await async_validate_pdf_signature(
-            emb,
-            simple_v_context(),
-            skip_diff=True,
-            algorithm_policy=_AllowMismatches(policy),
-        )
+    result = await async_validate_pdf_signature(
+        emb,
+        simple_v_context(),
+        skip_diff=True,
+        algorithm_policy=_AllowMismatches(policy),
+    )
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
 
 @freeze_time('2020-11-01')
@@ -956,13 +1062,16 @@ async def test_sign_digest_mismatch_allowed_but_outer_banned():
         weak_hash_algos=frozenset(['sha256'])
     )
 
-    with pytest.raises(SignatureValidationError, match="sha256.*not allowed"):
-        await async_validate_pdf_signature(
-            emb,
-            simple_v_context(),
-            skip_diff=True,
-            algorithm_policy=_AllowMismatches(policy),
-        )
+    result = await async_validate_pdf_signature(
+        emb,
+        simple_v_context(),
+        skip_diff=True,
+        algorithm_policy=_AllowMismatches(policy),
+    )
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
 
 @freeze_time('2020-11-01')
@@ -995,8 +1104,15 @@ async def test_sign_weak_sig_digest():
 
     r = PdfFileReader(out)
     emb = r.embedded_signatures[0]
-    with pytest.raises(DisallowedAlgorithmError):
-        await async_val_trusted(emb)
+    result = await async_validate_pdf_signature(
+        emb,
+        simple_v_context(),
+        skip_diff=True,
+    )
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
 
 @freeze_time('2020-11-01')
@@ -1042,11 +1158,17 @@ async def test_sign_weak_sig_digest_disallowed_by_custom_policy():
         ) -> AlgorithmUsageConstraint:
             return AlgorithmUsageConstraint(allowed=True)
 
-    lenient_vc = ValidationContext(
+    special_vc = ValidationContext(
         trust_roots=[ROOT_CERT], algorithm_usage_policy=Policy()
     )
-    with pytest.raises(DisallowedAlgorithmError, match="Test reason"):
-        await async_val_trusted(emb, vc=lenient_vc)
+    result = await async_validate_pdf_signature(
+        emb, signer_validation_context=special_vc, skip_diff=True
+    )
+
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
 
 
 @pytest.mark.parametrize("with_issser", [False, True])
@@ -1581,10 +1703,9 @@ async def test_embed_ac(requests_mock, ac_to_include):
     assert role['role_name'].native == 'bigboss@example.com'
 
 
-# noinspection PyDeprecation
 @freeze_time('2020-11-01')
 @pytest.mark.asyncio
-async def test_embed_ac_revinfo_adobe_style(requests_mock, expect_deprecation):
+async def test_embed_ac_revinfo_adobe_style(requests_mock):
     signer = get_ac_aware_signer()
     w = IncrementalPdfFileWriter(BytesIO(MINIMAL))
     pki_arch = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-with-aa'))
@@ -1633,16 +1754,27 @@ async def test_embed_ac_revinfo_adobe_style(requests_mock, expect_deprecation):
     # 4 CA certs, 1 AA certs, 1 AC, 1 signer cert -> 7 certs
     assert len(s.other_embedded_certs) == 5  # signer cert is excluded
     assert len(s.embedded_attr_certs) == 1
-    from pyhanko.sign.validation import RevocationInfoValidationType
 
-    status = await async_validate_pdf_ltv_signature(
-        s,
-        RevocationInfoValidationType.ADOBE_STYLE,
-        validation_context_kwargs={'trust_roots': [pki_arch.get_cert('root')]},
-        ac_validation_context_kwargs={
-            'trust_roots': [pki_arch.get_cert('root-aa')]
-        },
+    trust_manager = SimpleTrustManager.build(
+        trust_roots=[pki_arch.get_cert('root')],
     )
+    ac_trust_manager = SimpleTrustManager.build(
+        trust_roots=[pki_arch.get_cert('root-aa')],
+    )
+    validation_spec = PdfSignatureValidationSpec(
+        SignatureValidationSpec(
+            cert_validation_policy=CertValidationPolicySpec(
+                trust_manager=trust_manager,
+                revinfo_policy=CertRevTrustPolicy(REQUIRE_REVINFO),
+            ),
+            ac_validation_policy=CertValidationPolicySpec(
+                ac_trust_manager,
+                revinfo_policy=CertRevTrustPolicy(REQUIRE_REVINFO),
+            ),
+        )
+    )
+    ades_status = await ades_lta_validation(s, validation_spec)
+    status = ades_status.api_status
     assert status.bottom_line
     roles = list(status.ac_attrs['role'].attr_values)
     role = roles[0]
@@ -2185,16 +2317,256 @@ def test_ed448_no_length():
         status = val_untrusted(s)
     assert status.md_algorithm == 'shake256'
 
-    assert len(s.external_digest) == 64
+    assert len(s.compute_digest()) == 64
 
 
 @freeze_time('2020-11-01')
 def test_ed448_invalid_hash_algo_validation():
+    fname = os.path.join(PDF_DATA_DIR, 'ed448-disallowed-hash.pdf')
+    with open(fname, 'rb') as inf:
+        r = PdfFileReader(inf)
+        result = validate_pdf_signature(
+            r.embedded_signatures[0], simple_v_context(), skip_diff=True
+        )
+    assert (
+        result.trust_problem_indic
+        == AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
+    )
+
+
+def _create_test_attrs():
+
+    return cms.CMSAttributes(
+        [
+            simple_cms_attribute('content_type', cms.ContentType('data')),
+            simple_cms_attribute(
+                'message_digest', core.OctetString(b'test_digest')
+            ),
+            simple_cms_attribute(
+                'signing_certificate_v2',
+                as_signing_certificate_v2(FROM_CA.signing_cert),
+            ),
+        ]
+    )
+
+
+def test_find_cms_attribute_iter_single_value():
+    """Test find_cms_attribute_iter returns values for existing attribute."""
+    attrs = _create_test_attrs()
+    values = list(find_cms_attribute_iter(attrs, 'content_type'))
+
+    assert len(values) == 1
+    assert isinstance(values[0], cms.ContentType)
+    assert values[0].native == 'data'
+
+
+def test_find_cms_attribute_iter_multiple_values():
+    attr_val1 = core.OctetString(b'test1')
+    attr_val2 = core.OctetString(b'test2')
+    attrs = cms.CMSAttributes(
+        [
+            cms.CMSAttribute(
+                {
+                    'type': cms.CMSAttributeType('message_digest'),
+                    'values': (attr_val1, attr_val2),
+                }
+            )
+        ]
+    )
+
+    values = list(find_cms_attribute_iter(attrs, 'message_digest'))
+    assert len(values) == 2
+    assert values[0].native == b'test1'
+    assert values[1].native == b'test2'
+
+
+def test_find_cms_attribute_iter_nonexistent_attribute():
+    attrs = _create_test_attrs()
+    values = list(find_cms_attribute_iter(attrs, 'nonexistent_attribute'))
+
+    assert values == []
+
+
+def test_find_cms_attribute_iter_none_attrs():
+    values = list(find_cms_attribute_iter(None, 'content_type'))
+    assert values == []
+
+
+def test_find_cms_attribute_iter_empty_attrs():
+    attrs = cms.CMSAttributes([])
+    values = list(find_cms_attribute_iter(attrs, 'content_type'))
+    assert values == []
+
+
+def test_find_cms_attribute_deprecated_success():
+    attrs = _create_test_attrs()
+
+    with pytest.deprecated_call():
+        values = find_cms_attribute(attrs, 'content_type')
+
+    assert len(values) == 1
+    assert isinstance(values[0], cms.ContentType)
+    assert values[0].native == 'data'
+
+
+def test_find_cms_attribute_deprecated_raises_on_missing():
+    attrs = _create_test_attrs()
+
+    with pytest.deprecated_call():
+        with pytest.raises(
+            NonexistentAttributeError, match='nonexistent_attribute'
+        ):
+            find_cms_attribute(attrs, 'nonexistent_attribute')
+
+
+def test_find_cms_attribute_deprecated_none_attrs():
+    with pytest.deprecated_call():
+        with pytest.raises(NonexistentAttributeError):
+            find_cms_attribute(None, 'content_type')
+
+
+def test_find_cms_attribute_deprecated_with_multiple_values():
+    attr_val1 = core.OctetString(b'test1')
+    attr_val2 = core.OctetString(b'test2')
+    attrs = cms.CMSAttributes(
+        [
+            cms.CMSAttribute(
+                {
+                    'type': cms.CMSAttributeType('message_digest'),
+                    'values': (attr_val1, attr_val2),
+                }
+            )
+        ]
+    )
+
+    with pytest.deprecated_call():
+        values = find_cms_attribute(attrs, 'message_digest')
+
+    assert len(values) == 2
+    assert values[0].native == b'test1'
+    assert values[1].native == b'test2'
+
+
+def test_find_unique_cms_attribute_success():
+    attrs = _create_test_attrs()
+    value = find_unique_cms_attribute(attrs, 'content_type')
+
+    assert isinstance(value, cms.ContentType)
+    assert value.native == 'data'
+
+
+def test_find_unique_cms_attribute_raises_on_missing():
+    attrs = _create_test_attrs()
+
     with pytest.raises(
-        DisallowedAlgorithmError, match='algorithm.*does not match'
+        NonexistentAttributeError, match='nonexistent_attribute'
     ):
-        fname = os.path.join(PDF_DATA_DIR, 'ed448-disallowed-hash.pdf')
-        with open(fname, 'rb') as inf:
-            r = PdfFileReader(inf)
-            s = r.embedded_signatures[0]
-            val_untrusted(s)
+        find_unique_cms_attribute(attrs, 'nonexistent_attribute')
+
+
+def test_find_unique_cms_attribute_raises_on_multiple():
+    attr_val1 = core.OctetString(b'test1')
+    attr_val2 = core.OctetString(b'test2')
+    attrs = cms.CMSAttributes(
+        [
+            cms.CMSAttribute(
+                {
+                    'type': cms.CMSAttributeType('message_digest'),
+                    'values': (attr_val1, attr_val2),
+                }
+            )
+        ]
+    )
+
+    with pytest.raises(
+        MultivaluedAttributeError,
+        match='Expected single-valued message_digest attribute, but found multiple',
+    ):
+        find_unique_cms_attribute(attrs, 'message_digest')
+
+
+def test_find_unique_cms_attribute_none_attrs():
+    with pytest.raises(NonexistentAttributeError):
+        find_unique_cms_attribute(None, 'content_type')
+
+
+def test_find_unique_cms_attribute_empty_attrs():
+    attrs = cms.CMSAttributes([])
+
+    with pytest.raises(NonexistentAttributeError):
+        find_unique_cms_attribute(attrs, 'content_type')
+
+
+def test_find_unique_cms_attribute_with_multiple_attributes_single_value():
+    from pyhanko.sign.general import simple_cms_attribute
+
+    attrs = cms.CMSAttributes(
+        [
+            simple_cms_attribute('content_type', cms.ContentType('data')),
+            simple_cms_attribute(
+                'message_digest', core.OctetString(b'test_digest')
+            ),
+            simple_cms_attribute(
+                'signing_certificate_v2',
+                as_signing_certificate_v2(FROM_CA.signing_cert),
+            ),
+        ]
+    )
+
+    # Should find the unique message_digest value
+    value = find_unique_cms_attribute(attrs, 'message_digest')
+    assert isinstance(value, core.OctetString)
+    assert value.native == b'test_digest'
+
+
+def test_find_cms_attribute_iter_preserves_order():
+    """Test find_cms_attribute_iter returns values in the order they appear."""
+    values_list = [
+        core.OctetString(b'first'),
+        core.OctetString(b'second'),
+        core.OctetString(b'third'),
+    ]
+    attrs = cms.CMSAttributes(
+        [
+            cms.CMSAttribute(
+                {
+                    'type': cms.CMSAttributeType('message_digest'),
+                    'values': tuple(values_list),
+                }
+            )
+        ]
+    )
+
+    values = list(find_cms_attribute_iter(attrs, 'message_digest'))
+    assert len(values) == 3
+    assert values[0].native == b'first'
+    assert values[1].native == b'second'
+    assert values[2].native == b'third'
+
+
+def test_find_cms_attribute_iter_multiple_attributes_same_type():
+    """Test find_cms_attribute_iter when multiple attributes have the same type."""
+
+    # Create two separate attributes with the same type (each with one value)
+    attrs = cms.CMSAttributes(
+        [
+            cms.CMSAttribute(
+                {
+                    'type': cms.CMSAttributeType('message_digest'),
+                    'values': (core.OctetString(b'digest1'),),
+                }
+            ),
+            cms.CMSAttribute(
+                {
+                    'type': cms.CMSAttributeType('message_digest'),
+                    'values': (core.OctetString(b'digest2'),),
+                }
+            ),
+        ]
+    )
+
+    # Should return both values from both attributes
+    values = list(find_cms_attribute_iter(attrs, 'message_digest'))
+    assert len(values) == 2
+    assert values[0].native == b'digest1'
+    assert values[1].native == b'digest2'

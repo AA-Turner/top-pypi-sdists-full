@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django_components"
-version = "0.149.0"
+version = "0.150.0"
 requires-python = ">=3.10, <4.0"
 description = "A way to create simple reusable template components in Django."
 keywords = ["django", "components", "css", "js", "html"]
@@ -15,7 +15,6 @@ authors = [
 ]
 classifiers = [
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
     "Operating System :: OS Independent",
@@ -28,7 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 # Package dependencies
-dependencies = ["Django>=4.2", "djc-core>=1.3.0", "typing-extensions>=4.12.2"]
+dependencies = ["Django>=5.2", "djc-core>=1.3.0", "typing-extensions>=4.12.2"]
 license = { text = "MIT" }
 
 # See https://docs.pypi.org/project_metadata/#icons
@@ -70,11 +69,12 @@ dev = [
     "asv",
     # NOTE: pin virtualenv to <20.31 until asv fixes integration
     # See https://github.com/airspeed-velocity/asv/issues/1484
-    "virtualenv==21.2.4",
+    "virtualenv==21.3.0",
     "typing-extensions>=4.12.2",
     "pathspec",
     "PyGithub",
     "pyyaml",
+    "beautifulsoup4>=4.14.3",
 ]
 
 # CI dependencies - install with `uv sync --group ci`
@@ -89,11 +89,12 @@ ci = [
     "asv",
     # NOTE: pin virtualenv to <20.31 until asv fixes integration
     # See https://github.com/airspeed-velocity/asv/issues/1484
-    "virtualenv==21.2.4",
+    "virtualenv==21.3.0",
     "pytest-asyncio",
     "pytest-django",
     "typing-extensions>=4.12.2",
     "pathspec",
+    "beautifulsoup4>=4.14.3",
 ]
 
 # Docs dependencies - install with `uv sync --group docs`
@@ -117,9 +118,9 @@ docs = [
     "pymdown-extensions",
     # Pygments 2.20 breaks mkdocstrings signature rendering by rejecting the
     # None filename value passed through pymdownx.highlight.
-    "pygments<2.20",
+    "pygments<2.21",
     "pygments-djc",
-    "django>=4.2",
+    "django>=5.2",
     "djc-core>=1.3.0",
 ]
 

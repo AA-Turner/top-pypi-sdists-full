@@ -240,6 +240,7 @@ def test_manifest_vs_colibri_manifest_node_counts(dbt_valid_test_data_dir):
         manifest_counts["sources_total"] +
         manifest_counts["by_resource_type"].get("model", 0) +
         manifest_counts["by_resource_type"].get("snapshot", 0) +
+        manifest_counts["by_resource_type"].get("seed", 0) +
         manifest_counts["exposures_total"]
     )
     colibri_manifest_total = colibri_counts["nodes_total"] - colibri_counts["hardcoded_nodes"]
@@ -310,9 +311,17 @@ def test_manifest_vs_colibri_manifest_node_counts(dbt_valid_test_data_dir):
         f"Exposure counts should match: manifest has {manifest_exposures}, colibri has {colibri_exposures}"
     )
 
-    # Assertion 3: There should be exactly 1 hardcoded node
-    assert colibri_counts["hardcoded_nodes"] == 1, (
-        f"Expected exactly 1 hardcoded node, but found {colibri_counts['hardcoded_nodes']}"
+    # Assertion 3: hardcoded-node count must match the number of `hardcoded_ref`
+    # markers seeded into the fixture's raw_code (jaffle-shop fixtures contain 1;
+    # other fixtures may contain 0).
+    expected_hardcoded = sum(
+        1
+        for n in report_generator.manifest.get("nodes", {}).values()
+        if "hardcoded_ref" in (n.get("raw_code") or "")
+    )
+    assert colibri_counts["hardcoded_nodes"] == expected_hardcoded, (
+        f"Expected {expected_hardcoded} hardcoded node(s), but found "
+        f"{colibri_counts['hardcoded_nodes']}"
     )
 
     print("=" * 60)
@@ -857,4 +866,93 @@ def test_column_tags_extracted_from_manifest():
 
     # Column without tags key should not have it
     assert "tags" not in node_data["columns"]["name"]
+
+
+def test_build_manifest_node_data_preserves_quoted_column_case():
+    """
+    Test that build_manifest_node_data preserves the original casing of columns
+    with quote=True while still lowercasing unquoted columns.
+
+    Regression test for: https://github.com/b-ned/dbt-colibri/issues/102
+    """
+    extractor = MagicMock()
+    extractor.manifest = {
+        "metadata": {"adapter_type": "snowflake"},
+        "nodes": {
+            "model.test.quoted_model": {
+                "resource_type": "model",
+                "config": {"materialized": "table"},
+                "raw_code": "select ...",
+                "compiled_code": "select ...",
+                "schema": "TEST_SCHEMA",
+                "database": "TEST_DB",
+                "original_file_path": "models/quoted_model.sql",
+                "description": "Model with quoted columns",
+                "refs": [],
+                "tags": [],
+                "relation_name": '"TEST_DB"."TEST_SCHEMA"."QUOTED_MODEL"',
+                "columns": {
+                    "quotedColumnExample": {
+                        "name": "quotedColumnExample",
+                        "description": "A quoted column",
+                        "quote": True,
+                        "data_type": "VARCHAR",
+                        "tags": []
+                    },
+                    "NORMAL_COL": {
+                        "name": "NORMAL_COL",
+                        "description": "A normal column",
+                        "data_type": "NUMBER",
+                        "tags": []
+                    }
+                },
+            }
+        },
+        "sources": {},
+        "exposures": {},
+    }
+    extractor.catalog = {
+        "nodes": {
+            "model.test.quoted_model": {
+                "unique_id": "model.test.quoted_model",
+                "metadata": {
+                    "database": "TEST_DB",
+                    "schema": "TEST_SCHEMA",
+                    "name": "QUOTED_MODEL",
+                    "type": "table"
+                },
+                "columns": {
+                    "quotedColumnExample": {
+                        "type": "VARCHAR",
+                        "name": "quotedColumnExample",
+                        "index": 1,
+                        "comment": None
+                    },
+                    "NORMAL_COL": {
+                        "type": "NUMBER",
+                        "name": "NORMAL_COL",
+                        "index": 2,
+                        "comment": None
+                    }
+                }
+            }
+        },
+        "sources": {},
+    }
+
+    generator = DbtColibriReportGenerator(extractor)
+    node_data = generator.build_manifest_node_data("model.test.quoted_model")
+
+    # Quoted column should preserve its original case
+    assert "quotedColumnExample" in node_data["columns"], \
+        f"Expected 'quotedColumnExample' in columns, got: {list(node_data['columns'].keys())}"
+    assert node_data["columns"]["quotedColumnExample"].get("quote") is True
+
+    # Unquoted column should be lowercased
+    assert "normal_col" in node_data["columns"], \
+        f"Expected 'normal_col' in columns, got: {list(node_data['columns'].keys())}"
+    assert "quote" not in node_data["columns"]["normal_col"]
+
+    # The lowercased version of the quoted column should NOT exist
+    assert "quotedcolumnexample" not in node_data["columns"]
 

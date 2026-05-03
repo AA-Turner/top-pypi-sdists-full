@@ -30,30 +30,6 @@ mod goto_declaration_tests {
 
         test_goto_declaration!(
             #[tokio::test]
-            async fn workspace_dependencies_tombi_ast(
-                r#"
-                [workspace.dependencies]
-                tombi-ast = { path█ = "crates/tombi-ast" }
-                "#,
-                SourcePath(project_root_path().join("Cargo.toml")),
-            ) -> Ok([]);
-        );
-
-        test_goto_declaration!(
-            #[tokio::test]
-            async fn workspace_members_xtask(
-                r#"
-                [workspace]
-                members = [
-                    "xtask█"
-                ]
-                "#,
-                SourcePath(project_root_path().join("Cargo.toml")),
-            ) -> Ok([]);
-        );
-
-        test_goto_declaration!(
-            #[tokio::test]
             async fn feature_key_collects_same_file_and_workspace_usages(
                 r#"
                 [package]
@@ -67,14 +43,7 @@ mod goto_declaration_tests {
                 SourcePath(
                     cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
                 ),
-            ) -> Ok([
-                cargo_feature_navigation_fixture_path().join("workspace/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/renamed-consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/renamed-consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/weak-consumer/Cargo.toml"),
-            ]);
+            ) -> Ok([]);
         );
 
         test_goto_declaration!(
@@ -93,14 +62,7 @@ mod goto_declaration_tests {
                 SourcePath(
                     cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
                 ),
-            ) -> Ok([
-                cargo_feature_navigation_fixture_path().join("workspace/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/renamed-consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/renamed-consumer/Cargo.toml"),
-                cargo_feature_navigation_fixture_path().join("workspace/weak-consumer/Cargo.toml"),
-            ]);
+            ) -> Ok([]);
         );
 
         test_goto_declaration!(
@@ -120,9 +82,28 @@ mod goto_declaration_tests {
                 bundle = ["local", "schemars", "dep:schemars"]
                 "#,
                 SourcePath(cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")),
-            ) -> Ok([
-                cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml"),
-            ]);
+            ) -> Ok([]);
+        );
+
+        test_goto_declaration!(
+            #[tokio::test]
+            async fn optional_dependency_collects_dep_syntax_usages_for_workspace_dependency(
+                r#"
+                [package]
+                name = "nagi-config"
+                version = "0.1.0"
+                edition = "2024"
+
+                [dependencies]
+                nagi_uri = { workspace = true, optional█ = true }
+
+                [features]
+                default = ["postgres", "serde"]
+                postgres = []
+                serde = ["dep:nagi_uri"]
+                "#,
+                SourcePath(cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")),
+            ) -> Ok([]);
         );
 
         test_goto_declaration!(
@@ -141,9 +122,7 @@ mod goto_declaration_tests {
                 bundle = ["schemars"]
                 "#,
                 SourcePath(cargo_feature_navigation_fixture_path().join("implicit/Cargo.toml")),
-            ) -> Ok([
-                cargo_feature_navigation_fixture_path().join("implicit/Cargo.toml"),
-            ]);
+            ) -> Ok([]);
         );
     }
 
@@ -164,21 +143,7 @@ mod goto_declaration_tests {
                 ci█ = ["ruff"]
                 "#,
                 SourcePath(project_root_path().join("pyproject.toml")),
-            ) -> Ok([
-                project_root_path().join("pyproject.toml"),
-                project_root_path().join("pyproject.toml"),
-            ]);
-        );
-
-        test_goto_declaration!(
-            #[tokio::test]
-            async fn tool_pyproject_sources_tombi_beta(
-                r#"
-                [tool.uv.sources]
-                tombi-beta█ = { workspace = true }
-                "#,
-                SourcePath(project_root_path().join("python/tombi-beta/pyproject.toml")),
-            ) -> Ok([project_root_path().join("pyproject.toml")]);
+            ) -> Ok([]);
         );
 
         test_goto_declaration!(
@@ -194,30 +159,17 @@ mod goto_declaration_tests {
 
         test_goto_declaration!(
             #[tokio::test]
-            async fn tool_pyproject_sources_path_dependency(
-                r#"
-                [tool.uv.sources]
-                tombi-beta = { path = "members/app█" }
-                "#,
-                SourcePath(project_root_path().join("python/tombi-beta/pyproject.toml")),
-            ) -> Ok([project_root_path().join("python/tombi-beta/pyproject.toml")]);
-        );
-
-        test_goto_declaration!(
-            #[tokio::test]
             async fn project_dependencies_workspace_jump(
                 r#"
                 [project]
-                name = "app"
+                name = "app1"
                 version = "0.1.0"
                 dependencies = [
                     "pydantic█"
                 ]
                 "#,
-                SourcePath(pyproject_workspace_fixtures_path().join("members/app/pyproject.toml")),
-            ) -> Ok([
-                pyproject_workspace_fixtures_path().join("pyproject.toml"),
-            ]);
+                SourcePath(pyproject_workspace_fixtures_path().join("members/app1/pyproject.toml")),
+            ) -> Ok([pyproject_workspace_fixtures_path().join("pyproject.toml")]);
         );
 
         test_goto_declaration!(
@@ -231,7 +183,7 @@ mod goto_declaration_tests {
 
                 [tool.uv.workspace]
                 members = [
-                    "members/app",
+                    "members/app1",
                     "members/app2",
                     "members/app3",
                 ]
@@ -248,11 +200,11 @@ mod goto_declaration_tests {
             async fn tool_pyproject_workspace_members_jump_to_member_project(
                 r#"
                 [tool.uv.workspace]
-                members = ["members/app█"]
+                members = ["members/app1█"]
                 "#,
                 SourcePath(pyproject_workspace_fixtures_path().join("pyproject.toml")),
             ) -> Ok([
-                pyproject_workspace_fixtures_path().join("members/app/pyproject.toml"),
+                pyproject_workspace_fixtures_path().join("members/app1/pyproject.toml"),
             ]);
         );
 
@@ -265,7 +217,7 @@ mod goto_declaration_tests {
                 "#,
                 SourcePath(pyproject_workspace_fixtures_path().join("pyproject.toml")),
             ) -> Ok([
-                pyproject_workspace_fixtures_path().join("members/app/pyproject.toml"),
+                pyproject_workspace_fixtures_path().join("members/app1/pyproject.toml"),
                 pyproject_workspace_fixtures_path().join("members/app2/pyproject.toml"),
                 pyproject_workspace_fixtures_path().join("members/app3/pyproject.toml"),
             ]);

@@ -8,11 +8,11 @@ from typing import cast
 import numpy as np
 
 import pyvista as pv
+from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
 from pyvista.core._vtk_utilities import DisableVtkSnakeCase
 from pyvista.core._vtk_utilities import vtkPyVistaOverride
 
-from . import _vtk_core as _vtk
 from ._typing_core import BoundsTuple
 from .celltype import CellType
 from .dataobject import DataObject
@@ -61,6 +61,10 @@ class Cell(_BoundsSizeMixin, DataObject, _vtk.vtkGenericCell):
 
     deep : bool, default: False
         Perform a deep copy of the original cell.
+
+    See Also
+    --------
+    pyvista.CellType
 
     Notes
     -----
@@ -156,6 +160,10 @@ class Cell(_BoundsSizeMixin, DataObject, _vtk.vtkGenericCell):
     @property
     def is_linear(self: Self) -> bool:
         """Return if the cell is linear.
+
+        See Also
+        --------
+        pyvista.CellType.is_linear
 
         Returns
         -------
@@ -278,6 +286,10 @@ class Cell(_BoundsSizeMixin, DataObject, _vtk.vtkGenericCell):
         This returns the dimensionality of the cell. For example, 1 for an edge,
         2 for a triangle, and 3 for a tetrahedron.
 
+        See Also
+        --------
+        pyvista.CellType.dimension
+
         Returns
         -------
         int
@@ -296,6 +308,10 @@ class Cell(_BoundsSizeMixin, DataObject, _vtk.vtkGenericCell):
     @property
     def n_points(self: Self) -> int:
         """Get the number of points composing the cell.
+
+        See Also
+        --------
+        pyvista.CellType.n_points
 
         Returns
         -------
@@ -316,6 +332,10 @@ class Cell(_BoundsSizeMixin, DataObject, _vtk.vtkGenericCell):
     def n_faces(self: Self) -> int:
         """Get the number of faces composing the cell.
 
+        See Also
+        --------
+        pyvista.CellType.n_faces
+
         Returns
         -------
         int
@@ -334,6 +354,10 @@ class Cell(_BoundsSizeMixin, DataObject, _vtk.vtkGenericCell):
     @property
     def n_edges(self: Self) -> int:
         """Get the number of edges composing the cell.
+
+        See Also
+        --------
+        pyvista.CellType.n_edges
 
         Returns
         -------
@@ -630,9 +654,6 @@ class CellArray(
     Provides convenience functions to simplify creating a CellArray from
     a numpy array or list.
 
-    .. deprecated:: 0.44.0
-       The parameters ``n_cells`` and ``deep`` are deprecated and no longer used.
-
     Parameters
     ----------
     cells : np.ndarray or list, optional
@@ -640,12 +661,6 @@ class CellArray(
         ``{ n0, p0_0, p0_1, ..., p0_n, n1, p1_0, p1_1, ..., p1_n, ... }``
         Where n0 is the number of points in cell 0, and pX_Y is the Y'th
         point in cell X.
-
-    n_cells : int, optional
-        The number of cells.
-
-    deep : bool, default: False
-        Perform a deep copy of the original cell.
 
     Examples
     --------
@@ -663,12 +678,9 @@ class CellArray(
 
     """
 
-    @_deprecate_positional_args(allowed=['cells'])
     def __init__(
         self: Self,
         cells: CellsLike | None = None,
-        n_cells: int | None = None,
-        deep: bool | None = None,  # noqa: FBT001
     ) -> None:
         """Initialize a :vtk:`vtkCellArray`."""
         super().__init__()
@@ -676,12 +688,6 @@ class CellArray(
         self.__connectivity: _vtk.vtkIdTypeArray | None = None
         if cells is not None:
             self.cells = cells
-
-        # deprecated 0.44.0, convert to error in 0.47.0, remove 0.48.0
-        for k, v in (('n_cells', n_cells), ('deep', deep)):
-            if v is not None:
-                msg = f'CellArray parameter `{k}` is deprecated and no longer used.'
-                raise TypeError(msg)
 
     @property
     def cells(self: Self) -> NumpyArray[int]:
@@ -892,7 +898,15 @@ def _get_regular_cells(cellarr: _vtk.vtkCellArray) -> NumpyArray[int]:
 
     offsets = _get_offset_array(cellarr)
     cell_size = offsets[1] - offsets[0]
-    return cells.reshape(-1, cell_size)
+    try:
+        return cells.reshape(-1, cell_size)
+    except ValueError:
+        sizes = sorted(np.unique(np.diff(offsets)).tolist())
+        msg = (
+            f'Cell array does not have regular cells. '
+            f'Multiple cell sizes detected with different number of points: {sizes}'
+        )
+        raise ValueError(msg)
 
 
 def _get_irregular_cells(cellarr: _vtk.vtkCellArray) -> tuple[NumpyArray[int], ...]:

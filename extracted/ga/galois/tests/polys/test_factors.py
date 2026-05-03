@@ -195,6 +195,22 @@ def test_equal_degree_factors():
     assert f.equal_degree_factors(d) == factors
 
 
+def test_equal_degree_factors_even():
+    GF = galois.GF(2, 32)
+
+    # Over GF(2^32), this GF(2)-irreducible quadratic splits into two linear factors.
+    f = galois.Poly(galois.primitive_poly(2, 2).coeffs, field=GF)
+    factors = f.equal_degree_factors(1)
+
+    assert len(factors) == 2
+    assert all(g.degree == 1 for g in factors)
+    assert all(g.is_monic for g in factors)
+    assert all(g.is_irreducible() for g in factors)
+
+    product = galois.prod(*factors)
+    assert product == f
+
+
 def multiply_factors(factors, multiplicities):
     g = galois.Poly.One(factors[0].field)
     for fi, mi in zip(factors, multiplicities):

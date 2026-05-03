@@ -22,7 +22,7 @@ get_target_property(GODOTCPP_SUFFIX godot::cpp GODOTCPP_SUFFIX)
 get_target_property(GODOTCPP_PLATFORM godot::cpp GODOTCPP_PLATFORM)
 project(
   prismatoid
-  VERSION 0.13.0
+  VERSION 0.14.0
   DESCRIPTION "Prism bindings for Godot"
   LANGUAGES C CXX)
 add_library(${LIBNAME} SHARED)
@@ -38,6 +38,10 @@ if(APPLE)
                           ${CMAKE_Swift_IMPLICIT_LINK_DIRECTORIES})
   target_link_libraries(${LIBNAME}
                         PRIVATE ${CMAKE_Swift_IMPLICIT_LINK_LIBRARIES})
+endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_definitions(${LIBNAME} PRIVATE TYPED_METHOD_BIND)
+  target_compile_definitions(godot-cpp PUBLIC TYPED_METHOD_BIND)
 endif()
 set_property(TARGET ${LIBNAME} PROPERTY CXX_STANDARD 23)
 set_property(TARGET ${LIBNAME} PROPERTY C_STANDARD 18)

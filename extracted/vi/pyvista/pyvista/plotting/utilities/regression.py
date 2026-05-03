@@ -10,10 +10,10 @@ from typing import cast
 import numpy as np
 
 import pyvista as pv
+from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
 from pyvista.core.utilities.arrays import point_array
 from pyvista.core.utilities.helpers import wrap
-from pyvista.plotting import _vtk
 
 if TYPE_CHECKING:
     from pyvista import ImageData
@@ -238,15 +238,7 @@ def compare_images(  # noqa: PLR0917
         elif isinstance(img, _vtk.vtkImageData):  # pragma: no cover
             return wrap(img)
         elif isinstance(img, (str, Path)):
-            dataset = read(img)
-            if not isinstance(dataset, ImageData):
-                msg = (
-                    f'The file {img} may not be an image. PyVista read it in as a '
-                    f'{type(dataset)!r}.'
-                )
-                raise TypeError(msg)
-
-            return dataset
+            return read(img, cls=ImageData)
         elif isinstance(img, np.ndarray):
             return wrap_image_array(img)
         elif isinstance(img, Plotter):

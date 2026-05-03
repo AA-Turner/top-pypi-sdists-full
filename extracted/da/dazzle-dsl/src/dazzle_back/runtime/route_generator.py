@@ -697,10 +697,19 @@ def _normalize_role(role: str) -> str:
     return role.removeprefix("role_")
 
 
-def _build_access_context(auth_context: "AuthContext") -> tuple[Any, Any]:
+def _build_access_context(
+    auth_context: "AuthContext",
+    admin_personas: list[str] | None = None,
+) -> tuple[Any, Any]:
     """Build (user, AccessRuntimeContext) from an AuthContext.
 
     Returns (user_or_none, runtime_context) for Cedar policy evaluation.
+
+    `admin_personas` (#957 cycle 4) is the list declared in
+    `tenancy: admin_personas:` on the active AppSpec. Cycle 5 will
+    thread it from each call site's enclosing scope; for now callers
+    that haven't been updated pass None and the bypass simply doesn't
+    apply (identical to pre-cycle-4 behaviour).
     """
     from dazzle.core.access import AccessRuntimeContext
 
@@ -710,7 +719,21 @@ def _build_access_context(auth_context: "AuthContext") -> tuple[Any, Any]:
         user_id=str(user.id) if user else None,
         roles=[_normalize_role(r) for r in raw_roles],
         is_superuser=getattr(user, "is_superuser", False) if user else False,
+        tenant_admin_personas=admin_personas,
     )
+
+    # #956 cycle 5 — populate the audit-context ContextVar so the
+    # audit emitter (cycle 4) can fill `AuditEntry.by_user_id` for
+    # every mutation in this request. asyncio gives each request task
+    # its own copy of the contextvar, so no explicit reset is needed
+    # — the value is gone when the task ends. Unauthenticated requests
+    # leave the contextvar at its default (None), preserving the
+    # "system write" semantic.
+    if user is not None:
+        from dazzle_back.runtime.audit_context import set_current_user_id
+
+        set_current_user_id(str(user.id))
+
     return user, ctx
 
 
@@ -1123,6 +1146,7 @@ def create_list_handler(
     graph_spec: tuple[Any, Any | None] | None = None,
     all_services: dict[str, Any] | None = None,
     display_field: str | None = None,
+    admin_personas: list[str] | None = None,
 ) -> Callable[..., Any]:
     """Create a handler for list operations with optional access control.
 
@@ -1206,6 +1230,7 @@ def create_list_handler(
                 graph_spec=graph_spec,
                 all_services=all_services,
                 display_field=display_field,
+                admin_personas=admin_personas,
             )
 
         _auth_handler.__annotations__ = {
@@ -1258,6 +1283,7 @@ def create_list_handler(
             graph_spec=graph_spec,
             all_services=all_services,
             display_field=display_field,
+            admin_personas=admin_personas,
         )
 
     _noauth_handler.__annotations__ = {
@@ -1283,6 +1309,7 @@ def _resolve_scope_filters(
     *,
     entity_name: str = "",
     fk_graph: "FKGraph | None" = None,
+    admin_personas: list[str] | None = None,
 ) -> dict[str, Any] | None:
     """Resolve scope rules to SQL filters for the user's matched role.
 
@@ -1351,7 +1378,12 @@ def _resolve_scope_filters(
         if predicate is not None and fk_graph is not None:
             try:
                 return _resolve_predicate_filters(
-                    predicate, entity_name, fk_graph, user_id, auth_context
+                    predicate,
+                    entity_name,
+                    fk_graph,
+                    user_id,
+                    auth_context,
+                    admin_personas=admin_personas,
                 )
             except Exception:
                 # Predicate compilation/resolution failed (e.g. null FK in
@@ -1387,18 +1419,58 @@ def _resolve_scope_filters(
     return {}  # Matched but no resolvable condition — treat as no filter
 
 
+def _should_bypass_tenant_filter(
+    auth_context: "AuthContext | None",
+    admin_personas: list[str] | None,
+) -> bool:
+    """#957 cycle 5 — does this user's persona bypass the scope filter?
+
+    Returns True when the active `tenancy: admin_personas:` list
+    intersects the authenticated user's roles, OR when the user is a
+    superuser. Otherwise returns False and the scope predicate compiles
+    normally.
+
+    Empty/None ``admin_personas`` (the cycle-5 default for unmigrated
+    call sites) means the bypass never applies — identical to the
+    pre-cycle-5 behaviour.
+    """
+    if auth_context is None or not getattr(auth_context, "is_authenticated", False):
+        return False
+    user = getattr(auth_context, "user", None)
+    if user is None:
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    if not admin_personas:
+        return False
+    user_roles = set(getattr(user, "roles", []) or [])
+    # AuthContext roles may carry the `role_` prefix from the auth
+    # backend; predicate compilation works against the bare DSL names.
+    normalised = {_normalize_role(r) for r in user_roles}
+    return not normalised.isdisjoint(admin_personas)
+
+
 def _resolve_predicate_filters(
     predicate: Any,
     entity_name: str,
     fk_graph: "FKGraph",
     user_id: str,
     auth_context: "AuthContext | None",
+    admin_personas: list[str] | None = None,
 ) -> dict[str, Any]:
     """Compile a ScopePredicate to SQL and resolve runtime markers.
 
     Returns a filters dict with the special ``__scope_predicate`` key
     containing a ``(sql, params)`` tuple ready for the QueryBuilder.
+
+    `admin_personas` (#957 cycle 5) — when the active user matches one
+    of these tenant-admin personas, the scope filter is skipped and an
+    empty dict is returned. Cycle 6 will thread this list from each
+    list/read call site's enclosing AppSpec.
     """
+    if _should_bypass_tenant_filter(auth_context, admin_personas):
+        return {}
+
     from dazzle_back.runtime.predicate_compiler import (
         CurrentUserRef,
         UserAttrRef,
@@ -1479,6 +1551,7 @@ async def _list_handler_body(
     graph_spec: tuple[Any, Any | None] | None = None,
     all_services: dict[str, Any] | None = None,
     display_field: str | None = None,
+    admin_personas: list[str] | None = None,
 ) -> Any:
     """Shared list handler logic for both auth and no-auth paths."""
     from dazzle_back.runtime.condition_evaluator import (
@@ -1544,6 +1617,7 @@ async def _list_handler_body(
                 ref_targets,
                 entity_name=entity_name,
                 fk_graph=fk_graph,
+                admin_personas=admin_personas,
             )
             if scope_result is None:
                 # No scope rule matched this role — default-deny at scope layer
@@ -2857,6 +2931,7 @@ class RouteGenerator:
         entity_display_fields: dict[str, str] | None = None,
         db_manager: Any | None = None,
         entity_storage_bindings: dict[str, dict[str, tuple[str, ...]]] | None = None,
+        admin_personas: list[str] | None = None,
     ):
         """
         Initialize the route generator.
@@ -2916,6 +2991,11 @@ class RouteGenerator:
         # for entities without `field foo: file storage=<name>` bindings;
         # the create/update handlers no-op cheaply in that case.
         self.entity_storage_bindings = entity_storage_bindings or {}
+        # #957 cycle 6: tenant-admin personas drawn from
+        # `appspec.tenancy.admin_personas`. Threaded into list handlers
+        # so the predicate compiler can short-circuit the scope filter
+        # when the active user matches one of them.
+        self.admin_personas: list[str] = list(admin_personas or [])
         # Cycle 249 (EX-049): persona-backed entity map.
         # Maps entity_name → (persona_id, link_via) for each persona that
         # declares ``backed_by``. Built by the caller from appspec.personas.
@@ -3097,6 +3177,7 @@ class RouteGenerator:
                 graph_spec=_graph_spec,
                 all_services=self.services,
                 display_field=self.entity_display_fields.get(entity_name or ""),
+                admin_personas=self.admin_personas,
             )
             self._add_route(endpoint, handler, response_model=None)
 

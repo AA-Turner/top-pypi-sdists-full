@@ -538,14 +538,57 @@ class Bash(
             if entry and entry["hash"] == out_hash:
                 entry["count"] += 1
                 if entry["count"] >= 3:
-                    notice = (
-                        f"[NOTICE: this is the #{entry['count']} identical "
-                        f"run of `{args.command[:80]}` with byte-identical "
-                        f"output and rc={returncode}. Re-running will not "
-                        f"change anything — you must EDIT SOURCE CODE to "
-                        f"change this output. Previous stdout first 300 "
-                        f"chars:\n{stdout[:300]}]"
-                    )
+                    cmd_preview = args.command[:80]
+                    # Detect file-write-via-heredoc pattern: cat << ... > file
+                    # The model writes a file, gets empty stdout (rc=0), then
+                    # re-runs the same write thinking it didn't work.  Generic
+                    # "EDIT SOURCE CODE" confuses it — give a targeted hint.
+                    import re as _re
+                    _is_heredoc_write = bool(_re.search(
+                        r"cat\s+<<\s*['\"]?EOF['\"]?\s+>", args.command
+                    ))
+                    # Detect echo -e / printf with \n or \t escape sequences.
+                    # These loops when the shell doesn't interpret the escapes
+                    # (e.g. dash ignores echo -e; backslash doubling in quoting
+                    # turns \t into literal \t instead of a tab).  The generic
+                    # "EDIT SOURCE CODE" hint is wrong here — the model needs
+                    # to use $'...' quoting or write_file instead.
+                    _is_echo_escape = bool(_re.search(
+                        r'(?:echo\s+.*-[eE]|printf)\b', args.command
+                    ) and _re.search(r'\\[nt]', args.command))
+                    if _is_heredoc_write:
+                        notice = (
+                            f"[NOTICE: this is the #{entry['count']}th identical "
+                            f"heredoc write of `{cmd_preview}`. "
+                            f"The file already has this exact content — re-running "
+                            f"the same cat command will not change it. "
+                            f"If the feature is still broken, READ the file you "
+                            f"wrote (use read_file), find the bug in the content, "
+                            f"then fix it with write_file or search_replace with "
+                            f"CORRECTED content. Do NOT re-run this cat command.]"
+                        )
+                    elif _is_echo_escape:
+                        notice = (
+                            f"[NOTICE: this is the #{entry['count']}th identical "
+                            f"run of `{cmd_preview}` — escape sequences (\\n, \\t) "
+                            f"in echo -e / printf are NOT being interpreted correctly. "
+                            f"This shell may be /bin/sh (dash) where echo -e is a "
+                            f"no-op, or backslash doubling in quoting is consuming "
+                            f"the escape. "
+                            f"Use ANSI $'...' quoting: printf $'name\\\\tage\\\\n' "
+                            f"OR use Python: python3 -c \"print('name\\\\tage')\" "
+                            f"OR use write_file to create the test file directly. "
+                            f"Do NOT re-run this command unchanged.]"
+                        )
+                    else:
+                        notice = (
+                            f"[NOTICE: this is the #{entry['count']} identical "
+                            f"run of `{cmd_preview}` with byte-identical "
+                            f"output and rc={returncode}. Re-running will not "
+                            f"change anything — you must EDIT SOURCE CODE to "
+                            f"change this output. Previous stdout first 300 "
+                            f"chars:\n{stdout[:300]}]"
+                        )
                     yield self._build_result(
                         command=args.command,
                         stdout=notice,

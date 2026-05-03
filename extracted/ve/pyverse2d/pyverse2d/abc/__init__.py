@@ -15,7 +15,7 @@ from ._manager import Manager
 
 from ._ecs import Component, System
 
-from ._gui import Tween, Behavior, Widget
+from ._gui import Tween, Behavior, Widget, Button
 
 from ._fx import LightSource
 
@@ -45,6 +45,7 @@ __all__ = [
     "Tween",
     "Behavior",
     "Widget",
+    "Button",
 
     "LightSource",
 

@@ -48,6 +48,7 @@ _HOME_SUGGESTIONS_REGISTRY: dict[str, Callable] = {}
 
 _DATA_ATTR = "__cpsl_data__"
 _ACCESS_ATTR = "_cpsl_access"
+_SHELL_HOME_VALUES = {"default", "hidden", "chat"}
 
 
 def _collect_channel_secrets(channels: list[ChannelLike]) -> list[str]:
@@ -70,6 +71,16 @@ def _serialize_filesystems(filesystems: dict[str, FileSystem] | None) -> dict[st
             fs_obj._bind_mount_path(mount_path)
             fs_map[mount_path] = fs_obj.to_dict()
     return fs_map
+
+
+def _count_widget_type(node: dict[str, Any], widget_type: str) -> int:
+    total = 1 if node.get("type") == widget_type else 0
+    children = node.get("children")
+    if isinstance(children, list):
+        for child in children:
+            if isinstance(child, dict):
+                total += _count_widget_type(child, widget_type)
+    return total
 
 
 class App:
@@ -132,6 +143,8 @@ class App:
         self._home_suggestions_handler: Callable | None = None
         self._home_suggestions_access: AccessLevel = ACCESS_PUBLIC
         self._home_suggestions_ttl: int = 0
+        self._chat_widget_tree: dict[str, Any] | None = None
+        self._shell_config: dict[str, Any] | None = None
 
         from .settings import SettingsAccessor
         self.settings = SettingsAccessor(self)
@@ -169,6 +182,8 @@ class App:
                 "settings": [],
                 "workflows": [],
                 "home": None,
+                "chat": None,
+                "shell": None,
                 "has_message_handler": False,
                 "theme": None,
                 "module": None,
@@ -563,6 +578,51 @@ class App:
 
         return decorator
 
+    # -- chat shell ----------------------------------------------------------
+
+    def chat_page(self) -> Callable[[Callable], Callable]:
+        """Decorator for the app-wide chat surface.
+
+        The function must return a ``ui.Page`` widget tree containing exactly
+        one ``ui.ChatPanel``. That panel is replaced by the active session's
+        normal chat stream and composer at runtime.
+        """
+
+        def decorator(fn: Callable) -> Callable:
+            widget_tree = fn()
+            if not hasattr(widget_tree, "to_dict"):
+                raise TypeError(
+                    f"@app.chat_page() handler must return a ui.Page widget, "
+                    f"got {type(widget_tree).__name__}"
+                )
+            tree_dict = widget_tree.to_dict()
+            count = _count_widget_type(tree_dict, "chat_panel")
+            if count != 1:
+                raise ValueError("@app.chat_page() must contain exactly one cpsl.ui.ChatPanel")
+            self._chat_widget_tree = tree_dict
+            return fn
+
+        return decorator
+
+    def shell(
+        self,
+        *,
+        home: str = "default",
+        show_sidebar: bool = True,
+        show_pages: bool = True,
+    ) -> None:
+        """Configure hosted app shell/navigation chrome.
+
+        ``home`` may be ``"default"``, ``"hidden"``, or ``"chat"``.
+        """
+        if home not in _SHELL_HOME_VALUES:
+            raise ValueError("shell home must be 'default', 'hidden', or 'chat'")
+        self._shell_config = {
+            "home": home,
+            "show_sidebar": bool(show_sidebar),
+            "show_pages": bool(show_pages),
+        }
+
     # -- data sources --------------------------------------------------------
 
     def data(self, name: str, *, access: AccessLevel = ACCESS_PUBLIC) -> Callable[[Callable], Callable]:
@@ -809,6 +869,7 @@ class App:
         settings = [s.to_dict() for s in self._settings.values()]
         theme_dict = self._theme.to_dict() if self._theme else None
         home_dict = self._serialize_home()
+        chat_dict = {"widget_tree": self._chat_widget_tree} if self._chat_widget_tree else None
 
         def decorator(klass: type[T]) -> type[T]:
             schedule_specs: list[dict[str, str]] = []
@@ -838,6 +899,8 @@ class App:
                 "settings": settings,
                 "workflows": [w.to_dict() for w in self._workflows],
                 "home": home_dict,
+                "chat": chat_dict,
+                "shell": self._shell_config,
                 "has_message_handler": any(
                     getattr(getattr(klass, attr_name, None), _MESSAGE_ATTR, False)
                     for attr_name in dir(klass)
@@ -872,6 +935,8 @@ class App:
         cfg["settings"] = [s.to_dict() for s in self._settings.values()]
         cfg["workflows"] = [w.to_dict() for w in self._workflows]
         cfg["home"] = self._serialize_home()
+        cfg["chat"] = {"widget_tree": self._chat_widget_tree} if self._chat_widget_tree else None
+        cfg["shell"] = self._shell_config
         cfg["has_message_handler"] = hasattr(self, "_message_handler")
         cfg["theme"] = self._theme.to_dict() if self._theme else None
 

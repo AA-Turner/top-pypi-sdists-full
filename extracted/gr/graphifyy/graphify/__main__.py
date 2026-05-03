@@ -124,6 +124,11 @@ _PLATFORM_CONFIG: dict[str, dict] = {
         "skill_dst": Path(".kiro") / "skills" / "graphify" / "SKILL.md",
         "claude_md": False,
     },
+    "pi": {
+        "skill_file": "skill-pi.md",
+        "skill_dst": Path(".pi") / "agent" / "skills" / "graphify" / "SKILL.md",
+        "claude_md": False,
+    },
     "antigravity": {
         "skill_file": "skill.md",
         "skill_dst": Path(".agents") / "skills" / "graphify" / "SKILL.md",
@@ -718,11 +723,11 @@ _CODEX_HOOK = {
                 "hooks": [
                     {
                         "type": "command",
-                        "command": (
-                            "[ -f graphify-out/graph.json ] && "
-                            r"""echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"graphify: Knowledge graph exists. Read graphify-out/GRAPH_REPORT.md for god nodes and community structure before searching raw files."}}' """
-                            "|| true"
-                        ),
+                        # Use the graphify CLI itself so the hook is shell-agnostic:
+                        # no [ -f ] bash syntax, no python3 vs python Conda issue,
+                        # no JSON escaping inside PowerShell strings. Works on
+                        # Windows (PowerShell/cmd.exe), macOS, and Linux.
+                        "command": "graphify hook-check",
                     }
                 ],
             }
@@ -989,7 +994,7 @@ def main() -> None:
         print("Usage: graphify <command>")
         print()
         print("Commands:")
-        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codex|opencode|aider|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro)")
+        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codex|opencode|aider|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi)")
         print("  path \"A\" \"B\"            shortest path between two nodes in graph.json")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
         print("  explain \"X\"             plain-language explanation of a node and its neighbors")
@@ -1005,9 +1010,13 @@ def main() -> None:
         print("    --dir <path>            target directory (default: ./raw)")
         print("  watch <path>            watch a folder and rebuild the graph on code changes")
         print("  update <path>           re-extract code files and update the graph (no LLM needed)")
+        print("    --force                 overwrite graph.json even if the rebuild has fewer nodes")
+        print("                            (also: GRAPHIFY_FORCE=1 env var; use after refactors that delete code)")
         print("  cluster-only <path>     rerun clustering on an existing graph.json and regenerate report")
+        print("    --no-viz                skip graph.html generation (useful for >5000 node graphs / CI)")
         print("  query \"<question>\"       BFS traversal of graph.json for a question")
         print("    --dfs                   use depth-first instead of breadth-first")
+        print("    --context C             explicit edge-context filter (repeatable)")
         print("    --budget N              cap output at N tokens (default 2000)")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
         print("  save-result             save a Q&A result to graphify-out/memory/ for graph feedback loop")
@@ -1017,6 +1026,13 @@ def main() -> None:
         print("    --nodes N1 N2 ...       source node labels cited in the answer")
         print("    --memory-dir DIR        memory directory (default: graphify-out/memory)")
         print("  check-update <path>     check needs_update flag and notify if semantic re-extraction is pending (cron-safe)")
+        print("  tree                    emit a D3 v7 collapsible-tree HTML for graph.json")
+        print("    --graph PATH            path to graph.json (default graphify-out/graph.json)")
+        print("    --output HTML           output path (default graphify-out/GRAPH_TREE.html)")
+        print("    --root PATH             filesystem root for the hierarchy")
+        print("    --max-children N        cap children per node (default 200)")
+        print("    --top-k-edges N         per-symbol outbound edges in inspector (default 12)")
+        print("    --label NAME            project label in header")
         print("  benchmark [graph.json]  measure token reduction vs naive full-corpus approach")
         print("  hook install            install post-commit/post-checkout git hooks (all platforms)")
         print("  hook uninstall          remove git hooks")
@@ -1051,6 +1067,8 @@ def main() -> None:
         print("  hermes uninstall        remove skill from ~/.hermes/skills/graphify/")
         print("  kiro install            write skill to .kiro/skills/graphify/ + steering file (Kiro IDE/CLI)")
         print("  kiro uninstall          remove skill + steering file")
+        print("  pi install              write skill to ~/.pi/agent/skills/graphify/ (Pi coding agent)")
+        print("  pi uninstall            remove skill from ~/.pi/agent/skills/graphify/")
         print()
         return
 
@@ -1138,6 +1156,26 @@ def main() -> None:
         else:
             print("Usage: graphify kiro [install|uninstall]", file=sys.stderr)
             sys.exit(1)
+    elif cmd == "pi":
+        subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
+        if subcmd == "install":
+            install("pi")
+        elif subcmd == "uninstall":
+            skill_dst = Path.home() / ".pi" / "agent" / "skills" / "graphify" / "SKILL.md"
+            if skill_dst.exists():
+                skill_dst.unlink()
+                print(f"  skill removed    ->  {skill_dst}")
+            version_file = skill_dst.parent / ".graphify_version"
+            if version_file.exists():
+                version_file.unlink()
+            for d in (skill_dst.parent, skill_dst.parent.parent, skill_dst.parent.parent.parent):
+                try:
+                    d.rmdir()
+                except OSError:
+                    break
+        else:
+            print("Usage: graphify pi [install|uninstall]", file=sys.stderr)
+            sys.exit(1)
     elif cmd in ("aider", "codex", "opencode", "claw", "droid", "trae", "trae-cn", "hermes"):
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
         if subcmd == "install":
@@ -1172,15 +1210,16 @@ def main() -> None:
             sys.exit(1)
     elif cmd == "query":
         if len(sys.argv) < 3:
-            print("Usage: graphify query \"<question>\" [--dfs] [--budget N] [--graph path]", file=sys.stderr)
+            print("Usage: graphify query \"<question>\" [--dfs] [--context C] [--budget N] [--graph path]", file=sys.stderr)
             sys.exit(1)
-        from graphify.serve import _score_nodes, _bfs, _dfs, _subgraph_to_text
+        from graphify.serve import _query_graph_text
         from graphify.security import sanitize_label
         from networkx.readwrite import json_graph
         question = sys.argv[2]
         use_dfs = "--dfs" in sys.argv
         budget = 2000
         graph_path = "graphify-out/graph.json"
+        context_filters: list[str] = []
         args = sys.argv[3:]
         i = 0
         while i < len(args):
@@ -1197,6 +1236,12 @@ def main() -> None:
                 except ValueError:
                     print(f"error: --budget must be an integer", file=sys.stderr)
                     sys.exit(1)
+                i += 1
+            elif args[i] == "--context" and i + 1 < len(args):
+                context_filters.append(args[i + 1])
+                i += 2
+            elif args[i].startswith("--context="):
+                context_filters.append(args[i].split("=", 1)[1])
                 i += 1
             elif args[i] == "--graph" and i + 1 < len(args):
                 graph_path = args[i + 1]; i += 2
@@ -1220,14 +1265,16 @@ def main() -> None:
         except Exception as exc:
             print(f"error: could not load graph: {exc}", file=sys.stderr)
             sys.exit(1)
-        terms = [t.lower() for t in question.split() if len(t) > 2]
-        scored = _score_nodes(G, terms)
-        if not scored:
-            print("No matching nodes found.")
-            sys.exit(0)
-        start = [nid for _, nid in scored[:5]]
-        nodes, edges = (_dfs if use_dfs else _bfs)(G, start, depth=2)
-        print(_subgraph_to_text(G, nodes, edges, token_budget=budget))
+        print(
+            _query_graph_text(
+                G,
+                question,
+                mode="dfs" if use_dfs else "bfs",
+                depth=2,
+                token_budget=budget,
+                context_filters=context_filters,
+            )
+        )
     elif cmd == "save-result":
         # graphify save-result --question Q --answer A --type T [--nodes N1 N2 ...]
         import argparse as _ap
@@ -1383,6 +1430,7 @@ def main() -> None:
 
     elif cmd == "cluster-only":
         watch_path = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(".")
+        no_viz = "--no-viz" in sys.argv
         graph_json = watch_path / "graphify-out" / "graph.json"
         if not graph_json.exists():
             print(f"error: no graph found at {graph_json} — run /graphify first", file=sys.stderr)
@@ -1412,12 +1460,34 @@ def main() -> None:
         out = watch_path / "graphify-out"
         (out / "GRAPH_REPORT.md").write_text(report, encoding="utf-8")
         to_json(G, communities, str(out / "graph.json"))
-        to_html(G, communities, str(out / "graph.html"), community_labels=labels or None)
-        print(f"Done — {len(communities)} communities. GRAPH_REPORT.md, graph.json and graph.html updated.")
+
+        # Mirror watch.py pattern: gate to_html so core outputs (graph.json +
+        # GRAPH_REPORT.md) always land. Honor --no-viz explicitly; otherwise
+        # fall back to ValueError handling so an oversized graph doesn't crash
+        # the CLI mid-write and leave a stale graph.html on disk.
+        html_target = out / "graph.html"
+        if no_viz:
+            if html_target.exists():
+                html_target.unlink()
+            print(f"Done — {len(communities)} communities. GRAPH_REPORT.md and graph.json updated (--no-viz; graph.html removed).")
+        else:
+            try:
+                to_html(G, communities, str(html_target), community_labels=labels or None)
+                print(f"Done — {len(communities)} communities. GRAPH_REPORT.md, graph.json and graph.html updated.")
+            except ValueError as viz_err:
+                if html_target.exists():
+                    html_target.unlink()
+                print(f"Skipped graph.html: {viz_err}")
+                print(f"Done — {len(communities)} communities. GRAPH_REPORT.md and graph.json updated.")
 
     elif cmd == "update":
-        if len(sys.argv) > 2:
-            watch_path = Path(sys.argv[2])
+        force = os.environ.get("GRAPHIFY_FORCE", "").lower() in ("1", "true", "yes")
+        argv = list(sys.argv)
+        if "--force" in argv[2:]:
+            force = True
+            argv = [a for a in argv if a != "--force"]
+        if len(argv) > 2:
+            watch_path = Path(argv[2])
         else:
             # Try to recover the scan root saved by the last full build
             saved = Path("graphify-out/.graphify_root")
@@ -1430,7 +1500,7 @@ def main() -> None:
             sys.exit(1)
         from graphify.watch import _rebuild_code
         print(f"Re-extracting code files in {watch_path} (no LLM needed)...")
-        ok = _rebuild_code(watch_path)
+        ok = _rebuild_code(watch_path, force=force)
         if ok:
             print("Code graph updated. For doc/paper/image changes run /graphify --update in your AI assistant.")
             if not os.environ.get("MOONSHOT_API_KEY") and not os.environ.get("GRAPHIFY_NO_TIPS"):
@@ -1439,6 +1509,25 @@ def main() -> None:
             print("Nothing to update or rebuild failed — check output above.", file=sys.stderr)
             sys.exit(1)
 
+    elif cmd == "hook-check":
+        # Shell-agnostic PreToolUse hook entry point for Codex (and any platform
+        # where embedding Python/bash inline in a JSON hook command is fragile).
+        # Prints the hookSpecificOutput JSON if graph.json exists, exits 0 silently
+        # if not. Works on Windows PowerShell, cmd.exe, macOS, and Linux.
+        graph = Path("graphify-out") / "graph.json"
+        if graph.exists():
+            import json as _json
+            print(_json.dumps({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "additionalContext": (
+                        "graphify: Knowledge graph exists. "
+                        "Read graphify-out/GRAPH_REPORT.md for god nodes and "
+                        "community structure before searching raw files."
+                    ),
+                }
+            }))
+        sys.exit(0)
     elif cmd == "check-update":
         if len(sys.argv) < 3:
             print("Usage: graphify check-update <path>", file=sys.stderr)
@@ -1446,6 +1535,62 @@ def main() -> None:
         from graphify.watch import check_update
         check_update(Path(sys.argv[2]).resolve())
         sys.exit(0)
+    elif cmd == "tree":
+        # Emit a D3 v7 collapsible-tree HTML view of graph.json:
+        # expand-all / collapse-all / reset-view buttons, multi-line
+        # wrapText labels with separately-coloured name + count,
+        # depth-based palette, click-to-toggle subtree, hover inspector
+        # showing top-K outbound edges per symbol.
+        from typing import Optional as _Opt
+        from graphify.tree_html import write_tree_html, DEFAULT_MAX_CHILDREN
+        graph_path = Path("graphify-out/graph.json")
+        output_path: "_Opt[Path]" = None
+        root: "_Opt[str]" = None
+        max_children = DEFAULT_MAX_CHILDREN
+        top_k_edges = 0
+        project_label: "_Opt[str]" = None
+        args = sys.argv[2:]
+        i_arg = 0
+        while i_arg < len(args):
+            a = args[i_arg]
+            if a == "--graph" and i_arg + 1 < len(args):
+                graph_path = Path(args[i_arg + 1]); i_arg += 2
+            elif a == "--output" and i_arg + 1 < len(args):
+                output_path = Path(args[i_arg + 1]); i_arg += 2
+            elif a == "--root" and i_arg + 1 < len(args):
+                root = args[i_arg + 1]; i_arg += 2
+            elif a == "--max-children" and i_arg + 1 < len(args):
+                max_children = int(args[i_arg + 1]); i_arg += 2
+            elif a == "--top-k-edges" and i_arg + 1 < len(args):
+                top_k_edges = int(args[i_arg + 1]); i_arg += 2
+            elif a == "--label" and i_arg + 1 < len(args):
+                project_label = args[i_arg + 1]; i_arg += 2
+            elif a in ("-h", "--help"):
+                print("Usage: graphify tree [--graph PATH] [--output HTML]")
+                print("  --graph PATH         path to graph.json (default graphify-out/graph.json)")
+                print("  --output HTML        output path (default graphify-out/GRAPH_TREE.html)")
+                print("  --root PATH          filesystem root (default: longest common dir of all source_files)")
+                print("  --max-children N     cap visible children per node (default 200)")
+                print("  --top-k-edges N      pre-compute top-K outbound edges per symbol (default 12)")
+                print("  --label NAME         project label shown in the page header")
+                return
+            else:
+                i_arg += 1
+        if not graph_path.is_file():
+            print(f"error: graph.json not found at {graph_path}", file=sys.stderr)
+            sys.exit(1)
+        if output_path is None:
+            output_path = graph_path.parent / "GRAPH_TREE.html"
+        out = write_tree_html(
+            graph_path=graph_path, output_path=output_path,
+            root=root, max_children=max_children,
+            top_k_edges=top_k_edges, project_label=project_label,
+        )
+        size_kb = out.stat().st_size / 1024
+        print(f"wrote {out} ({size_kb:.1f} KB)")
+        print(f"open with: xdg-open {out}  (or file://{out.resolve()})")
+        sys.exit(0)
+
     elif cmd == "merge-graphs":
         # graphify merge-graphs graph1.json graph2.json ... --out merged.json
         args = sys.argv[2:]

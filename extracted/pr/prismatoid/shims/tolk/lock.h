@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 #ifndef FAST_LOCK_H
 #define FAST_LOCK_H
 
@@ -28,7 +30,7 @@ typedef struct TSA_CAPABILITY("mutex") fast_lock {
 
 #if defined(_WIN32) || defined(__linux__)
 #define FAST_LOCK_INIT {0}
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 #define FAST_LOCK_INIT {OS_UNFAIR_LOCK_INIT}
 #else
 #define FAST_LOCK_INIT {PTHREAD_MUTEX_INITIALIZER}

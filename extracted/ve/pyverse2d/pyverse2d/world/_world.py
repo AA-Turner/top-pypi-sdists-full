@@ -6,7 +6,7 @@ from ..abc import Component, System
 
 from ._entity import Entity
 
-from typing import Type
+from typing import Type, Callable
 
 # ======================================== OBJECT ========================================
 class World:
@@ -43,6 +43,7 @@ class World:
         """
         expect(entity, Entity)
         self._all_entities[entity.id] = entity
+        entity.on_kill(self._make_remove_entity_func(entity))
         self._cache_dirty = True
 
     def remove_entity(self, entity: Entity):
@@ -171,13 +172,25 @@ class World:
                 return s
         raise ValueError(f"World has no {system_type.__name__} system")
     
-    # ======================================== UPDATE ========================================
+    # ======================================== LIFE CYCLE ========================================
     def update(self, dt: float):
-        """
-        Actualise le monde en respectant l'ordre des phases
+        """Actualise le monde en respectant l'ordre des phases
 
         Args:
             dt(float): delta time en secondes
         """
         for system in self._all_systems:
             system.update(self, dt)
+
+    # ======================================== INTERNALS ========================================
+    def _make_remove_entity_func(self, entity: Entity) -> Callable[[], None]:
+        """Construit un token de suppression d'entité à sa mort
+        
+        Args:
+            entity: ``Entity`` à supprimer du monde
+        """
+        def remove_entity() -> None:
+            output = self._all_entities.pop(entity, None)
+            if output is None:
+                entity.on_kill.remove(remove_entity)
+        return remove_entity

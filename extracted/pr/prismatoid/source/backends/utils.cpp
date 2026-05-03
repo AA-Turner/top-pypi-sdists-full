@@ -23,10 +23,9 @@
 #include <utility>
 
 // Begin NVGT code
-double range_convert(double old_value, double old_min, double old_max,
-                     double new_min, double new_max) {
-  return (((old_value - old_min) / (old_max - old_min)) * (new_max - new_min)) +
-         new_min;
+double range_convert(double v, double a0, double a1, double b0, double b1) {
+  const double t = (v - a0) / (a1 - a0);
+  return std::lerp(b0, b1, t);
 }
 
 float range_convert(float old_value, float old_min, float old_max,
@@ -54,9 +53,9 @@ double exp_range_convert(float t, double out_min, double out_mid,
   const double log_max = std::log(out_max);
   double log_val;
   if (t <= 0.5)
-    log_val = log_min + (log_mid - log_min) * (t / 0.5);
+    log_val = log_min + ((log_mid - log_min) * (t / 0.5));
   else
-    log_val = log_mid + (log_max - log_mid) * ((t - 0.5) / 0.5);
+    log_val = log_mid + ((log_max - log_mid) * ((t - 0.5) / 0.5));
   return std::exp(log_val);
 }
 
@@ -70,7 +69,7 @@ float exp_range_convert_inv(double val, double out_min, double out_mid,
     return static_cast<float>(0.5 * (log_val - log_min) / (log_mid - log_min));
   else
     return static_cast<float>(
-        0.5 + (0.5 * (log_val - log_mid) / (log_max - log_mid)));
+        0.5 + ((0.5 * (log_val - log_mid)) / (log_max - log_mid)));
 }
 
 struct TrimBounds {

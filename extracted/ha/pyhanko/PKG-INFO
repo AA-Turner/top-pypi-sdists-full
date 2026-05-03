@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyHanko
-Version: 0.34.1
+Version: 0.35.0
 Summary: Tools for stamping and signing PDF files
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 Maintainer-email: Matthias Valvekens <dev@mvalvekens.be>
@@ -28,10 +28,10 @@ License-File: LICENSE
 License-File: src/pyhanko/pdf_utils/LICENSE.PyPDF2
 Requires-Dist: asn1crypto>=1.5.1
 Requires-Dist: tzlocal>=4.3
-Requires-Dist: pyhanko-certvalidator<0.31,>=0.30.0
+Requires-Dist: pyhanko-certvalidator<0.32,>=0.31.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: pyyaml>=6.0
-Requires-Dist: cryptography>=43.0.3
+Requires-Dist: cryptography>=47.0.0
 Requires-Dist: lxml>=5.4.0
 Provides-Extra: opentype
 Requires-Dist: fonttools>=4.33.3; extra == "opentype"

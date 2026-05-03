@@ -152,6 +152,12 @@ class SymbolTable:
     approvals: dict[str, ir.ApprovalSpec] = field(default_factory=dict)  # v0.25.0
     slas: dict[str, ir.SLASpec] = field(default_factory=dict)  # v0.25.0
     islands: dict[str, ir.IslandSpec] = field(default_factory=dict)  # UI Islands
+    notifications: dict[str, ir.NotificationSpec] = field(default_factory=dict)  # #952
+    jobs: dict[str, ir.JobSpec] = field(default_factory=dict)  # #953
+    audits: list[ir.AuditSpec] = field(
+        default_factory=list
+    )  # #956 (list — keyed on entity, but multiple audits per entity not allowed; symbol_sources tracks)
+    searches: list[ir.SearchSpec] = field(default_factory=list)  # #954 (one search per entity)
     grant_schemas: dict[str, ir.GrantSchemaSpec] = field(default_factory=dict)  # v0.42.0
 
     # Track which module each symbol came from (for error reporting)
@@ -168,6 +174,9 @@ class SymbolTable:
 
     # Analytics block (v0.61.0 Phase 3)
     analytics: ir.AnalyticsSpec | None = None
+
+    # Tenancy block (#957 cycle 3 — propagated from root module fragment)
+    tenancy: ir.TenancySpec | None = None
 
     # --- Delegated properties for backward compatibility ---
 
@@ -386,6 +395,61 @@ class SymbolTable:
         """Add UI island to symbol table, checking for duplicates."""
         _add_symbol(self.islands, island.name, island, "island", module_name, self.symbol_sources)
 
+    def add_notification(self, notification: ir.NotificationSpec, module_name: str) -> None:
+        """Add notification to symbol table, checking for duplicates (#952)."""
+        _add_symbol(
+            self.notifications,
+            notification.name,
+            notification,
+            "notification",
+            module_name,
+            self.symbol_sources,
+        )
+
+    def add_job(self, job: ir.JobSpec, module_name: str) -> None:
+        """Add background job to symbol table, checking for duplicates (#953)."""
+        _add_symbol(
+            self.jobs,
+            job.name,
+            job,
+            "job",
+            module_name,
+            self.symbol_sources,
+        )
+
+    def add_audit(self, audit: ir.AuditSpec, module_name: str) -> None:
+        """Add audit-trail spec to symbol table (#956).
+
+        Keyed off the entity name — only one audit declaration per
+        entity is allowed across the project. Cycle 5+ may relax this
+        if per-tenant overrides become a thing.
+        """
+        symbol_key = f"audit:{audit.entity}"
+        if symbol_key in self.symbol_sources:
+            existing_module = self.symbol_sources[symbol_key]
+            raise LinkError(
+                f"Duplicate audit declaration for entity '{audit.entity}' in "
+                f"module '{module_name}' (already defined in '{existing_module}')."
+            )
+        self.symbol_sources[symbol_key] = module_name
+        self.audits.append(audit)
+
+    def add_search(self, search: ir.SearchSpec, module_name: str) -> None:
+        """Add full-text-search spec to symbol table (#954).
+
+        One search declaration per entity — duplicates raise LinkError
+        (same shape as :meth:`add_audit`).
+        """
+        symbol_key = f"search:{search.entity}"
+        if symbol_key in self.symbol_sources:
+            existing_module = self.symbol_sources[symbol_key]
+            raise LinkError(
+                f"Duplicate search declaration for entity '{search.entity}' in "
+                f"module '{module_name}' (already defined in '{existing_module}')."
+            )
+        self.symbol_sources[symbol_key] = module_name
+        self.searches.append(search)
+
 
 def resolve_dependencies(modules: list[ir.ModuleIR]) -> list[ir.ModuleIR]:
     """
@@ -557,6 +621,17 @@ def build_symbol_table(modules: list[ir.ModuleIR]) -> SymbolTable:
             symbols.analytics = module.fragment.analytics
             symbols.symbol_sources["analytics"] = module.name
 
+        # Tenancy block (#957 cycle 3) — at most one across all modules.
+        # Same shape as analytics/llm_config above.
+        if module.fragment.tenancy is not None:
+            if symbols.tenancy is not None:
+                raise LinkError(
+                    f"Duplicate tenancy: block — already declared in "
+                    f"module {symbols.symbol_sources.get('tenancy', '?')}."
+                )
+            symbols.tenancy = module.fragment.tenancy
+            symbols.symbol_sources["tenancy"] = module.name
+
         # Add processes (v0.23.0)
         for process in module.fragment.processes:
             symbols.add_process(process, module.name)
@@ -596,6 +671,22 @@ def build_symbol_table(modules: list[ir.ModuleIR]) -> SymbolTable:
         # Add UI Islands
         for island in module.fragment.islands:
             symbols.add_island(island, module.name)
+
+        # Add notifications (#952)
+        for notification in module.fragment.notifications:
+            symbols.add_notification(notification, module.name)
+
+        # Add jobs (#953)
+        for job in module.fragment.jobs:
+            symbols.add_job(job, module.name)
+
+        # Add audits (#956)
+        for audit in module.fragment.audits:
+            symbols.add_audit(audit, module.name)
+
+        # Add searches (#954)
+        for search in module.fragment.searches:
+            symbols.add_search(search, module.name)
 
         # Add rhythms (v0.39.0)
         for rhythm in module.fragment.rhythms:
@@ -809,6 +900,28 @@ def check_unused_imports(modules: list[ir.ModuleIR], symbols: SymbolTable) -> li
                 owner = symbols.symbol_sources.get(fm_ref)
                 if owner and owner != module.name:
                     used_modules.add(owner)
+
+        # #988 fix: audit blocks reference entities from other
+        # modules. Without this walk, splitting `audit on Ticket:`
+        # into a separate runtime.dsl that `use`s the core module
+        # produces a false-positive "imports but never uses"
+        # warning even though the audit block IS using `Ticket`.
+        for audit_spec in module.fragment.audits:
+            entity_name = getattr(audit_spec, "entity", "")
+            if entity_name:
+                owner = symbols.symbol_sources.get(entity_name)
+                if owner and owner != module.name:
+                    used_modules.add(owner)
+
+        # #988 fix: job triggers reference entities — same
+        # rationale as audit blocks above.
+        for job_spec in module.fragment.jobs:
+            for trigger in getattr(job_spec, "triggers", []) or []:
+                entity_name = getattr(trigger, "entity", "")
+                if entity_name:
+                    owner = symbols.symbol_sources.get(entity_name)
+                    if owner and owner != module.name:
+                        used_modules.add(owner)
 
         # Find unused imports
         unused = set(module.uses) - used_modules
@@ -1338,9 +1451,14 @@ def merge_fragments(modules: list[ir.ModuleIR], symbols: SymbolTable) -> ir.Modu
         approvals=list(symbols.approvals.values()),  # v0.25.0
         slas=list(symbols.slas.values()),  # v0.25.0
         islands=list(symbols.islands.values()),  # UI Islands
+        notifications=list(symbols.notifications.values()),  # #952
+        jobs=list(symbols.jobs.values()),  # #953
+        audits=symbols.audits,  # #956
+        searches=symbols.searches,  # #954
         grant_schemas=list(symbols.grant_schemas.values()),  # v0.42.0
         feedback_widget=symbols.feedback_widget,  # Feedback Widget
         subprocessors=list(symbols.subprocessors.values()),  # v0.61.0
         analytics=symbols.analytics,  # v0.61.0 Phase 3
         nav_definitions=nav_definitions,  # v0.61.95 (#926)
+        tenancy=symbols.tenancy,  # #957 cycle 3
     )

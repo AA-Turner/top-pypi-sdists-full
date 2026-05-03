@@ -1,4 +1,4 @@
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 from ..exceptions import (
     DependencyViolationError,
@@ -27,7 +27,7 @@ class NetworkAclBackend:
     def create_network_acl(
         self,
         vpc_id: str,
-        tags: Optional[list[dict[str, str]]] = None,
+        tags: list[dict[str, str]] | None = None,
         default: bool = False,
     ) -> "NetworkAcl":
         network_acl_id = random_network_acl_id()
@@ -69,7 +69,7 @@ class NetworkAclBackend:
 
     def delete_network_acl(self, network_acl_id: str) -> "NetworkAcl":
         if any(
-            network_acl.id == network_acl_id and len(network_acl.associations) > 0
+            network_acl.id == network_acl_id and len(network_acl._associations) > 0
             for network_acl in self.network_acls.values()
         ):
             raise DependencyViolationError(
@@ -89,11 +89,11 @@ class NetworkAclBackend:
         rule_action: str,
         egress: bool,
         cidr_block: str,
-        icmp_code: Optional[int],
-        icmp_type: Optional[int],
-        port_range_from: Optional[int],
-        port_range_to: Optional[int],
-        ipv6_cidr_block: Optional[str],
+        icmp_code: int | None,
+        icmp_type: int | None,
+        port_range_from: int | None,
+        port_range_to: int | None,
+        ipv6_cidr_block: str | None,
     ) -> "NetworkAclEntry":
         network_acl = self.get_network_acl(network_acl_id)
         if any(
@@ -144,7 +144,7 @@ class NetworkAclBackend:
         icmp_type: int,
         port_range_from: int,
         port_range_to: int,
-        ipv6_cidr_block: Optional[str],
+        ipv6_cidr_block: str | None,
     ) -> "NetworkAclEntry":
         self.delete_network_acl_entry(network_acl_id, rule_number, egress)
         network_acl_entry = self.create_network_acl_entry(
@@ -169,14 +169,14 @@ class NetworkAclBackend:
         default_acl = next(
             value
             for key, value in self.network_acls.items()
-            if association_id in value.associations.keys()
+            if association_id in value._associations.keys()
         )
 
         subnet_id = None
-        for key in default_acl.associations:
+        for key in default_acl._associations:
             if key == association_id:
-                subnet_id = default_acl.associations[key].subnet_id
-                del default_acl.associations[key]
+                subnet_id = default_acl._associations[key].subnet_id
+                del default_acl._associations[key]
                 break
 
         new_assoc_id = random_network_acl_subnet_association_id()
@@ -184,7 +184,7 @@ class NetworkAclBackend:
             self, new_assoc_id, subnet_id, network_acl_id
         )
         new_acl = self.get_network_acl(network_acl_id)
-        new_acl.associations[new_assoc_id] = association
+        new_acl._associations[new_assoc_id] = association
         return association
 
     def associate_default_network_acl_with_subnet(
@@ -196,12 +196,12 @@ class NetworkAclBackend:
             for acl in self.network_acls.values()
             if acl.default and acl.vpc_id == vpc_id
         )
-        acl.associations[association_id] = NetworkAclAssociation(
+        acl._associations[association_id] = NetworkAclAssociation(
             self, association_id, subnet_id, acl.id
         )
 
     def describe_network_acls(
-        self, network_acl_ids: Optional[list[str]] = None, filters: Any = None
+        self, network_acl_ids: list[str] | None = None, filters: Any = None
     ) -> list["NetworkAcl"]:
         network_acls = list(self.network_acls.values())
 
@@ -227,7 +227,7 @@ class NetworkAclAssociation:
         self,
         ec2_backend: Any,
         new_association_id: str,
-        subnet_id: Optional[str],
+        subnet_id: str | None,
         network_acl_id: str,
     ):
         self.ec2_backend = ec2_backend
@@ -235,6 +235,10 @@ class NetworkAclAssociation:
         self.new_association_id = new_association_id
         self.subnet_id = subnet_id
         self.network_acl_id = network_acl_id
+
+    @property
+    def network_acl_association_id(self) -> str:
+        return self.id
 
 
 class NetworkAcl(TaggedEC2Resource):
@@ -244,19 +248,25 @@ class NetworkAcl(TaggedEC2Resource):
         network_acl_id: str,
         vpc_id: str,
         default: bool = False,
-        owner_id: Optional[str] = None,
+        owner_id: str | None = None,
     ):
         self.ec2_backend = ec2_backend
         self.id = network_acl_id
         self.vpc_id = vpc_id
         self.owner_id = owner_id or ec2_backend.account_id
         self.network_acl_entries: list[NetworkAclEntry] = []
-        self.associations: dict[str, NetworkAclAssociation] = {}
+        self._associations: dict[str, NetworkAclAssociation] = {}
         self.default = default
 
-    def get_filter_value(
-        self, filter_name: str, method_name: Optional[str] = None
-    ) -> Any:
+    @property
+    def entries(self) -> list["NetworkAclEntry"]:
+        return self.network_acl_entries
+
+    @property
+    def associations(self) -> list["NetworkAclAssociation"]:
+        return list(self._associations.values())
+
+    def get_filter_value(self, filter_name: str, method_name: str | None = None) -> Any:
         if filter_name == "default":
             return str(self.default).lower()
         elif filter_name == "vpc-id":
@@ -264,9 +274,9 @@ class NetworkAcl(TaggedEC2Resource):
         elif filter_name == "association.network-acl-id":
             return self.id
         elif filter_name == "association.association-id":
-            return [assoc.new_association_id for assoc in self.associations.values()]
+            return [assoc.new_association_id for assoc in self._associations.values()]
         elif filter_name == "association.subnet-id":
-            return [assoc.subnet_id for assoc in self.associations.values()]
+            return [assoc.subnet_id for assoc in self._associations.values()]
         elif filter_name == "entry.cidr":
             return [entry.cidr_block for entry in self.network_acl_entries]
         elif filter_name == "entry.protocol":
@@ -293,11 +303,11 @@ class NetworkAclEntry(TaggedEC2Resource):
         rule_action: str,
         egress: bool,
         cidr_block: str,
-        icmp_code: Optional[int],
-        icmp_type: Optional[int],
-        port_range_from: Optional[int],
-        port_range_to: Optional[int],
-        ipv6_cidr_block: Optional[str],
+        icmp_code: int | None,
+        icmp_type: int | None,
+        port_range_from: int | None,
+        port_range_to: int | None,
+        ipv6_cidr_block: str | None,
     ):
         self.ec2_backend = ec2_backend
         self.network_acl_id = network_acl_id
@@ -311,3 +321,20 @@ class NetworkAclEntry(TaggedEC2Resource):
         self.icmp_type = icmp_type
         self.port_range_from = port_range_from
         self.port_range_to = port_range_to
+
+    @property
+    def icmp_type_code(self) -> dict[str, Any] | None:
+        if self.icmp_code is not None or self.icmp_type is not None:
+            result: dict[str, Any] = {}
+            if self.icmp_code is not None:
+                result["Code"] = self.icmp_code
+            if self.icmp_type is not None:
+                result["Type"] = self.icmp_type
+            return result
+        return None
+
+    @property
+    def port_range(self) -> dict[str, Any] | None:
+        if self.port_range_from is not None or self.port_range_to is not None:
+            return {"From": self.port_range_from, "To": self.port_range_to}
+        return None

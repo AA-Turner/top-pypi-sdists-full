@@ -1,3 +1,4 @@
+#include <simpleble/Config.h>
 #include <simpleble/Peripheral.h>
 
 #include "AdapterDongl.h"
@@ -7,8 +8,6 @@
 #include "protocol/simpleble.pb.h"
 #include "serial/Protocol.h"
 
-// #include "cmd/Commands.h"
-// #include "cmd/Events.h"
 #include <memory>
 #include <thread>
 
@@ -32,7 +31,7 @@ AdapterDongl::AdapterDongl(const std::string& device_path)
     _serial_protocol->set_event_callback([this](const dongl_Event& event) {
         switch (event.which_evt) {
             case dongl_Event_simpleble_tag:
-                _on_simpleble_event(event.evt.simpleble);
+            _on_simpleble_event(event.evt.simpleble);
                 break;
             default:
                 break;
@@ -59,15 +58,17 @@ AdapterDongl::AdapterDongl(const std::string& device_path)
     //     // TODO: Handle protocol errors
     // });
 
-    // TODO: Send initialization commands
-    // auto command = Dongl::CMD::UartReadVersionCommand();
-    // _serial_protocol->send_packet(command.to_bytes());
 
     auto response_whoami = _serial_protocol->basic_whoami();
-    fmt::print("Whoami: {}\n", response_whoami.whoami);
+    _identifier = std::string(response_whoami.identifier);
+    _address = std::string(response_whoami.mac_address);
+
+    fmt::println("Whoami: version {}", response_whoami.version);
+    fmt::println("Whoami: identifier {}", response_whoami.identifier);
+    fmt::println("Whoami: mac_address {}", response_whoami.mac_address);
 
     auto response_init = _serial_protocol->simpleble_init();
-    fmt::print("SimpleBLE init: {}\n", response_init.ret_code);
+    fmt::println("SimpleBLE init: {}", response_init.ret_code);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
@@ -76,19 +77,18 @@ AdapterDongl::~AdapterDongl() {}
 
 void* AdapterDongl::underlying() const { return nullptr; }
 
-std::string AdapterDongl::identifier() { return "Dongl Adapter"; }
+std::string AdapterDongl::identifier() { return _identifier; }
 
-BluetoothAddress AdapterDongl::address() { return "AA:BB:CC:DD:EE:FF"; }
+BluetoothAddress AdapterDongl::address() { return _address; }
 
-void AdapterDongl::power_on() {}
+void AdapterDongl::power_on() { _serial_protocol->basic_power_on(); }
 
-void AdapterDongl::power_off() {}
+void AdapterDongl::power_off() { _serial_protocol->basic_power_off(); }
 
-bool AdapterDongl::is_powered() { return true; }
+bool AdapterDongl::is_powered() { return _serial_protocol->basic_is_powered().is_powered; }
 
 void AdapterDongl::scan_start() {
     auto response = _serial_protocol->simpleble_scan_start();
-
     fmt::print("Scan start: {}\n", response.ret_code);
 }
 
@@ -103,7 +103,7 @@ void AdapterDongl::scan_for(int timeout_ms) {
     scan_stop();
 }
 
-bool AdapterDongl::scan_is_active() { return false; }
+bool AdapterDongl::scan_is_active() { return _serial_protocol->simpleble_scan_is_active().is_active; }
 
 SharedPtrVector<PeripheralBase> AdapterDongl::scan_get_results() { return Util::values(seen_peripherals_); }
 
@@ -191,7 +191,6 @@ void AdapterDongl::_on_simpleble_event(const simpleble_Event& event) {
             }
             break;
         }
-
 
         case simpleble_Event_characteristic_discovered_evt_tag: {
             for (auto& [address, peripheral] : this->peripherals_) {

@@ -45,6 +45,59 @@ _VM_SSH_EXTRA_OPTS: list[tuple[str, str]] = [
 ]
 
 
+async def _run_probe_ssh(
+    ssh_key: Path,
+    hostname: str,
+    command: str,
+    *,
+    timeout: int,
+    attempts: int,
+    extra_opts: list[tuple[str, str]] | None = None,
+) -> tuple[int, str, str]:
+    """Run a short SSH probe with bounded retries for transient connection churn."""
+    last_error: BaseException | None = None
+    last_result: tuple[int, str, str] | None = None
+    safe_attempts = max(1, attempts)
+    for attempt in range(1, safe_attempts + 1):
+        try:
+            result = await run_ssh(
+                ssh_key,
+                hostname,
+                command,
+                timeout=timeout,
+                extra_opts=extra_opts,
+            )
+            if result[0] == 0:
+                return result
+            last_result = result
+        except Exception as exc:
+            last_error = exc
+            if attempt >= safe_attempts:
+                raise
+        if attempt >= safe_attempts:
+            break
+        delay = min(float(2 ** (attempt - 1)), 5.0)
+        reason = str(last_error) if last_error else f"exit {last_result[0]}" if last_result is not None else "unknown"
+        logger.warning(
+            "SSH probe failed on %s (attempt %d/%d), retrying in %.1fs: %s",
+            hostname,
+            attempt,
+            safe_attempts,
+            delay,
+            reason,
+        )
+        await asyncio.sleep(delay)
+
+    if last_result is not None:
+        exit_code, stdout, stderr = last_result
+        raise RuntimeError(
+            f"SSH probe failed after {safe_attempts} attempt(s): "
+            f"exit={exit_code}, stdout={stdout or '<empty>'}, stderr={stderr or '<empty>'}"
+        )
+    assert last_error is not None
+    raise last_error
+
+
 def _world_runtime_ip_from_info(world_runtime_info: RuntimeInfo | None) -> str | None:
     """Return the world VM hostname/IP from runtime info when available."""
     if world_runtime_info is None:
@@ -262,11 +315,12 @@ async def execute_agent(
     job_id = info.metadata.job_id if isinstance(info.metadata, VMMetadata) else ""
 
     # Ensure localhost resolves
-    exit_code, stdout, stderr = await run_ssh(
+    exit_code, stdout, stderr = await _run_probe_ssh(
         ssh_key,
         hostname,
         "grep -q localhost /etc/hosts && echo 'ALREADY_EXISTS' || (echo '127.0.0.1 localhost' >> /etc/hosts && echo 'ADDED')",
-        timeout=10,
+        timeout=ctx.ssh_probe_timeout,
+        attempts=ctx.ssh_probe_retries,
         extra_opts=_VM_SSH_EXTRA_OPTS,
     )
 
@@ -371,7 +425,7 @@ async def diagnose_agent_vm(info: RuntimeInfo) -> None:
 
     try:
         # 1) Can we ping it?
-        rc, out, _ = await run_local(f"ping -c 3 -W 2 {hostname}", timeout=10)
+        rc, out, _ = await run_local(f"ping -c 3 -W 2 {hostname}", timeout=30)
         ping_ok = rc == 0
         ping_summary = out.strip().split("\n")[-1] if out else "no output"
         logger.info("Diagnose %s: ping %s — %s", hostname, "OK" if ping_ok else "FAILED", ping_summary)
@@ -381,7 +435,7 @@ async def diagnose_agent_vm(info: RuntimeInfo) -> None:
             return
 
         # 2) Can we SSH?
-        rc, out, err = await run_ssh(ssh_key, hostname, "echo ok", timeout=10, extra_opts=_VM_SSH_EXTRA_OPTS)
+        rc, out, err = await run_ssh(ssh_key, hostname, "echo ok", timeout=30, extra_opts=_VM_SSH_EXTRA_OPTS)
         if rc != 0:
             logger.warning("Diagnose %s: SSH failed (rc=%d): %s", hostname, rc, err.strip())
             return
@@ -391,7 +445,7 @@ async def diagnose_agent_vm(info: RuntimeInfo) -> None:
             ssh_key,
             hostname,
             "dmesg --level=err,crit,alert,emerg -T 2>/dev/null | tail -20 || dmesg | tail -20",
-            timeout=10,
+            timeout=30,
             extra_opts=_VM_SSH_EXTRA_OPTS,
         )
         if dmesg.strip():
@@ -402,7 +456,7 @@ async def diagnose_agent_vm(info: RuntimeInfo) -> None:
             ssh_key,
             hostname,
             "ps aux | grep -E 'plato-agent|python|node' | grep -v grep | head -10",
-            timeout=10,
+            timeout=30,
             extra_opts=_VM_SSH_EXTRA_OPTS,
         )
         logger.info("Diagnose %s: processes:\n%s", hostname, procs.strip() if procs.strip() else "(none)")
@@ -412,7 +466,7 @@ async def diagnose_agent_vm(info: RuntimeInfo) -> None:
             ssh_key,
             hostname,
             "free -m | head -3",
-            timeout=10,
+            timeout=30,
             extra_opts=_VM_SSH_EXTRA_OPTS,
         )
         if mem.strip():

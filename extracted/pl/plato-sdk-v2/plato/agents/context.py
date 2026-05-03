@@ -19,6 +19,8 @@ class AgentContext(BaseModel):
     config: dict[str, object]
     instruction: str
     display_name: str | None = None
+    ssh_probe_timeout: int = 30
+    ssh_probe_retries: int = 3
     # Runtime config (VM resource specs) — passed to agent as env var
     runtime: dict[str, object] | None = None
     # Path on world VM to agent code (for syncing to agent VM in dev mode)

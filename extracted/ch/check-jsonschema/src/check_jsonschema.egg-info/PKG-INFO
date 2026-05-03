@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: check-jsonschema
-Version: 0.37.1
+Version: 0.37.2
 Summary: A jsonschema CLI and pre-commit hook
 Author-email: Stephen Rosen <sirosen0@gmail.com>
 Project-URL: Homepage, https://github.com/python-jsonschema/check-jsonschema
@@ -44,7 +44,7 @@ files.
 
 ```yaml
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.37.1
+  rev: 0.37.2
   hooks:
     - id: check-github-workflows
       args: ["--verbose"]
