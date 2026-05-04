@@ -88,13 +88,9 @@ class TenorExtractor(Extractor):
             "pos": None,
             "component": "web_desktop",
         }
-        headers = {
-            "Referer": self.root + "/",
-            "Origin" : self.root,
-        }
 
         while True:
-            data = self.request_json(url, params=params, headers=headers)
+            data = self.request_json(url, params=params)
 
             yield from data["results"]
 

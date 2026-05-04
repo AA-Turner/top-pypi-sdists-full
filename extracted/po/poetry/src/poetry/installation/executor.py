@@ -10,7 +10,6 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait
 from pathlib import Path
-from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
 from typing import Any
 
@@ -226,6 +225,8 @@ class Executor:
                 wait(tasks)
 
                 for operation in serial_operations:
+                    if self._shutdown:
+                        break
                     self._execute_operation(operation)
 
             except KeyboardInterrupt:
@@ -267,6 +268,8 @@ class Executor:
             section.write(line)
 
     def _execute_operation(self, operation: Operation) -> None:
+        if self._shutdown:
+            return
         try:
             op_message = self.get_operation_message(operation)
             if self.supports_fancy_output():
@@ -354,7 +357,10 @@ class Executor:
 
                         if config_settings := self._build_config_settings.get(pkg.name):
                             for setting in config_settings:
-                                for setting_value in config_settings[setting]:
+                                values = config_settings[setting]
+                                if isinstance(values, str):
+                                    values = [values]
+                                for setting_value in values:
                                     pip_command += f" --config-settings='{setting}={setting_value}'"
 
                         message = e.generate_message(
@@ -624,7 +630,7 @@ class Executor:
 
         try:
             return self.run_pip("uninstall", package.name, "-y")
-        except CalledProcessError as e:
+        except EnvCommandError as e:
             if "not installed" in str(e):
                 return 0
 

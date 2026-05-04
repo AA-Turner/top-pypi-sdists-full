@@ -219,6 +219,16 @@ def rextr(txt, begin, end, pos=None, default=""):
         return default
 
 
+def iextr(txt, needle, begin, end, pos=None, default=""):
+    """Extract text between 'begin' and 'end' from the position of 'needle'"""
+    try:
+        pos = txt.index(needle, pos)
+        return txt[txt.rindex(begin, None, pos)+len(begin):
+                   txt.index(end, pos+len(needle))]
+    except Exception:
+        return default
+
+
 def extract_all(txt, rules, pos=None, values=None):
     """Calls extract for each rule and returns the result in a dict"""
     if values is None:

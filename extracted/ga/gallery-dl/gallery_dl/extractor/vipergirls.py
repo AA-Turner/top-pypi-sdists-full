@@ -11,7 +11,9 @@
 from .common import Extractor, Message
 from .. import text, util
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?viper(?:girls)?\.to"
+BASE_PATTERN = (r"(?:https?://)?(?:www\.)?(?:viper(?:"
+                r"(?:girls)?\.to|bb\.rocks|kats\.eu|ohilia\.art|proxy\.org"
+                r"|vault\.link)|planetviper\.club)")
 
 
 class VipergirlsExtractor(Extractor):

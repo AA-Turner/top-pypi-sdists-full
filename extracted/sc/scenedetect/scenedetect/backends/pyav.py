@@ -5,24 +5,32 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2022 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
 """:class:`VideoStreamAv` provides an adapter for the PyAV av.InputContainer object."""
 
+import os
+import typing as ty
+from fractions import Fraction
 from logging import getLogger
-from typing import AnyStr, BinaryIO, Optional, Tuple, Union
 
 import av
 import numpy as np
 
-from scenedetect.frame_timecode import MAX_FPS_DELTA, FrameTimecode
-from scenedetect.platform import get_file_name
+from scenedetect.common import (
+    MAX_FPS_DELTA,
+    FrameRate,
+    FrameTimecode,
+    Timecode,
+    TimecodeLike,
+    framerate_to_fraction,
+)
+from scenedetect.platform import StrPath, get_file_name
 from scenedetect.video_stream import FrameRateUnavailable, VideoOpenFailure, VideoStream
 
 logger = getLogger("pyscenedetect")
-
 VALID_THREAD_MODES = ["NONE", "SLICE", "FRAME", "AUTO"]
 
 
@@ -35,11 +43,12 @@ class VideoStreamAv(VideoStream):
     # calculates the end time.
     def __init__(
         self,
-        path_or_io: Union[AnyStr, BinaryIO],
-        framerate: Optional[float] = None,
-        name: Optional[str] = None,
-        threading_mode: Optional[str] = None,
+        path_or_io: StrPath | ty.BinaryIO,
+        frame_rate: FrameRate | None = None,
+        name: str | None = None,
+        threading_mode: str | None = None,
         suppress_output: bool = False,
+        framerate: FrameRate | None = None,
     ):
         """Open a video by path.
 
@@ -51,7 +60,8 @@ class VideoStreamAv(VideoStream):
 
         Arguments:
             path_or_io: Path to the video, or a file-like object.
-            framerate: If set, overrides the detected framerate.
+            frame_rate: If set, overrides the detected frame rate. Takes precedence over
+                `framerate`.
             name: Overrides the `name` property derived from the video path. Should be set if
                 `path_or_io` is a file-like object.
             threading_mode: The PyAV video stream `thread_type`. See av.codec.context.ThreadType
@@ -62,48 +72,55 @@ class VideoStreamAv(VideoStream):
                 `av.logging.restore_default_callback()` before any other library calls. If True
                 the application may deadlock if threading_mode is set. See the PyAV documentation
                 for details: https://pyav.org/docs/stable/overview/caveats.html#sub-interpeters
+            framerate: [DEPRECATED] Use `frame_rate` instead. Retained as a deprecated
+                alias for backwards compatibility; ignored when `frame_rate` is provided.
 
         Raises:
             OSError: file could not be found or access was denied
             VideoOpenFailure: video could not be opened (may be corrupted)
-            ValueError: specified framerate is invalid
+            ValueError: specified frame rate is invalid
         """
-        self._container = None
-
-        # TODO(#258): See what self._container.discard_corrupt = True does with corrupt videos.
+        # TODO(https://scenedetect.com/issues/258): See what
+        # `self._container.discard_corrupt = True` does with corrupt videos.
         super().__init__()
 
-        # Ensure specified framerate is valid if set.
-        if framerate is not None and framerate < MAX_FPS_DELTA:
-            raise ValueError("Specified framerate (%f) is invalid!" % framerate)
+        # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `framerate=` is
+        # used, once internal callers and downstream users have had a release to migrate.
+        if frame_rate is None:
+            frame_rate = framerate
+        # Ensure specified frame rate is valid if set.
+        if frame_rate is not None and frame_rate < MAX_FPS_DELTA:
+            raise ValueError(f"Specified frame rate ({float(frame_rate):f}) is invalid!")
 
         self._name = "" if name is None else name
         self._path = ""
-        self._frame = None
+        self._frame: av.VideoFrame | None = None
+        self._decoder: ty.Generator | None = None
         self._reopened = True
 
         if threading_mode:
             try:
-                threading_mode = av.codec.context.ThreadType[threading_mode.upper()]
+                threading_mode = av.codec.context.ThreadType[threading_mode.upper()]  # type: ignore[attr-defined]
             except KeyError as _:
                 raise ValueError(
-                    "Invalid threading mode! Must be one of: %s" % VALID_THREAD_MODES
+                    f"Invalid threading mode! Must be one of: {VALID_THREAD_MODES}"
                 ) from None
 
         if not suppress_output:
             logger.debug("Restoring default ffmpeg log callbacks.")
-            av.logging.restore_default_callback()
+            av.logging.restore_default_callback()  # type: ignore[attr-defined]
 
         try:
-            if isinstance(path_or_io, (str, bytes)):
-                self._path = path_or_io
-                self._io = open(path_or_io, "rb")
+            if isinstance(path_or_io, (str, os.PathLike)):
+                self._path: str = os.fspath(path_or_io)
+                # File handle is intentionally long-lived and tied to the VideoStream.
+                self._io = open(self._path, "rb")  # noqa: SIM115
                 if not self._name:
-                    self._name = get_file_name(self.path, include_extension=False)
+                    self._name = get_file_name(self._path, include_extension=False)
             else:
                 self._io = path_or_io
 
-            self._container = av.open(self._io)
+            self._container: av.container.InputContainer = av.open(self._io)  # type: ignore[attr-defined]
             if threading_mode is not None:
                 self._video_stream.thread_type = threading_mode
                 self._reopened = False
@@ -113,31 +130,30 @@ class VideoStreamAv(VideoStream):
         except Exception as ex:
             raise VideoOpenFailure(str(ex)) from ex
 
-        if framerate is None:
-            # Calculate framerate from video container. `guessed_rate` below appears in PyAV 9.
-            frame_rate = (
+        if frame_rate is None:
+            # Calculate frame rate from video container. `guessed_rate` below appears in PyAV 9.
+            detected_rate = (
                 self._video_stream.guessed_rate
                 if hasattr(self._video_stream, "guessed_rate")
                 else self._codec_context.framerate
             )
-            if frame_rate is None or frame_rate == 0:
+            if detected_rate is None or detected_rate == 0:
                 raise FrameRateUnavailable()
-            # TODO: Refactor FrameTimecode to support raw timing rather than framerate based calculations.
-            # See https://pyav.org/docs/develop/api/stream.html for details.
-            frame_rate = frame_rate.numerator / float(frame_rate.denominator)
-            if frame_rate < MAX_FPS_DELTA:
+            if detected_rate < MAX_FPS_DELTA:
                 raise FrameRateUnavailable()
-            self._frame_rate: float = frame_rate
+            self._frame_rate: Fraction = framerate_to_fraction(detected_rate)
         else:
-            assert framerate >= MAX_FPS_DELTA
-            self._frame_rate: float = framerate
+            assert frame_rate >= MAX_FPS_DELTA
+            self._frame_rate: Fraction = framerate_to_fraction(frame_rate)
 
         # Calculate duration after we have set the framerate.
         self._duration_frames = self._get_duration()
 
     def __del__(self):
-        if self._container is not None:
-            self._container.close()
+        # `_container` is unset if `__init__` raised before `av.open()` succeeded.
+        container = getattr(self, "_container", None)
+        if container is not None:
+            container.close()
 
     #
     # VideoStream Methods/Properties
@@ -147,12 +163,12 @@ class VideoStreamAv(VideoStream):
     """Unique name used to identify this backend."""
 
     @property
-    def path(self) -> Union[bytes, str]:
+    def path(self) -> str:
         """Video path."""
         return self._path
 
     @property
-    def name(self) -> Union[bytes, str]:
+    def name(self) -> str:
         """Name of the video, without extension."""
         return self._name
 
@@ -162,7 +178,7 @@ class VideoStreamAv(VideoStream):
         return self._io.seekable()
 
     @property
-    def frame_size(self) -> Tuple[int, int]:
+    def frame_size(self) -> tuple[int, int]:
         """Size of each video frame in pixels as a tuple of (width, height)."""
         return (self._codec_context.width, self._codec_context.height)
 
@@ -172,8 +188,8 @@ class VideoStreamAv(VideoStream):
         return self.base_timecode + self._duration_frames
 
     @property
-    def frame_rate(self) -> float:
-        """Frame rate in frames/sec."""
+    def frame_rate(self) -> Fraction:
+        """Frame rate in frames/sec as a rational Fraction."""
         return self._frame_rate
 
     @property
@@ -182,9 +198,10 @@ class VideoStreamAv(VideoStream):
 
         This can be interpreted as presentation time stamp, thus frame 1 corresponds
         to the presentation time 0.  Returns 0 even if `frame_number` is 1."""
-        if self._frame is None:
+        if self._frame is None or self._frame.pts is None or self._frame.time_base is None:
             return self.base_timecode
-        return FrameTimecode(round(self._frame.time * self.frame_rate), self.frame_rate)
+        timecode = Timecode(pts=self._frame.pts, time_base=self._frame.time_base)
+        return FrameTimecode(timecode=timecode, fps=self.frame_rate)
 
     @property
     def position_ms(self) -> float:
@@ -196,12 +213,23 @@ class VideoStreamAv(VideoStream):
 
     @property
     def frame_number(self) -> int:
-        """Current position within stream as the frame number.
+        """Current position within stream as the frame number (CFR-equivalent).
 
-        Will return 0 until the first frame is `read`."""
+        Will return 0 until the first frame is `read`. For VFR video this is an approximation
+        derived from PTS * framerate; use `position` for accurate PTS-based timing."""
+        if self._frame is None:
+            return 0
+        return round(self._frame.time * float(self.frame_rate)) + 1
+
+    @property
+    def rate(self) -> Fraction:
+        return self._video_stream.guessed_rate
+
+    @property
+    def time_base(self) -> Fraction | None:
         if self._frame:
-            return self.position.frame_num + 1
-        return 0
+            return self._frame.time_base
+        return None
 
     @property
     def aspect_ratio(self) -> float:
@@ -219,7 +247,7 @@ class VideoStreamAv(VideoStream):
         frame_aspect_ratio = self.frame_size[0] / self.frame_size[1]
         return display_aspect_ratio / frame_aspect_ratio
 
-    def seek(self, target: Union[FrameTimecode, float, int]) -> None:
+    def seek(self, target: TimecodeLike) -> None:
         """Seek to the given timecode. If given as a frame number, represents the current seek
         pointer (e.g. if seeking to 0, the next frame decoded will be the first frame of the video).
 
@@ -237,59 +265,56 @@ class VideoStreamAv(VideoStream):
         Raises:
             ValueError: `target` is not a valid value (i.e. it is negative).
         """
+        if not isinstance(target, FrameTimecode):
+            target = FrameTimecode(target, self.frame_rate)
         if target < 0:
             raise ValueError("Target cannot be negative!")
         beginning = target == 0
+
         target = self.base_timecode + target
         if target >= 1:
             target = target - 1
         target_pts = self._video_stream.start_time + int(
-            (self.base_timecode + target).get_seconds() / self._video_stream.time_base
+            (self.base_timecode + target).seconds / self._video_stream.time_base
         )
         self._frame = None
+        self._decoder = None
         self._container.seek(target_pts, stream=self._video_stream)
         if not beginning:
-            self.read(decode=False, advance=True)
+            self.read(decode=False)
         while self.position < target:
-            if self.read(decode=False, advance=True) is False:
+            if self.read(decode=False) is False:
                 break
 
     def reset(self):
         """Close and re-open the VideoStream (should be equivalent to calling `seek(0)`)."""
         self._container.close()
         self._frame = None
+        self._decoder = None
         try:
             self._container = av.open(self._path if self._path else self._io)
         except Exception as ex:
             raise VideoOpenFailure() from ex
 
-    def read(self, decode: bool = True, advance: bool = True) -> Union[np.ndarray, bool]:
-        """Read and decode the next frame as a np.ndarray. Returns False when video ends.
-
-        Arguments:
-            decode: Decode and return the frame.
-            advance: Seek to the next frame. If False, will return the current (last) frame.
-
-        Returns:
-            If decode = True, the decoded frame (np.ndarray), or False (bool) if end of video.
-            If decode = False, a bool indicating if advancing to the the next frame succeeded.
-        """
-        has_advanced = False
-        if advance:
-            try:
-                last_frame = self._frame
-                self._frame = next(self._container.decode(video=0))
-            except av.error.EOFError:
-                self._frame = last_frame
-                if self._handle_eof():
-                    return self.read(decode, advance=True)
-                return False
-            except StopIteration:
-                return False
-            has_advanced = True
-        if decode:
-            return self._frame.to_ndarray(format="bgr24")
-        return has_advanced
+    def read(self, decode: bool = True) -> np.ndarray | bool:
+        # Reuse a persistent decoder generator so the codec's internal frame buffer (used for
+        # B-frame reordering) is never flushed prematurely. Creating a new generator each call
+        # caused the last buffered frame to be lost at EOF.
+        if self._decoder is None:
+            self._decoder = self._container.decode(video=0)
+        try:
+            last_frame = self._frame
+            assert self._decoder is not None
+            self._frame = next(self._decoder)
+        except av.error.EOFError:  # type: ignore[attr-defined]
+            self._frame = last_frame
+            if self._handle_eof():
+                return self.read(decode)
+            return False
+        except StopIteration:
+            return False
+        assert self._frame is not None
+        return self._frame.to_ndarray(format="bgr24") if decode else True
 
     #
     # Private Methods/Properties
@@ -346,7 +371,7 @@ class VideoStreamAv(VideoStream):
         # Don't re-open the video if we can't seek or aren't in AUTO/FRAME thread_type mode.
         if not self.is_seekable or self._video_stream.thread_type not in ("AUTO", "FRAME"):
             return False
-        last_frame = self.frame_number
+        last_pos_secs = self.position.seconds
         orig_pos = self._io.tell()
         try:
             self._io.seek(0)
@@ -356,5 +381,6 @@ class VideoStreamAv(VideoStream):
             raise
         self._container.close()
         self._container = container
-        self.seek(last_frame)
+        self._decoder = None
+        self.seek(last_pos_secs)
         return True

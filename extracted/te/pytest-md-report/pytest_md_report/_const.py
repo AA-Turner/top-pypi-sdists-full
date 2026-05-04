@@ -14,6 +14,7 @@ class Header:
     TESTFUNC: Final = "function"
     PARAMS: Final = "params"
     SUBTOTAL: Final = "SUBTOTAL"
+    DURATION: Final = "duration"
 
 
 class ColorPolicy(Enum):
@@ -47,6 +48,7 @@ class Default:
     MARKDOWN_FLAVOR: Final = MarkdownFlavor.COMMON_MARK
     ZEROS: Final = ZerosRender.NUMBER
     EXCLUDE_RESULTS: list[str] = []
+    DURATION_PRECISION: Final = 3
 
     class FGColor:
         SUCCESS: Final = "light_green"
@@ -175,6 +177,39 @@ class Option(Enum):
         ).format(
             default=Default.EXCLUDE_RESULTS,
         ),
+    )
+    MD_REPORT_MARK_COLS = (
+        f"{OPTION_PREFIX}-mark-cols",
+        dedent(
+            """\
+            List of pytest mark names to render as additional report columns.
+            For each test, the mark's args (and kwargs) are rendered in the
+            corresponding column. When the same mark appears multiple times for
+            a row (e.g. via parametrize), values are joined with ' | '.
+            When specifying as an environment variable, pass a comma-separated
+            string (e.g. 'id,priority').
+            Defaults to '[]'.
+            """
+        ),
+    )
+    MD_REPORT_SHOW_DURATION = (
+        f"{OPTION_PREFIX}-show-duration",
+        dedent(
+            """\
+            Add a 'duration' column showing the total execution time in seconds.
+            Durations are aggregated per row (per file / function / parameters
+            depending on the verbosity level) by summing setup, call, and teardown phases.
+            """
+        ),
+    )
+    MD_REPORT_DURATION_PRECISION = (
+        f"{OPTION_PREFIX}-duration-precision",
+        dedent(
+            """\
+            Number of decimal places used to render the duration column.
+            Defaults to {default}.
+            """
+        ).format(default=Default.DURATION_PRECISION),
     )
 
     @property

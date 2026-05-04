@@ -32,14 +32,46 @@
 
 #include <SciQLopPlots/DSP/DSP.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <span>
 #include <type_traits>
 #include <vector>
 
 namespace
 {
+
+// ── Exception-safe GIL release ───────────────────────────────────────────────
+//
+// `SQDSP_GIL_RELEASE_BEGIN` / `SQDSP_GIL_RELEASE_END` are scope-bracketing
+// macros that drop and restore the GIL via plain assignment, not RAII. Any
+// C++ exception thrown inside the scope unwinds past the END macro without
+// reacquiring the GIL, so the catch handler runs without the GIL and any
+// PyErr_* call is undefined behavior — `std::terminate` in practice.
+//
+// `GILReleaseScope` releases the GIL on construction and reacquires it on
+// destruction (including stack unwinding from an exception). Callers wrap
+// the body in try/catch; the catch handler always runs with the GIL held.
+struct GILReleaseScope
+{
+    PyThreadState* save;
+    GILReleaseScope() : save(PyEval_SaveThread()) {}
+    ~GILReleaseScope() { PyEval_RestoreThread(save); }
+    GILReleaseScope(const GILReleaseScope&) = delete;
+    GILReleaseScope& operator=(const GILReleaseScope&) = delete;
+};
+
+#define SQDSP_GIL_RELEASE_BEGIN try { GILReleaseScope _sqdsp_gil_;
+#define SQDSP_GIL_RELEASE_END                                                  \
+    }                                                                          \
+    catch (const std::exception& _sqdsp_e)                                     \
+    {                                                                          \
+        PyErr_SetString(PyExc_RuntimeError, _sqdsp_e.what());                  \
+        return nullptr;                                                        \
+    }
 
 // ── Numpy type traits ────────────────────────────────────────────────────────
 
@@ -266,6 +298,86 @@ struct ZeroCopyOutput
     }
 };
 
+// ── Validation helpers ───────────────────────────────────────────────────
+
+bool check_xy_sizes(XArray& x, YArray& y)
+{
+    if (x.nrows != y.nrows)
+    {
+        PyErr_Format(PyExc_ValueError,
+            "x length (%zd) must match y row count (%zd)", x.nrows, y.nrows);
+        return false;
+    }
+    return true;
+}
+
+bool check_min_rows(XArray& x, Py_ssize_t min_rows, const char* func_name)
+{
+    if (x.nrows < min_rows)
+    {
+        PyErr_Format(PyExc_ValueError,
+            "%s requires at least %zd samples, got %zd", func_name, min_rows, x.nrows);
+        return false;
+    }
+    return true;
+}
+
+bool check_gap_factor(double gap_factor)
+{
+    if (gap_factor <= 0.0)
+    {
+        PyErr_SetString(PyExc_ValueError, "gap_factor must be > 0");
+        return false;
+    }
+    return true;
+}
+
+bool check_window_size(Py_ssize_t window, Py_ssize_t nrows, const char* func_name)
+{
+    if (window <= 0)
+    {
+        PyErr_Format(PyExc_ValueError,
+            "%s: window must be > 0, got %zd", func_name, window);
+        return false;
+    }
+    if (window > nrows)
+    {
+        PyErr_Format(PyExc_ValueError,
+            "%s: window (%zd) must be <= number of rows (%zd)", func_name, window, nrows);
+        return false;
+    }
+    return true;
+}
+
+bool check_sos_a0(YArray& sos)
+{
+    // Check that no a0 coefficient is zero (would cause division by zero)
+    // sos is (n_sections, 6), a0 is at column index 3
+    for (Py_ssize_t s = 0; s < sos.nrows; ++s)
+    {
+        double a0 = 0.0;
+        switch (sos.dtype)
+        {
+            case NPY_DOUBLE:
+                a0 = static_cast<double>(sos.typed_data<double>()[s * 6 + 3]);
+                break;
+            case NPY_FLOAT:
+                a0 = static_cast<double>(sos.typed_data<float>()[s * 6 + 3]);
+                break;
+            case NPY_INT32:
+                a0 = static_cast<double>(sos.typed_data<int32_t>()[s * 6 + 3]);
+                break;
+        }
+        if (a0 == 0.0)
+        {
+            PyErr_Format(PyExc_ValueError,
+                "SOS section %zd has a0=0 (division by zero)", s);
+            return false;
+        }
+    }
+    return true;
+}
+
 // ── Dtype dispatch ───────────────────────────────────────────────────────────
 
 // Dispatch a generic lambda on the y array's dtype.
@@ -294,7 +406,7 @@ PyObject* apply_stage(
     XArray& x, YArray& y, double gap_factor, bool has_gaps, const sqp::dsp::Stage<T>& stage)
 {
     sqp::dsp::TimeSeries<T> ts;
-    Py_BEGIN_ALLOW_THREADS
+    SQDSP_GIL_RELEASE_BEGIN
     if (has_gaps)
     {
         auto segments = sqp::dsp::split_segments<T>(
@@ -313,7 +425,7 @@ PyObject* apply_stage(
         auto results = stage(segments);
         ts = std::move(results.front());
     }
-    Py_END_ALLOW_THREADS
+    SQDSP_GIL_RELEASE_END
     return timeseries_to_tuple(ts);
 }
 
@@ -362,11 +474,13 @@ PyObject* dsp_split_segments(PyObject* /*self*/, PyObject* args, PyObject* kwarg
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
 
     std::vector<std::size_t> gap_indices;
-    Py_BEGIN_ALLOW_THREADS
+    SQDSP_GIL_RELEASE_BEGIN
     gap_indices = sqp::dsp::detail::find_gap_indices(x.span(), gap_factor);
-    Py_END_ALLOW_THREADS
+    SQDSP_GIL_RELEASE_END
 
     PyObject* result = PyList_New(0);
     if (!result)
@@ -418,15 +532,17 @@ PyObject* dsp_interpolate_nan(PyObject* /*self*/, PyObject* args, PyObject* kwar
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
         std::vector<T> out;
-        Py_BEGIN_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_BEGIN
         out = sqp::dsp::interpolate_nan<T>(x.data, y.typed_data<T>(),
             static_cast<std::size_t>(y.nrows), static_cast<std::size_t>(y.ncols),
             static_cast<std::size_t>(max_consecutive));
-        Py_END_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_END
         return (y.ncols == 1) ? vec_to_1d(out) : vec_to_2d(out, y.nrows, y.ncols);
     });
 }
@@ -449,6 +565,20 @@ PyObject* dsp_resample(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
+
+    if (target_dt > 0.0 && x.nrows >= 2)
+    {
+        const double span = x.data[x.nrows - 1] - x.data[0];
+        const double n_out_f = std::floor(span / target_dt) + 1.0;
+        if (n_out_f > 100'000'000.0)
+        {
+            PyErr_SetString(PyExc_ValueError,
+                "resample: output would exceed 100M samples, target_dt is too small");
+            return nullptr;
+        }
+    }
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -469,8 +599,14 @@ PyObject* dsp_resample(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
 
             const double x_start = x.data[0];
             const double x_end = x.data[x.nrows - 1];
-            const auto n_out = static_cast<npy_intp>(
-                std::floor((x_end - x_start) / dt)) + 1;
+            const double n_out_f = std::floor((x_end - x_start) / dt) + 1.0;
+            if (n_out_f <= 0.0 || n_out_f > 100'000'000.0)
+            {
+                PyErr_SetString(PyExc_ValueError,
+                    "resample: output would exceed 100M samples, dt is too small");
+                return static_cast<PyObject*>(nullptr);
+            }
+            const auto n_out = static_cast<npy_intp>(n_out_f);
             const auto ncols = static_cast<std::size_t>(y.ncols);
 
             // Preallocate output numpy arrays
@@ -498,7 +634,7 @@ PyObject* dsp_resample(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
                 return static_cast<PyObject*>(nullptr);
             }
 
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (npy_intp i = 0; i < n_out; ++i)
                 x_out_ptr[i] = x_start + static_cast<double>(i) * dt;
 
@@ -510,7 +646,7 @@ PyObject* dsp_resample(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
                     x_out_ptr, y_out_ptr,
                     static_cast<std::size_t>(n_out), ncols);
             }
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
 
             auto* tuple = PyTuple_Pack(2, x_out_obj, y_out_obj);
             Py_DECREF(x_out_obj);
@@ -540,10 +676,17 @@ PyObject* dsp_fir_filter(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y, coeffs;
     if (!x.parse(x_obj) || !y.parse(y_obj) || !coeffs.parse(coeffs_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
 
     if (y.dtype != coeffs.dtype)
     {
         PyErr_SetString(PyExc_TypeError, "y and coeffs must have the same dtype");
+        return nullptr;
+    }
+    if (coeffs.nrows < 1)
+    {
+        PyErr_SetString(PyExc_ValueError, "coeffs must have at least 1 tap");
         return nullptr;
     }
 
@@ -556,12 +699,12 @@ PyObject* dsp_fir_filter(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
                 return static_cast<PyObject*>(nullptr);
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t col = 0; col < ncols; ++col)
                 sqp::dsp::detail::fir_apply_column(
                     y.typed_data<T>(), nrows, ncols, col,
                     coeffs.typed_data<T>(), static_cast<std::size_t>(coeffs.nrows), out.y_ptr);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         auto stage = sqp::dsp::fir_filter<T>(
@@ -588,6 +731,8 @@ PyObject* dsp_iir_sos(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y, sos;
     if (!x.parse(x_obj) || !y.parse(y_obj) || !sos.parse(sos_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
 
     if (y.dtype != sos.dtype)
     {
@@ -600,6 +745,8 @@ PyObject* dsp_iir_sos(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
         PyErr_SetString(PyExc_ValueError, "SOS matrix must have 6 columns [b0,b1,b2,a0,a1,a2]");
         return nullptr;
     }
+    if (!check_sos_a0(sos))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -610,12 +757,12 @@ PyObject* dsp_iir_sos(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
                 return static_cast<PyObject*>(nullptr);
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t col = 0; col < ncols; ++col)
                 sqp::dsp::detail::sos_apply_column(
                     y.typed_data<T>(), nrows, ncols, col,
                     sos.typed_data<T>(), static_cast<std::size_t>(sos.nrows), out.y_ptr);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         auto stage = sqp::dsp::iir_sos<T>(
@@ -643,12 +790,21 @@ PyObject* dsp_filtfilt(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y, coeffs;
     if (!x.parse(x_obj) || !y.parse(y_obj) || !coeffs.parse(coeffs_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
 
     if (y.dtype != coeffs.dtype)
     {
         PyErr_SetString(PyExc_TypeError, "y and coeffs must have the same dtype");
         return nullptr;
     }
+    if (coeffs.nrows < 1)
+    {
+        PyErr_SetString(PyExc_ValueError, "coeffs must have at least 1 tap");
+        return nullptr;
+    }
+    if (!check_min_rows(x, 2, "filtfilt"))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -659,12 +815,12 @@ PyObject* dsp_filtfilt(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
                 return static_cast<PyObject*>(nullptr);
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t col = 0; col < ncols; ++col)
                 sqp::dsp::detail::filtfilt_column(
                     y.typed_data<T>(), nrows, ncols, col,
                     coeffs.typed_data<T>(), static_cast<std::size_t>(coeffs.nrows), out.y_ptr);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         // Gap-aware: build segments, apply filtfilt per segment
@@ -709,6 +865,8 @@ PyObject* dsp_sosfiltfilt(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y, sos;
     if (!x.parse(x_obj) || !y.parse(y_obj) || !sos.parse(sos_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
 
     if (y.dtype != sos.dtype)
     {
@@ -721,6 +879,10 @@ PyObject* dsp_sosfiltfilt(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
         PyErr_SetString(PyExc_ValueError, "SOS matrix must have 6 columns [b0,b1,b2,a0,a1,a2]");
         return nullptr;
     }
+    if (!check_sos_a0(sos))
+        return nullptr;
+    if (!check_min_rows(x, 2, "sosfiltfilt"))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -731,12 +893,12 @@ PyObject* dsp_sosfiltfilt(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
                 return static_cast<PyObject*>(nullptr);
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t col = 0; col < ncols; ++col)
                 sqp::dsp::detail::sosfiltfilt_column(
                     y.typed_data<T>(), nrows, ncols, col,
                     sos.typed_data<T>(), static_cast<std::size_t>(sos.nrows), out.y_ptr);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         auto sos_vec = std::vector<T>(
@@ -780,13 +942,17 @@ PyObject* dsp_fft(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
+    if (!check_min_rows(x, 2, "fft"))
+        return nullptr;
 
     auto win = parse_window_type(window_str);
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
         std::vector<sqp::dsp::FFTResult<T>> results;
-        Py_BEGIN_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_BEGIN
         std::vector<sqp::dsp::Segment<T>> segments;
         if (has_gaps)
         {
@@ -805,7 +971,7 @@ PyObject* dsp_fft(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
             });
         }
         results = sqp::dsp::fft(segments, win);
-        Py_END_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_END
 
         PyObject* list = PyList_New(static_cast<Py_ssize_t>(results.size()));
         if (!list)
@@ -865,13 +1031,32 @@ PyObject* dsp_spectrogram(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
+    if (col < 0 || col >= y.ncols)
+    {
+        PyErr_Format(PyExc_ValueError,
+            "spectrogram: col (%zd) out of range [0, %zd)", col, y.ncols);
+        return nullptr;
+    }
+    if (window_size < 2)
+    {
+        PyErr_SetString(PyExc_ValueError, "spectrogram: window_size must be >= 2");
+        return nullptr;
+    }
+    if (overlap < 0 || overlap >= window_size)
+    {
+        PyErr_Format(PyExc_ValueError,
+            "spectrogram: overlap (%zd) must be in [0, window_size=%zd)", overlap, window_size);
+        return nullptr;
+    }
 
     auto win = parse_window_type(window_str);
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
         std::vector<sqp::dsp::SpectrogramResult<T>> results;
-        Py_BEGIN_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_BEGIN
         std::vector<sqp::dsp::Segment<T>> segments;
         if (has_gaps)
         {
@@ -890,7 +1075,7 @@ PyObject* dsp_spectrogram(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
         }
         results = sqp::dsp::spectrogram(segments, static_cast<std::size_t>(col),
             static_cast<std::size_t>(window_size), static_cast<std::size_t>(overlap), win);
-        Py_END_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_END
 
         PyObject* list = PyList_New(static_cast<Py_ssize_t>(results.size()));
         if (!list)
@@ -946,6 +1131,10 @@ PyObject* dsp_rolling_mean(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
+    if (!check_window_size(window, y.nrows, "rolling_mean"))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -957,11 +1146,11 @@ PyObject* dsp_rolling_mean(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
             const auto win = static_cast<std::size_t>(window);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t col = 0; col < ncols; ++col)
                 sqp::dsp::detail::rolling_mean_column(
                     y.typed_data<T>(), nrows, ncols, col, win, out.y_ptr);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         auto stage = sqp::dsp::rolling_mean<T>(static_cast<std::size_t>(window));
@@ -987,6 +1176,10 @@ PyObject* dsp_rolling_std(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
+    if (!check_window_size(window, y.nrows, "rolling_std"))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -998,11 +1191,11 @@ PyObject* dsp_rolling_std(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
             const auto win = static_cast<std::size_t>(window);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t col = 0; col < ncols; ++col)
                 sqp::dsp::detail::rolling_std_column(
                     y.typed_data<T>(), nrows, ncols, col, win, out.y_ptr);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         auto stage = sqp::dsp::rolling_std<T>(static_cast<std::size_t>(window));
@@ -1028,6 +1221,8 @@ PyObject* dsp_reduce(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
         return nullptr;
+    if (!check_xy_sizes(x, y) || !check_gap_factor(gap_factor))
+        return nullptr;
 
     return dispatch(y.dtype, [&]<typename T>() -> PyObject*
     {
@@ -1039,11 +1234,11 @@ PyObject* dsp_reduce(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
             const auto nrows = static_cast<std::size_t>(y.nrows);
             const auto ncols = static_cast<std::size_t>(y.ncols);
             const auto op = parse_reduce_op(op_str);
-            Py_BEGIN_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_BEGIN
             for (std::size_t row = 0; row < nrows; ++row)
                 out.y_ptr[row] = sqp::dsp::detail::reduce_row(
                     &y.typed_data<T>()[row * ncols], ncols, op);
-            Py_END_ALLOW_THREADS
+            SQDSP_GIL_RELEASE_END
             return out.to_tuple();
         }
         auto stage = sqp::dsp::reduce<T>(parse_reduce_op(op_str));
@@ -1069,6 +1264,8 @@ PyObject* dsp_reduce_axes(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     XArray x;
     YArray y;
     if (!x.parse(x_obj) || !y.parse(y_obj))
+        return nullptr;
+    if (!check_xy_sizes(x, y))
         return nullptr;
 
     // Parse shape tuple
@@ -1133,12 +1330,12 @@ PyObject* dsp_reduce_axes(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
             return static_cast<PyObject*>(nullptr);
         }
 
-        Py_BEGIN_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_BEGIN
         sqp::dsp::parallel_for(nrows, [&](std::size_t row) {
             sqp::dsp::detail::reduce_axes_row(
                 &y.typed_data<T>()[row * prod], spec, op, &y_out_ptr[row * spec.out_size]);
         });
-        Py_END_ALLOW_THREADS
+        SQDSP_GIL_RELEASE_END
 
         auto* tuple = PyTuple_Pack(2, x_ref, y_out_obj);
         Py_DECREF(x_ref);

@@ -3,7 +3,7 @@ name: Tests
 on: [push, pull_request]
 
 env:
-  QT_VERSION: 6.10.2
+  QT_VERSION: 6.11.0
 
 jobs:
   unit-tests:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install Qt
         run: |
-          pip install aqtinstall
+          pip install "aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@master"
           [ -d "Qt/${{ env.QT_VERSION }}" ] || aqt install-qt -O Qt linux desktop ${{ env.QT_VERSION }} -m qtshadertools
 
       - name: Cache ccache

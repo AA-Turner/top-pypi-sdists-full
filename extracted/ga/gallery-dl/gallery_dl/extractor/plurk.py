@@ -73,11 +73,7 @@ class PlurkExtractor(Extractor):
         """Return an iterable with a 'plurk's comments"""
         url = "https://www.plurk.com/Responses/get"
         data = {"plurk_id": plurk["id"], "count": "200"}
-        headers = {
-            "Origin": self.root,
-            "Referer": self.root,
-            "X-Requested-With": "XMLHttpRequest",
-        }
+        headers = {"X-Requested-With": "XMLHttpRequest"}
 
         while True:
             info = self.request_json(

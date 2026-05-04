@@ -352,9 +352,7 @@ def discover(ctx: click.Context, strict: bool) -> None:
     for name, node in sorted(nodes.items()):
         click.echo(f"  {name} ({node.package_name} {node.package_version})")
         if verbose:
-            click.echo(
-                f"    Class: {node.node_class.__module__}.{node.node_class.__name__}"
-            )
+            click.echo(f"    Entry point: {node.entry_point_value}")
 
 
 @cli.command()
@@ -700,6 +698,11 @@ from omnibase_core.cli.cli_run_node import run_node
 
 cli.add_command(run_node)
 
+# Register pack command
+from omnibase_core.cli.cli_pack import cli_pack
+
+cli.add_command(cli_pack)
+
 # Register bootstrap command group
 from omnibase_core.cli.cli_bootstrap import bootstrap
 
@@ -714,6 +717,11 @@ cli.add_command(config_group)
 from omnibase_core.cli.cli_refresh_credentials import refresh_credentials
 
 cli.add_command(refresh_credentials)
+
+# Register hooks command group (list, mask, enable, disable) [OMN-9614]
+from omnibase_core.cli.cli_hooks import hooks_group
+
+cli.add_command(hooks_group)
 
 # Load CLI extension groups registered by other packages via the onex.cli entry-point group.
 # Each entry point must expose a click.Group or click.Command.

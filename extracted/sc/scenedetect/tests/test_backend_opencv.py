@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2022 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -31,6 +31,7 @@ def test_open_image_sequence(test_image_sequence: str):
     sequence = VideoStreamCv2(test_image_sequence, framerate=25.0)
     assert sequence.is_seekable
     assert sequence.frame_size[0] > 0 and sequence.frame_size[1] > 0
+    assert sequence.duration is not None
     assert sequence.duration.frame_num == 30
     assert sequence.read() is not False
     sequence.seek(100)
@@ -49,4 +50,4 @@ def test_capture_adapter(test_movie_clip: str):
     assert scene_manager.detect_scenes(video=adapter, duration=adapter.base_timecode + 10.0)
     scenes = scene_manager.get_scene_list()
     assert len(scenes) == len(GROUND_TRUTH_CAPTURE_ADAPTER_TEST)
-    assert [start.get_frames() for (start, _) in scenes] == GROUND_TRUTH_CAPTURE_ADAPTER_TEST
+    assert [start.frame_num for (start, _) in scenes] == GROUND_TRUTH_CAPTURE_ADAPTER_TEST

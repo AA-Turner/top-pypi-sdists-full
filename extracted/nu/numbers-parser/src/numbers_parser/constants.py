@@ -100,6 +100,7 @@ SUPPORTED_NUMBERS_VERSIONS = [
     "14.5",
     # Numbers Creator Studio
     "26.0",
+    "26.1",
 ]
 
 
@@ -323,13 +324,13 @@ class FractionAccuracy(IntEnum):
     """Fractions are formatted to the nearest half."""
     QUARTERS = 4
     """Fractions are formatted to the nearest quarter."""
-    EIGTHS = 8
+    EIGHTHS = 8
     """Fractions are formatted to the nearest eighth."""
     SIXTEENTHS = 16
     """Fractions are formatted to the nearest sixteenth."""
     TENTHS = 10
     """Fractions are formatted to the nearest tenth."""
-    HUNDRETHS = 100
+    HUNDREDTHS = 100
     """Fractions are formatted to the nearest hundredth."""
 
 

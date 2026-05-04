@@ -24,6 +24,7 @@ headers = """
 #include "nondominated.h"
 #include "epsilon.h"
 #include "eaf.h"
+#include "r2_exact.h"
 #include "whv.h"
 #include "whv_hype.h"
 #include "hvapprox.h"
@@ -33,6 +34,7 @@ sources = [
     "eaf.c",
     "eaf3d.c",
     "eafdiff.c",
+    "r2_exact.c",
     "hv.c",
     "hvapprox.c",
     "hv3dplus.c",
@@ -50,7 +52,7 @@ sources = [
 sources = [sources_path + f for f in sources]
 
 
-def get_config():
+def get_config():  # nocov
     from distutils.core import Distribution
     from distutils.sysconfig import get_config_vars
 
@@ -59,7 +61,7 @@ def get_config():
     return config
 
 
-def uses_msvc():
+def uses_msvc():  # nocov
     config = get_config()
     return config.try_compile('#ifndef _MSC_VER\n#error "not MSVC"\n#endif')
 
@@ -93,7 +95,7 @@ MSVC_CFLAGS = [
 ]
 MSVC_LDFLAGS = ["/LTCG"]  # Link-time optimization
 GCC_CFLAGS = ["-O3", "-flto", "-fvisibility=hidden"]
-GCC_LDFLAGS = [*GCC_CFLAGS]
+GCC_LDFLAGS = []
 if is_x86_64:
     # Compile for sufficiently old x86-64 architecture.
     MSVC_arch = ["/arch:AVX"]
@@ -107,12 +109,14 @@ if is_windows and uses_msvc():
     ldflags = MSVC_LDFLAGS + MSVC_arch
 else:
     cflags = GCC_CFLAGS + GCC_arch
-    ldflags = GCC_LDFLAGS + GCC_arch
+    # We have to include again CFLAGS so that the linking step includes them.
+    ldflags = GCC_CFLAGS + GCC_arch + GCC_LDFLAGS
     if not is_macos:
         ldflags += ["-Wl,-z,now"]
 
-cflags += os.environ.get("CFLAGS", "").split()
-ldflags += os.environ.get("LDFLAGS", "").split()
+cflags_env = os.environ.get("CFLAGS", "").split()
+cflags += cflags_env
+ldflags += cflags_env + os.environ.get("LDFLAGS", "").split()
 
 ffibuilder = FFI()
 file_path = os.path.dirname(os.path.realpath(__file__))

@@ -14,6 +14,10 @@ try:
 except Exception:
     __version__ = "unknown"
 
+# Output directory — override with GRAPHIFY_OUT env var for worktrees or shared-output setups.
+# Accepts a relative name ("graphify-out-feature") or an absolute path ("/shared/graphify-out").
+_GRAPHIFY_OUT = os.environ.get("GRAPHIFY_OUT", "graphify-out")
+
 
 def _check_skill_version(skill_dst: Path) -> None:
     """Warn if the installed skill is from an older graphify version."""
@@ -252,9 +256,13 @@ _GEMINI_HOOK = {
         {
             "type": "command",
             "command": (
-                "[ -f graphify-out/graph.json ] && "
-                r"""echo '{"decision":"allow","additionalContext":"graphify: Knowledge graph exists. Read graphify-out/GRAPH_REPORT.md for god nodes and community structure before searching raw files."}' """
-                r"""|| echo '{"decision":"allow"}'"""
+                'python -c "'
+                "import sys,pathlib,json;"
+                "e=pathlib.Path('graphify-out/graph.json').exists();"
+                "d={'decision':'allow'};"
+                "e and d.update({'additionalContext':'graphify: Knowledge graph exists. Read graphify-out/GRAPH_REPORT.md for god nodes and community structure before searching raw files.'});"
+                "sys.stdout.write(json.dumps(d))"
+                '"'
             ),
         }
     ],
@@ -366,9 +374,17 @@ _VSCODE_INSTRUCTIONS_MARKER = "## graphify"
 _VSCODE_INSTRUCTIONS_SECTION = """\
 ## graphify
 
-Before answering architecture or codebase questions, read `graphify-out/GRAPH_REPORT.md` if it exists.
-If `graphify-out/wiki/index.md` exists, navigate it for deep questions.
-Type `/graphify` in Copilot Chat to build or update the knowledge graph.
+For any question about this repo's architecture, structure, components, or how to add/modify/find
+code, your **first tool call must be** to read `graphify-out/GRAPH_REPORT.md` (if it exists).
+
+Triggers: "how do I…", "where is…", "what does … do", "add/modify a <component>",
+"explain the architecture", or anything that depends on how files or classes relate.
+
+After reading the report (and `graphify-out/wiki/index.md` for deep questions), answer from the
+graph. Only read source files when (a) modifying/debugging specific code, (b) the graph lacks
+the needed detail, or (c) the graph is missing or stale.
+
+Type `/graphify` in Copilot Chat to build or update the graph.
 """
 
 
@@ -448,11 +464,13 @@ Rules:
 """
 
 _ANTIGRAVITY_WORKFLOW = """\
-# Workflow: graphify
-**Command:** /graphify
-**Description:** Turn any folder of files into a navigable knowledge graph
+---
+name: graphify
+description: Turn any folder of files into a navigable knowledge graph
+---
 
-## Steps
+# Workflow: graphify
+
 Follow the graphify skill installed at ~/.agents/skills/graphify/SKILL.md to run the full pipeline.
 
 If no path argument is given, use `.` (current directory).
@@ -539,7 +557,12 @@ def _antigravity_install(project_dir: Path) -> None:
     rules_path = project_dir / _ANTIGRAVITY_RULES_PATH
     rules_path.parent.mkdir(parents=True, exist_ok=True)
     if rules_path.exists():
-        print(f"graphify rule already exists at {rules_path} (no change)")
+        existing = rules_path.read_text(encoding="utf-8")
+        if _ANTIGRAVITY_RULES.strip() != existing.strip():
+            rules_path.write_text(_ANTIGRAVITY_RULES, encoding="utf-8")
+            print(f"graphify rule updated at {rules_path.resolve()}")
+        else:
+            print(f"graphify rule already up to date at {rules_path.resolve()}")
     else:
         rules_path.write_text(_ANTIGRAVITY_RULES, encoding="utf-8")
         print(f"graphify rule written to {rules_path.resolve()}")
@@ -548,7 +571,12 @@ def _antigravity_install(project_dir: Path) -> None:
     wf_path = project_dir / _ANTIGRAVITY_WORKFLOW_PATH
     wf_path.parent.mkdir(parents=True, exist_ok=True)
     if wf_path.exists():
-        print(f"graphify workflow already exists at {wf_path} (no change)")
+        existing = wf_path.read_text(encoding="utf-8")
+        if _ANTIGRAVITY_WORKFLOW.strip() != existing.strip():
+            wf_path.write_text(_ANTIGRAVITY_WORKFLOW, encoding="utf-8")
+            print(f"graphify workflow updated at {wf_path.resolve()}")
+        else:
+            print(f"graphify workflow already up to date at {wf_path.resolve()}")
     else:
         wf_path.write_text(_ANTIGRAVITY_WORKFLOW, encoding="utf-8")
         print(f"graphify workflow written to {wf_path.resolve()}")
@@ -736,6 +764,26 @@ _CODEX_HOOK = {
 }
 
 
+def _resolve_graphify_exe() -> str:
+    """Return the absolute path to the graphify executable.
+
+    Falls back to bare 'graphify' if resolution fails. Using an absolute path
+    ensures the hook works in environments where the venv Scripts/ directory is
+    not on PATH (e.g. VS Code Codex extension on Windows).
+    """
+    import shutil
+    found = shutil.which("graphify")
+    if found:
+        return found
+    # Derive from sys.executable: same Scripts/ (Windows) or bin/ (Unix) dir
+    scripts_dir = Path(sys.executable).parent
+    for name in ("graphify.exe", "graphify"):
+        candidate = scripts_dir / name
+        if candidate.exists():
+            return str(candidate)
+    return "graphify"
+
+
 def _install_codex_hook(project_dir: Path) -> None:
     """Add graphify PreToolUse hook to .codex/hooks.json."""
     hooks_path = project_dir / ".codex" / "hooks.json"
@@ -749,11 +797,23 @@ def _install_codex_hook(project_dir: Path) -> None:
     else:
         existing = {}
 
+    graphify_exe = _resolve_graphify_exe()
+    hook_entry = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [{"type": "command", "command": f"{graphify_exe} hook-check"}],
+                }
+            ]
+        }
+    }
+
     pre_tool = existing.setdefault("hooks", {}).setdefault("PreToolUse", [])
     existing["hooks"]["PreToolUse"] = [h for h in pre_tool if "graphify" not in str(h)]
-    existing["hooks"]["PreToolUse"].extend(_CODEX_HOOK["hooks"]["PreToolUse"])
+    existing["hooks"]["PreToolUse"].extend(hook_entry["hooks"]["PreToolUse"])
     hooks_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    print(f"  .codex/hooks.json  ->  PreToolUse hook registered")
+    print(f"  .codex/hooks.json  ->  PreToolUse hook registered ({graphify_exe} hook-check)")
 
 
 def _uninstall_codex_hook(project_dir: Path) -> None:
@@ -1000,6 +1060,7 @@ def main() -> None:
         print("  explain \"X\"             plain-language explanation of a node and its neighbors")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
         print("  clone <github-url>      clone a GitHub repo locally and print its path for /graphify")
+        print("  merge-driver <base> <current> <other>  git merge driver: union-merge two graph.json files (set up via hook install)")
         print("  merge-graphs <g1> <g2>  merge two or more graph.json files into one cross-repo graph")
         print("    --out <path>            output path (default: graphify-out/merged-graph.json)")
         print("    --branch <branch>       checkout a specific branch (default: repo default)")
@@ -1431,6 +1492,8 @@ def main() -> None:
     elif cmd == "cluster-only":
         watch_path = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(".")
         no_viz = "--no-viz" in sys.argv
+        _min_cs_arg = next((a for a in sys.argv if a.startswith("--min-community-size=")), None)
+        min_community_size = int(_min_cs_arg.split("=")[1]) if _min_cs_arg else 3
         graph_json = watch_path / "graphify-out" / "graph.json"
         if not graph_json.exists():
             print(f"error: no graph found at {graph_json} — run /graphify first", file=sys.stderr)
@@ -1454,9 +1517,12 @@ def main() -> None:
         labels = {cid: f"Community {cid}" for cid in communities}
         questions = suggest_questions(G, communities, labels)
         tokens = {"input": 0, "output": 0}
+        from graphify.export import _git_head as _gh
+        _commit = _gh()
         report = generate(G, communities, cohesion, labels, gods, surprises,
                           {"warning": "cluster-only mode — file stats not available"},
-                          tokens, str(watch_path), suggested_questions=questions)
+                          tokens, str(watch_path), suggested_questions=questions,
+                          min_community_size=min_community_size, built_at_commit=_commit)
         out = watch_path / "graphify-out"
         (out / "GRAPH_REPORT.md").write_text(report, encoding="utf-8")
         to_json(G, communities, str(out / "graph.json"))
@@ -1490,7 +1556,7 @@ def main() -> None:
             watch_path = Path(argv[2])
         else:
             # Try to recover the scan root saved by the last full build
-            saved = Path("graphify-out/.graphify_root")
+            saved = Path(_GRAPHIFY_OUT) / ".graphify_root"
             if saved.exists():
                 watch_path = Path(saved.read_text(encoding="utf-8").strip())
             else:
@@ -1510,23 +1576,9 @@ def main() -> None:
             sys.exit(1)
 
     elif cmd == "hook-check":
-        # Shell-agnostic PreToolUse hook entry point for Codex (and any platform
-        # where embedding Python/bash inline in a JSON hook command is fragile).
-        # Prints the hookSpecificOutput JSON if graph.json exists, exits 0 silently
-        # if not. Works on Windows PowerShell, cmd.exe, macOS, and Linux.
-        graph = Path("graphify-out") / "graph.json"
-        if graph.exists():
-            import json as _json
-            print(_json.dumps({
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "additionalContext": (
-                        "graphify: Knowledge graph exists. "
-                        "Read graphify-out/GRAPH_REPORT.md for god nodes and "
-                        "community structure before searching raw files."
-                    ),
-                }
-            }))
+        # Codex Desktop rejects hookSpecificOutput.additionalContext on PreToolUse.
+        # Keep this as a cross-platform no-op so installed hooks never break Bash
+        # tool calls. Graph guidance reaches the agent via AGENTS.md / skill instead.
         sys.exit(0)
     elif cmd == "check-update":
         if len(sys.argv) < 3:
@@ -1543,7 +1595,7 @@ def main() -> None:
         # showing top-K outbound edges per symbol.
         from typing import Optional as _Opt
         from graphify.tree_html import write_tree_html, DEFAULT_MAX_CHILDREN
-        graph_path = Path("graphify-out/graph.json")
+        graph_path = Path(_GRAPHIFY_OUT) / "graph.json"
         output_path: "_Opt[Path]" = None
         root: "_Opt[str]" = None
         max_children = DEFAULT_MAX_CHILDREN
@@ -1591,11 +1643,42 @@ def main() -> None:
         print(f"open with: xdg-open {out}  (or file://{out.resolve()})")
         sys.exit(0)
 
+    elif cmd == "merge-driver":
+        # git merge driver for graph.json — takes (base, current, other) and writes
+        # the union of current+other nodes/edges back to current. Always exits 0
+        # so git never marks graph.json as conflicted.
+        # Usage: graphify merge-driver %O %A %B  (set in .git/config merge driver)
+        if len(sys.argv) < 5:
+            print("Usage: graphify merge-driver <base> <current> <other>", file=sys.stderr)
+            sys.exit(1)
+        _base_path, _current_path, _other_path = sys.argv[2], sys.argv[3], sys.argv[4]
+        import networkx as _nx
+        from networkx.readwrite import json_graph as _jg
+        def _load_graph(p: str):
+            data = json.loads(Path(p).read_text(encoding="utf-8"))
+            try:
+                return _jg.node_link_graph(data, edges="links"), data
+            except TypeError:
+                return _jg.node_link_graph(data), data
+        try:
+            G_cur, _ = _load_graph(_current_path)
+            G_oth, _ = _load_graph(_other_path)
+        except Exception as exc:
+            print(f"[graphify merge-driver] error loading graphs: {exc}", file=sys.stderr)
+            sys.exit(0)  # exit 0 so git doesn't block the merge
+        merged = _nx.compose(G_cur, G_oth)
+        try:
+            out_data = _jg.node_link_data(merged, edges="links")
+        except TypeError:
+            out_data = _jg.node_link_data(merged)
+        Path(_current_path).write_text(json.dumps(out_data, indent=2), encoding="utf-8")
+        sys.exit(0)
+
     elif cmd == "merge-graphs":
         # graphify merge-graphs graph1.json graph2.json ... --out merged.json
         args = sys.argv[2:]
         graph_paths: list[Path] = []
-        out_path = Path("graphify-out/merged-graph.json")
+        out_path = Path(_GRAPHIFY_OUT) / "merged-graph.json"
         i = 0
         while i < len(args):
             if args[i] == "--out" and i + 1 < len(args):

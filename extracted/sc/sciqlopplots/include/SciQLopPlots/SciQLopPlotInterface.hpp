@@ -32,9 +32,12 @@
 #include <QPointF>
 #include <QShortcut>
 #include <QUuid>
+#include <memory>
 #include <qcustomplot.h>
 
 class SciQLopTheme;
+class InspectorExtension;
+#include "SciQLopPlots/Inspector/InspectorExtensionHolder.hpp"
 
 class SciQLopPlotInterface : public QFrame
 {
@@ -47,6 +50,7 @@ protected:
     QList<SciQLopPlotAxisInterface*> m_frozen_axes;
     QUuid m_uuid;
     bool m_selected = false;
+    std::unique_ptr<InspectorExtensionHolder> m_extension_holder;
 
     inline virtual SciQLopGraphInterface*
     plot_impl(const PyBuffer& x, const PyBuffer& y, QStringList labels = QStringList(),
@@ -110,6 +114,8 @@ public:
 
     SciQLopPlotInterface(QWidget* parent = nullptr, const QString& name = "")
             : QFrame(parent), m_uuid(QUuid::createUuid())
+            , m_extension_holder { std::make_unique<InspectorExtensionHolder>(
+                  this, [this]() { Q_EMIT inspector_extensions_changed(); }) }
     {
         if (!name.isEmpty())
             setObjectName(name);
@@ -364,19 +370,20 @@ public:
     inline virtual SciQLopGraphInterface*
     waterfall(const PyBuffer& x, const PyBuffer& y, QStringList labels = QStringList(),
               QList<QColor> colors = QList<QColor>(),
+              ::GraphMarkerShape marker = ::GraphMarkerShape::NoMarker,
               QVariantMap metaData = {})
     {
-        return plot_impl(x, y, labels, colors, ::GraphType::Waterfall,
-                         ::GraphMarkerShape::NoMarker, metaData);
+        return plot_impl(x, y, labels, colors, ::GraphType::Waterfall, marker, metaData);
     }
 
     inline virtual SciQLopGraphInterface*
     waterfall(GetDataPyCallable callable, QStringList labels = QStringList(),
               QList<QColor> colors = QList<QColor>(),
+              ::GraphMarkerShape marker = ::GraphMarkerShape::NoMarker,
               QObject* sync_with = nullptr, QVariantMap metaData = {})
     {
-        return plot_impl(callable, labels, colors, ::GraphType::Waterfall,
-                         ::GraphMarkerShape::NoMarker, sync_with, metaData);
+        return plot_impl(callable, labels, colors, ::GraphType::Waterfall, marker, sync_with,
+                         metaData);
     }
 
     inline virtual SciQLopColorMapInterface*
@@ -483,12 +490,30 @@ public:
         return false;
     }
 
+    void add_inspector_extension(InspectorExtension* extension)
+    {
+        if (m_extension_holder->add(extension))
+            Q_EMIT inspector_extension_added(extension);
+    }
+
+    void remove_inspector_extension(InspectorExtension* extension)
+    {
+        if (m_extension_holder->remove(extension))
+            Q_EMIT inspector_extension_removed(extension);
+    }
+
+    QList<InspectorExtension*> inspector_extensions() const
+    {
+        return m_extension_holder->list();
+    }
 
 #ifdef BINDINGS_H
 #define Q_SIGNAL
 signals:
 #endif
     Q_SIGNAL void scroll_factor_changed(double factor);
+    Q_SIGNAL void crosshair_enabled_changed(bool enabled);
+    Q_SIGNAL void equal_aspect_ratio_changed(bool enabled);
     Q_SIGNAL void x_axis_range_changed(SciQLopPlotRange range);
     Q_SIGNAL void x2_axis_range_changed(SciQLopPlotRange range);
     Q_SIGNAL void y_axis_range_changed(SciQLopPlotRange range);
@@ -499,6 +524,10 @@ signals:
     Q_SIGNAL void auto_scale_changed(bool auto_scale);
     Q_SIGNAL void graph_list_changed();
     Q_SIGNAL void resized();
+    Q_SIGNAL void cursor_time_changed(double time);
+    Q_SIGNAL void inspector_extensions_changed();
+    Q_SIGNAL void inspector_extension_added(InspectorExtension* extension);
+    Q_SIGNAL void inspector_extension_removed(InspectorExtension* extension);
 
 protected:
     inline virtual QList<SciQLopPlotAxisInterface*> axes_to_rescale() const noexcept

@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.14.1"
+version = "7.15.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -85,9 +85,8 @@ classifiers = [
 dependencies = [
   # boltons 20.0.0 added shrinkuser(); our config.py uses it for path display.
   "boltons>=20",
-  # Click 8.1.0 introduced ctx.get_parameter_source(); the IntEnum semantics
-  # added in 8.3 are emulated with explicit membership checks in config.py.
-  "click>=8.1",
+  # Click 8.3.1 fix an issue with parameters sharing same name.
+  "click>=8.3.1",
   # Cloup 3.0.7 fix issues with metavars: https://github.com/kdeldycke/click-extra/pull/1281
   "cloup>=3.0.7",
   # always_merger (recursive dict merge) available since deepmerge 1.0.1.
@@ -190,7 +189,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.14.1"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.15.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -280,7 +279,6 @@ dependency-groups.docs = { requires-python = ">= 3.14" }
 # Relative dates are fine here because the Renovate lock-maintenance job
 # (sync-uv-lock) reverts uv.lock when the only diff is timestamp noise.
 exclude-newer = "1 week"
-exclude-newer-package.click = false
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
 
@@ -358,17 +356,22 @@ default.extend-ignore-identifiers-re = [
   # 5   │     certifi["certifi\n2025.11.12"]
   #     ╰╴    ━━━━━━━
   "certifi",
+  # error: `optoin` should be `option`
+  #     ╭▸ ./docs/theme.md:112:54
+  #     │
+  # 112 │ ...all keyword arguments match a known field, so typos like `optoin=...` raise immediately.
+  #     ╰╴                                                             ━━━━━━
+  "optoin",
 ]
 
 [tool.pytest]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
 markers = [
+  "network: Tests that require network access (excluded with -m 'not network').",
   "once: Tests that only need to run once, not across the full CI matrix.",
 ]
 addopts = [
   "--durations=10",
-  "--cov",
-  "--cov-report=term",
 ]
 # Make sure tests that are expected to fail do not resurect and start working all of a sudden.
 xfail_strict = true
@@ -380,7 +383,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.14.1"
+current_version = "7.15.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -481,6 +484,8 @@ overrides = [
 exclude = [
   # GitHub issue comment fragments are dynamically loaded and can't be verified.
   "^https://github.com/.+/issues/[0-9]+#issuecomment-.*$",
+  # GitHub blob line-number fragments (#L123) are rendered client-side.
+  "^https://github.com/.+/blob/.+#L[0-9]+",
   # Release binary download URLs redirect to the GitHub CDN (objects.githubusercontent.com).
   "^https://github.com/.+/releases/.+/download/.*$",
   # Allow redirects of generic DOI URLs to their specific Zenodo release page.

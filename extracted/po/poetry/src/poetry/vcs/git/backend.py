@@ -147,7 +147,7 @@ class GitRefSpec:
 
     def _set_head(self, remote_refs: FetchPackResult, repo: Repo) -> None:
         """
-        Internal helper method to populate ref and set it's sha as the remote's head
+        Internal helper method to populate ref and set its SHA as the remote's head
         and default ref.
         """
         self.ref = remote_refs.symrefs[Ref(b"HEAD")]
@@ -301,8 +301,8 @@ class Git:
             )
 
         if revision:
-            revision.replace("refs/head/", "")
-            revision.replace("refs/tags/", "")
+            revision = revision.removeprefix("refs/heads/")
+            revision = revision.removeprefix("refs/tags/")
 
         try:
             SystemGit.checkout(revision, target)
@@ -373,7 +373,7 @@ class Git:
 
         for base, prefix in {
             (Ref(b"refs/remotes/origin"), b"refs/heads/"),
-            (Ref(b"refs/tags"), b"refs/tags"),
+            (Ref(b"refs/tags"), b"refs/tags/"),
         }:
             try:
                 local.refs.import_refs(

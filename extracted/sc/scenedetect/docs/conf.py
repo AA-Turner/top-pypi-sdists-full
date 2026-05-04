@@ -21,7 +21,7 @@ from scenedetect import __version__ as scenedetect_version
 # -- Project information -----------------------------------------------------
 
 project = "PySceneDetect"
-copyright = "2014-2024, Brandon Castellano"
+copyright = "2014, Brandon Castellano"
 author = "Brandon Castellano"
 
 # The short X.Y version
@@ -37,6 +37,7 @@ release = scenedetect_version
 extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
+    "sphinx_copybutton",
 ]
 
 autoclass_content = "both"
@@ -78,6 +79,7 @@ pygments_style = "sphinx"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 html_css_files = ["pyscenedetect.css"]
+html_favicon = "_static/favicon.ico"
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -148,7 +150,7 @@ texinfo_documents = [
 html_theme = "alabaster"
 html_theme_options = {
     "sidebar_width": "235px",
-    "description": "Version: [%s]" % (release),
+    "description": f"Version: [{release}]",
     "show_relbar_bottom": True,
     "show_relbar_top": False,
     "github_user": "Breakthrough",

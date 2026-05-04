@@ -96,6 +96,7 @@ from .model_cli_contribution import (
     ModelCliInvocation,
 )
 from .model_compensation_plan import ModelCompensationPlan
+from .model_concurrency_contract_spec import ModelConcurrencyContractSpec
 from .model_condition_value_list import ModelConditionValueList
 from .model_conflict_resolution_config import ModelConflictResolutionConfig
 from .model_consumed_event_entry import ModelConsumedEventEntry
@@ -114,6 +115,7 @@ from .model_contract_orchestrator import ModelContractOrchestrator
 from .model_contract_patch import ModelContractPatch
 from .model_contract_reducer import ModelContractReducer
 from .model_contract_version import ModelContractVersion
+from .model_corpus_classification import ModelCorpusClassification
 
 # Database repository contract models (OMN-1782)
 from .model_db_operation import ModelDbOperation
@@ -203,6 +205,7 @@ __all__ = [
     "ModelContractNodeMetadata",
     "ModelContractNormalizationConfig",
     "ModelContractVersion",
+    "ModelCorpusClassification",
     "ModelDependency",
     "ModelDependencySpec",
     "DependencyType",
@@ -266,6 +269,7 @@ __all__ = [
     "ModelOutputTransformationConfig",
     "ModelParallelConfig",
     "ModelMemoryManagementConfig",
+    "ModelConcurrencyContractSpec",
     "ModelPerformanceRequirements",
     "ModelReductionConfig",
     "ModelStreamingConfig",

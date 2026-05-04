@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2022 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -18,16 +18,31 @@ which do not support seeking.
 """
 
 import math
+import os
 import os.path
+import typing as ty
+import warnings
+from fractions import Fraction
 from logging import getLogger
-from typing import AnyStr, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 
-from scenedetect.frame_timecode import MAX_FPS_DELTA, FrameTimecode
-from scenedetect.platform import get_file_name
-from scenedetect.video_stream import FrameRateUnavailable, SeekError, VideoOpenFailure, VideoStream
+from scenedetect.common import (
+    MAX_FPS_DELTA,
+    FrameRate,
+    FrameTimecode,
+    Timecode,
+    TimecodeLike,
+    framerate_to_fraction,
+)
+from scenedetect.platform import StrPath, get_file_name
+from scenedetect.video_stream import (
+    FrameRateUnavailable,
+    SeekError,
+    VideoOpenFailure,
+    VideoStream,
+)
 
 logger = getLogger("pyscenedetect")
 
@@ -58,17 +73,19 @@ class VideoStreamCv2(VideoStream):
 
     def __init__(
         self,
-        path: AnyStr = None,
-        framerate: Optional[float] = None,
+        path: StrPath | None = None,
+        frame_rate: FrameRate | None = None,
         max_decode_attempts: int = 5,
-        path_or_device: Union[bytes, str, int] = None,
+        path_or_device: StrPath | int | None = None,
+        framerate: float | None = None,
     ):
         """Open a video file, image sequence, or network stream.
 
         Arguments:
             path: Path to the video. Can be a file, image sequence (`'folder/DSC_%04d.jpg'`),
                 or network stream.
-            framerate: If set, overrides the detected framerate.
+            frame_rate: If set, overrides the detected frame rate. Takes precedence over
+                `framerate`.
             max_decode_attempts: Number of attempts to continue decoding the video
                 after a frame fails to decode. This allows processing videos that
                 have a few corrupted frames or metadata (in which case accuracy
@@ -76,32 +93,40 @@ class VideoStreamCv2(VideoStream):
                 decoding will stop and emit an error.
             path_or_device: [DEPRECATED] Specify `path` for files, image sequences, or
                 network streams/URLs.  Use `VideoCaptureAdapter` for devices/pipes.
+            framerate: [DEPRECATED] Use `frame_rate` instead. Retained as a deprecated
+                alias for backwards compatibility; ignored when `frame_rate` is provided.
 
         Raises:
             OSError: file could not be found or access was denied
             VideoOpenFailure: video could not be opened (may be corrupted)
-            ValueError: specified framerate is invalid
+            ValueError: specified frame rate is invalid
         """
         super().__init__()
-        # TODO(v0.7): Replace with DeprecationWarning that `path_or_device` will be removed in v0.8.
+        # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `framerate=` is
+        # used, once internal callers and downstream users have had a release to migrate.
+        if frame_rate is None:
+            frame_rate = framerate
         if path_or_device is not None:
-            logger.error("path_or_device is deprecated, use path or VideoCaptureAdapter instead.")
-            path = path_or_device
-        if path is None:
+            warnings.warn(
+                "The `path_or_device` argument is deprecated, use `path` or `VideoCaptureAdapter`"
+                " instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            resolved: str | int = (
+                path_or_device if isinstance(path_or_device, int) else os.fspath(path_or_device)
+            )
+        elif path is None:
             raise ValueError("Path must be specified!")
-        if framerate is not None and framerate < MAX_FPS_DELTA:
-            raise ValueError("Specified framerate (%f) is invalid!" % framerate)
+        else:
+            resolved = os.fspath(path)
+        if frame_rate is not None and frame_rate < MAX_FPS_DELTA:
+            raise ValueError(f"Specified frame rate ({float(frame_rate):f}) is invalid!")
         if max_decode_attempts < 0:
             raise ValueError("Maximum decode attempts must be >= 0!")
 
-        self._path_or_device = path
+        self._path_or_device: str | int = resolved
         self._is_device = isinstance(self._path_or_device, int)
-
-        # Initialized in _open_capture:
-        self._cap: Optional[cv2.VideoCapture] = (
-            None  # Reference to underlying cv2.VideoCapture object.
-        )
-        self._frame_rate: Optional[float] = None
 
         # VideoCapture state
         self._has_grabbed = False
@@ -109,7 +134,8 @@ class VideoStreamCv2(VideoStream):
         self._decode_failures = 0
         self._warning_displayed = False
 
-        self._open_capture(framerate)
+        # `_open_capture` populates `_cap` and `_frame_rate`.
+        self._open_capture(frame_rate)
 
     #
     # Backend-Specific Methods/Properties
@@ -123,7 +149,6 @@ class VideoStreamCv2(VideoStream):
         backing this object. Seeking or using the read/grab methods through this property are
         unsupported and will leave this object in an inconsistent state.
         """
-        assert self._cap
         return self._cap
 
     #
@@ -134,23 +159,19 @@ class VideoStreamCv2(VideoStream):
     """Unique name used to identify this backend."""
 
     @property
-    def frame_rate(self) -> float:
-        """Framerate in frames/sec."""
-        assert self._frame_rate
+    def frame_rate(self) -> Fraction:
         return self._frame_rate
 
     @property
-    def path(self) -> Union[bytes, str]:
-        """Video or device path."""
+    def path(self) -> str:
         if self._is_device:
-            assert isinstance(self._path_or_device, (int))
-            return "Device %d" % self._path_or_device
-        assert isinstance(self._path_or_device, (bytes, str))
+            assert isinstance(self._path_or_device, int)
+            return f"Device {self._path_or_device}"
+        assert isinstance(self._path_or_device, str)
         return self._path_or_device
 
     @property
     def name(self) -> str:
-        """Name of the video, without extension, or device."""
         if self._is_device:
             return self.path
         file_name: str = get_file_name(self.path, include_extension=False)
@@ -168,7 +189,7 @@ class VideoStreamCv2(VideoStream):
         return not self._is_device
 
     @property
-    def frame_size(self) -> Tuple[int, int]:
+    def frame_size(self) -> tuple[int, int]:
         """Size of each video frame in pixels as a tuple of (width, height)."""
         return (
             math.trunc(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -176,7 +197,7 @@ class VideoStreamCv2(VideoStream):
         )
 
     @property
-    def duration(self) -> Optional[FrameTimecode]:
+    def duration(self) -> FrameTimecode | None:
         """Duration of the stream as a FrameTimecode, or None if non terminating."""
         if self._is_device:
             return None
@@ -188,116 +209,96 @@ class VideoStreamCv2(VideoStream):
         return _get_aspect_ratio(self._cap)
 
     @property
+    def timecode(self) -> Timecode:
+        """Current position within stream as a Timecode."""
+        # *NOTE*: Although OpenCV has `CAP_PROP_PTS`, it doesn't seem to be reliable. For now, we
+        # use `CAP_PROP_POS_MSEC` instead, converting to microseconds for sufficient precision to
+        # avoid frame-boundary rounding errors at common framerates like 24000/1001.
+        ms = self._cap.get(cv2.CAP_PROP_POS_MSEC)
+        time_base = Fraction(1, 1000000)
+        return Timecode(pts=round(ms * 1000), time_base=time_base)
+
+    @property
     def position(self) -> FrameTimecode:
-        """Current position within stream as FrameTimecode.
-
-        This can be interpreted as presentation time stamp of the last frame which was
-        decoded by calling `read` with advance=True.
-
-        This method will always return 0 (e.g. be equal to `base_timecode`) if no frames
-        have been `read`."""
-        if self.frame_number < 1:
-            return self.base_timecode
-        return self.base_timecode + (self.frame_number - 1)
+        timecode = self.timecode
+        # If PTS is 0 but we've read frames, derive from frame number.
+        # This handles image sequences and cases where CAP_PROP_POS_MSEC is unreliable.
+        if timecode.pts == 0 and self.frame_number > 0:
+            fps = self.frame_rate
+            time_base = Fraction(1, fps.numerator)
+            pts = (self.frame_number - 1) * fps.denominator
+            timecode = Timecode(pts=pts, time_base=time_base)
+        return FrameTimecode(timecode=timecode, fps=self.frame_rate)
 
     @property
     def position_ms(self) -> float:
-        """Current position within stream as a float of the presentation time in milliseconds.
-        The first frame has a time of 0.0 ms.
-
-        This method will always return 0.0 if no frames have been `read`."""
         return self._cap.get(cv2.CAP_PROP_POS_MSEC)
 
     @property
     def frame_number(self) -> int:
-        """Current position within stream in frames as an int.
-
-        1 indicates the first frame was just decoded by the last call to `read` with advance=True,
-        whereas 0 indicates that no frames have been `read`.
-
-        This method will always return 0 if no frames have been `read`."""
         return math.trunc(self._cap.get(cv2.CAP_PROP_POS_FRAMES))
 
-    def seek(self, target: Union[FrameTimecode, float, int]):
-        """Seek to the given timecode. If given as a frame number, represents the current seek
-        pointer (e.g. if seeking to 0, the next frame decoded will be the first frame of the video).
-
-        For 1-based indices (first frame is frame #1), the target frame number needs to be converted
-        to 0-based by subtracting one. For example, if we want to seek to the first frame, we call
-        seek(0) followed by read(). If we want to seek to the 5th frame, we call seek(4) followed
-        by read(), at which point frame_number will be 5.
-
-        Not supported if the VideoStream is a device/camera. Untested with web streams.
-
-        Arguments:
-            target: Target position in video stream to seek to.
-                If float, interpreted as time in seconds.
-                If int, interpreted as frame number.
-        Raises:
-            SeekError: An error occurs while seeking, or seeking is not supported.
-            ValueError: `target` is not a valid value (i.e. it is negative).
-        """
+    def seek(self, target: TimecodeLike):
         if self._is_device:
             raise SeekError("Cannot seek if input is a device!")
+        if not isinstance(target, FrameTimecode):
+            target = FrameTimecode(target, self.frame_rate)
         if target < 0:
             raise ValueError("Target seek position cannot be negative!")
-
-        # Have to seek one behind and call grab() after to that the VideoCapture
-        # returns a valid timestamp when using CAP_PROP_POS_MSEC.
-        target_frame_cv2 = (self.base_timecode + target).get_frames()
-        if target_frame_cv2 > 0:
-            target_frame_cv2 -= 1
-        self._cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame_cv2)
+        target_secs = (self.base_timecode + target).seconds
         self._has_grabbed = False
-        # Preemptively grab the frame behind the target position if possible.
-        if target > 0:
+        if target_secs > 0:
+            # Seek one frame before target so the next read() returns the frame at target.
+            one_frame_ms = 1000.0 / float(self._frame_rate)
+            seek_ms = max(0.0, target_secs * 1000.0 - one_frame_ms)
+            self._cap.set(cv2.CAP_PROP_POS_MSEC, seek_ms)
             self._has_grabbed = self._cap.grab()
-            # If we seeked past the end of the video, need to seek one frame backwards
-            # from the current position and grab that frame instead.
+            if self._has_grabbed:
+                # VFR correction: set(CAP_PROP_POS_MSEC) converts time using avg_fps internally,
+                # which can land ~1s too early for VFR video. Read forward until we reach the
+                # intended position. The threshold (2x one_frame_ms) never triggers for CFR.
+                actual_ms = self._cap.get(cv2.CAP_PROP_POS_MSEC)
+                corrections = 0
+                while actual_ms < seek_ms - 2.0 * one_frame_ms and corrections < 100:
+                    if not self._cap.grab():
+                        break
+                    actual_ms = self._cap.get(cv2.CAP_PROP_POS_MSEC)
+                    corrections += 1
+            # If we seeked past the end, back up one frame.
             if not self._has_grabbed:
                 seek_pos = round(self._cap.get(cv2.CAP_PROP_POS_FRAMES) - 1.0)
                 self._cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, seek_pos))
                 self._has_grabbed = self._cap.grab()
+        else:
+            self._cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     def reset(self):
         """Close and re-open the VideoStream (should be equivalent to calling `seek(0)`)."""
         self._cap.release()
-        self._open_capture(self._frame_rate)
+        self._open_capture(float(self._frame_rate))
 
-    def read(self, decode: bool = True, advance: bool = True) -> Union[np.ndarray, bool]:
-        """Read and decode the next frame as a np.ndarray. Returns False when video ends,
-        or the maximum number of decode attempts has passed.
-
-        Arguments:
-            decode: Decode and return the frame.
-            advance: Seek to the next frame. If False, will return the current (last) frame.
-
-        Returns:
-            If decode = True, the decoded frame (np.ndarray), or False (bool) if end of video.
-            If decode = False, a bool indicating if advancing to the the next frame succeeded.
-        """
+    def read(self, decode: bool = True) -> np.ndarray | bool:
         if not self._cap.isOpened():
             return False
-        # Grab the next frame if possible.
-        if advance:
-            has_grabbed = self._cap.grab()
-            # If we failed to grab the frame, retry a few times if required.
-            if not has_grabbed:
-                if self.duration > 0 and self.position < (self.duration - 1):
-                    for _ in range(self._max_decode_attempts):
-                        has_grabbed = self._cap.grab()
-                        if has_grabbed:
-                            break
-                # Report previous failure in debug mode.
-                if has_grabbed:
-                    self._decode_failures += 1
-                    logger.debug("Frame failed to decode.")
-                    if not self._warning_displayed and self._decode_failures > 1:
-                        logger.warning("Failed to decode some frames, results may be inaccurate.")
-            # We didn't manage to grab a frame even after retrying, so just return.
-            if not has_grabbed:
-                return False
-            self._has_grabbed = True
+        has_grabbed = self._cap.grab()
+        # If we failed to grab the frame, retry a few times if required.
+        if not has_grabbed:
+            duration = self.duration
+            if duration is not None and duration > 0 and self.position < (duration - 1):
+                for _ in range(self._max_decode_attempts):
+                    has_grabbed = self._cap.grab()
+                    if has_grabbed:
+                        break
+            # Report previous failure in debug mode.
+            if has_grabbed:
+                self._decode_failures += 1
+                logger.debug("Frame failed to decode.")
+                if not self._warning_displayed and self._decode_failures > 1:
+                    logger.warning("Failed to decode some frames, results may be inaccurate.")
+        # We didn't manage to grab a frame even after retrying, so just return.
+        if not has_grabbed:
+            return False
+        self._has_grabbed = True
         # Need to make sure we actually grabbed a frame before calling retrieve.
         if decode and self._has_grabbed:
             _, frame = self._cap.retrieve()
@@ -308,17 +309,23 @@ class VideoStreamCv2(VideoStream):
     # Private Methods
     #
 
-    def _open_capture(self, framerate: Optional[float] = None):
+    def _open_capture(self, frame_rate: FrameRate | None = None):
         """Opens capture referenced by this object and resets internal state."""
-        if self._is_device and self._path_or_device < 0:
-            raise ValueError("Invalid/negative device ID specified.")
-        input_is_video_file = not self._is_device and not any(
-            identifier in self._path_or_device for identifier in NON_VIDEO_FILE_INPUT_IDENTIFIERS
-        )
-        # We don't have a way of querying why opening a video fails (errors are logged at least),
-        # so provide a better error message if we try to open a file that doesn't exist.
-        if input_is_video_file and not os.path.exists(self._path_or_device):
-            raise OSError("Video file not found.")
+        if self._is_device:
+            assert isinstance(self._path_or_device, int)
+            if self._path_or_device < 0:
+                raise ValueError("Invalid/negative device ID specified.")
+            input_is_video_file = False
+        else:
+            assert isinstance(self._path_or_device, str)
+            input_is_video_file = not any(
+                identifier in self._path_or_device
+                for identifier in NON_VIDEO_FILE_INPUT_IDENTIFIERS
+            )
+            # We don't have a way of querying why opening a video fails (errors are logged at
+            # least), so provide a better error message if we try to open a missing file.
+            if input_is_video_file and not os.path.exists(self._path_or_device):
+                raise OSError("Video file not found.")
 
         cap = cv2.VideoCapture(self._path_or_device)
         if not cap.isOpened():
@@ -341,21 +348,20 @@ class VideoStreamCv2(VideoStream):
 
         # Ensure the framerate is correct to avoid potential divide by zero errors. This can be
         # addressed in the PyAV backend if required since it supports integer timebases.
-        assert framerate is None or framerate > MAX_FPS_DELTA, "Framerate must be validated if set!"
-        if framerate is None:
-            framerate = cap.get(cv2.CAP_PROP_FPS)
-            if framerate < MAX_FPS_DELTA:
+        assert frame_rate is None or frame_rate > MAX_FPS_DELTA, (
+            "Frame rate must be validated if set!"
+        )
+        if frame_rate is None:
+            frame_rate = cap.get(cv2.CAP_PROP_FPS)
+            if frame_rate < MAX_FPS_DELTA:
                 raise FrameRateUnavailable()
 
-        self._cap = cap
-        self._frame_rate = framerate
+        self._cap: cv2.VideoCapture = cap
+        self._frame_rate: Fraction = framerate_to_fraction(frame_rate)
         self._has_grabbed = False
         cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1.0)  # https://github.com/opencv/opencv/issues/26795
 
 
-# TODO(#168): Support non-monotonic timing for `position`. VFR timecode support is a
-# prerequisite for this. Timecodes are currently calculated by multiplying the framerate
-# by number of frames. Actual elapsed time can be obtained via `position_ms` for now.
 class VideoCaptureAdapter(VideoStream):
     """Adapter for existing VideoCapture objects. Unlike VideoStreamCv2, this class supports
     VideoCaptures which may not support seeking.
@@ -364,8 +370,9 @@ class VideoCaptureAdapter(VideoStream):
     def __init__(
         self,
         cap: cv2.VideoCapture,
-        framerate: Optional[float] = None,
+        frame_rate: FrameRate | None = None,
         max_read_attempts: int = 5,
+        framerate: float | None = None,
     ):
         """Create from an existing OpenCV VideoCapture object. Used for webcams, live streams,
         pipes, or other inputs which may not support seeking.
@@ -373,31 +380,38 @@ class VideoCaptureAdapter(VideoStream):
         Arguments:
             cap: The `cv2.VideoCapture` object to wrap. Must already be opened and ready to
                 have `cap.read()` called on it.
-            framerate: If set, overrides the detected framerate.
+            frame_rate: If set, overrides the detected frame rate. Takes precedence over
+                `framerate`.
             max_read_attempts: Number of attempts to continue decoding the video
                 after a frame fails to decode. This allows processing videos that
                 have a few corrupted frames or metadata (in which case accuracy
                 of detection algorithms may be lower). Once this limit is passed,
                 decoding will stop and emit an error.
+            framerate: [DEPRECATED] Use `frame_rate` instead. Retained as a deprecated
+                alias for backwards compatibility; ignored when `frame_rate` is provided.
 
         Raises:
-            ValueError: capture is not open, framerate or max_read_attempts is invalid
+            ValueError: capture is not open, frame rate or max_read_attempts is invalid
         """
         super().__init__()
 
-        if framerate is not None and framerate < MAX_FPS_DELTA:
-            raise ValueError("Specified framerate (%f) is invalid!" % framerate)
+        # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `framerate=` is
+        # used, once internal callers and downstream users have had a release to migrate.
+        if frame_rate is None:
+            frame_rate = framerate
+        if frame_rate is not None and frame_rate < MAX_FPS_DELTA:
+            raise ValueError(f"Specified frame rate ({float(frame_rate):f}) is invalid!")
         if max_read_attempts < 0:
             raise ValueError("Maximum decode attempts must be >= 0!")
         if not cap.isOpened():
             raise ValueError("Specified VideoCapture must already be opened!")
-        if framerate is None:
-            framerate = cap.get(cv2.CAP_PROP_FPS)
-            if framerate < MAX_FPS_DELTA:
+        if frame_rate is None:
+            frame_rate = cap.get(cv2.CAP_PROP_FPS)
+            if frame_rate < MAX_FPS_DELTA:
                 raise FrameRateUnavailable()
 
         self._cap = cap
-        self._frame_rate: float = framerate
+        self._frame_rate: Fraction = framerate_to_fraction(frame_rate)
         self._num_frames = 0
         self._max_read_attempts = max_read_attempts
         self._decode_failures = 0
@@ -416,7 +430,6 @@ class VideoCaptureAdapter(VideoStream):
         backing this object. Using the read/grab methods through this property are unsupported and
         will leave this object in an inconsistent state.
         """
-        assert self._cap
         return self._cap
 
     #
@@ -427,9 +440,8 @@ class VideoCaptureAdapter(VideoStream):
     """Unique name used to identify this backend."""
 
     @property
-    def frame_rate(self) -> float:
+    def frame_rate(self) -> Fraction:
         """Framerate in frames/sec."""
-        assert self._frame_rate
         return self._frame_rate
 
     @property
@@ -448,7 +460,7 @@ class VideoCaptureAdapter(VideoStream):
         return False
 
     @property
-    def frame_size(self) -> Tuple[int, int]:
+    def frame_size(self) -> tuple[int, int]:
         """Reported size of each video frame in pixels as a tuple of (width, height)."""
         return (
             math.trunc(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -456,7 +468,7 @@ class VideoCaptureAdapter(VideoStream):
         )
 
     @property
-    def duration(self) -> Optional[FrameTimecode]:
+    def duration(self) -> FrameTimecode | None:
         """Duration of the stream as a FrameTimecode, or None if non terminating."""
         frame_count = math.trunc(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if frame_count > 0:
@@ -470,37 +482,26 @@ class VideoCaptureAdapter(VideoStream):
 
     @property
     def position(self) -> FrameTimecode:
-        """Current position within stream as FrameTimecode. Use the :meth:`position_ms`
-        if an accurate duration of elapsed time is required, as `position` is currently
-        based off of the number of frames, and may not be accurate for devicesor live streams.
-
-        This method will always return 0 (e.g. be equal to `base_timecode`) if no frames
-        have been `read`."""
         if self.frame_number < 1:
             return self.base_timecode
-        return self.base_timecode + (self.frame_number - 1)
+        # Synthesize a Timecode from frame count and rational framerate.
+        fps = self.frame_rate
+        time_base = Fraction(1, fps.numerator)
+        pts = (self.frame_number - 1) * fps.denominator
+        timecode = Timecode(pts=pts, time_base=time_base)
+        return FrameTimecode(timecode=timecode, fps=fps)
 
     @property
     def position_ms(self) -> float:
-        """Current position within stream as a float of the presentation time in milliseconds.
-        The first frame has a time of 0.0 ms.
-
-        This method will always return 0.0 if no frames have been `read`."""
         if self._num_frames == 0:
             return 0.0
         return self._cap.get(cv2.CAP_PROP_POS_MSEC) - self._time_base
 
     @property
     def frame_number(self) -> int:
-        """Current position within stream in frames as an int.
-
-        1 indicates the first frame was just decoded by the last call to `read` with advance=True,
-        whereas 0 indicates that no frames have been `read`.
-
-        This method will always return 0 if no frames have been `read`."""
         return self._num_frames
 
-    def seek(self, target: Union[FrameTimecode, float, int]):
+    def seek(self, target: TimecodeLike):
         """The underlying VideoCapture is assumed to not support seeking."""
         raise NotImplementedError("Seeking is not supported.")
 
@@ -508,41 +509,28 @@ class VideoCaptureAdapter(VideoStream):
         """Not supported."""
         raise NotImplementedError("Reset is not supported.")
 
-    def read(self, decode: bool = True, advance: bool = True) -> Union[np.ndarray, bool]:
-        """Read and decode the next frame as a np.ndarray. Returns False when video ends,
-        or the maximum number of decode attempts has passed.
-
-        Arguments:
-            decode: Decode and return the frame.
-            advance: Seek to the next frame. If False, will return the current (last) frame.
-
-        Returns:
-            If decode = True, the decoded frame (np.ndarray), or False (bool) if end of video.
-            If decode = False, a bool indicating if advancing to the the next frame succeeded.
-        """
+    def read(self, decode: bool = True) -> np.ndarray | bool:
         if not self._cap.isOpened():
             return False
-        # Grab the next frame if possible.
-        if advance:
-            has_grabbed = self._cap.grab()
-            # If we failed to grab the frame, retry a few times if required.
-            if not has_grabbed:
-                for _ in range(self._max_read_attempts):
-                    has_grabbed = self._cap.grab()
-                    if has_grabbed:
-                        break
-                # Report previous failure in debug mode.
+        has_grabbed = self._cap.grab()
+        # If we failed to grab the frame, retry a few times if required.
+        if not has_grabbed:
+            for _ in range(self._max_read_attempts):
+                has_grabbed = self._cap.grab()
                 if has_grabbed:
-                    self._decode_failures += 1
-                    logger.debug("Frame failed to decode.")
-                    if not self._warning_displayed and self._decode_failures > 1:
-                        logger.warning("Failed to decode some frames, results may be inaccurate.")
-            # We didn't manage to grab a frame even after retrying, so just return.
-            if not has_grabbed:
-                return False
-            if self._num_frames == 0:
-                self._time_base = self._cap.get(cv2.CAP_PROP_POS_MSEC)
-            self._num_frames += 1
+                    break
+            # Report previous failure in debug mode.
+            if has_grabbed:
+                self._decode_failures += 1
+                logger.debug("Frame failed to decode.")
+                if not self._warning_displayed and self._decode_failures > 1:
+                    logger.warning("Failed to decode some frames, results may be inaccurate.")
+        # We didn't manage to grab a frame even after retrying, so just return.
+        if not has_grabbed:
+            return False
+        if self._num_frames == 0:
+            self._time_base = self._cap.get(cv2.CAP_PROP_POS_MSEC)
+        self._num_frames += 1
         # Need to make sure we actually grabbed a frame before calling retrieve.
         if decode and self._num_frames > 0:
             _, frame = self._cap.retrieve()

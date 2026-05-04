@@ -1,9 +1,14 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._rendering import Pipeline
-from ._point import PointLight
-from ._cone import ConeLight
+from ..._rendering import Pipeline, Framebuffer
+
+from ._point_light import PointLight
+from ._cone_light import ConeLight
+from ._ambient import Ambient
+from ._bloom import Bloom
+from ._tint import Tint
+from ._vignette import Vignette
 
 import ctypes
 import math
@@ -41,16 +46,65 @@ void main() {
 _FRAG_AMBIENT = """
 #version 330 core
 uniform sampler2D u_texture;
-uniform float u_ambient;
-uniform vec3 u_ambient_color;
+uniform float u_ambient_level;
+uniform vec3 u_ambient_shade;
 uniform float u_gamma;
 in vec2 v_uv;
 out vec4 out_color;
 void main() {
     vec4 pixel = texture(u_texture, v_uv);
-    vec3 light = u_ambient_color * u_ambient;
+    vec3 light = mix(u_ambient_shade, vec3(1.0), u_ambient_level);
     light = pow(max(light, vec3(0.0)), vec3(1.0 / u_gamma));
     out_color = vec4(pixel.rgb * light, pixel.a);
+}
+"""
+
+_FRAG_BLOOM_EXTRACT = """
+#version 330 core
+uniform sampler2D u_texture;
+uniform float u_threshold;
+in vec2 v_uv;
+out vec4 out_color;
+void main() {
+    vec3 color = texture(u_texture, v_uv).rgb;
+    float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    float factor = max(brightness - u_threshold, 0.0) / max(brightness, 0.0001);
+    out_color = vec4(color * factor, 1.0);
+}
+"""
+
+_FRAG_BLOOM_BLUR = """
+#version 330 core
+uniform sampler2D u_texture;
+uniform vec2 u_direction;
+uniform vec2 u_texel;
+in vec2 v_uv;
+out vec4 out_color;
+
+const float WEIGHTS[5] = float[](0.227027, 0.194595, 0.121622, 0.054054, 0.016216);
+
+void main() {
+    vec3 result = texture(u_texture, v_uv).rgb * WEIGHTS[0];
+    vec2 step = u_direction * u_texel;
+    for (int i = 1; i < 5; i++) {
+        result += texture(u_texture, v_uv + step * float(i)).rgb * WEIGHTS[i];
+        result += texture(u_texture, v_uv - step * float(i)).rgb * WEIGHTS[i];
+    }
+    out_color = vec4(result, 1.0);
+}
+"""
+
+_FRAG_BLOOM_BLEND = """
+#version 330 core
+uniform sampler2D u_texture;
+uniform sampler2D u_original;
+uniform float u_intensity;
+in vec2 v_uv;
+out vec4 out_color;
+void main() {
+    vec4 original = texture(u_original, v_uv);
+    vec3 bloom    = texture(u_texture, v_uv).rgb;
+    out_color = vec4(original.rgb + bloom * u_intensity, original.a);
 }
 """
 
@@ -110,8 +164,8 @@ def _build_frag_points(max_lights: int) -> str:
     return f"""
 #version 330 core
 uniform sampler2D u_texture;
-uniform float u_ambient;
-uniform vec3 u_ambient_color;
+uniform float u_ambient_level;
+uniform vec3 u_ambient_shade;
 uniform float u_exposure;
 uniform float u_gamma;
 uniform int u_count;
@@ -139,7 +193,7 @@ void main() {{
         light_accum += u_colors[i] * u_intensities[i] * falloff;
     }}
 
-    vec3 light = tonemap(u_ambient_color * u_ambient, light_accum, u_exposure);
+    vec3 light = tonemap(mix(u_ambient_shade, vec3(1.0), u_ambient_level), light_accum, u_exposure);
     light = pow(max(light, vec3(0.0)), vec3(1.0 / u_gamma));
     out_color = vec4(pixel.rgb * light, pixel.a);
 }}
@@ -162,8 +216,8 @@ def _build_frag_cones(max_lights: int) -> str:
     return f"""
 #version 330 core
 uniform sampler2D u_texture;
-uniform float u_ambient;
-uniform vec3 u_ambient_color;
+uniform float u_ambient_level;
+uniform vec3 u_ambient_shade;
 uniform float u_exposure;
 uniform float u_gamma;
 uniform int u_count;
@@ -210,7 +264,7 @@ void main() {{
         light_accum += u_colors[i] * u_intensities[i] * radial_falloff * angular_falloff;
     }}
 
-    vec3 light = tonemap(u_ambient_color * u_ambient, light_accum, u_exposure);
+    vec3 light = tonemap(mix(u_ambient_shade, vec3(1.0), u_ambient_level), light_accum, u_exposure);
     light = pow(max(light, vec3(0.0)), vec3(1.0 / u_gamma));
     out_color = vec4(pixel.rgb * light, pixel.a);
 }}
@@ -235,8 +289,8 @@ def _build_frag_points_cones(max_points: int, max_cones: int) -> str:
     return f"""
 #version 330 core
 uniform sampler2D u_texture;
-uniform float u_ambient;
-uniform vec3 u_ambient_color;
+uniform float u_ambient_level;
+uniform vec3 u_ambient_shade;
 uniform float u_exposure;
 uniform float u_gamma;
 
@@ -298,7 +352,7 @@ void main() {{
         light_accum += u_cone_colors[i] * u_cone_intensities[i] * radial_falloff * angular_falloff;
     }}
 
-    vec3 light = tonemap(u_ambient_color * u_ambient, light_accum, u_exposure);
+    vec3 light = tonemap(mix(u_ambient_shade, vec3(1.0), u_ambient_level), light_accum, u_exposure);
     light = pow(max(light, vec3(0.0)), vec3(1.0 / u_gamma));
     out_color = vec4(pixel.rgb * light, pixel.a);
 }}
@@ -310,8 +364,12 @@ class LightRenderer:
 
     __slots__ = ("_active_points", "_active_cones")
 
-    _tint_program: ShaderProgram = None
     _ambient_only_program: ShaderProgram = None
+    _bloom_extract_program: ShaderProgram = None
+    _bloom_blur_program: ShaderProgram = None
+    _bloom_blend_program: ShaderProgram = None
+    _bloom_fbo: Framebuffer = None
+    _tint_program: ShaderProgram = None
     _vignette_program: ShaderProgram = None
     _point_programs: dict[int, ShaderProgram] = {}
     _cone_programs: dict[int, ShaderProgram] = {}
@@ -329,18 +387,44 @@ class LightRenderer:
 
     # ======================================== SHADER CACHE ========================================
     @classmethod
-    def _get_tint_program(cls) -> ShaderProgram:
-        """Retourne (en le créant si nécessaire) le shader de tint coloré."""
-        if cls._tint_program is None:
-            cls._tint_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_TINT, 'fragment'))
-        return cls._tint_program
-
-    @classmethod
     def _get_ambient_only_program(cls) -> ShaderProgram:
-        """Retourne (en le créant si nécessaire) le shader d'ambient seul"""
+        """Retourne (en le créant si nécessaire) le shader d'ambiance seul"""
         if cls._ambient_only_program is None:
             cls._ambient_only_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_AMBIENT, 'fragment'))
         return cls._ambient_only_program
+    
+    @classmethod
+    def _get_bloom_extract_program(cls) -> ShaderProgram:
+        if cls._bloom_extract_program is None:
+            cls._bloom_extract_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOOM_EXTRACT, 'fragment'))
+        return cls._bloom_extract_program
+
+    @classmethod
+    def _get_bloom_blur_program(cls) -> ShaderProgram:
+        if cls._bloom_blur_program is None:
+            cls._bloom_blur_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOOM_BLUR, 'fragment'))
+        return cls._bloom_blur_program
+
+    @classmethod
+    def _get_bloom_blend_program(cls) -> ShaderProgram:
+        if cls._bloom_blend_program is None:
+            cls._bloom_blend_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_BLOOM_BLEND, 'fragment'))
+        return cls._bloom_blend_program
+
+    @classmethod
+    def _get_bloom_fbo(cls, width: int, height: int) -> Framebuffer:
+        if cls._bloom_fbo is None:
+            cls._bloom_fbo = Framebuffer(width, height)
+        elif cls._bloom_fbo.width != width or cls._bloom_fbo.height != height:
+            cls._bloom_fbo.resize(width, height)
+        return cls._bloom_fbo
+
+    @classmethod
+    def _get_tint_program(cls) -> ShaderProgram:
+        """Retourne (en le créant si nécessaire) le shader de teinte"""
+        if cls._tint_program is None:
+            cls._tint_program = ShaderProgram(Shader(_VERT, 'vertex'), Shader(_FRAG_TINT, 'fragment'))
+        return cls._tint_program
 
     @classmethod
     def _get_vignette_program(cls) -> ShaderProgram:
@@ -486,65 +570,69 @@ class LightRenderer:
     def render_ambient(
         self,
         pipeline: Pipeline,
-        ambient: float,
-        exposure: float,
+        ambient: Ambient,
         points: list[PointLight],
         cones: list[ConeLight],
         *,
-        ambient_color: tuple[float, float, float] = (1.0, 1.0, 1.0),
         gamma: float = 1.0,
+        exposure: float = 1.0,
     ) -> None:
         """Point d'entrée principal du rendu de lumière pour une frame
     
         Args:
             pipeline: Pipeline de rendu courant
-            ambient: Niveau de lumière ambiante globale [0.0, 1.0]
-            exposure: Facteur d'exposition appliqué uniquement aux lumières dynamiques
+            ambient: Ambiance lumineuse
             points: Liste des point lights actives pour cette frame
             cones: Liste des cone lights actives pour cette frame
-            ambient_color: Teinte de l'ambient en RGB normalisé
             gamma: Exposant de correction gamma appliqué en sortie du tonemapping
+            exposure: Facteur d'exposition appliqué uniquement aux lumières dynamiques
         """
+        # Lecture de l'ambiance
+        ambient_level = ambient.level
+        ambient_shade = ambient.shade.rgb
+
+        # Vérification des sources
         has_points = bool(points)
         has_cones = bool(cones)
-
         if not has_points and not has_cones:
-            if ambient < 1.0 or ambient_color != (1.0, 1.0, 1.0) or gamma != 1.0:
+            # Ambiance seule
+            if ambient_level < 1.0 or ambient_shade != (1.0, 1.0, 1.0) or gamma != 1.0:
                 pipeline.apply_shader(
                     self._get_ambient_only_program(),
-                    u_ambient=ambient,
-                    u_ambient_color=ambient_color,
+                    u_ambient_level=ambient_level,
+                    u_ambient_shade=ambient_shade,
                     u_gamma=gamma,
                 )
             return
 
+        # Répartition
         if has_points and has_cones:
-            self._render_points_cones(pipeline, ambient, exposure, points, cones, ambient_color=ambient_color, gamma=gamma)
+            self._render_points_cones(pipeline, ambient_level, ambient_shade, points, cones, gamma=gamma, exposure=exposure)
         elif has_points:
-            self._render_points(pipeline, ambient, exposure, points, ambient_color=ambient_color, gamma=gamma)
+            self._render_points(pipeline, ambient_level, ambient_shade, points, gamma=gamma, exposure=exposure)
         else:
-            self._render_cones(pipeline, ambient, exposure, cones, ambient_color=ambient_color, gamma=gamma)
+            self._render_cones(pipeline, ambient_level, ambient_shade, cones, gamma=gamma, exposure=exposure)
 
     # ======================================== POINTS ONLY ========================================
     def _render_points(
         self,
         pipeline: Pipeline,
-        ambient: float,
-        exposure: float,
+        ambient_level: float,
+        ambient_shade: tuple[float, float, float],
         points: list[PointLight],
         *,
-        ambient_color: tuple[float, float, float],
-        gamma: float,
+        gamma: float = 1.0,
+        exposure: float = 1.0,
     ) -> None:
         """Effectue le rendu des point lights seules via leur shader dédié.
 
         Args:
             pipeline: Pipeline de rendu courant
-            ambient: Niveau de lumière ambiante globale [0.0, 1.0]
-            exposure: Exposition pour les lumières dynamiques uniquement
+            ambient_level: Niveau de lumière ambiante globale [0.0, 1.0]
+            ambient_shade: Couleur d'assombrissement RGB
             points: Liste des point lights à rendre
-            ambient_color: Teinte RGB de l'ambient
             gamma: Correction gamma de sortie
+            exposure: Exposition pour les lumières dynamiques uniquement
         """
         bucket   = _get_bucket(len(points))
         program  = self._get_point_program(bucket)
@@ -566,8 +654,8 @@ class LightRenderer:
         gl.glBindTexture(gl.GL_TEXTURE_2D, atlas_tex)
 
         pipeline.apply_shader(program,
-            u_ambient=ambient,
-            u_ambient_color=ambient_color,
+            u_ambient_level=ambient_level,
+            u_ambient_shade=ambient_shade,
             u_exposure=exposure,
             u_gamma=gamma,
             u_count=len(points),
@@ -582,22 +670,22 @@ class LightRenderer:
     def _render_cones(
         self,
         pipeline: Pipeline,
-        ambient: float,
-        exposure: float,
+        ambient_level: float,
+        ambient_shade: tuple[float, float, float],
         cones: list[ConeLight],
         *,
-        ambient_color: tuple[float, float, float],
-        gamma: float,
+        gamma: float = 1.0,
+        exposure: float = 1.0,
     ) -> None:
         """Effectue le rendu des cone lights seules via leur shader dédié
 
         Args:
             pipeline: Pipeline de rendu courant
-            ambient: Niveau de lumière ambiante globale [0.0, 1.0]
-            exposure: Exposition pour les lumières dynamiques uniquement
+            ambient_level: Niveau de lumière ambiante globale [0.0, 1.0]
+            ambient_shade: Couleur d'assombrissement RGB
             cones: Liste des cone lights à rendre
-            ambient_color: Teinte RGB de l'ambient
             gamma: Correction gamma de sortie
+            exposure: Exposition pour les lumières dynamiques uniquement
         """
         bucket   = _get_bucket(len(cones))
         program  = self._get_cone_program(bucket)
@@ -630,8 +718,8 @@ class LightRenderer:
         gl.glBindTexture(gl.GL_TEXTURE_2D, atlas_tex)
 
         pipeline.apply_shader(program,
-            u_ambient=ambient,
-            u_ambient_color=ambient_color,
+            u_ambient_level=ambient_level,
+            u_ambient_shade=ambient_shade,
             u_exposure=exposure,
             u_gamma=gamma,
             u_count=len(cones),
@@ -649,24 +737,24 @@ class LightRenderer:
     def _render_points_cones(
         self,
         pipeline: Pipeline,
-        ambient: float,
-        exposure: float,
+        ambient_level: float,
+        ambient_shade: tuple[float, float, float],
         points: list[PointLight],
         cones: list[ConeLight],
         *,
-        ambient_color: tuple[float, float, float],
-        gamma: float,
+        gamma: float = 1.0,
+        exposure: float = 1.0,
     ) -> None:
         """Effectue le rendu mixte point lights + cone lights
 
         Args:
             pipeline: Pipeline de rendu courant
-            ambient: Niveau de lumière ambiante globale [0.0, 1.0]
-            exposure: Exposition pour les lumières dynamiques uniquement
+            ambient_level: Niveau de lumière ambiante globale [0.0, 1.0]
+            ambient_shade: Couleur d'assombrissement RGB
             points: Liste des point lights à rendre
             cones: Liste des cone lights à rendre
-            ambient_color: Teinte RGB de l'ambient
             gamma: Correction gamma de sortie
+            exposure: Exposition pour les lumières dynamiques uniquement
         """
         bp = _get_bucket(len(points))
         bc = _get_bucket(len(cones))
@@ -716,8 +804,8 @@ class LightRenderer:
         gl.glBindTexture(gl.GL_TEXTURE_2D, cone_atlas)
 
         pipeline.apply_shader(program,
-            u_ambient=ambient,
-            u_ambient_color=ambient_color,
+            u_ambient_level=ambient_level,
+            u_ambient_shade=ambient_shade,
             u_exposure=exposure,
             u_gamma=gamma,
             u_point_count=len(points),
@@ -737,41 +825,89 @@ class LightRenderer:
             u_cone_lut=2,
         )
 
+    # ======================================== BLOOM ========================================
+    def render_bloom(self, pipeline: Pipeline, bloom: Bloom) -> None:
+        """Applique un saignement lumineux sur le framebuffer courant
+
+        Args:
+            pipeline: Pipeline de rendu courant
+            bloom: paramètres du saignement
+        """
+        # Sortie rapide
+        if bloom.radius <= 0.0:
+            return
+
+        # Configuration
+        scene_fbo = pipeline.fbo
+        bloom_fbo = self._get_bloom_fbo(scene_fbo.width, scene_fbo.height)
+        texel = (1.0 / scene_fbo.width, 1.0 / scene_fbo.height)
+
+        # Sauvegarde de l'original
+        bloom_fbo.bind()
+        bloom_fbo.clear()
+        pipeline.quad.blit(scene_fbo.texture_id)
+        scene_fbo.bind()
+
+        # Extraction des zones lumineuses
+        pipeline.apply_shader(
+            self._get_bloom_extract_program(),
+            u_threshold=bloom.threshold,
+        )
+
+        # Blur gaussien itératif
+        passes = max(1, int(bloom.radius / 2))
+        for _ in range(passes):
+            pipeline.apply_shader(self._get_bloom_blur_program(),
+                u_direction=(1.0, 0.0),
+                u_texel=texel,
+            )
+            pipeline.apply_shader(self._get_bloom_blur_program(),
+                u_direction=(0.0, 1.0),
+                u_texel=texel,
+            )
+
+        # Blend additif bloom + original
+        gl.glActiveTexture(gl.GL_TEXTURE1)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, bloom_fbo.texture_id)
+        pipeline.apply_shader(self._get_bloom_blend_program(),
+            u_intensity=bloom.intensity,
+            u_original=1,
+        )
+        scene_fbo.bind()
+
     # ======================================== TINT ========================================
     def render_tint(
         self,
         pipeline: Pipeline,
-        tint: tuple[float, float, float],
-        strength: float,
+        tint: Tint,
     ) -> None:
         """Applique un tint coloré sur le framebuffer courant
 
         Args:
             pipeline: Pipeline de rendu courant
-            tint: Couleur du tint en RGB normalisé
-            strength: Intensité du tint [0.0 = aucun effet, 1.0 = tint total]
+            tint: teinte à appliquer
         """
-        pipeline.apply_shader(self._get_tint_program(), u_tint=tint, u_strength=strength)
+        pipeline.apply_shader(
+            self._get_tint_program(),
+            u_tint=tint.color.rgb,
+            u_strength=tint.strength
+        )
 
     # ======================================== VIGNETTE ========================================
     def render_vignette(
         self,
         pipeline: Pipeline,
-        strength: float = 0.5,
-        radius: float = 0.6,
-        color: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        vignette: Vignette
     ) -> None:
         """Applique une vignette sur le framebuffer courant
 
         Args:
             pipeline: Pipeline de rendu courant
-            strength: Intensité de l'effet [0.0 = aucun effet, 1.0 = vignette totale]
-            radius: Rayon de la zone centrale non affectée, en proportion de la diagonale
-            color: Couleur de la vignette en RGB normalisé. (0, 0, 0) pour le noir
+            vignette: réduction de vision à appliquer
         """
         pipeline.apply_shader(
             self._get_vignette_program(),
-            u_strength=strength,
-            u_radius=radius,
-            u_color=color,
+            u_strength=vignette.strength,
+            u_radius=vignette.radius,
+            u_color=vignette.color.rgb,
         )

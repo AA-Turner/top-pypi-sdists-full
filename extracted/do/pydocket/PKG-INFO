@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.19.2
+Version: 0.20.0
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -28,10 +28,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
+Requires-Dist: burner-redis>=0.1.6
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: cronsim>=2.6
 Requires-Dist: exceptiongroup>=1.2.0; python_version < '3.11'
-Requires-Dist: fakeredis[lua]>=2.35.0
 Requires-Dist: opentelemetry-api>=1.33.0
 Requires-Dist: prometheus-client>=0.21.1
 Requires-Dist: py-key-value-aio[memory,redis]>=0.3.0
@@ -135,7 +135,7 @@ introduced in Redis 5.0.0). Docket is tested with:
 
 - Redis 6.2, 7.4, and 8.6 (standalone and cluster modes)
 - [Valkey](https://valkey.io/) 8.1
-- In-memory backend via [fakeredis](https://github.com/cunla/fakeredis-py) for testing
+- In-memory backend via [burner-redis](https://github.com/PrefectHQ/burner-redis) for testing
 
 For testing without Redis, use the in-memory backend:
 

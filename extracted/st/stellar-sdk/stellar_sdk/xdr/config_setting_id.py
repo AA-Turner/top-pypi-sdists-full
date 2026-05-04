@@ -3,10 +3,57 @@
 from __future__ import annotations
 
 import base64
+import json
 from enum import IntEnum
 
 from xdrlib3 import Packer, Unpacker
 
+_CONFIG_SETTING_ID_MAP = {
+    0: "contract_max_size_bytes",
+    1: "contract_compute_v0",
+    2: "contract_ledger_cost_v0",
+    3: "contract_historical_data_v0",
+    4: "contract_events_v0",
+    5: "contract_bandwidth_v0",
+    6: "contract_cost_params_cpu_instructions",
+    7: "contract_cost_params_memory_bytes",
+    8: "contract_data_key_size_bytes",
+    9: "contract_data_entry_size_bytes",
+    10: "state_archival",
+    11: "contract_execution_lanes",
+    12: "live_soroban_state_size_window",
+    13: "eviction_iterator",
+    14: "contract_parallel_compute_v0",
+    15: "contract_ledger_cost_ext_v0",
+    16: "scp_timing",
+    17: "frozen_ledger_keys",
+    18: "frozen_ledger_keys_delta",
+    19: "freeze_bypass_txs",
+    20: "freeze_bypass_txs_delta",
+}
+_CONFIG_SETTING_ID_REVERSE_MAP = {
+    "contract_max_size_bytes": 0,
+    "contract_compute_v0": 1,
+    "contract_ledger_cost_v0": 2,
+    "contract_historical_data_v0": 3,
+    "contract_events_v0": 4,
+    "contract_bandwidth_v0": 5,
+    "contract_cost_params_cpu_instructions": 6,
+    "contract_cost_params_memory_bytes": 7,
+    "contract_data_key_size_bytes": 8,
+    "contract_data_entry_size_bytes": 9,
+    "state_archival": 10,
+    "contract_execution_lanes": 11,
+    "live_soroban_state_size_window": 12,
+    "eviction_iterator": 13,
+    "contract_parallel_compute_v0": 14,
+    "contract_ledger_cost_ext_v0": 15,
+    "scp_timing": 16,
+    "frozen_ledger_keys": 17,
+    "frozen_ledger_keys_delta": 18,
+    "freeze_bypass_txs": 19,
+    "freeze_bypass_txs_delta": 20,
+}
 __all__ = ["ConfigSettingID"]
 
 
@@ -32,7 +79,11 @@ class ConfigSettingID(IntEnum):
             CONFIG_SETTING_EVICTION_ITERATOR = 13,
             CONFIG_SETTING_CONTRACT_PARALLEL_COMPUTE_V0 = 14,
             CONFIG_SETTING_CONTRACT_LEDGER_COST_EXT_V0 = 15,
-            CONFIG_SETTING_SCP_TIMING = 16
+            CONFIG_SETTING_SCP_TIMING = 16,
+            CONFIG_SETTING_FROZEN_LEDGER_KEYS = 17,
+            CONFIG_SETTING_FROZEN_LEDGER_KEYS_DELTA = 18,
+            CONFIG_SETTING_FREEZE_BYPASS_TXS = 19,
+            CONFIG_SETTING_FREEZE_BYPASS_TXS_DELTA = 20
         };
     """
 
@@ -53,6 +104,10 @@ class ConfigSettingID(IntEnum):
     CONFIG_SETTING_CONTRACT_PARALLEL_COMPUTE_V0 = 14
     CONFIG_SETTING_CONTRACT_LEDGER_COST_EXT_V0 = 15
     CONFIG_SETTING_SCP_TIMING = 16
+    CONFIG_SETTING_FROZEN_LEDGER_KEYS = 17
+    CONFIG_SETTING_FROZEN_LEDGER_KEYS_DELTA = 18
+    CONFIG_SETTING_FREEZE_BYPASS_TXS = 19
+    CONFIG_SETTING_FREEZE_BYPASS_TXS_DELTA = 20
 
     def pack(self, packer: Packer) -> None:
         packer.pack_int(self.value)
@@ -70,7 +125,11 @@ class ConfigSettingID(IntEnum):
     @classmethod
     def from_xdr_bytes(cls, xdr: bytes) -> ConfigSettingID:
         unpacker = Unpacker(xdr)
-        return cls.unpack(unpacker)
+        result = cls.unpack(unpacker)
+        remaining = len(xdr) - unpacker.get_position()
+        if remaining != 0:
+            raise ValueError(f"Unexpected trailing {remaining} bytes in XDR data")
+        return result
 
     def to_xdr(self) -> str:
         xdr_bytes = self.to_xdr_bytes()
@@ -80,3 +139,17 @@ class ConfigSettingID(IntEnum):
     def from_xdr(cls, xdr: str) -> ConfigSettingID:
         xdr_bytes = base64.b64decode(xdr.encode())
         return cls.from_xdr_bytes(xdr_bytes)
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_json_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> ConfigSettingID:
+        return cls.from_json_dict(json.loads(json_str))
+
+    def to_json_dict(self) -> str:
+        return _CONFIG_SETTING_ID_MAP[self.value]
+
+    @classmethod
+    def from_json_dict(cls, json_value: str) -> ConfigSettingID:
+        return cls(_CONFIG_SETTING_ID_REVERSE_MAP[json_value])

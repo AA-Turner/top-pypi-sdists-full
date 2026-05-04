@@ -12,6 +12,7 @@ from poetry.repositories import Repository
 from poetry.repositories import RepositoryPool
 from poetry.repositories.installed_repository import InstalledRepository
 from poetry.repositories.lockfile_repository import LockfileRepository
+from poetry.utils.constants import POETRY_SYSTEM_PROJECT_NAME
 
 
 if TYPE_CHECKING:
@@ -266,7 +267,7 @@ class Installer:
             if not self._locker.is_fresh():
                 raise ValueError(
                     "pyproject.toml changed significantly since poetry.lock was last"
-                    " generated. Run `poetry lock` to fix the lock file."
+                    f" generated. Run `{self._lock_fix_command()}` to fix the lock file."
                 )
             if not (reresolve or self._locker.is_locked_groups_and_markers()):
                 if self._io.is_verbose():
@@ -379,6 +380,14 @@ class Installer:
             self._write_lock_file(solved_packages)
 
         return status
+
+    def _lock_fix_command(self) -> str:
+        # `poetry self` commands operate on Poetry's own system project. When the lock
+        # file is outdated, users should run `poetry self lock` rather than `poetry lock`.
+        if self._package.name == POETRY_SYSTEM_PROJECT_NAME:
+            return "poetry self lock"
+
+        return "poetry lock"
 
     def _write_lock_file(
         self,

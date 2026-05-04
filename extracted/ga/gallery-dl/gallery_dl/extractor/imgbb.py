@@ -99,10 +99,6 @@ class ImgbbExtractor(Extractor):
                 headers = {
                     "Accept": "application/json, text/javascript, */*; q=0.01",
                     "X-Requested-With": "XMLHttpRequest",
-                    "Origin": self.root,
-                    "Sec-Fetch-Dest": "empty",
-                    "Sec-Fetch-Mode": "cors",
-                    "Sec-Fetch-Site": "same-origin",
                 }
 
             data = self.request_json(

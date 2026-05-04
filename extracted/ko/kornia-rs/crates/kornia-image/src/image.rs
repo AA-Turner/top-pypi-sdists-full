@@ -1,5 +1,6 @@
 use crate::{allocator::ImageAllocator, error::ImageError};
 use kornia_tensor::{Tensor, Tensor2, Tensor3};
+use rayon::prelude::*;
 
 /// Image size in pixels
 ///
@@ -18,12 +19,58 @@ use kornia_tensor::{Tensor, Tensor2, Tensor3};
 /// assert_eq!(image_size.width, 10);
 /// assert_eq!(image_size.height, 20);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ImageSize {
     /// Width of the image in pixels
     pub width: usize,
     /// Height of the image in pixels
     pub height: usize,
+}
+
+/// Pixel data type stored in an image buffer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PixelFormat {
+    /// Unsigned 8-bit integer pixels.
+    U8,
+    /// Unsigned 16-bit integer pixels.
+    U16,
+    /// 32-bit floating point pixels.
+    F32,
+}
+
+/// Interpolation mode for the image operations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterpolationMode {
+    /// Bilinear interpolation
+    Bilinear,
+    /// Nearest neighbor interpolation
+    Nearest,
+    /// Lanczos interpolation
+    Lanczos,
+    /// Bicubic interpolation
+    Bicubic,
+}
+
+/// Image layout metadata (size, channels, pixel format).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ImageLayout {
+    /// Image size in pixels.
+    pub image_size: ImageSize,
+    /// Number of channels per pixel.
+    pub channels: u8,
+    /// Pixel data format.
+    pub pixel_format: PixelFormat,
+}
+
+impl ImageLayout {
+    /// Create a new image layout descriptor.
+    pub fn new(image_size: ImageSize, channels: u8, pixel_format: PixelFormat) -> Self {
+        Self {
+            image_size,
+            channels,
+            pixel_format,
+        }
+    }
 }
 
 impl std::fmt::Display for ImageSize {
@@ -48,6 +95,22 @@ impl From<[usize; 2]> for ImageSize {
 impl From<ImageSize> for [u32; 2] {
     fn from(size: ImageSize) -> Self {
         [size.width as u32, size.height as u32]
+    }
+}
+
+impl ImageSize {
+    /// Converts (y, x) coordinates to a flat index (row-major order).
+    #[inline]
+    pub fn index(&self, y: usize, x: usize) -> usize {
+        y * self.width + x
+    }
+
+    /// Converts a flat index to (y, x) coordinates (row-major order).
+    #[inline]
+    pub fn coords(&self, idx: usize) -> (usize, usize) {
+        let y = idx / self.width;
+        let x = idx % self.width;
+        (y, x)
     }
 }
 
@@ -111,10 +174,7 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
     /// assert_eq!(image.size().height, 20);
     /// assert_eq!(image.num_channels(), 3);
     /// ```
-    pub fn new(size: ImageSize, data: Vec<T>, alloc: A) -> Result<Self, ImageError>
-    where
-        T: Clone, // TODO: remove this bound
-    {
+    pub fn new(size: ImageSize, data: Vec<T>, alloc: A) -> Result<Self, ImageError> {
         // check if the data length matches the image size
         if data.len() != size.width * size.height * C {
             return Err(ImageError::InvalidChannelShape(
@@ -165,7 +225,7 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
     /// ```
     pub fn from_size_val(size: ImageSize, val: T, alloc: A) -> Result<Self, ImageError>
     where
-        T: Clone + Default,
+        T: Clone,
     {
         let data = vec![val; size.width * size.height * C];
         let image = Image::new(size, data, alloc)?;
@@ -233,10 +293,7 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
     /// # Returns
     ///
     /// A new image with the pixel data mapped to the new type.
-    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> Result<Image<U, C, A>, ImageError>
-    where
-        U: Clone,
-    {
+    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> Result<Image<U, C, A>, ImageError> {
         let data = self.as_slice().iter().map(f).collect::<Vec<U>>();
         let alloc = self.storage.alloc();
         Image::<U, C, A>::new(self.size(), data, alloc.clone())
@@ -244,27 +301,52 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
 
     /// Cast the pixel data of the image to a different type.
     ///
+    /// Each pixel value is converted using [`num_traits::NumCast`], which supports
+    /// lossy casts (e.g. `f32` → `u8` via truncation). If any value cannot be
+    /// represented in the target type, the entire operation returns
+    /// [`ImageError::CastError`].
+    ///
+    /// The output image has the same shape (height × width × channels) as the
+    /// source image and uses the same allocator.
+    ///
     /// # Returns
     ///
-    /// A new image with the pixel data cast to the given type.
+    /// A new image with the pixel data cast to the target type `U`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ImageError::CastError`] if any pixel value cannot be represented
+    /// as type `U` (e.g. `f32::MAX` cast to `u8`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use kornia_image::{Image, ImageSize};
+    /// use kornia_image::allocator::CpuAllocator;
+    ///
+    /// let image_u8 = Image::<u8, 3, CpuAllocator>::new(
+    ///     ImageSize { width: 2, height: 1 },
+    ///     vec![0u8, 128, 255, 10, 20, 30],
+    ///     CpuAllocator,
+    /// ).unwrap();
+    ///
+    /// let image_f32 = image_u8.cast::<f32>().unwrap();
+    /// assert_eq!(image_f32.as_slice()[2], 255.0f32);
+    /// ```
     pub fn cast<U>(&self) -> Result<Image<U, C, A>, ImageError>
     where
-        U: num_traits::NumCast + Clone + Copy, // TODO: remove this bound
-        T: num_traits::NumCast + Clone + Copy, // TODO: remove this bound
+        U: num_traits::NumCast + Copy,
+        T: num_traits::NumCast + Copy,
     {
-        // TODO: this needs to be optimized and reuse Tensor::cast
-        let casted_data = self
+        let data = self
             .as_slice()
             .iter()
-            .map(|&x| {
-                let xu = U::from(x).ok_or(ImageError::CastError)?;
-                Ok(xu)
-            })
+            .map(|&x| U::from(x).ok_or(ImageError::CastError))
             .collect::<Result<Vec<U>, ImageError>>()?;
 
-        let alloc = self.storage.alloc();
-
-        Image::new(self.size(), casted_data, alloc.clone())
+        let alloc = self.storage.alloc().clone();
+        let tensor = Tensor3::from_shape_vec(self.0.shape, data, alloc)?;
+        Ok(Image(tensor))
     }
 
     /// Get a channel of the image.
@@ -325,7 +407,7 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
     /// ```
     pub fn split_channels(&self) -> Result<Vec<Image<T, 1, A>>, ImageError>
     where
-        T: Clone + Copy, // TODO: remove this bound
+        T: Copy,
     {
         let mut channels = Vec::with_capacity(C);
 
@@ -404,22 +486,29 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
     ///
     /// assert_eq!(image_f32.get([1, 0, 2]), Some(&1.0f32));
     /// ```
+    #[allow(clippy::uninit_vec)]
     pub fn cast_and_scale<U>(self, scale: U) -> Result<Image<U, C, A>, ImageError>
     where
-        U: num_traits::NumCast + std::ops::Mul<Output = U> + Clone + Copy,
-        T: num_traits::NumCast + Clone + Copy,
+        U: num_traits::NumCast + std::ops::Mul<Output = U> + Clone + Copy + Send + Sync,
+        T: num_traits::NumCast + Clone + Copy + Send + Sync,
     {
-        let casted_data = self
-            .as_slice()
-            .iter()
-            .map(|&x| {
+        let slice = self.as_slice();
+        let mut casted_data = Vec::with_capacity(slice.len());
+        // SAFETY: Each element is written to with no reads beforehand.
+        unsafe {
+            casted_data.set_len(slice.len());
+        }
+
+        slice
+            .par_iter()
+            .zip(casted_data.par_iter_mut())
+            .try_for_each(|(&x, out)| {
                 let xu = U::from(x).ok_or(ImageError::CastError)?;
-                Ok(xu * scale)
-            })
-            .collect::<Result<Vec<U>, ImageError>>()?;
+                *out = xu * scale;
+                Ok::<(), ImageError>(())
+            })?;
 
         let alloc = self.storage.alloc();
-
         Image::new(self.size(), casted_data, alloc.clone())
     }
 
@@ -432,22 +521,28 @@ impl<T, const C: usize, A: ImageAllocator> Image<T, C, A> {
     /// # Returns
     ///
     /// A new image with the pixel data cast to the new type and scaled.
+    #[allow(clippy::uninit_vec)]
     pub fn scale_and_cast<U>(&self, scale: T) -> Result<Image<U, C, A>, ImageError>
     where
-        U: num_traits::NumCast + Clone + Copy,
-        T: num_traits::NumCast + std::ops::Mul<Output = T> + Clone + Copy,
+        U: num_traits::NumCast + Clone + Copy + Send + Sync,
+        T: num_traits::NumCast + std::ops::Mul<Output = T> + Clone + Copy + Send + Sync,
     {
-        let casted_data = self
-            .as_slice()
-            .iter()
-            .map(|&x| {
-                let xu = U::from(x * scale).ok_or(ImageError::CastError)?;
-                Ok(xu)
-            })
-            .collect::<Result<Vec<U>, ImageError>>()?;
+        let slice = self.as_slice();
+        let mut casted_data = Vec::with_capacity(slice.len());
+        // SAFETY: Each element is written to with no reads beforehand.
+        unsafe {
+            casted_data.set_len(slice.len());
+        }
+
+        slice
+            .par_iter()
+            .zip(casted_data.par_iter_mut())
+            .try_for_each(|(&x, out)| {
+                *out = U::from(x * scale).ok_or(ImageError::CastError)?;
+                Ok::<(), ImageError>(())
+            })?;
 
         let alloc = self.storage.alloc();
-
         Image::new(self.size(), casted_data, alloc.clone())
     }
 
@@ -593,6 +688,25 @@ mod tests {
     }
 
     #[test]
+    fn test_image_size_index_coords() {
+        let size = ImageSize {
+            width: 8,
+            height: 6,
+        };
+        // Test (y, x) -> idx
+        assert_eq!(size.index(0, 0), 0);
+        assert_eq!(size.index(1, 0), 8);
+        assert_eq!(size.index(2, 3), 2 * 8 + 3);
+        assert_eq!(size.index(5, 7), 5 * 8 + 7);
+
+        // Test idx -> (y, x)
+        assert_eq!(size.coords(0), (0, 0));
+        assert_eq!(size.coords(8), (1, 0));
+        assert_eq!(size.coords(19), (2, 3));
+        assert_eq!(size.coords(47), (5, 7));
+    }
+
+    #[test]
     fn test_image_smoke() -> Result<(), ImageError> {
         let image = Image::<u8, 3, CpuAllocator>::new(
             ImageSize {
@@ -622,6 +736,24 @@ mod tests {
         assert_eq!(image.size().width, 2);
         assert_eq!(image.size().height, 3);
         assert_eq!(image.num_channels(), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_image_from_empty_vec() -> Result<(), ImageError> {
+        let image: Result<Image<f32, 1, CpuAllocator>, ImageError> = Image::new(
+            ImageSize {
+                height: 0,
+                width: 0,
+            },
+            vec![0.0; 0],
+            CpuAllocator,
+        );
+        assert!(
+            image.is_ok(),
+            "Image::new should create an empty image and drop it without segfault"
+        );
 
         Ok(())
     }
@@ -847,6 +979,76 @@ mod tests {
         assert_eq!(image_f32.num_channels(), 1);
         assert_eq!(image_f32.get([0, 0, 0]), Some(&2.0f32));
         assert_eq!(image_f32.get([1, 0, 0]), Some(&130.0f32));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cast_round_trip() -> Result<(), ImageError> {
+        // f32 → u8 → f32: values representable as u8 should survive the round trip.
+        let data_f32 = vec![0.0f32, 128.0, 255.0, 10.0, 20.0, 30.0];
+        let image_f32 = Image::<f32, 3, CpuAllocator>::new(
+            ImageSize {
+                height: 2,
+                width: 1,
+            },
+            data_f32.clone(),
+            CpuAllocator,
+        )?;
+
+        let image_u8 = image_f32.cast::<u8>()?;
+        let image_f32_rt = image_u8.cast::<f32>()?;
+
+        assert_eq!(image_f32_rt.size(), image_f32.size());
+        assert_eq!(image_f32_rt.num_channels(), 3);
+        for (original, round_tripped) in data_f32.iter().zip(image_f32_rt.as_slice()) {
+            assert!((*original - round_tripped).abs() < 1.0);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cast_out_of_range() -> Result<(), ImageError> {
+        // f32::MAX cannot be represented as u8, so cast must fail.
+        let image_f32 = Image::<f32, 1, CpuAllocator>::new(
+            ImageSize {
+                height: 1,
+                width: 1,
+            },
+            vec![f32::MAX],
+            CpuAllocator,
+        )?;
+
+        let result = image_f32.cast::<u8>();
+        assert!(
+            matches!(result, Err(ImageError::CastError)),
+            "expected CastError for out-of-range f32 value"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cast_shape_preservation() -> Result<(), ImageError> {
+        // Cast a 2×1 image with C=3; result must have identical size and correct values.
+        let data = vec![0u8, 64, 128, 192, 200, 255];
+        let image_u8 = Image::<u8, 3, CpuAllocator>::new(
+            ImageSize {
+                height: 2,
+                width: 1,
+            },
+            data.clone(),
+            CpuAllocator,
+        )?;
+
+        let image_f32 = image_u8.cast::<f32>()?;
+
+        assert_eq!(image_f32.size(), image_u8.size());
+        assert_eq!(image_f32.num_channels(), 3);
+        for (original, casted) in data.iter().zip(image_f32.as_slice()) {
+            assert_eq!(*casted, *original as f32);
+        }
 
         Ok(())
     }

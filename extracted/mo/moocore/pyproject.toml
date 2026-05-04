@@ -8,7 +8,7 @@ requires = [
 
 [project]
 name = "moocore"
-version = "0.2.0"
+version = "0.3.0"
 description = "Core Algorithms for Multi-Objective Optimization"
 readme = "README.md"
 keywords = [
@@ -23,6 +23,7 @@ license-files = [ "COPYRIGHTS" ]
 authors = [
   { name = "Manuel López-Ibáñez", email = "manuel.lopez-ibanez@manchester.ac.uk" },
   { name = "Fergus Rooney", email = "fergus.rooney@outlook.com" },
+  { name = "Lennart Schäpermeier", email = "lennart.schaepermeier@uni-muenster.de" },
 ]
 requires-python = ">=3.10"
 classifiers = [
@@ -40,30 +41,30 @@ dependencies = [
   "numpy>=1.24",
   "platformdirs",
 ]
-
-optional-dependencies.benchmarks = [
+[project.optional-dependencies]
+benchmarks = [
   "botorch",
   "desdeo",
   "fast-pareto",
-  "jmetalpy",
+  "jmetalpy>=1.8",
   "matplotlib",
+  "moarchiving>=1.1",
   "nevergrad",
   "numba",
   "numpy",
   "optuna",
   "pandas>=2",
   "paretoset",
+  "patatune",
   "py-cpuinfo",
   "pymoo",
-  "seqme",
 ]
-
-optional-dependencies.coverage = [
+coverage = [
   "coverage[toml]",
   "gcovr",
 ]
-optional-dependencies.dev = [ "pre-commit>=3.3.2", "ruff>=0.11.2", "tox>=4.6.2" ]
-optional-dependencies.docs = [
+dev = [ "pre-commit>=3.3.2", "ruff>=0.11.2", "tox>=4.6.2" ]
+docs = [
   "ipykernel",
   "ipywidgets",
   "jupyter",
@@ -81,19 +82,19 @@ optional-dependencies.docs = [
   "sphinxcontrib-bibtex",
   "sphinxcontrib-napoleon",
 ]
-optional-dependencies.test = [
+test = [
   "pandas>=2",
   "pytest>7",
 ]
-urls.Documentation = "https://multi-objective.github.io/moocore/python/"
-urls.Homepage = "https://multi-objective.github.io/moocore/python/"
-urls.Source = "https://github.com/multi-objective/moocore/"
-urls.Tracker = "https://github.com/multi-objective/moocore/issues"
+[project.urls]
+Documentation = "https://multi-objective.github.io/moocore/python/"
+Homepage = "https://multi-objective.github.io/moocore/python/"
+Source = "https://github.com/multi-objective/moocore/"
+Tracker = "https://github.com/multi-objective/moocore/issues"
 
 [tool.setuptools]
 zip-safe = false
 package-dir = { "" = "src" }
-
 [tool.setuptools.package-data]
 "*" = [ "*.c", "*.h" ]
 "moocore.data" = [ "*.txt", "*.dat", "*.xz", "*.csv", "*.10" ]
@@ -114,8 +115,6 @@ test-extras = [ "test" ]
 test-command = [
   "pytest --doctest-modules --doctest-continue-on-failure {package}/tests {package}/src/moocore/_moocore.py",
 ]
-#test-skip = "*-*linux_{aarch64,ppc64le,s390x}"
-
 [tool.cibuildwheel.linux]
 archs = [ "native" ]
 manylinux-x86_64-image = "manylinux_2_28"
@@ -128,7 +127,13 @@ repair-wheel-command = [
   "auditwheel repair -w {dest_dir} {wheel}",
   "abi3audit --verbose --strict --report {wheel}",
 ]
-
+[tool.cibuildwheel.macos]
+archs = [ "universal2" ]
+before-build = "pip install abi3audit"
+repair-wheel-command = [
+  "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}",
+  "abi3audit --verbose --strict --report {wheel}",
+]
 [tool.cibuildwheel.windows]
 archs = [ "native" ]
 # Use delvewheel on windows
@@ -138,19 +143,13 @@ repair-wheel-command = [
   "abi3audit --verbose --strict --report {wheel}",
 ]
 
-[tool.cibuildwheel.macos]
-archs = [ "universal2" ]
-before-build = "pip install abi3audit"
-repair-wheel-command = [
-  "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}",
-  "abi3audit --verbose --strict --report {wheel}",
-]
-
 [tool.ruff]
 line-length = 80
-format.docstring-code-line-length = 80
-format.docstring-code-format = true
-lint.extend-select = [
+[tool.ruff.format]
+docstring-code-line-length = 80
+docstring-code-format = true
+[tool.ruff.lint]
+extend-select = [
   "D",    # pydocstyle
   "D402", # no-signature
   "D415", # ends-in-punctuation
@@ -161,44 +160,35 @@ lint.extend-select = [
   "RUF",
   "UP",
 ]
-lint.ignore = [
+ignore = [
   "D203", # one-blank-line-before-class
   "D213", # multi-line-summary-second-line
 ]
-
-lint.extend-per-file-ignores."*benchmarks*/*.py" = [
+extend-per-file-ignores."*benchmarks*/*.py" = [
   "D",
   "N806", # non-lowercase-variable-in-function
   "N813",
 ]
-
-lint.extend-per-file-ignores."*examples*/*.py" = [
+extend-per-file-ignores."*examples*/*.py" = [
   "D205", # 1 blank line required between summary line and description
   "D400", # First line should end with a period
-  "D415", #  First line should end with a period, question mark, or exclamation point
+  "D415", # First line should end with a period, question mark, or exclamation point
   "E402", # Module level import not at top of file
 ]
-
-lint.extend-per-file-ignores."*tests*/*.py" = [
+extend-per-file-ignores."*tests*/*.py" = [
   "N806", # non-lowercase-variable-in-function
 ]
+pycodestyle.max-doc-length = 80
+pycodestyle.max-line-length = 80
+pydocstyle.convention = "numpy"
 
-lint.pycodestyle.max-doc-length = 80
-lint.pycodestyle.max-line-length = 80
-lint.pydocstyle.convention = "numpy"
-
-[tool.pytest.ini_options]
-faulthandler_timeout = 10
-doctest_optionflags = "NUMBER"
-addopts = [ "--import-mode=importlib", "--durations=5", "--durations-min=1.0" ]
-
-[tool.coverage.report]
-exclude_also = [
-  '.*(?:#|//)\s+nocov',
-  '.* ASSUME\s?\(.+\);',
-  '.* unreachable\s?\(\);',
-  '.*(?:GCOVR?|LCOV)_EXCL_LINE',
-]
+[tool.pyproject-fmt]
+# Table format: "short" collapses sub-tables to dotted keys, "long" expands to [table.subtable] headers
+table_format = "long"
+# List of tables to force expand regardless of table_format setting
+expand_tables = [ "project.urls", "project.optional-dependencies" ]
+# List of tables to force collapse regardless of table_format or expand_tables settings
+collapse_tables = [ "project.authors" ]
 
 [tool.mypy]
 python_version = "3.11"
@@ -218,10 +208,27 @@ warn_unused_configs = true
 ignore_missing_imports = true
 files = [ "src/" ]
 
+[tool.pytest.ini_options]
+faulthandler_timeout = 10
+doctest_optionflags = "NUMBER"
+addopts = [ "--import-mode=importlib", "--durations=5", "--durations-min=1.0" ]
+
+[tool.coverage.report]
+# Same as tool.gcovr.exclude-lines-by-pattern.
+exclude_also = [
+  "^.*(?:#|//)\\s+nocov",
+  "^.*\\b(?:ASSUME|(?:DEBUG1|DEBUG2|DEBUG3)(?:_PRINT)?)\\s?\\(",
+  "^.*\\bunreachable\\s?\\(\\)",
+  "^.*(?:GCOVR?|LCOV)_EXCL_LINE",
+]
+[tool.coverage.run]
+branch = true
+
 [tool.gcovr]
+# The regex must match the start of the line.
 exclude-lines-by-pattern = [
-  '.*(?:#|//)\s+nocov',
-  '.* ASSUME\s?\(.+\);',
-  '.* unreachable\s?\(\);',
-  '.*(?:GCOVR?|LCOV)_EXCL_LINE',
+  "^.*(?:#|//)\\s+nocov",
+  "^.*\\b(?:ASSUME|(?:DEBUG1|DEBUG2|DEBUG3)(?:_PRINT)?)\\s?\\(",
+  "^.*\\bunreachable\\s?\\(\\)",
+  "^.*(?:GCOVR?|LCOV)_EXCL_LINE",
 ]

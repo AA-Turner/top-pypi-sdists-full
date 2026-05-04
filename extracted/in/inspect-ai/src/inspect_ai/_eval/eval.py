@@ -69,6 +69,7 @@ from inspect_ai.scorer._reducer import reducer_log_names
 from inspect_ai.solver._chain import chain
 from inspect_ai.solver._solver import Solver, SolverSpec
 from inspect_ai.util import SandboxEnvironmentType
+from inspect_ai.util._concurrency import AdaptiveConcurrency
 from inspect_ai.util._display import (
     DisplayType,
     display_type,
@@ -112,6 +113,7 @@ def eval(
     fail_on_error: bool | float | None = None,
     continue_on_fail: bool | None = None,
     retry_on_error: int | None = None,
+    score_on_error: bool | None = None,
     debug_errors: bool | None = None,
     message_limit: int | None = None,
     token_limit: int | None = None,
@@ -188,6 +190,9 @@ def eval(
             `False` to fail eval immediately when the `fail_on_error` condition is met (default).
         retry_on_error: Number of times to retry samples if they encounter errors
             (by default, no retries occur).
+        score_on_error: Score samples that error rather than failing the eval mid-run.
+            Errors still count toward the `fail_on_error` threshold for marking the eval
+            log as 'error'. Only takes effect after retries (if any) are exhausted.
         debug_errors: Raise task errors (rather than logging them)
             so they can be debugged (defaults to False).
         message_limit: Limit on total messages used for each sample.
@@ -270,6 +275,7 @@ def eval(
                 fail_on_error=fail_on_error,
                 continue_on_fail=continue_on_fail,
                 retry_on_error=retry_on_error,
+                score_on_error=score_on_error,
                 debug_errors=debug_errors,
                 message_limit=message_limit,
                 token_limit=token_limit,
@@ -335,6 +341,7 @@ async def eval_async(
     fail_on_error: bool | float | None = None,
     continue_on_fail: bool | None = None,
     retry_on_error: int | None = None,
+    score_on_error: bool | None = None,
     debug_errors: bool | None = None,
     message_limit: int | None = None,
     token_limit: int | None = None,
@@ -399,6 +406,9 @@ async def eval_async(
             `False` to fail eval immediately when the `fail_on_error` condition is met (default).
         retry_on_error: Number of times to retry samples if they encounter errors
             (by default, no retries occur).
+        score_on_error: Score samples that error rather than failing the eval mid-run.
+            Errors still count toward the `fail_on_error` threshold for marking the eval
+            log as 'error'. Only takes effect after retries (if any) are exhausted.
         debug_errors: Raise task errors (rather than logging them) so they can be debugged (defaults to False).
         message_limit: Limit on total messages used for each sample.
         token_limit: Limit on total tokens used for each sample.
@@ -468,6 +478,7 @@ async def eval_async(
                 fail_on_error=fail_on_error,
                 continue_on_fail=continue_on_fail,
                 retry_on_error=retry_on_error,
+                score_on_error=score_on_error,
                 debug_errors=debug_errors,
                 message_limit=message_limit,
                 token_limit=token_limit,
@@ -538,6 +549,7 @@ async def _eval_async_inner(
     fail_on_error: bool | float | None = None,
     continue_on_fail: bool | None = None,
     retry_on_error: int | None = None,
+    score_on_error: bool | None = None,
     debug_errors: bool | None = None,
     message_limit: int | None = None,
     token_limit: int | None = None,
@@ -713,6 +725,7 @@ async def _eval_async_inner(
             fail_on_error=fail_on_error,
             continue_on_fail=continue_on_fail,
             retry_on_error=retry_on_error,
+            score_on_error=score_on_error,
             message_limit=message_limit,
             token_limit=token_limit,
             cost_limit=cost_limit,
@@ -844,6 +857,7 @@ def eval_retry(
     fail_on_error: bool | float | None = None,
     continue_on_fail: bool | None = None,
     retry_on_error: int | None = None,
+    score_on_error: bool | None = None,
     debug_errors: bool | None = None,
     log_samples: bool | None = None,
     log_realtime: bool | None = None,
@@ -858,6 +872,7 @@ def eval_retry(
     timeout: int | None = None,
     attempt_timeout: int | None = None,
     max_connections: int | None = None,
+    adaptive_connections: bool | AdaptiveConcurrency | None = None,
 ) -> list[EvalLog]:
     """Retry a previously failed evaluation task.
 
@@ -890,6 +905,9 @@ def eval_retry(
             `False` to fail eval immediately when the `fail_on_error` condition is met (default).
         retry_on_error: Number of times to retry samples if they encounter errors
             (by default, no retries occur).
+        score_on_error: Score samples that error rather than failing the eval mid-run.
+            Errors still count toward the `fail_on_error` threshold for marking the eval
+            log as 'error'. Only takes effect after retries (if any) are exhausted.
         debug_errors: Raise task errors (rather than logging them)
             so they can be debugged (defaults to False).
         log_samples: Log detailed samples and scores (defaults to True)
@@ -914,6 +932,11 @@ def eval_retry(
             Timeout (in seconds) for any given attempt (if exceeded, will abandon attempt and retry according to max_retries).
         max_connections:
             Maximum number of concurrent connections to Model API (default is per Model API)
+        adaptive_connections:
+            Enable adaptive concurrency for Model API connections. `True` for defaults
+            (min=4, start=20, max=200), or pass an `AdaptiveConcurrency` to customize
+            bounds and tuning (cooldown_seconds, decrease_factor, scale_up_percent).
+            An explicit `max_connections` overrides this and uses static concurrency.
 
     Returns:
         List of EvalLog (one for each task)
@@ -939,6 +962,7 @@ def eval_retry(
             fail_on_error=fail_on_error,
             continue_on_fail=continue_on_fail,
             retry_on_error=retry_on_error,
+            score_on_error=score_on_error,
             debug_errors=debug_errors,
             log_samples=log_samples,
             log_realtime=log_realtime,
@@ -953,6 +977,7 @@ def eval_retry(
             timeout=timeout,
             attempt_timeout=attempt_timeout,
             max_connections=max_connections,
+            adaptive_connections=adaptive_connections,
         )
 
     return task_display().run_task_app(with_async_fs(run_task_app))
@@ -972,6 +997,7 @@ async def eval_retry_async(
     fail_on_error: bool | float | None = None,
     continue_on_fail: bool | None = None,
     retry_on_error: int | None = None,
+    score_on_error: bool | None = None,
     debug_errors: bool | None = None,
     log_samples: bool | None = None,
     log_realtime: bool | None = None,
@@ -986,6 +1012,7 @@ async def eval_retry_async(
     timeout: int | None = None,
     attempt_timeout: int | None = None,
     max_connections: int | None = None,
+    adaptive_connections: bool | AdaptiveConcurrency | None = None,
 ) -> list[EvalLog]:
     """Retry a previously failed evaluation task.
 
@@ -1011,6 +1038,9 @@ async def eval_retry_async(
             `False` to fail eval immediately when the `fail_on_error` condition is met (default).
         retry_on_error: Number of times to retry samples if they encounter errors
            (by default, no retries occur).
+        score_on_error: Score samples that error rather than failing the eval mid-run.
+            Errors still count toward the `fail_on_error` threshold for marking the eval
+            log as 'error'. Only takes effect after retries (if any) are exhausted.
         debug_errors: Raise task errors (rather than logging them)
            so they can be debugged (defaults to False).
         log_samples: Log detailed samples and scores (defaults to True)
@@ -1030,6 +1060,7 @@ async def eval_retry_async(
         timeout: Request timeout (in seconds)
         attempt_timeout: Timeout (in seconds) for any given attempt (if exceeded, will abandon attempt and retry according to max_retries).
         max_connections: Maximum number of concurrent connections to Model API (default is per Model API)
+        adaptive_connections: Enable adaptive concurrency for Model API connections. `True` for defaults (min=4, start=20, max=200), or pass an `AdaptiveConcurrency` to customize bounds and tuning (cooldown_seconds, decrease_factor, scale_up_percent). An explicit `max_connections` overrides this and uses static concurrency.
 
     Returns:
         List of EvalLog (one for each task)
@@ -1177,6 +1208,11 @@ async def eval_retry_async(
             if retry_on_error is not None
             else eval_log.eval.config.retry_on_error
         )
+        score_on_error = (
+            score_on_error
+            if score_on_error is not None
+            else eval_log.eval.config.score_on_error
+        )
         log_samples = (
             log_samples if log_samples is not None else eval_log.eval.config.log_samples
         )
@@ -1220,6 +1256,8 @@ async def eval_retry_async(
         config.timeout = timeout or config.timeout
         config.attempt_timeout = attempt_timeout or config.attempt_timeout
         config.max_connections = max_connections or config.max_connections
+        if adaptive_connections is not None:
+            config.adaptive_connections = adaptive_connections
 
         # extract previous model usage to continue token counting (make a deep copy to avoid modifying the original log)
         initial_model_usage = (
@@ -1270,6 +1308,7 @@ async def eval_retry_async(
                 fail_on_error=fail_on_error,
                 continue_on_fail=continue_on_fail,
                 retry_on_error=retry_on_error,
+                score_on_error=score_on_error,
                 debug_errors=debug_errors,
                 message_limit=message_limit,
                 token_limit=token_limit,

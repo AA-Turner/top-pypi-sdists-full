@@ -33,6 +33,7 @@ class RedditExtractor(Extractor):
         max_depth = self.config("recursion", 0)
         previews = self.config("previews", True)
         embeds = self.config("embeds", True)
+        pinned = self.config("pinned", True)
 
         if videos := self.config("videos", "dash"):
             if videos == "dash":
@@ -54,6 +55,12 @@ class RedditExtractor(Extractor):
             extra = []
 
             for submission, comments in submissions:
+                if not pinned and (submission.get("pinned") or
+                                   submission.get("stickied")):
+                    self.log.debug("%s: Skipping pinned submission",
+                                   submission.get("id"))
+                    continue
+
                 urls = []
 
                 if submission and submission.get("_media", True):

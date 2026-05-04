@@ -1101,7 +1101,7 @@ def _build_tools_list() -> list[Tool]:
         ),
         Tool(
             name="find_references",
-            description="Find all files that import or reference an identifier. Answers 'where is this used?'. Supports dbt {{ ref() }} edges. Use identifiers for batch queries. Set include_call_chain=true to also see which symbols in each file call the identifier.",
+            description="Find all files that import or reference an identifier via the import graph. Answers 'where is this imported / re-exported?'. SCOPE: import sites + dbt `{{ ref() }}` edges + (when `include_call_chain=true`) symbols whose bodies textually mention the identifier. Does NOT exhaustively enumerate every call site across the codebase — for that, combine with search_text or use get_call_hierarchy on the resolved symbol_id. Use `identifiers` for batch queries.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1889,12 +1889,16 @@ def _build_tools_list() -> list[Tool]:
             name="get_dead_code_v2",
             description=(
                 "Find likely-dead functions and methods using three independent evidence signals: "
-                "(1) the symbol's file is not reachable from any entry point via the import graph, "
+                "(1) the symbol's file is not reachable from any entry point via the import graph "
+                "(filename heuristic + package.json main/module/exports/bin), "
                 "(2) no indexed symbol calls this symbol in the call graph, "
-                "(3) the symbol name is not re-exported from any __init__ or barrel file. "
+                "(3) the symbol name is not re-exported from any __init__ or barrel file "
+                "(recursively follows CJS `module.exports = require(...)` and ES `export * from`). "
                 "Each result includes a confidence score (0.33 = 1 signal, 0.67 = 2 signals, 1.0 = all 3). "
                 "More reliable than single-signal dead-code detection. "
-                "Use min_confidence=0.67 for high-confidence results only."
+                "Use min_confidence=0.67 for high-confidence results only. "
+                "v1.80.7+ — `max_results` (default 100) caps response size; "
+                "`file_pattern` scopes analysis to a glob like `src/**`."
             ),
             inputSchema={
                 "type": "object",
@@ -1912,6 +1916,16 @@ def _build_tools_list() -> list[Tool]:
                         "type": "boolean",
                         "description": "Include test files in analysis (default false).",
                         "default": False,
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Cap on returned dead symbols (default 100, 0 = unlimited). _meta.truncated + _meta.total_matches flag when capped.",
+                        "default": 100,
+                        "minimum": 0,
+                    },
+                    "file_pattern": {
+                        "type": "string",
+                        "description": "Optional glob (e.g. `src/**`, `*.py`) — only analyse symbols whose file matches.",
                     },
                 },
                 "required": ["repo"],
@@ -3517,6 +3531,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     repo=arguments["repo"],
                     min_confidence=arguments.get("min_confidence", 0.5),
                     include_tests=arguments.get("include_tests", False),
+                    max_results=arguments.get("max_results", 100),
+                    file_pattern=arguments.get("file_pattern"),
                     storage_path=storage_path,
                 )
             )
@@ -4892,17 +4908,26 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
         if claude_md_path.exists():
             try:
                 cm_content = claude_md_path.read_text(encoding="utf-8", errors="replace")
-                missing_in_cm = [t for t in canonical_tools if t not in cm_content]
-                if missing_in_cm:
-                    # Wrap into ~60-char lines for readability
-                    _wrapped = _wrap_names(missing_in_cm)
-                    print(f"  {yellow(WARN)} {len(missing_in_cm)} tool(s) not mentioned in CLAUDE.md:")
-                    for _line in _wrapped:
-                        print(f"       {dim(_line)}")
-                    print(f"  {dim('  Run: jcodemunch-mcp claude-md --generate  (or --format=append for delta only)')}")
-                    issues.append("claude_md")
+                # The README documents a supported one-line form: "Call the
+                # jcodemunch_guide tool and strictly follow its instructions."
+                # That tool returns the per-version policy at runtime, so the
+                # full canonical tool list is not expected to appear in CLAUDE.md.
+                # Treat any mention of jcodemunch_guide as valid setup.
+                if "jcodemunch_guide" in cm_content:
+                    print(f"  {green(CHECK)} CLAUDE.md uses jcodemunch_guide one-line form (version-pinned at runtime)")
                 else:
-                    print(f"  {green(CHECK)} All {len(canonical_tools)} tools mentioned in CLAUDE.md")
+                    missing_in_cm = [t for t in canonical_tools if t not in cm_content]
+                    if missing_in_cm:
+                        # Wrap into ~60-char lines for readability
+                        _wrapped = _wrap_names(missing_in_cm)
+                        print(f"  {yellow(WARN)} {len(missing_in_cm)} tool(s) not mentioned in CLAUDE.md:")
+                        for _line in _wrapped:
+                            print(f"       {dim(_line)}")
+                        print(f"  {dim('  Run: jcodemunch-mcp claude-md --generate  (or --format=append for delta only)')}")
+                        print(f"  {dim('  Or use the one-line form: add `Call the jcodemunch_guide tool and strictly follow its instructions.` to CLAUDE.md')}")
+                        issues.append("claude_md")
+                    else:
+                        print(f"  {green(CHECK)} All {len(canonical_tools)} tools mentioned in CLAUDE.md")
             except Exception as _e:
                 print(f"  {yellow(WARN)} Could not read CLAUDE.md: {_e}")
         else:

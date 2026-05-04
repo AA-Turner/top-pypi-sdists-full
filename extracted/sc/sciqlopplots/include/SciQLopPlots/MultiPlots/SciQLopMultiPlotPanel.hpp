@@ -30,6 +30,7 @@
 #include <QUuid>
 #include <QWidget>
 #include <map>
+#include <memory>
 
 class SciQLopTheme;
 
@@ -40,6 +41,9 @@ class QCPItemVSpan;
 class QCPAbstractItem;
 class QCustomPlot;
 class MultiPlotsVerticalSpan;
+
+class InspectorExtension;
+class InspectorExtensionHolder;
 
 class SciQLopMultiPlotPanel : public SciQLopPlotPanelInterface
 {
@@ -52,6 +56,7 @@ class SciQLopMultiPlotPanel : public SciQLopPlotPanelInterface
     PlotType _default_plot_type = PlotType::BasicXY;
     QUuid _uuid;
     bool _selected = false;
+    std::unique_ptr<InspectorExtensionHolder> m_extension_holder;
 
     struct SpanCreationState
     {
@@ -85,6 +90,8 @@ protected:
             return plot->parametric_curve(std::forward<Args>(args)...);
         if constexpr (graph_type == GraphType::Scatter)
             return plot->scatter(std::forward<Args>(args)...);
+        if constexpr (graph_type == GraphType::Waterfall)
+            return plot->waterfall(std::forward<Args>(args)...);
         return nullptr;
     }
 
@@ -135,6 +142,10 @@ protected:
         if (graph_type == GraphType::ColorMap)
         {
             return { plot, __plot<T, GraphType::ColorMap>(plot, std::forward<Args>(args)...) };
+        }
+        if (graph_type == GraphType::Waterfall)
+        {
+            return { plot, __plot<T, GraphType::Waterfall>(plot, std::forward<Args>(args)...) };
         }
         return { nullptr, nullptr };
     }
@@ -294,6 +305,10 @@ public:
     void set_theme(SciQLopTheme* theme);
     SciQLopTheme* theme() const { return m_theme; }
 
+    void add_inspector_extension(InspectorExtension* extension);
+    void remove_inspector_extension(InspectorExtension* extension);
+    QList<InspectorExtension*> inspector_extensions() const;
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
@@ -310,4 +325,7 @@ signals:
     Q_SIGNAL void span_creation_canceled();
     Q_SIGNAL void panel_added(SciQLopPlotPanelInterface* panel);
     Q_SIGNAL void panel_removed(SciQLopPlotPanelInterface* panel);
+    Q_SIGNAL void inspector_extensions_changed();
+    Q_SIGNAL void inspector_extension_added(InspectorExtension* extension);
+    Q_SIGNAL void inspector_extension_removed(InspectorExtension* extension);
 };

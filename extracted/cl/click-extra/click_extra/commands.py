@@ -29,10 +29,10 @@ from difflib import get_close_matches
 import click
 import cloup
 
+from . import context
 from .colorize import (
     ColorOption,
     ExtraHelpColorsMixin,
-    HelpExtraFormatter,
     HelpKeywords,
 )
 from .config import (
@@ -43,10 +43,12 @@ from .config import (
     ValidateConfigOption,
     _make_schema_callable,
 )
+from .context import ExtraContext
 from .envvar import clean_envvar_id, param_envvar_ids
 from .logging import VerboseOption, VerbosityOption
 from .parameters import ExtraOption, ShowParamsOption
 from .table import TableFormatOption
+from .theme import ThemeOption
 from .timer import TimerOption
 from .version import ExtraVersionOption
 
@@ -54,44 +56,6 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from typing import Any, NoReturn
-
-
-class ExtraContext(cloup.Context):
-    """Like ``cloup._context.Context``, but with the ability to populate the context's
-    ``meta`` property at instantiation.
-
-    Also defaults ``color`` to ``True`` for root contexts (i.e. without a parent), so
-    help screens are always colorized — even when piped. Click's own default is ``None``
-    (auto-detect via TTY), which strips colors in non-interactive contexts.
-
-    Parent-to-child color inheritance is handled by Click itself at ``Context.__init__``
-    time, so no property override is needed.
-
-    .. todo::
-        Propose addition of ``meta`` keyword upstream to Click.
-    """
-
-    formatter_class = HelpExtraFormatter
-    """Use our own formatter to colorize the help screen."""
-
-    def __init__(self, *args, meta: dict[str, Any] | None = None, **kwargs) -> None:
-        """Like parent's context but with an extra ``meta`` keyword-argument.
-
-        Also force ``color`` default to ``True`` if not provided by user and this
-        context has no parent.
-        """
-        super().__init__(*args, **kwargs)
-
-        # Click defaults root ``ctx.color`` to ``None`` (auto-detect via TTY), which
-        # strips colors when piped. Override to ``True`` for parentless contexts so
-        # help screens are always colorized by default. The ``ColorOption`` callback
-        # will set the final value later, respecting ``--no-color`` and env vars.
-        if not self.parent and self.color is None:
-            self.color = True
-
-        # Update the context's meta property with the one provided by user.
-        if meta:
-            self._meta.update(meta)
 
 
 def default_extra_params() -> list[click.Option]:
@@ -117,6 +81,7 @@ def default_extra_params() -> list[click.Option]:
     #. ``--no-config``
     #. ``--validate-config CONFIG_PATH``
     #. ``--color``, ``--ansi`` / ``--no-color``, ``--no-ansi``
+    #. ``--theme``
     #. ``--show-params``
     #. ``--table-format FORMAT``
     #. ``--verbosity LEVEL``
@@ -153,6 +118,7 @@ def default_extra_params() -> list[click.Option]:
     return [
         TimerOption(),
         ColorOption(),
+        ThemeOption(),
         ConfigOption(),
         NoConfigOption(),
         ValidateConfigOption(),
@@ -421,7 +387,7 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
 
         The result are passed to our own ``ExtraContext`` constructor which is able to
         initialize the context's ``meta`` property under our own
-        ``click_extra.raw_args`` entry. This will be used in
+        :data:`click_extra.context.RAW_ARGS` entry. This will be used in
         ``ShowParamsOption.print_params()`` to print the table of parameters fed to the
         CLI.
 
@@ -430,7 +396,7 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
             <https://github.com/pallets/click/issues/1279#issuecomment-1493348208>`_.
         """
         # ``args`` needs to be copied: its items are consumed by the parsing process.
-        extra.update({"meta": {"click_extra.raw_args": args.copy()}})
+        extra.update({"meta": {context.RAW_ARGS: args.copy()}})
         return super().make_context(info_name, args, parent, **extra)
 
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
@@ -607,7 +573,8 @@ class HelpCommand(ColorizedCommand):
         term: str,
     ) -> None:
         """Search all subcommands for options or descriptions matching *term*."""
-        from .colorize import default_theme, highlight
+        from .colorize import highlight
+        from .theme import get_current_theme
 
         term_lower = term.lower()
         results: list[tuple[str, str]] = []
@@ -618,7 +585,7 @@ class HelpCommand(ColorizedCommand):
             click.echo(f"No commands matching {term!r}.")
             return
 
-        styling_func = default_theme.search
+        styling_func = get_current_theme().search
         for cmd_path, line in results:
             styled_line = highlight(line, [term], styling_func, ignore_case=True)
             click.echo(f"  {cmd_path}: {styled_line}", color=group_ctx.color)
@@ -784,7 +751,7 @@ class ExtraGroup(ExtraCommand, cloup.Group):  # type: ignore[misc]
 
     def _get_default_subcommands(self, ctx: click.Context) -> list[str] | None:
         """Read and validate ``_default_subcommands`` from the loaded configuration."""
-        full_config = ctx.meta.get("click_extra.conf_full")
+        full_config = ctx.meta.get(context.CONF_FULL)
         if not full_config:
             return None
 
@@ -854,7 +821,7 @@ class ExtraGroup(ExtraCommand, cloup.Group):  # type: ignore[misc]
 
     def _get_prepend_subcommands(self, ctx: click.Context) -> list[str] | None:
         """Read and validate ``_prepend_subcommands`` from the loaded configuration."""
-        full_config = ctx.meta.get("click_extra.conf_full")
+        full_config = ctx.meta.get(context.CONF_FULL)
         if not full_config:
             return None
 
@@ -1030,7 +997,7 @@ class LazyGroup(ExtraGroup):
         Click will then pass that dict as the ``default_map`` of the command's own
         context.
         """
-        full_config = ctx.meta.get("click_extra.conf_full")
+        full_config = ctx.meta.get(context.CONF_FULL)
         if not full_config:
             return
 

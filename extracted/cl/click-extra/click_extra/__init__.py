@@ -32,15 +32,14 @@ from cloup import *  # type: ignore[no-redef, assignment]
 if True:
     from .types import ChoiceSource, EnumChoice
 
+from . import context
 from .colorize import (
     ColorOption,
     HelpExtraFormatter,
-    HelpExtraTheme,
     HelpKeywords,
 )
 from .commands import (
     ExtraCommand,
-    ExtraContext,
     ExtraGroup,
     HelpCommand,
     LazyGroup,
@@ -58,6 +57,7 @@ from .config import (
     get_tool_config,
     normalize_config_keys,
 )
+from .context import ExtraContext
 from .decorators import (  # type: ignore[no-redef]
     argument,
     color_option,
@@ -72,6 +72,7 @@ from .decorators import (  # type: ignore[no-redef]
     show_params_option,
     table_format_option,
     telemetry_option,
+    theme_option,
     timer_option,
     validate_config_option,
     verbose_option,
@@ -110,6 +111,12 @@ from .table import (
 )
 from .telemetry import TelemetryOption
 from .testing import ExtraCliRunner
+from .theme import (
+    HelpExtraTheme,
+    ThemeOption,
+    register_theme,
+    theme_registry,
+)
 from .timer import TimerOption
 from .version import ExtraVersionOption
 
@@ -187,6 +194,7 @@ __all__ = [
     "TableFormat",
     "TableFormatOption",
     "TelemetryOption",
+    "ThemeOption",
     "TimerOption",
     "Tuple",
     "UsageError",
@@ -204,6 +212,7 @@ __all__ = [
     "confirmation_option",
     "constrained_params",
     "constraint",
+    "context",
     "dir_path",
     "echo",
     "echo_via_pager",
@@ -242,6 +251,7 @@ __all__ = [
     "print_table",
     "progressbar",
     "prompt",
+    "register_theme",
     "render_table",
     "search_params",
     "secho",
@@ -250,6 +260,8 @@ __all__ = [
     "style",
     "table_format_option",
     "telemetry_option",
+    "theme_option",
+    "theme_registry",
     "timer_option",
     "unstyle",
     "validate_config_option",
@@ -267,13 +279,13 @@ __all__ = [
 """
 
 
-__version__ = "7.14.1"
+__version__ = "7.15.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "60fad66ac11ce4be0f36666ace361d2977fac8fd"
+__git_tag_sha__ = "c589fc747d65edcf8ee36d713f4ceb311326fbaa"
 
 
 def __getattr__(name: str) -> object:

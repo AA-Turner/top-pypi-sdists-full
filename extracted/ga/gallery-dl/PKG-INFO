@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: gallery_dl
-Version: 1.32.0
+Version: 1.32.1
 Summary: Command-line program to download image galleries and collections from several image hosting sites
-Home-page: https://github.com/mikf/gallery-dl
-Download-URL: https://github.com/mikf/gallery-dl/releases/latest
+Home-page: https://codeberg.org/mikf/gallery-dl
+Download-URL: https://codeberg.org/mikf/gallery-dl/releases/latest
 Author: Mike Fährmann
 Author-email: mike_faehrmann@web.de
 Maintainer: Mike Fährmann
@@ -145,9 +145,9 @@ Standalone Executable
 Prebuilt executable files with a Python interpreter and
 required Python packages included are available for
 
-- `Windows <https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.0/gallery-dl.exe>`__
+- `Windows <https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.1/gallery-dl.exe>`__
   (Requires `Microsoft Visual C++ Redistributable Package (x86) <https://aka.ms/vs/17/release/vc_redist.x86.exe>`__)
-- `Linux   <https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.0/gallery-dl.bin>`__
+- `Linux   <https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.1/gallery-dl.bin>`__
 
 
 Nightly Builds

@@ -80,103 +80,63 @@ class Entity:
     # ======================================== PROPERTIES ========================================
     @property
     def id(self) -> str:
-        """Renvoie l'identifiant de l'entité"""
+        """Renvoie l'identifiant de l'entité *(lecture seule)*"""
         return self._id
     
     @property
     def tags(self) -> set[str]:
-        """Renvoie les labels de l'entité"""
+        """Renvoie les labels de l'entité *(lecture seule)*"""
         return self._tags
     
     @property
     def transform(self) -> Transform | None:
-        """composant ``Transform``"""
+        """composant ``Transform`` *(lecture seule)*"""
         return self._transform
-    
-    @transform.setter
-    def transform(self, value: Transform) -> None:
-        self._transform = expect(value, Transform)
     
     @property
     def follow(self) -> Follow | None:
-        """composant ``Follow``"""
+        """composant ``Follow`` *(lecture seule)*"""
         return self._follow
-    
-    @follow.setter
-    def follow(self, value: Follow) -> None:
-        self._follow = expect(value, Follow)
     
     @property
     def shape_renderer(self) -> ShapeRenderer | None:
-        """composant ``ShapeRenderer``"""
+        """composant ``ShapeRenderer`` *(lecture seule)*"""
         return self._shape_renderer
-    
-    @shape_renderer.setter
-    def shape_renderer(self, value: ShapeRenderer) -> None:
-        self._shape_renderer = expect(value, ShapeRenderer)
     
     @property
     def sprite_renderer(self) -> SpriteRenderer | None:
-        """composant ``SpriteRenderer``"""
+        """composant ``SpriteRenderer`` *(lecture seule)*"""
         return self._sprite_renderer
-    
-    @sprite_renderer.setter
-    def sprite_renderer(self, value: SpriteRenderer) -> None:
-        self._sprite_renderer = expect(value, SpriteRenderer)
     
     @property
     def text_renderer(self) -> TextRenderer | None:
-        """composant ``TextRenderer``"""
+        """composant ``TextRenderer`` *(lecture seule)*"""
         return self._text_renderer
-    
-    @text_renderer.setter
-    def text_renderer(self, value: TextRenderer) -> None:
-        self._text_renderer = expect(value, TextRenderer)
     
     @property
     def collider(self) -> Collider | None:
-        """composant ``Collider``"""
+        """composant ``Collider`` *(lecture seule)*"""
         return self._collider
-    
-    @collider.setter
-    def collider(self, value: Collider) -> None:
-        self._collider = expect(value, Collider)
     
     @property
     def rigid_body(self) -> RigidBody | None:
-        """composant ``RigidBody``"""
+        """composant ``RigidBody`` *(lecture seule)*"""
         return self._rigid_body
-    
-    @rigid_body.setter
-    def rigid_body(self, value: RigidBody) -> None:
-        self._rigid_body = expect(value, RigidBody)
     
     @property
     def ground_sensor(self) -> GroundSensor | None:
-        """composant ``GroundSensor``"""
+        """composant ``GroundSensor`` *(lecture seule)*"""
         return self._ground_sensor
-    
-    @ground_sensor.setter
-    def ground_sensor(self, value: GroundSensor) -> None:
-        self._ground_sensor = expect(value, GroundSensor)
     
     @property
     def animator(self) -> Animator | None:
-        """composant ``Animator``"""
+        """composant ``Animator`` *(lecture seule)*"""
         return self._animator
-    
-    @animator.setter
-    def animator(self, value: Animator) -> None:
-        self._animator = expect(value, Animator)
     
     @property
     def sound_emitter(self) -> SoundEmitter | None:
-        """composant ``SoundEmitter``"""
+        """composant ``SoundEmitter`` *(lecture seule)*"""
         return self._sound_emitter
-    
-    @sound_emitter.setter
-    def sound_emitter(self, value: SoundEmitter) -> None:
-        self._sound_emitter = expect(value, SoundEmitter)
 
     # ======================================== PREDICATES ========================================
     def __eq__(self, other: Entity) -> bool:

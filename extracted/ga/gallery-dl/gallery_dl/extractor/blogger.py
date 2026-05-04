@@ -33,8 +33,8 @@ class BloggerExtractor(BaseExtractor):
 
         if self.videos:
             self.findall_video = text.re(
-                r"""src=["'](https?://www\.blogger\.com"""
-                r"""/video\.g\?token=[^"']+)""").findall
+                r"""src=["']https?://www\.blogger\.com"""
+                r"""/video\.g\?token=([^"']+)""").findall
 
     def items(self):
         blog = self.api.blog_by_url("http://" + self.blog)
@@ -96,14 +96,37 @@ class BloggerExtractor(BaseExtractor):
         data = self.request_json(url, params=params)
         html = data["entry"]["content"]["$t"]
 
-        for url in self.findall_video(html):
-            page = self.request(url).text
-            video_config = util.json_loads(text.extr(
-                page, 'var VIDEO_CONFIG =', '\n'))
-            files.append(max(
-                video_config["streams"],
-                key=lambda x: x["format_id"],
-            )["play_url"])
+        url = ("https://www.blogger.com"
+               "/_/BloggerVideoPlayerUi/data/batchexecute")
+        params = {
+            "rpcids"     : "WcwnYd",
+            "source-path": "/video.g",
+            "f.sid"      : util.random.randint(
+                1_000_000_000_000_000_000, 9_999_999_999_999_999_999),
+            "bl"         : "boq_bloggeruiserver_20260428.03_p0",
+            "hl"         : "en-US",
+            #  "_reqid"     : "29228",
+            "rt"         : "c",
+        }
+        beg = "\n[["
+        end = "]]\n"
+
+        for token in self.findall_video(html):
+            try:
+                page = self.request(
+                    url, method="POST", params=params, data={
+                        "f.req": f'[[["WcwnYd","[\\"{token}\\",'
+                                 f'\\"\\",0]",null,"generic"]]]',
+                    }).text
+                data = util.json_loads(f"[[{text.extr(page, beg, end)}]]")
+                files.append(max(
+                    util.json_loads(data[0][2])[2],
+                    key=lambda f: f[1],
+                )[0])
+            except Exception as exc:
+                self.log.traceback(exc)
+                self.log.warning("%s: Failed to extract video '%s'",
+                                 post['id'], token)
 
 
 BASE_PATTERN = BloggerExtractor.update({

@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2016 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -15,7 +15,7 @@ This module contains all platform/library specific compatibility fixes, as well 
 functions to handle logging and invoking external commands.
 """
 
-import importlib
+import importlib.metadata
 import logging
 import os
 import os.path
@@ -24,9 +24,27 @@ import re
 import string
 import subprocess
 import sys
-from typing import AnyStr, Dict, List, Optional, Union
+import typing as ty
 
 import cv2
+
+StrPath = str | os.PathLike[str]
+"""Type hint for filesystem paths. Accepts a `str` or any object implementing :class:`os.PathLike`
+(e.g. :class:`pathlib.Path`)."""
+
+DEBUG_MODE: bool = os.environ.get("SCENEDETECT_DEBUG", "").strip().lower() not in (
+    "",
+    "0",
+    "false",
+    "no",
+    "off",
+)
+"""True when the `SCENEDETECT_DEBUG` environment variable is set to a truthy value
+(`1`, `true`, `yes`, `on`, etc.); False when unset or set to `0`/`false`/`no`/`off`/empty.
+Use this to gate behavior intended only for development - e.g. re-raising unhandled
+exceptions for debuggers/pytest instead of logging gracefully and exiting. Default-off so
+end users on any install path (pip, pipx, the Windows .exe) get clean error output; pytest
+opts in via `tests/conftest.py`."""
 
 ##
 ## tqdm Library
@@ -36,7 +54,7 @@ import cv2
 class FakeTqdmObject:
     """Provides a no-op tqdm-like object."""
 
-    def __init__(self, **kawrgs):
+    def __init__(self, **kwargs):
         """No-op."""
 
     def update(self, n=1):
@@ -52,7 +70,7 @@ class FakeTqdmObject:
 class FakeTqdmLoggingRedirect:
     """Provides a no-op tqdm context manager for redirecting log messages."""
 
-    def __init__(self, **kawrgs):
+    def __init__(self, **kwargs):
         """No-op."""
 
     def __enter__(self):
@@ -76,7 +94,7 @@ except ModuleNotFoundError:
 
 
 # TODO: Move this into scene_manager.
-def get_cv2_imwrite_params() -> Dict[str, Union[int, None]]:
+def get_cv2_imwrite_params() -> dict[str, int | None]:
     """Get OpenCV imwrite Params: Returns a dict of supported image formats and
     their associated quality/compression parameter index, or None if that format
     is not supported.
@@ -88,7 +106,7 @@ def get_cv2_imwrite_params() -> Dict[str, Union[int, None]]:
         current system library (e.g. {'jpg': None}).
     """
 
-    def _get_cv2_param(param_name: str) -> Union[int, None]:
+    def _get_cv2_param(param_name: str) -> int | None:
         if param_name.startswith("CV_"):
             param_name = param_name[3:]
         try:
@@ -108,22 +126,19 @@ def get_cv2_imwrite_params() -> Dict[str, Union[int, None]]:
 ##
 
 
-def get_file_name(file_path: AnyStr, include_extension=True) -> AnyStr:
+def get_file_name(file_path: StrPath, include_extension: bool = True) -> str:
     """Return the file name that `file_path` refers to, optionally removing the extension.
 
-    If `include_extension` is False, the result will always be a str.
-
     E.g. /tmp/foo.bar -> foo"""
-    file_name = os.path.basename(file_path)
+    file_name = os.path.basename(os.fspath(file_path))
     if not include_extension:
-        file_name = str(file_name)
         last_dot_pos = file_name.rfind(".")
         if last_dot_pos >= 0:
             file_name = file_name[:last_dot_pos]
     return file_name
 
 
-def get_and_create_path(file_path: AnyStr, output_directory: Optional[AnyStr] = None) -> AnyStr:
+def get_and_create_path(file_path: StrPath, output_directory: StrPath | None = None) -> str:
     """Get & Create Path: Gets and returns the full/absolute path to file_path
     in the specified output_directory if set, creating any required directories
     along the way.
@@ -141,10 +156,11 @@ def get_and_create_path(file_path: AnyStr, output_directory: Optional[AnyStr] = 
         Full path to output file suitable for writing.
 
     """
+    file_path = os.fspath(file_path)
     # If an output directory is defined and the file path is a relative path, open
     # the file handle in the output directory instead of the working directory.
     if output_directory is not None and not os.path.isabs(file_path):
-        file_path = os.path.join(output_directory, file_path)
+        file_path = os.path.join(os.fspath(output_directory), file_path)
     # Now that file_path is an absolute path, let's make sure all the directories
     # exist for us to start writing files there.
     os.makedirs(os.path.split(os.path.abspath(file_path))[0], exist_ok=True)
@@ -157,7 +173,7 @@ def get_and_create_path(file_path: AnyStr, output_directory: Optional[AnyStr] = 
 
 
 def init_logger(
-    log_level: int = logging.INFO, show_stdout: bool = False, log_file: Optional[str] = None
+    log_level: int = logging.INFO, show_stdout: bool = False, log_file: str | None = None
 ):
     """Initializes logging for PySceneDetect. The logger instance used is named 'pyscenedetect'.
     By default the logger has no handlers to suppress output. All existing log handlers are replaced
@@ -202,7 +218,7 @@ class CommandTooLong(Exception):
     """Raised if the length of a command line argument exceeds the limit allowed on Windows."""
 
 
-def invoke_command(args: List[str]) -> int:
+def invoke_command(args: list[str]) -> int:
     """Same as calling Python's subprocess.call() method, but explicitly
     raises a different exception when the command length is too long.
 
@@ -231,7 +247,7 @@ def invoke_command(args: List[str]) -> int:
         raise
 
 
-def get_ffmpeg_path() -> Optional[str]:
+def get_ffmpeg_path() -> str | None:
     """Get path to ffmpeg if available on the current system. First looks at PATH, then checks if
     one is available from the `imageio_ffmpeg` package. Returns None if ffmpeg couldn't be found.
     """
@@ -261,7 +277,7 @@ def get_ffmpeg_path() -> Optional[str]:
     return None
 
 
-def get_ffmpeg_version() -> Optional[str]:
+def get_ffmpeg_version() -> str | None:
     """Get ffmpeg version identifier, or None if ffmpeg is not found. Uses `get_ffmpeg_path()`."""
     ffmpeg_path = get_ffmpeg_path()
     if ffmpeg_path is None:
@@ -275,7 +291,17 @@ def get_ffmpeg_version() -> Optional[str]:
     return output.splitlines()[0]
 
 
-def get_mkvmerge_version() -> Optional[str]:
+def get_mkvmerge_path() -> str | None:
+    """Get path to mkvmerge if available on the current system by checking PATH. Returns None if
+    mkvmerge couldn't be found."""
+    try:
+        subprocess.call(["mkvmerge", "--quiet"])
+        return "mkvmerge"
+    except OSError:
+        return None
+
+
+def get_mkvmerge_version() -> str | None:
     """Get mkvmerge version identifier, or None if mkvmerge is not found in PATH."""
     tool_name = "mkvmerge"
     try:
@@ -290,65 +316,89 @@ def get_mkvmerge_version() -> Optional[str]:
     return output.splitlines()[0]
 
 
+def _query_package_version(dist_name: str, fallback_module: str | None) -> str | None:
+    """Return version of an installed package, querying PyPI metadata first then
+    falling back to the module's `__version__` attribute when metadata is missing.
+
+    PyInstaller bundles ship modules but not the `.dist-info` directories that
+    `importlib.metadata` reads, so the fallback is required for frozen builds.
+    Returns None when the package isn't installed.
+    """
+    try:
+        return importlib.metadata.version(dist_name)
+    except importlib.metadata.PackageNotFoundError:
+        pass
+    if fallback_module is None:
+        return None
+    try:
+        module = importlib.import_module(fallback_module)
+    except ModuleNotFoundError:
+        return None
+    return getattr(module, "__version__", None)
+
+
 def get_system_version_info() -> str:
     """Get the system's operating system, Python, packages, and external tool versions.
     Useful for debugging or filing bug reports.
 
     Used for the `scenedetect version -a` command.
     """
-    output_template = "{:<16} {}"
     line_separator = "-" * 60
     not_found_str = "Not Installed"
     out_lines = []
 
-    # System (Python, OS)
-    output_template = "{:<16} {}"
-    out_lines += ["System Info", line_separator]
-    out_lines += [
-        output_template.format(name, version)
-        for name, version in (
-            ("OS", "%s" % platform.platform()),
-            ("Python", "%s %s" % (platform.python_implementation(), platform.python_version())),
-            ("Architecture", " + ".join(platform.architecture())),
-        )
+    system_info = (
+        ("OS", f"{platform.platform()}"),
+        ("Python", f"{platform.python_implementation()} {platform.python_version()}"),
+        ("Architecture", " + ".join(platform.architecture())),
+    )
+
+    # Third-Party Packages: queried via PyPI distribution names with a module-attribute
+    # fallback. PyInstaller bundles ship the modules but not the `.dist-info` metadata
+    # directories, so `importlib.metadata.version()` alone reports "Not Installed" for
+    # every package in a frozen build; reading `module.__version__` recovers the version
+    # there. `scenedetect` is read from the package attribute since it must report a
+    # version even when run uninstalled (e.g. from a source checkout). The import is
+    # deferred to avoid a circular import at module load time.
+    from scenedetect import __version__ as scenedetect_version
+
+    # (dist_name, fallback_module_name). Module fallback is only used when metadata is
+    # missing, so the metadata path still distinguishes `opencv-python` vs
+    # `opencv-python-headless` in source installs. In the frozen Windows build only
+    # `opencv-python-headless` is shipped, so `cv2` is attributed to that row alone.
+    third_party_packages = (
+        ("av", "av"),
+        ("click", "click"),
+        ("opencv-python", None),
+        ("opencv-python-headless", "cv2"),
+        ("imageio", "imageio"),
+        ("imageio-ffmpeg", "imageio_ffmpeg"),
+        ("moviepy", "moviepy"),
+        ("numpy", "numpy"),
+        ("platformdirs", "platformdirs"),
+        ("tqdm", "tqdm"),
+    )
+    package_versions = [("scenedetect", scenedetect_version)] + [
+        (dist_name, _query_package_version(dist_name, fallback_module) or not_found_str)
+        for dist_name, fallback_module in third_party_packages
     ]
 
-    # Third-Party Packages
+    tool_versions = (
+        ("ffmpeg", get_ffmpeg_version() or not_found_str),
+        ("mkvmerge", get_mkvmerge_version() or not_found_str),
+    )
+
+    # Size the label column to the longest label across every section so all three tables
+    # align consistently - `opencv-python-headless` exceeds the previous fixed width of 16.
+    label_width = max(len(name) for name, _ in (*system_info, *package_versions, *tool_versions))
+    output_template = f"{{:<{label_width}}} {{}}"
+
+    out_lines += ["System Info", line_separator]
+    out_lines += [output_template.format(name, value) for name, value in system_info]
     out_lines += ["", "Packages", line_separator]
-    third_party_packages = (
-        "av",
-        "click",
-        "cv2",
-        "imageio",
-        "imageio_ffmpeg",
-        "moviepy",
-        "numpy",
-        "platformdirs",
-        "scenedetect",
-        "tqdm",
-    )
-    for module_name in third_party_packages:
-        try:
-            module = importlib.import_module(module_name)
-            if hasattr(module, "__version__"):
-                out_lines.append(output_template.format(module_name, module.__version__))
-            else:
-                out_lines.append(output_template.format(module_name, not_found_str))
-        except ModuleNotFoundError:
-            out_lines.append(output_template.format(module_name, not_found_str))
-
-    # External Tools
+    out_lines += [output_template.format(name, value) for name, value in package_versions]
     out_lines += ["", "Tools", line_separator]
-
-    tool_version_info = (
-        ("ffmpeg", get_ffmpeg_version()),
-        ("mkvmerge", get_mkvmerge_version()),
-    )
-
-    for tool_name, tool_version in tool_version_info:
-        out_lines.append(
-            output_template.format(tool_name, tool_version if tool_version else not_found_str)
-        )
+    out_lines += [output_template.format(name, value) for name, value in tool_versions]
 
     return "\n".join(out_lines)
 

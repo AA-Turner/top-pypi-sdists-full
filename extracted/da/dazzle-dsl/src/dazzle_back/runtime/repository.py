@@ -95,7 +95,38 @@ def _parse_constraint_error(exc: str | Exception, table_name: str) -> tuple[str,
 # Alias to prevent mypy resolving `list` as Repository.list inside the class
 _list = list
 
+
+def _safe_text_field_names(entity_spec: Any, search_spec: Any) -> _list[str]:
+    """Return the searchable text field names from *search_spec* that
+    actually exist on *entity_spec* and are text-shaped.
+
+    Used by :meth:`Repository.fts_search` to build `ts_headline` snippet
+    columns. Filters defensively so a hostile spec can't smuggle in
+    arbitrary identifiers; only fields validated against the entity
+    schema make it into the SQL.
+    """
+    text_field_names: set[str] = set()
+    for field in getattr(entity_spec, "fields", None) or []:
+        kind = getattr(getattr(field, "type", None), "kind", None)
+        # Match the cycle-2 search-schema generator's allow-list.
+        if kind in {"str", "text", "email", "url"}:
+            text_field_names.add(getattr(field, "name", ""))
+    out: _list[str] = []
+    seen: set[str] = set()
+    for sf in getattr(search_spec, "fields", None) or []:
+        path = getattr(sf, "path", "") or ""
+        if "." in path:  # FK paths skipped (cycle 2 already does this)
+            continue
+        if path not in text_field_names or path in seen:
+            continue
+        seen.add(path)
+        out.append(path)
+    return out
+
+
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from dazzle_back.metrics.system_collector import SystemMetricsCollector
     from dazzle_back.runtime.relation_loader import RelationLoader
 
@@ -249,7 +280,7 @@ class Repository(Generic[T]):
         try:
             with self.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(sql, values)
+                cursor.execute(sql, values)  # nosemgrep
         except _INTEGRITY_ERRORS as exc:
             ctype, field = _parse_constraint_error(exc, self.table_name)
             if ctype == "unique":
@@ -299,7 +330,7 @@ class Repository(Generic[T]):
         start = time.perf_counter()
         with self.db.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(sql, (str(id),))
+            cursor.execute(sql, (str(id),))  # nosemgrep
             row = cursor.fetchone()
         latency_ms = (time.perf_counter() - start) * 1000
         self._record_query("select", latency_ms, rows=1 if row else 0)
@@ -358,7 +389,7 @@ class Repository(Generic[T]):
         try:
             with self.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(sql, values)
+                cursor.execute(sql, values)  # nosemgrep
                 rowcount = cursor.rowcount
         except _INTEGRITY_ERRORS as exc:
             ctype, field = _parse_constraint_error(exc, self.table_name)
@@ -403,7 +434,7 @@ class Repository(Generic[T]):
         try:
             with self.db.connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(sql, (str(id),))
+                cursor.execute(sql, (str(id),))  # nosemgrep
                 rowcount = cursor.rowcount
         except Exception as exc:
             # Catch FK constraint violations and re-raise as a clear error
@@ -698,16 +729,148 @@ class Repository(Generic[T]):
 
         return result
 
+    async def fts_search(
+        self,
+        spec: Any,  # SearchSpec — typed Any to avoid IR import cycle
+        q: str,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        scope_predicate: tuple[str, Sequence[Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Run a tsvector-backed full-text search (#954 cycle 3).
+
+        Queries against the cycle-2 ``search_vector`` GENERATED column —
+        fast, indexed, locale-aware. ``websearch_to_tsquery`` accepts
+        the user-friendly query syntax (``"phrase"``, ``-exclude``,
+        ``OR``) so adopters don't need to teach users about
+        ``& | !`` operators.
+
+        Args:
+            spec: SearchSpec for *self*'s entity. Tokenizer drives the
+                FTS configuration.
+            q: User search string. Empty strings short-circuit to
+                ``{items: [], total: 0}``.
+            page: 1-indexed page number.
+            page_size: Per-page result count.
+            scope_predicate: ``(sql, params)`` tuple from the predicate
+                compiler. ANDed into the WHERE clause so RBAC stays
+                correct on the FTS endpoint without re-implementing
+                the scope path. ``None`` means no scope filter
+                (unauthenticated public search).
+
+        Returns:
+            ``{"items": [{"id", "rank", **row}, ...], "total": N,
+              "page": P, "page_size": PS}``. ``items`` is ordered by
+            ``ts_rank`` descending.
+        """
+        if not q or not q.strip():
+            return {"items": [], "total": 0, "page": page, "page_size": page_size}
+
+        # Tokenizer comes from the spec; cycle 2 already validated it
+        # against the Postgres allow-list. Defence-in-depth: also
+        # require ASCII-alpha here so a hostile spec can't inject
+        # SQL via the literal-interpolated config name.
+        config = (getattr(spec, "tokenizer", None) or "english").strip().lower()
+        if not config.isalpha() or not config.isascii():
+            config = "english"
+
+        table = quote_identifier(self.table_name)
+        offset = max(0, (page - 1) * page_size)
+
+        ph = self.db.placeholder  # %s for psycopg
+        # WHERE search_vector @@ websearch_to_tsquery(:cfg, :q)
+        where_parts: list[str] = [
+            f"search_vector @@ websearch_to_tsquery('{config}', {ph})",
+        ]
+        params: list[Any] = [q]
+        if scope_predicate is not None:
+            scope_sql, scope_params = scope_predicate
+            if scope_sql:
+                where_parts.append(f"({scope_sql})")
+                params.extend(scope_params)
+        where_clause = " AND ".join(where_parts)
+
+        # Count first so pagination metadata is correct.
+        # SQL is parameterised — `q` and scope params bind via cursor params;
+        # only safe identifiers (validated `config`, quoted `table`, hardcoded
+        # placeholder) are interpolated into the string.
+        count_sql = f"SELECT COUNT(*) FROM {table} WHERE {where_clause}"
+        with self.db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(count_sql, params)  # nosemgrep
+            row = cursor.fetchone()
+            total = row[0] if isinstance(row, (tuple, list)) else next(iter(row.values()))
+
+        if total == 0:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size}
+
+        # #954 cycle 4 — `ts_headline` snippet columns when the spec
+        # opts in via `highlight: true`. Each searchable text field
+        # gets a `<field>__snippet` column wrapping matched terms in
+        # `<mark>` tags. Templates render the snippet directly when
+        # present, falling back to the raw field otherwise.
+        highlight = bool(getattr(spec, "highlight", False))
+        snippet_sql = ""
+        snippet_params: list[Any] = []
+        snippet_field_names: list[str] = []
+        if highlight:
+            snippet_field_names = _safe_text_field_names(self.entity_spec, spec)
+            snippet_parts: list[str] = []
+            for name in snippet_field_names:
+                col = quote_identifier(name)
+                alias = quote_identifier(f"{name}__snippet")
+                snippet_parts.append(
+                    f"ts_headline('{config}', coalesce({col}, ''), "
+                    f"websearch_to_tsquery('{config}', {ph}), "
+                    f"'StartSel=<mark>, StopSel=</mark>, "
+                    f"MaxWords=35, MinWords=15') AS {alias}"
+                )
+                snippet_params.append(q)
+            if snippet_parts:
+                snippet_sql = ", " + ", ".join(snippet_parts)
+
+        # Items: rank + full row + optional snippets. Param order
+        # matters: ts_rank's q, [snippet qs...], the WHERE clause's q,
+        # then any scope params, then page_size/offset.
+        items_sql = (
+            f"SELECT *, "
+            f"ts_rank_cd(search_vector, websearch_to_tsquery('{config}', {ph})) "
+            f"AS rank{snippet_sql} "
+            f"FROM {table} WHERE {where_clause} "
+            f"ORDER BY rank DESC LIMIT {ph} OFFSET {ph}"
+        )
+        items_params = [q, *snippet_params, *params, page_size, offset]
+
+        with self.db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(items_sql, items_params)  # nosemgrep
+            rows = cursor.fetchall()
+
+        items = [dict(r) if not isinstance(r, dict) else r for r in rows]
+        result: dict[str, Any] = {
+            "items": items,
+            "total": int(total),
+            "page": page,
+            "page_size": page_size,
+        }
+        if snippet_field_names:
+            # Surface the snippet field list so consumers (templates,
+            # API clients) know which `<field>__snippet` columns to
+            # look at without inspecting every row.
+            result["snippet_fields"] = snippet_field_names
+        return result
+
     async def exists(self, id: UUID) -> bool:
         """Check if an entity exists."""
         table = quote_identifier(self.table_name)
         ph = self.db.placeholder
-        sql = f'SELECT 1 FROM {table} WHERE "id" = {ph} LIMIT 1'
+        sql = f'SELECT 1 FROM {table} WHERE "id" = {ph} LIMIT 1'  # nosemgrep
 
         start = time.perf_counter()
         with self.db.connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(sql, (str(id),))
+            cursor.execute(sql, (str(id),))  # nosemgrep
             result = cursor.fetchone()
         latency_ms = (time.perf_counter() - start) * 1000
         self._record_query("select", latency_ms, rows=1 if result else 0)

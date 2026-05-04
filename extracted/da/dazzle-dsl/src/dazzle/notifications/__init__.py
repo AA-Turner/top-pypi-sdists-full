@@ -14,23 +14,26 @@ lands ``NotificationSpec`` in ``AppSpec``. Cycle 2 (this module) adds:
   * ``build_dispatcher_from_manifest()`` — constructs a dispatcher
     using the ``[notifications]`` block in ``dazzle.toml``.
 
-What's deferred (#952 cycle 3+):
+Shipped in later cycles:
 
-  * SmtpProvider (cycle 3): real ``smtplib`` send.
-  * Trigger wiring (cycle 4): the existing event/channel pipeline picks
-    up entity-change events and calls ``dispatcher.dispatch_for_event``
-    automatically. Today, project code calls ``dispatcher.dispatch``
-    directly.
-  * Send queue + retry + dead-letter (cycle 5): depends on #953
-    background-job primitive.
-  * SendgridProvider / SesProvider (cycle 6).
+  * Cycle 3: :class:`SmtpProvider` — real ``smtplib`` send.
+  * Cycle 4: trigger wiring (``dazzle_back.runtime.notification_wiring``)
+    — entity-change events auto-dispatch matching specs.
+  * Cycle 5: :meth:`NotificationDispatcher.dispatch_async` adds retry
+    + :class:`DeliveryRecord` audit log via the ``deliveries`` deque.
+  * Cycle 6: :class:`SesProvider` (boto3) and :class:`SendgridProvider`
+    (sendgrid v3 HTTP API).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re as _re
+from collections import deque
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
@@ -243,6 +246,241 @@ def _strip_html_tags(html: str) -> str:
     return _re.sub(r"\n\s*\n\s*\n+", "\n\n", text).strip() + "\n"
 
 
+@dataclass
+class SesProvider:
+    """AWS SES :class:`NotificationProvider` (#952 cycle 6).
+
+    Sends email-channel notifications via the SES `send_raw_email`
+    API. AWS credentials come from boto3's default credential chain
+    (env vars, instance profile, ``AWS_PROFILE``) — never declared
+    in ``dazzle.toml`` so the manifest can be checked into git.
+
+    Constructed by :func:`build_dispatcher_from_manifest` from the
+    ``[notifications]`` block when ``provider = "ses"`` —
+    ``aws_region`` is the only required setting; everything else
+    flows from the boto3 chain.
+
+    Failure semantics follow the :class:`NotificationProvider`
+    protocol:
+
+    * ``Throttling`` / ``ServiceUnavailable`` / network errors →
+      return False (transient — dispatcher retries).
+    * ``MessageRejected`` / malformed addresses / invalid identity
+      → raise (permanent — recorded in delivery log).
+
+    Adopters need ``pip install dazzle-dsl[aws]`` for boto3.
+    """
+
+    region: str = ""
+    from_address: str = ""
+    # Hook for tests: inject a pre-built SES client (e.g. moto's
+    # mocked ``boto3.client("ses", ...)``) so unit tests don't need
+    # network access. Production code leaves this None and lets the
+    # provider build its own client.
+    client: Any = None
+
+    def send(self, notification: RenderedNotification) -> bool:
+        # Non-email channels stay on the log path — SES can't deliver them.
+        if notification.channel != "email":
+            logger.info(
+                "ses_provider: skipping non-email channel %s for %s",
+                notification.channel,
+                notification.notification_name,
+            )
+            return True
+
+        client = self.client
+        if client is None:
+            try:
+                import boto3  # type: ignore[import-not-found]
+            except ImportError as exc:
+                raise RuntimeError(
+                    "SesProvider requires boto3 — install with `pip install dazzle-dsl[aws]`"
+                ) from exc
+            client = boto3.client("ses", region_name=self.region or None)
+
+        msg = _build_email_message(
+            self.from_address, notification.recipient, notification.subject, notification.body
+        )
+        try:
+            client.send_raw_email(
+                Source=self.from_address or None,
+                Destinations=[notification.recipient],
+                RawMessage={"Data": msg.as_bytes()},
+            )
+        except Exception as exc:
+            # Classify by exception name so we don't pin to a specific
+            # botocore version's error class hierarchy. Throttling /
+            # service-unavailable / network errors → transient.
+            error_name = type(exc).__name__
+            transient_names = {
+                "Throttling",
+                "ThrottlingException",
+                "ServiceUnavailable",
+                "RequestTimeout",
+                "EndpointConnectionError",
+                "ConnectionError",
+                "ConnectTimeoutError",
+                "ReadTimeoutError",
+            }
+            # botocore raises ClientError with a Code in response metadata.
+            response = getattr(exc, "response", None)
+            error_code = ""
+            if isinstance(response, dict):
+                error_code = (response.get("Error") or {}).get("Code", "") or ""
+            if error_name in transient_names or error_code in transient_names:
+                logger.warning(
+                    "ses_provider: transient failure %s sending to %s — retrying",
+                    error_name or error_code,
+                    notification.recipient,
+                )
+                return False
+            raise
+
+        logger.info(
+            "ses_provider: sent %r to %s via region=%s",
+            notification.notification_name,
+            notification.recipient,
+            self.region or "<default>",
+        )
+        return True
+
+
+@dataclass
+class SendgridProvider:
+    """SendGrid :class:`NotificationProvider` (#952 cycle 6).
+
+    Sends email-channel notifications via the SendGrid v3 HTTP API.
+    Requires ``api_key`` from the ``[notifications]`` block.
+
+    Failure semantics:
+
+    * 5xx / 429 (rate limited) / network errors → return False
+      (transient — dispatcher retries).
+    * 4xx other than 429 → raise (permanent — typically
+      authentication failure or malformed recipient; retrying
+      won't help).
+
+    Adopters need ``pip install dazzle-dsl[sendgrid]`` for the
+    ``sendgrid`` library. Tests can inject a fake client via the
+    ``client`` field; SendGrid's own client has a ``send(mail)``
+    method returning a response with a ``status_code`` attribute.
+    """
+
+    api_key: str = ""
+    from_address: str = ""
+    client: Any = None
+
+    def send(self, notification: RenderedNotification) -> bool:
+        if notification.channel != "email":
+            logger.info(
+                "sendgrid_provider: skipping non-email channel %s for %s",
+                notification.channel,
+                notification.notification_name,
+            )
+            return True
+
+        client = self.client
+        if client is None:
+            # Check api_key before importing — the missing-key error is a
+            # clearer signal than the missing-package error if both apply.
+            if not self.api_key:
+                raise RuntimeError(
+                    "SendgridProvider requires [notifications] api_key — set it "
+                    "in dazzle.toml or via env-derived secrets management"
+                )
+            try:
+                from sendgrid import (  # type: ignore[import-not-found]
+                    SendGridAPIClient,
+                )
+            except ImportError as exc:
+                raise RuntimeError(
+                    "SendgridProvider requires sendgrid — install with "
+                    "`pip install dazzle-dsl[sendgrid]`"
+                ) from exc
+            client = SendGridAPIClient(self.api_key)
+
+        # Build the Mail object dynamically to avoid hard-importing
+        # sendgrid at module import time. Tests inject `client` so
+        # this branch is bypassed.
+        mail_payload = self._build_mail_payload(notification)
+        try:
+            response = client.send(mail_payload)
+        except Exception as exc:
+            error_name = type(exc).__name__
+            # sendgrid library's HTTPError carries `status_code`.
+            status_code = getattr(exc, "status_code", None)
+            if status_code is None:
+                response_obj = getattr(exc, "response", None)
+                status_code = getattr(response_obj, "status_code", None)
+            if status_code is not None:
+                if status_code == 429 or status_code >= 500:
+                    logger.warning(
+                        "sendgrid_provider: transient %s sending to %s — retrying",
+                        status_code,
+                        notification.recipient,
+                    )
+                    return False
+                raise  # 4xx other than 429 → permanent
+            # Network-level failures (no status_code attached): treat as transient.
+            transient_names = {
+                "ConnectionError",
+                "ReadTimeoutError",
+                "Timeout",
+                "ConnectTimeout",
+            }
+            if error_name in transient_names:
+                logger.warning(
+                    "sendgrid_provider: transient %s sending to %s — retrying",
+                    error_name,
+                    notification.recipient,
+                )
+                return False
+            raise
+
+        # Success path: SendGrid returns 202 Accepted on enqueue.
+        status_code = getattr(response, "status_code", 0)
+        if status_code == 429 or status_code >= 500:
+            logger.warning(
+                "sendgrid_provider: transient %s sending to %s — retrying",
+                status_code,
+                notification.recipient,
+            )
+            return False
+        logger.info(
+            "sendgrid_provider: sent %r to %s (status=%s)",
+            notification.notification_name,
+            notification.recipient,
+            status_code,
+        )
+        return True
+
+    def _build_mail_payload(self, notification: RenderedNotification) -> Any:
+        """Build the SendGrid Mail object from the rendered notification.
+
+        Lazy-imports the helper classes so the module imports cleanly
+        when the ``sendgrid`` extra isn't installed.
+        """
+        try:
+            from sendgrid.helpers.mail import (  # type: ignore[import-not-found]
+                Mail,
+            )
+        except ImportError as exc:
+            raise RuntimeError(
+                "SendgridProvider requires sendgrid — install with "
+                "`pip install dazzle-dsl[sendgrid]`"
+            ) from exc
+        body = notification.body
+        is_html = body.strip().startswith("<")
+        return Mail(
+            from_email=self.from_address or "noreply@localhost",
+            to_emails=notification.recipient,
+            subject=notification.subject,
+            plain_text_content=None if is_html else body,
+            html_content=body if is_html else None,
+        )
+
+
 def _render(template: str, payload: dict[str, Any]) -> str:
     """Render a single Jinja-ish placeholder string against *payload*.
 
@@ -269,13 +507,80 @@ def _render(template: str, payload: dict[str, Any]) -> str:
         return template
 
 
+class DeliveryOutcome(StrEnum):
+    """Terminal outcome for a single notification delivery attempt (#952 cycle 5).
+
+    Tracked on every send via :class:`DeliveryRecord` so a future audit
+    consumer (or just an ops dashboard reading the dispatcher's
+    in-memory deque) can see what happened to each message.
+    """
+
+    SENT = "sent"
+    """Provider returned True; delivery accepted."""
+
+    FAILED_TRANSIENT = "failed_transient"
+    """Provider returned False on every attempt — exceeded retry budget.
+    Goes to dead-letter."""
+
+    FAILED_PERMANENT = "failed_permanent"
+    """Provider raised — permanent failure, no retries attempted past
+    the one that raised."""
+
+
+@dataclass(frozen=True)
+class DeliveryRecord:
+    """One row of the notification delivery audit log (#952 cycle 5).
+
+    Recorded by :meth:`NotificationDispatcher.dispatch_async` per
+    ``(notification, channel)`` pair. Consumers (a CLI viewer, a
+    Sentinel rule, an audit-log writer) can read the dispatcher's
+    ``deliveries`` deque to surface failures.
+    """
+
+    timestamp: datetime
+    notification_name: str
+    channel: str
+    recipient: str
+    attempts: int
+    outcome: DeliveryOutcome
+    error_message: str = ""
+
+
+@dataclass(frozen=True)
+class RetryPolicy:
+    """How aggressively to retry transient provider failures (#952 cycle 5).
+
+    Defaults are tuned for transactional email — three attempts over
+    ~7s gives time for a flaky SMTP relay to recover without holding
+    the request handler open for minutes. Adopters needing different
+    semantics (Slack rate limits, etc.) construct their own policy.
+    """
+
+    max_attempts: int = 3
+    base_delay_seconds: float = 1.0
+    max_delay_seconds: float = 8.0
+
+    def delay_for_attempt(self, attempt: int) -> float:
+        """Return the delay before retry *attempt* (1-indexed).
+
+        Exponential: base * 2^(attempt-1), capped at max_delay. Attempt
+        1 is the first retry — so the very first send happens with no
+        delay, then we wait base, then base*2, then base*4 …
+        """
+        if attempt < 1:
+            return 0.0
+        return min(self.base_delay_seconds * (2 ** (attempt - 1)), self.max_delay_seconds)
+
+
 @dataclass
 class NotificationDispatcher:
     """Renders + dispatches notifications via a configured provider.
 
     Cycle 2 surface — adopters call ``dispatch(spec, payload)`` directly.
-    Cycle 4 will wire the event/channel pipeline so entity-change events
-    auto-dispatch matching specs.
+    Cycle 4 wires entity-change events to auto-dispatch via
+    ``dazzle_back.runtime.notification_wiring``.
+    Cycle 5 (this version) adds :meth:`dispatch_async` with retry +
+    delivery audit log via the ``deliveries`` deque.
 
     Attributes:
         provider: The :class:`NotificationProvider` that delivers
@@ -286,11 +591,17 @@ class NotificationDispatcher:
             looked up when a spec sets ``template:``. Cycle 3 replaces
             this with a Jinja loader rooted at the project's
             ``templates/`` directory.
+        retry_policy: Backoff schedule for transient failures.
+        deliveries: Rolling audit log of delivery attempts (newest
+            last). Capped at 512 entries — older entries fall off so
+            the dispatcher's memory footprint stays bounded.
     """
 
     provider: NotificationProvider = field(default_factory=LogProvider)
     from_address: str = ""
     templates: dict[str, str] = field(default_factory=dict)
+    retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
+    deliveries: deque[DeliveryRecord] = field(default_factory=lambda: deque(maxlen=512))
 
     def dispatch(
         self,
@@ -309,6 +620,113 @@ class NotificationDispatcher:
         useful for tests + cycle-3 trigger wiring that has the resolved
         target before this call.
         """
+        out: list[RenderedNotification] = []
+        for rendered in self._render_per_channel(spec, payload, recipient=recipient):
+            try:
+                ok = self.provider.send(rendered)
+            except Exception as exc:
+                # Permanent failure — record + log; don't re-raise so a
+                # single channel failure doesn't abort the others.
+                logger.exception(
+                    "Notification %r send failed on channel %s",
+                    rendered.notification_name,
+                    rendered.channel,
+                )
+                self._record_delivery(
+                    rendered,
+                    attempts=1,
+                    outcome=DeliveryOutcome.FAILED_PERMANENT,
+                    error_message=str(exc),
+                )
+            else:
+                self._record_delivery(
+                    rendered,
+                    attempts=1,
+                    outcome=DeliveryOutcome.SENT if ok else DeliveryOutcome.FAILED_TRANSIENT,
+                )
+            out.append(rendered)
+        return out
+
+    async def dispatch_async(
+        self,
+        spec: Any,
+        payload: dict[str, Any],
+        *,
+        recipient: str | None = None,
+    ) -> list[RenderedNotification]:
+        """Async variant of :meth:`dispatch` with retry on transient
+        failures (#952 cycle 5).
+
+        Per-channel: tries ``provider.send`` up to ``retry_policy.max_attempts``
+        times. Between attempts, ``asyncio.sleep`` waits per
+        ``retry_policy.delay_for_attempt(n)``. A successful send (True)
+        short-circuits the retry loop and records :class:`DeliveryOutcome.SENT`.
+        Exhausting attempts records :class:`DeliveryOutcome.FAILED_TRANSIENT`
+        (dead letter — a future cycle will route this to a real DLQ).
+        Provider exceptions short-circuit too and record
+        :class:`DeliveryOutcome.FAILED_PERMANENT`.
+
+        Used by ``dazzle_back.runtime.notification_wiring`` so the
+        request handler isn't blocked waiting for retries — the async
+        wiring callback awaits this on the event loop.
+        """
+        out: list[RenderedNotification] = []
+        for rendered in self._render_per_channel(spec, payload, recipient=recipient):
+            attempts = 0
+            outcome: DeliveryOutcome | None = None
+            error_message = ""
+            for attempt in range(1, self.retry_policy.max_attempts + 1):
+                attempts = attempt
+                if attempt > 1:
+                    await asyncio.sleep(self.retry_policy.delay_for_attempt(attempt - 1))
+                try:
+                    ok = self.provider.send(rendered)
+                except Exception as exc:
+                    logger.exception(
+                        "Notification %r send raised on channel %s (attempt %d)",
+                        rendered.notification_name,
+                        rendered.channel,
+                        attempt,
+                    )
+                    outcome = DeliveryOutcome.FAILED_PERMANENT
+                    error_message = str(exc)
+                    break
+                if ok:
+                    outcome = DeliveryOutcome.SENT
+                    break
+                # Transient — loop back unless we're out of attempts.
+                logger.info(
+                    "Notification %r transient failure on channel %s (attempt %d/%d)",
+                    rendered.notification_name,
+                    rendered.channel,
+                    attempt,
+                    self.retry_policy.max_attempts,
+                )
+            else:
+                # for-else: all attempts exhausted with transient failures.
+                outcome = DeliveryOutcome.FAILED_TRANSIENT
+            assert outcome is not None
+            self._record_delivery(
+                rendered,
+                attempts=attempts,
+                outcome=outcome,
+                error_message=error_message,
+            )
+            out.append(rendered)
+        return out
+
+    def _render_per_channel(
+        self,
+        spec: Any,
+        payload: dict[str, Any],
+        *,
+        recipient: str | None,
+    ) -> list[RenderedNotification]:
+        """Render one :class:`RenderedNotification` per channel.
+
+        Shared between sync :meth:`dispatch` and async
+        :meth:`dispatch_async` so the render path stays in one place.
+        """
         body_template = self._resolve_body_template(spec)
         rendered_subject = _render(getattr(spec, "subject", ""), payload)
         rendered_body = _render(body_template, payload)
@@ -316,26 +734,37 @@ class NotificationDispatcher:
         out: list[RenderedNotification] = []
         for channel in getattr(spec, "channels", []) or []:
             channel_value = getattr(channel, "value", str(channel))
-            rendered = RenderedNotification(
-                notification_name=getattr(spec, "name", "<unknown>"),
-                recipient=target,
-                channel=channel_value,
-                subject=rendered_subject,
-                body=rendered_body,
-            )
-            try:
-                self.provider.send(rendered)
-            except Exception:
-                # Permanent failure — log so the audit pipeline (cycle 5)
-                # can pick it up. Don't re-raise so a single channel
-                # failure doesn't abort the others.
-                logger.exception(
-                    "Notification %r send failed on channel %s",
-                    rendered.notification_name,
-                    channel_value,
+            out.append(
+                RenderedNotification(
+                    notification_name=getattr(spec, "name", "<unknown>"),
+                    recipient=target,
+                    channel=channel_value,
+                    subject=rendered_subject,
+                    body=rendered_body,
                 )
-            out.append(rendered)
+            )
         return out
+
+    def _record_delivery(
+        self,
+        rendered: RenderedNotification,
+        *,
+        attempts: int,
+        outcome: DeliveryOutcome,
+        error_message: str = "",
+    ) -> None:
+        """Append a :class:`DeliveryRecord` to the audit deque."""
+        self.deliveries.append(
+            DeliveryRecord(
+                timestamp=datetime.now(UTC),
+                notification_name=rendered.notification_name,
+                channel=rendered.channel,
+                recipient=rendered.recipient,
+                attempts=attempts,
+                outcome=outcome,
+                error_message=error_message,
+            )
+        )
 
     def _resolve_body_template(self, spec: Any) -> str:
         """Pick the body template per the cycle-1 contract: ``template:``
@@ -396,8 +825,12 @@ def build_dispatcher_from_manifest(
     * ``smtp`` (cycle 3) → :class:`SmtpProvider` — requires a non-empty
       ``smtp_host``; falls back to :class:`LogProvider` with a warning
       when host is missing so dispatch still runs visibly during dev.
-    * ``sendgrid`` / ``ses`` (cycle 6+) → not yet implemented; logs a
-      deferred-cycle warning and falls back to :class:`LogProvider`.
+    * ``ses`` (cycle 6) → :class:`SesProvider` — uses the boto3
+      credential chain; ``aws_region`` flows from
+      ``[notifications] aws_region``.
+    * ``sendgrid`` (cycle 6) → :class:`SendgridProvider` — requires
+      a non-empty ``api_key``; falls back to :class:`LogProvider`
+      when missing so dispatch still runs visibly during dev.
     """
     provider_key = getattr(manifest_notifications, "provider", "log")
     from_address = getattr(manifest_notifications, "from_address", "") or ""
@@ -420,10 +853,28 @@ def build_dispatcher_from_manifest(
                 password=getattr(manifest_notifications, "smtp_password", "") or "",
                 from_address=from_address,
             )
+    elif provider_key == "ses":
+        provider = SesProvider(
+            region=getattr(manifest_notifications, "aws_region", "") or "",
+            from_address=from_address,
+        )
+    elif provider_key == "sendgrid":
+        api_key = getattr(manifest_notifications, "api_key", "") or ""
+        if not api_key:
+            logger.warning(
+                "Notification provider 'sendgrid' requires [notifications] api_key "
+                "— falling back to LogProvider until configured."
+            )
+            provider = LogProvider()
+        else:
+            provider = SendgridProvider(
+                api_key=api_key,
+                from_address=from_address,
+            )
     else:
         logger.warning(
-            "Notification provider %r not yet implemented (cycle 6+) — "
-            "falling back to LogProvider so dispatch is still visible.",
+            "Notification provider %r unknown — falling back to LogProvider "
+            "so dispatch is still visible.",
             provider_key,
         )
         provider = LogProvider()
@@ -434,10 +885,15 @@ def build_dispatcher_from_manifest(
 
 
 __all__ = [
+    "DeliveryOutcome",
+    "DeliveryRecord",
     "LogProvider",
     "NotificationDispatcher",
     "NotificationProvider",
     "RenderedNotification",
+    "RetryPolicy",
+    "SendgridProvider",
+    "SesProvider",
     "SmtpProvider",
     "build_dispatcher_from_manifest",
 ]

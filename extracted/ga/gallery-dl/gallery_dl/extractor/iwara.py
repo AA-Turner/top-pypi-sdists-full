@@ -332,9 +332,7 @@ class IwaraAPI():
         self.extractor = extractor
         self.exc = extractor.exc
         self.headers = {
-            "Referer"     : extractor.root + "/",
             "Content-Type": "application/json",
-            "Origin"      : extractor.root,
             "X-Site"      : extractor.root[8:],
         }
 

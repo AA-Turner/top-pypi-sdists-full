@@ -90,13 +90,7 @@ class ScrolllerExtractor(Extractor):
         return data["login"]["token"]
 
     def _request_graphql(self, opname, variables, admin=True):
-        headers = {
-            "Content-Type"  : None,
-            "Origin"        : self.root,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-        }
+        headers = {}
         data = {
             "query"        : self.utils("graphql", opname),
             "variables"    : variables,
@@ -173,7 +167,7 @@ class ScrolllerSubredditExtractor(ScrolllerExtractor):
 class ScrolllerUserExtractor(ScrolllerExtractor):
     """Extractor for media from a scrolller Reddit user"""
     subcategory = "user"
-    directory_fmt = ("{category}", "User", "{posted_by}")
+    directory_fmt = ("{category}", "User", "{reddit_posted_by}")
     pattern = BASE_PATTERN + r"/reddit-user/([^/?#]+)(?:/?\?([^#]+))?"
     example = "https://scrolller.com/reddit-user/USER"
 

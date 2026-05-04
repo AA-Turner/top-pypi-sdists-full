@@ -22,25 +22,49 @@
 
 #include "SciQLopPlots/Items/SciQLopStraightLines.hpp"
 
-void StraightLine::move(double dx, double dy)
+void StraightLine::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
 {
-    if (m_orientation == Qt::Orientation::Vertical)
+    if (!_movable || event->buttons() != Qt::LeftButton)
+        return;
+    if (m_coordinates == Coordinates::Pixels)
     {
-        this->point1->setPixelPosition({this->point1->pixelPosition().x() + dx, this->point1->pixelPosition().y()});
-        this->point2->setPixelPosition({this->point2->pixelPosition().x() + dx, this->point2->pixelPosition().y()});
-        emit moved(this->point1->key());
+        if (m_orientation == Qt::Orientation::Vertical)
+            set_position(event->position().x());
+        else
+            set_position(event->position().y());
     }
     else
     {
-        this->point1->setPixelPosition({this->point1->pixelPosition().x(), this->point1->pixelPosition().y() + dy});
-        this->point2->setPixelPosition({this->point2->pixelPosition().x(), this->point2->pixelPosition().y() + dy});
-        emit moved(this->point1->value());
+        if (m_orientation == Qt::Orientation::Vertical)
+        {
+            if (auto* axis = this->point1->keyAxis())
+                set_position(axis->pixelToCoord(event->position().x()));
+        }
+        else
+        {
+            if (auto* axis = this->point1->valueAxis())
+                set_position(axis->pixelToCoord(event->position().y()));
+        }
     }
-    this->replot();
+    _last_position = event->position();
+    event->accept();
+}
+
+void StraightLine::move(double dx, double dy)
+{
+    auto pos = position();
+    if (m_orientation == Qt::Orientation::Vertical)
+        set_position(pos + dx);
+    else
+        set_position(pos + dy);
 }
 
 void StraightLine::set_position(double pos)
 {
+    pos = _clamp(pos);
+    const double current = position();
+    if (current == pos)
+        return;
     if (m_orientation == Qt::Orientation::Vertical)
     {
         this->point1->setCoords(pos, 0);
@@ -51,6 +75,7 @@ void StraightLine::set_position(double pos)
         this->point1->setCoords(0, pos);
         this->point2->setCoords(1, pos);
     }
+    emit moved(pos);
     this->replot();
 }
 

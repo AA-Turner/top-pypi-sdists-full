@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpaframework-core
-Version: 12.1.1
+Version: 13.0.0
 Summary: Core utilities used by RPA Framework
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -15,13 +15,12 @@ Classifier: Framework :: Robot Framework :: Library
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9.1
+Requires-Python: >=3.10
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: packaging>=24.0
 Requires-Dist: pillow>=10.2.0

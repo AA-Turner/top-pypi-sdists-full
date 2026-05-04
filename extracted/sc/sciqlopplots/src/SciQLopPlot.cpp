@@ -29,6 +29,7 @@
 #include <theme.h>
 
 #include <QFileInfo>
+#include <QSignalBlocker>
 #include <cmath>
 #include <cpp_utils/containers/algorithms.hpp>
 #include <limits>
@@ -590,13 +591,14 @@ void SciQLopPlot::_configure_plotable(SciQLopGraphInterface* plottable, const QS
             for (auto& component : plottable->components())
             {
                 component->set_color(m_color_palette[m_color_palette_index]);
-                component->set_marker_shape(marker);
                 m_color_palette_index = (m_color_palette_index + 1) % std::size(m_color_palette);
-                if (graph_type == ::GraphType::Scatter)
-                {
-                    component->set_line_style(::GraphLineStyle::NoLine);
-                }
             }
+        }
+        for (auto& component : plottable->components())
+        {
+            component->set_marker_shape(marker);
+            if (graph_type == ::GraphType::Scatter)
+                component->set_line_style(::GraphLineStyle::NoLine);
         }
         if (std::size(labels) == std::size(plottable->components()))
             plottable->set_labels(labels);
@@ -643,6 +645,9 @@ SciQLopPlot::SciQLopPlot(QWidget* parent) : SciQLopPlotInterface(parent)
 
     connect(m_impl, &_impl::SciQLopPlot::plotables_list_changed, this,
             &SciQLopPlot::graph_list_changed);
+
+    connect(m_impl, &_impl::SciQLopPlot::hover_x_changed, this,
+            &SciQLopPlot::cursor_time_changed);
 
     set_axes_to_rescale(
         QList<SciQLopPlotAxisInterface*> { x_axis(), x2_axis(), y_axis(), y2_axis(), z_axis() });
@@ -731,7 +736,20 @@ double SciQLopPlot::scroll_factor() const noexcept
 
 void SciQLopPlot::enable_cursor(bool enable) noexcept
 {
+    set_crosshair_enabled(enable);
+}
+
+void SciQLopPlot::set_crosshair_enabled(bool enable)
+{
+    if (m_impl->crosshair_enabled() == enable)
+        return;
     m_impl->set_crosshair_enabled(enable);
+    Q_EMIT crosshair_enabled_changed(enable);
+}
+
+bool SciQLopPlot::crosshair_enabled() const
+{
+    return m_impl->crosshair_enabled();
 }
 
 void SciQLopPlot::set_theme(SciQLopTheme* theme)
@@ -1009,4 +1027,33 @@ bool SciQLopPlot::save(const QString& filename, int width, int height,
     if (ext == "bmp")
         return save_bmp(filename, width, height, scale);
     return false;
+}
+
+void SciQLopPlot::set_equal_aspect_ratio(bool enabled) noexcept
+{
+    if (m_equal_aspect_ratio == enabled)
+        return;
+    m_equal_aspect_ratio = enabled;
+    if (enabled)
+    {
+        connect(m_impl->xAxis, qOverload<const QCPRange&>(&QCPAxis::rangeChanged),
+                this, &SciQLopPlot::_enforce_equal_aspect, Qt::UniqueConnection);
+        _enforce_equal_aspect();
+    }
+    else
+    {
+        disconnect(m_impl->xAxis, qOverload<const QCPRange&>(&QCPAxis::rangeChanged),
+                   this, &SciQLopPlot::_enforce_equal_aspect);
+    }
+    Q_EMIT equal_aspect_ratio_changed(enabled);
+}
+
+void SciQLopPlot::_enforce_equal_aspect()
+{
+    if (!m_equal_aspect_ratio)
+        return;
+
+    QSignalBlocker by(m_impl->yAxis);
+    m_impl->yAxis->setScaleRatio(m_impl->xAxis, 1.0);
+    m_impl->replot(QCustomPlot::rpQueuedReplot);
 }

@@ -68,7 +68,6 @@ class _500pxExtractor(Extractor):
 
     def _request_api(self, url, params):
         headers = {
-            "Origin": self.root,
             "x-csrf-token": self.cookies.get(
                 "x-csrf-token", domain=".500px.com"),
         }

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2020-2025 Mike Fährmann
+# Copyright 2020-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -71,13 +71,14 @@ class FuraffinityExtractor(Extractor):
 
     def _parse_post(self, post_id):
         url = f"{self.root}/view/{post_id}/"
-        extr = text.extract_from(self.request(url).text)
+        page = self.request(url).text
+        extr = text.extract_from(page)
 
         if self._new_layout is None:
             self._new_layout = ("http-equiv=" not in extr("<meta ", ">"))
 
-        path = extr('href="//d', '"')
-        if not path:
+        pos = page.find(".net/art/")
+        if pos < 0:
             msg = text.remove_html(
                 extr('System Message', '</section>') or
                 extr('System Message', '</table>')
@@ -88,9 +89,10 @@ class FuraffinityExtractor(Extractor):
         pi = text.parse_int
         rh = text.remove_html
 
+        path = page[page.rfind('"', None, pos)+1:page.find('"', pos)]
         data = text.nameext_from_url(path, {
             "id" : pi(post_id),
-            "url": "https://d" + path,
+            "url": "https:" + path,
         })
 
         if self._new_layout:

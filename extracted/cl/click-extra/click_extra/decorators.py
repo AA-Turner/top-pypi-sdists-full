@@ -36,6 +36,7 @@ from .logging import VerboseOption, VerbosityOption
 from .parameters import Argument, Option, ShowParamsOption
 from .table import TableFormatOption
 from .telemetry import TelemetryOption
+from .theme import ThemeOption
 from .timer import TimerOption
 from .version import ExtraVersionOption
 
@@ -152,6 +153,7 @@ validate_config_option = decorator_factory(dec=option, cls=ValidateConfigOption)
 show_params_option = decorator_factory(dec=option, cls=ShowParamsOption)
 table_format_option = decorator_factory(dec=option, cls=TableFormatOption)
 telemetry_option = decorator_factory(dec=option, cls=TelemetryOption)
+theme_option = decorator_factory(dec=option, cls=ThemeOption)
 timer_option = decorator_factory(dec=option, cls=TimerOption)
 verbose_option = decorator_factory(dec=option, cls=VerboseOption)
 verbosity_option = decorator_factory(dec=option, cls=VerbosityOption)

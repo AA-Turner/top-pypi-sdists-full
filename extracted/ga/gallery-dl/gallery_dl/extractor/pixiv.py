@@ -764,7 +764,7 @@ class PixivSearchExtractor(PixivExtractor):
     archive_fmt = "s_{search[word]}_{id}{num}.{extension}"
     directory_fmt = ("{category}", "search", "{search[word]}")
     pattern = (BASE_PATTERN + r"/(?:(?:en/)?tags/([^/?#]+)(?:/[^/?#]+)?/?"
-               r"|search\.php)(?:\?([^#]+))?")
+               r"|search(?:\.php)?)(?:\?([^#]+))?")
     example = "https://www.pixiv.net/en/tags/TAG"
 
     def __init__(self, match):
@@ -784,7 +784,7 @@ class PixivSearchExtractor(PixivExtractor):
             self.word = text.unquote(self.word)
         else:
             try:
-                self.word = query["word"]
+                self.word = query.get("q") or query["word"]
             except KeyError:
                 raise self.exc.AbortExtraction("Missing search term")
 
@@ -803,8 +803,11 @@ class PixivSearchExtractor(PixivExtractor):
 
         target = query.get("s_mode", "s_tag_full")
         target_map = {
+            "tag"  : "partial_match_for_tags",
             "s_tag": "partial_match_for_tags",
+            "tag_full"  : "exact_match_for_tags",
             "s_tag_full": "exact_match_for_tags",
+            "tc"  : "title_and_caption",
             "s_tc": "title_and_caption",
         }
         try:

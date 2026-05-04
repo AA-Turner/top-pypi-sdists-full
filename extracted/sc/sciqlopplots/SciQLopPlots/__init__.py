@@ -11,7 +11,7 @@ import sys
 
 sys.modules["SciQLopPlotsBindings"] = SciQLopPlotsBindings
 
-__version__ = '0.22.0'
+__version__ = '0.23.0'
 
 def _merge_kwargs(kwargs, **kwargs2):
     for k, v in kwargs2.items():
@@ -19,9 +19,12 @@ def _merge_kwargs(kwargs, **kwargs2):
             kwargs[k] = v
     return kwargs
 
-def _apply_waterfall_kwargs(wf, offsets=None, normalize=True, gain=1.0):
+def _apply_waterfall_kwargs(result, offsets=None, normalize=True, gain=1.0):
     import numpy as np
     from .SciQLopPlotsBindings import WaterfallOffsetMode
+
+    # Plot-level cls.waterfall returns the graph; panel-level returns (plot, graph).
+    wf = result[1] if isinstance(result, tuple) else result
 
     if offsets is None:
         wf.set_offset_mode(WaterfallOffsetMode.Uniform)
@@ -36,7 +39,7 @@ def _apply_waterfall_kwargs(wf, offsets=None, normalize=True, gain=1.0):
 
     wf.set_normalize(bool(normalize))
     wf.set_gain(float(gain))
-    return wf
+    return result
 
 
 _WATERFALL_KWARGS = ("offsets", "normalize", "gain")
@@ -94,6 +97,9 @@ def _patch_sciqlop_plot(cls):
         if (graph_type == GraphType.ParametricCurve) and (len(args) in (1, 2, 4)) and not callable(args[0]):
             _reject_waterfall_kwargs(kwargs, graph_type)
             _reject_histogram2d_kwargs(kwargs, graph_type)
+            plot_type = kwargs.pop("plot_type", None)
+            if plot_type == PlotType.Projections:
+                return cls.projection(self, *args, **kwargs)
             return cls.parametric_curve(self, *args, **kwargs)
         if len(args) == 1:
             return plot_func(self, *args, graph_type=graph_type, **kwargs)

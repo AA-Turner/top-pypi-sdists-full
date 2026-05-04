@@ -102,13 +102,16 @@ class WeiboExtractor(Extractor):
                 files = []
                 self._extract_status(status, files)
 
-            if is_like(status["title"]["text"]):
-                if not self.likes:
-                    self.log.debug("Skipping %s (赞过 like)", status["id"])
-                    continue
-                status["like"] = True
+            if title := status.get("title"):
+                if is_like(title.get("text") or ""):
+                    if not self.likes:
+                        self.log.debug("Skipping %s (赞过 like)", status["id"])
+                        continue
+                    status["like"] = True
+                else:
+                    status["like"] = False
             else:
-                status["like"] = False
+                status["like"] = None
 
             if self.longtext and status.get("isLongText") and \
                     status["text"].endswith('class="expand">展开</span>'):

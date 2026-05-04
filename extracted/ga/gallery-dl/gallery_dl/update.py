@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2024-2025 Mike Fährmann
+# Copyright 2024-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -155,8 +155,10 @@ class UpdateJob(DownloadJob):
 
 class UpdateExtractor(Extractor):
     category = "update"
-    root = "https://github.com"
-    root_api = "https://api.github.com"
+    root_cb = "https://codeberg.org"
+    root_cb_api = "https://codeberg.org/api/v1"
+    root_gh = "https://github.com"
+    root_gh_api = "https://api.github.com"
     pattern = r"update(?::(.+))?"
 
     def items(self):
@@ -191,13 +193,29 @@ class UpdateExtractor(Extractor):
         except KeyError:
             raise exception.AbortExtraction(f"Invalid channel '{repo}'")
 
-        path_tag = tag if tag == "latest" else "tags/" + tag
-        url = f"{self.root_api}/repos/{path_repo}/releases/{path_tag}"
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "User-Agent": util.USERAGENT_GALLERYDL,
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
+        if tag == "latest":
+            path_tag = tag
+            v = version.__version__
+        else:
+            path_tag = "tags/" + tag
+            v = tag.lstrip("v")
+
+        if repo == "stable" and v >= "1.32.0":
+            root = self.root_cb
+            root_api = self.root_cb_api
+            headers = {
+                "User-Agent": util.USERAGENT_GALLERYDL,
+            }
+        else:
+            root = self.root_gh
+            root_api = self.root_gh_api
+            headers = {
+                "Accept": "application/vnd.github+json",
+                "User-Agent": util.USERAGENT_GALLERYDL,
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+
+        url = f"{root_api}/repos/{path_repo}/releases/{path_tag}"
         data = self.request(url, headers=headers, notfound="tag").json()
         data["_check"] = check
         data["_exact"] = exact
@@ -209,7 +227,7 @@ class UpdateExtractor(Extractor):
         else:
             binary_name = BINARIES[repo][binary]
 
-        url = (f"{self.root}/{path_repo}/releases/download"
+        url = (f"{root}/{path_repo}/releases/download"
                f"/{data['tag_name']}/{binary_name}")
 
         yield Message.Directory, "", data

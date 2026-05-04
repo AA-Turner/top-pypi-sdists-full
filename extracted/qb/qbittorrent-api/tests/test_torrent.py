@@ -53,8 +53,9 @@ def test_state_enum(orig_torrent):
     assert orig_torrent.state_enum is not TorrentStates.UNKNOWN
     orig_torrent.resume()
     check(
-        lambda: orig_torrent.sync_local() is None
-        and orig_torrent.state_enum.is_downloading,
+        lambda: (
+            orig_torrent.sync_local() is None and orig_torrent.state_enum.is_downloading
+        ),
         True,
     )
     # simulate an unknown torrent.state
@@ -70,17 +71,21 @@ def test_state_enum(orig_torrent):
 def test_pause_resume(client, new_torrent):
     new_torrent.pause()
     check(
-        lambda: client.torrents_info(torrent_hashes=new_torrent.hash)[
-            0
-        ].state_enum.is_paused,
+        lambda: (
+            client.torrents_info(torrent_hashes=new_torrent.hash)[
+                0
+            ].state_enum.is_paused
+        ),
         True,
     )
 
     new_torrent.resume()
     check(
-        lambda: client.torrents_info(torrent_hashes=new_torrent.hash)[
-            0
-        ].state_enum.is_paused,
+        lambda: (
+            client.torrents_info(torrent_hashes=new_torrent.hash)[
+                0
+            ].state_enum.is_paused
+        ),
         False,
     )
 
@@ -90,17 +95,21 @@ def test_pause_resume(client, new_torrent):
 def test_stop_start(client, new_torrent):
     new_torrent.stop()
     check(
-        lambda: client.torrents_info(torrent_hashes=new_torrent.hash)[
-            0
-        ].state_enum.is_paused,
+        lambda: (
+            client.torrents_info(torrent_hashes=new_torrent.hash)[
+                0
+            ].state_enum.is_paused
+        ),
         True,
     )
 
     new_torrent.resume()
     check(
-        lambda: client.torrents_info(torrent_hashes=new_torrent.hash)[
-            0
-        ].state_enum.is_paused,
+        lambda: (
+            client.torrents_info(torrent_hashes=new_torrent.hash)[
+                0
+            ].state_enum.is_paused
+        ),
         False,
     )
 
@@ -268,6 +277,22 @@ def test_set_auto_management(orig_torrent, set_auto_mgmt_func):
     check(lambda: orig_torrent.info.auto_tmm, not current_setting)
     orig_torrent.func(set_auto_mgmt_func)(enable=current_setting)
     check(lambda: orig_torrent.info.auto_tmm, current_setting)
+
+
+@pytest.mark.parametrize("set_comment_func", ["set_comment", "setComment"])
+@pytest.mark.skipif_before_api_version("2.12.1")
+def test_set_comment(orig_torrent, set_comment_func):
+    orig_torrent.func(set_comment_func)(comment="new comment")
+    check(lambda: orig_torrent.info.comment, "new comment")
+    orig_torrent.func(set_comment_func)(comment="")
+    check(lambda: orig_torrent.info.comment, "")
+
+
+@pytest.mark.parametrize("set_comment_func", ["set_comment", "setComment"])
+@pytest.mark.skipif_after_api_version("2.12.1")
+def test_set_comment_not_implemented(orig_torrent, set_comment_func):
+    with pytest.raises(NotImplementedError):
+        orig_torrent.func(set_comment_func)(ratio_limit=5, seeding_time_limit=100)
 
 
 @pytest.mark.parametrize(

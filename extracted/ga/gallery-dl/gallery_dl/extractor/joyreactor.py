@@ -122,17 +122,12 @@ class JoyreactorExtractor(Extractor):
 
     def _request_graphql(self, opname, variables):
         url = "https://api.joyreactor.com/graphql"
-        headers = {
-            "Referer": self.root + "/",
-            "Origin" : self.root,
-        }
         data = {
             "variables": variables,
             "query"    : self.utils("graphql", opname),
         }
         return self.request_json(
-            url, method="POST", headers=headers, json=data,
-            interval=False)["data"]
+            url, method="POST", json=data, interval=False)["data"]
 
     def _pagination(self, url, opname, variables):
         data = path = None

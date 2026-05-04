@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2021 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -17,7 +17,6 @@ test case material.
 """
 
 import os
-import typing as ty
 from dataclasses import dataclass
 
 import pytest
@@ -32,19 +31,21 @@ from scenedetect.detectors import (
     ThresholdDetector,
 )
 
-FAST_CUT_DETECTORS: ty.Tuple[ty.Type[SceneDetector]] = (
+# Untyped so each entry retains its concrete `type[...]` for parameterized construction
+# (calls below pass detector-specific kwargs like `min_scene_len`).
+FAST_CUT_DETECTORS = (
     AdaptiveDetector,
     ContentDetector,
     HashDetector,
     HistogramDetector,
 )
 
-ALL_DETECTORS: ty.Tuple[ty.Type[SceneDetector]] = (*FAST_CUT_DETECTORS, ThresholdDetector)
+ALL_DETECTORS = (*FAST_CUT_DETECTORS, ThresholdDetector)
 
-# TODO(#53): Add a test that verifies algorithms output relatively consistent frame scores
-# regardless of resolution. This will ensure that threshold values will hold true for different
-# input sources. Most detectors already provide this guarantee, so this is more to prevent any
-# regressions in the future.
+# TODO(https://scenedetect.com/issues/53): Add a test that verifies algorithms output relatively
+# consistent frame scores regardless of resolution. This will ensure that threshold values will hold
+# true for different input sources. Most detectors already provide this guarantee, so this is more
+# to prevent any regressions in the future.
 
 
 # TODO: Reduce code duplication here and in `conftest.py`
@@ -57,14 +58,13 @@ def get_absolute_path(relative_path: str) -> str:
     abs_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), relative_path)
     if not os.path.exists(abs_path):
         raise FileNotFoundError(
-            """
-Test video file (%s) must be present to run test case. This file can be obtained by running the following commands from the root of the repository:
+            f"""
+Test video file ({relative_path}) must be present to run test case. This file can be obtained by running the following commands from the root of the repository:
 
 git fetch --depth=1 https://github.com/Breakthrough/PySceneDetect.git refs/heads/resources:refs/remotes/origin/resources
 git checkout refs/remotes/origin/resources -- tests/resources/
 git reset
 """
-            % relative_path
         )
     return abs_path
 
@@ -81,7 +81,7 @@ class TestCase:
     """Start time as frames."""
     end_time: int
     """End time as frames."""
-    scene_boundaries: ty.List[int]
+    scene_boundaries: list[int]
     """Scene boundaries."""
 
     def detect(self):
@@ -107,7 +107,7 @@ def get_fast_cut_test_cases():
                 end_time=1450,
                 scene_boundaries=[1199, 1226, 1260, 1281, 1334, 1365],
             ),
-            id="%s/default" % detector_type.__name__,
+            id=f"{detector_type.__name__}/default",
         )
         for detector_type in FAST_CUT_DETECTORS
     ]
@@ -121,7 +121,7 @@ def get_fast_cut_test_cases():
                 end_time=1450,
                 scene_boundaries=[1199, 1260, 1334, 1365],
             ),
-            id="%s/m=30" % detector_type.__name__,
+            id=f"{detector_type.__name__}/m=30",
         )
         for detector_type in FAST_CUT_DETECTORS
     ]
@@ -139,7 +139,7 @@ def get_fade_in_out_test_cases():
                 detector=ThresholdDetector(),
                 start_time=0,
                 end_time=500,
-                scene_boundaries=[0, 15, 198, 376],
+                scene_boundaries=[0, 15, 198, 377],
             ),
             id="threshold_testvideo_default",
         ),
@@ -177,7 +177,7 @@ def get_fade_in_out_test_cases():
                 ),
                 start_time=0,
                 end_time=250,
-                scene_boundaries=[0, 42, 125, 209],
+                scene_boundaries=[0, 42, 126, 209],
             ),
             id="threshold_fades_ceil",
         ),
@@ -187,7 +187,7 @@ def get_fade_in_out_test_cases():
 @pytest.mark.parametrize("test_case", get_fast_cut_test_cases())
 def test_detect_fast_cuts(test_case: TestCase):
     scene_list = test_case.detect()
-    start_frames = [timecode.get_frames() for timecode, _ in scene_list]
+    start_frames = [timecode.frame_num for timecode, _ in scene_list]
 
     assert start_frames == test_case.scene_boundaries
     assert scene_list[0][0] == test_case.start_time
@@ -197,7 +197,7 @@ def test_detect_fast_cuts(test_case: TestCase):
 @pytest.mark.parametrize("test_case", get_fade_in_out_test_cases())
 def test_detect_fades(test_case: TestCase):
     scene_list = test_case.detect()
-    start_frames = [timecode.get_frames() for timecode, _ in scene_list]
+    start_frames = [timecode.frame_num for timecode, _ in scene_list]
     assert start_frames == test_case.scene_boundaries
     assert scene_list[0][0] == test_case.start_time
     assert scene_list[-1][1] == test_case.end_time
@@ -224,3 +224,25 @@ def test_detectors_with_stats(test_video_file):
         scene_manager.detect_scenes(video=video, end_time=end_time)
         scene_list = scene_manager.get_scene_list()
         assert len(scene_list) == initial_scene_len
+
+
+@pytest.mark.parametrize("detector_type", FAST_CUT_DETECTORS)
+@pytest.mark.parametrize(
+    "min_scene_len",
+    # 30 frames at goldeneye.mp4's 24000/1001 (~23.976) fps is ~1.2513s. All four forms should
+    # produce identical cut lists, demonstrating that detectors accept temporal as well as
+    # frame-count values.
+    [30, 1.25, "1.25s", "00:00:01.250"],
+)
+def test_min_scene_len_accepts_time_values(detector_type, min_scene_len):
+    """Detectors accept min_scene_len as int (frames), float (seconds), or str (timecode)."""
+    test_case = TestCase(
+        path=get_absolute_path("resources/goldeneye.mp4"),
+        detector=detector_type(min_scene_len=min_scene_len),
+        start_time=1199,
+        end_time=1450,
+        scene_boundaries=[1199, 1260, 1334, 1365],
+    )
+    scene_list = test_case.detect()
+    start_frames = [timecode.frame_num for timecode, _ in scene_list]
+    assert start_frames == test_case.scene_boundaries

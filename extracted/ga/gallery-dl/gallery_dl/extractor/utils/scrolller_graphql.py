@@ -45,13 +45,13 @@ query UserPostsQuery(
         }
     ) {
         iterator items {
-            __typename id url title posted_by reddit_posted_by subredditId
+            __typename id url title reddit_posted_by subredditId
             subredditTitle subredditUrl subredditIsFollowing redditPath isNsfw
             hasAudio fullLengthSource gfycatSource redgifsSource ownerAvatar
             username displayName favoriteCount isPaid tags commentsCount
             commentsRepliesCount duration createdAt isFavorite
-            albumContent { mediaSources { url width height isOptimized } }
-            mediaSources { url width height isOptimized }
+            albumContent { mediaSources { url width height isOptimized type } }
+            mediaSources { url width height isOptimized type }
             blurredMediaSources { url width height isOptimized type }
         }
     }

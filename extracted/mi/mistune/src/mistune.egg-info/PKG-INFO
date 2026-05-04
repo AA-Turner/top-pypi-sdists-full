@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistune
-Version: 3.2.0
+Version: 3.2.1
 Summary: A sane and fast Markdown parser with useful plugins and renderers
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause

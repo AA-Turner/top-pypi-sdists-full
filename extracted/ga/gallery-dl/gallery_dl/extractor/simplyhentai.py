@@ -31,10 +31,7 @@ class SimplyhentaiExtractor(Extractor):
 
     def request_api(self, endpoint, params=None):
         url = f"{self.root_api}/v3{endpoint}"
-        return self.request_json(url, params=params, headers={
-            "Referer": self.root + "/",
-            "Origin" : self.root,
-        })
+        return self.request_json(url, params=params)
 
     def _pagination(self, endpoint, params):
         params["page"] = text.parse_int(params.get("page"), 1)

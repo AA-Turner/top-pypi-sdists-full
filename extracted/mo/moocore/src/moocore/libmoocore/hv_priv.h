@@ -205,7 +205,7 @@ setup_cdllist(const double * restrict data, size_t n, const double * restrict re
 {
     ASSUME(n >= 1);
     const dimension_t dim = HV_DIMENSION;
-    const double **scratch = malloc(n * sizeof(*scratch));
+    const double ** scratch = malloc(n * sizeof(*scratch));
     size_t i, j;
     for (i = 0, j = 0; j < n; j++) {
         /* Filter those points that do not strictly dominate the reference
@@ -217,15 +217,16 @@ setup_cdllist(const double * restrict data, size_t n, const double * restrict re
         }
     }
     n = i; // Update number of points.
-    if (likely(n > 1))
-        qsort(scratch, n, sizeof(*scratch),
+    if (likely(n > 1)) {
 #ifdef HVC_ONLY
-              // Lexicographic ordering ensures that we do not have dominated points in the AVL-tree.
-              cmp_double_asc_rev_3d
+        // Lexicographic ordering ensures that we do not have dominated points in the AVL-tree.
+        qsort_typesafe(scratch, n, cmp_ppdouble_asc_rev_3d);
 #else
-              (HV_DIMENSION == 3) ? cmp_double_asc_only_3d : cmp_double_asc_only_4d
+        (HV_DIMENSION == 3)
+            ? qsort_typesafe(scratch, n, cmp_ppdouble_asc_only_3d)
+            : qsort_typesafe(scratch, n, cmp_ppdouble_asc_only_4d);
 #endif
-            );
+    }
 
     dlnode_t * list = new_cdllist(n, ref);
     if (unlikely(n == 0)) {
@@ -325,4 +326,14 @@ compute_area_no_inners(const double * px, const dlnode_t * q, uint_fast8_t i)
     ASSUME(i == 0 || i == 1);
     return compute_area_simple(px, q, q->cnext[i], i);
 }
+
+_attr_optimize_finite_and_associative_math
+static inline void
+upper_bound(double * restrict dest, const double * restrict a,
+            const double * restrict b, dimension_t dim)
+{
+    for (dimension_t i = 0; i < dim; i++)
+        dest[i] = MAX(a[i], b[i]);
+}
+
 #endif // _HV_PRIV_H

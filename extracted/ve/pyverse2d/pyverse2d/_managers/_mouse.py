@@ -252,7 +252,8 @@ class MouseManager(Manager):
             camera: camera du monde
         """
         if self._world_position is None:
-            return self._ctx.coordinates.logical_to_world(self._mouse_x, self._mouse_y, viewport=viewport, camera=camera)
+            with self._ctx.coordinates.temporary_context(viewport=viewport, camera=camera):
+                return self._ctx.coordinates.framebuffer_to_world(self._mouse_x, self._mouse_y)
         return self._world_position
     
     # ======================================== SETTERS ========================================

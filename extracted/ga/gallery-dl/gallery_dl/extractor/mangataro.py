@@ -91,9 +91,6 @@ class MangataroMangaExtractor(MangataroBase, MangaExtractor):
         }
         headers = {
             "Referer"       : manga["manga_url"],
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
         }
 
         results = []

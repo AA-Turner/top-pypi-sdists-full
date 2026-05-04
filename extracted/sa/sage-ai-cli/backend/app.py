@@ -791,7 +791,7 @@ def create_app() -> FastAPI:
         # Content-Security-Policy
         # - default-src 'self': all resources default to same origin
         # - script-src: allow self, CDN scripts (onnxruntime), PayPal, inline modules
-        # - connect-src: allow Firebase, GCS, PayPal APIs, accounts.google.com
+        # - connect-src: allow Firebase, GCS, PayPal APIs, HuggingFace CDN (all tiers)
         # - frame-src: allow PayPal checkout frames
         # - img-src: allow any HTTPS image (models + user avatars)
         csp = (
@@ -803,12 +803,32 @@ def create_app() -> FastAPI:
             "img-src 'self' data: https:; "
             "font-src 'self' data:; "
             "connect-src 'self' "
+                # Firebase / Google APIs
                 "https://*.googleapis.com "
                 "https://identitytoolkit.googleapis.com "
                 "https://securetoken.googleapis.com "
                 "https://storage.googleapis.com "
+                # PayPal
                 "https://api-m.paypal.com "
                 "https://www.paypal.com "
+                # Static CDN
+                "https://cdn.jsdelivr.net "
+                # HuggingFace — model files can arrive from several CDN tiers:
+                #   huggingface.co          — hub API & small files
+                #   *.huggingface.co        — hub subdomains (e.g. cdn-lfs.huggingface.co)
+                #   hf.co                   — short domain
+                #   *.hf.co                 — first-level subdomains (xethub.hf.co, etc.)
+                #   *.xethub.hf.co          — XetHub CAS bridge (cas-bridge.xethub.hf.co)
+                #   raw.githubusercontent.com — WASM/metadata from GitHub releases
+                "https://huggingface.co "
+                "https://*.huggingface.co "
+                "https://hf.co "
+                "https://*.hf.co "
+                "https://*.xethub.hf.co "
+                "https://raw.githubusercontent.com "
+                "https://github.com "
+                "https://*.github.com "
+                # SAGE WebSocket terminal
                 "wss://sageworksai.com; "
             "frame-src https://www.paypal.com https://www.sandbox.paypal.com "
                 "https://sageworksai.com; "

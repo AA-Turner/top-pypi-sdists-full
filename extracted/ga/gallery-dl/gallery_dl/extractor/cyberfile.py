@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2025 Mike Fährmann
+# Copyright 2025-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,10 +21,7 @@ class CyberfileExtractor(Extractor):
 
     def request_api(self, endpoint, data):
         url = self.root + endpoint
-        headers = {
-            "X-Requested-With": "XMLHttpRequest",
-            "Origin": self.root,
-        }
+        headers = {"X-Requested-With": "XMLHttpRequest"}
         resp = self.request_json(
             url, method="POST", headers=headers, data=data)
 

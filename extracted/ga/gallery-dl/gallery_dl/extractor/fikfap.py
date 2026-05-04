@@ -54,14 +54,9 @@ class FikfapExtractor(Extractor):
 
     def request_api(self, url, params):
         return self.request_json(url, params=params, headers={
-            "Referer"       : self.root + "/",
             "Authorization-Anonymous": "2527cc30-c3c5-41be-b8bb-104b6ea7a206",
             "IsLoggedIn"    : "false",
             "IsPWA"         : "false",
-            "Origin"        : self.root,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
         })
 
 

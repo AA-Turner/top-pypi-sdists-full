@@ -1,27 +1,41 @@
 [package]
 name = "kornia-3d"
-description = "3d point cloud processing library"
-
-authors = { workspace = true }
-categories = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-license = { workspace = true }
-publish = true
-repository = { workspace = true }
-rust-version = { workspace = true }
 version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+description = "3d point cloud processing library"
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+publish = true
+readme = "README.md"
+
+[[bench]]
+harness = false
+name = "bench_linalg"
+
+[[bench]]
+harness = false
+name = "bench_twoview"
 
 [dependencies]
 bincode = { workspace = true }
 faer = { workspace = true }
+kiddo = "5.0.2"
+kornia-algebra = { workspace = true }
+kornia-image = { workspace = true }
+kornia-imgproc = { workspace = true }
+log = { workspace = true }
+nalgebra = "0.32"
+rand = { workspace = true }
+rayon = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
 criterion = { workspace = true }
-
-[[bench]]
-name = "bench_linalg"
-harness = false
+kornia-io = { workspace = true }
+kornia-tensor = { workspace = true }

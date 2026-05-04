@@ -183,7 +183,7 @@ class DeviceCommandQueue:
                 _gateway_timeout_max = 3
                 for _attempt in range(1, _gateway_timeout_max + 1):
                     try:
-                        await item.work()  # type: ignore[misc]
+                        await item.work()
                         break  # success — exit retry loop
                     except GatewayTimeoutException:
                         if _attempt < _gateway_timeout_max:
@@ -213,13 +213,18 @@ class DeviceCommandQueue:
                     TransportRateLimitedError,
                 )
 
-                if isinstance(
+                # Expected during transport churn — quiet by default.  Recovery
+                # is automatic: mqtt_reported_offline clears on inbound frames,
+                # BLE rearms via the availability listener.  No retry loop or
+                # caller-side gate needed; just don't pollute the log.
+                if isinstance(exc, (NoTransportAvailableError, DeviceOfflineException)):
+                    _logger.debug("DeviceCommandQueue[%s]: %s", self._device_name, exc)
+                # Real warnings — auth, saga, rate-limit, generic transport.
+                elif isinstance(
                     exc,
                     (
                         AuthError,
                         SagaFailedError,
-                        DeviceOfflineException,
-                        NoTransportAvailableError,
                         TooManyRequestsException,
                         TransportRateLimitedError,
                         TransportError,

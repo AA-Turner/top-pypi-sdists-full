@@ -11,13 +11,19 @@ def get_media_map(categories=None):
     cats = {str(c) for c in categories}
     return {c: MEDIA_TYPES[c] for c in cats if c in MEDIA_TYPES}
 
-
+def derive_media_type(obj):
+    
+    ext = os.path.splitext(str(obj))[-1]
+    if ext:
+        for typ,exts in MEDIA_TYPES.items():
+            if ext in exts:
+                return typ
 def get_media_exts(categories=None):
     """
     Return a flat, sorted list of all extensions for the given categories.
     """
     media_map = get_media_map(categories)
-    return sorted({ext for exts in media_map.values() for ext in exts})
+    return sorted({ext for exts in MEDIA_TYPES.values() for ext in exts})
 
 
 def confirm_type(path_or_ext, categories=None,**kwargs):

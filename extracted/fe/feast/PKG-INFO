@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.62.0
+Version: 0.63.0
 Summary: Python SDK for Feast
 Author: Feast
 License-Expression: Apache-2.0
@@ -138,8 +138,8 @@ Provides-Extra: ray
 Requires-Dist: ray>=2.47.0; python_version == "3.10" and extra == "ray"
 Requires-Dist: codeflare-sdk>=0.31.1; python_version > "3.10" and extra == "ray"
 Provides-Extra: redis
-Requires-Dist: redis<5,>=4.2.2; extra == "redis"
-Requires-Dist: hiredis<3,>=2.0.0; extra == "redis"
+Requires-Dist: redis<8,>=4.2.2; extra == "redis"
+Requires-Dist: hiredis<4,>=2.0.0; extra == "redis"
 Provides-Extra: singlestore
 Requires-Dist: singlestoredb<1.8.0; extra == "singlestore"
 Provides-Extra: snowflake
@@ -161,12 +161,12 @@ Requires-Dist: pytest-env; extra == "test"
 Requires-Dist: pytest-benchmark<4,>=3.4.1; extra == "test"
 Requires-Dist: pytest-asyncio<=0.24.0; extra == "test"
 Requires-Dist: py>=1.11.0; extra == "test"
-Requires-Dist: testcontainers==4.9.0; extra == "test"
+Requires-Dist: testcontainers>=4.15.0rc2; extra == "test"
 Requires-Dist: minio==7.2.11; extra == "test"
 Requires-Dist: python-keycloak==4.2.2; extra == "test"
 Requires-Dist: cryptography>=43.0; extra == "test"
 Provides-Extra: ci
-Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,image,k8s,mcp,milvus,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
+Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,image,k8s,mcp,milvus,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
 Requires-Dist: build; extra == "ci"
 Requires-Dist: virtualenv==20.23.0; extra == "ci"
 Requires-Dist: dbt-artifacts-parser; extra == "ci"
@@ -412,6 +412,8 @@ The list below contains the functionality that contributors are planning to deve
   * [x] [Athena (contrib plugin)](https://docs.feast.dev/reference/data-sources/athena)
   * [x] [Clickhouse (contrib plugin)](https://docs.feast.dev/reference/data-sources/clickhouse)
   * [x] [Oracle (contrib plugin)](https://docs.feast.dev/reference/data-sources/oracle)
+  * [x] [MongoDB (contrib plugin)](https://docs.feast.dev/reference/data-sources/mongodb)
+  * [x] [Ray source (contrib plugin)](https://docs.feast.dev/reference/data-sources/ray)
   * [x] Kafka / Kinesis sources (via [push support into the online store](https://docs.feast.dev/reference/data-sources/push))
 * **Offline Stores**
   * [x] [Snowflake](https://docs.feast.dev/reference/offline-stores/snowflake)
@@ -430,6 +432,7 @@ The list below contains the functionality that contributors are planning to deve
   * [x] [Clickhouse (contrib plugin)](https://docs.feast.dev/reference/offline-stores/clickhouse)
   * [x] [Ray (contrib plugin)](https://docs.feast.dev/reference/offline-stores/ray)
   * [x] [Oracle (contrib plugin)](https://docs.feast.dev/reference/offline-stores/oracle)
+  * [x] [MongoDB (contrib plugin)](https://docs.feast.dev/reference/offline-stores/mongodb)
   * [x] [Hybrid](https://docs.feast.dev/reference/offline-stores/hybrid)
   * [x] [Custom offline store support](https://docs.feast.dev/how-to-guides/customizing-feast/adding-a-new-offline-store)
 * **Online Stores**

@@ -168,23 +168,32 @@ def cached(
     key: Callable[..., _KT] = ...,
     lock: AbstractContextManager[Any] | None = None,
     condition: _AbstractCondition | None = None,
-    info: Literal[True] = ...,
-) -> Callable[[Callable[..., _R]], _cached_wrapper_info[_R]]: ...
+    info: Literal[False] = ...,
+) -> Callable[[Callable[..., _R]], _cached_wrapper[_R]]: ...
 @overload
 def cached(
     cache: MutableMapping[_KT, Any] | None,
     key: Callable[..., _KT] = ...,
     lock: AbstractContextManager[Any] | None = None,
     condition: _AbstractCondition | None = None,
-    info: Literal[False] = ...,
-) -> Callable[[Callable[..., _R]], _cached_wrapper[_R]]: ...
+    *,
+    info: Literal[True],
+) -> Callable[[Callable[..., _R]], _cached_wrapper_info[_R]]: ...
+@overload
+def cached(
+    cache: MutableMapping[_KT, Any] | None,
+    key: Callable[..., _KT],
+    lock: AbstractContextManager[Any] | None,
+    condition: _AbstractCondition | None,
+    info: Literal[True],
+) -> Callable[[Callable[..., _R]], _cached_wrapper_info[_R]]: ...
 
 @type_check_only
 class _cachedmethod_wrapper(Generic[_R]):
     __wrapped__: Callable[..., _R]
     __name__: str
     __doc__: str | None
-    cache: MutableMapping[Any, Any] | None
+    cache: MutableMapping[Any, Any]
     cache_key: Callable[..., Any] = ...
     cache_lock: AbstractContextManager[Any] | None = None
     cache_condition: _AbstractCondition | None = None
@@ -201,13 +210,22 @@ def cachedmethod(
     key: Callable[..., _KT] = ...,
     lock: Callable[[Any], AbstractContextManager[Any]] | None = None,
     condition: Callable[[Any], _AbstractCondition] | None = None,
-    info: Literal[True] = ...,
-) -> Callable[[Callable[..., _R]], _cachedmethod_wrapper_info[_R]]: ...
+    info: Literal[False] = ...,
+) -> Callable[[Callable[..., _R]], _cachedmethod_wrapper[_R]]: ...
 @overload
 def cachedmethod(
     cache: Callable[[Any], MutableMapping[_KT, Any]],
     key: Callable[..., _KT] = ...,
     lock: Callable[[Any], AbstractContextManager[Any]] | None = None,
     condition: Callable[[Any], _AbstractCondition] | None = None,
-    info: Literal[False] = ...,
-) -> Callable[[Callable[..., _R]], _cachedmethod_wrapper[_R]]: ...
+    *,
+    info: Literal[True],
+) -> Callable[[Callable[..., _R]], _cachedmethod_wrapper_info[_R]]: ...
+@overload
+def cachedmethod(
+    cache: Callable[[Any], MutableMapping[_KT, Any]],
+    key: Callable[..., _KT],
+    lock: Callable[[Any], AbstractContextManager[Any]] | None,
+    condition: Callable[[Any], _AbstractCondition] | None,
+    info: Literal[True],
+) -> Callable[[Callable[..., _R]], _cachedmethod_wrapper_info[_R]]: ...

@@ -354,6 +354,36 @@ class TestText(unittest.TestCase):
             self.assertEqual(f(txt  , value, ">")  , "")
             self.assertEqual(f(txt  , "<"  , value), "")
 
+    def test_iextr(self, f=text.iextr):
+        txt = "foo <b id='e'>/b/a/r/</b> baz"
+        self.assertEqual(f(txt, "/", ">", "<"), "/b/a/r/")
+        self.assertEqual(f(txt, "b", "<", ">"), "b id='e'")
+        self.assertEqual(f(txt, "'e'", "<", ">"), "b id='e'")
+        self.assertEqual(f(txt, "=", "b ", ">"), "id='e'")
+
+        # missing 'needle'
+        self.assertEqual(f(txt, "z", "<", ">"), "")
+        self.assertEqual(f(txt, "z", "<", ">"), "")
+        self.assertEqual(f(txt, "z", "<", ">"), "")
+
+        # 'pos' argument
+        self.assertEqual(f(txt, "/", "/", "/", 15), "b/a")
+        self.assertEqual(f(txt, "/", "/", "/", 17), "a/r")
+        self.assertEqual(f(txt, "b", "<", ">", 0) , "b id='e'")
+        self.assertEqual(f(txt, "b", "<", ">", 11), "b id='e'>/b/a/r/</b")
+
+        # 'default' argument
+        self.assertEqual(f(txt, "z", "[", "]", -1, "none"), "none")
+        self.assertEqual(f(txt, "z", "[", "]", None, "none"), "none")
+        self.assertEqual(f(txt, "z", "[", "]", default="none"), "none")
+
+        # invalid arguments
+        for value in INVALID:
+            self.assertEqual(f(value, "z"  , ">"  , "<")  , "")
+            self.assertEqual(f(txt  , value, ">"  , "<")  , "")
+            self.assertEqual(f(txt  , "z"  , value, "<")  , "")
+            self.assertEqual(f(txt  , "z"  , ">"  , value), "")
+
     def test_extract_all(self, f=text.extract_all):
         txt = "[c][b][a]: xyz! [d][e"
 

@@ -149,10 +149,7 @@ class ArtstationExtractor(Extractor):
         return response.json()
 
     def _pagination(self, url, params=None, json=None):
-        headers = {
-            "Accept" : "application/json, text/plain, */*",
-            "Origin" : self.root,
-        }
+        headers = {"Accept" : "application/json, text/plain, */*"}
 
         if json:
             params = json
@@ -178,12 +175,8 @@ class ArtstationExtractor(Extractor):
 
     def _init_csrf_token(self):
         url = self.root + "/api/v2/csrf_protection/token.json"
-        headers = {
-            "Accept" : "*/*",
-            "Origin" : self.root,
-        }
         return self.request_json(
-            url, method="POST", headers=headers, json={})["public_csrf_token"]
+            url, method="POST", json={})["public_csrf_token"]
 
     def _no_cache(self, url):
         """Cause a cache miss to prevent Cloudflare 'optimizations'

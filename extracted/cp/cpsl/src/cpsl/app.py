@@ -49,6 +49,8 @@ _HOME_SUGGESTIONS_REGISTRY: dict[str, Callable] = {}
 _DATA_ATTR = "__cpsl_data__"
 _ACCESS_ATTR = "_cpsl_access"
 _SHELL_HOME_VALUES = {"default", "hidden", "chat"}
+_CHAT_MODE_VALUES = {"multi", "single"}
+_CHAT_SCOPE_VALUES = {"owner"}
 
 
 def _collect_channel_secrets(channels: list[ChannelLike]) -> list[str]:
@@ -580,13 +582,44 @@ class App:
 
     # -- chat shell ----------------------------------------------------------
 
-    def chat_page(self) -> Callable[[Callable], Callable]:
-        """Decorator for the app-wide chat surface.
+    def chat_page(
+        self,
+        *,
+        mode: str = "multi",
+        scope: str = "owner",
+        thread_key: str = "chat_page:default",
+        sidebar_label: str = "Chat",
+    ) -> Callable[[Callable], Callable]:
+        """Replace the hosted chat view with a Python DSL layout.
 
-        The function must return a ``ui.Page`` widget tree containing exactly
-        one ``ui.ChatPanel``. That panel is replaced by the active session's
-        normal chat stream and composer at runtime.
+        The decorated function is evaluated at app startup and must return a
+        ``ui.Page`` containing exactly one ``ui.ChatPanel``. The hosted UI
+        renders the rest of the widgets around that panel, then replaces
+        ``ChatPanel`` with the normal Capsule chat stream and composer.
+
+        Args:
+            mode: ``"multi"`` keeps Capsule's normal chat model: users can
+                create and switch between many chat sessions. ``"single"``
+                makes this chat page the app's main product surface with one
+                persistent session per ``scope``.
+            scope: Who owns the single persistent session. Currently only
+                ``"owner"`` is supported, meaning one session per runtime
+                owner: org members share it, while solo users get their own.
+            thread_key: Stable key used to find or create the single session.
+                Change this only when you intentionally want a different
+                persistent thread for the page.
+            sidebar_label: Label for the sidebar item that returns users to
+                this chat surface. For example, ``"Notebook"`` or
+                ``"Research"``.
         """
+        if mode not in _CHAT_MODE_VALUES:
+            raise ValueError("chat page mode must be 'multi' or 'single'")
+        if scope not in _CHAT_SCOPE_VALUES:
+            raise ValueError("chat page scope must be 'owner'")
+        if not thread_key:
+            raise ValueError("chat page thread_key must not be empty")
+        if not sidebar_label.strip():
+            raise ValueError("chat page sidebar_label must not be empty")
 
         def decorator(fn: Callable) -> Callable:
             widget_tree = fn()
@@ -599,7 +632,13 @@ class App:
             count = _count_widget_type(tree_dict, "chat_panel")
             if count != 1:
                 raise ValueError("@app.chat_page() must contain exactly one cpsl.ui.ChatPanel")
-            self._chat_widget_tree = tree_dict
+            self._chat_widget_tree = {
+                "mode": mode,
+                "scope": scope,
+                "thread_key": thread_key,
+                "sidebar_label": sidebar_label,
+                "widget_tree": tree_dict,
+            }
             return fn
 
         return decorator
@@ -611,9 +650,42 @@ class App:
         show_sidebar: bool = True,
         show_pages: bool = True,
     ) -> None:
-        """Configure hosted app shell/navigation chrome.
+        """Configure the hosted app's outer navigation shell.
 
-        ``home`` may be ``"default"``, ``"hidden"``, or ``"chat"``.
+        Use this when the app should feel like a focused product instead of
+        the default Capsule console. Most apps never need this; it is mainly
+        for apps that define ``@app.chat_page`` or want to hide platform
+        navigation.
+
+        Common patterns::
+
+            # NotebookLM-style app: your custom chat page *is* the home page.
+            app.shell(home="chat")
+
+            # Keep Capsule's default home page, but add your custom chat page
+            # as a separate sidebar item named by @app.chat_page(sidebar_label=...).
+            app.shell(home="default")
+
+            # No generic Home item; users land on the first custom page.
+            app.shell(home="hidden")
+
+        Args:
+            home: Controls what the root route shows.
+                ``"chat"`` replaces the default Home page with the
+                ``@app.chat_page`` layout and removes the generic Home item
+                from the sidebar. Use this when the custom chat UI is the main
+                product experience.
+                ``"default"`` keeps the standard Capsule landing page. If you
+                also define ``@app.chat_page``, it appears as its own sidebar
+                item using ``sidebar_label``.
+                ``"hidden"`` removes the Home item from the sidebar and
+                redirects the root route to the first available non-chat page.
+            show_sidebar: Whether to show Capsule's sidebar at all. Keep this
+                enabled when users need navigation, account controls, or
+                connections.
+            show_pages: Whether custom ``@app.page`` entries should appear in
+                the sidebar. Pages remain addressable by URL; this only hides
+                them from navigation.
         """
         if home not in _SHELL_HOME_VALUES:
             raise ValueError("shell home must be 'default', 'hidden', or 'chat'")
@@ -869,7 +941,7 @@ class App:
         settings = [s.to_dict() for s in self._settings.values()]
         theme_dict = self._theme.to_dict() if self._theme else None
         home_dict = self._serialize_home()
-        chat_dict = {"widget_tree": self._chat_widget_tree} if self._chat_widget_tree else None
+        chat_dict = dict(self._chat_widget_tree) if self._chat_widget_tree else None
 
         def decorator(klass: type[T]) -> type[T]:
             schedule_specs: list[dict[str, str]] = []
@@ -935,7 +1007,7 @@ class App:
         cfg["settings"] = [s.to_dict() for s in self._settings.values()]
         cfg["workflows"] = [w.to_dict() for w in self._workflows]
         cfg["home"] = self._serialize_home()
-        cfg["chat"] = {"widget_tree": self._chat_widget_tree} if self._chat_widget_tree else None
+        cfg["chat"] = dict(self._chat_widget_tree) if self._chat_widget_tree else None
         cfg["shell"] = self._shell_config
         cfg["has_message_handler"] = hasattr(self, "_message_handler")
         cfg["theme"] = self._theme.to_dict() if self._theme else None

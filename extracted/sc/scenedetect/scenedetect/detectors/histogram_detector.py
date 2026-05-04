@@ -5,7 +5,7 @@
 #     [  Docs:   http://manual.scenedetect.scenedetect.com/      ]
 #     [  Github: https://github.com/Breakthrough/PySceneDetect/  ]
 #
-# Copyright (C) 2014-2022 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2024 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -15,31 +15,36 @@ frames. If the difference exceeds a given threshold, a cut is detected.
 This detector is available from the command-line as the `detect-hist` command.
 """
 
-from typing import List
+import typing as ty
 
 import cv2
 import numpy
 
-# PySceneDetect Library Imports
-from scenedetect.scene_detector import SceneDetector
+from scenedetect.common import FrameTimecode, TimecodeLike
+from scenedetect.detector import SceneDetector
 
 
 class HistogramDetector(SceneDetector):
     """Compares the difference in the Y channel of YUV histograms for adjacent frames. When the
     difference exceeds a given threshold, a cut is detected."""
 
-    METRIC_KEYS = ["hist_diff"]
+    METRIC_KEYS: ty.ClassVar[list[str]] = ["hist_diff"]
 
-    def __init__(self, threshold: float = 0.05, bins: int = 256, min_scene_len: int = 15):
+    def __init__(
+        self,
+        threshold: float = 0.05,
+        bins: int = 256,
+        min_scene_len: TimecodeLike = 15,
+    ):
         """
         Arguments:
             threshold: maximum relative difference between 0.0 and 1.0 that the histograms can
                 differ. Histograms are calculated on the Y channel after converting the frame to
-                YUV, and normalized based on the number of bins. Higher dicfferences imply greater
+                YUV, and normalized based on the number of bins. Higher differences imply greater
                 change in content, so larger threshold values are less sensitive to cuts.
             bins: Number of bins to use for the histogram.
-            min_scene_len:   Once a cut is detected, this many frames must pass before a new one can
-                be added to the scene list. Can be an int or FrameTimecode type.
+            min_scene_len: Once a cut is detected, this much time must pass before a new one can
+                be added to the scene list. Accepts any :data:`TimecodeLike` value.
         """
         super().__init__()
         # Internally, threshold represents the correlation between two histograms and has values
@@ -48,23 +53,25 @@ class HistogramDetector(SceneDetector):
         self._bins = bins
         self._min_scene_len = min_scene_len
         self._last_hist = None
-        self._last_scene_cut = None
+        self._last_cut = None
         self._metric_key = f"hist_diff [bins={self._bins}]"
 
-    def process_frame(self, frame_num: int, frame_img: numpy.ndarray) -> List[int]:
+    def process_frame(
+        self, timecode: FrameTimecode, frame_img: numpy.ndarray
+    ) -> list[FrameTimecode]:
         """Computes the histogram of the luma channel of the frame image and compares it with the
-        histogram of the luma channel of the previous frame. If the difference between the histograms
-        exceeds the threshold, a scene cut is detected.
+        histogram of the luma channel of the previous frame. If the difference between the
+        histograms exceeds the threshold, a scene cut is detected.
         Histogram difference is computed using the correlation metric.
 
         Arguments:
-            frame_num: Frame number of frame that is being passed.
+            timecode: Timecode of the frame that is being passed.
             frame_img: Decoded frame image (numpy.ndarray) to perform scene
                 detection on.
 
         Returns:
-            List of frames where scene cuts have been detected. There may be 0
-            or more frames in the list, and not necessarily the same as frame_num.
+            List of timecodes where scene cuts have been detected. There may be 0
+            or more timecodes in the list, and not necessarily the same as `timecode`.
         """
         cut_list = []
 
@@ -77,8 +84,8 @@ class HistogramDetector(SceneDetector):
             raise ValueError("Image must have three color channels for HistogramDetector")
 
         # Initialize last scene cut point at the beginning of the frames of interest.
-        if not self._last_scene_cut:
-            self._last_scene_cut = frame_num
+        if not self._last_cut:
+            self._last_cut = timecode
 
         hist = self.calculate_histogram(frame_img, bins=self._bins)
 
@@ -92,20 +99,21 @@ class HistogramDetector(SceneDetector):
 
             # Check if a new scene should be triggered
             # Set a correlation threshold to determine scene changes.
-            # The threshold value should be between -1 (perfect negative correlation, not applicable here)
-            # and +1 (perfect positive correlation, identical histograms).
+            # The threshold value should be between -1 (perfect negative correlation, not
+            # applicable here) and +1 (perfect positive correlation, identical histograms).
             # Values close to 1 indicate very similar frames, while lower values suggest changes.
-            # Example: If `_threshold` is set to 0.8, it implies that only changes resulting in a correlation
-            # less than 0.8 between histograms will be considered significant enough to denote a scene change.
+            # Example: If `_threshold` is set to 0.8, it implies that only changes resulting in a
+            # correlation less than 0.8 between histograms will be considered significant enough to
+            # denote a scene change.
             if hist_diff <= self._threshold and (
-                (frame_num - self._last_scene_cut) >= self._min_scene_len
+                (timecode - self._last_cut) >= self._min_scene_len
             ):
-                cut_list.append(frame_num)
-                self._last_scene_cut = frame_num
+                cut_list.append(timecode)
+                self._last_cut = timecode
 
             # Save stats to a StatsManager if it is being used
             if self.stats_manager is not None:
-                self.stats_manager.set_metrics(frame_num, {self._metric_key: hist_diff})
+                self.stats_manager.set_metrics(timecode, {self._metric_key: hist_diff})
 
         self._last_hist = hist
 
@@ -160,8 +168,5 @@ class HistogramDetector(SceneDetector):
 
         return hist
 
-    def is_processing_required(self, frame_num: int) -> bool:
-        return True
-
-    def get_metrics(self) -> List[str]:
+    def get_metrics(self) -> list[str]:
         return [self._metric_key]

@@ -185,8 +185,8 @@ class BellazonExtractor(Extractor):
 
         beg = post["content"].find(">")
         sig = post["content"].rfind('<div data-role="memberSignature"')
-        end = post["content"].rfind("\n\t\t</div>", 0, sig+1 or None)
-        post["content"] = post["content"][beg+1:end+1].strip()
+        end = post["content"].rfind("\n\t\t</div>", None, sig+1 or None)
+        post["content"] = post["content"][beg+1:end].strip()
 
         if url_a := post["author_url"]:
             post["author_id"], _, post["author_slug"] = \

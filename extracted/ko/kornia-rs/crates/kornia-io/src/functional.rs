@@ -1,13 +1,23 @@
 use crate::{
     error::IoError, jpeg::read_image_jpeg_rgb8, png::read_image_png_rgb8,
-    tiff::read_image_tiff_rgb8,
+    tiff::read_image_tiff_rgb8, webp::read_image_webp_rgb8,
 };
-use kornia_image::{allocator::CpuAllocator, Image};
+use kornia_image::{allocator::CpuAllocator, color_spaces::Rgb8};
 use std::path::Path;
 
 /// Reads a RGB8 image from the given file path.
 ///
 /// The method tries to read from any image format supported by the image crate.
+///
+/// # Warning
+///
+/// This function always returns `Rgb8`, which doesn't match grayscale, 16-bit, or float images.
+/// It conflicts with the strictly typed design.
+///
+/// To avoid this, use explicit typed readers instead:
+/// - `jpeg::read_image_jpeg_rgb8()` for JPEG
+/// - `png::read_image_png_rgb8()` for PNG
+/// - `tiff::read_image_tiff_rgb8()` for TIFF
 ///
 /// # Arguments
 ///
@@ -15,23 +25,21 @@ use std::path::Path;
 ///
 /// # Returns
 ///
-/// A tensor image containing the image data in RGB8 format with shape (H, W, 3).
+/// An Rgb8 image with the image data.
 ///
 /// # Example
 ///
 /// ```
-/// use kornia_image::{Image, allocator::CpuAllocator};
 /// use kornia_io::functional as F;
+/// use kornia_image::color_spaces::Rgb8;
 ///
-/// let image: Image<u8, 3, CpuAllocator> = F::read_image_any_rgb8("../../tests/data/dog.jpeg").unwrap();
+/// let image: Rgb8<_> = F::read_image_any_rgb8("../../tests/data/dog.jpeg").unwrap();
 ///
 /// assert_eq!(image.cols(), 258);
 /// assert_eq!(image.rows(), 195);
 /// assert_eq!(image.num_channels(), 3);
 /// ```
-pub fn read_image_any_rgb8(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u8, 3, CpuAllocator>, IoError> {
+pub fn read_image_any_rgb8(file_path: impl AsRef<Path>) -> Result<Rgb8<CpuAllocator>, IoError> {
     let file_path = file_path.as_ref().to_owned();
 
     // verify the file exists
@@ -46,6 +54,7 @@ pub fn read_image_any_rgb8(
             "jpeg" | "jpg" => read_image_jpeg_rgb8(file_path),
             "png" => read_image_png_rgb8(file_path),
             "tiff" => read_image_tiff_rgb8(file_path),
+            "webp" => read_image_webp_rgb8(file_path),
             _ => Err(IoError::InvalidFileExtension(file_path)),
         }
     } else {
@@ -59,7 +68,7 @@ mod tests {
     use crate::functional::read_image_any_rgb8;
 
     #[test]
-    fn read_any() -> Result<(), IoError> {
+    fn test_read_any_rgb8() -> Result<(), IoError> {
         let image = read_image_any_rgb8("../../tests/data/dog.jpeg")?;
         assert_eq!(image.cols(), 258);
         assert_eq!(image.rows(), 195);

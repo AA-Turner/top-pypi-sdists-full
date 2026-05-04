@@ -20,7 +20,8 @@ def get_ext(file_path: str) -> str:
     Returns:
         str: The extension of the file (including the dot).
     """
-    return split_text(get_base_name(file_path))[1]
+    if file_path and isinstance(file_path,str):
+        return split_text(get_base_name(file_path))[-1]
 
 def get_slash():
     """

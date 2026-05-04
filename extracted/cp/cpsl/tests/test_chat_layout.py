@@ -13,7 +13,7 @@ class ChatLayoutTests(unittest.TestCase):
         app = cpsl.App(name="chat-layout-test", image=cpsl.Image(), channels=[cpsl.Chat()])
         app.shell(home="chat", show_sidebar=True, show_pages=False)
 
-        @app.chat_page()
+        @app.chat_page(mode="single", scope="owner", sidebar_label="Notebook")
         def chat_page():
             return cpsl.ui.Page([
                 cpsl.ui.Row([
@@ -33,6 +33,10 @@ class ChatLayoutTests(unittest.TestCase):
             "show_sidebar": True,
             "show_pages": False,
         })
+        self.assertEqual(cfg["chat"]["mode"], "single")
+        self.assertEqual(cfg["chat"]["scope"], "owner")
+        self.assertEqual(cfg["chat"]["thread_key"], "chat_page:default")
+        self.assertEqual(cfg["chat"]["sidebar_label"], "Notebook")
         tree = cfg["chat"]["widget_tree"]
         self.assertEqual(tree["type"], "page")
         self.assertEqual(tree["children"][0]["columns"], [0.8, 1.2])
@@ -65,6 +69,16 @@ class ChatLayoutTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             app.shell(home="landing")
+
+        with self.assertRaises(ValueError):
+            @app.chat_page(mode="shared")
+            def bad_mode():
+                return cpsl.ui.Page([cpsl.ui.ChatPanel()])
+
+        with self.assertRaises(ValueError):
+            @app.chat_page(sidebar_label="")
+            def bad_label():
+                return cpsl.ui.Page([cpsl.ui.ChatPanel()])
 
     def test_data_handler_can_request_session(self):
         def by_name(session: cpsl.Session):

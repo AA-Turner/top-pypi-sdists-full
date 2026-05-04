@@ -26,11 +26,6 @@ class WhypExtractor(Extractor):
     def _init(self):
         self.headers_api = {
             "Accept" : "application/json",
-            "Origin" : self.root,
-            "Referer": self.root + "/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
         }
 
     def items(self):

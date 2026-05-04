@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognee
-Version: 1.0.4
+Version: 1.0.5
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee

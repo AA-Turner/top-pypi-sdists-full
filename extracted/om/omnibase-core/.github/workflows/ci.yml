@@ -10,6 +10,8 @@ on:
     branches: [main]
   merge_group:
   workflow_dispatch:
+  schedule:
+    - cron: "13 7 * * *"   # 07:13 UTC nightly
 
 # Prevent auto-cancellation of running workflows when new commits are pushed
 # This ensures test splits actually run to completion instead of being skipped
@@ -20,6 +22,17 @@ concurrency:
 env:
   UV_VERSION: "0.8.3"
   PYTHON_VERSION: "3.12"
+  # GitHub-hosted PR runners and merge-queue self-hosted runners have reproduced
+  # xdist worker crashes under the default four-worker split load. PRs stay at
+  # one worker; merge_group uses two workers to finish inside the queue window.
+  PYTEST_XDIST_WORKERS: >-
+    ${{
+      github.event_name == 'pull_request'
+      && (vars.OMNI_PUBLIC_PR_PYTEST_XDIST_WORKERS || '1')
+      || github.event_name == 'merge_group'
+      && (vars.OMNI_MERGE_GROUP_PYTEST_XDIST_WORKERS || '2')
+      || (vars.OMNI_PYTEST_XDIST_WORKERS || '4')
+    }}
 
 jobs:
   # =============================================================================
@@ -34,6 +47,7 @@ jobs:
   #   - node-purity-check: Declarative node purity guarantees
   #   - mypy-validation-scripts: Type check validation scripts
   #   - core-infra-boundary: Transport/I/O import validation (ADR-005)
+  #   - check-deterministic-skills: AST-based SkillRoutingError enforcement (OMN-8765)
   #   - enum-governance: Enum architectural standards validation (OMN-1313)
   #   - detect-secrets: Baseline security scan (detect-secrets)
   #
@@ -66,15 +80,12 @@ jobs:
   # Must complete before test-parallel starts (fail-fast optimization)
   lint:
     name: Code Quality
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 10
 
@@ -111,15 +122,12 @@ jobs:
   # Pyright complements mypy (in lint job) - catches different type error categories
   pyright:
     name: Pyright Type Checking
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 10
 
@@ -150,15 +158,12 @@ jobs:
   # Quick check (~5 min) ensures __all__ exports are valid before expensive test splits
   exports-validation:
     name: Exports Validation
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 5
 
@@ -189,15 +194,12 @@ jobs:
   # Rationale: These scripts are CI tooling, not core library code
   mypy-validation-scripts:
     name: Mypy Validation Scripts
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 5
 
@@ -347,15 +349,12 @@ jobs:
   # Complements the Python-based check in mypy-validation-scripts with a simple grep scan
   core-infra-boundary:
     name: Core-Infra Boundary
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 5
 
@@ -384,21 +383,70 @@ jobs:
           echo "See: docs/decisions/ADR-005-core-infra-dependency-boundary.md" >> $GITHUB_STEP_SUMMARY
 
   # Phase 1 validation job - runs in parallel with all other Phase 1 jobs
+  # Deterministic Skill Routing Gate (OMN-8765) — enforces that every Tier 1
+  # deterministic skill in omniclaude routes through `onex run-node` / `onex
+  # node` (or a Kafka publish) and surfaces `SkillRoutingError`. Blocking gate.
+  check-deterministic-skills:
+    name: Deterministic Skill Routing
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout omnibase_core
+        uses: actions/checkout@v6
+
+      - name: Checkout omniclaude (skill source)
+        uses: actions/checkout@v6
+        with:
+          repository: OmniNode-ai/omniclaude
+          path: _external/omniclaude
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run AST-based skill routing validator (OMN-8765)
+        run: |
+          python scripts/validate_deterministic_skill_routing.py \
+            --skills-root _external/omniclaude/plugins/onex/skills
+
+      - name: Skill routing summary
+        if: always()
+        run: |
+          echo "## Deterministic Skill Routing (OMN-8765)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "AST-based CI lint gate — verifies every Tier 1 deterministic" >> $GITHUB_STEP_SUMMARY
+          echo "skill:" >> $GITHUB_STEP_SUMMARY
+          echo "- declares a node dispatch (\`onex run-node\` / \`onex node\` /" >> $GITHUB_STEP_SUMMARY
+          echo "  Kafka publish to \`onex.cmd.*\`)" >> $GITHUB_STEP_SUMMARY
+          echo "- imports zero LLM SDKs (anthropic/openai/google.generativeai)" >> $GITHUB_STEP_SUMMARY
+          echo "- does not wrap dispatch in subprocess orchestration" >> $GITHUB_STEP_SUMMARY
+          echo "- does not call \`client.messages.create\` / completion APIs" >> $GITHUB_STEP_SUMMARY
+          echo "- does not contain conditional prose fallback branches" >> $GITHUB_STEP_SUMMARY
+          echo "- references \`SkillRoutingError\` with \`do not produce prose\`" >> $GITHUB_STEP_SUMMARY
+
+  # Phase 1 validation job - runs in parallel with all other Phase 1 jobs
   # Quick documentation check (not blocking test-parallel)
   # Rationale: Doc link validation is independent of code correctness
   docs-validation:
     name: Documentation Validation
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -440,15 +488,12 @@ jobs:
   # Ensures declarative nodes (COMPUTE, REDUCER) maintain purity guarantees
   node-purity-check:
     name: Node Purity Check
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 5
 
@@ -499,15 +544,12 @@ jobs:
   # - Use StrValueHelper for string serialization
   enum-governance:
     name: Enum Governance Check
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 5
 
@@ -548,15 +590,12 @@ jobs:
   # Uses detect-secrets-hook for proper baseline comparison (handles type+hash equality)
   detect-secrets:
     name: Detect Secrets
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 5
 
@@ -616,7 +655,12 @@ jobs:
   # version matrix defined in onex_change_control/standards/version-matrix.yaml.
   version-pin-check:
     name: Version Pin Compliance
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
     timeout-minutes: 5
     # Skip for Dependabot PRs — CROSS_REPO_PAT is not available [OMN-5332]
     if: github.actor != 'dependabot[bot]'
@@ -652,7 +696,12 @@ jobs:
   # [project.dependencies] (they belong in [project.optional-dependencies]).
   sdk-boundary-check:
     name: SDK Boundary Guard
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
     timeout-minutes: 5
 
     steps:
@@ -684,15 +733,12 @@ jobs:
   # Conditional: only runs if the `onex compliance` command is available.
   compliance:
     name: Contract Compliance
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 10
 
@@ -726,17 +772,14 @@ jobs:
   # Individual Phase 1 job names can change without updating branch protection rules.
   quality-gate:
     name: Quality Gate
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [lint, pyright, exports-validation, mypy-validation-scripts, core-infra-boundary, docs-validation, node-purity-check, enum-governance, detect-secrets, version-pin-check, sdk-boundary-check, contract-compliance]
+    needs: [lint, pyright, exports-validation, mypy-validation-scripts, core-infra-boundary, check-deterministic-skills, docs-validation, node-purity-check, enum-governance, detect-secrets, version-pin-check, sdk-boundary-check, contract-compliance]
     if: always()
 
     steps:
@@ -750,6 +793,7 @@ jobs:
           exports="${{ needs.exports-validation.result }}"
           mypy_scripts="${{ needs.mypy-validation-scripts.result }}"
           core_infra="${{ needs.core-infra-boundary.result }}"
+          det_skills="${{ needs.check-deterministic-skills.result }}"
           docs="${{ needs.docs-validation.result }}"
           purity="${{ needs.node-purity-check.result }}"
           enum_gov="${{ needs.enum-governance.result }}"
@@ -764,6 +808,7 @@ jobs:
           echo "| Exports Validation | $exports |" >> $GITHUB_STEP_SUMMARY
           echo "| Mypy Validation Scripts | $mypy_scripts |" >> $GITHUB_STEP_SUMMARY
           echo "| Core-Infra Boundary | $core_infra |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deterministic Skill Routing | $det_skills |" >> $GITHUB_STEP_SUMMARY
           echo "| Documentation Validation | $docs |" >> $GITHUB_STEP_SUMMARY
           echo "| Node Purity Check | $purity |" >> $GITHUB_STEP_SUMMARY
           echo "| Enum Governance | $enum_gov |" >> $GITHUB_STEP_SUMMARY
@@ -777,6 +822,7 @@ jobs:
              [[ "$exports" == "success" ]] && \
              [[ "$mypy_scripts" == "success" ]] && \
              [[ "$core_infra" == "success" ]] && \
+             [[ "$det_skills" == "success" ]] && \
              [[ "$docs" == "success" ]] && \
              [[ "$enum_gov" == "success" ]] && \
              [[ "$secrets" == "success" ]] && \
@@ -793,39 +839,196 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
+  # Phase 1.6a - Zone Filter (OMN-10356, reusable in OMN-10400)
+  # ---------------------------------------------------------------------------
+  # Runs the caller branch's classifier inline. The reusable workflow added in
+  # this PR cannot be called by required CI until it exists on main, because
+  # GitHub cannot materialize jobs for a new local workflow_call target.
+  zone-filter:
+    name: Zone Filter (docs-only check)
+    needs: quality-gate
+    if: always() && needs.quality-gate.result == 'success'
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    outputs:
+      docs_only: ${{ steps.zone.outputs.docs_only }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Compute changed files
+        id: diff
+        env:
+          GH_BEFORE: ${{ github.event.before }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags --depth=1 origin "$base" || true
+            FILES=$(git diff --name-only "$base"...HEAD | tr '\n' ',')
+          elif [ "${{ github.event_name }}" = "push" ] \
+            && [ -n "$GH_BEFORE" ] \
+            && [ "$GH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --no-tags --depth=1 origin "$GH_BEFORE" || true
+            FILES=$(git diff --name-only "$GH_BEFORE" "$GH_SHA" | tr '\n' ',')
+          else
+            FILES=""
+          fi
+          echo "changed_files=$FILES" >> "$GITHUB_OUTPUT"
+
+      - name: Run zone-diff filter
+        id: zone
+        env:
+          ZONE_DIFF_FILTER_FAKE_DIFF: ${{ steps.diff.outputs.changed_files }}
+          PYTHONPATH: src
+        run: |
+          if [ -z "$ZONE_DIFF_FILTER_FAKE_DIFF" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "Zone filter: no reliable diff for this event - full matrix will run." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          set +e
+          python scripts/zone_diff_filter.py --check docs-only
+          RC=$?
+          if [ $RC -eq 0 ]; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+            echo "Zone filter: DOCS-ONLY - heavy matrix may be skipped." >> "$GITHUB_STEP_SUMMARY"
+          elif [ $RC -eq 1 ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "Zone filter: production/mixed diff - full matrix will run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Zone filter exited with unexpected code $RC - defaulting to full matrix." >&2
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "Zone filter: ERROR (rc=$RC) - defaulting to full matrix." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Phase 1.6 - Detect Changes (shadow mode)
+  # ---------------------------------------------------------------------------
+  # Runs detect_test_paths and emits 5 outputs for shadow-mode comparison.
+  # Outputs consumed by test-parallel (OMN-9852): matrix, split_count, is_full_suite, selected_paths.
+
+  detect-changes:
+    name: Detect Changes
+    needs: [quality-gate, zone-filter]
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    if: always() && needs.quality-gate.result == 'success' && needs.zone-filter.outputs.docs_only != 'true'
+    outputs:
+      is_full_suite: ${{ steps.detect.outputs.is_full_suite }}
+      full_suite_reason: ${{ steps.detect.outputs.full_suite_reason }}
+      split_count: ${{ steps.detect.outputs.split_count }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      selected_paths: ${{ steps.detect.outputs.selected_paths }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Compute changed files
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags --depth=1 origin "$base" || true
+            git diff --name-only "$base"...HEAD > changed.txt
+          else
+            git diff --name-only HEAD~1 HEAD > changed.txt || echo "" > changed.txt
+          fi
+          echo "Changed files:"
+          cat changed.txt
+
+      - name: Resolve test selection
+        id: detect
+        env:
+          FLAG: ${{ vars.ENABLE_SMART_TESTS == 'true' && 'on' || 'off' }}
+        run: |
+          uv run python -m scripts.ci.detect_test_paths \
+            --changed-files-from changed.txt \
+            --ref-name "${{ github.ref_name }}" \
+            --event-name "${{ github.event_name }}" \
+            --feature-flag "$FLAG" \
+            > selection.json
+          cat selection.json
+          is_full=$(jq -r '.is_full_suite' selection.json)
+          reason=$(jq -r '.full_suite_reason // ""' selection.json)
+          split_count=$(jq -r '.split_count' selection.json)
+          matrix=$(jq -c '.matrix' selection.json)
+          paths=$(jq -c '.selected_paths' selection.json)
+          echo "is_full_suite=$is_full" >> "$GITHUB_OUTPUT"
+          echo "full_suite_reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "split_count=$split_count" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "selected_paths=$paths" >> "$GITHUB_OUTPUT"
+
+      - name: Upload selection artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-selection
+          path: selection.json
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
   # Phase 2 - Full Test Suite
   # ---------------------------------------------------------------------------
 
-  # Parallel test execution - split into 40 groups for speed and memory management
-  # Split strategy rationale:
-  #   - 38,805 total tests / 40 splits = ~970 tests/split on 2-CPU ubuntu-latest runners
-  #   - Target: 7-9 minutes per split (down from 14-18 min with 20 splits)
-  #   - 40x parallelization speedup vs sequential execution
-  #   - Increased from 20 to 40 splits: test count grew 3x (12K → 38K) since last bump
-  #   - Duration-aware splitting via .test_durations cache eliminates outlier splits
+  # Parallel test execution — matrix shape driven by detect-changes output (OMN-9852).
+  # When ENABLE_SMART_TESTS is off (default), detect-changes emits a 40-shard matrix
+  # with full_suite_reason=FEATURE_FLAG_OFF so the full-suite pytest step runs.
+  # When the flag is on and the change set is small, detect-changes emits a smaller
+  # matrix and selected_paths, activating the smart-selection pytest step instead.
   #
   # Dependency rationale (fail-fast optimization):
   #   - quality-gate: Aggregates all Phase 1 checks (lint, pyright, exports, etc.)
-  #   - This ensures quality failures are caught BEFORE spawning 40 test runners
-  #   - Saves ~120 runner-minutes on validation failures
+  #   - detect-changes: provides matrix shape, split_count, selected_paths, is_full_suite
+  #   - This ensures quality failures are caught BEFORE spawning N test runners
   test-parallel:
-    name: Tests (Split ${{ matrix.split }}/40)
-    needs: [quality-gate]
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    name: Tests (Split ${{ matrix.split }}/${{ needs.detect-changes.outputs.split_count }})
+    needs: [quality-gate, zone-filter, detect-changes]
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    timeout-minutes: 20
+    if: always() && needs.quality-gate.result == 'success' && needs.zone-filter.outputs.docs_only != 'true'
+    # Self-hosted runners can slow sharply under memory pressure when the
+    # duration cache is cold; keep the full-suite split timeout above the
+    # observed 20-minute saturation boundary.
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        split: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+        split: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
 
     steps:
       - name: Checkout code
@@ -849,47 +1052,66 @@ jobs:
         run: uv sync --all-extras
 
       - name: Restore test durations cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .test_durations
           key: test-durations-${{ github.sha }}
           restore-keys: |
             test-durations-
 
-      - name: Run test split ${{ matrix.split }}/40
+      - name: Run pytest (smart selection)
+        if: vars.ENABLE_SMART_TESTS == 'true' && needs.detect-changes.outputs.is_full_suite == 'false'
         env:
           # OMN-3327: Performance tests use CI_RUNNER_TYPE to relax thresholds on
           # shared self-hosted runners (15-25% lower throughput vs dedicated runners)
           CI_RUNNER_TYPE: >-
             ${{
-              (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-               (github.event_name == 'push' ||
-                github.event_name == 'workflow_dispatch' ||
-                github.event_name == 'schedule'))
+              github.event_name != 'pull_request'
+              && 'self-hosted'
+              || 'github-hosted'
+            }}
+        run: |
+          paths=$(echo '${{ needs.detect-changes.outputs.selected_paths }}' | jq -r '.[]')
+          uv run pytest $paths \
+            --ignore=tests/integration \
+            --splits ${{ needs.detect-changes.outputs.split_count }} \
+            --group ${{ matrix.split }} \
+            -n "$PYTEST_XDIST_WORKERS" \
+            --timeout=60 \
+            --timeout-method=thread \
+            --tb=short \
+            --junitxml=junit-${{ matrix.split }}.xml
+
+      - name: Run pytest (full suite)
+        if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
+        env:
+          # OMN-3327: Performance tests use CI_RUNNER_TYPE to relax thresholds on
+          # shared self-hosted runners (15-25% lower throughput vs dedicated runners)
+          CI_RUNNER_TYPE: >-
+            ${{
+              github.event_name != 'pull_request'
               && 'self-hosted'
               || 'github-hosted'
             }}
         run: |
           uv run pytest tests/ \
+            --ignore=tests/integration \
             --splits 40 \
             --group ${{ matrix.split }} \
             --store-durations \
             --durations-path .test_durations \
-            -n auto \
+            -n "$PYTEST_XDIST_WORKERS" \
             --timeout=60 \
             --timeout-method=thread \
             --tb=short \
             --junitxml=junit-${{ matrix.split }}.xml
-          # Per-test timeout: 60 seconds prevents infinite hangs
-          # --store-durations: saves per-test timing so subsequent runs balance by
-          #   duration rather than count (eliminates outlier splits)
-          # All splits use -n auto (full parallelism) - shorter splits reduce
-          # resource pressure and runner cancellation probability
-          # Note: Coverage collection disabled - use local pytest-cov for coverage reports
 
-      - name: Save test durations (split 1 only, after full suite data accumulated)
-        if: matrix.split == 1
-        uses: actions/cache/save@v4
+      - name: Save test durations (full suite only, split 1)
+        if: |
+          needs.detect-changes.outputs.is_full_suite == 'true' &&
+          matrix.split == 1 &&
+          success()
+        uses: actions/cache/save@v5
         with:
           path: .test_durations
           key: test-durations-${{ github.sha }}
@@ -903,25 +1125,79 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
+  # Integration Tests — always-run 4-split matrix (OMN-9851)
+  # ---------------------------------------------------------------------------
+  tests-integration:
+    name: Integration Tests (Split ${{ matrix.split }}/4)
+    needs: [quality-gate, zone-filter, detect-changes]
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 30
+    if: always() && needs.quality-gate.result == 'success' && needs.zone-filter.outputs.docs_only != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        split: [1, 2, 3, 4]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run integration tests (split ${{ matrix.split }}/4)
+        run: |
+          uv run pytest tests/integration/ \
+            --splits 4 --group ${{ matrix.split }} \
+            -n "$PYTEST_XDIST_WORKERS" --timeout=120 --tb=short \
+            --junitxml=junit-int-${{ matrix.split }}.xml
+
+      - name: Upload junit
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-int-${{ matrix.split }}
+          path: junit-int-${{ matrix.split }}.xml
+
+  # ---------------------------------------------------------------------------
   # Phase 3 - Gates and Summary
   # ---------------------------------------------------------------------------
 
-  # Tests Gate - aggregates 40-shard test matrix results
+  # Tests Gate - aggregates test matrix results (dynamic shard count via OMN-9852)
   # API-STABLE check_name: "Tests Gate"
   # Shard count can change without updating branch protection rules.
+  # GitHub Actions auto-aggregates matrix shard results into a single job result,
+  # so this gate works for any matrix size (1, 4, 5, or 40 shards). No hardcoded count needed.
   tests-gate:
     name: Tests Gate
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [test-parallel]
+    needs: [test-parallel, tests-integration]
     if: always()
 
     steps:
@@ -931,23 +1207,26 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           parallel="${{ needs.test-parallel.result }}"
+          integration="${{ needs.tests-integration.result }}"
 
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Parallel Tests (40 splits) | $parallel |" >> $GITHUB_STEP_SUMMARY
+          echo "| Parallel Tests (dynamic splits) | $parallel |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests (4 splits) | $integration |" >> $GITHUB_STEP_SUMMARY
 
           # Accept "success" (tests ran and passed) or "skipped" (tests correctly
           # skipped because upstream quality-gate was skipped, e.g. dependabot PRs
           # that only touch .github/ files and skip version-pin-check).
-          if [[ "$parallel" == "success" || "$parallel" == "skipped" ]]; then
+          if [[ ("$parallel" == "success" || "$parallel" == "skipped") && \
+                ("$integration" == "success" || "$integration" == "skipped") ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Tests Gate: PASSED** (matrix result: $parallel)" >> $GITHUB_STEP_SUMMARY
-            echo "Test matrix result: $parallel"
+            echo "**Tests Gate: PASSED** (unit=$parallel integration=$integration)" >> $GITHUB_STEP_SUMMARY
+            echo "Test matrix result: unit=$parallel integration=$integration"
             exit 0
           else
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Tests Gate: FAILED**" >> $GITHUB_STEP_SUMMARY
-            echo "Test matrix result: $parallel"
+            echo "::error::tests gate failed (unit=$parallel integration=$integration)"
             exit 1
           fi
 
@@ -956,10 +1235,16 @@ jobs:
   # Warn-only mode — does not block PRs, just surfaces boundary parity issues.
   boundary-validation:
     name: Cross-repo boundary validation
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
     continue-on-error: true
     steps:
-      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@4f14550f0d0733e0272e4550bb62221a5bb48192 # main 2026-03-25
+      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@36865708ae7ecec2f8c5942a1db30a8b3420a879 # main 2026-03-25
+        continue-on-error: true
         with:
           checks: "boundary-parity"
           warn-only: "true"
@@ -971,33 +1256,42 @@ jobs:
 
   contract-compliance:
     name: Contract Compliance Check
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v6
       - name: Clone onex_change_control
-        run: git clone --depth=1 https://github.com/OmniNode-ai/onex_change_control.git /tmp/onex_change_control
+        run: |
+          occ_dir="${RUNNER_TEMP}/onex_change_control_contract_compliance"
+          occ_ref="3c98ab30af75650952246c3467e02e240552427f"
+          rm -rf "$occ_dir"
+          git init "$occ_dir"
+          git -C "$occ_dir" remote add origin https://github.com/OmniNode-ai/onex_change_control.git
+          git -C "$occ_dir" fetch --depth=1 origin "$occ_ref"
+          git -C "$occ_dir" checkout --detach FETCH_HEAD
+          echo "OCC_DIR=$occ_dir" >> "$GITHUB_ENV"
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "0.8.3"
       - name: Validate all ticket contracts (OMN-8808 — replaces dead run_contract_compliance_check.py ref)
-        working-directory: /tmp/onex_change_control
-        run: uv run validate-yaml contracts/OMN-*.yaml
+        run: cd "$OCC_DIR" && uv run validate-yaml "$GITHUB_WORKSPACE"/contracts/OMN-*.yaml
 
   ci-summary:
     name: CI Summary
-    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
     runs-on: >-
       ${{
-        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
-         (github.event_name == 'push' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'schedule'))
-        && fromJSON('["self-hosted","omnibase-ci"]')
-        || fromJSON('["ubuntu-latest"]')
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [quality-gate, tests-gate, compliance]
+    needs: [quality-gate, tests-gate, contract-compliance]
     if: always()
 
     steps:
@@ -1008,7 +1302,7 @@ jobs:
 
           quality="${{ needs.quality-gate.result }}"
           tests="${{ needs.tests-gate.result }}"
-          compliance="${{ needs.compliance.result }}"
+          compliance="${{ needs['contract-compliance'].result }}"
 
           echo "| Gate | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY

@@ -7,6 +7,7 @@ from ._world_layer import WorldLayer
 from ._tile_layer import TileLayer
 from ._gui_layer import GuiLayer
 from ._light_layer import LightLayer
+from ._particle_layer import ParticleLayer
 from ._scene import Scene
 
 # ======================================== STATE ========================================
@@ -98,6 +99,7 @@ __all__ = [
     "TileLayer",
     "GuiLayer",
     "LightLayer",
+    "ParticleLayer",
     "Scene",
 
     "get_current",

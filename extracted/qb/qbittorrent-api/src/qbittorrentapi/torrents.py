@@ -73,7 +73,7 @@ class TorrentPropertiesDictionary(Dictionary[JsonValueT]):
     """
     Response to :meth:`~TorrentsAPIMixIn.torrents_properties`
 
-    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#user-content-get-torrent-generic-properties>`_
+    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#user-content-get-torrent-generic-properties>`_
     """  # noqa: E501
 
 
@@ -97,7 +97,7 @@ class TorrentFilesList(List[TorrentFile]):
     """
     Response to :meth:`~TorrentsAPIMixIn.torrents_files`
 
-    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#user-content-get-torrent-contents>`_
+    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#user-content-get-torrent-contents>`_
     """  # noqa: E501
 
     def __init__(
@@ -121,7 +121,7 @@ class WebSeedsList(List[WebSeed]):
     """
     Response to :meth:`~TorrentsAPIMixIn.torrents_webseeds`
 
-    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#user-content-get-torrent-web-seeds>`_
+    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#user-content-get-torrent-web-seeds>`_
     """  # noqa: E501
 
     def __init__(
@@ -140,7 +140,7 @@ class TrackersList(List[Tracker]):
     """
     Response to :meth:`~TorrentsAPIMixIn.torrents_trackers`
 
-    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#user-content-get-torrent-trackers>`_
+    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#user-content-get-torrent-trackers>`_
     """  # noqa: E501
 
     def __init__(
@@ -155,7 +155,7 @@ class TorrentInfoList(List["TorrentDictionary"]):
     """
     Response to :meth:`~TorrentsAPIMixIn.torrents_info`
 
-    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#user-content-get-torrent-list>`_
+    Definition: `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#user-content-get-torrent-list>`_
     """  # noqa: E501
 
     def __init__(
@@ -826,7 +826,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         :param torrent_hash: hash for torrent
         :param file_ids: single file ID or a list.
         :param priority: priority for file(s) -
-            `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#user-content-set-file-priority>`_
+            `<https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)#user-content-set-file-priority>`_
         """  # noqa: E501
         data = {
             "hash": torrent_hash,
@@ -1516,6 +1516,33 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         )
 
     torrents_setAutoManagement = torrents_set_auto_management
+
+    def torrents_set_comment(
+        self,
+        comment: str | None = None,
+        torrent_hashes: str | Iterable[str] | None = None,
+        **kwargs: APIKwargsT,
+    ) -> None:
+        """
+        Set a comment for one or more torrents.
+
+        :param torrent_hashes: single torrent hash or list of torrent hashes.
+            Or ``all`` for all torrents.
+        :param comment: comment to assign to torrent
+        """
+        data = {
+            "hashes": self._list2string(torrent_hashes, "|"),
+            "comment": comment,
+        }
+        self._post(
+            _name=APINames.Torrents,
+            _method="setComment",
+            data=data,
+            version_introduced="2.12.1",
+            **kwargs,
+        )
+
+    torrents_setComment = torrents_set_comment
 
     def torrents_toggle_sequential_download(
         self,
@@ -2227,6 +2254,20 @@ class TorrentDictionary(ClientCache[TorrentsAPIMixIn], ListEntry):
 
     setAutoManagement = set_auto_management
 
+    def set_comment(
+        self,
+        comment: str | None = None,
+        **kwargs: APIKwargsT,
+    ) -> None:
+        """Implements :meth:`~TorrentsAPIMixIn.torrents_set_comment`."""
+        self._client.torrents_set_comment(
+            comment=comment,
+            torrent_hashes=self._torrent_hash,
+            **kwargs,
+        )
+
+    setComment = set_comment
+
     def toggle_sequential_download(self, **kwargs: APIKwargsT) -> None:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_toggle_sequential_download`."""
         self._client.torrents_toggle_sequential_download(
@@ -2606,6 +2647,12 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             client=client, func=client.torrents_set_auto_management
         )
         self.setAutoManagement = self.set_auto_management
+
+        self.set_comment = self._ActionForAllTorrents(
+            client=client, func=client.torrents_set_comment
+        )
+        self.setComment = self.set_comment
+
         self.toggle_sequential_download = self._ActionForAllTorrents(
             client=client, func=client.torrents_toggle_sequential_download
         )

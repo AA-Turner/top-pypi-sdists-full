@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: moocore
-Version: 0.2.0
+Version: 0.3.0
 Summary: Core Algorithms for Multi-Objective Optimization
-Author-email: Manuel López-Ibáñez <manuel.lopez-ibanez@manchester.ac.uk>, Fergus Rooney <fergus.rooney@outlook.com>
+Author-email: Manuel López-Ibáñez <manuel.lopez-ibanez@manchester.ac.uk>, Fergus Rooney <fergus.rooney@outlook.com>, Lennart Schäpermeier <lennart.schaepermeier@uni-muenster.de>
 License-Expression: LGPL-2.1-or-later
 Project-URL: Documentation, https://multi-objective.github.io/moocore/python/
 Project-URL: Homepage, https://multi-objective.github.io/moocore/python/
@@ -27,17 +27,18 @@ Provides-Extra: benchmarks
 Requires-Dist: botorch; extra == "benchmarks"
 Requires-Dist: desdeo; extra == "benchmarks"
 Requires-Dist: fast-pareto; extra == "benchmarks"
-Requires-Dist: jmetalpy; extra == "benchmarks"
+Requires-Dist: jmetalpy>=1.8; extra == "benchmarks"
 Requires-Dist: matplotlib; extra == "benchmarks"
+Requires-Dist: moarchiving>=1.1; extra == "benchmarks"
 Requires-Dist: nevergrad; extra == "benchmarks"
 Requires-Dist: numba; extra == "benchmarks"
 Requires-Dist: numpy; extra == "benchmarks"
 Requires-Dist: optuna; extra == "benchmarks"
 Requires-Dist: pandas>=2; extra == "benchmarks"
 Requires-Dist: paretoset; extra == "benchmarks"
+Requires-Dist: patatune; extra == "benchmarks"
 Requires-Dist: py-cpuinfo; extra == "benchmarks"
 Requires-Dist: pymoo; extra == "benchmarks"
-Requires-Dist: seqme; extra == "benchmarks"
 Provides-Extra: coverage
 Requires-Dist: coverage[toml]; extra == "coverage"
 Requires-Dist: gcovr; extra == "coverage"
@@ -83,7 +84,8 @@ Dynamic: license-file
 
 **Contributors:**
     [Manuel López-Ibáñez](https://lopez-ibanez.eu),
-    Fergus Rooney.
+    Fergus Rooney,
+    [Lennart Schäpermeier](https://schaepermeier.github.io).
 
 ---------------------------------------
 

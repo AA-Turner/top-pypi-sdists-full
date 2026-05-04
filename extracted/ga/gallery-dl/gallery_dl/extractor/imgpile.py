@@ -88,13 +88,8 @@ class ImgpileUserExtractor(ImgpileExtractor):
             "username"  : self.groups[0],
         }
         headers = {
-            "Accept"        : "application/json",
-            #  "Referer"       : "https://imgpile.com/u/USER",
-            "Content-Type"  : "application/json",
-            #  "X-CSRF-TOKEN": "",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
+            "Accept"      : "application/json",
+            "Content-Type": "application/json",
         }
 
         base = self.root + "/p/"

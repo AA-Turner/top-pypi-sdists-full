@@ -22,9 +22,13 @@
 #pragma once
 #include "SciQLopPlotRange.hpp"
 #include "SciQLopPlots/Debug.hpp"
+#include "SciQLopPlots/Inspector/InspectorExtensionHolder.hpp"
 #include "SciQLopPlots/enums.hpp"
+#include <QColor>
+#include <QFont>
 #include <QObject>
 #include <QPointer>
+#include <memory>
 class QCPAxis;
 class QCPColorScale;
 namespace _impl { class SciQLopPlot; }
@@ -37,11 +41,15 @@ protected:
     bool _is_time_axis = false;
     double m_max_range_size = std::numeric_limits<double>::infinity();
     double m_min_range_size = 0.0;
+    std::unique_ptr<InspectorExtensionHolder> m_extension_holder;
 
     SciQLopPlotRange clamp_range(const SciQLopPlotRange& range) const noexcept;
 
 public:
-    SciQLopPlotAxisInterface(QObject* parent = nullptr, const QString& name = "") : QObject(parent)
+    SciQLopPlotAxisInterface(QObject* parent = nullptr, const QString& name = "")
+        : QObject(parent)
+        , m_extension_holder { std::make_unique<InspectorExtensionHolder>(
+              this, [this]() { Q_EMIT inspector_extensions_changed(); }) }
     {
         if (!name.isEmpty())
             setObjectName(name);
@@ -87,6 +95,30 @@ public:
         WARN_ABSTRACT_METHOD;
     }
 
+    inline virtual void set_label_font(const QFont& font) noexcept
+    {
+        Q_UNUSED(font);
+        WARN_ABSTRACT_METHOD;
+    }
+
+    inline virtual void set_label_color(const QColor& color) noexcept
+    {
+        Q_UNUSED(color);
+        WARN_ABSTRACT_METHOD;
+    }
+
+    inline virtual void set_tick_label_font(const QFont& font) noexcept
+    {
+        Q_UNUSED(font);
+        WARN_ABSTRACT_METHOD;
+    }
+
+    inline virtual void set_tick_label_color(const QColor& color) noexcept
+    {
+        Q_UNUSED(color);
+        WARN_ABSTRACT_METHOD;
+    }
+
     inline virtual void set_selected(bool selected) noexcept
     {
         Q_UNUSED(selected);
@@ -123,6 +155,30 @@ public:
         return false;
     }
 
+    inline virtual QFont label_font() const noexcept
+    {
+        WARN_ABSTRACT_METHOD;
+        return QFont();
+    }
+
+    inline virtual QColor label_color() const noexcept
+    {
+        WARN_ABSTRACT_METHOD;
+        return QColor();
+    }
+
+    inline virtual QFont tick_label_font() const noexcept
+    {
+        WARN_ABSTRACT_METHOD;
+        return QFont();
+    }
+
+    inline virtual QColor tick_label_color() const noexcept
+    {
+        WARN_ABSTRACT_METHOD;
+        return QColor();
+    }
+
     inline virtual Qt::Orientation orientation() const noexcept
     {
         WARN_ABSTRACT_METHOD;
@@ -156,6 +212,20 @@ public:
     void couple_range_with(SciQLopPlotAxisInterface* other) noexcept;
     void decouple_range_from(SciQLopPlotAxisInterface* other) noexcept;
 
+    void add_inspector_extension(InspectorExtension* extension)
+    {
+        m_extension_holder->add(extension);
+    }
+
+    void remove_inspector_extension(InspectorExtension* extension)
+    {
+        m_extension_holder->remove(extension);
+    }
+
+    QList<InspectorExtension*> inspector_extensions() const
+    {
+        return m_extension_holder->list();
+    }
 
 #ifdef BINDINGS_H
 #define Q_SIGNAL
@@ -167,7 +237,12 @@ signals:
     Q_SIGNAL void tick_labels_visible_changed(bool visible);
     Q_SIGNAL void log_changed(bool log);
     Q_SIGNAL void label_changed(const QString& label);
+    Q_SIGNAL void label_font_changed(const QFont& font);
+    Q_SIGNAL void label_color_changed(const QColor& color);
+    Q_SIGNAL void tick_label_font_changed(const QFont& font);
+    Q_SIGNAL void tick_label_color_changed(const QColor& color);
     Q_SIGNAL void selection_changed(bool selected);
+    Q_SIGNAL void inspector_extensions_changed();
 };
 
 class SciQLopPlotDummyAxis : public SciQLopPlotAxisInterface
@@ -203,12 +278,20 @@ public:
     void set_log(bool log) noexcept override;
     void set_label(const QString& label) noexcept override;
     void set_tick_labels_visible(bool visible) noexcept override;
+    void set_label_font(const QFont& font) noexcept override;
+    void set_label_color(const QColor& color) noexcept override;
+    void set_tick_label_font(const QFont& font) noexcept override;
+    void set_tick_label_color(const QColor& color) noexcept override;
     void set_selected(bool selected) noexcept override;
     SciQLopPlotRange range() const noexcept override;
     bool visible() const noexcept override;
     bool log() const noexcept override;
     QString label() const noexcept override;
     bool tick_labels_visible() const noexcept override;
+    QFont label_font() const noexcept override;
+    QColor label_color() const noexcept override;
+    QFont tick_label_font() const noexcept override;
+    QColor tick_label_color() const noexcept override;
     Qt::Orientation orientation() const noexcept override;
     Qt::Axis axis() const noexcept override;
     Qt::AnchorPoint anchor() const noexcept override;

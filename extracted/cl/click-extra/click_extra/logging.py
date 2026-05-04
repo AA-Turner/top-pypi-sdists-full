@@ -37,9 +37,9 @@ from unittest.mock import patch
 import click
 from click.types import IntRange
 
-from . import EnumChoice
-from .colorize import default_theme
+from . import EnumChoice, context
 from .parameters import ExtraOption, search_params
+from .theme import get_current_theme
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -140,11 +140,11 @@ class ExtraFormatter(Formatter):
         """Colorize the record's log level name before calling the standard
         formatter.
 
-        Colors are sourced from a :class:`click_extra.colorize.HelpExtraTheme`. Default
-        colors are configured on :const:`click_extra.colorize.default_theme`.
+        Colors are sourced from a :class:`click_extra.theme.HelpExtraTheme`,
+        resolved per-invocation via :func:`click_extra.theme.get_current_theme`.
         """
         level = record.levelname.lower()
-        level_style = getattr(default_theme, level, None)
+        level_style = getattr(get_current_theme(), level, None)
         if level_style:
             record.levelname = level_style(level)
         return super().formatMessage(record)
@@ -379,16 +379,16 @@ class ExtraVerbosity(ExtraOption):
         conflict, the highest versbosity level always takes precedence.
 
         The final reconciled level chosen for the logger will be saved in
-        ``ctx.meta["click_extra.verbosity_level"]``. This context property served as a
-        kind of global state shared by all verbosity-related options.
+        ``ctx.meta[click_extra.context.VERBOSITY_LEVEL]``. This context entry
+        served as a kind of global state shared by all verbosity-related options.
         """
         # Skip setting the level if another option has already sets it or is at an equal
         # or lower level.
-        current_level = ctx.meta.get("click_extra.verbosity_level")
+        current_level = ctx.meta.get(context.VERBOSITY_LEVEL)
         if current_level and current_level <= level:
             return
 
-        ctx.meta["click_extra.verbosity_level"] = level
+        ctx.meta[context.VERBOSITY_LEVEL] = level
 
         for logger in self.all_loggers:
             logger.setLevel(level.value)
@@ -442,9 +442,9 @@ class VerbosityOption(ExtraVerbosity):
         self, ctx: click.Context, param: click.Parameter, value: LogLevel
     ) -> None:
         """The value passed to ``--verbosity`` will be saved in
-        ``ctx.meta["click_extra.verbosity"]``.
+        ``ctx.meta[click_extra.context.VERBOSITY]``.
         """
-        ctx.meta["click_extra.verbosity"] = value
+        ctx.meta[context.VERBOSITY] = value
         super().set_level(ctx, param, value)
 
     def __init__(
@@ -530,9 +530,9 @@ class VerboseOption(ExtraVerbosity):
         """Translate the number of steps to the target log level.
 
         The value passed to ``--verbose``/``-v`` will be saved in
-        ``ctx.meta["click_extra.verbose"]``.
+        ``ctx.meta[click_extra.context.VERBOSE]``.
         """
-        ctx.meta["click_extra.verbose"] = value
+        ctx.meta[context.VERBOSE] = value
 
         # No -v option has been called, skip meddling with log levels.
         if value == 0:

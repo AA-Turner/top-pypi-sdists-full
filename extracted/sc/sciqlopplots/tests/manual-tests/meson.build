@@ -1,6 +1,7 @@
 examples = [
     {'name': 'LineGraph', 'source': meson.current_source_dir() + '/basics/line_graph.py'},
     {'name': 'Colormap', 'source': meson.current_source_dir() + '/basics/colormap.py'},
+    {'name': 'ContourColormap', 'source': meson.current_source_dir() + '/basics/contour_colormap.py'},
     {'name': 'Histogram2D', 'source': meson.current_source_dir() + '/basics/histogram2d.py'},
     {'name': 'VerticalSpans', 'source': meson.current_source_dir() + '/basics/vertical_spans.py'},
     {'name': 'ParametricCurve', 'source': meson.current_source_dir() + '/basics/parametric_curve.py'},
@@ -19,6 +20,14 @@ foreach example : examples
         suite: 'manual',
     )
 endforeach
+
+test('inspector_properties',
+    python3,
+    args: [meson.current_source_dir() + '/test_inspector_properties.py'],
+    env: ['PYTHONPATH=' + meson.project_build_root()],
+    suite: 'integration',
+    timeout: 120,
+)
 
 sources = []
 foreach example : examples

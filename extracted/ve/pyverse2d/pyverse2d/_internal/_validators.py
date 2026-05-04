@@ -1,6 +1,6 @@
 # ======================================== IMPORTS ========================================
 from types import UnionType
-from typing import Tuple, get_args, get_origin, Union, Literal
+from typing import Tuple, get_args, get_origin, Union, Literal, Type
 from numbers import Real
 
 # ======================================== TYPE CHECK ========================================
@@ -158,6 +158,18 @@ def expect_callable(value: object, include_none: bool = False, arg: str = "Argum
     if include_none and value is None:
         return value
     raise TypeError(f"{arg} ({value}) must be a callable{' or None' if include_none else ''}")
+
+def expect_subclass(value: object, superclass: Type, arg: str = "Argument") -> object:
+    """Vérifie que l'objet soit une sous classe
+
+    Args:
+        value: objet à vérifier
+        superclass: classe dont l'objet doit hériter
+        arg: nom de l'argument
+    """
+    if not issubclass(value, superclass):
+        raise TypeError(f"{arg} ({type(value).__name__}) must be a subclass of {superclass.__name__}")
+    return value
     
 # ======================================== VALUE CHECK ========================================
 def not_null(value: object, arg: str = "Argument"):
@@ -313,6 +325,7 @@ def different_from(value: Real, target: object, arg: str = "Argument"):
 __all__ = [
     "expect",
     "expect_callable",
+    "expect_subclass",
 
     "not_null",
     "not_in",

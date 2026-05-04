@@ -72,6 +72,7 @@ from . import (
     UNPROCESSED,
     ParameterSource,
     Path as ClickPath,
+    context,
     echo,
     get_app_dir,
     get_current_context,
@@ -459,15 +460,15 @@ def flatten_config_keys(
 def get_tool_config(ctx: click.Context | None = None) -> Any:
     """Retrieve the typed tool configuration from the context.
 
-    Returns the object stored in ``ctx.meta["click_extra.tool_config"]`` by
-    ``ConfigOption`` when a ``config_schema`` is set, or ``None`` if no schema
-    was configured or no configuration was loaded.
+    Returns the object stored under :data:`click_extra.context.TOOL_CONFIG`
+    by ``ConfigOption`` when a ``config_schema`` is set, or ``None`` if no
+    schema was configured or no configuration was loaded.
 
     :param ctx: Click context. Defaults to the current context.
     """
     if ctx is None:
         ctx = get_current_context()
-    return ctx.find_root().meta.get("click_extra.tool_config")
+    return ctx.find_root().meta.get(context.TOOL_CONFIG)
 
 
 def _safe_get_type_hints(cls: type) -> dict[str, Any]:
@@ -960,8 +961,8 @@ class ConfigOption(ExtraOption, ParamStructure):
           normalization and flattening.
 
         The resulting object is stored in
-        ``ctx.meta["click_extra.tool_config"]`` and can be retrieved via
-        `get_tool_config`.
+        ``ctx.meta[click_extra.context.TOOL_CONFIG]`` and can be retrieved
+        via `get_tool_config`.
         """
 
         self.schema_strict = schema_strict
@@ -1644,13 +1645,13 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         Extracts the app-specific section from the full parsed config, passes
         it through the schema callable, and stores the result in
-        ``ctx.meta["click_extra.tool_config"]``.
+        ``ctx.meta[click_extra.context.TOOL_CONFIG]``.
         """
         if self._config_schema_callable is None:
             return
         app_name = ctx.find_root().command.name or ctx.info_name or ""
         app_section = self._resolve_app_section(user_conf, app_name)
-        ctx.meta["click_extra.tool_config"] = self._config_schema_callable(
+        ctx.meta[context.TOOL_CONFIG] = self._config_schema_callable(
             app_section,
         )
 
@@ -1701,9 +1702,9 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         ..hint::
             Once loading is complete, the resolved file path and its full parsed content
-            are stored in ``ctx.meta["click_extra.conf_source"]`` and
-            ``ctx.meta["click_extra.conf_full"]`` respectively. This is the recommended
-            way to identify which configuration file was loaded.
+            are stored in ``ctx.meta[click_extra.context.CONF_SOURCE]`` and
+            ``ctx.meta[click_extra.context.CONF_FULL]`` respectively. This is the
+            recommended way to identify which configuration file was loaded.
 
             We intentionally do not
             add a custom ``ParameterSource.CONFIG_FILE`` enum member: ``ParameterSource``
@@ -1721,10 +1722,9 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         assert self.name is not None  # Always set for Option subclasses.
 
-        # Set membership instead of ordered comparison: ParameterSource is a
-        # plain Enum in Click < 8.3 and an IntEnum in Click >= 8.3. Listing the
-        # members keeps the same semantics on both versions and avoids forcing
-        # downstream packagers to bump Click globally.
+        # Listed explicitly: the ParameterSource IntEnum ordering does not
+        # cleanly split explicit from non-explicit sources, since DEFAULT and
+        # DEFAULT_MAP fall between the user-set members.
         explicit_sources = {
             ParameterSource.COMMANDLINE,
             ParameterSource.ENVIRONMENT,
@@ -1815,8 +1815,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         # ctx.meta, so downstream CLI code can inspect what was loaded and from where.
         # See the load_conf docstring for why we use ctx.meta instead of a custom
         # ParameterSource enum member.
-        ctx.meta["click_extra.conf_source"] = conf_path
-        ctx.meta["click_extra.conf_full"] = user_conf
+        ctx.meta[context.CONF_SOURCE] = conf_path
+        ctx.meta[context.CONF_FULL] = user_conf
 
 
 class NoConfigOption(ExtraOption):

@@ -21,6 +21,7 @@
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/Inspector/Model/TypeDescriptor.hpp"
 #include "SciQLopPlots/Inspector/Model/DelegateRegistry.hpp"
+#include "SciQLopPlots/Inspector/InspectorExtension.hpp"
 
 // Domain types
 #include "SciQLopPlots/MultiPlots/SciQLopMultiPlotPanel.hpp"
@@ -31,15 +32,20 @@
 #include "SciQLopPlots/Plotables/SciQLopColorMap.hpp"
 #include "SciQLopPlots/Plotables/SciQLopHistogram2D.hpp"
 #include "SciQLopPlots/SciQLopPlotAxis.hpp"
+#include "SciQLopPlots/Items/SciQLopTextItem.hpp"
 
 // Delegate widgets
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopMultiPlotPanelDelegate.hpp"
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopPlotDelegate.hpp"
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopGraphDelegate.hpp"
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopGraphComponentDelegate.hpp"
+#include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopColorMapBaseDelegate.hpp"
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopColorMapDelegate.hpp"
+#include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopHistogram2DDelegate.hpp"
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopWaterfallDelegate.hpp"
 #include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopPlotAxisDelegate.hpp"
+#include "SciQLopPlots/Inspector/PropertiesDelegates/SciQLopTextItemDelegate.hpp"
+#include "SciQLopPlots/Inspector/PropertiesDelegates/InspectorExtensionDelegate.hpp"
 
 namespace
 {
@@ -53,8 +59,12 @@ void register_all_types()
             auto panel = qobject_cast<SciQLopMultiPlotPanel*>(obj);
             QList<QObject*> result;
             if (panel)
+            {
                 for (auto w : panel->child_widgets())
                     result.append(w);
+                for (auto* ext : panel->inspector_extensions())
+                    result.append(ext);
+            }
             return result;
         },
         .connect_children = [](QObject* obj, auto add, auto remove)
@@ -70,6 +80,10 @@ void register_all_types()
                     [add](SciQLopPlotPanelInterface* p) { add(p); }),
                 QObject::connect(panel, &SciQLopMultiPlotPanel::panel_removed, panel,
                     [remove](SciQLopPlotPanelInterface* p) { remove(p); }),
+                QObject::connect(panel, &SciQLopMultiPlotPanel::inspector_extension_added, panel,
+                    [add](InspectorExtension* ext) { add(ext); }),
+                QObject::connect(panel, &SciQLopMultiPlotPanel::inspector_extension_removed, panel,
+                    [remove](InspectorExtension* ext) { remove(ext); }),
             };
         },
         .set_selected = [](QObject* obj, bool s) {
@@ -93,9 +107,11 @@ void register_all_types()
             }
             for (auto p : plot->plottables())
                 c.append(p);
+            for (auto* ext : plot->inspector_extensions())
+                c.append(ext);
             return c;
         },
-        .connect_children = [](QObject* obj, auto add, auto /*remove*/)
+        .connect_children = [](QObject* obj, auto add, auto remove)
                 -> QList<QMetaObject::Connection> {
             auto plot = qobject_cast<SciQLopPlot*>(obj);
             if (!plot) return {};
@@ -105,6 +121,10 @@ void register_all_types()
                         for (auto p : plot->plottables())
                             add(p);
                     }),
+                QObject::connect(plot, &SciQLopPlot::inspector_extension_added, plot,
+                    [add](InspectorExtension* ext) { add(ext); }),
+                QObject::connect(plot, &SciQLopPlot::inspector_extension_removed, plot,
+                    [remove](InspectorExtension* ext) { remove(ext); }),
             };
         },
         .set_selected = [](QObject* obj, bool s) {
@@ -123,9 +143,21 @@ void register_all_types()
             QList<QObject*> c;
             for (auto p : plot->plottables())
                 c.append(p);
+            for (auto* ext : plot->inspector_extensions())
+                c.append(ext);
             return c;
         },
-        .connect_children = nullptr,
+        .connect_children = [](QObject* obj, auto add, auto remove)
+                -> QList<QMetaObject::Connection> {
+            auto plot = qobject_cast<SciQLopNDProjectionPlot*>(obj);
+            if (!plot) return {};
+            return {
+                QObject::connect(plot, &SciQLopNDProjectionPlot::inspector_extension_added, plot,
+                    [add](InspectorExtension* ext) { add(ext); }),
+                QObject::connect(plot, &SciQLopNDProjectionPlot::inspector_extension_removed, plot,
+                    [remove](InspectorExtension* ext) { remove(ext); }),
+            };
+        },
         .set_selected = [](QObject* obj, bool s) {
             if (auto p = qobject_cast<SciQLopNDProjectionPlot*>(obj))
                 p->set_selected(s);
@@ -189,6 +221,13 @@ void register_all_types()
         },
     });
 
+    types.register_type<SciQLopTextItem>({
+        .children = [](QObject*) -> QList<QObject*> { return {}; },
+        .connect_children = nullptr,
+        .set_selected = nullptr,
+        .deletable = true,
+    });
+
     types.register_type<SciQLopPlotAxisInterface>({
         .children = [](QObject*) -> QList<QObject*> { return {}; },
         .connect_children = nullptr,
@@ -199,14 +238,24 @@ void register_all_types()
         .deletable = false,
     });
 
+    types.register_type<InspectorExtension>({
+        .children = [](QObject*) -> QList<QObject*> { return {}; },
+        .connect_children = nullptr,
+        .deletable = true,
+    });
+
     auto& delegates = DelegateRegistry::instance();
     delegates.register_type<SciQLopMultiPlotPanelDelegate>();
     delegates.register_type<SciQLopPlotDelegate>();
     delegates.register_type<SciQLopGraphDelegate>();
     delegates.register_type<SciQLopGraphComponentDelegate>();
+    delegates.register_type<SciQLopColorMapBaseDelegate>();
     delegates.register_type<SciQLopColorMapDelegate>();
     delegates.register_type<SciQLopWaterfallDelegate>();
+    delegates.register_type<SciQLopHistogram2DDelegate>();
     delegates.register_type<SciQLopPlotAxisDelegate>();
+    delegates.register_type<SciQLopTextItemDelegate>();
+    delegates.register_type<InspectorExtensionDelegate>();
 }
 
 static const int _registrations = (register_all_types(), 0);

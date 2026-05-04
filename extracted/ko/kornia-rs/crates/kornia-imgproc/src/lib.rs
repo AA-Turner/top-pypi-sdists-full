@@ -12,6 +12,9 @@ pub mod core;
 /// image cropping module.
 pub mod crop;
 
+/// image padding module.
+pub mod padding;
+
 // NOTE: not ready yet
 // pub mod distance_transform;
 
@@ -27,6 +30,9 @@ pub mod features;
 /// image filtering module.
 pub mod filter;
 
+/// image morphology module.
+pub mod morphology;
+
 /// image flipping module.
 pub mod flip;
 
@@ -36,8 +42,11 @@ pub mod histogram;
 /// utilities for interpolation.
 pub mod interpolation;
 
-/// module containing parallization utilities.
+/// module containing parallelization utilities.
 pub mod parallel;
+
+/// runtime CPU feature probe shared by SIMD-dispatching kernels.
+pub mod simd;
 
 /// image processing metrics module.
 pub mod metrics;
@@ -56,3 +65,9 @@ pub mod warp;
 
 /// Pyramid operations
 pub mod pyramid;
+
+/// distance transform
+pub mod distance_transform;
+
+/// contours
+pub mod contours;

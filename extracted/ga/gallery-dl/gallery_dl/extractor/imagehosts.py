@@ -9,7 +9,7 @@
 """Collection of extractors for various imagehosts"""
 
 from .common import Extractor, Message
-from .. import text
+from .. import text, dt
 
 
 class ImagehostImageExtractor(Extractor):
@@ -104,7 +104,9 @@ class ImxtoImageExtractor(ImagehostImageExtractor):
     def get_info(self, page):
         url, pos = text.extract(
             page, '<div style="text-align:center;"><a href="', '"')
-        if not url:
+        if url:
+            self.file_url = url
+        else:
             self.not_found()
         filename, pos = text.extract(page, ' title="', '"', pos)
         return url, filename or None
@@ -113,11 +115,20 @@ class ImxtoImageExtractor(ImagehostImageExtractor):
         extr = text.extract_from(page, page.index("[ FILESIZE <"))
         size = extr(">", "</span>").replace(" ", "")[:-1]
         width, _, height = extr(">", " px</span>").partition("x")
+
+        try:
+            _, y, m, d, _ = self.file_url.rsplit("/", 4)
+            date = dt.datetime(int(y), int(m), int(d))
+        except Exception as exc:
+            self.log.traceback(exc)
+            date = dt.NONE
+
         return {
             "size"  : text.parse_bytes(size),
             "width" : text.parse_int(width),
             "height": text.parse_int(height),
             "hash"  : extr(">", "</span>"),
+            "date"  : date,
         }
 
 

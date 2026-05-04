@@ -55,6 +55,7 @@ from .model_configuration_source import ModelConfigurationSource
 from .model_configuration_subcontract import ModelConfigurationSubcontract
 from .model_configuration_validation import ModelConfigurationValidation
 from .model_context_integrity_subcontract import ModelContextIntegritySubcontract
+from .model_contract_behavior_spec import ModelContractBehaviorSpec
 from .model_coordination_result import ModelCoordinationResult
 from .model_coordination_rules import ModelCoordinationRules
 from .model_correlation_config import ModelCorrelationConfig
@@ -105,6 +106,7 @@ from .model_fsm_subcontract import ModelFSMSubcontract
 from .model_handler_routing_entry import ModelHandlerRoutingEntry
 from .model_handler_routing_subcontract import ModelHandlerRoutingSubcontract
 from .model_health_check_subcontract import ModelHealthCheckSubcontract
+from .model_hook_activation import ModelHookActivation
 from .model_introspection_subcontract import ModelIntrospectionSubcontract
 from .model_lifecycle_subcontract import ModelLifecycleSubcontract
 from .model_load_balancing import ModelLoadBalancing
@@ -200,6 +202,8 @@ __all__ = [
     "ModelCacheInvalidation",
     "ModelCacheKeyStrategy",
     "ModelCachePerformance",
+    # Behavioral execution profile (first slice of ModelContractBase decomposition)
+    "ModelContractBehaviorSpec",
     # Circuit breaker subcontracts
     "ModelCircuitBreakerSubcontract",
     # Compute subcontracts and components
@@ -248,6 +252,7 @@ __all__ = [
     "ModelDependencyHealth",
     "ModelHealthCheckResult",
     "ModelHealthCheckSubcontract",
+    "ModelHookActivation",
     "ModelNodeHealthStatus",
     # Introspection subcontracts
     "ModelIntrospectionSubcontract",

@@ -69,8 +69,8 @@ class StockScreener:
                 selective_debug=False
             )
         # Now log something to verify
-        if hostRef and hostRef.default_logger:
-            hostRef.default_logger.debug(f"Child process started for stock: {stock}")
+        # if hostRef and hostRef.default_logger:
+        #     hostRef.default_logger.debug(f"Child process started for stock: {stock}")
 
     # @tracelog
     def screenStocks(
@@ -755,28 +755,28 @@ class StockScreener:
             # Capturing Ctr+C Here isn't a great idea
             pass
         except StockDataEmptyException as e: # pragma: no cover
-            if data is None or (data is not None and not data.isnull().values.all(axis=0)[0]):
-                hostRef.default_logger.debug(f"StockDataEmptyException:{stock}: {e}", exc_info=True)
+            # if data is None or (data is not None and not data.isnull().values.all(axis=0)[0]):
+            #     hostRef.default_logger.debug(f"StockDataEmptyException:{stock}: {e}", exc_info=True)
             pass
         except ScreeningStatistics.EligibilityConditionNotMet as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"EligibilityConditionNotMet:{stock}: {e}", exc_info=True)
+            # if userArgsLog:
+            #     hostRef.default_logger.debug(f"EligibilityConditionNotMet:{stock}: {e}", exc_info=True)
             pass
         except ScreeningStatistics.NotNewlyListed as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"NotNewlyListed:{stock}: {e}", exc_info=True)
+                # if userArgsLog:
+                #     hostRef.default_logger.debug(f"NotNewlyListed:{stock}: {e}", exc_info=True)
             pass
         except ScreeningStatistics.NotAStageTwoStock as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"NotAStageTwoStock:{stock}: {e}", exc_info=True)
+            # if userArgsLog:
+            #     hostRef.default_logger.debug(f"NotAStageTwoStock:{stock}: {e}", exc_info=True)
             pass
         except ScreeningStatistics.NotEnoughVolumeAsPerConfig as e: # pragma: no cover 
-            if userArgsLog:
-                hostRef.default_logger.debug(f"NotEnoughVolumeAsPerConfig:{stock}: {e}", exc_info=True)
+            # if userArgsLog:
+            #     hostRef.default_logger.debug(f"NotEnoughVolumeAsPerConfig:{stock}: {e}", exc_info=True)
             pass
         except ScreeningStatistics.DownloadDataOnly as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"DownloadDataOnly:{stock}: {e}", exc_info=True)
+            # if userArgsLog:
+            #     hostRef.default_logger.debug(f"DownloadDataOnly:{stock}: {e}", exc_info=True)
             try:
                 data = hostRef.objectDictionaryPrimary.get(stock)
                 if data is not None:
@@ -817,32 +817,32 @@ class StockScreener:
                 pass
             pass
         except ScreeningStatistics.LTPNotInConfiguredRange as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"LTPNotInConfiguredRange:{stock}: {e}", exc_info=True)
+                # if userArgsLog:
+                #     hostRef.default_logger.debug(f"LTPNotInConfiguredRange:{stock}: {e}", exc_info=True)
             pass
         except KeyError as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"KeyError:{stock}: {e}", exc_info=True)
+                # if userArgsLog:
+                #     hostRef.default_logger.debug(f"KeyError:{stock}: {e}", exc_info=True)
             pass
         except OSError as e: # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"OSError:{stock}: {e}", exc_info=True)
+            # if userArgsLog:
+            #     hostRef.default_logger.debug(f"OSError:{stock}: {e}", exc_info=True)
             pass
         except Exception as e:  # pragma: no cover
-            if userArgsLog:
-                hostRef.default_logger.debug(f"Exception:{stock}: {e}", exc_info=True)
-            if testbuild or printCounter:
-                import traceback
-                traceback.print_exc()
-                OutputControls().printOutput(e)
-                OutputControls().printOutput(
-                    colorText.FAIL
-                    + (
-                        "\n  [+] Exception Occured while Screening %s! Skipping this stock.."
-                        % stock
-                    )
-                    + colorText.END
+            if hostRef.default_logger:
+                hostRef.default_logger.error(f"Exception:{stock}: {e}", exc_info=True)
+            # if testbuild or printCounter:
+            import traceback
+            traceback.print_exc()
+            OutputControls().printOutput(e)
+            OutputControls().printOutput(
+                colorText.FAIL
+                + (
+                    "\n  [+] Exception Occured while Screening %s! Skipping this stock.."
+                    % stock
                 )
+                + colorText.END
+            )
         return None
 
     def performValidityCheckForExecuteOptions(self,stock,hostRef,executeOption,screener,fullData,screeningDictionary,saveDictionary,processedData,configManager,subMenuOption=3,intraday_data=None):
@@ -888,7 +888,7 @@ class StockScreener:
         elif executeOption == 28:
             isValid = screener.findHigherBullishOpens(processedData)
         elif executeOption == 30:
-            isValid, debug_info = screener.findATRTrailingStopsDebug(
+            isValid, _ = screener.findATRTrailingStops(
                                 fullData,
                                 sensitivity=configManager.atrTrailingStopSensitivity,
                                 atr_period=configManager.atrTrailingStopPeriod,
@@ -903,17 +903,10 @@ class StockScreener:
                                 buy_threshold=configManager.atrTrailingStopBuyThreshold,
                                 sell_threshold=configManager.atrTrailingStopSellThreshold,
                                 min_bars_between_signals=configManager.atrTrailingStopMinBarsBetweenSignals,
+                                min_bars_between_sell_signals=0,
                                 min_strength_for_confirmation=configManager.atrTrailingStopMinStrengthForConfirmation,
                                 stock_name=stock
                             )
-            # Log debug info for first 10 stocks
-            if hasattr(hostRef, '_debug_counter'):
-                hostRef._debug_counter = getattr(hostRef, '_debug_counter', 0) + 1
-            else:
-                hostRef._debug_counter = 1
-            
-            if hostRef._debug_counter <= 200:  # Log first 20 stocks
-                hostRef.default_logger.info(f"DEBUG {stock}: {debug_info}")
         elif executeOption == 31:
             isValid = screener.findHighMomentum(processedData,strict=(subMenuOption==1))
         elif executeOption == 32: # findIntradayOpenSetup
@@ -981,7 +974,7 @@ class StockScreener:
                 )
         if not isLtpValid:
             raise ScreeningStatistics.LTPNotInConfiguredRange
-        if configManager.stageTwo and not verifyStageTwo and (executeOption > 0 and executeOption not in [29]):
+        if configManager.stageTwo and not verifyStageTwo and (executeOption > 0 and executeOption not in [29,30]):
             raise ScreeningStatistics.NotAStageTwoStock
 
     def updateStock(self, stock, screeningDictionary, saveDictionary, executeOption=0,exchangeName='INDIA',userArgs=None):

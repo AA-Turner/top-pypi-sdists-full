@@ -75,6 +75,9 @@ keyring.enabled = true
 python.installation-dir = {json.dumps(str(Path("{data-dir}/python")))}  # {config_data_dir / "python"}
 requests.max-retries = 0
 solver.lazy-wheel = true
+solver.min-release-age = 0
+solver.min-release-age-exclude = null
+solver.min-release-age-exclude-source = null
 system-git-client = false
 virtualenvs.create = true
 virtualenvs.in-project = null
@@ -110,6 +113,9 @@ keyring.enabled = true
 python.installation-dir = {json.dumps(str(Path("{data-dir}/python")))}  # {config_data_dir / "python"}
 requests.max-retries = 0
 solver.lazy-wheel = true
+solver.min-release-age = 0
+solver.min-release-age-exclude = null
+solver.min-release-age-exclude-source = null
 system-git-client = false
 virtualenvs.create = false
 virtualenvs.in-project = null
@@ -166,6 +172,9 @@ keyring.enabled = true
 python.installation-dir = {json.dumps(str(Path("{data-dir}/python")))}  # {config_data_dir / "python"}
 requests.max-retries = 0
 solver.lazy-wheel = true
+solver.min-release-age = 0
+solver.min-release-age-exclude = null
+solver.min-release-age-exclude-source = null
 system-git-client = false
 virtualenvs.create = true
 virtualenvs.in-project = null
@@ -200,6 +209,9 @@ keyring.enabled = true
 python.installation-dir = {json.dumps(str(Path("{data-dir}/python")))}  # {config_data_dir / "python"}
 requests.max-retries = 0
 solver.lazy-wheel = true
+solver.min-release-age = 0
+solver.min-release-age-exclude = null
+solver.min-release-age-exclude-source = null
 system-git-client = false
 virtualenvs.create = true
 virtualenvs.in-project = null
@@ -214,6 +226,52 @@ virtualenvs.use-poetry-python = false
     assert tester.io.fetch_output() == expected
 
 
+def test_set_repository_with_periods_in_name(
+    tester: CommandTester, config_source: DictConfigSource
+) -> None:
+    tester.execute("repositories.my.repo https://bar.com/simple/")
+
+    assert config_source.config["repositories"]["my.repo"] == {
+        "url": "https://bar.com/simple/"
+    }
+
+
+def test_display_repository_with_periods_in_name(tester: CommandTester) -> None:
+    tester.execute("repositories.my.repo https://bar.com/simple/")
+    tester.execute("repositories.my.repo")
+
+    assert tester.io.fetch_output() == "{'url': 'https://bar.com/simple/'}\n"
+
+
+def test_display_repository_url_with_periods_in_name(tester: CommandTester) -> None:
+    tester.execute("repositories.my.repo https://bar.com/simple/")
+    tester.execute("repositories.my.repo.url")
+
+    assert tester.io.fetch_output() == "https://bar.com/simple/\n"
+
+
+def test_display_repository_url_with_periods_in_name_escaped(
+    tester: CommandTester,
+) -> None:
+    tester.execute("repositories.my.repo https://bar.com/simple/")
+    tester.execute('repositories."my.repo".url')
+
+    assert tester.io.fetch_output() == "https://bar.com/simple/\n"
+
+
+def test_unset_repository_with_periods_in_name(
+    tester: CommandTester, config_source: DictConfigSource
+) -> None:
+    tester.execute("repositories.my.repo https://bar.com/simple/")
+    tester.execute("repositories.other https://other.com/simple/")
+    tester.execute("repositories.my.repo --unset")
+
+    assert "my.repo" not in config_source.config["repositories"]
+    assert config_source.config["repositories"]["other"]["url"] == (
+        "https://other.com/simple/"
+    )
+
+
 def test_unset_value_not_exists(tester: CommandTester) -> None:
     with pytest.raises(ValueError) as e:
         tester.execute("foobar --unset")
@@ -225,7 +283,7 @@ def test_unset_value_not_exists(tester: CommandTester) -> None:
     ("value", "expected"),
     [
         ("virtualenvs.create", "true\n"),
-        ("repositories.foo.url", "{'url': 'https://bar.com/simple/'}\n"),
+        ("repositories.foo.url", "https://bar.com/simple/\n"),
     ],
 )
 def test_display_single_setting(
@@ -335,6 +393,9 @@ keyring.enabled = true
 python.installation-dir = {json.dumps(str(Path("{data-dir}/python")))}  # {config_data_dir / "python"}
 requests.max-retries = 0
 solver.lazy-wheel = true
+solver.min-release-age = 0
+solver.min-release-age-exclude = null
+solver.min-release-age-exclude-source = null
 system-git-client = false
 virtualenvs.create = false
 virtualenvs.in-project = null
@@ -379,6 +440,9 @@ python.installation-dir = {json.dumps(str(Path("{data-dir}/python")))}  # {confi
 repositories.foo.url = "https://foo.bar/simple/"
 requests.max-retries = 0
 solver.lazy-wheel = true
+solver.min-release-age = 0
+solver.min-release-age-exclude = null
+solver.min-release-age-exclude-source = null
 system-git-client = false
 virtualenvs.create = true
 virtualenvs.in-project = null
@@ -461,17 +525,19 @@ def test_set_pypi_token_no_values(
     assert str(e.value) == "Expected a value for pypi-token.pypi setting."
 
 
+@pytest.mark.parametrize("repo_name", ["foo", "foo.bar"])
 def test_set_client_cert(
     tester: CommandTester,
     auth_config_source: DictConfigSource,
     mocker: MockerFixture,
+    repo_name: str,
 ) -> None:
     mocker.spy(ConfigSource, "__init__")
 
-    tester.execute("certificates.foo.client-cert path/to/cert.pem")
+    tester.execute(f"certificates.{repo_name}.client-cert path/to/cert.pem")
 
     assert (
-        auth_config_source.config["certificates"]["foo"]["client-cert"]
+        auth_config_source.config["certificates"][repo_name]["client-cert"]
         == "path/to/cert.pem"
     )
 
@@ -496,33 +562,37 @@ def test_set_client_cert_unsuccessful_multiple_values(
         ("false", False),
     ],
 )
+@pytest.mark.parametrize("repo_name", ["foo", "foo.bar"])
 def test_set_cert(
     tester: CommandTester,
     auth_config_source: DictConfigSource,
     mocker: MockerFixture,
+    repo_name: str,
     value: str,
     result: str | bool,
 ) -> None:
     mocker.spy(ConfigSource, "__init__")
 
-    tester.execute(f"certificates.foo.cert {value}")
+    tester.execute(f"certificates.{repo_name}.cert {value}")
 
-    assert auth_config_source.config["certificates"]["foo"]["cert"] == result
+    assert auth_config_source.config["certificates"][repo_name]["cert"] == result
 
 
+@pytest.mark.parametrize("repo_name", ["foo", "foo.bar"])
 def test_unset_cert(
     tester: CommandTester,
     auth_config_source: DictConfigSource,
     mocker: MockerFixture,
+    repo_name: str,
 ) -> None:
     mocker.spy(ConfigSource, "__init__")
 
-    tester.execute("certificates.foo.cert path/to/ca.pem")
+    tester.execute(f"certificates.{repo_name}.cert path/to/ca.pem")
 
-    assert "cert" in auth_config_source.config["certificates"]["foo"]
+    assert "cert" in auth_config_source.config["certificates"][repo_name]
 
-    tester.execute("certificates.foo.cert --unset")
-    assert "cert" not in auth_config_source.config["certificates"]["foo"]
+    tester.execute(f"certificates.{repo_name}.cert --unset")
+    assert "cert" not in auth_config_source.config["certificates"][repo_name]
 
 
 def test_config_installer_parallel(
@@ -598,6 +668,62 @@ def test_config_solver_lazy_wheel(
 
     repo = LegacyRepository("foo", "https://foo.com")
     assert not repo._lazy_wheel
+
+
+def test_config_solver_min_release_age(
+    tester: CommandTester, command_tester_factory: CommandTesterFactory
+) -> None:
+    tester.execute("--local solver.min-release-age")
+    assert tester.io.fetch_output().strip() == "0"
+
+    repo = LegacyRepository("foo", "https://foo.com")
+    assert repo._min_release_age == 0
+
+    tester.io.clear_output()
+    tester.execute("--local solver.min-release-age 3")
+    tester.execute("--local solver.min-release-age")
+    assert tester.io.fetch_output().strip() == "3"
+
+    repo = LegacyRepository("foo", "https://foo.com")
+    assert repo._min_release_age == 3
+
+
+def test_config_solver_min_release_age_exclude(
+    tester: CommandTester, command_tester_factory: CommandTesterFactory
+) -> None:
+    tester.execute("--local solver.min-release-age-exclude")
+    assert tester.io.fetch_output().strip() == "null"
+
+    repo = LegacyRepository("foo", "https://foo.com")
+    assert repo._min_release_age_exclude == set()
+
+    tester.io.clear_output()
+    tester.execute("--local solver.min-release-age 3")
+    tester.execute("--local solver.min-release-age-exclude 'my-pkg,Other-Pkg'")
+    tester.execute("--local solver.min-release-age-exclude")
+    output = tester.io.fetch_output().strip()
+    assert "my-pkg" in output
+    assert "other-pkg" in output
+
+    repo = LegacyRepository("foo", "https://foo.com")
+    assert repo._min_release_age_exclude == {"my-pkg", "other-pkg"}
+
+
+def test_config_solver_min_release_age_exclude_source(
+    tester: CommandTester, command_tester_factory: CommandTesterFactory
+) -> None:
+    tester.execute("--local solver.min-release-age-exclude-source")
+    assert tester.io.fetch_output().strip() == "null"
+
+    tester.io.clear_output()
+    tester.execute(
+        "--local solver.min-release-age-exclude-source"
+        " 'private-repo,https://example.com/simple/'"
+    )
+    tester.execute("--local solver.min-release-age-exclude-source")
+    output = tester.io.fetch_output().strip()
+    assert "private-repo" in output
+    assert "https://example.com/simple/" in output
 
 
 current_config = """\

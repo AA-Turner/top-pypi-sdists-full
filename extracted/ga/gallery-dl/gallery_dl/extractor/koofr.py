@@ -39,9 +39,6 @@ class KoofrSharedExtractor(Extractor):
             "Referer"        : referer,
             "X-Client"       : "newfrontend",
             "X-Koofr-Version": "2.1",
-            "Sec-Fetch-Dest" : "empty",
-            "Sec-Fetch-Mode" : "cors",
-            "Sec-Fetch-Site" : "same-origin",
         }
         data = self.request_json(url, params=params, headers=headers)
 

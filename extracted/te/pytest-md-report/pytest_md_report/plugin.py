@@ -5,6 +5,8 @@ from typing import Any, Optional
 
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
+from _pytest.mark.structures import Mark
+from _pytest.nodes import Item
 from _pytest.terminal import TerminalReporter
 from pytablewriter import TableWriterFactory
 from pytablewriter.writer.text import MarkdownFlavor, normalize_md_flavor
@@ -13,6 +15,9 @@ from typepy.error import TypeConversionError
 
 from ._const import ColorPolicy, Default, FGColor, Header, HelpMsg, Option, ZerosRender
 from ._style_filter import col_separator_style_filter, style_filter
+
+
+_MARK_DATA_ATTR = "_pytest_md_report_mark_data"
 
 
 def zero_to_nullstr(value: Any) -> Any:
@@ -108,6 +113,28 @@ def pytest_addoption(parser: Parser) -> None:
         help=Option.MD_EXCLUDE_OUTCOMES.help_msg
         + HelpMsg.EXTRA_MSG_TEMPLATE.format(Option.MD_EXCLUDE_OUTCOMES.envvar_str),
     )
+    group.addoption(
+        Option.MD_REPORT_MARK_COLS.cmdoption_str,
+        nargs="+",
+        default=[],
+        help=Option.MD_REPORT_MARK_COLS.help_msg
+        + HelpMsg.EXTRA_MSG_TEMPLATE.format(Option.MD_REPORT_MARK_COLS.envvar_str),
+    )
+    group.addoption(
+        Option.MD_REPORT_SHOW_DURATION.cmdoption_str,
+        action="store_true",
+        default=None,
+        help=Option.MD_REPORT_SHOW_DURATION.help_msg
+        + HelpMsg.EXTRA_MSG_TEMPLATE.format(Option.MD_REPORT_SHOW_DURATION.envvar_str),
+    )
+    group.addoption(
+        Option.MD_REPORT_DURATION_PRECISION.cmdoption_str,
+        metavar="PRECISION",
+        type=int,
+        default=None,
+        help=Option.MD_REPORT_DURATION_PRECISION.help_msg
+        + HelpMsg.EXTRA_MSG_TEMPLATE.format(Option.MD_REPORT_DURATION_PRECISION.envvar_str),
+    )
 
     parser.addini(
         Option.MD_REPORT.inioption_str,
@@ -170,6 +197,23 @@ def pytest_addoption(parser: Parser) -> None:
         type="args",
         default=[],
         help=Option.MD_EXCLUDE_OUTCOMES.help_msg,
+    )
+    parser.addini(
+        Option.MD_REPORT_MARK_COLS.inioption_str,
+        type="args",
+        default=[],
+        help=Option.MD_REPORT_MARK_COLS.help_msg,
+    )
+    parser.addini(
+        Option.MD_REPORT_SHOW_DURATION.inioption_str,
+        type="bool",
+        default=False,
+        help=Option.MD_REPORT_SHOW_DURATION.help_msg,
+    )
+    parser.addini(
+        Option.MD_REPORT_DURATION_PRECISION.inioption_str,
+        default=None,
+        help=Option.MD_REPORT_DURATION_PRECISION.help_msg,
     )
 
 
@@ -339,6 +383,87 @@ def retrieve_exclude_outcomes(config: Config) -> list[str]:
     raise TypeError(f"Unexpected type {type(exclude_outcomes)} for exclude_outcomes")
 
 
+def retrieve_mark_cols(config: Config) -> list[str]:
+    def norm_names(names: Sequence[Any]) -> list[str]:
+        return [str(name).strip() for name in names if str(name).strip()]
+
+    mark_cols = config.option.md_report_mark_cols
+
+    if not mark_cols:
+        env_value = os.environ.get(Option.MD_REPORT_MARK_COLS.envvar_str)
+        if env_value:
+            return norm_names(env_value.split(","))
+
+    if not mark_cols:
+        mark_cols = config.getini(Option.MD_REPORT_MARK_COLS.inioption_str)
+
+    if not mark_cols:
+        return []
+
+    if isinstance(mark_cols, list):
+        return norm_names(mark_cols)
+    if isinstance(mark_cols, str):
+        return norm_names(mark_cols.split(","))
+
+    raise TypeError(f"Unexpected type {type(mark_cols)} for mark_cols")
+
+
+def retrieve_show_duration(config: Config) -> bool:
+    show_duration: Optional[bool] = config.option.md_report_show_duration
+
+    if show_duration is None:
+        show_duration = _to_bool(os.environ.get(Option.MD_REPORT_SHOW_DURATION.envvar_str))
+
+    if show_duration is None:
+        show_duration = _to_bool(config.getini(Option.MD_REPORT_SHOW_DURATION.inioption_str))
+
+    return bool(show_duration) if show_duration is not None else False
+
+
+def retrieve_duration_precision(config: Config) -> int:
+    precision: Optional[int] = config.option.md_report_duration_precision
+
+    if precision is None:
+        precision = _to_int(os.environ.get(Option.MD_REPORT_DURATION_PRECISION.envvar_str))
+
+    if precision is None:
+        precision = _to_int(config.getini(Option.MD_REPORT_DURATION_PRECISION.inioption_str))
+
+    if precision is None or precision < 0:
+        return Default.DURATION_PRECISION
+
+    return precision
+
+
+def _render_mark(marker: Mark) -> str:
+    parts: list[str] = []
+    if marker.args:
+        parts.extend(str(a) for a in marker.args)
+    if marker.kwargs:
+        parts.extend(f"{k}={v}" for k, v in marker.kwargs.items())
+    if not parts:
+        return "True"
+    return ", ".join(parts)
+
+
+def pytest_collection_modifyitems(config: Config, items: Sequence[Item]) -> None:
+    target_marks = retrieve_mark_cols(config)
+    if not target_marks:
+        return
+
+    data: dict[str, dict[str, str]] = {}
+    for item in items:
+        per_test: dict[str, str] = {}
+        for name in target_marks:
+            rendered = [_render_mark(marker) for marker in item.iter_markers(name=name)]
+            if rendered:
+                per_test[name] = " | ".join(rendered)
+        if per_test:
+            data[item.nodeid] = per_test
+
+    setattr(config, _MARK_DATA_ATTR, data)
+
+
 def retrieve_color_policy(config: Config) -> ColorPolicy:
     color_policy = config.option.md_report_color
 
@@ -419,44 +544,79 @@ def retrieve_stat_count_map(reporter: TerminalReporter) -> dict[str, int]:
     return stat_count_map
 
 
+def _compute_row_key(value: Any, verbosity_level: int) -> Optional[tuple]:
+    try:
+        filesystempath, _lineno, _domaininfo = value.location
+    except AttributeError:
+        return None
+
+    filesystempath = os.path.normpath(filesystempath).replace("\\", "/")
+    head_line = getattr(value, "head_line", "") or ""
+    testfunc = head_line.split("[")[0]
+
+    if verbosity_level == 0:
+        return (filesystempath,)
+    if verbosity_level == 1:
+        return (filesystempath, testfunc)
+    if verbosity_level >= 2:
+        param_str = ""
+        if "[" in head_line:
+            param_str = head_line.split("[", 1)[1].rstrip("]")
+        return (filesystempath, testfunc, param_str)
+    return None
+
+
 def extract_pytest_stats(
-    reporter: TerminalReporter, outcomes: Sequence[str], verbosity_level: int
-) -> Mapping[tuple, Mapping[str, int]]:
+    reporter: TerminalReporter,
+    outcomes: Sequence[str],
+    verbosity_level: int,
+    mark_data: Optional[Mapping[str, Mapping[str, str]]] = None,
+    mark_cols: Sequence[str] = (),
+) -> tuple[
+    Mapping[tuple, Mapping[str, int]],
+    Mapping[tuple, Mapping[str, list[str]]],
+    Mapping[tuple, float],
+]:
     results_per_testfunc: dict[tuple, dict[str, int]] = {}
+    marks_per_key: dict[tuple, dict[str, list[str]]] = {}
+    durations_per_key: dict[tuple, float] = defaultdict(float)
 
     for stat_key, values in reporter.stats.items():
-        if stat_key not in outcomes:
-            continue
-
         for value in values:
-            try:
-                filesystempath, lineno, domaininfo = value.location
-            except AttributeError:
+            key = _compute_row_key(value, verbosity_level)
+            if key is None:
                 continue
 
-            filesystempath = os.path.normpath(filesystempath).replace("\\", "/")
-            testfunc = value.head_line.split("[")[0]
+            duration = getattr(value, "duration", 0.0) or 0.0
+            try:
+                durations_per_key[key] += float(duration)
+            except (TypeError, ValueError):
+                pass
 
-            if verbosity_level == 0:
-                key: tuple = (filesystempath,)
-            elif verbosity_level == 1:
-                key = (filesystempath, testfunc)
-            elif verbosity_level >= 2:
-                # extract parameter part if it exists
-                param_str = ""
-                if "[" in value.head_line:
-                    param_str = value.head_line.split("[", 1)[1].rstrip("]")
-
-                key = (filesystempath, testfunc, param_str)
-            else:
+            if stat_key not in outcomes:
                 continue
 
             if key not in results_per_testfunc:
                 results_per_testfunc[key] = defaultdict(int)
+                marks_per_key[key] = {col: [] for col in mark_cols}
 
             results_per_testfunc[key][stat_key] += 1
 
-    return results_per_testfunc
+            if mark_data and mark_cols:
+                nodeid = getattr(value, "nodeid", None)
+                if nodeid is None:
+                    continue
+                test_marks = mark_data.get(nodeid)
+                if not test_marks:
+                    continue
+                for col in mark_cols:
+                    rendered = test_marks.get(col)
+                    if rendered and rendered not in marks_per_key[key][col]:
+                        marks_per_key[key][col].append(rendered)
+
+    durations_for_results = {key: durations_per_key.get(key, 0.0) for key in results_per_testfunc}
+
+    return results_per_testfunc, marks_per_key, durations_for_results
 
 
 def make_md_report(
@@ -469,6 +629,10 @@ def make_md_report(
 ) -> str:
     verbosity_level = retrieve_verbosity_level(config)
     exclude_outcomes = retrieve_exclude_outcomes(config)
+    mark_cols = retrieve_mark_cols(config)
+    mark_data: Mapping[str, Mapping[str, str]] = getattr(config, _MARK_DATA_ATTR, {})
+    show_duration = retrieve_show_duration(config)
+    duration_precision = retrieve_duration_precision(config)
 
     outcomes = ["passed", "failed", "error", "skipped", "xfailed", "xpassed"]
     outcomes = [key for key in outcomes if key not in exclude_outcomes]
@@ -477,38 +641,89 @@ def make_md_report(
     if not outcomes:
         return ""
 
-    results_per_testfunc = extract_pytest_stats(
-        reporter=reporter, outcomes=outcomes, verbosity_level=verbosity_level
+    results_per_testfunc, marks_per_key, durations_per_key = extract_pytest_stats(
+        reporter=reporter,
+        outcomes=outcomes,
+        verbosity_level=verbosity_level,
+        mark_data=mark_data,
+        mark_cols=mark_cols,
     )
 
     writer = TableWriterFactory.create_from_format_name(
         "md", flavor=md_flavor.value, colorize_terminal=apply_ansi_escape
     )
 
+    def mark_cells(key: tuple) -> list[str]:
+        cells = []
+        per_key = marks_per_key.get(key, {})
+        for col in mark_cols:
+            cells.append(", ".join(per_key.get(col, [])))
+        return cells
+
+    def fmt_duration(seconds: float) -> str:
+        return f"{seconds:.{duration_precision}f}"
+
+    def duration_cells(key: tuple) -> list[str]:
+        if not show_duration:
+            return []
+        return [fmt_duration(durations_per_key.get(key, 0.0))]
+
+    def total_duration_cells() -> list[str]:
+        if not show_duration:
+            return []
+        return [fmt_duration(sum(durations_per_key.values()))]
+
+    duration_header = [Header.DURATION] if show_duration else []
+
     matrix = [
-        list(key) + [results.get(key, 0) for key in outcomes] + [sum(results.values())]
+        list(key)
+        + mark_cells(key)
+        + [results.get(k, 0) for k in outcomes]
+        + [sum(results.values())]
+        + duration_cells(key)
         for key, results in results_per_testfunc.items()
     ]
+    empty_mark_cells: list[str] = ["" for _ in mark_cols]
     if verbosity_level == 0:
-        writer.headers = [Header.FILEPATH] + outcomes + [Header.SUBTOTAL]
-        matrix.append(
-            ["TOTAL"] + [total_stats.get(key, 0) for key in outcomes] + [sum(total_stats.values())]
+        writer.headers = (
+            [Header.FILEPATH] + list(mark_cols) + outcomes + [Header.SUBTOTAL] + duration_header
         )
-    elif verbosity_level == 1:
-        writer.headers = [Header.FILEPATH, Header.TESTFUNC] + outcomes + [Header.SUBTOTAL]
         matrix.append(
-            ["TOTAL", ""]
+            ["TOTAL"]
+            + empty_mark_cells
             + [total_stats.get(key, 0) for key in outcomes]
             + [sum(total_stats.values())]
+            + total_duration_cells()
+        )
+    elif verbosity_level == 1:
+        writer.headers = (
+            [Header.FILEPATH, Header.TESTFUNC]
+            + list(mark_cols)
+            + outcomes
+            + [Header.SUBTOTAL]
+            + duration_header
+        )
+        matrix.append(
+            ["TOTAL", ""]
+            + empty_mark_cells
+            + [total_stats.get(key, 0) for key in outcomes]
+            + [sum(total_stats.values())]
+            + total_duration_cells()
         )
     elif verbosity_level >= 2:
         writer.headers = (
-            [Header.FILEPATH, Header.TESTFUNC, Header.PARAMS] + outcomes + [Header.SUBTOTAL]
+            [Header.FILEPATH, Header.TESTFUNC, Header.PARAMS]
+            + list(mark_cols)
+            + outcomes
+            + [Header.SUBTOTAL]
+            + duration_header
         )
         matrix.append(
             ["TOTAL", "", ""]
+            + empty_mark_cells
             + [total_stats.get(key, 0) for key in outcomes]
             + [sum(total_stats.values())]
+            + total_duration_cells()
         )
 
     writer.margin = retrieve_report_margin(config)

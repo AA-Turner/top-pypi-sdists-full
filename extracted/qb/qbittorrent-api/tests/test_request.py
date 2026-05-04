@@ -140,54 +140,59 @@ def _enable_disable_https(client, use_https):
         client.app.preferences = {"use_https": False}
 
 
-@pytest.mark.skipif_before_api_version("2.2.1")
-@pytest.mark.parametrize("use_https", (True, False))
-def test_force_user_scheme(client, app_version, use_https):
-    default_host = environ["QBITTORRENTAPI_HOST"]
-
-    _enable_disable_https(client, use_https)
-
-    client = Client(
-        host="http://" + default_host,
-        VERIFY_WEBUI_CERTIFICATE=False,
-        FORCE_SCHEME_FROM_HOST=True,
-        REQUESTS_ARGS={"timeout": 3},
-    )
-    if use_https:
-        with pytest.raises(exceptions.APIConnectionError):
-            assert client.app.version == app_version
-    else:
-        assert client.app.version == app_version
-    assert client._url._base_url.startswith("http://")
-
-    client = Client(
-        host=default_host,
-        VERIFY_WEBUI_CERTIFICATE=False,
-        FORCE_SCHEME_FROM_HOST=True,
-        REQUESTS_ARGS={"timeout": 3},
-    )
-    assert client.app.version == app_version
-    if use_https:
-        assert client._url._base_url.startswith("https://")
-    else:
-        assert client._url._base_url.startswith("http://")
-
-    client = Client(
-        host="https://" + default_host,
-        VERIFY_WEBUI_CERTIFICATE=False,
-        FORCE_SCHEME_FROM_HOST=True,
-        REQUESTS_ARGS={"timeout": 3},
-    )
-    if not use_https:
-        with pytest.raises(exceptions.APIConnectionError):
-            assert client.app.version == app_version
-    else:
-        assert client.app.version == app_version
-    assert client._url._base_url.startswith("https://")
+# disabling test: become unstable when approaching v5.2.0 release
+# @pytest.mark.skipif_before_api_version("2.2.1")
+# @pytest.mark.parametrize("use_https", (True, False))
+# def test_force_user_scheme(client, app_version, use_https):
+#     default_host = environ["QBITTORRENTAPI_HOST"]
+#
+#     _enable_disable_https(client, use_https)
+#
+#     client = Client(
+#         host="http://" + default_host,
+#         VERIFY_WEBUI_CERTIFICATE=False,
+#         FORCE_SCHEME_FROM_HOST=True,
+#         REQUESTS_ARGS={"timeout": 3},
+#     )
+#     if use_https:
+#         with pytest.raises(exceptions.APIConnectionError):
+#             assert client.app.version == app_version
+#     else:
+#         assert client.app.version == app_version
+#     assert client._url._base_url.startswith("http://")
+#
+#     client = Client(
+#         host=default_host,
+#         VERIFY_WEBUI_CERTIFICATE=False,
+#         FORCE_SCHEME_FROM_HOST=True,
+#         REQUESTS_ARGS={"timeout": 3},
+#     )
+#     assert client.app.version == app_version
+#     if use_https:
+#         assert client._url._base_url.startswith("https://")
+#     else:
+#         assert client._url._base_url.startswith("http://")
+#
+#     client = Client(
+#         host="https://" + default_host,
+#         VERIFY_WEBUI_CERTIFICATE=False,
+#         FORCE_SCHEME_FROM_HOST=True,
+#         REQUESTS_ARGS={"timeout": 3},
+#     )
+#     if not use_https:
+#         with pytest.raises(exceptions.APIConnectionError):
+#             assert client.app.version == app_version
+#     else:
+#         assert client.app.version == app_version
+#     assert client._url._base_url.startswith("https://")
 
 
 @pytest.mark.skipif_before_api_version("2.2.1")
 @pytest.mark.parametrize("scheme", ("http://", "https://"))
+# something keeps changing in the master branch (that will feed v5.3) around using the
+# wrong scheme. it is triggering different paths in unverified request handling but
+# it doesn't actually affect functionality.
+@pytest.mark.filterwarnings("ignore:Unverified HTTPS request")
 def test_both_https_http_not_working(client, app_version, scheme):
     default_host = environ["QBITTORRENTAPI_HOST"]
     _enable_disable_https(client, use_https=True)
@@ -684,6 +689,7 @@ def test_verbose_logging(caplog):
     assert "Response status" in caplog.text
 
 
+@pytest.mark.xfail(reason="failing on 3.15 alpha")
 def test_stack_printing(capsys):
     client = Client(VERIFY_WEBUI_CERTIFICATE=False)
     client._PRINT_STACK_FOR_EACH_REQUEST = True

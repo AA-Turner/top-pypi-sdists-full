@@ -76,8 +76,8 @@ class StringFormatter():
     - "a": calls ascii()
     - Example: {f!l} -> "example"; {f!u} -> "EXAMPLE"
 
-    # Go to _CONVERSIONS and _SPECIFIERS below to se all of them, read:
-    # https://github.com/mikf/gallery-dl/blob/master/docs/formatting.md
+    # Go to _CONVERSIONS and _SPECIFIERS below to see all of them, read:
+    # https://gdl-org.github.io/docs/formatting.html
 
     Extra Format Specifiers:
     - "?<before>/<after>/":

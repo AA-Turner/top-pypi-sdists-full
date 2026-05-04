@@ -85,7 +85,9 @@ from .type_utils import (make_bool,
                          is_any_instance,
                          break_string,
                          MIME_TYPES,
-                         get_if_None
+                         get_if_None,
+                         derive_media_type,
+                         get_media_map
                          )
 get_media_types = get_all_types = get_all_file_types
 from .math_utils import (convert_to_percentage,

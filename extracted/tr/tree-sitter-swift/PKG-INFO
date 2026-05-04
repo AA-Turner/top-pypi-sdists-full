@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: tree-sitter-swift
-Version: 0.0.1
+Version: 0.7.2
 Summary: Swift grammar for tree-sitter
 License: MIT
-Project-URL: Homepage, https://github.com/tree-sitter/tree-sitter-swift
+Project-URL: Homepage, https://github.com/alex-pinkus/tree-sitter-swift
 Keywords: incremental,parsing,tree-sitter,swift
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -37,7 +37,7 @@ To use the Rust crate, you'll add this to your `Cargo.toml`:
 
 ```
 tree-sitter = "0.23.0"
-tree-sitter-swift = "=0.7.1"
+tree-sitter-swift = "=0.7.2"
 ```
 
 Then you can use a `tree-sitter` parser with the language declared here:
@@ -58,7 +58,7 @@ To use this from NPM, you'll add similar dependencies to `package.json`:
 
 ```
 "dependencies: {
-  "tree-sitter-swift": "0.7.1",
+  "tree-sitter-swift": "0.7.2",
   "tree-sitter": "^0.22.1"
 }
 ```

@@ -6,6 +6,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
+from poetry.core.packages.utils.utils import splitext
+
 from poetry.utils.helpers import extractall
 from poetry.utils.isolated_build import isolated_builder
 
@@ -96,7 +98,7 @@ class Chef:
     ) -> Path:
         from poetry.core.packages.utils.link import Link
 
-        suffix = archive.suffix
+        _, suffix = splitext(archive)
         zip = suffix == ".zip"
 
         with TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
@@ -108,7 +110,7 @@ class Chef:
             if len(elements) == 1 and elements[0].is_dir():
                 sdist_dir = elements[0]
             else:
-                sdist_dir = archive_dir / archive.name.rstrip(suffix)
+                sdist_dir = archive_dir / archive.name.removesuffix(suffix)
                 if not sdist_dir.is_dir():
                     sdist_dir = archive_dir
 

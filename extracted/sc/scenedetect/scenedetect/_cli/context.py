@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2023 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -24,6 +24,8 @@ from scenedetect._cli.config import (
     ConfigRegistry,
     CropValue,
 )
+from scenedetect.common import MAX_FPS_DELTA, FrameTimecode
+from scenedetect.detector import SceneDetector
 from scenedetect.detectors import (
     AdaptiveDetector,
     ContentDetector,
@@ -31,12 +33,10 @@ from scenedetect.detectors import (
     HistogramDetector,
     ThresholdDetector,
 )
-from scenedetect.frame_timecode import MAX_FPS_DELTA, FrameTimecode
-from scenedetect.platform import init_logger
-from scenedetect.scene_detector import FlashFilter, SceneDetector
-from scenedetect.scene_manager import Interpolation, SceneManager
+from scenedetect.output import is_ffmpeg_available, is_mkvmerge_available
+from scenedetect.platform import DEBUG_MODE, init_logger
+from scenedetect.scene_manager import SceneManager
 from scenedetect.stats_manager import StatsManager
-from scenedetect.video_splitter import is_ffmpeg_available, is_mkvmerge_available
 from scenedetect.video_stream import FrameRateUnavailable, VideoOpenFailure, VideoStream
 
 logger = logging.getLogger("pyscenedetect")
@@ -81,56 +81,75 @@ class CliContext:
     def __init__(self):
         # State:
         self.config: ConfigRegistry = USER_CONFIG
-        self.quiet_mode: bool = None
-        self.scene_manager: SceneManager = None
-        self.stats_manager: StatsManager = None
+        self.quiet_mode: bool | None = None
+        self.scene_manager: SceneManager | None = None
+        self.stats_manager: StatsManager | None = None
         self.save_images: bool = False  # True if the save-images command was specified
         self.save_images_result: ty.Any = (None, None)  # Result of save-images used by save-html
 
         # Input:
-        self.video_stream: VideoStream = None
-        self.load_scenes_input: str = None  # load-scenes -i/--input
-        self.load_scenes_column_name: str = None  # load-scenes -c/--start-col-name
-        self.start_time: ty.Optional[FrameTimecode] = None  # time -s/--start
-        self.end_time: ty.Optional[FrameTimecode] = None  # time -e/--end
-        self.duration: ty.Optional[FrameTimecode] = None  # time -d/--duration
-        self.frame_skip: int = None
+        self.video_stream: VideoStream | None = None
+        self.load_scenes_input: str | None = None  # load-scenes -i/--input
+        self.load_scenes_column_name: str | None = None  # load-scenes -c/--start-col-name
+        self.start_time: FrameTimecode | None = None  # time -s/--start
+        self.end_time: FrameTimecode | None = None  # time -e/--end
+        self.duration: FrameTimecode | None = None  # time -d/--duration
+        self.frame_skip: int | None = None
 
         # Options:
-        self.drop_short_scenes: bool = None
-        self.merge_last_scene: bool = None
-        self.min_scene_len: FrameTimecode = None
-        self.default_detector: ty.Tuple[ty.Type[SceneDetector], ty.Dict[str, ty.Any]] = None
-        self.output: str = None
-        self.stats_file_path: str = None
+        self.drop_short_scenes: bool | None = None
+        self.merge_last_scene: bool | None = None
+        self.min_scene_len: FrameTimecode | None = None
+        self.default_detector: tuple[type[SceneDetector], dict[str, ty.Any]] | None = None
+        self.output: str | None = None
+        self.stats_file_path: str | None = None
 
         # Output Commands (e.g. split-video, save-images):
         # Commands to run after the detection pipeline. Stored as (callback, args) and invoked with
         # the results of the detection pipeline by the controller.
-        self.commands: ty.List[ty.Tuple[ty.Callable, ty.Dict[str, ty.Any]]] = []
+        self.commands: list[tuple[ty.Callable, dict[str, ty.Any]]] = []
 
-    def add_command(self, command: ty.Callable, command_args: ty.Dict[str, ty.Any]):
+    def add_command(self, command: ty.Callable, command_args: dict[str, ty.Any]):
         """Add `command` to the processing pipeline. Will be called after processing the input."""
         if "output" in command_args and command_args["output"] is None:
             command_args["output"] = self.output
         logger.debug("Adding command: %s(%s)", command.__name__, command_args)
         self.commands.append((command, command_args))
 
-    def add_detector(self, detector: ty.Type[SceneDetector], detector_args: ty.Dict[str, ty.Any]):
+    def add_detector(self, detector: type[SceneDetector], detector_args: dict[str, ty.Any]):
         """Instantiate and add `detector` to the processing pipeline."""
         if self.load_scenes_input:
             raise click.ClickException("The load-scenes command cannot be used with detectors.")
+        assert self.scene_manager is not None
         logger.debug("Adding detector: %s(%s)", detector.__name__, detector_args)
         self.scene_manager.add_detector(detector(**detector_args))
 
     def ensure_detector(self):
         """Ensures at least one detector has been instantiated, otherwise adds a default one."""
+        assert self.scene_manager is not None
+        assert self.default_detector is not None
         if self.scene_manager.get_num_detectors() == 0:
             logger.debug("No detector specified, adding default detector.")
             (detector_type, detector_args) = self.default_detector
             self.add_detector(detector_type, detector_args)
 
-    def parse_timecode(self, value: ty.Optional[str], correct_pts: bool = False) -> FrameTimecode:
+    def _resolve_min_scene_len(self, command: str, override: str | None) -> int:
+        """Resolve the minimum scene length (in frames) for a `detect-*` command, honoring
+        the `--drop-short-scenes` flag, command-specific config, and global default."""
+        if self.drop_short_scenes:
+            return 0
+        if override is not None:
+            parsed = self.parse_timecode(override)
+            assert parsed is not None
+            return parsed.frame_num
+        if self.config.is_default(command, "min-scene-len"):
+            assert self.min_scene_len is not None
+            return self.min_scene_len.frame_num
+        parsed = self.parse_timecode(self.config.get_value(command, "min-scene-len"))
+        assert parsed is not None
+        return parsed.frame_num
+
+    def parse_timecode(self, value: str | None, correct_pts: bool = False) -> FrameTimecode | None:
         """Parses a user input string into a FrameTimecode assuming the given framerate. If `value`
         is None it will be passed through without processing.
 
@@ -142,11 +161,13 @@ class CliContext:
         try:
             if self.video_stream is None:
                 raise click.ClickException("No input video (-i/--input) was specified.")
+            timecode: int | str
             if correct_pts and value.isdigit():
-                value = int(value)
-                if value >= 1:
-                    value -= 1
-            return FrameTimecode(timecode=value, fps=self.video_stream.frame_rate)
+                int_value = int(value)
+                timecode = int_value - 1 if int_value >= 1 else int_value
+            else:
+                timecode = value
+            return FrameTimecode(timecode=timecode, fps=self.video_stream.frame_rate)
         except ValueError as ex:
             raise click.BadParameter(
                 "timecode must be in seconds (100.0), frames (100), or HH:MM:SS"
@@ -154,22 +175,22 @@ class CliContext:
 
     def handle_options(
         self,
-        input_path: ty.AnyStr,
-        output: ty.Optional[ty.AnyStr],
-        framerate: float,
-        stats_file: ty.Optional[ty.AnyStr],
-        frame_skip: int,
-        min_scene_len: str,
-        drop_short_scenes: ty.Optional[bool],
-        merge_last_scene: ty.Optional[bool],
-        backend: ty.Optional[str],
-        crop: ty.Optional[ty.Tuple[int, int, int, int]],
-        downscale: ty.Optional[int],
+        input_path: str | None,
+        output: str | None,
+        frame_rate: float | None,
+        stats_file: str | None,
+        frame_skip: int | None,
+        min_scene_len: str | None,
+        drop_short_scenes: bool | None,
+        merge_last_scene: bool | None,
+        backend: str | None,
+        crop: tuple[int, int, int, int] | None,
+        downscale: int | None,
         quiet: bool,
-        logfile: ty.Optional[ty.AnyStr],
-        config: ty.Optional[ty.AnyStr],
-        stats: ty.Optional[ty.AnyStr],
-        verbosity: ty.Optional[str],
+        logfile: str | None,
+        config: str | None,
+        stats: str | None,
+        verbosity: str | None,
     ):
         """Parse all global options/arguments passed to the main scenedetect command,
         before other sub-commands (e.g. this function processes the [options] when calling
@@ -185,6 +206,7 @@ class CliContext:
 
         # The `scenedetect` command was just started, let's initialize logging and try to load any
         # config files that were specified.
+        init_log: list = []
         try:
             init_failure = not self.config.initialized
             init_log = self.config.get_init_log()
@@ -206,7 +228,9 @@ class CliContext:
             init_failure = True
             init_log += ex.init_log
             if ex.reason is not None:
-                init_log += [(logging.ERROR, "Error: %s" % str(ex.reason).replace("\t", "  "))]
+                init_log += [
+                    (logging.ERROR, "Error: {}".format(str(ex.reason).replace("\t", "  ")))
+                ]
         finally:
             # Make sure we print the version number even on any kind of init failure.
             logger.info("PySceneDetect %s", scenedetect.__version__)
@@ -236,7 +260,7 @@ class CliContext:
             return
 
         # Load the input video to obtain a time base for parsing timecodes.
-        self._open_video_stream(input_path, framerate, backend)
+        self._open_video_stream(input_path, frame_rate, backend)
 
         self.output = self.config.get_value("global", "output", output)
         if self.output:
@@ -282,9 +306,9 @@ class CliContext:
             scene_manager.auto_downscale = True
         else:
             scene_manager.auto_downscale = False
-            downscale = self.config.get_value("global", "downscale", downscale)
+            downscale_value: int = self.config.get_value("global", "downscale", downscale)
             try:
-                scene_manager.downscale = downscale
+                scene_manager.downscale = downscale_value
             except ValueError as ex:
                 logger.debug(str(ex))
                 raise click.BadParameter(str(ex), param_hint="downscale factor") from ex
@@ -295,6 +319,7 @@ class CliContext:
             crop = self.config.get_value("global", "crop", CropValue(crop))
             if crop is not None:
                 (min_x, min_y) = crop[0:2]
+                assert self.video_stream is not None
                 frame_size = self.video_stream.frame_size
                 if min_x >= frame_size[0] or min_y >= frame_size[1]:
                     region = CropValue(crop)
@@ -312,29 +337,21 @@ class CliContext:
 
     def get_detect_content_params(
         self,
-        threshold: ty.Optional[float] = None,
-        luma_only: bool = None,
-        min_scene_len: ty.Optional[str] = None,
-        weights: ty.Optional[ty.Tuple[float, float, float, float]] = None,
-        kernel_size: ty.Optional[int] = None,
-        filter_mode: ty.Optional[str] = None,
-    ) -> ty.Dict[str, ty.Any]:
+        threshold: float | None = None,
+        luma_only: bool | None = None,
+        min_scene_len: str | None = None,
+        weights: tuple[float, float, float, float] | None = None,
+        kernel_size: int | None = None,
+        filter_mode: str | None = None,
+    ) -> dict[str, ty.Any]:
         """Get a dict containing user options to construct a ContentDetector with."""
-        if self.drop_short_scenes:
-            min_scene_len = 0
-        else:
-            if min_scene_len is None:
-                if self.config.is_default("detect-content", "min-scene-len"):
-                    min_scene_len = self.min_scene_len.frame_num
-                else:
-                    min_scene_len = self.config.get_value("detect-content", "min-scene-len")
-            min_scene_len = self.parse_timecode(min_scene_len).frame_num
+        min_scene_len_frames = self._resolve_min_scene_len("detect-content", min_scene_len)
 
         if weights is not None:
             try:
                 weights = ContentDetector.Components(*weights)
             except ValueError as ex:
-                if __debug__:
+                if DEBUG_MODE:
                     raise
                 logger.debug(str(ex))
                 raise click.BadParameter(str(ex), param_hint="weights") from None
@@ -343,55 +360,30 @@ class CliContext:
             "weights": self.config.get_value("detect-content", "weights", weights),
             "kernel_size": self.config.get_value("detect-content", "kernel-size", kernel_size),
             "luma_only": luma_only or self.config.get_value("detect-content", "luma-only"),
-            "min_scene_len": min_scene_len,
+            "min_scene_len": min_scene_len_frames,
             "threshold": self.config.get_value("detect-content", "threshold", threshold),
             "filter_mode": self.config.get_value("detect-content", "filter-mode", filter_mode),
         }
 
     def get_detect_adaptive_params(
         self,
-        threshold: ty.Optional[float] = None,
-        min_content_val: ty.Optional[float] = None,
-        frame_window: ty.Optional[int] = None,
-        luma_only: bool = None,
-        min_scene_len: ty.Optional[str] = None,
-        weights: ty.Optional[ty.Tuple[float, float, float, float]] = None,
-        kernel_size: ty.Optional[int] = None,
-        min_delta_hsv: ty.Optional[float] = None,
-    ) -> ty.Dict[str, ty.Any]:
+        threshold: float | None = None,
+        min_content_val: float | None = None,
+        frame_window: int | None = None,
+        luma_only: bool | None = None,
+        min_scene_len: str | None = None,
+        weights: tuple[float, float, float, float] | None = None,
+        kernel_size: int | None = None,
+    ) -> dict[str, ty.Any]:
         """Handle detect-adaptive command options and return args to construct one with."""
 
-        # TODO(v0.7): Remove these branches when removing -d/--min-delta-hsv.
-        if min_delta_hsv is not None:
-            logger.error("-d/--min-delta-hsv is deprecated, use -c/--min-content-val instead.")
-            if min_content_val is None:
-                min_content_val = min_delta_hsv
-        # Handle case where deprecated min-delta-hsv is set, and use it to set min-content-val.
-        if not self.config.is_default("detect-adaptive", "min-delta-hsv"):
-            logger.error(
-                "[detect-adaptive] config file option `min-delta-hsv` is deprecated"
-                ", use `min-delta-hsv` instead."
-            )
-            if self.config.is_default("detect-adaptive", "min-content-val"):
-                self.config.config_dict["detect-adaptive"]["min-content-val"] = (
-                    self.config.config_dict["detect-adaptive"]["min-deleta-hsv"]
-                )
-
-        if self.drop_short_scenes:
-            min_scene_len = 0
-        else:
-            if min_scene_len is None:
-                if self.config.is_default("detect-adaptive", "min-scene-len"):
-                    min_scene_len = self.min_scene_len.frame_num
-                else:
-                    min_scene_len = self.config.get_value("detect-adaptive", "min-scene-len")
-            min_scene_len = self.parse_timecode(min_scene_len).frame_num
+        min_scene_len_frames = self._resolve_min_scene_len("detect-adaptive", min_scene_len)
 
         if weights is not None:
             try:
                 weights = ContentDetector.Components(*weights)
             except ValueError as ex:
-                if __debug__:
+                if DEBUG_MODE:
                     raise
                 logger.debug(str(ex))
                 raise click.BadParameter(str(ex), param_hint="weights") from None
@@ -403,81 +395,57 @@ class CliContext:
             "min_content_val": self.config.get_value(
                 "detect-adaptive", "min-content-val", min_content_val
             ),
-            "min_scene_len": min_scene_len,
+            "min_scene_len": min_scene_len_frames,
             "window_width": self.config.get_value("detect-adaptive", "frame-window", frame_window),
         }
 
     def get_detect_threshold_params(
         self,
-        threshold: ty.Optional[float] = None,
-        fade_bias: ty.Optional[float] = None,
-        add_last_scene: bool = None,
-        min_scene_len: ty.Optional[str] = None,
-    ) -> ty.Dict[str, ty.Any]:
+        threshold: float | None = None,
+        fade_bias: float | None = None,
+        add_last_scene: bool | None = None,
+        min_scene_len: str | None = None,
+    ) -> dict[str, ty.Any]:
         """Handle detect-threshold command options and return args to construct one with."""
 
-        if self.drop_short_scenes:
-            min_scene_len = 0
-        else:
-            if min_scene_len is None:
-                if self.config.is_default("detect-threshold", "min-scene-len"):
-                    min_scene_len = self.min_scene_len.frame_num
-                else:
-                    min_scene_len = self.config.get_value("detect-threshold", "min-scene-len")
-            min_scene_len = self.parse_timecode(min_scene_len).frame_num
+        min_scene_len_frames = self._resolve_min_scene_len("detect-threshold", min_scene_len)
         # TODO(v1.0): add_last_scene cannot be disabled right now.
         return {
             "add_final_scene": add_last_scene
             or self.config.get_value("detect-threshold", "add-last-scene"),
             "fade_bias": self.config.get_value("detect-threshold", "fade-bias", fade_bias),
-            "min_scene_len": min_scene_len,
+            "min_scene_len": min_scene_len_frames,
             "threshold": self.config.get_value("detect-threshold", "threshold", threshold),
         }
 
     def get_detect_hist_params(
         self,
-        threshold: ty.Optional[float] = None,
-        bins: ty.Optional[int] = None,
-        min_scene_len: ty.Optional[str] = None,
-    ) -> ty.Dict[str, ty.Any]:
+        threshold: float | None = None,
+        bins: int | None = None,
+        min_scene_len: str | None = None,
+    ) -> dict[str, ty.Any]:
         """Handle detect-hist command options and return args to construct one with."""
 
-        if self.drop_short_scenes:
-            min_scene_len = 0
-        else:
-            if min_scene_len is None:
-                if self.config.is_default("detect-hist", "min-scene-len"):
-                    min_scene_len = self.min_scene_len.frame_num
-                else:
-                    min_scene_len = self.config.get_value("detect-hist", "min-scene-len")
-            min_scene_len = self.parse_timecode(min_scene_len).frame_num
+        min_scene_len_frames = self._resolve_min_scene_len("detect-hist", min_scene_len)
         return {
             "bins": self.config.get_value("detect-hist", "bins", bins),
-            "min_scene_len": min_scene_len,
+            "min_scene_len": min_scene_len_frames,
             "threshold": self.config.get_value("detect-hist", "threshold", threshold),
         }
 
     def get_detect_hash_params(
         self,
-        threshold: ty.Optional[float] = None,
-        size: ty.Optional[int] = None,
-        lowpass: ty.Optional[int] = None,
-        min_scene_len: ty.Optional[str] = None,
-    ) -> ty.Dict[str, ty.Any]:
+        threshold: float | None = None,
+        size: int | None = None,
+        lowpass: int | None = None,
+        min_scene_len: str | None = None,
+    ) -> dict[str, ty.Any]:
         """Handle detect-hash command options and return args to construct one with."""
 
-        if self.drop_short_scenes:
-            min_scene_len = 0
-        else:
-            if min_scene_len is None:
-                if self.config.is_default("detect-hash", "min-scene-len"):
-                    min_scene_len = self.min_scene_len.frame_num
-                else:
-                    min_scene_len = self.config.get_value("detect-hash", "min-scene-len")
-            min_scene_len = self.parse_timecode(min_scene_len).frame_num
+        min_scene_len_frames = self._resolve_min_scene_len("detect-hash", min_scene_len)
         return {
             "lowpass": self.config.get_value("detect-hash", "lowpass", lowpass),
-            "min_scene_len": min_scene_len,
+            "min_scene_len": min_scene_len_frames,
             "size": self.config.get_value("detect-hash", "size", size),
             "threshold": self.config.get_value("detect-hash", "threshold", threshold),
         }
@@ -488,9 +456,9 @@ class CliContext:
 
     def _initialize_logging(
         self,
-        quiet: ty.Optional[bool] = None,
-        verbosity: ty.Optional[str] = None,
-        logfile: ty.Optional[ty.AnyStr] = None,
+        quiet: bool | None = None,
+        verbosity: str | None = None,
+        logfile: str | None = None,
     ):
         """Setup logging based on CLI args and user configuration settings."""
         if quiet is not None:
@@ -521,22 +489,22 @@ class CliContext:
 
     def _open_video_stream(
         self,
-        input_path: ty.AnyStr,
-        framerate: ty.Optional[float],
-        backend: ty.Optional[str],
+        input_path: str,
+        frame_rate: float | None,
+        backend: str | None,
     ):
         if "%" in input_path and backend != "opencv":
             raise click.BadParameter(
                 "The OpenCV backend (`--backend opencv`) must be used to process image sequences.",
                 param_hint="-i/--input",
             )
-        if framerate is not None and framerate < MAX_FPS_DELTA:
-            raise click.BadParameter("Invalid framerate specified!", param_hint="-f/--framerate")
+        if frame_rate is not None and frame_rate < MAX_FPS_DELTA:
+            raise click.BadParameter("Invalid frame rate specified!", param_hint="-f/--frame-rate")
         try:
             backend = self.config.get_value("global", "backend", backend)
             if backend not in AVAILABLE_BACKENDS:
                 raise click.BadParameter(
-                    "Specified backend %s is not available on this system!" % backend,
+                    f"Specified backend {backend} is not available on this system!",
                     param_hint="-b/--backend",
                 )
 
@@ -544,7 +512,7 @@ class CliContext:
             if backend == "pyav":
                 self.video_stream = open_video(
                     path=input_path,
-                    framerate=framerate,
+                    frame_rate=frame_rate,
                     backend=backend,
                     threading_mode=self.config.get_value("backend-pyav", "threading-mode"),
                     suppress_output=self.config.get_value("backend-pyav", "suppress-output"),
@@ -552,7 +520,7 @@ class CliContext:
             elif backend == "opencv":
                 self.video_stream = open_video(
                     path=input_path,
-                    framerate=framerate,
+                    frame_rate=frame_rate,
                     backend=backend,
                     max_decode_attempts=self.config.get_value(
                         "backend-opencv", "max-decode-attempts"
@@ -562,34 +530,38 @@ class CliContext:
             else:
                 self.video_stream = open_video(
                     path=input_path,
-                    framerate=framerate,
+                    frame_rate=frame_rate,
                     backend=backend,
                 )
+            duration = self.video_stream.duration
+            duration_str = f"{duration} ({duration.frame_num} frames)" if duration else "unknown"
+            rate = self.video_stream.frame_rate
             logger.debug(f"""Video information:
   Backend:      {type(self.video_stream).__name__}
   Resolution:   {self.video_stream.frame_size}
-  Framerate:    {self.video_stream.frame_rate}
-  Duration:     {self.video_stream.duration} ({self.video_stream.duration.frame_num} frames)""")
+  Frame rate:   {float(rate):.3f} ({rate.numerator}/{rate.denominator})
+  Duration:     {duration_str}""")
 
         except FrameRateUnavailable as ex:
-            if __debug__:
+            if DEBUG_MODE:
                 raise
             raise click.BadParameter(
-                "Failed to obtain framerate for input video. Manually specify framerate with the"
-                " -f/--framerate option, or try re-encoding the file.",
+                "Failed to obtain frame rate for input video. Manually specify frame rate with the"
+                " -f/--frame-rate option, or try re-encoding the file.",
                 param_hint="-i/--input",
             ) from ex
         except VideoOpenFailure as ex:
-            if __debug__:
+            if DEBUG_MODE:
                 raise
             raise click.BadParameter(
-                "Failed to open input video%s: %s"
-                % (" using %s backend" % backend if backend else "", str(ex)),
+                "Failed to open input video{}: {}".format(
+                    f" using {backend} backend" if backend else "", str(ex)
+                ),
                 param_hint="-i/--input",
             ) from ex
         except OSError as ex:
-            if __debug__:
+            if DEBUG_MODE:
                 raise
             raise click.BadParameter(
-                "Input error:\n\n\t%s\n" % str(ex), param_hint="-i/--input"
+                f"Input error:\n\n\t{ex!s}\n", param_hint="-i/--input"
             ) from None

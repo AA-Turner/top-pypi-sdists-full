@@ -13,8 +13,11 @@ pub mod error;
 /// module containing ops implementations.
 pub mod ops;
 
+/// Typed color space wrappers for compile-time type safety.
+pub mod color_spaces;
+
 pub use crate::error::ImageError;
-pub use crate::image::{Image, ImageSize};
+pub use crate::image::{Image, ImageLayout, ImageSize, InterpolationMode, PixelFormat};
 
 /// Arrow integration for converting images to Arrow format
 #[cfg(feature = "arrow")]

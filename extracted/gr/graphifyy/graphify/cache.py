@@ -7,6 +7,11 @@ import os
 import tempfile
 from pathlib import Path
 
+# Output directory name — override with GRAPHIFY_OUT env var for worktrees or
+# shared-output setups. Accepts a relative name ("graphify-out-feature") or an
+# absolute path ("/shared/graphify-out").
+_GRAPHIFY_OUT = os.environ.get("GRAPHIFY_OUT", "graphify-out")
+
 
 def _body_content(content: bytes) -> bytes:
     """Strip YAML frontmatter from Markdown content, returning only the body."""
@@ -30,30 +35,38 @@ def _normalize_path(path: Path) -> Path:
 
 
 def file_hash(path: Path, root: Path = Path(".")) -> str:
-    """SHA256 of file contents + path relative to root.
+    """SHA256 of file contents only (path-independent for rename safety).
 
-    Using a relative path (not absolute) makes cache entries portable across
-    machines and checkout directories, so shared caches and CI work correctly.
-    Falls back to the resolved absolute path if the file is outside root.
+    Content-only hashing means renamed files reuse their cache entry.
+    The root parameter is kept for API compatibility but not used in the hash.
 
     For Markdown files (.md), only the body below the YAML frontmatter is hashed,
     so metadata-only changes (e.g. reviewed, status, tags) do not invalidate the cache.
     """
     p = _normalize_path(Path(path))
-    root = _normalize_path(Path(root))
     if not p.is_file():
         raise IsADirectoryError(f"file_hash requires a file, got: {p}")
     raw = p.read_bytes()
     content = _body_content(raw) if p.suffix.lower() == ".md" else raw
     h = hashlib.sha256()
     h.update(content)
-    h.update(b"\x00")
-    try:
-        rel = p.resolve().relative_to(Path(root).resolve())
-        h.update(str(rel).encode())
-    except ValueError:
-        h.update(str(p.resolve()).encode())
     return h.hexdigest()
+
+
+def _update_source_file(result: dict, path: Path, root: Path) -> None:
+    """Update source_file in cached nodes/edges to match the actual file path.
+
+    Needed after renames: cache was saved with the old path, but the file has
+    moved. Rewriting source_file ensures the graph reflects the new location.
+    """
+    try:
+        rel = str(path.resolve().relative_to(Path(root).resolve()))
+    except ValueError:
+        rel = str(path.resolve())
+    rel = rel.replace("\\", "/")
+    for item in result.get("nodes", []) + result.get("edges", []):
+        if "source_file" in item:
+            item["source_file"] = rel
 
 
 def cache_dir(root: Path = Path("."), kind: str = "ast") -> Path:
@@ -62,7 +75,9 @@ def cache_dir(root: Path = Path("."), kind: str = "ast") -> Path:
     kind is "ast" or "semantic". Separate subdirectories prevent semantic cache
     entries from overwriting AST cache entries for the same source_file (#582).
     """
-    d = Path(root).resolve() / "graphify-out" / "cache" / kind
+    _out = Path(_GRAPHIFY_OUT)
+    base = _out if _out.is_absolute() else Path(root).resolve() / _out
+    d = base / "cache" / kind
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -84,15 +99,20 @@ def load_cached(path: Path, root: Path = Path("."), kind: str = "ast") -> dict |
     entry = cache_dir(root, kind) / f"{h}.json"
     if entry.exists():
         try:
-            return json.loads(entry.read_text(encoding="utf-8"))
+            result = json.loads(entry.read_text(encoding="utf-8"))
+            if kind == "ast":
+                _update_source_file(result, path, root)
+            return result
         except (json.JSONDecodeError, OSError):
             return None
     # Migration fallback: check legacy flat cache/ dir for AST entries
     if kind == "ast":
-        legacy = Path(root).resolve() / "graphify-out" / "cache" / f"{h}.json"
+        legacy = Path(root).resolve() / _GRAPHIFY_OUT / "cache" / f"{h}.json"
         if legacy.exists():
             try:
-                return json.loads(legacy.read_text(encoding="utf-8"))
+                result = json.loads(legacy.read_text(encoding="utf-8"))
+                _update_source_file(result, path, root)
+                return result
             except (json.JSONDecodeError, OSError):
                 return None
     return None
@@ -140,7 +160,7 @@ def save_cached(path: Path, result: dict, root: Path = Path("."), kind: str = "a
 
 def cached_files(root: Path = Path(".")) -> set[str]:
     """Return set of file hashes that have a valid cache entry (any kind)."""
-    base = Path(root).resolve() / "graphify-out" / "cache"
+    base = Path(root).resolve() / _GRAPHIFY_OUT / "cache"
     hashes: set[str] = set()
     # Legacy flat entries
     if base.is_dir():
@@ -155,7 +175,7 @@ def cached_files(root: Path = Path(".")) -> set[str]:
 
 def clear_cache(root: Path = Path(".")) -> None:
     """Delete all cache entries (ast/, semantic/, and legacy flat entries)."""
-    base = Path(root).resolve() / "graphify-out" / "cache"
+    base = Path(root).resolve() / _GRAPHIFY_OUT / "cache"
     # Legacy flat entries
     if base.is_dir():
         for f in base.glob("*.json"):

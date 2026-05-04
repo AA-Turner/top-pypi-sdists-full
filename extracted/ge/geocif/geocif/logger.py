@@ -105,6 +105,41 @@ def get_logging_level(level):
         return logging.INFO
 
 
+def _check_project_name_consistency(path_config_file):
+    """
+    Verify project_name in [DEFAULT] matches across all config files.
+
+    Mismatched project_name causes geocif to read merged CSVs from a
+    different path than where geoprepare wrote them — silently producing
+    empty/missing data. Raise loudly so the user fixes the config.
+    """
+    from configparser import ConfigParser
+
+    paths = path_config_file if isinstance(path_config_file, (list, tuple)) else [path_config_file]
+    seen: dict = {}  # {project_name: first_file_that_set_it}
+    for p in paths:
+        cp = ConfigParser(inline_comment_prefixes=(";",))
+        try:
+            cp.read(str(p))
+        except Exception:
+            continue
+        # ConfigParser auto-promotes DEFAULT keys; check if explicitly defined
+        if not cp.has_option("DEFAULT", "project_name"):
+            continue
+        name = cp.get("DEFAULT", "project_name")
+        if name not in seen:
+            seen[name] = str(p)
+
+    if len(seen) > 1:
+        details = "\n".join(f"  {p}: project_name = {n}" for n, p in seen.items())
+        raise ValueError(
+            f"project_name mismatch across config files:\n{details}\n"
+            f"Geocif reads merged CSVs from outputs/{{project_name}}/... — "
+            f"if files disagree, the path will be wrong and data will be missing.\n"
+            f"Fix: set project_name to the same value in all configs above."
+        )
+
+
 def setup_logger_parser(path_config_file, name_project="geocif", name_file="ml"):
     """
 
@@ -117,6 +152,7 @@ def setup_logger_parser(path_config_file, name_project="geocif", name_file="ml")
     Returns:
 
     """
+    _check_project_name_consistency(path_config_file)
     parser = read_config(path_config_file)
     dir_logs = parser.get("PATHS", "dir_logs")
     level = parser.get("LOGGING", "log_level", fallback="INFO")

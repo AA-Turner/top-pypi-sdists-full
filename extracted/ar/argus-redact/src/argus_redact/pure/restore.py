@@ -6,30 +6,9 @@ import functools
 import re as _re
 from typing import Mapping
 
-from argus_redact._types import KeyEntry
-from argus_redact.pure.display_marker import strip_display_markers
+from argus_redact.pure.display_marker import PRESET_MARKER_CHARS, strip_display_markers
 from argus_redact.pure.grammar import SELF_REF_PRONOUNS, restore_grammar_en
 from argus_redact.pure.reserved_range_scanner import scan_for_pollution
-
-
-def _flatten_key_entries(key: dict) -> dict[str, str]:
-    """Expand a {fake: KeyEntry} dict into a flat {fake_or_alias: original} dict.
-
-    Each KeyEntry contributes one entry for its canonical fake and one for
-    each alias, all pointing at the same ``original``. A plain str→str dict
-    passes through unchanged.
-    """
-    if not key:
-        return {}
-    sample = next(iter(key.values()))
-    if not isinstance(sample, KeyEntry):
-        return key  # already str → str
-    flat: dict[str, str] = {}
-    for fake, entry in key.items():
-        flat[fake] = entry.original
-        for alias in entry.aliases:
-            flat[alias] = entry.original
-    return flat
 
 
 @functools.lru_cache(maxsize=128)
@@ -43,6 +22,29 @@ def _compile_alternation(keys_frozen: frozenset[str]) -> _re.Pattern:
     """
     sorted_keys = sorted(keys_frozen, key=len, reverse=True)
     return _re.compile("|".join(_re.escape(k) for k in sorted_keys))
+
+
+# Marker class compiled once at module load — same chars regardless of key dict.
+_PRESET_MARKER_CLASS = (
+    "[" + "".join(_re.escape(c) for c in PRESET_MARKER_CHARS) + "]"
+    if PRESET_MARKER_CHARS
+    else ""
+)
+
+
+@functools.lru_cache(maxsize=128)
+def _compile_decoration_pattern(keys_frozen: frozenset[str]) -> _re.Pattern | None:
+    """Cache the auto-detect decoration regex per key set.
+
+    Matches ``(key)(preset_marker_chars+)`` so ``restore()`` can substitute
+    the key→original inline while preserving the trailing marker. ``None``
+    when there are no keys or no preset markers.
+    """
+    if not keys_frozen or not _PRESET_MARKER_CLASS:
+        return None
+    sorted_keys = sorted(keys_frozen, key=len, reverse=True)
+    keys_alt = "|".join(_re.escape(k) for k in sorted_keys)
+    return _re.compile(f"({keys_alt})({_PRESET_MARKER_CLASS}+)")
 
 # Danger patterns: pseudonyms appearing near these suggest exfiltration attempts
 _DANGER_PATTERNS = _re.compile(
@@ -116,10 +118,28 @@ def wipe_key(key: dict) -> None:
     key.clear()
 
 
-def restore(text: str, key: dict | str, *, display_marker: str | None = None) -> str:
+def restore(
+    text: str,
+    key: dict[str, str] | str,
+    *,
+    aliases: dict[str, tuple[str, ...]] | None = None,
+    display_marker: str | None = None,
+) -> str:
     """Replace pseudonyms with originals using the key.
 
-    If `display_marker` is provided, strip markers from `text` before key lookup.
+    `aliases` (v0.6.0+): optional dict mapping a fake to alternate
+    transliterations. Each alias is also matched and mapped back to the
+    fake's original. Useful when the LLM rewrites Chinese names into pinyin
+    or English addresses into 中文.
+
+    If `display_marker` is provided, strip THAT marker from `text` before key
+    lookup. If omitted (v0.6.0+), `restore` auto-detects known preset markers
+    from `DISPLAY_MARKER_PRESETS` (`ⓕ`, `*`, `(假)`, `ˢ`) attached after a
+    key token: the marker stays in the output but the key is restored
+    underneath (e.g. `"19999123456ⓕ"` -> `"13800138000ⓕ"`). Custom markers
+    not in the preset list still require explicit `display_marker=`
+    pass-through. See `PRESET_MARKER_CHARS` in `pure/display_marker.py` for
+    the canonical preset character set.
     """
     if display_marker is not None:
         text = strip_display_markers(text, marker=display_marker)
@@ -136,14 +156,37 @@ def restore(text: str, key: dict | str, *, display_marker: str | None = None) ->
     if not key:
         return text
 
-    # v0.5.8: accept KeyEntry-shaped dicts (result.key_entries) and expand
-    # aliases into a flat str→str lookup. _flatten_key_entries always returns
-    # a fresh dict on the KeyEntry path; on the str→str path it returns the
-    # input unchanged. Either way, the next isinstance check normalizes to dict
-    # for the Rust binding (MappingProxyType / other Mapping subclasses fail).
-    key = _flatten_key_entries(key)
+    # Merge aliases into the lookup if provided. Each alias points at the same
+    # original as its canonical fake — the alternation matches both forms and
+    # maps them back. Aliases for fakes not in `key` are ignored.
+    if aliases:
+        flat: dict[str, str] = dict(key)
+        for fake, alias_tuple in aliases.items():
+            original = key.get(fake)
+            if original is None:
+                continue
+            for alias in alias_tuple:
+                flat[alias] = original
+        key = flat
+
     if not isinstance(key, dict):
         key = dict(key)
+
+    # Auto-detect known preset display markers when caller didn't pass
+    # display_marker=. For each occurrence of `key + preset_marker_chars+` in
+    # text, replace inline with `value + same_marker_chars` so the marker stays
+    # attached to the restored value. Custom markers (not in the preset set)
+    # are left alone — caller must pass `display_marker=` for those.
+    #
+    # This is conservative: stand-alone preset chars (e.g. `*` in regular
+    # prose) are NOT stripped because they are not adjacent to a key.
+    if display_marker is None:
+        decoration_pattern = _compile_decoration_pattern(frozenset(key))
+        if decoration_pattern is not None:
+            text = decoration_pattern.sub(
+                lambda m: key.get(m.group(1), m.group(1)) + m.group(2),
+                text,
+            )
 
     has_self_ref = any(v in SELF_REF_PRONOUNS for v in key.values())
 

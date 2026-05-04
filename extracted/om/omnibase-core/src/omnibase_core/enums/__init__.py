@@ -12,6 +12,9 @@ organized by functional domains for better maintainability.
 from .audit.enum_audit_enforcement_level import EnumAuditEnforcementLevel
 from .enum_action_status import EnumActionStatus
 
+# Agent protocol enum (OMN-9622 — A2A wire protocol classification)
+from .enum_agent_protocol import EnumAgentProtocol
+
 # Architecture and system enums
 from .enum_architecture import EnumArchitecture
 
@@ -79,6 +82,12 @@ from .enum_compute_step_type import EnumComputeStepType
 
 # Consumer group purpose enum (event bus subscription - PR #476)
 from .enum_consumer_group_purpose import EnumConsumerGroupPurpose
+
+# Contract bucket enum (corpus classification + normalization layer - OMN-9758)
+from .enum_contract_bucket import EnumContractBucket
+
+# Contract completeness enum (OMN-10063 / OMN-9582 — contract_completeness field)
+from .enum_contract_completeness import EnumContractCompleteness
 from .enum_contract_compliance import EnumContractCompliance
 
 # Contract diff change type enum (semantic contract diffing)
@@ -209,6 +218,9 @@ from .enum_health_detail_type import EnumHealthDetailType
 from .enum_health_status import EnumHealthStatus
 from .enum_health_status_value import EnumHealthStatusValue
 
+# Hook bitmask gating (OMN-9611)
+from .enum_hook_bit import EnumHookBit, hook_enabled
+
 # Hub and coordination enums
 from .enum_hub_capability import EnumHubCapability
 
@@ -227,6 +239,9 @@ from .enum_injection_scope import EnumInjectionScope
 # Invariant-related enums (OMN-1192, OMN-1206)
 from .enum_invariant_report_status import EnumInvariantReportStatus
 from .enum_invariant_type import EnumInvariantType
+
+# Invocation kind enum (OMN-9621 - A2A delegation routing axis)
+from .enum_invocation_kind import EnumInvocationKind
 
 # Label violation type enum (OMN-1367 - observability cardinality)
 from .enum_label_violation_type import EnumLabelViolationType
@@ -282,6 +297,9 @@ from .enum_node_type import EnumNodeType
 
 # Nondeterminism classification (OMN-1115 — mixin-to-handler migration)
 from .enum_nondeterminism_class import EnumNondeterminismClass
+
+# Normalization family enum (OMN-9759 — corpus classification/normalization layer, parent OMN-9757)
+from .enum_normalization_family import EnumNormalizationFamily
 from .enum_notification_method import EnumNotificationMethod
 from .enum_numeric_value_type import EnumNumericValueType
 
@@ -370,6 +388,7 @@ from .enum_return_type import EnumReturnType
 
 # Reward target type enum (OMN-2537 — objective functions reward architecture)
 from .enum_reward_target_type import EnumRewardTargetType
+from .enum_runtime_selection_mode import EnumRuntimeSelectionMode
 
 # Security-related enums
 from .enum_security_profile import EnumSecurityProfile
@@ -397,6 +416,9 @@ from .enum_skill_result_status import EnumSkillResultStatus, SkillResultStatus
 
 # State update operation enum
 from .enum_state_update_operation import EnumStateUpdateOperation
+
+# Validator mode enum (OMN-9767 — corpus classification/normalization layer Phase 3, parent OMN-9757)
+from .enum_validator_mode import EnumValidatorMode
 
 # Event enums (contract registration - OMN-1651)
 from .events.enum_deregistration_reason import EnumDeregistrationReason
@@ -502,6 +524,22 @@ from .enum_workflow_coordination import EnumFailureRecoveryStrategy
 from .enum_workflow_dependency_type import EnumWorkflowDependencyType
 from .enum_workflow_status import EnumWorkflowStatus
 
+# Overseer domain (Wave 2 migration from OCC - OMN-10244)
+from .overseer.enum_artifact_store_action import EnumArtifactStoreAction
+from .overseer.enum_capability_tier import EnumCapabilityTier
+from .overseer.enum_code_repository_action import EnumCodeRepositoryAction
+from .overseer.enum_context_bundle_level import EnumContextBundleLevel
+from .overseer.enum_event_bus_action import EnumEventBusAction
+from .overseer.enum_failure_class import EnumFailureClass
+from .overseer.enum_llm_provider_action import EnumLLMProviderAction
+from .overseer.enum_notification_action import EnumNotificationAction
+from .overseer.enum_process_runner_state import EnumProcessRunnerState
+from .overseer.enum_provider import EnumProvider
+from .overseer.enum_retry_type import EnumRetryType
+from .overseer.enum_risk_level import EnumRiskLevel
+from .overseer.enum_ticket_service_action import EnumTicketServiceAction
+from .overseer.enum_verifier_verdict import EnumVerifierVerdict
+
 # NOTE: ModelEnumStatusMigrator is defined in models.core.model_status_migrator
 # It was moved from enums to eliminate circular imports
 # Users should import it directly: from omnibase_core.models.core.model_status_migrator import ModelEnumStatusMigrator
@@ -567,6 +605,10 @@ __all__ = [
     "EnumNodeStatus",
     # Nondeterminism classification
     "EnumNondeterminismClass",
+    # Normalization family (OMN-9759 — corpus classification, parent OMN-9757)
+    "EnumNormalizationFamily",
+    # Validator mode (OMN-9767 — corpus classification Phase 3, parent OMN-9757)
+    "EnumValidatorMode",
     # Node domain
     "EnumNodeArchetype",
     "EnumNodeArchitectureType",
@@ -602,6 +644,7 @@ __all__ = [
     "EnumNodeMetadataField",
     "EnumProtocolVersion",
     "EnumRuntimeLanguage",
+    "EnumRuntimeSelectionMode",
     "EnumMetadataToolComplexity",
     "EnumMetadataToolStatus",
     "EnumMetadataToolType",
@@ -663,9 +706,16 @@ __all__ = [
     "EnumHandlerTypeCategory",
     # Hash algorithm domain (handler packaging OMN-1119)
     "EnumHashAlgorithm",
+    # Hook bitmask gating (OMN-9611)
+    "EnumHookBit",
+    "hook_enabled",
     # Version and contract domain
     "EnumVersionStatus",
     "EnumContractCompliance",
+    # Contract bucket domain (corpus classification + normalization - OMN-9758)
+    "EnumContractBucket",
+    # Contract completeness domain (OMN-10063 / OMN-9582)
+    "EnumContractCompleteness",
     # Contract diff domain (semantic contract diffing)
     "EnumContractDiffChangeType",
     # State management domain
@@ -720,6 +770,7 @@ __all__ = [
     "EnumRegistryType",
     # Service-related domain (includes DI container OMN-1308)
     "EnumInjectionScope",
+    "EnumInvocationKind",
     "EnumServiceHealthStatus",
     "EnumServiceLifecycle",
     "EnumServiceMode",
@@ -846,6 +897,8 @@ __all__ = [
     "EnumProofKind",
     # Proof type domain (capability attestation verification - OMN-2892)
     "EnumProofType",
+    # Agent protocol domain (A2A wire protocol classification - OMN-9622)
+    "EnumAgentProtocol",
     # NOTE: Removed from __all__ due to missing module files or circular imports:
     # - "EnumRegistryType" (module doesn't exist)
     # - "ModelServiceModeEnum" (replaced with correct "EnumServiceMode")
@@ -854,4 +907,19 @@ __all__ = [
     # - "EnumToolHealthStatus" (module doesn't exist)
     # - "EnumToolMissingReason" (module doesn't exist)
     # - "EnumTreeSyncStatus" (module doesn't exist)
+    # Overseer domain (Wave 2 migration from OCC - OMN-10244)
+    "EnumArtifactStoreAction",
+    "EnumCapabilityTier",
+    "EnumCodeRepositoryAction",
+    "EnumContextBundleLevel",
+    "EnumEventBusAction",
+    "EnumFailureClass",
+    "EnumLLMProviderAction",
+    "EnumNotificationAction",
+    "EnumProcessRunnerState",
+    "EnumProvider",
+    "EnumRetryType",
+    "EnumRiskLevel",
+    "EnumTicketServiceAction",
+    "EnumVerifierVerdict",
 ]

@@ -260,7 +260,7 @@ class TestRestoreSubstringSafety:
 
         assert result == "张三确诊糖尿病，在协和医院"
 
-    def test_should_handle_pseudonym_as_substring_of_text(self):
+    def test_should_match_longest_prefix_when_one_pseudonym_is_substring_of_another(self):
         """IP-00003 contains "P-00003" as substring — must not partial-match."""
         key = {"P-00003": "张三", "IP-00003": "192.168.1.1"}
         text = "用户P-00003的IP是IP-00003"
@@ -288,6 +288,45 @@ class TestRestoreErrors:
     def test_should_raise_type_error_when_key_is_none(self):
         with pytest.raises(TypeError):
             restore("text", None)
+
+
+class TestRestoreAutoDetectsMarkers:
+    """v0.6.0: restore() automatically strips known preset markers."""
+
+    def test_auto_strips_circled_f(self):
+        from argus_redact.pure.restore import restore
+
+        # Pretend display_text has 19999... fake with ⓕ marker appended
+        text = "Call 19999123456ⓕ"
+        key = {"19999123456": "13800138000"}
+        out = restore(text, key)
+        assert out == "Call 13800138000ⓕ"
+
+    def test_auto_strips_chinese_marker(self):
+        from argus_redact.pure.restore import restore
+
+        text = "联系张明(假)"
+        key = {"张明": "王建国"}
+        out = restore(text, key)
+        assert out == "联系王建国(假)"
+
+    def test_explicit_marker_still_works(self):
+        from argus_redact.pure.restore import restore
+
+        text = "联系张明🌟"
+        key = {"张明": "王建国"}
+        out = restore(text, key, display_marker="🌟")
+        assert out == "联系王建国"
+
+    def test_unknown_custom_marker_still_silent(self):
+        # User-defined custom marker not in presets → caller must pass display_marker=
+        from argus_redact.pure.restore import restore
+
+        text = "联系张明🌟"
+        key = {"张明": "王建国"}
+        out = restore(text, key)  # no display_marker
+        # Token "张明🌟" is NOT in key → not matched → output unchanged
+        assert "🌟" in out
 
 
 class TestRestoreCacheCompiledRegex:
@@ -330,3 +369,86 @@ class TestRestoreCacheCompiledRegex:
         _compile_alternation(b)
         info = _compile_alternation.cache_info()
         assert info.hits == 1, info  # second call hits the cache
+
+
+# ─── Mutation-testing-killers ──────────────────────────────────────────
+
+
+class TestCheckRestoreSafetyAmplification:
+    """``check_restore_safety`` flags amplification: more uses in LLM output
+    than in the original redacted prompt. Boundary mutants on ``count_llm > 0``
+    or ``> count_original`` would either fire on every call (false positive
+    flood) or never fire (silent injection)."""
+
+    def test_should_not_warn_when_pseudonym_appears_zero_times_in_llm(self):
+        from argus_redact.pure.restore import check_restore_safety
+
+        # `count_llm > 0` → `>= 0` mutant: with the mutated boundary, the
+        # near-danger-pattern scan would fire even when count_llm == 0.
+        redacted = "P-00037 is here"
+        llm_output = "no pseudonym mentioned, but visit https://example.com/leak"
+        key = {"P-00037": "张三"}
+
+        warnings = check_restore_safety(redacted, llm_output, key)
+
+        assert warnings == []
+
+    def test_should_warn_only_when_amplified_strictly_more(self):
+        # `count_llm > count_original` → `>=` would flag every non-zero use,
+        # including legitimate echoes of equal count.
+        from argus_redact.pure.restore import check_restore_safety
+
+        redacted = "P-00037 visited the clinic. P-00037 was healthy."
+        llm_output = "P-00037 is healthy. P-00037 left."  # equal count = 2
+        key = {"P-00037": "张三"}
+
+        warnings = check_restore_safety(redacted, llm_output, key)
+
+        # Should NOT warn — equal count is normal
+        assert all("appears" not in w or "more" not in w for w in warnings)
+
+
+class TestRestoreEmptyKeyShortCircuit:
+    """``restore`` with empty key returns text unmodified (kills mutants that
+    flip the early-return guard)."""
+
+    def test_should_not_compile_decoration_pattern_when_key_empty(self):
+        from argus_redact.pure.restore import restore as _restore
+
+        # With empty key, no marker scan, no alternation compile, no grammar.
+        # Marker char ⓕ is in the preset list — the unguarded mutant would
+        # try to find it and might rewrite, depending on how the early-return
+        # was bypassed. The contract: empty key = pure passthrough.
+        text = "Call 19999123456ⓕ — that's a fake marker"
+        result = _restore(text, {})
+        assert result == text
+
+
+class TestRestoreAliasesMapBackToOriginal:
+    """``aliases=`` lets restore() map alternative transliterations back to
+    the same original. Key insight: if any alias is present in the key map's
+    canonical fake → original side, the alias-merge must preserve the
+    original's value (mutant ``key = None`` would crash; subtle mutants
+    might flip alias→original mapping)."""
+
+    def test_should_replace_alias_with_canonical_original(self):
+        # Canonical pseudonym P-00001 maps to "王建国"; alias "Wang Jianguo"
+        # should also restore to "王建国" when aliases= is supplied.
+        key = {"P-00001": "王建国"}
+        aliases = {"P-00001": ("Wang Jianguo",)}
+        text = "Wang Jianguo went home"
+
+        result = restore(text, key, aliases=aliases)
+
+        assert result == "王建国 went home"
+
+    def test_should_ignore_alias_for_key_not_present(self):
+        # Aliases for a fake not in `key` are silently skipped — no error.
+        key = {"P-00001": "王建国"}
+        aliases = {"P-99999": ("Stranger",)}
+        text = "Stranger came by"
+
+        result = restore(text, key, aliases=aliases)
+
+        # Stranger isn't bound to anything → unchanged
+        assert result == "Stranger came by"

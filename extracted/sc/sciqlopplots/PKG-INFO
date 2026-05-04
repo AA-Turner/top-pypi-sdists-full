@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: SciQLopPlots
-Version: 0.22.0
+Version: 0.23.0
 Summary: SciQLop plot API based on QCustomPlot
 Author-Email: Alexis Jeandet <alexis.jeandet@member.fsf.org>
 License: GNU GENERAL PUBLIC LICENSE
@@ -50,8 +50,8 @@ Classifier: Programming Language :: Python :: 3.14
 Project-URL: homepage, https://github.com/SciQLop/SciQLopPlots
 Requires-Python: <3.15,>=3.10
 Requires-Dist: numpy
-Requires-Dist: pyside6==6.10.2
-Requires-Dist: shiboken6==6.10.2
+Requires-Dist: pyside6==6.11.0
+Requires-Dist: shiboken6==6.11.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-qt; extra == "test"
@@ -73,7 +73,7 @@ A high-performance scientific plotting library built on C++20/Qt6 with Python bi
 ## Features
 
 - **Async resampling** — render millions of points smoothly; data is downsampled in background threads via [NeoQCP](https://github.com/SciQLop/NeoQCP) pipelines
-- **Multiple plot types** — time series (line graphs), spectrograms (color maps), 2D histograms, parametric curves, N-D projection curves
+- **Multiple plot types** — time series (line graphs), spectrograms (color maps), 2D histograms, parametric curves, N-D projection curves, waterfall plots
 - **Interactive** — pan, zoom, data-driven callbacks, vertical/horizontal/rectangular spans, tracers, straight lines, text, shapes, pixmaps
 - **Multi-plot panels** — synchronized axes, aligned margins, drag-and-drop from product trees
 - **Reactive pipelines** — connect plot properties with `>>` to build live data flows
@@ -105,6 +105,8 @@ graph TD
         LG[SciQLopLineGraph]
         SLG[SciQLopSingleLineGraph]
         CRV[SciQLopCurve]
+        WF[SciQLopWaterfallGraph]
+        NDC[SciQLopNDProjectionCurves]
         CMB[SciQLopColorMapBase]
         CM[SciQLopColorMap]
         H2D[SciQLopHistogram2D]
@@ -136,6 +138,8 @@ graph TD
     GI --> LG
     GI --> SLG
     GI --> CRV
+    GI --> WF
+    GI --> NDC
     CMI --> CMB
     CMB --> CM
     CMB --> H2D
@@ -226,11 +230,12 @@ python tests/manual-tests/gallery.py
 
 ## Building from source
 
-Requires Qt6, PySide6 == 6.10.2, a C++20 compiler, and Meson.
+Requires Qt6, PySide6 == 6.11.0, a C++20 compiler, and Meson.
 
 ```bash
-# Development build
-meson setup build --buildtype=debug
+# Development build (recommended — plain `debug` disables optimizations
+# and makes the resampling pipelines noticeably sluggish)
+meson setup build --buildtype=debugoptimized
 meson compile -C build
 
 # Install as editable Python package

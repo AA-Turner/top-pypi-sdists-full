@@ -380,6 +380,7 @@ class Widget(ABC):
         self.give_hooks(copy)
         self.give_children(copy)
         self.give_behaviors(copy)
+        return copy
 
     def give_state(self, other: Widget) -> None:
         """Donne une copie de l'état du ``Widget``à un autre ``Widget``"""

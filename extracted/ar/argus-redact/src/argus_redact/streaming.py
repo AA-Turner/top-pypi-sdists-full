@@ -3,9 +3,10 @@
 Two complementary classes:
 - ``StreamingRestorer`` — buffer streaming LLM output and restore at sentence boundaries.
 - ``StreamingRedactor`` — chunked input redaction with cross-chunk key continuity
-  (same original value across chunks maps to same realistic fake).
+  (same original value across chunks maps to same realistic fake). Buffers chunks
+  until a sentence boundary, then redacts the buffered prefix; ``flush()`` drains
+  the tail at end-of-stream.
 
-Both require caller to feed *complete logical units* (sentences, paragraphs, turns).
 True byte-level streaming with realistic mode requires complete entity boundaries
 and is roadmapped for a later release.
 """
@@ -25,13 +26,37 @@ def _empty_result() -> PseudonymLLMResult:
     # singleton would let one caller's mutation leak into another caller's
     # "empty" result.
     return PseudonymLLMResult(
-        audit_text="", downstream_text="", display_text="", _key_entries={}
+        audit_text="", downstream_text="", display_text="", key={}, aliases={}
     )
 
 # Integer schema version stamped into export_state() output. Decoupled from
 # the package version on purpose — bumped only when the state shape itself
 # changes, so most package releases leave it untouched.
 _STATE_SCHEMA_VERSION = 1
+
+
+def _resolve_state_salt(state: dict, salt: bytes | None) -> bytes:
+    """Resolve the effective salt for ``StreamingRedactor.from_state``.
+
+    Caller-supplied ``salt`` wins; legacy v0.6.0/v0.6.1 dumps with embedded
+    ``state["salt"]`` still load (with DeprecationWarning); raise if neither.
+    """
+    if salt is not None:
+        return salt
+    embedded = state.get("salt")
+    if embedded is None:
+        raise ValueError(
+            "from_state requires salt= kwarg (state does not contain an "
+            "embedded salt). Pass the salt held out-of-band: "
+            "StreamingRedactor.from_state(state, salt=<bytes>)."
+        )
+    warnings.warn(
+        "Loading state with embedded salt is deprecated; pass salt= kwarg "
+        "explicitly. Will be rejected in v0.7.0.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return bytes.fromhex(embedded)
 
 
 class StreamingRestorer:
@@ -93,15 +118,14 @@ class StreamingRestorer:
 
 
 class StreamingRedactor:
-    """Per-chunk realistic redaction with cross-chunk key continuity.
+    """Sentence-bounded incremental redaction with cross-chunk key continuity.
 
-    Each ``.feed(chunk)`` runs the full pseudonym-llm pipeline on the chunk
-    and returns a ``PseudonymLLMResult``. Same original value across chunks
-    maps to the same fake (via shared salt + accumulated key dict).
-
-    Caller MUST feed complete logical units (sentence / paragraph / turn).
-    Entity boundaries that cross chunk boundaries are NOT handled — split
-    such inputs at logical boundaries first.
+    Each ``.feed(chunk)`` accumulates input until a sentence boundary, then
+    runs the full pseudonym-llm pipeline on the buffered prefix and returns a
+    ``PseudonymLLMResult``. Returns an empty result when the buffer hasn't
+    reached a boundary yet. Call ``flush()`` at end-of-stream to drain the
+    tail. Same original value across chunks maps to the same fake (via shared
+    salt + accumulated key dict).
 
     Key retention: ``_accumulated_key`` grows monotonically over the session.
     Construct one ``StreamingRedactor`` per logical session and discard it when
@@ -110,9 +134,13 @@ class StreamingRedactor:
 
     Usage:
         redactor = StreamingRedactor(salt=b"my-secret-salt", lang="zh")
-        for chunk in input_stream:                  # one sentence/paragraph/turn each
+        for chunk in input_stream:
             result = redactor.feed(chunk)
-            send_to_llm(result.downstream_text)
+            if result.downstream_text:
+                send_to_llm(result.downstream_text)
+        final = redactor.flush()
+        if final.downstream_text:
+            send_to_llm(final.downstream_text)
         # Aggregate key for cross-chunk restore
         full_key = redactor.aggregate_key()
     """
@@ -129,19 +157,9 @@ class StreamingRedactor:
         types_exclude: list[str] | None = None,
         strict_input: bool = True,
         reserved_names: dict[str, tuple[str, ...]] | None = None,
-        incremental: bool = True,
     ):
         if not isinstance(salt, (bytes, bytearray)):
             raise TypeError(f"salt must be bytes, got {type(salt).__name__}")
-        if not incremental:
-            warnings.warn(
-                "StreamingRedactor(incremental=False) is deprecated since v0.5.8 "
-                "and will be removed in v0.6. The default mode now handles "
-                "cross-chunk entity boundaries via sentence-bounded buffering. "
-                "Pass incremental=True (the default) or omit the argument.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
         self._salt = bytes(salt)
         self._display_marker = display_marker
         self._lang = lang
@@ -151,45 +169,34 @@ class StreamingRedactor:
         self._types_exclude = types_exclude
         self._strict_input = strict_input
         self._reserved_names = reserved_names
-        self._incremental = incremental
         self._inc_buffer: str = ""
         self._accumulated_key: dict[str, str] = {}
 
     def feed(self, chunk: str) -> PseudonymLLMResult:
-        """Redact a chunk. Cross-chunk consistency preserved via shared key.
+        """Buffer until a sentence boundary, then redact the buffered prefix.
 
-        Incremental mode (default since v0.5.8): chunks accumulate until a
-        sentence boundary, then the buffered prefix is redacted. Returns an
-        empty ``PseudonymLLMResult`` when the buffer has no boundary yet. Call
-        ``flush()`` at end-of-stream to drain the tail.
-
-        Legacy mode (``incremental=False``, deprecated v0.5.8 → removed v0.6):
-        caller must feed complete logical units; entities split across chunk
-        boundaries are NOT detected.
+        Returns an empty ``PseudonymLLMResult`` when the buffer hasn't reached
+        a boundary yet. Call ``flush()`` at end-of-stream to drain the tail.
+        Cross-chunk consistency is preserved via the shared accumulated key.
         """
-        if self._incremental:
-            return self._feed_incremental(chunk)
-        return self._redact_and_merge(chunk)
-
-    def flush(self) -> PseudonymLLMResult:
-        """End-of-stream flush — only meaningful in incremental mode.
-
-        Drains any text accumulated past the last sentence boundary,
-        running the full redact pipeline on it. Returns an empty
-        ``PseudonymLLMResult`` if the buffer is empty.
-        """
-        if not self._incremental or not self._inc_buffer:
-            return _empty_result()
-        emit = self._inc_buffer
-        self._inc_buffer = ""
-        return self._redact_and_merge(emit)
-
-    def _feed_incremental(self, chunk: str) -> PseudonymLLMResult:
         emit_text, residual = _consume_to_boundary(self._inc_buffer, chunk)
         self._inc_buffer = residual
         if not emit_text:
             return _empty_result()
         return self._redact_and_merge(emit_text)
+
+    def flush(self) -> PseudonymLLMResult:
+        """End-of-stream flush — drain pending buffer.
+
+        Drains any text accumulated past the last sentence boundary,
+        running the full redact pipeline on it. Returns an empty
+        ``PseudonymLLMResult`` if the buffer is empty.
+        """
+        if not self._inc_buffer:
+            return _empty_result()
+        emit = self._inc_buffer
+        self._inc_buffer = ""
+        return self._redact_and_merge(emit)
 
     def _redact_and_merge(self, text: str) -> PseudonymLLMResult:
         result = redact_pseudonym_llm(
@@ -215,19 +222,19 @@ class StreamingRedactor:
         """Return a copy of the unified key across all fed chunks."""
         return dict(self._accumulated_key)
 
-    def export_state(self) -> dict:
+    def export_state(self, *, include_salt: bool = False) -> dict:
         """Serialize this redactor's state to a JSON-friendly dict.
 
-        Round-tripping the result through JSON and back into ``from_state``
-        produces an instance whose subsequent ``feed()`` calls reuse the same
-        fake values for already-seen originals — supports cross-process
-        resume of a long-running session.
+        ⚠️ The salt is the cryptographic root of trust — by default v0.6.2+
+        excludes it from the output. ``accumulated_key`` still carries
+        plaintext originals; encrypt the dict at rest if persisted.
 
-        ``salt`` is hex-encoded; everything else is plain str / list / dict.
+        Pass ``include_salt=True`` for v0.6.0/v0.6.1-shaped exports (deprecated;
+        will be removed in v0.7.0). Prefer storing the salt out-of-band and
+        passing it to ``from_state(state, salt=...)`` on resume.
         """
-        return {
+        state = {
             "version": _STATE_SCHEMA_VERSION,
-            "salt": self._salt.hex(),
             "accumulated_key": dict(self._accumulated_key),
             "lang": self._lang,
             "mode": self._mode,
@@ -244,13 +251,27 @@ class StreamingRedactor:
                 else None
             ),
         }
+        if include_salt:
+            warnings.warn(
+                "export_state(include_salt=True) is deprecated and will be "
+                "removed in v0.7.0; pass salt to from_state(state, salt=...) "
+                "instead. Embedding the salt in the serialized dict makes the "
+                "cryptographic root of trust trivially recoverable from any "
+                "leaked dump.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            state["salt"] = self._salt.hex()
+        return state
 
     @classmethod
-    def from_state(cls, state: dict) -> "StreamingRedactor":
+    def from_state(cls, state: dict, *, salt: bytes | None = None) -> "StreamingRedactor":
         """Rebuild a StreamingRedactor from a previously exported state dict.
 
-        Pure replay — no kwargs override. Modify ``state`` yourself before
-        passing if you need to change configuration.
+        ``salt`` is required — pass the value held out-of-band when the state
+        was exported. v0.6.0/v0.6.1 dumps that embed ``state["salt"]`` still
+        load (with DeprecationWarning) for back-compat; explicit ``salt=``
+        kwarg always wins if both are present.
         """
         version = state.get("version")
         if version != _STATE_SCHEMA_VERSION:
@@ -258,9 +279,10 @@ class StreamingRedactor:
                 f"Unsupported state schema version {version!r}; this release "
                 f"reads schema {_STATE_SCHEMA_VERSION} only."
             )
+        salt = _resolve_state_salt(state, salt)
         reserved = state.get("reserved_names")
         instance = cls(
-            salt=bytes.fromhex(state["salt"]),
+            salt=salt,
             display_marker=state.get("display_marker"),
             lang=state.get("lang", "zh"),
             mode=state.get("mode", "fast"),

@@ -24,9 +24,9 @@ from omnibase_core.models.errors import ModelOnexError
 # No leading/trailing dots, no consecutive dots, no special characters except dots
 _TOPIC_SEGMENT_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
-# Canonical ONEX topic pattern: onex.(cmd|evt|dlq|i*).<service>.<event>.v<N>
+# Canonical ONEX topic pattern: onex.(cmd|evt|dlq|snapshot|intent).<service>.<event>.v<N>
 _CANONICAL_TOPIC_PATTERN = re.compile(
-    r"^onex\.(cmd|evt|dlq|i[a-z0-9_-]*)\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.v\d+$"
+    r"^onex\.(cmd|evt|dlq|snapshot|intent)\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.v\d+$"
 )
 
 
@@ -75,6 +75,14 @@ class TopicBase(StrEnum):
     UTILIZATION_SCORING_CMD = "onex.cmd.omniintelligence.utilization-scoring.v1"
     # LLM call completed: cost telemetry for omnidash llm_cost_aggregates (OMN-7570)
     LLM_CALL_COMPLETED = "onex.evt.omniintelligence.llm-call-completed.v1"
+    # Waste detected: computed cost-waste findings from LLM call telemetry (OMN-10341)
+    WASTE_DETECTED = "onex.evt.omniintelligence.waste-detected.v1"
+    # Savings estimation: cloud-vs-local counterfactual for projection/API consumers
+    SAVINGS_ESTIMATED = "onex.evt.omnibase-infra.savings-estimated.v1"
+    # Cost-projection snapshot topics (consumed by omnidash widgets in OMN-10282)
+    PROJECTION_COST_SUMMARY = "onex.snapshot.projection.cost.summary.v1"
+    PROJECTION_COST_BY_REPO = "onex.snapshot.projection.cost.by_repo.v1"
+    PROJECTION_COST_TOKEN_USAGE = "onex.snapshot.projection.cost.token_usage.v1"
 
     # ==========================================================================
     # Hook adapter observability topics (migrated to ONEX format, OMN-1552)
@@ -464,6 +472,20 @@ class TopicBase(StrEnum):
     The runtime subscribes to this topic via EventBusSubcontractWiring.
     """
 
+    REMOTE_AGENT_INVOKE = "onex.cmd.omnibase-infra.remote-agent-invoke.v1"
+    """Command consumed by node_remote_agent_invoke_effect to submit and watch A2A tasks.
+
+    Emitted by the delegation orchestrator dispatch resolver when routing to
+    the AGENT invocation kind. (OMN-9637)
+    """
+
+    AGENT_TASK_LIFECYCLE = "onex.evt.omnibase-infra.agent-task-lifecycle.v1"
+    """Lifecycle event emitted by node_remote_agent_invoke_effect for each A2A state transition.
+
+    Published back to the orchestrator pipeline after each poll result from the
+    remote A2A peer. (OMN-9637)
+    """
+
     # ==========================================================================
     # Team lifecycle topics (OMN-7026)
     # Unified event schema for all dispatch surfaces (team_worker,
@@ -691,7 +713,7 @@ def build_topic(base: str) -> str:
             error_code=EnumCoreErrorCode.INVALID_INPUT,
             message=(
                 f"Topic {base!r} does not match canonical ONEX format "
-                "onex.(cmd|evt|dlq|i*).<service>.<event>.v<N>"
+                "onex.(cmd|evt|dlq|snapshot|intent).<service>.<event>[.<event>...].v<N>"
             ),
         )
     return base

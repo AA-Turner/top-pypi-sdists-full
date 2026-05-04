@@ -162,13 +162,8 @@ class WebtoonsEpisodeExtractor(WebtoonsBase, GalleryExtractor):
             "acceptCodecs": "AAC,MP3",
         }
         headers = {
-            "Accept"        : "application/json",
-            "Content-Type"  : "application/json",
-            "Origin"        : self.root,
-            "Referer"       : self.root + "/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "cross-site",
+            "Accept"      : "application/json",
+            "Content-Type": "application/json",
         }
         paths = self.paths
 

@@ -15,9 +15,16 @@ from ._manager import Manager
 
 from ._ecs import Component, System
 
-from ._gui import Tween, Behavior, Widget, Button
+from ._gui import (
+    Tween,
+    Behavior,
+    Widget, Button,
+)
 
-from ._fx import LightSource
+from ._fx import (
+    LightSource, LightEffect,
+    ParticleEmitter,
+)
 
 from ._layer import Layer
 
@@ -44,10 +51,10 @@ __all__ = [
 
     "Tween",
     "Behavior",
-    "Widget",
-    "Button",
+    "Widget", "Button",
 
-    "LightSource",
+    "LightSource", "LightEffect",
+    "ParticleEmitter",
 
     "Layer",
     

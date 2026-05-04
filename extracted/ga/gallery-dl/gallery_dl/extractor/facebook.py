@@ -34,6 +34,8 @@ class FacebookExtractor(Extractor):
         headers["Sec-Fetch-Site"] = "same-origin"
 
         self.fallback_retries = self.config("fallback-retries", 2)
+        if self.fallback_retries < 0:
+            self.fallback_retries = float("inf")
         self.videos = self.config("videos", True)
         self.author_followups = self.config("author-followups", False)
         self._detect_jump = True
@@ -305,7 +307,7 @@ class FacebookExtractor(Extractor):
                         "Extraction is over."
                     )
             elif self._detect_jump and not set_id.startswith('pcb.') and \
-                    int(photo["next_photo_id"]) > int(photo["id"]) + i*120:
+                    (int(photo["next_photo_id"]) >> 1) > int(photo["id"]) :
                 self.log.info(
                     "Detected possible jump to the beginning of the set. "
                     "(%s -> %s)", photo["id"], photo["next_photo_id"])

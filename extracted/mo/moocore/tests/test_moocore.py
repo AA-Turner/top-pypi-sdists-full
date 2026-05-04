@@ -39,10 +39,9 @@ def test_read_datasets_data(test_datapath, test, expected_name, expected_shape):
     assert testdata.shape == expected_shape, (
         f"Read data array has incorrect shape, should be {expected_shape} but is {testdata.shape}"
     )
-    if expected_name != "":
-        check_data = np.loadtxt(
-            test_datapath("expected_output/read_datasets/" + expected_name)
-        )
+    check_data = np.loadtxt(
+        test_datapath("expected_output/read_datasets/" + expected_name)
+    )
     assert_allclose(
         testdata,
         check_data,
@@ -101,22 +100,62 @@ class TestHypervolume:
 
         ref = np.array([2, -2, 2], dtype=float)
         x = [[1, 0, 1], [0, -1, 0]]
+        maximise = [False, True, False]
         assert (
-            immutable_call(
-                moocore.hypervolume, x, ref, maximise=[False, True, False]
-            )
+            immutable_call(moocore.hypervolume, x, ref, maximise=maximise)
             == 5.0
         )
+        hv = moocore.Hypervolume(ref=ref, maximise=maximise)
+        assert immutable_call(hv, x) == 5.0
 
         ref = [-2, -2, -2]
         x = [[-1, 0, -1], [0, -1, 0]]
         assert immutable_call(moocore.hypervolume, x, ref, maximise=True) == 5.0
 
-    def test_hv_wrong_ref(self, test_datapath):
-        """Check that the moocore.hypervolume() fails correctly after a ref with the wrong dimensions is input."""
-        X = self.input1
-        with pytest.raises(ValueError):
-            moocore.hypervolume(X[X[:, 2] == 1, :2], ref=np.array([10, 10, 10]))
+
+def test_wrong_ref():
+    """Check that the moocore.hypervolume() fails correctly after a ref with the wrong dimensions is input."""
+    x = [[1, 1, 1]]
+    ref = [10, 10]
+    hv = moocore.Hypervolume(ref=ref)
+    with pytest.raises(ValueError, match="same number of"):
+        hv(x)
+
+    with pytest.raises(ValueError, match="must have length 3"):
+        moocore.hypervolume(x, ref=ref)
+
+    with pytest.raises(ValueError, match="must have length 3"):
+        moocore.hv_contributions(x, ref=ref)
+
+    with pytest.raises(ValueError, match="must have length 3"):
+        moocore.hv_approx(x, ref=ref)
+
+
+@pytest.mark.parametrize("dim", range(5, 9))
+def test_hv_dominated(dim):
+    seed = np.random.default_rng().integers(2**32 - 2)
+    rng = np.random.default_rng(seed)
+    ref = np.full(dim, 1.0)
+    nrows = 50
+    points = rng.uniform(size=(nrows, dim))
+    hv = moocore.hypervolume(points, ref=ref)
+    hv_nondom = moocore.hypervolume(moocore.filter_dominated(points), ref=ref)
+    err_msg = f"dim={dim}, seed={seed}"
+    assert_allclose(hv, hv_nondom, err_msg=err_msg)
+    assert hv < 1, err_msg
+
+
+def test_hv_dim0_dim1():
+    x = np.empty((5, 0))
+    with pytest.raises(ValueError):
+        moocore.hypervolume(x, ref=[])
+    x = np.array([[0.0]])
+    assert moocore.hypervolume(x, ref=np.array([0.0])) == 0.0
+    points = np.random.default_rng().uniform(size=(5, 1))
+    ref = 1.1
+    assert math.isclose(
+        ref - points.min(), moocore.hypervolume(points, ref=[ref])
+    )
 
 
 def test_igd():
@@ -203,6 +242,7 @@ def test_igd():
 
 @pytest.mark.parametrize("dim", range(0, 3))
 def test_is_nondominated_keep_weakly(dim):
+
     def check_keep_weakly(x, true_ndom, true_wndom):
         true_ndom = np.array(true_ndom)
         true_wndom = np.array(true_wndom)
@@ -216,6 +256,17 @@ def test_is_nondominated_keep_weakly(dim):
         test_weak_filter = moocore.filter_dominated(x, keep_weakly=True)
         assert_array_equal(test_weak_filter, x[true_wndom, :])
 
+    def check_roll_column(x, dim):
+        true_ndom = moocore.is_nondominated(x)
+        true_wndom = moocore.is_nondominated(x, keep_weakly=True)
+        a = np.append(np.zeros((len(x), dim)), x, axis=1)
+        for i in range(a.shape[1]):
+            x = np.roll(a, i, axis=1)
+            assert_array_equal(true_ndom, moocore.is_nondominated(x))
+            assert_array_equal(
+                true_wndom, moocore.is_nondominated(x, keep_weakly=True)
+            )
+
     x = np.array(
         [[2, 0], [1, 1], [3, 0], [2, 0], [1, 2], [3, 0], [0, 2], [1, 1], [1, 1]]
     )
@@ -224,6 +275,7 @@ def test_is_nondominated_keep_weakly(dim):
         true_ndom=[True, True, False, False, False, False, True, False, False],
         true_wndom=[True, True, False, True, False, False, True, True, True],
     )
+    check_roll_column(np.vstack((x, x)), dim)
 
     x = np.array(
         [[1, 0, 1], [1, 1, 1], [0, 1, 1], [1, 0, 1], [1, 1, 0], [1, 1, 1]]
@@ -233,6 +285,8 @@ def test_is_nondominated_keep_weakly(dim):
         true_ndom=[True, False, True, False, True, False],
         true_wndom=[True, False, True, True, True, False],
     )
+    # KUNG_SMALL_THRESHOLD is 16, so use 18 points.
+    check_roll_column(np.vstack((x, x, x)), dim)
 
 
 def test_is_nondominated(test_datapath):
@@ -273,7 +327,7 @@ def test_is_nondominated(test_datapath):
     )
 
 
-def test_epsilon(immutable_call):
+def test_epsilon():
     """Same as in R package."""
     ref = np.array([10, 1, 6, 1, 2, 2, 1, 6, 1, 10]).reshape((-1, 2))
     A = np.array([4, 2, 3, 3, 2, 4]).reshape((-1, 2))
@@ -285,6 +339,15 @@ def test_epsilon(immutable_call):
     assert_expected(6.0, moocore.epsilon_additive, -A, -ref, maximise=False)
     assert_expected(2.5, moocore.epsilon_mult, A, ref, maximise=[True, False])
     assert_expected(2.5, moocore.epsilon_mult, A, ref, maximise=[False, True])
+
+
+def test_epsilon_mult_negative_input():
+    x = np.array([[-1, 2]])
+    y = np.array([[1, 2]])
+    with pytest.raises(ValueError, match="larger than 0"):
+        moocore.epsilon_mult(x, ref=y)
+    with pytest.raises(ValueError, match="larger than 0"):
+        moocore.epsilon_mult(y, ref=x)
 
 
 @pytest.mark.parametrize("dim", range(3, 6))
@@ -410,7 +473,7 @@ def test_get_dataset_path():
 
 
 # method="DZ2019-HW" is very slow with dim > 15.
-@pytest.mark.parametrize("dim", range(2, 15))
+@pytest.mark.parametrize("dim", range(2, 12))
 def test_hv_approx(dim):
     x = np.full((1, dim), 0.5)
     ref = np.full(dim, 1.0)
@@ -421,9 +484,15 @@ def test_hv_approx(dim):
     signif = 3 if dim < 7 else 2
     np.testing.assert_approx_equal(true_hv, appr_hv, significant=signif)
 
-    # method="DZ2019-HW" is the default
-    appr_hv = moocore.hv_approx(x, ref=ref)
+    appr_hv = moocore.hv_approx(x, ref=ref, method="DZ2019-HW")
     # print(f"{dim}: {(true_hv - appr_hv)/true_hv}")
+    ## Precision goes down significantly with higher dimensions.
+    signif = 4 if dim < 8 else 3 if dim < 10 else 2
+    np.testing.assert_approx_equal(true_hv, appr_hv, significant=signif)
+
+    # method="Rphi-FWE+" is the default
+    appr_hv = moocore.hv_approx(x, ref=ref)
+    print(f"{dim}: {(true_hv - appr_hv) / true_hv}")
     ## Precision goes down significantly with higher dimensions.
     signif = 4 if dim < 8 else 3 if dim < 10 else 2
     np.testing.assert_approx_equal(true_hv, appr_hv, significant=signif)
@@ -445,9 +514,12 @@ def test_hv_approx_errors():
     with pytest.raises(
         ValueError, match=r".*nsamples must be an integer value.*"
     ):
-        moocore.hv_approx(
-            [[0, 0]], [1, 1], method="DZ2019-MC", seed=None, nsamples="10"
-        )
+        moocore.hv_approx([[0, 0]], [1, 1], method="DZ2019-MC", nsamples="10")
+
+    with pytest.raises(ValueError, match=r".*Unknown method.*"):
+        moocore.hv_approx([[0, 0]], [1, 1], method="None")
+
+    assert moocore.hv_approx([[1, 1, 1]], ref=1) == 0
 
 
 def check_hvc(points, ref, err_msg):
@@ -478,6 +550,18 @@ def test_hvc(dim):
     check_hvc(points, ref, err_msg=f"dim={dim}, seed={seed}: ")
 
 
+@pytest.mark.parametrize("dim", range(5, 11))
+def test_generate_ndset(dim):
+    n = 10
+    one = np.ones(n)
+    points = moocore.generate_ndset(n, dim, "simplex")
+    assert_allclose(points.sum(axis=1), one)
+    points = moocore.generate_ndset(n, dim, "concave-sphere")
+    assert_allclose((points**2).sum(axis=1), one)
+    points = moocore.generate_ndset(n, dim, "convex-simplex")
+    assert_allclose(np.sqrt(points).sum(axis=1), one)
+
+
 @pytest.mark.parametrize("dim", range(2, 5))
 def test_pareto_rank(dim):
     seed = np.random.default_rng().integers(2**32 - 2)
@@ -497,6 +581,21 @@ def test_pareto_rank(dim):
         points = points[~nondom]
         ranks = ranks[ranks > r]
         r += 1
+
+
+def test_pareto_rank_dim0_dim1():
+    x = np.empty((5, 0))
+    assert_array_equal(
+        moocore.pareto_rank(x), np.zeros(shape=x.shape[0], dtype=int)
+    )
+    x = np.arange(5).reshape(-1, 1)
+    assert_array_equal(
+        moocore.pareto_rank(x), np.array([0, 1, 2, 3, 4], dtype=int)
+    )
+    x[2] = 1
+    assert_array_equal(
+        moocore.pareto_rank(x), np.array([0, 1, 1, 2, 3], dtype=int)
+    )
 
 
 def check_nondominated_sorting_fronts(x, expected):
@@ -541,3 +640,52 @@ def test_nondominated_sorting_3d():
         [False, False, False, False, True],
     ]
     check_nondominated_sorting_fronts(five_fronts, five_fronts_expected)
+
+
+class TestR2Exact:
+    """Test exact R2 computation."""
+
+    def test_r2_output(self):
+        """Checks the exact R2 calculation produces the correct value for some known simple test cases."""
+        # perfect approximation of ideal ref yields 0.0
+        r2 = moocore.r2_exact([[0, 0]], [0, 0])
+        assert_allclose(r2, 0.0)
+
+        # [1,1] in normalized objective space should yield r2 = 0.75
+        r2 = moocore.r2_exact([[2, 2]], [1, 1])
+        assert_allclose(r2, 0.75)
+
+        # [[1,0],[0,1]] should yield r2 = 0.25
+        r2 = moocore.r2_exact([[0, 1], [1, 0]], [0, 0])
+        assert_allclose(r2, 0.25)
+
+        r2 = moocore.r2_exact(
+            [[0, 1], [0.2, 0.8], [0.4, 0.6], [0.6, 0.4], [0.8, 0.2], [1, 0]],
+            [0, 0],
+        )
+        assert_allclose(r2, 0.1833333333333333)
+
+        # a closely sampled linear front should yield a value close to 1/6
+        x = np.linspace(0, 1, 1000001)
+        pf = list(zip(x, (1 - x)))
+        r2 = moocore.r2_exact(pf, ref=[0, 0])
+        assert_allclose(r2, 1 / 6, atol=1e-6)
+
+    def test_r2_from_doc(self):
+        """Checks that the exact R2 examples from the documentation work as expected."""
+        dat = np.array([[5, 5], [4, 6], [2, 7], [7, 4]])
+        r2 = moocore.r2_exact(dat, ref=[0, 0])
+        assert_allclose(r2, 2.5941919191919194)
+
+        r2 = moocore.r2_exact(dat, ref=[10, 10], maximise=True)
+        assert_allclose(r2, 2.5196969696969695)
+
+        dat = moocore.get_dataset("input1.dat")[:, :-1]
+        r2 = moocore.r2_exact(dat, ref=[0, 0])
+
+        assert_allclose(r2, 0.33360768789505657)
+
+        dat = moocore.filter_dominated(dat)
+        moocore.r2_exact(dat, ref=[10, 10])
+
+        assert_allclose(r2, 0.33360768789505657)

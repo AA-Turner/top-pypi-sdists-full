@@ -24,6 +24,7 @@ class PhilomenaExtractor(BooruExtractor):
     def _init(self):
         self.api = PhilomenaAPI(self)
         self.svg = self.config("svg", True)
+        self.comments = self.config("comments", False)
 
     def _file_url(self, post):
         try:
@@ -37,6 +38,10 @@ class PhilomenaExtractor(BooruExtractor):
 
     def _prepare(self, post):
         post["date"] = self.parse_datetime_iso(post["created_at"][:19])
+
+        if self.comments:
+            post["comments"] = (list(self.api.comments(post["id"]))
+                                if post.get("comment_count") else ())
 
 
 BASE_PATTERN = PhilomenaExtractor.update({
@@ -131,6 +136,10 @@ class PhilomenaAPI():
         self.extractor = extractor
         self.root = extractor.root + "/api"
 
+    def comments(self, image_id):
+        endpoint = "/v1/json/search/comments?q=image_id:" + str(image_id)
+        return self._pagination(endpoint, {}, "comments")
+
     def gallery(self, gallery_id):
         endpoint = "/v1/json/search/galleries"
         params = {"q": "id:" + gallery_id}
@@ -142,7 +151,7 @@ class PhilomenaAPI():
 
     def search(self, params):
         endpoint = "/v1/json/search/images"
-        return self._pagination(endpoint, params)
+        return self._pagination(endpoint, params, "images")
 
     def _call(self, endpoint, params=None):
         url = self.root + endpoint
@@ -161,7 +170,7 @@ class PhilomenaAPI():
             self.extractor.log.debug(response.content)
             raise self.extractor.exc.HttpError("", response)
 
-    def _pagination(self, endpoint, params):
+    def _pagination(self, endpoint, params, key):
         extr = self.extractor
 
         if api_key := extr.config("api-key"):
@@ -177,8 +186,8 @@ class PhilomenaAPI():
 
         while True:
             data = self._call(endpoint, params)
-            yield from data["images"]
+            yield from data[key]
 
-            if len(data["images"]) < extr.per_page:
+            if len(data[key]) < extr.per_page:
                 return
             params["page"] += 1

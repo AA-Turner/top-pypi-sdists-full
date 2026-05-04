@@ -84,6 +84,7 @@ def main():
             config.set(*opts)
 
         output.configure_standard_streams()
+        output.configure_units()
 
         # signals
         if signals := config.get((), "signals-ignore"):
@@ -210,7 +211,7 @@ def main():
 File:
   {cache.path()}
 Size:
-  {util.format_value(size)}
+  {output.format_bytes(size)}
 Entries:
 """)
             for key, cnt in sorted(cnts.items(), key=lambda i: (-i[1], i[0])):
@@ -256,7 +257,7 @@ Entries:
             after = os.stat(path).st_size
             if before - after:
                 cache.log.info("Reduced database size by %s bytes",
-                               util.format_value(before - after))
+                               output.format_bytes(before - after))
             return 0
 
         if args.config:

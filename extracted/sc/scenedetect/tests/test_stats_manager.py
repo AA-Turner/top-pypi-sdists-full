@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2018 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -27,15 +27,13 @@ These files will be deleted, if possible, after the tests are completed running.
 """
 
 import csv
-import os
-import random
 from pathlib import Path
 
 import pytest
 
 from scenedetect.backends.opencv import VideoStreamCv2
+from scenedetect.common import FrameTimecode
 from scenedetect.detectors import ContentDetector
-from scenedetect.frame_timecode import FrameTimecode
 from scenedetect.scene_manager import SceneManager
 from scenedetect.stats_manager import (
     COLUMN_NAME_FRAME_NUMBER,

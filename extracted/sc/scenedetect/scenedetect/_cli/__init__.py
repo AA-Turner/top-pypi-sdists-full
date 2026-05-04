@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2014 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -23,11 +23,11 @@ import logging
 import os
 import os.path
 import typing as ty
-from copy import deepcopy
+from copy import copy
 
 import click
 
-import scenedetect
+import scenedetect as scenedetect_pkg
 import scenedetect._cli.commands as cli_commands
 from scenedetect._cli.config import (
     CHOICE_MAP,
@@ -35,6 +35,7 @@ from scenedetect._cli.config import (
     CONFIG_MAP,
     DEFAULT_JPG_QUALITY,
     DEFAULT_WEBP_QUALITY,
+    RangeValue,
 )
 from scenedetect._cli.context import USER_CONFIG, CliContext, check_split_video_requirements
 from scenedetect.backends import AVAILABLE_BACKENDS
@@ -47,12 +48,24 @@ from scenedetect.detectors import (
 )
 from scenedetect.platform import get_cv2_imwrite_params, get_system_version_info
 
-PROGRAM_VERSION = scenedetect.__version__
+PROGRAM_VERSION = scenedetect_pkg.__version__
 """Used to avoid name conflict with named `scenedetect` command below."""
 
 logger = logging.getLogger("pyscenedetect")
 
 LINE_SEPARATOR = "-" * 72
+
+
+def _click_range(section: str, key: str) -> "click.IntRange | click.FloatRange":
+    """Return a `click` parameter type matching the `RangeValue` at `CONFIG_MAP[section][key]`.
+
+    Used in `@click.option(... type=...)` decorators so each option's bounds and value type are
+    sourced from the canonical `CONFIG_MAP` entry.
+    """
+    val = CONFIG_MAP[section][key]
+    assert isinstance(val, RangeValue), f"Expected RangeValue at {section}/{key}, got {type(val)}"
+    return val.click_range
+
 
 # About & copyright message string shown for the 'about' CLI command (scenedetect about).
 ABOUT_STRING = """
@@ -60,7 +73,7 @@ Site: http://scenedetect.com/
 Docs: https://www.scenedetect.com/docs/
 Code: https://github.com/Breakthrough/PySceneDetect/
 
-Copyright (C) 2014-2024 Brandon Castellano. All rights reserved.
+Copyright (C) 2014 Brandon Castellano. All rights reserved.
 
 PySceneDetect is released under the BSD 3-Clause license. See the
 LICENSE file or visit [ https://www.scenedetect.com/copyright/ ].
@@ -95,7 +108,7 @@ class Command(click.Command):
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         """Writes the help into the formatter if it exists."""
         if ctx.parent:
-            formatter.write(click.style("`%s` Command" % ctx.command.name, fg="cyan"))
+            formatter.write(click.style(f"`{ctx.command.name}` Command", fg="cyan"))
             formatter.write_paragraph()
             formatter.write(click.style(LINE_SEPARATOR, fg="cyan"))
             formatter.write_paragraph()
@@ -117,7 +130,7 @@ class Command(click.Command):
         if self.help:
             base_command = ctx.parent.info_name if ctx.parent is not None else ctx.info_name
             formatted_help = self.help.format(
-                scenedetect=base_command, scenedetect_with_video="%s -i video.mp4" % base_command
+                scenedetect=base_command, scenedetect_with_video=f"{base_command} -i video.mp4"
             )
             text = inspect.cleandoc(formatted_help).partition("\f")[0]
             formatter.write_paragraph()
@@ -198,15 +211,16 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     required=False,
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=True),
-    help="Output directory for created files. If unset, working directory will be used. May be overridden by command options.%s"
-    % (USER_CONFIG.get_help_string("global", "output", show_default=False)),
+    help="Output directory for created files. If unset, working directory will be used. May be overridden by command options.{}".format(
+        USER_CONFIG.get_help_string("global", "output", show_default=False)
+    ),
 )
 @click.option(
     "--config",
     "-c",
     metavar="FILE",
     type=click.Path(exists=True, file_okay=True, readable=True, resolve_path=False),
-    help="Path to config file. If unset, tries to load config from %s" % (CONFIG_FILE_PATH),
+    help=f"Path to config file. If unset, tries to load config from {CONFIG_FILE_PATH}",
 )
 @click.option(
     "--stats",
@@ -216,12 +230,22 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     help="Stats file (.csv) to write frame metrics. Existing files will be overwritten. Used for tuning detection parameters and data analysis.",
 )
 @click.option(
-    "--framerate",
+    "--frame-rate",
     "-f",
+    "frame_rate",
     metavar="FPS",
     type=click.FLOAT,
     default=None,
-    help="Override framerate with value as frames/sec.",
+    help="Override frame rate with value as frames/sec.",
+)
+@click.option(
+    "--framerate",
+    "framerate_legacy",
+    metavar="FPS",
+    type=click.FLOAT,
+    default=None,
+    hidden=True,
+    help="[DEPRECATED] Use -f/--frame-rate instead.",
 )
 @click.option(
     "--min-scene-len",
@@ -229,24 +253,27 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     metavar="TIMECODE",
     type=click.STRING,
     default=None,
-    help="Minimum length of any scene. TIMECODE can be specified as number of frames (-m 10), time in seconds (-m 2.5), or timecode (-m 00:02:53.633).%s"
-    % USER_CONFIG.get_help_string("global", "min-scene-len"),
+    help="Minimum length of any scene. TIMECODE can be specified as number of frames (-m 10), time in seconds (-m 2.5), or timecode (-m 00:02:53.633).{}".format(
+        USER_CONFIG.get_help_string("global", "min-scene-len")
+    ),
 )
 @click.option(
     "--drop-short-scenes",
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Drop scenes shorter than -m/--min-scene-len, instead of combining with neighbors.%s"
-    % (USER_CONFIG.get_help_string("global", "drop-short-scenes")),
+    help="Drop scenes shorter than -m/--min-scene-len, instead of combining with neighbors.{}".format(
+        USER_CONFIG.get_help_string("global", "drop-short-scenes")
+    ),
 )
 @click.option(
     "--merge-last-scene",
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Merge last scene with previous if shorter than -m/--min-scene-len.%s"
-    % (USER_CONFIG.get_help_string("global", "merge-last-scene")),
+    help="Merge last scene with previous if shorter than -m/--min-scene-len.{}".format(
+        USER_CONFIG.get_help_string("global", "merge-last-scene")
+    ),
 )
 @click.option(
     "--backend",
@@ -254,16 +281,18 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     metavar="BACKEND",
     type=click.Choice(CHOICE_MAP["global"]["backend"]),
     default=None,
-    help="Backend to use for video input. Backend options can be set using a config file (-c/--config). [available: %s]%s"
-    % (", ".join(AVAILABLE_BACKENDS.keys()), USER_CONFIG.get_help_string("global", "backend")),
+    help="Backend to use for video input. Backend options can be set using a config file (-c/--config). [available: {}]{}".format(
+        ", ".join(AVAILABLE_BACKENDS.keys()), USER_CONFIG.get_help_string("global", "backend")
+    ),
 )
 @click.option(
     "--crop",
     metavar="X0 Y0 X1 Y1",
     type=(int, int, int, int),
     default=None,
-    help="Crop input video. Specified as two points representing top left and bottom right corner of crop region. 0 0 is top-left of the video frame. Bounds are inclusive (e.g. for a 100x100 video, the region covering the whole frame is 0 0 99 99).%s"
-    % (USER_CONFIG.get_help_string("global", "crop", show_default=False)),
+    help="Crop input video. Specified as two points representing top left and bottom right corner of crop region. 0 0 is top-left of the video frame. Bounds are inclusive (e.g. for a 100x100 video, the region covering the whole frame is 0 0 99 99).{}".format(
+        USER_CONFIG.get_help_string("global", "crop", show_default=False)
+    ),
 )
 @click.option(
     "--downscale",
@@ -271,8 +300,9 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     metavar="N",
     type=click.INT,
     default=None,
-    help="Integer factor to downscale video by before processing. If unset, value is selected based on resolution. Set -d 1 to disable downscaling.%s"
-    % (USER_CONFIG.get_help_string("global", "downscale", show_default=False)),
+    help="Integer factor to downscale video by before processing. If unset, value is selected based on resolution. Set -d 1 to disable downscaling.{}".format(
+        USER_CONFIG.get_help_string("global", "downscale", show_default=False)
+    ),
 )
 @click.option(
     "--frame-skip",
@@ -280,8 +310,9 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     metavar="N",
     type=click.INT,
     default=None,
-    help="Skip N frames during processing. Reduces processing speed at expense of accuracy. -fs 1 skips every other frame processing 50%% of the video, -fs 2 processes 33%% of the video frames, -fs 3 processes 25%%, etc... %s"
-    % USER_CONFIG.get_help_string("global", "frame-skip"),
+    help="Skip N frames during processing. Reduces processing speed at expense of accuracy. -fs 1 skips every other frame processing 50% of the video, -fs 2 processes 33% of the video frames, -fs 3 processes 25%, etc... {}".format(
+        USER_CONFIG.get_help_string("global", "frame-skip")
+    ),
 )
 @click.option(
     "--verbosity",
@@ -289,8 +320,7 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
     metavar="LEVEL",
     type=click.Choice(CHOICE_MAP["global"]["verbosity"], False),
     default=None,
-    help="Amount of information to show. LEVEL must be one of: %s. Overrides -q/--quiet.%s"
-    % (
+    help="Amount of information to show. LEVEL must be one of: {}. Overrides -q/--quiet.{}".format(
         ", ".join(CHOICE_MAP["global"]["verbosity"]),
         USER_CONFIG.get_help_string("global", "verbosity"),
     ),
@@ -312,29 +342,37 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
 @click.pass_context
 def scenedetect(
     ctx: click.Context,
-    input: ty.Optional[ty.AnyStr],
-    output: ty.Optional[ty.AnyStr],
-    stats: ty.Optional[ty.AnyStr],
-    config: ty.Optional[ty.AnyStr],
-    framerate: ty.Optional[float],
-    min_scene_len: ty.Optional[str],
-    drop_short_scenes: ty.Optional[bool],
-    merge_last_scene: ty.Optional[bool],
-    backend: ty.Optional[str],
-    crop: ty.Optional[ty.Tuple[int, int, int, int]],
-    downscale: ty.Optional[int],
-    frame_skip: ty.Optional[int],
-    verbosity: ty.Optional[str],
-    logfile: ty.Optional[ty.AnyStr],
+    input: str | None,
+    output: str | None,
+    stats: str | None,
+    config: str | None,
+    frame_rate: float | None,
+    framerate_legacy: float | None,
+    min_scene_len: str | None,
+    drop_short_scenes: bool | None,
+    merge_last_scene: bool | None,
+    backend: str | None,
+    crop: tuple[int, int, int, int] | None,
+    downscale: int | None,
+    frame_skip: int | None,
+    verbosity: str | None,
+    logfile: str | None,
     quiet: bool,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
 
+    # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `--framerate`
+    # is used, once downstream users have had a release to migrate to `--frame-rate`.
+    if frame_rate is None:
+        frame_rate = framerate_legacy
+    elif framerate_legacy is not None:
+        logger.warning("Both --frame-rate and --framerate were specified; using --frame-rate.")
+
     ctx.handle_options(
         input_path=input,
         output=output,
-        framerate=framerate,
+        frame_rate=frame_rate,
         stats_file=stats,
         frame_skip=frame_skip,
         min_scene_len=min_scene_len,
@@ -353,7 +391,9 @@ def scenedetect(
 
 def add_hidden_alias(command: click.Command, alias: str):
     """Adds a copy of `command` that can be invoked under the name `alias`."""
-    hidden_command = deepcopy(command)
+    # Shallow copy: deepcopy fails on Python 3.10 + click >=8.3 because click's internal
+    # `Sentinel` enum values are not deepcopy-safe.
+    hidden_command = copy(command)
     hidden_command.hidden = True
     scenedetect.add_command(hidden_command, alias)
 
@@ -368,22 +408,27 @@ def add_hidden_alias(command: click.Command, alias: str):
 def help_command(ctx: click.Context, command_name: str):
     """Print full help reference."""
     # TODO: Other commands still seem to run if this is specified.
-    assert isinstance(ctx.parent.command, click.MultiCommand)
+    assert ctx.parent is not None
+    assert isinstance(ctx.parent.command, click.Group)
     parent_command = ctx.parent.command
     all_commands = set(parent_command.list_commands(ctx))
     if command_name is not None:
         if command_name not in all_commands:
             error_strs = [
                 "unknown command. List of valid commands:",
-                "  %s" % ", ".join(sorted(all_commands)),
+                "  {}".format(", ".join(sorted(all_commands))),
             ]
             raise click.BadParameter("\n".join(error_strs), param_hint="command")
         click.echo("")
-        print_command_help(ctx, parent_command.get_command(ctx, command_name))
+        target = parent_command.get_command(ctx, command_name)
+        assert target is not None
+        print_command_help(ctx, target)
     else:
         click.echo(ctx.parent.get_help())
         for command in sorted(all_commands):
-            print_command_help(ctx, parent_command.get_command(ctx, command))
+            target = parent_command.get_command(ctx, command)
+            assert target is not None
+            print_command_help(ctx, target)
     ctx.exit()
 
 
@@ -393,7 +438,7 @@ def about_command(ctx: click.Context):
     """Print license/copyright info."""
     click.echo("")
     click.echo(click.style(LINE_SEPARATOR, fg="cyan"))
-    click.echo(click.style(" About PySceneDetect %s" % PROGRAM_VERSION, fg="yellow"))
+    click.echo(click.style(f" About PySceneDetect {PROGRAM_VERSION}", fg="yellow"))
     click.echo(click.style(LINE_SEPARATOR, fg="cyan"))
     click.echo(ABOUT_STRING)
     ctx.exit()
@@ -450,9 +495,9 @@ Note that --end and --duration are mutually exclusive (i.e. only one of the two 
 @click.pass_context
 def time_command(
     ctx: click.Context,
-    start: ty.Optional[str],
-    duration: ty.Optional[str],
-    end: ty.Optional[str],
+    start: str | None,
+    duration: str | None,
+    end: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -502,13 +547,11 @@ Examples:
     "--threshold",
     "-t",
     metavar="VAL",
-    type=click.FloatRange(
-        CONFIG_MAP["detect-content"]["threshold"].min_val,
-        CONFIG_MAP["detect-content"]["threshold"].max_val,
-    ),
+    type=_click_range("detect-content", "threshold"),
     default=None,
-    help='The max difference (0.0 to 255.0) that adjacent frames score must exceed to trigger a cut. Lower values are more sensitive to shot changes. Refers to "content_val" in stats file.%s'
-    % (USER_CONFIG.get_help_string("detect-content", "threshold")),
+    help='The max difference (0.0 to 255.0) that adjacent frames score must exceed to trigger a cut. Lower values are more sensitive to shot changes. Refers to "content_val" in stats file.{}'.format(
+        USER_CONFIG.get_help_string("detect-content", "threshold")
+    ),
 )
 @click.option(
     "--weights",
@@ -516,16 +559,18 @@ Examples:
     type=(float, float, float, float),
     default=None,
     metavar="HUE SAT LUM EDGE",
-    help="Weights of 4 components used to calculate frame score from (delta_hue, delta_sat, delta_lum, delta_edges).%s"
-    % (USER_CONFIG.get_help_string("detect-content", "weights")),
+    help="Weights of 4 components used to calculate frame score from (delta_hue, delta_sat, delta_lum, delta_edges).{}".format(
+        USER_CONFIG.get_help_string("detect-content", "weights")
+    ),
 )
 @click.option(
     "--luma-only",
     "-l",
     is_flag=True,
     flag_value=True,
-    help="Only use luma (brightness) channel. Useful for greyscale videos. Equivalent to setting -w 0 0 1 0.%s"
-    % (USER_CONFIG.get_help_string("detect-content", "luma-only")),
+    help="Only use luma (brightness) channel. Useful for greyscale videos. Equivalent to setting -w 0 0 1 0.{}".format(
+        USER_CONFIG.get_help_string("detect-content", "luma-only")
+    ),
 )
 @click.option(
     "--kernel-size",
@@ -533,8 +578,9 @@ Examples:
     metavar="N",
     type=click.INT,
     default=None,
-    help="Size of kernel for expanding detected edges. Must be odd integer greater than or equal to 3. If unset, kernel size is estimated using video resolution.%s"
-    % (USER_CONFIG.get_help_string("detect-content", "kernel-size")),
+    help="Size of kernel for expanding detected edges. Must be odd integer greater than or equal to 3. If unset, kernel size is estimated using video resolution.{}".format(
+        USER_CONFIG.get_help_string("detect-content", "kernel-size")
+    ),
 )
 @click.option(
     "--min-scene-len",
@@ -555,8 +601,7 @@ Examples:
     metavar="MODE",
     type=click.Choice(CHOICE_MAP["detect-content"]["filter-mode"], False),
     default=None,
-    help="Mode used to enforce -m/--min-scene-len option. Can be one of: %s. %s"
-    % (
+    help="Mode used to enforce -m/--min-scene-len option. Can be one of: {}. {}".format(
         ", ".join(CHOICE_MAP["detect-content"]["filter-mode"]),
         USER_CONFIG.get_help_string("detect-content", "filter-mode"),
     ),
@@ -564,12 +609,12 @@ Examples:
 @click.pass_context
 def detect_content_command(
     ctx: click.Context,
-    threshold: ty.Optional[float],
-    weights: ty.Optional[ty.Tuple[float, float, float, float]],
+    threshold: float | None,
+    weights: tuple[float, float, float, float] | None,
     luma_only: bool,
-    kernel_size: ty.Optional[int],
-    min_scene_len: ty.Optional[str],
-    filter_mode: ty.Optional[str],
+    kernel_size: int | None,
+    min_scene_len: str | None,
+    filter_mode: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -603,8 +648,9 @@ Examples:
     metavar="VAL",
     type=click.FLOAT,
     default=None,
-    help='Threshold (float) that frame score must exceed to trigger a cut. Refers to "adaptive_ratio" in stats file.%s'
-    % (USER_CONFIG.get_help_string("detect-adaptive", "threshold")),
+    help='Threshold (float) that frame score must exceed to trigger a cut. Refers to "adaptive_ratio" in stats file.{}'.format(
+        USER_CONFIG.get_help_string("detect-adaptive", "threshold")
+    ),
 )
 @click.option(
     "--min-content-val",
@@ -612,18 +658,9 @@ Examples:
     metavar="VAL",
     type=click.FLOAT,
     default=None,
-    help='Minimum threshold (float) that "content_val" must exceed to trigger a cut.%s'
-    % (USER_CONFIG.get_help_string("detect-adaptive", "min-content-val")),
-)
-@click.option(
-    "--min-delta-hsv",
-    "-d",
-    metavar="VAL",
-    type=click.FLOAT,
-    default=None,
-    help="[DEPRECATED] Use -c/--min-content-val instead.%s"
-    % (USER_CONFIG.get_help_string("detect-adaptive", "min-delta-hsv")),
-    hidden=True,
+    help='Minimum threshold (float) that "content_val" must exceed to trigger a cut.{}'.format(
+        USER_CONFIG.get_help_string("detect-adaptive", "min-content-val")
+    ),
 )
 @click.option(
     "--frame-window",
@@ -631,24 +668,27 @@ Examples:
     metavar="VAL",
     type=click.INT,
     default=None,
-    help="Size of window to detect deviations from mean. Represents how many frames before/after the current one to use for mean.%s"
-    % (USER_CONFIG.get_help_string("detect-adaptive", "frame-window")),
+    help="Size of window to detect deviations from mean. Represents how many frames before/after the current one to use for mean.{}".format(
+        USER_CONFIG.get_help_string("detect-adaptive", "frame-window")
+    ),
 )
 @click.option(
     "--weights",
     "-w",
     type=(float, float, float, float),
     default=None,
-    help='Weights of 4 components ("delta_hue", "delta_sat", "delta_lum", "delta_edges") used to calculate "content_val".%s'
-    % (USER_CONFIG.get_help_string("detect-content", "weights")),
+    help='Weights of 4 components ("delta_hue", "delta_sat", "delta_lum", "delta_edges") used to calculate "content_val".{}'.format(
+        USER_CONFIG.get_help_string("detect-content", "weights")
+    ),
 )
 @click.option(
     "--luma-only",
     "-l",
     is_flag=True,
     flag_value=True,
-    help='Only use luma (brightness) channel. Useful for greyscale videos. Equivalent to "--weights 0 0 1 0".%s'
-    % (USER_CONFIG.get_help_string("detect-content", "luma-only")),
+    help='Only use luma (brightness) channel. Useful for greyscale videos. Equivalent to "--weights 0 0 1 0".{}'.format(
+        USER_CONFIG.get_help_string("detect-content", "luma-only")
+    ),
 )
 @click.option(
     "--kernel-size",
@@ -656,8 +696,9 @@ Examples:
     metavar="N",
     type=click.INT,
     default=None,
-    help="Size of kernel for expanding detected edges. Must be odd number >= 3. If unset, size is estimated using video resolution.%s"
-    % (USER_CONFIG.get_help_string("detect-content", "kernel-size")),
+    help="Size of kernel for expanding detected edges. Must be odd number >= 3. If unset, size is estimated using video resolution.{}".format(
+        USER_CONFIG.get_help_string("detect-content", "kernel-size")
+    ),
 )
 @click.option(
     "--min-scene-len",
@@ -675,21 +716,19 @@ Examples:
 @click.pass_context
 def detect_adaptive_command(
     ctx: click.Context,
-    threshold: ty.Optional[float],
-    min_content_val: ty.Optional[float],
-    min_delta_hsv: ty.Optional[float],
-    frame_window: ty.Optional[int],
-    weights: ty.Optional[ty.Tuple[float, float, float, float]],
+    threshold: float | None,
+    min_content_val: float | None,
+    frame_window: int | None,
+    weights: tuple[float, float, float, float] | None,
     luma_only: bool,
-    kernel_size: ty.Optional[int],
-    min_scene_len: ty.Optional[str],
+    kernel_size: int | None,
+    min_scene_len: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
     detector_args = ctx.get_detect_adaptive_params(
         threshold=threshold,
         min_content_val=min_content_val,
-        min_delta_hsv=min_delta_hsv,
         frame_window=frame_window,
         luma_only=luma_only,
         min_scene_len=min_scene_len,
@@ -716,33 +755,30 @@ Examples:
     "--threshold",
     "-t",
     metavar="VAL",
-    type=click.FloatRange(
-        CONFIG_MAP["detect-threshold"]["threshold"].min_val,
-        CONFIG_MAP["detect-threshold"]["threshold"].max_val,
-    ),
+    type=_click_range("detect-threshold", "threshold"),
     default=None,
-    help='Threshold (integer) that frame score must exceed to start a new scene. Refers to "delta_rgb" in stats file.%s'
-    % (USER_CONFIG.get_help_string("detect-threshold", "threshold")),
+    help='Threshold (integer) that frame score must exceed to start a new scene. Refers to "delta_rgb" in stats file.{}'.format(
+        USER_CONFIG.get_help_string("detect-threshold", "threshold")
+    ),
 )
 @click.option(
     "--fade-bias",
     "-f",
     metavar="PERCENT",
-    type=click.FloatRange(
-        CONFIG_MAP["detect-threshold"]["fade-bias"].min_val,
-        CONFIG_MAP["detect-threshold"]["fade-bias"].max_val,
-    ),
+    type=_click_range("detect-threshold", "fade-bias"),
     default=None,
-    help="Percent (%%) from -100 to 100 of timecode skew of cut placement. -100 indicates the start frame, +100 indicates the end frame, and 0 is the middle of both.%s"
-    % (USER_CONFIG.get_help_string("detect-threshold", "fade-bias")),
+    help="Percent (%) from -100 to 100 of timecode skew of cut placement. -100 indicates the start frame, +100 indicates the end frame, and 0 is the middle of both.{}".format(
+        USER_CONFIG.get_help_string("detect-threshold", "fade-bias")
+    ),
 )
 @click.option(
     "--add-last-scene",
     "-l",
     is_flag=True,
     flag_value=True,
-    help="If set and video ends after a fade-out event, generate a final cut at the last fade-out position.%s"
-    % (USER_CONFIG.get_help_string("detect-threshold", "add-last-scene")),
+    help="If set and video ends after a fade-out event, generate a final cut at the last fade-out position.{}".format(
+        USER_CONFIG.get_help_string("detect-threshold", "add-last-scene")
+    ),
 )
 @click.option(
     "--min-scene-len",
@@ -760,10 +796,10 @@ Examples:
 @click.pass_context
 def detect_threshold_command(
     ctx: click.Context,
-    threshold: ty.Optional[float],
-    fade_bias: ty.Optional[float],
+    threshold: float | None,
+    fade_bias: float | None,
     add_last_scene: bool,
-    min_scene_len: ty.Optional[str],
+    min_scene_len: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -795,25 +831,22 @@ Examples:
     "--threshold",
     "-t",
     metavar="VAL",
-    type=click.FloatRange(
-        CONFIG_MAP["detect-hist"]["threshold"].min_val,
-        CONFIG_MAP["detect-hist"]["threshold"].max_val,
-    ),
+    type=_click_range("detect-hist", "threshold"),
     default=None,
     help="Max difference (0.0 to 1.0) between histograms of adjacent frames. Lower "
-    "values are more sensitive to changes.%s"
-    % (USER_CONFIG.get_help_string("detect-hist", "threshold")),
+    "values are more sensitive to changes.{}".format(
+        USER_CONFIG.get_help_string("detect-hist", "threshold")
+    ),
 )
 @click.option(
     "--bins",
     "-b",
     metavar="NUM",
-    type=click.IntRange(
-        CONFIG_MAP["detect-hist"]["bins"].min_val, CONFIG_MAP["detect-hist"]["bins"].max_val
-    ),
+    type=_click_range("detect-hist", "bins"),
     default=None,
-    help="The number of bins to use for the histogram calculation.%s"
-    % (USER_CONFIG.get_help_string("detect-hist", "bins")),
+    help="The number of bins to use for the histogram calculation.{}".format(
+        USER_CONFIG.get_help_string("detect-hist", "bins")
+    ),
 )
 @click.option(
     "--min-scene-len",
@@ -833,9 +866,9 @@ Examples:
 @click.pass_context
 def detect_hist_command(
     ctx: click.Context,
-    threshold: ty.Optional[float],
-    bins: ty.Optional[int],
-    min_scene_len: ty.Optional[str],
+    threshold: float | None,
+    bins: int | None,
+    min_scene_len: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -864,39 +897,36 @@ Examples:
     "--threshold",
     "-t",
     metavar="VAL",
-    type=click.FloatRange(
-        CONFIG_MAP["detect-hash"]["threshold"].min_val,
-        CONFIG_MAP["detect-hash"]["threshold"].max_val,
-    ),
+    type=_click_range("detect-hash", "threshold"),
     default=None,
     help=(
         "Max distance between hash values (0.0 to 1.0) of adjacent frames. Lower values are "
-        "more sensitive to changes.%s" % (USER_CONFIG.get_help_string("detect-hash", "threshold"))
+        "more sensitive to changes.{}".format(
+            USER_CONFIG.get_help_string("detect-hash", "threshold")
+        )
     ),
 )
 @click.option(
     "--size",
     "-s",
     metavar="SIZE",
-    type=click.IntRange(
-        CONFIG_MAP["detect-hash"]["size"].min_val, CONFIG_MAP["detect-hash"]["size"].max_val
-    ),
+    type=_click_range("detect-hash", "size"),
     default=None,
-    help="Size of square of low frequency data to include from the discrete cosine transform.%s"
-    % (USER_CONFIG.get_help_string("detect-hash", "size")),
+    help="Size of square of low frequency data to include from the discrete cosine transform.{}".format(
+        USER_CONFIG.get_help_string("detect-hash", "size")
+    ),
 )
 @click.option(
     "--lowpass",
     "-l",
     metavar="FRAC",
-    type=click.IntRange(
-        CONFIG_MAP["detect-hash"]["lowpass"].min_val, CONFIG_MAP["detect-hash"]["lowpass"].max_val
-    ),
+    type=_click_range("detect-hash", "lowpass"),
     default=None,
     help=(
         "How much high frequency information to filter from the DCT. 2 means keep lower 1/2 of "
-        "the frequency data, 4 means only keep 1/4, etc...%s"
-        % (USER_CONFIG.get_help_string("detect-hash", "lowpass"))
+        "the frequency data, 4 means only keep 1/4, etc...{}".format(
+            USER_CONFIG.get_help_string("detect-hash", "lowpass")
+        )
     ),
 )
 @click.option(
@@ -917,10 +947,10 @@ Examples:
 @click.pass_context
 def detect_hash_command(
     ctx: click.Context,
-    threshold: ty.Optional[float],
-    size: ty.Optional[int],
-    lowpass: ty.Optional[int],
-    min_scene_len: ty.Optional[str],
+    threshold: float | None,
+    size: int | None,
+    lowpass: int | None,
+    min_scene_len: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -956,21 +986,23 @@ Examples:
     metavar="STRING",
     type=click.STRING,
     default=None,
-    help="Name of column used to mark scene cuts.%s"
-    % (USER_CONFIG.get_help_string("load-scenes", "start-col-name")),
+    help="Name of column used to mark scene cuts.{}".format(
+        USER_CONFIG.get_help_string("load-scenes", "start-col-name")
+    ),
 )
 @click.pass_context
-def load_scenes_command(
-    ctx: click.Context, input: ty.Optional[str], start_col_name: ty.Optional[str]
-):
+def load_scenes_command(ctx: click.Context, input: str | None, start_col_name: str | None):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
 
     logger.debug("Will load scenes from %s (start_col_name = %s)", input, start_col_name)
+    assert ctx.scene_manager is not None
     if ctx.scene_manager.get_num_detectors() > 0:
         raise click.ClickException("The load-scenes command cannot be used with detectors.")
     if ctx.load_scenes_input:
         raise click.ClickException("The load-scenes command must only be specified once.")
+    if input is None:
+        raise click.BadParameter("Input file is required.", param_hint="-i/--input")
     input = os.path.abspath(input)
     if not os.path.exists(input):
         raise click.BadParameter(
@@ -995,32 +1027,36 @@ To customize image generation, specify the `save-images` command before `save-ht
     metavar="NAME",
     default="$VIDEO_NAME-Scenes.html",
     type=click.STRING,
-    help="Filename format to use for the scene list HTML file. You can use the $VIDEO_NAME macro in the file name. Note that you may have to wrap the format name using single quotes.%s"
-    % (USER_CONFIG.get_help_string("save-html", "filename")),
+    help="Filename format to use for the scene list HTML file. You can use the $VIDEO_NAME macro in the file name. Note that you may have to wrap the format name using single quotes.{}".format(
+        USER_CONFIG.get_help_string("save-html", "filename")
+    ),
 )
 @click.option(
     "--no-images",
     "-n",
     is_flag=True,
     flag_value=True,
-    help="Do not include images with the result.%s"
-    % (USER_CONFIG.get_help_string("save-html", "no-images")),
+    help="Do not include images with the result.{}".format(
+        USER_CONFIG.get_help_string("save-html", "no-images")
+    ),
 )
 @click.option(
     "--image-width",
     "-w",
     metavar="pixels",
     type=click.INT,
-    help="Width in pixels of the images in the resulting HTML table.%s"
-    % (USER_CONFIG.get_help_string("save-html", "image-width", show_default=False)),
+    help="Width in pixels of the images in the resulting HTML table.{}".format(
+        USER_CONFIG.get_help_string("save-html", "image-width", show_default=False)
+    ),
 )
 @click.option(
     "--image-height",
     "-h",
     metavar="pixels",
     type=click.INT,
-    help="Height in pixels of the images in the resulting HTML table.%s"
-    % (USER_CONFIG.get_help_string("save-html", "image-height", show_default=False)),
+    help="Height in pixels of the images in the resulting HTML table.{}".format(
+        USER_CONFIG.get_help_string("save-html", "image-height", show_default=False)
+    ),
 )
 @click.option(
     "--show",
@@ -1028,19 +1064,20 @@ To customize image generation, specify the `save-images` command before `save-ht
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Automatically open resulting HTML when processing is complete.%s"
-    % (USER_CONFIG.get_help_string("save-html", "show")),
+    help="Automatically open resulting HTML when processing is complete.{}".format(
+        USER_CONFIG.get_help_string("save-html", "show")
+    ),
 )
 @click.pass_context
 def save_html_command(
     ctx: click.Context,
-    filename: ty.Optional[ty.AnyStr],
+    filename: str | None,
     no_images: bool,
-    image_width: ty.Optional[int],
-    image_height: ty.Optional[int],
+    image_width: int | None,
+    image_height: int | None,
     show: bool,
 ):
-    if ctx.command.name == "save-html":
+    if ctx.info_name == "export-html":
         logger.warning("WARNING: export-html is deprecated, use save-html instead.")
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -1048,6 +1085,7 @@ def save_html_command(
     # to include images.
     include_images = not ctx.config.get_value("save-html", "no-images", no_images)
     if include_images and not ctx.save_images:
+        assert save_images_command.callback is not None
         save_images_command.callback()
     save_html_args = {
         "filename": ctx.config.get_value("save-html", "filename", filename),
@@ -1079,8 +1117,9 @@ Without cut list (RFC 4180 compliant CSV):
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory to save videos to. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("list-scenes", "output", show_default=False)),
+    help="Output directory to save videos to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("list-scenes", "output", show_default=False)
+    ),
 )
 @click.option(
     "--filename",
@@ -1088,8 +1127,9 @@ Without cut list (RFC 4180 compliant CSV):
     metavar="NAME",
     default="$VIDEO_NAME-Scenes.csv",
     type=click.STRING,
-    help="Filename format to use for the scene list CSV file. You can use the $VIDEO_NAME macro in the file name. Note that you may have to wrap the name using single quotes or use escape characters (e.g. -f \\$VIDEO_NAME-Scenes.csv).%s"
-    % (USER_CONFIG.get_help_string("list-scenes", "filename")),
+    help="Filename format to use for the scene list CSV file. You can use the $VIDEO_NAME macro in the file name. Note that you may have to wrap the name using single quotes or use escape characters (e.g. -f \\$VIDEO_NAME-Scenes.csv).{}".format(
+        USER_CONFIG.get_help_string("list-scenes", "filename")
+    ),
 )
 @click.option(
     "--no-output-file",
@@ -1097,8 +1137,9 @@ Without cut list (RFC 4180 compliant CSV):
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Only print scene list.%s"
-    % (USER_CONFIG.get_help_string("list-scenes", "no-output-file")),
+    help="Only print scene list.{}".format(
+        USER_CONFIG.get_help_string("list-scenes", "no-output-file")
+    ),
 )
 @click.option(
     "--quiet",
@@ -1106,7 +1147,9 @@ Without cut list (RFC 4180 compliant CSV):
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Suppress printing scene list.%s" % (USER_CONFIG.get_help_string("list-scenes", "quiet")),
+    help="Suppress printing scene list.{}".format(
+        USER_CONFIG.get_help_string("list-scenes", "quiet")
+    ),
 )
 @click.option(
     "--skip-cuts",
@@ -1114,17 +1157,18 @@ Without cut list (RFC 4180 compliant CSV):
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Skip cutting list as first row in the CSV file. Set for RFC 4180 compliant output.%s"
-    % (USER_CONFIG.get_help_string("list-scenes", "skip-cuts")),
+    help="Skip cutting list as first row in the CSV file. Set for RFC 4180 compliant output.{}".format(
+        USER_CONFIG.get_help_string("list-scenes", "skip-cuts")
+    ),
 )
 @click.pass_context
 def list_scenes_command(
     ctx: click.Context,
-    output: ty.Optional[ty.AnyStr],
-    filename: ty.Optional[ty.AnyStr],
-    no_output_file: ty.Optional[bool],
-    quiet: ty.Optional[bool],
-    skip_cuts: ty.Optional[bool],
+    output: str | None,
+    filename: str | None,
+    no_output_file: bool | None,
+    quiet: bool | None,
+    skip_cuts: bool | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -1168,8 +1212,9 @@ Customized filenames:
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory to save videos to. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("split-video", "output", show_default=False)),
+    help="Output directory to save videos to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("split-video", "output", show_default=False)
+    ),
 )
 @click.option(
     "--filename",
@@ -1177,8 +1222,9 @@ Customized filenames:
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="File name format to use when saving videos, with or without extension. You can use $VIDEO_NAME and $SCENE_NUMBER macros in the filename. You may have to wrap the format in single quotes or use escape characters to avoid variable expansion (e.g. -f \\$VIDEO_NAME-Scene-\\$SCENE_NUMBER).%s"
-    % (USER_CONFIG.get_help_string("split-video", "filename")),
+    help="File name format to use when saving videos, with or without extension. You can use $VIDEO_NAME and $SCENE_NUMBER macros in the filename. You may have to wrap the format in single quotes or use escape characters to avoid variable expansion (e.g. -f \\$VIDEO_NAME-Scene-\\$SCENE_NUMBER).{}".format(
+        USER_CONFIG.get_help_string("split-video", "filename")
+    ),
 )
 @click.option(
     "--quiet",
@@ -1186,36 +1232,37 @@ Customized filenames:
     is_flag=True,
     flag_value=True,
     default=False,
-    help="Hide output from external video splitting tool.%s"
-    % (USER_CONFIG.get_help_string("split-video", "quiet")),
+    help="Hide output from external video splitting tool.{}".format(
+        USER_CONFIG.get_help_string("split-video", "quiet")
+    ),
 )
 @click.option(
     "--copy",
     "-c",
     is_flag=True,
     flag_value=True,
-    help="Copy instead of re-encode. Faster but less precise.%s"
-    % (USER_CONFIG.get_help_string("split-video", "copy")),
+    help="Copy instead of re-encode. Faster but less precise.{}".format(
+        USER_CONFIG.get_help_string("split-video", "copy")
+    ),
 )
 @click.option(
     "--high-quality",
     "-hq",
     is_flag=True,
     flag_value=True,
-    help="Encode video with higher quality, overrides -f option if present. Equivalent to: --rate-factor=17 --preset=slow%s"
-    % (USER_CONFIG.get_help_string("split-video", "high-quality")),
+    help="Encode video with higher quality, overrides -f option if present. Equivalent to: --rate-factor=17 --preset=slow{}".format(
+        USER_CONFIG.get_help_string("split-video", "high-quality")
+    ),
 )
 @click.option(
     "--rate-factor",
     "-crf",
     metavar="RATE",
     default=None,
-    type=click.IntRange(
-        CONFIG_MAP["split-video"]["rate-factor"].min_val,
-        CONFIG_MAP["split-video"]["rate-factor"].max_val,
+    type=_click_range("split-video", "rate-factor"),
+    help="Video encoding quality (x264 constant rate factor), from 0-100, where lower is higher quality (larger output). 0 indicates lossless.{}".format(
+        USER_CONFIG.get_help_string("split-video", "rate-factor")
     ),
-    help="Video encoding quality (x264 constant rate factor), from 0-100, where lower is higher quality (larger output). 0 indicates lossless.%s"
-    % (USER_CONFIG.get_help_string("split-video", "rate-factor")),
 )
 @click.option(
     "--preset",
@@ -1223,8 +1270,7 @@ Customized filenames:
     metavar="LEVEL",
     default=None,
     type=click.Choice(CHOICE_MAP["split-video"]["preset"]),
-    help="Video compression quality (x264 preset). Can be one of: %s. Faster modes take less time but output may be larger.%s"
-    % (
+    help="Video compression quality (x264 preset). Can be one of: {}. Faster modes take less time but output may be larger.{}".format(
         ", ".join(CHOICE_MAP["split-video"]["preset"]),
         USER_CONFIG.get_help_string("split-video", "preset"),
     ),
@@ -1235,34 +1281,37 @@ Customized filenames:
     metavar="ARGS",
     type=click.STRING,
     default=None,
-    help='Override codec arguments passed to FFmpeg when splitting scenes. Use double quotes (") around arguments. Must specify at least audio/video codec.%s'
-    % (USER_CONFIG.get_help_string("split-video", "args")),
+    help='Override codec arguments passed to FFmpeg when splitting scenes. Use double quotes (") around arguments. Must specify at least audio/video codec.{}'.format(
+        USER_CONFIG.get_help_string("split-video", "args")
+    ),
 )
 @click.option(
     "--mkvmerge",
     "-m",
     is_flag=True,
     flag_value=True,
-    help="Split video using mkvmerge. Faster than re-encoding, but less precise. If set, options other than -f/--filename, -q/--quiet and -o/--output will be ignored. Note that mkvmerge automatically appends the $SCENE_NUMBER suffix.%s"
-    % (USER_CONFIG.get_help_string("split-video", "mkvmerge")),
+    help="Split video using mkvmerge. Faster than re-encoding, but less precise. If set, options other than -f/--filename, -q/--quiet and -o/--output will be ignored. Note that mkvmerge automatically appends the $SCENE_NUMBER suffix.{}".format(
+        USER_CONFIG.get_help_string("split-video", "mkvmerge")
+    ),
 )
 @click.pass_context
 def split_video_command(
     ctx: click.Context,
-    output: ty.Optional[ty.AnyStr],
-    filename: ty.Optional[ty.AnyStr],
+    output: str | None,
+    filename: str | None,
     quiet: bool,
     copy: bool,
     high_quality: bool,
-    rate_factor: ty.Optional[int],
-    preset: ty.Optional[str],
-    args: ty.Optional[str],
+    rate_factor: int | None,
+    preset: str | None,
+    args: str | None,
     mkvmerge: bool,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
 
     check_split_video_requirements(use_mkvmerge=mkvmerge)
+    assert ctx.video_stream is not None
     if "%" in ctx.video_stream.path or "://" in ctx.video_stream.path:
         error = "The split-video command is incompatible with image sequences/URLs."
         raise click.BadParameter(error, param_hint="split-video")
@@ -1282,20 +1331,20 @@ def split_video_command(
         command = "mkvmerge (-m)" if mkvmerge else "copy (-c)"
         if high_quality:
             raise click.BadParameter(
-                "high-quality (-hq) cannot be used with %s" % (command),
+                f"high-quality (-hq) cannot be used with {command}",
                 param_hint="split-video",
             )
         if args:
             raise click.BadParameter(
-                "args (-a) cannot be used with %s" % (command), param_hint="split-video"
+                f"args (-a) cannot be used with {command}", param_hint="split-video"
             )
         if rate_factor:
             raise click.BadParameter(
-                "rate-factor (crf) cannot be used with %s" % (command), param_hint="split-video"
+                f"rate-factor (crf) cannot be used with {command}", param_hint="split-video"
             )
         if preset:
             raise click.BadParameter(
-                "preset (-p) cannot be used with %s" % (command), param_hint="split-video"
+                f"preset (-p) cannot be used with {command}", param_hint="split-video"
             )
 
     # mkvmerge-Specific Options
@@ -1345,8 +1394,9 @@ Examples:
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory for images. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("save-images", "output", show_default=False)),
+    help="Output directory for images. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("save-images", "output", show_default=False)
+    ),
 )
 @click.option(
     "--filename",
@@ -1354,8 +1404,9 @@ Examples:
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Filename format *without* extension to use when saving images. You can use the $VIDEO_NAME, $SCENE_NUMBER, $IMAGE_NUMBER, and $FRAME_NUMBER macros in the file name. You may have to use escape characters (e.g. -f \\$SCENE_NUMBER-Image-\\$IMAGE_NUMBER) or single quotes.%s"
-    % (USER_CONFIG.get_help_string("save-images", "filename")),
+    help="Filename format *without* extension to use when saving images. You can use the $VIDEO_NAME, $SCENE_NUMBER, $IMAGE_NUMBER, and $FRAME_NUMBER macros in the file name. You may have to use escape characters (e.g. -f \\$SCENE_NUMBER-Image-\\$IMAGE_NUMBER) or single quotes.{}".format(
+        USER_CONFIG.get_help_string("save-images", "filename")
+    ),
 )
 @click.option(
     "--num-images",
@@ -1363,16 +1414,18 @@ Examples:
     metavar="N",
     default=None,
     type=click.INT,
-    help="Number of images to generate per scene. Will always include start/end frame, unless -n 1, in which case the image will be the frame at the mid-point of the scene.%s"
-    % (USER_CONFIG.get_help_string("save-images", "num-images")),
+    help="Number of images to generate per scene. Will always include start/end frame, unless -n 1, in which case the image will be the frame at the mid-point of the scene.{}".format(
+        USER_CONFIG.get_help_string("save-images", "num-images")
+    ),
 )
 @click.option(
     "--jpeg",
     "-j",
     is_flag=True,
     flag_value=True,
-    help="Set output format to JPEG (default).%s"
-    % (USER_CONFIG.get_help_string("save-images", "format", show_default=False)),
+    help="Set output format to JPEG (default).{}".format(
+        USER_CONFIG.get_help_string("save-images", "format", show_default=False)
+    ),
 )
 @click.option(
     "--webp",
@@ -1387,8 +1440,9 @@ Examples:
     metavar="Q",
     default=None,
     type=click.IntRange(0, 100),
-    help="JPEG/WebP encoding quality, from 0-100 (higher indicates better quality). For WebP, 100 indicates lossless. [default: JPEG: 95, WebP: 100]%s"
-    % (USER_CONFIG.get_help_string("save-images", "quality", show_default=False)),
+    help="JPEG/WebP encoding quality, from 0-100 (higher indicates better quality). For WebP, 100 indicates lossless. [default: JPEG: 95, WebP: 100]{}".format(
+        USER_CONFIG.get_help_string("save-images", "quality", show_default=False)
+    ),
 )
 @click.option(
     "--png",
@@ -1403,17 +1457,19 @@ Examples:
     metavar="C",
     default=None,
     type=click.IntRange(0, 9),
-    help="PNG compression rate, from 0-9. Higher values produce smaller files but result in longer compression time. This setting does not affect image quality, only file size.%s"
-    % (USER_CONFIG.get_help_string("save-images", "compression")),
+    help="PNG compression rate, from 0-9. Higher values produce smaller files but result in longer compression time. This setting does not affect image quality, only file size.{}".format(
+        USER_CONFIG.get_help_string("save-images", "compression")
+    ),
 )
 @click.option(
     "-m",
     "--frame-margin",
-    metavar="N",
+    metavar="DURATION",
     default=None,
-    type=click.INT,
-    help="Number of frames to ignore at beginning/end of scenes when saving images. Controls temporal padding on scene boundaries.%s"
-    % (USER_CONFIG.get_help_string("save-images", "num-images")),
+    type=click.STRING,
+    help="Padding around the beginning/end of each scene used when selecting which frames to extract. DURATION can be specified in frames (-m 1), in seconds with `s` suffix (-m 0.1s), or timecode (-m 00:00:00.100).{}".format(
+        USER_CONFIG.get_help_string("save-images", "frame-margin")
+    ),
 )
 @click.option(
     "--scale",
@@ -1421,8 +1477,9 @@ Examples:
     metavar="S",
     default=None,
     type=click.FLOAT,
-    help="Factor to scale images by. Ignored if -W/--width or -H/--height is set.%s"
-    % (USER_CONFIG.get_help_string("save-images", "scale", show_default=False)),
+    help="Factor to scale images by. Ignored if -W/--width or -H/--height is set.{}".format(
+        USER_CONFIG.get_help_string("save-images", "scale", show_default=False)
+    ),
 )
 @click.option(
     "--height",
@@ -1430,8 +1487,9 @@ Examples:
     metavar="H",
     default=None,
     type=click.INT,
-    help="Height (pixels) of images.%s"
-    % (USER_CONFIG.get_help_string("save-images", "height", show_default=False)),
+    help="Height (pixels) of images.{}".format(
+        USER_CONFIG.get_help_string("save-images", "height", show_default=False)
+    ),
 )
 @click.option(
     "--width",
@@ -1439,27 +1497,29 @@ Examples:
     metavar="W",
     default=None,
     type=click.INT,
-    help="Width (pixels) of images.%s"
-    % (USER_CONFIG.get_help_string("save-images", "width", show_default=False)),
+    help="Width (pixels) of images.{}".format(
+        USER_CONFIG.get_help_string("save-images", "width", show_default=False)
+    ),
 )
 @click.pass_context
 def save_images_command(
     ctx: click.Context,
-    output: ty.Optional[ty.AnyStr] = None,
-    filename: ty.Optional[ty.AnyStr] = None,
-    num_images: ty.Optional[int] = None,
+    output: str | None = None,
+    filename: str | None = None,
+    num_images: int | None = None,
     jpeg: bool = False,
     webp: bool = False,
-    quality: ty.Optional[int] = None,
+    quality: int | None = None,
     png: bool = False,
-    compression: ty.Optional[int] = None,
-    frame_margin: ty.Optional[int] = None,
-    scale: ty.Optional[float] = None,
-    height: ty.Optional[int] = None,
-    width: ty.Optional[int] = None,
+    compression: int | None = None,
+    frame_margin: str | None = None,
+    scale: float | None = None,
+    height: int | None = None,
+    width: int | None = None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
+    assert ctx.video_stream is not None
 
     if "://" in ctx.video_stream.path:
         error_str = "\nThe save-images command is incompatible with URLs."
@@ -1490,7 +1550,7 @@ def save_images_command(
     valid_params = get_cv2_imwrite_params()
     if image_extension not in valid_params or valid_params[image_extension] is None:
         error_strs = [
-            "Image encoder type `%s` not supported." % image_extension.upper(),
+            f"Image encoder type `{image_extension.upper()}` not supported.",
             "The specified encoder type could not be found in the current OpenCV module.",
             "To enable this output format, please update the installed version of OpenCV.",
             "If you build OpenCV, ensure the the proper dependencies are enabled. ",
@@ -1530,7 +1590,7 @@ SAVE_EDL_HELP = """Save cuts in EDL format (CMX 3600)."""
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Filename format to use.%s" % (USER_CONFIG.get_help_string("save-edl", "filename")),
+    help="Filename format to use.{}".format(USER_CONFIG.get_help_string("save-edl", "filename")),
 )
 @click.option(
     "--title",
@@ -1538,7 +1598,7 @@ SAVE_EDL_HELP = """Save cuts in EDL format (CMX 3600)."""
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Title format to use.%s" % (USER_CONFIG.get_help_string("save-edl", "title")),
+    help="Title format to use.{}".format(USER_CONFIG.get_help_string("save-edl", "title")),
 )
 @click.option(
     "--reel",
@@ -1546,23 +1606,37 @@ SAVE_EDL_HELP = """Save cuts in EDL format (CMX 3600)."""
     metavar="REEL",
     default=None,
     type=click.STRING,
-    help="Reel name to use.%s" % (USER_CONFIG.get_help_string("save-edl", "reel")),
+    help="Reel name to use.{}".format(USER_CONFIG.get_help_string("save-edl", "reel")),
 )
 @click.option(
     "--output",
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory to save EDL file to. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("save-edl", "output", show_default=False)),
+    help="Output directory to save EDL file to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("save-edl", "output", show_default=False)
+    ),
+)
+@click.option(
+    "--start-timecode",
+    "-s",
+    metavar="TIMECODE",
+    default=None,
+    type=click.STRING,
+    help=(
+        "Start timecode added to every event so the EDL aligns with the source media's "
+        "on-screen timecode. Accepts SMPTE HH:MM:SS:FF or 8 digits (HHMMSSFF, e.g. 01000000)."
+        "{}"
+    ).format(USER_CONFIG.get_help_string("save-edl", "start-timecode", show_default=False)),
 )
 @click.pass_context
 def save_edl_command(
     ctx: click.Context,
-    filename: ty.Optional[ty.AnyStr],
-    title: ty.Optional[ty.AnyStr],
-    reel: ty.Optional[ty.AnyStr],
-    output: ty.Optional[ty.AnyStr],
+    filename: str | None,
+    title: str | None,
+    reel: str | None,
+    output: str | None,
+    start_timecode: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -1572,6 +1646,7 @@ def save_edl_command(
         "title": ctx.config.get_value("save-edl", "title", title),
         "reel": ctx.config.get_value("save-edl", "reel", reel),
         "output": ctx.config.get_value("save-edl", "output", output),
+        "start_timecode": ctx.config.get_value("save-edl", "start-timecode", start_timecode),
     }
     ctx.add_command(cli_commands.save_edl, save_edl_args)
 
@@ -1589,15 +1664,16 @@ The resulting QP file can be used with the `--qpfile` argument in x264/x265.
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Filename format to use.%s" % (USER_CONFIG.get_help_string("save-qp", "filename")),
+    help="Filename format to use.{}".format(USER_CONFIG.get_help_string("save-qp", "filename")),
 )
 @click.option(
     "--output",
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory to save QP file to. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("save-qp", "output", show_default=False)),
+    help="Output directory to save QP file to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("save-qp", "output", show_default=False)
+    ),
 )
 @click.option(
     "--disable-shift",
@@ -1605,15 +1681,16 @@ The resulting QP file can be used with the `--qpfile` argument in x264/x265.
     is_flag=True,
     flag_value=True,
     default=None,
-    help="Disable shifting frame numbers by start time.%s"
-    % (USER_CONFIG.get_help_string("save-qp", "disable-shift")),
+    help="Disable shifting frame numbers by start time.{}".format(
+        USER_CONFIG.get_help_string("save-qp", "disable-shift")
+    ),
 )
 @click.pass_context
 def save_qp_command(
     ctx: click.Context,
-    filename: ty.Optional[ty.AnyStr],
-    output: ty.Optional[ty.AnyStr],
-    disable_shift: ty.Optional[bool],
+    filename: str | None,
+    output: str | None,
+    disable_shift: bool | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -1626,27 +1703,26 @@ def save_qp_command(
     ctx.add_command(cli_commands.save_qp, save_qp_args)
 
 
-SAVE_XML_HELP = """[IN DEVELOPMENT] Save cuts in XML format."""
+SAVE_FCP_HELP = """Save cuts in Final Cut Pro XML format (FCP7 xmeml or FCPX)."""
 
 
-@click.command("save-xml", cls=Command, help=SAVE_XML_HELP, hidden=True)
+@click.command("save-fcp", cls=Command, help=SAVE_FCP_HELP)
 @click.option(
     "--filename",
     "-f",
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Filename format to use.%s" % (USER_CONFIG.get_help_string("save-xml", "filename")),
+    help="Filename format to use.{}".format(USER_CONFIG.get_help_string("save-fcp", "filename")),
 )
 @click.option(
     "--format",
     metavar="TYPE",
-    type=click.Choice(CHOICE_MAP["save-xml"]["format"], False),
+    type=click.Choice(CHOICE_MAP["save-fcp"]["format"], False),
     default=None,
-    help="Format to export. TYPE must be one of: %s.%s"
-    % (
-        ", ".join(CHOICE_MAP["save-xml"]["format"]),
-        USER_CONFIG.get_help_string("save-xml", "format"),
+    help="Format to export. TYPE must be one of: {}.{}".format(
+        ", ".join(CHOICE_MAP["save-fcp"]["format"]),
+        USER_CONFIG.get_help_string("save-fcp", "format"),
     ),
 )
 @click.option(
@@ -1654,25 +1730,26 @@ SAVE_XML_HELP = """[IN DEVELOPMENT] Save cuts in XML format."""
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory to save XML file to. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("save-xml", "output", show_default=False)),
+    help="Output directory to save XML file to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("save-fcp", "output", show_default=False)
+    ),
 )
 @click.pass_context
-def save_xml_command(
+def save_fcp_command(
     ctx: click.Context,
-    filename: ty.Optional[ty.AnyStr],
-    format: ty.Optional[ty.AnyStr],
-    output: ty.Optional[ty.AnyStr],
+    filename: str | None,
+    format: str | None,
+    output: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
 
-    save_xml_args = {
-        "filename": ctx.config.get_value("save-xml", "filename", filename),
-        "format": ctx.config.get_value("save-xml", "format", format),
-        "output": ctx.config.get_value("save-xml", "output", output),
+    save_fcp_args = {
+        "filename": ctx.config.get_value("save-fcp", "filename", filename),
+        "format": ctx.config.get_value("save-fcp", "format", format),
+        "output": ctx.config.get_value("save-fcp", "output", output),
     }
-    ctx.add_command(cli_commands.save_xml, save_xml_args)
+    ctx.add_command(cli_commands.save_fcp, save_fcp_args)
 
 
 SAVE_OTIO_HELP = """Save cuts as an OTIO timeline.
@@ -1687,7 +1764,7 @@ Uses the Timeline.1 schema. OTIO (OpenTimelineIO) timelines can be imported by m
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Filename format to use.%s" % (USER_CONFIG.get_help_string("save-otio", "filename")),
+    help="Filename format to use.{}".format(USER_CONFIG.get_help_string("save-otio", "filename")),
 )
 @click.option(
     "--name",
@@ -1695,15 +1772,16 @@ Uses the Timeline.1 schema. OTIO (OpenTimelineIO) timelines can be imported by m
     metavar="NAME",
     default=None,
     type=click.STRING,
-    help="Name of timeline to use.%s" % (USER_CONFIG.get_help_string("save-otio", "name")),
+    help="Name of timeline to use.{}".format(USER_CONFIG.get_help_string("save-otio", "name")),
 )
 @click.option(
     "--output",
     "-o",
     metavar="DIR",
     type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
-    help="Output directory to save OTIO file to. Overrides global option -o/--output.%s"
-    % (USER_CONFIG.get_help_string("save-otio", "output", show_default=False)),
+    help="Output directory to save OTIO file to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("save-otio", "output", show_default=False)
+    ),
 )
 @click.option(
     "--audio",
@@ -1720,9 +1798,9 @@ Uses the Timeline.1 schema. OTIO (OpenTimelineIO) timelines can be imported by m
 @click.pass_context
 def save_otio_command(
     ctx: click.Context,
-    filename: ty.Optional[ty.AnyStr],
-    name: ty.Optional[ty.AnyStr],
-    output: ty.Optional[ty.AnyStr],
+    filename: str | None,
+    name: str | None,
+    output: str | None,
     audio: bool,
     no_audio: bool,
 ):
@@ -1769,7 +1847,7 @@ scenedetect.add_command(save_edl_command)
 scenedetect.add_command(save_html_command)
 scenedetect.add_command(save_images_command)
 scenedetect.add_command(save_qp_command)
-scenedetect.add_command(save_xml_command)
+scenedetect.add_command(save_fcp_command)
 scenedetect.add_command(save_otio_command)
 scenedetect.add_command(split_video_command)
 

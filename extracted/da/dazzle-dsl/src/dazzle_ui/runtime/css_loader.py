@@ -35,7 +35,8 @@ CSS_SOURCE_FILES: tuple[tuple[str, str], ...] = (
     ("reset", "css/reset.css"),
     ("vendor", "vendor/tom-select.css"),
     ("vendor", "vendor/flatpickr.css"),
-    ("vendor", "vendor/quill.snow.css"),
+    # vendor/quill.snow.css removed in #977 cycle 4 — Quill replaced by
+    # dz-richtext (Dazzle-native, bundled).
     # vendor/pickr.css removed in #976 — `widget=color` uses native
     # <input type="color">, no vendor CSS required.
     ("tokens", "css/tokens.css"),
@@ -52,6 +53,11 @@ CSS_SOURCE_FILES: tuple[tuple[str, str], ...] = (
     ("components", "css/components/pdf-viewer.css"),
     ("components", "css/components/regions.css"),
     ("components", "css/components/table.css"),
+    # #958 — mobile UX (cycle 1: touch targets, cycle 4: scroll containment).
+    ("components", "css/components/touch-targets.css"),
+    ("components", "css/components/mobile-scroll.css"),
+    # #977 cycle 1 — Dazzle-native rich-text editor (replaces Quill in cycle 4).
+    ("components", "css/components/richtext.css"),
     ("components", "css/dazzle-layer.css"),
     ("components", "css/site-sections.css"),
 )

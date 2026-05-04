@@ -479,7 +479,11 @@ def create_jinja_env(project_templates_dir: Path | None = None) -> Environment:
     # Combine: unprefixed paths go through ChoiceLoader, "dz://" goes to framework
     combined = ChoiceLoader([loader, main_loader])
 
-    env = Environment(
+    # Direct Jinja2 use is intentional — this module IS the framework's
+    # canonical template renderer. autoescape is enabled for .html so XSS
+    # protection is in force; downstream callers go through render_fragment
+    # which uses this env, never raw Jinja2.
+    env = Environment(  # nosemgrep
         loader=combined,
         autoescape=select_autoescape(["html"]),
         trim_blocks=True,
@@ -508,13 +512,20 @@ def create_jinja_env(project_templates_dir: Path | None = None) -> Environment:
     # attribute renders on first paint and returning dark-mode users
     # don't see a flash-of-light. Falls back to "light" when called
     # outside a request context (e.g. unit-test rendering).
-    from dazzle_ui.runtime.theme import get_theme_variant, is_dark_mode_toggle_enabled
+    from dazzle_ui.runtime.theme import (
+        get_theme_variant,
+        is_dark_mode_toggle_enabled,
+        is_haptic_enabled,
+    )
 
     env.globals["theme_variant"] = get_theme_variant
     # #938 — gate the topbar/sidebar/marketing dark-mode toggle button
     # on `[ui] dark_mode_toggle`. Defaults to True; projects with a
     # deliberately light-only brand set `dark_mode_toggle = false`.
     env.globals["dark_mode_toggle_enabled"] = is_dark_mode_toggle_enabled
+    # #958 cycle 5 — haptic opt-in. base.html emits a `<meta name="dz-haptic">`
+    # tag the framework JS reads to enable navigator.vibrate calls.
+    env.globals["haptic_enabled"] = is_haptic_enabled
 
     # v0.62 CSS refactor (Phase 4 teardown): Tailwind compiled bundle
     # removed — the `_tailwind_bundled` Jinja global and the per-request
@@ -559,6 +570,35 @@ def create_jinja_env(project_templates_dir: Path | None = None) -> Environment:
     # `_("Hello")` and `"Hello" | _` both work.
     env.globals["_"] = _gettext
     env.filters["_"] = _gettext
+
+    # #955 cycle 4: locale-aware date / number / currency formatting via
+    # Babel. Each filter degrades to ISO/ASCII output without the
+    # ``[i18n]`` extra installed — see `dazzle.i18n.babel_format`.
+    from dazzle.i18n.babel_format import (
+        format_currency as _l10n_format_currency,
+    )
+    from dazzle.i18n.babel_format import (
+        format_date as _l10n_format_date,
+    )
+    from dazzle.i18n.babel_format import (
+        format_datetime as _l10n_format_datetime,
+    )
+    from dazzle.i18n.babel_format import (
+        format_decimal as _l10n_format_decimal,
+    )
+    from dazzle.i18n.babel_format import (
+        format_number as _l10n_format_number,
+    )
+    from dazzle.i18n.babel_format import (
+        format_time as _l10n_format_time,
+    )
+
+    env.filters["format_date"] = _l10n_format_date
+    env.filters["format_datetime"] = _l10n_format_datetime
+    env.filters["format_time"] = _l10n_format_time
+    env.filters["format_number"] = _l10n_format_number
+    env.filters["format_decimal"] = _l10n_format_decimal
+    env.filters["format_currency"] = _l10n_format_currency
 
     # #929: radar widget needs explicit polar-to-cartesian conversion
     # for vertex placement. Jinja can't call cos/sin directly, so the
@@ -684,7 +724,7 @@ def render_page(
 
     # Render the content template first (standalone fragment)
     content_template = env.get_template(context.template)
-    rendered_content = content_template.render(**template_vars)
+    rendered_content = content_template.render(**template_vars)  # nosemgrep
 
     # Fragment targeting: return just the content, no layout wrapper
     if content_only:
@@ -721,8 +761,8 @@ def render_site_page(
         Rendered HTML string.
     """
     env = get_jinja_env()
-    template = env.get_template(template_name)
-    return template.render(**context.model_dump())
+    template = env.get_template(template_name)  # nosemgrep
+    return template.render(**context.model_dump())  # nosemgrep
 
 
 def render_fragment(template_name: str, **kwargs: Any) -> str:
@@ -737,5 +777,5 @@ def render_fragment(template_name: str, **kwargs: Any) -> str:
         Rendered HTML fragment string.
     """
     env = get_jinja_env()
-    template = env.get_template(template_name)
-    return template.render(**kwargs)
+    template = env.get_template(template_name)  # nosemgrep
+    return template.render(**kwargs)  # nosemgrep

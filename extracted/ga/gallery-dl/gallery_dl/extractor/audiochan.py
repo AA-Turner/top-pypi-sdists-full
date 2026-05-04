@@ -26,11 +26,7 @@ class AudiochanExtractor(Extractor):
     def _init(self):
         self.user = False
         self.headers_api = {
-            "content-type"   : "application/json",
-            "Origin"         : self.root,
-            "Sec-Fetch-Dest" : "empty",
-            "Sec-Fetch-Mode" : "cors",
-            "Sec-Fetch-Site" : "same-site",
+            "content-type": "application/json",
         }
         self.headers_dl = {
             "Accept": "audio/webm,audio/ogg,audio/wav,audio/*;q=0.9,"

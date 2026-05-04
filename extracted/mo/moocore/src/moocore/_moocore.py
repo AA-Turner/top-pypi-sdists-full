@@ -145,15 +145,28 @@ def read_datasets(filename: str | os.PathLike | StringIO) -> np.ndarray:
     if err_code != 0:
         raise ReadDatasetsError(err_code)
 
-    # Create buffer with the correct array size in bytes
-    data_buf = ffi.buffer(data_p[0], datasize_p[0])
-    # Convert 1d numpy array to 2d array with (n obj... , sets) columns
-    return np.frombuffer(data_buf).reshape((-1, ncols_p[0]))
+    datasize = datasize_p[0]
+    # Ensure that Python can free the data allocated by the C library.
+    data_p = ffi.gc(data_p[0], lib.free, size=datasize)
+    # Convert 1D numpy array to 2D array with (n obj... , sets) columns
+    return np.frombuffer(ffi.buffer(data_p, datasize)).reshape(-1, ncols_p[0])
 
 
 def _parse_maximise(maximise: bool | Sequence[bool], nobj: int) -> np.ndarray:
     """Convert maximise array or single bool to ndarray format."""
-    return array_1d_of_length_n(maximise, nobj).astype(bool)
+    return array_1d_of_length_n(maximise, nobj, name="maximise").astype(bool)
+
+
+def _parse_maximise_to_bool_array(
+    maximise: bool | Sequence[bool], nobj: int
+) -> np.ndarray:
+    """Convert maximise array or single bool to C array.
+
+    In the C library, boolean arrays are of type boolvec, which is uint8_t.
+    """
+    return ffi.from_buffer(
+        "uint8_t []", _parse_maximise(maximise, nobj).view(np.uint8)
+    )
 
 
 def _all_positive(x: ArrayLike) -> bool:
@@ -187,13 +200,12 @@ def _unary_refset_common(
                 "All values must be larger than 0 in the reference set"
             )
 
-    maximise = _parse_maximise(maximise, nobj)
-    data_p, npoints, nobj = np2d_to_double_array(
+    data_p, npoints_c, nobj_c = np2d_to_double_array(
         data, ctype_shape=("size_t", "uint_fast8_t")
     )
     ref_p, ref_size = np1d_to_double_array(ref, ctype_size="size_t")
-    maximise_p = ffi.from_buffer("bool []", maximise)
-    return data_p, npoints, nobj, ref_p, ref_size, maximise_p
+    maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
+    return data_p, npoints_c, nobj_c, ref_p, ref_size, maximise_p
 
 
 def igd(
@@ -345,7 +357,7 @@ def epsilon_additive(
     maximise :
         Whether the objectives must be maximised instead of minimised.
         Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1d numpy array with value 0/1 for each objective
+        Also accepts a 1D numpy array with value 0/1 for each objective
 
     Returns
     -------
@@ -460,19 +472,22 @@ def hypervolume(
     correctly handles weakly dominated points and has been further optimized
     for speed.
 
-    For 5D or higher and up to 15 points, the implementation uses the
+    For 5D or higher and up to 12 points, the implementation uses the
     inclusion-exclusion algorithm :footcite:p:`WuAza2001metrics`, which has
     :math:`O(m 2^{n})` time and :math:`O(n\cdot m)` space complexity, where
     :math:`m` is the dimension of the points, but it is very fast for such
     small sets.  For larger number of points, it uses a recursive algorithm
-    :footcite:p:`FonPaqLop06:hypervolume` with HV4D\ :sup:`+` as the base case,
-    resulting in a :math:`O(n^{m-2})` time complexity and :math:`O(n)` space
-    complexity in the worst-case.  Experimental results show that the pruning
-    techniques used may reduce the time complexity even further.  The original
-    proposal :footcite:p:`FonPaqLop06:hypervolume` had the HV3D algorithm as
-    the base case, giving a time complexity of :math:`O(n^{m-2} \log n)`.
-    Andreia P. Guerreiro enhanced the numerical stability of the recursive
-    algorithm by avoiding floating-point comparisons of partial hypervolumes.
+    :footcite:p:`FonPaqLop06:hypervolume` that computes 4D contributions
+    :footcite:p:`GueFon2017hv4d` as the base case, resulting in a
+    :math:`O(n^{m-2})` time complexity and :math:`O(n)` space complexity in the
+    worst-case.  Experimental results show that the pruning techniques used may
+    reduce the time complexity even further.  The original proposal
+    :footcite:p:`FonPaqLop06:hypervolume` had the HV3D algorithm as the base
+    case, giving a time complexity of :math:`O(n^{m-2} \log n)`.  Andreia
+    P. Guerreiro enhanced the numerical stability of the recursive algorithm by
+    avoiding floating-point comparisons of partial hypervolumes.
+
+    The hypervolume of 1D inputs is defined as :code:`max(0, ref - data.min())`.
 
 
     References
@@ -488,7 +503,6 @@ def hypervolume(
     This function assumes that objectives must be minimized by default. We can
     easily specify maximization:
 
-    >>> dat = np.array([[5, 5], [4, 6], [2, 7], [7, 4]])
     >>> moocore.hypervolume(dat, ref=0, maximise=True)
     39.0
 
@@ -518,12 +532,10 @@ def hypervolume(
     # an int array.
     data, data_copied = asarray_maybe_copy(data)
     nobj = data.shape[1]
+    if nobj == 0:
+        raise ValueError("input data must have at least 1 column")
     # Make sure it is a 1D array of length nobj.
-    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj)
-    if nobj != ref.shape[0]:
-        raise ValueError(
-            f"data and ref need to have the same number of objectives ({nobj} != {ref.shape[0]})"
-        )
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
 
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
@@ -810,12 +822,7 @@ def hv_contributions(
     # an int array.
     x, x_copied = asarray_maybe_copy(x)
     nobj = x.shape[1]
-    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj)
-    if nobj != ref.shape[0]:
-        raise ValueError(
-            f"data and ref need to have the same number of objectives ({nobj} != {ref.shape[0]})"
-        )
-
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
     if maximise.any():
@@ -842,19 +849,19 @@ def hv_approx(
     ref: ArrayLike,
     *,
     maximise: bool | Sequence[bool] = False,
-    nsamples: int = 100_000,
+    nsamples: int = 262_144,
     seed: int | np.random.Generator | None = None,
-    method: Literal["DZ2019-HW", "DZ2019-MC"] = "DZ2019-HW",
+    method: Literal["DZ2019-HW", "DZ2019-MC", "Rphi-FWE+"] = "Rphi-FWE+",
 ) -> float:
     r"""Approximate the hypervolume indicator.
 
     Approximate the value of the hypervolume metric with respect to a given
-    reference point assuming minimization of all objectives. The default
-    ``method="DZ2019-HW"`` is deterministic and ignores the parameter ``seed``,
-    while ``method="DZ2019-MC"`` relies on Monte-Carlo sampling
-    :footcite:p:`DenZha2019approxhv`.  Both methods tend to get more accurate
-    with higher values of ``nsamples``, but the increase in accuracy is not
-    monotonic as shown in the example
+    reference point assuming minimization of all objectives. Methods
+    ``"Rphi-FWE+"`` and ``"DZ2019-HW"`` are deterministic and ignore the
+    parameter ``seed``, while ``method="DZ2019-MC"`` relies on Monte-Carlo
+    sampling :footcite:p:`DenZha2019approxhv`.  All methods tend to get more
+    accurate with higher values of ``nsamples``, but the increase in accuracy
+    is not monotonic as shown in the example
     :ref:`sphx_glr_auto_examples_plot_hv_approx.py`.
 
     .. seealso:: For details of the calculation, see the Notes section below.
@@ -872,10 +879,10 @@ def hv_approx(
     maximise :
         Whether the objectives must be maximised instead of minimised.
         Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
-        Also accepts a 1d numpy array with value 0/1 for each objective
+        Also accepts a 1D numpy array with value 0/1 for each objective
     nsamples :
-        Number of samples for Monte-Carlo sampling. Higher values give more
-        accurate approximation of the true hypervolume but require more time.
+        Number of samples for Monte-Carlo sampling. Higher values typically produce more
+        accurate approximations of the true hypervolume, but require more time.
     seed :
         Either an integer to seed :func:`numpy.random.default_rng`, Numpy
         default random number generator (RNG) or an instance of a
@@ -888,30 +895,51 @@ def hv_approx(
     -------
         A single numerical value, the approximate hypervolume indicator.
 
+    See Also
+    --------
+    hypervolume, whv_hype
+
     Notes
     -----
-    This function implements the methods proposed by
-    :cite:t:`DenZha2019approxhv` to approximate the hypervolume:
+    All available methods approximate the hypervolume as a :math:`(m-1)`-dimensional
+    integral over the surface of hypersphere :footcite:p:`DenZha2019approxhv`:
 
     .. math::
        \widehat{HV}_r(A) = \frac{2\pi^\frac{m}{2}}{\Gamma(\frac{m}{2})}\frac{1}{m 2^m}\frac{1}{n}\sum_{i=1}^n \max_{y \in A} s(w^{(i)}, y)^m
 
-    where :math:`m` is the number of objectives, :math:`n` is the number of
-    weights :math:`w^{(i)}` sampled, :math:`\Gamma()` is the gamma function
-    :func:`math.gamma()`, i.e., the analytical continuation of the factorial
-    function, and :math:`s(w, y) = \min_{k=1}^m (r_k - y_k)/w_k`.
+    where :math:`m` is the number of objectives, :math:`w^{(i)}` are weights
+    uniformly distributed on :math:`S_{+}`, i.e., the positive orthant of the
+    :math:`(m-1)`-D unit hypersphere, :math:`n` is the number of weights
+    sampled, :math:`\Gamma()` is the gamma function :func:`math.gamma()`, i.e.,
+    the analytical continuation of the factorial function, and :math:`s(w, y) =
+    \min_{k=1}^m (r_k - y_k)/w_k`.
 
-    In the default ``method="DZ2019-HW"``, the weights :math:`w^{(i)},
-    i=1\ldots n` are defined using a deterministic low-discrepancy
-    sequence. The weight values depend on their number (``nsamples``), thus
-    increasing the number of weights may not necessarily increase accuracy
-    because the set of weights would be different. In ``method="DZ2019-MC"``,
-    the weights :math:`w^{(i)}, i=1\ldots n` are sampled from the unit normal
-    vector such that each weight :math:`w = \frac{|x|}{\|x\|_2}` where each
-    component of :math:`x` is independently sampled from the standard normal
-    distribution.  The original source code in C++/MATLAB for both methods can
-    be found `here
+    In the default ``method="Rphi-FWE+"`` :footcite:p:`Lop2026hvapprox`, the
+    weights :math:`w^{(i)}, i=1\ldots n` are defined using the deterministic
+    low-discrepancy sequence :math:`R_\phi` :footcite:p:`Rob2018unreasonable`
+    mapped to the positive orthant of the hypersphere using a modified version
+    of Fang and Wang efficient mapping :footcite:p:`FanWan1994numtheory`.
+
+    In ``method="DZ2019-HW"`` :footcite:p:`DenZha2019approxhv`, the weights
+    :math:`w^{(i)}, i=1\ldots n` are defined using a deterministic
+    low-discrepancy sequence. The weight values depend on their number
+    (``nsamples``), thus increasing the number of weights may not necessarily
+    increase accuracy because the set of weights would be different.
+
+    In ``method="DZ2019-MC"`` :footcite:p:`DenZha2019approxhv`, the weights
+    :math:`w^{(i)}, i=1\ldots n` are sampled from the unit normal vector such
+    that each weight :math:`w = \frac{|x|}{\|x\|_2}` where each component of
+    :math:`x` is independently sampled from the standard normal distribution
+    :footcite:p:`Muller1959sphere`.
+
+    The original source code in C++/MATLAB for both ``"DZ2019-HW"`` and
+    ``"DZ2019-MC"`` methods can be found `here
     <https://github.com/Ksrma/Hypervolume-Approximation-using-polar-coordinate>`_.
+
+    :footcite:t:`Lop2026hvapprox` empirically shows that ``"Rphi-FWE+"``
+    typically produces an approximation error as low as the other methods, with
+    a computational cost similar to ``"DZ2019-MC"`` and significantly faster
+    than ``"DZ2019-HW"``.
 
 
     References
@@ -923,10 +951,12 @@ def hv_approx(
     >>> x = np.array([[5, 5], [4, 6], [2, 7], [7, 4]])
     >>> moocore.hypervolume(x, ref=[10, 10])
     38.0
-    >>> moocore.hv_approx(x, ref=[10, 10], seed=42, method="DZ2019-MC")
-    38.01475
+    >>> moocore.hv_approx(x, ref=[10, 10], method="Rphi-FWE+")
+    37.99998
     >>> moocore.hv_approx(x, ref=[10, 10], method="DZ2019-HW")
-    37.99989
+    37.99996
+    >>> moocore.hv_approx(x, ref=[10, 10], seed=42, method="DZ2019-MC")
+    38.00081
 
     Merge all the sets of a dataset by removing the set number column:
 
@@ -936,11 +966,15 @@ def hv_approx(
 
     >>> moocore.hv_approx(x, ref=10)
     93.5533
+    >>> moocore.hv_approx(x, ref=10, method="DZ2019-HW")
+    93.5533
 
     gives the same hypervolume approximation as this:
 
     >>> x = moocore.filter_dominated(x)
     >>> moocore.hv_approx(x, ref=10)
+    93.5533
+    >>> moocore.hv_approx(x, ref=10, method="DZ2019-HW")
     93.5533
 
     The approximation is far from perfect for large number of dimensions:
@@ -952,7 +986,9 @@ def hv_approx(
     >>> moocore.hypervolume(x, ref=reference, maximise=True)
     0.483633123747
     >>> moocore.hv_approx(x, ref=reference, maximise=True)
-    0.4852583123
+    0.48397532301
+    >>> moocore.hv_approx(x, ref=reference, maximise=True, method="DZ2019-HW")
+    0.483083547763
 
     """
     # Convert to numpy.array in case the user provides a list.  We use
@@ -961,18 +997,12 @@ def hv_approx(
     # an int array.
     data = np.asarray(data, dtype=float)
     nobj = data.shape[1]
-    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj)
-    if nobj != ref.shape[0]:
-        raise ValueError(
-            f"data and ref need to have the same number of objectives ({nobj} != {ref.shape[0]})"
-        )
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
 
     if not is_integer_value(nsamples):
         raise ValueError(f"nsamples must be an integer value: {nsamples}")
     nsamples = ffi.cast("uint_fast32_t", nsamples)
-
-    maximise = _parse_maximise(maximise, nobj)
-    maximise = ffi.from_buffer("bool []", maximise)
+    maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
     data_p, npoints, nobj = np2d_to_double_array(
         data, ctype_shape=("size_t", "uint_fast8_t")
     )
@@ -982,14 +1012,18 @@ def hv_approx(
         case "DZ2019-MC":
             seed = _get_seed_for_c(seed)
             hv = lib.hv_approx_normal(
-                data_p, npoints, nobj, ref, maximise, nsamples, seed
+                data_p, npoints, nobj, ref, maximise_p, nsamples, seed
             )
         case "DZ2019-HW":
             hv = lib.hv_approx_hua_wang(
-                data_p, npoints, nobj, ref, maximise, nsamples
+                data_p, npoints, nobj, ref, maximise_p, nsamples
+            )
+        case "Rphi-FWE+":
+            hv = lib.hv_approx_rphi_fang_wang_plus(
+                data_p, npoints, nobj, ref, maximise_p, nsamples
             )
         case _:
-            raise ValueError("Unknown value of method = {method}")
+            raise ValueError("Unknown method = {method}")
 
     return hv
 
@@ -1040,59 +1074,62 @@ def generate_ndset(
     -----
     The available methods are:
 
-    * ``"simplex"``, ``"linear"`` or ``"L"``: Uniformly samples points on the
-      standard simplex.
+    ``'simplex' | 'linear' | 'L'``
+      Uniformly samples points on the standard simplex.
+      This shape of nondominated set is also called ``'linear'`` in the literature :footcite:p:`LacKlaFon2017box`.
 
-    * ``"concave-sphere"``, ``"sphere"`` or ``"C"``: Uniformly samples points
-      on the positive orthant of the hyper-sphere (concave for minimisation).
+      The standard :math:`(d-1)`-simplex is defined by :math:`\{\vec{x}\in
+      \mathbb{R}_+^d : \sum_{i=1}^d x_i = 1\}`.  Each point :math:`\vec{z} \in
+      (0,1)^d \subset \mathbb{R}^d` is generated by sampling :math:`d`
+      independent and identically distributed values :math:`(x_1,x_2, \dots,
+      x_d)` from the exponential distribution, then dividing each value by the
+      l1-norm of the vector, :math:`z_i = x_i / \sum_{i=1}^d x_i`
+      :footcite:p:`RubMel1998simulation`.  Values sampled from the exponential
+      distribution are guaranteed to be positive. Sampling from either the
+      standard normal distribution :footcite:p:`GueFonPaq2021hv` or the uniform
+      distribution :footcite:p:`LacKlaFon2017box` does not produce a uniform
+      distribution when projected onto the simplex.
 
-    * ``"convex-sphere"`` or ``"X"``: Equivalent to ``1 - generate_ndset(...,
-      method="concave-sphere")``, which is convex for minimisation problems.
+    ``'concave-sphere' | 'sphere' | 'C'``
+      Uniformly samples points on the positive orthant of the hyper-sphere, which is concave when all objectives are minimised.
 
-    * ``"convex-simplex"``: Equivalent to ``generate_ndset(..., method="concave-sphere") ** 4``,
-      which is convex for minimisation problems. Such a set cannot be obtained
-      by any affine transformation of a subset of the hyper-sphere.
+      Each point :math:`\vec{z} \in (0,1)^d \subset \mathbb{R}^d` is
+      generated by sampling :math:`d` independent and identically distributed
+      values :math:`\vec{x}=(x_1,x_2, \dots, x_d)` from the standard normal
+      distribution, then dividing each value by the l2-norm of the vector,
+      :math:`z_i = \frac{|x_i|}{\|\vec{x}\|_2}`
+      :footcite:p:`Muller1959sphere`. The absolute value in the numerator ensures
+      that points are sampled on the positive orthant of the hyper-sphere.
+      Sampling from the uniform distribution :footcite:p:`LacKlaFon2017box` would
+      not result in a uniform sampling when projected onto the surface of the
+      hyper-sphere.
 
-    Method ``"simplex"`` uniformly samples points on the standard
-    :math:`(d-1)`-simplex defined by :math:`\{\vec{x}\in
-    \mathbb{R}_+^d : \sum_{i=1}^d x_i = 1\}`.  This shape of nondominated set
-    is also called ``"linear"`` in the literature
-    :footcite:p:`LacKlaFon2017box`.  Each point :math:`\vec{z} \in (0,1)^d
-    \subset \mathbb{R}^d` is generated by sampling :math:`d` independent and
-    identically distributed values :math:`(x_1,x_2, \dots, x_d)` from the
-    exponential distribution, then dividing each value by the l1-norm of the
-    vector, :math:`z_i = x_i / \sum_{i=1}^d x_i`
-    :footcite:p:`RubMel1998simulation`.  Values sampled from the exponential
-    distribution are guaranteed to be positive.
+    ``'convex-sphere' | 'X'``
+      Equivalent to ``1 - generate_ndset(..., method='concave-sphere')``, which is convex for minimisation problems. This shape has also been called *inverted convex* :footcite:p:`IshHeSha2019regular`. This sampling is uniform.
 
-    Sampling from either the standard normal distribution
-    :footcite:p:`GueFonPaq2021hv` or the uniform distribution
-    :footcite:p:`LacKlaFon2017box` does not produce a uniform distribution
-    when projected into the simplex.
+      It corresponds to translating points from the negative orthant of the hyper-sphere to the positive orthant. Thus, the sampling remains uniform.
 
-    Method ``"concave-sphere"`` uniformly samples points on the positive
-    orthant of the hyper-sphere, which is concave when all objectives are
-    minimised.  Each point :math:`\vec{z} \in (0,1)^d \subset \mathbb{R}^d` is
-    generated by sampling :math:`d` independent and identically distributed
-    values :math:`\vec{x}=(x_1,x_2, \dots, x_d)` from the standard normal
-    distribution, then dividing each value by the l2-norm of the vector,
-    :math:`z_i = \frac{|x_i|}{\|\vec{x}\|_2}`
-    :footcite:p:`Muller1959sphere`. The absolute value in the numerator ensures
-    that points are sampled on the positive orthant of the hyper-sphere.
-    Sampling from the uniform distribution :footcite:p:`LacKlaFon2017box`
-    does not result in a uniform sampling when
-    projected onto the surface of the hyper-sphere.
+    ``'convex-simplex'``
+      Equivalent to :code:`generate_ndset(..., method='simplex') ** 2`, which is convex for minimisation problems.
+      Such a set cannot be obtained by any affine transformation of a subset of the hyper-sphere.  This sampling is *not* uniform.
 
-    Method ``"convex-sphere"`` is equivalent to ``1 - generate_ndset(...,
-    method="concave-sphere")``, which is convex for minimisation problems.  It
-    corresponds to translating points from the negative orthant of the
-    hyper-sphere to the positive orthant.
+      The corresponding surface is equivalent to a simplex curved towards the
+      origin.  The generated points :math:`\vec{z} \in (0,1)^d \subset
+      \mathbb{R}^d` satisfy :math:`\sum_{i=1}^d \sqrt{z_i} = 1`.  Although
+      the sampling on the simplex is uniform, the transformed points are not.
 
-    Method ``"convex-simplex"`` is equivalent to ``generate_ndset(...,
-    method="concave-sphere")**4``, which is convex for minimisation problems.
-    The corresponding surface is equivalent to a simplex curved towards the
-    origin.
+    ``'concave-simplex'``
+      Equivalent to ``1 - generate_ndset(..., method='convex-simplex')``, which is concave for minimisation problems. This shape has also been called *inverted concave* :footcite:p:`IshHeSha2019regular`.  This sampling is *not* uniform because ``method='convex-simplex'`` is not uniform.
 
+    ``'inverted-simplex' | 'inverted-linear'``
+      Equivalent to ``1 - generate_ndset(..., method='simplex')``. This sampling is uniform.
+
+
+    Methods ``'inverted-simplex'``, ``'concave-simplex'`` and
+    ``'convex-sphere'`` are translations of ``'simplex'``, ``'convex-simplex'``
+    and ``'concave-sphere'``, respectively.  These translations have been
+    called `inverted` shapes in the literature and have different properties
+    than their `regular` counterparts :footcite:p:`IshHeSha2019regular`.
 
 
     References
@@ -1124,10 +1161,10 @@ def generate_ndset(
            [0.37787475, 0.74198125, 0.52575586, 0.79648617, 0.47079199],
            [0.47186748, 0.96998408, 0.88885902, 0.5906188 , 0.26499673]])
     >>> moocore.generate_ndset(4, 4, "convex-simplex", seed=rng)
-    array([[1.50912692e-03, 8.90810874e-02, 4.06920896e-02, 2.12488882e-01],
-           [6.92170773e-04, 1.12617206e-03, 1.33695589e-03, 8.16435071e-01],
-           [1.26387422e-02, 3.18954020e-02, 2.03159622e-01, 6.66944487e-02],
-           [2.27337966e-01, 2.35916000e-05, 6.97235603e-02, 6.46639006e-02]])
+    array([[0.19863075, 0.05673281, 0.02294823, 0.02710852],
+           [0.00335494, 0.01822224, 0.26522868, 0.08531355],
+           [0.22390087, 0.07032143, 0.00793081, 0.02978433],
+           [0.08611603, 0.02473488, 0.02168134, 0.16162454]])
 
     """
     if seed is None or is_integer_value(seed):
@@ -1149,7 +1186,13 @@ def generate_ndset(
         return 1.0 - _sample_sphere()
 
     def _sample_convex_simplex():
-        return _sample_sphere() ** 4
+        return _sample_simplex() ** 2
+
+    def _sample_inverted_simplex():
+        return 1.0 - _sample_simplex()
+
+    def _sample_concave_simplex():
+        return 1.0 - _sample_convex_simplex()
 
     match method:
         case "simplex" | "linear" | "L":
@@ -1160,6 +1203,10 @@ def generate_ndset(
             sample = _sample_convex_sphere
         case "convex-simplex":
             sample = _sample_convex_simplex
+        case "inverted-simplex" | "inverted-linear":
+            sample = _sample_inverted_simplex
+        case "concave-simplex":
+            sample = _sample_concave_simplex
         case _:
             raise ValueError(f"unknown method={method}")
 
@@ -1186,13 +1233,6 @@ def is_nondominated(
 ) -> np.ndarray:
     r"""Identify dominated points according to Pareto optimality.
 
-    Given :math:`n` points of dimension :math:`m`, the current implementation
-    uses the well-known :math:`O(n \log n)` dimension-sweep algorithm
-    :footcite:p:`KunLucPre1975jacm` for :math:`m \leq 3` and the naive
-    :math:`O(m n^2)` algorithm for :math:`m \geq 4`. The best-known
-    :math:`O(n(\log_2 n)^{m-2})` algorithm for :math:`m \geq 4`
-    :footcite:p:`KunLucPre1975jacm` is not implemented yet.
-
     .. seealso:: :ref:`Benchmarks of identifying nondominated points <bench-ndom>`.
 
     Parameters
@@ -1217,6 +1257,20 @@ def is_nondominated(
     filter_dominated : to filter out dominated points.
 
     pareto_rank : to rank points according to Pareto dominance (nondominated sorting).
+
+
+    Notes
+    -----
+    Given :math:`n` points of dimension :math:`m`, the current implementation
+    of :func:`is_nondominated`, :func:`filter_dominated` and
+    :func:`any_dominated` always uses the best-known :math:`O(n \log n)`
+    dimension-sweep algorithm :footcite:p:`KunLucPre1975jacm` for :math:`m \leq 3`.
+
+    For :math:`m \geq 4`, functions :func:`is_nondominated` and
+    :func:`filter_dominated` use the best-known :math:`O(n \log^{m-2} n)`
+    algorithm :footcite:p:`KunLucPre1975jacm` when :math:`n > 16`, and the naive
+    :math:`O(m n^2)` algorithm otherwise.  Function :func:`any_dominated`
+    always uses the naive algorithm for :math:`m \geq 4`.
 
 
     References
@@ -1248,9 +1302,8 @@ def is_nondominated(
     if nrows == 0:
         return np.array([], dtype=bool)
 
-    maximise = _parse_maximise(maximise, nobj)
-
     if nobj == 1:  # Handle single-objective inputs
+        maximise = array_1d_of_length_n(maximise, 1).astype(bool)
         if keep_weakly:
             best = data.max() if maximise else data.min()
             return (data == best).ravel()
@@ -1259,14 +1312,22 @@ def is_nondominated(
             nondom[data.argmax() if maximise else data.argmin()] = True
             return nondom
 
+    keep_weakly = ffi.cast("bool", bool(keep_weakly))
+    maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
     data_p, npoints, nobj = np2d_to_double_array(
         data, ctype_shape=("size_t", "uint_fast8_t")
     )
-    maximise_p = ffi.from_buffer("bool []", maximise)
-    keep_weakly = ffi.cast("bool", bool(keep_weakly))
-    nondom = lib.is_nondominated(data_p, npoints, nobj, maximise_p, keep_weakly)
-    nondom = ffi.buffer(nondom, nrows)
-    return np.frombuffer(nondom, dtype=bool)
+    nondom = np.empty(nrows, dtype=bool)
+    # The C library uses uint8_t for boolean vectors.
+    lib.is_nondominated(
+        ffi.from_buffer("uint8_t []", nondom.view(np.uint8)),
+        data_p,
+        npoints,
+        nobj,
+        keep_weakly,
+        maximise_p,
+    )
+    return nondom
 
 
 def any_dominated(
@@ -1314,11 +1375,10 @@ def any_dominated(
         # If there are more than one row, then something is dominated.
         return True
 
-    maximise = _parse_maximise(maximise, nobj)
+    maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
     data_p, npoints, nobj = np2d_to_double_array(
         data, ctype_shape=("size_t", "uint_fast8_t")
     )
-    maximise_p = ffi.from_buffer("bool []", maximise)
     res = lib.find_weakly_dominated_point(data_p, npoints, nobj, maximise_p)
     return res < nrows
 
@@ -1539,8 +1599,8 @@ def pareto_rank(
     The function :func:`pareto_rank` is meant to be used like
     :func:`numpy.argsort`, but it assigns indexes according to Pareto
     dominance, where rank 0 indicates those solutions not dominated by any
-    other solution in the input set.  Duplicated points are kept on the same
-    front.  The resulting ranking can be used to partition points into different
+    other solution in the input set.  Duplicated points are assigned the same
+    rank.  The resulting ranking can be used to partition points into different
     lists or arrays, each of them being mutually nondominated
     :footcite:p:`Deb02nsga2` (see examples below).
 
@@ -1554,7 +1614,7 @@ def pareto_rank(
     maximise :
         Whether the objectives must be maximised instead of minimised.
         Either a single boolean value that applies to all objectives or a list of boolean values, with one value per objective.
-        Also accepts a 1d numpy array with value 0/1 for each objective.
+        Also accepts a 1D numpy array with value 0/1 for each objective.
 
     Returns
     -------
@@ -1574,11 +1634,12 @@ def pareto_rank(
     :math:`F_c`, with :math:`c=0,1,\dots,k-1`, partition :math:`X` into :math:`k`
     `fronts`, that is, mutually nondominated subsets of :math:`X`.
 
-    For 2D points, the code uses the :math:`O(n \log n)` algorithm by
-    :footcite:t:`Jen03`. For 3D points, it uses a :math:`O(k \cdot n \log n)`
-    algorithm, where :math:`k` is the number of fronts in the output.  With
-    higher dimensions, it uses the naive :math:`O(k m n^2)` algorithm, where
-    :math:`m` is the number of dimensions.
+    With :math:`m=2`, the code uses the best-known :math:`O(n \log n)`
+    algorithm by :footcite:t:`Jen03`.  When :math:`m \geq 3`, it uses the naive
+    algorithm that identifies one `front` at a time, which requires
+    :math:`O(n^2\log n)` for :math:`m=3`, and :math:`O(n^2 \log^{m-2} n)` for
+    :math:`m \geq 4`.
+
 
     References
     ----------
@@ -1613,12 +1674,15 @@ def pareto_rank(
     nrows, nobj = data.shape
     maximise = _parse_maximise(maximise, nobj)
 
-    if nobj == 1:
-        data = data.ravel()
-        if maximise:
-            data = -data
-        # FIXME: Can we do the same faster?
-        return np.unique(data, return_inverse=True)[1]
+    if nobj < 2:
+        if nobj == 1:
+            data = data.ravel()
+            if maximise:
+                data = -data
+                # FIXME: Can we do the same faster?
+            return np.unique(data, return_inverse=True)[1]
+        if nobj == 0:
+            return np.zeros(shape=nrows, dtype=int)
 
     if maximise.any():
         # FIXME: Do this in C.
@@ -1629,10 +1693,8 @@ def pareto_rank(
     data_p, npoints, nobj = np2d_to_double_array(
         data, ctype_shape=("size_t", "uint_fast8_t")
     )
-    ranks = lib.pareto_rank(data_p, npoints, nobj)
-    ranks = ffi.buffer(ranks, nrows * ffi.sizeof("int"))
-    ranks = np.frombuffer(ranks, dtype=np.intc())
-    assert len(ranks) == nrows
+    ranks = np.empty(nrows, dtype=np.intc())
+    lib.pareto_rank(ffi.from_buffer("int []", ranks), data_p, npoints, nobj)
     return ranks
 
 
@@ -1692,18 +1754,21 @@ def normalise(
     to_range = np.asarray(to_range, dtype=float)
     if to_range.shape[0] != 2:
         raise ValueError("'to_range' must have length 2")
-    lower = array_1d_of_length_n(np.asarray(lower, dtype=float), nobj)
-    upper = array_1d_of_length_n(np.asarray(upper, dtype=float), nobj)
+    lower = array_1d_of_length_n(
+        np.asarray(lower, dtype=float), nobj, name="lower"
+    )
+    upper = array_1d_of_length_n(
+        np.asarray(upper, dtype=float), nobj, name="upper"
+    )
     if np.any(np.isnan(lower)):
         lower = np.where(np.isnan(lower), data.min(axis=0), lower)
     if np.any(np.isnan(upper)):
         upper = np.where(np.isnan(upper), data.max(axis=0), upper)
 
-    maximise = _parse_maximise(maximise, data.shape[1])
+    maximise_p = _parse_maximise_to_bool_array(maximise, nobj)
     data_p, npoints, nobj = np2d_to_double_array(
         data, ctype_shape=("size_t", "uint_fast8_t")
     )
-    maximise_p = ffi.from_buffer("bool []", maximise)
     lbound_p = ffi.from_buffer("double []", lower)
     ubound_p = ffi.from_buffer("double []", upper)
     lib.agree_normalise(
@@ -1748,7 +1813,7 @@ def eaf(
     -----
     In the current implementation, the EAF is computed using the algorithms
     proposed by :footcite:t:`FonGueLopPaq2011emo`, which have complexity
-    :math:`O(m\log m + nm)` in 2D and :math:`O(n^2 m \log m)` in 3D, where
+    :math:`\Theta(m\log m + nm)` in 2D and :math:`O(n^2 m \log m)` in 3D, where
     :math:`n` is the number of input sets and :math:`m` is the total number of
     input points.
 
@@ -2222,7 +2287,7 @@ def whv_rect(
     #     else:
     #         pos = np.flatnonzero(maximise) + [0,2]
     #         rectangles[:, pos] = -rectangles[:, pos]
-    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj)
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
     ref = ffi.from_buffer("double []", ref)
     x, npoints, _ = np2d_to_double_array(x)
     rectangles, rectangles_nrow, _ = np2d_to_double_array(rectangles)
@@ -2328,14 +2393,16 @@ def total_whv_rect(
     if scalefactor <= 0 or scalefactor > 1:
         raise ValueError("'scalefactor' must be within (0,1]")
 
-    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj)
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
     whv = whv_rect(x, rectangles, ref=ref, maximise=maximise)
     hv = hypervolume(x, ref=ref)  # FIXME: maximise = maximise)
     if ideal is None:
         # FIXME: Should we include the range of the rectangles here?
         ideal = get_ideal(x, maximise=maximise)
     else:
-        ideal = array_1d_of_length_n(np.asarray(ideal, dtype=float), nobj)
+        ideal = array_1d_of_length_n(
+            np.asarray(ideal, dtype=float), nobj, name="ideal"
+        )
 
     beta = scalefactor * abs((ref - ideal).prod())
     return float(hv + beta * whv)
@@ -2483,8 +2550,8 @@ def whv_hype(
     ideal: ArrayLike,
     maximise: bool | Sequence[bool] = False,
     nsamples: int = 100000,
-    dist: Literal["uniform", "point", "exponential"] = "uniform",
     seed: int | np.random.Generator | None = None,
+    dist: Literal["uniform", "point", "exponential"] = "uniform",
     mu: float | ArrayLike | None = None,
 ) -> float:
     r"""Approximation of the (weighted) hypervolume by Monte-Carlo sampling (2D only).
@@ -2501,28 +2568,22 @@ def whv_hype(
     data :
         Numpy array of numerical values, where each row gives the coordinates of a point in objective space.
         If the array is created from the :func:`read_datasets` function, remove the last (set) column.
-
     ref :
         Reference point as a numpy array or list. Must have same length as the number of columns of the dataset.
-
     ideal :
         Ideal point as a numpy array or list. Must have same length as the number of columns of the dataset.
-
     maximise :
         Whether the objectives must be maximised instead of minimised.
         Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
         Also accepts a 1D numpy array with values 0 or 1 for each objective.
-
     nsamples :
         Number of samples for Monte-Carlo sampling. Higher values give more
         accurate approximation of the true hypervolume but require more time.
-
     seed :
         Either an integer to seed :func:`numpy.random.default_rng`, Numpy
         default random number generator (RNG) or an instance of a
         Numpy-compatible RNG. ``None`` uses the equivalent of a random seed
         (see :func:`numpy.random.default_rng`).
-
     dist :
         Weight distribution :footcite:p:`AugBadBroZit2009gecco`. The ones currently supported are:
 
@@ -2531,24 +2592,22 @@ def whv_hype(
 
        ``'point'``
          describes a goal in the objective space, where ``mu`` gives the
-         coordinates of the goal (1d Numpy array). The resulting weight distribution is a
+         coordinates of the goal (1D Numpy array). The resulting weight distribution is a
          multivariate normal distribution centred at the goal.
 
        ``'exponential'``
          describes an exponential distribution with rate parameter ``1/mu``, i.e., :math:`\lambda = \frac{1}{\mu}`.
-
     mu :
        Parameter of ``dist``. See above for details.
 
-
     Returns
     -------
-       A single numerical value, the weighted hypervolume.
+       A single numerical value, the approximated (weighted) hypervolume.
 
 
     See Also
     --------
-    read_datasets, hypervolume
+    hypervolume, hv_approx
 
     References
     ----------
@@ -2596,9 +2655,10 @@ def whv_hype(
     if nobj != 2:
         raise NotImplementedError("Only 2D datasets are currently supported")
 
-    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj)
-    ideal = array_1d_of_length_n(np.asarray(ideal, dtype=float), nobj)
-
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
+    ideal = array_1d_of_length_n(
+        np.asarray(ideal, dtype=float), nobj, name="ideal"
+    )
     maximise = _parse_maximise(maximise, nobj)
     # FIXME: Do this in C.
     if maximise.any():
@@ -2624,7 +2684,7 @@ def whv_hype(
         mu = ffi.cast("double", mu)
         hv = lib.whv_hype_expo(data_p, npoints, ideal, ref, nsamples, seed, mu)
     elif dist == "point":
-        mu = array_1d_of_length_n(np.asarray(mu, dtype=float), nobj)
+        mu = array_1d_of_length_n(np.asarray(mu, dtype=float), nobj, name="mu")
         mu, _ = np1d_to_double_array(mu)
         hv = lib.whv_hype_gaus(data_p, npoints, ideal, ref, nsamples, seed, mu)
     else:
@@ -2733,3 +2793,109 @@ def apply_within_sets(
     if not shorter:
         res = res.take(np.concatenate(idx).argsort(), axis=0)
     return res
+
+
+def r2_exact(
+    data: ArrayLike,
+    /,
+    ref: ArrayLike,
+    *,
+    maximise: bool | Sequence[bool] = False,
+) -> float:
+    r"""Exact R2 indicator.
+
+    Computes the exact R2 indicator with respect to a given ideal/utopian reference point
+    assuming minimization of all objectives.
+
+    .. seealso:: For details of the R2 indicator, see :ref:`r2_indicator`.
+
+    .. warning::
+        The current implementation only supports 2 objectives.
+
+    Parameters
+    ----------
+    data :
+        Numpy array of numerical values, where each row gives the coordinates of a point.
+        If the array is created from the :func:`read_datasets` function, remove the last column.
+    ref :
+        Reference point as a 1D vector. Must be same length as a single point in the ``data``.
+    maximise :
+        Whether the objectives must be maximised instead of minimised.
+        Either a single boolean value that applies to all objectives or a list of booleans, with one value per objective.
+        Also accepts a 1D numpy array with value 0/1 for each objective.
+
+    Returns
+    -------
+        A single numerical value, the exact R2 indicator.
+
+    Notes
+    -----
+    The current implementation exclusively supports bi-objective solution sets and runs in :math:`O(n \log n)`.
+    For more details on the computation of the exact R2 indicator refer to :footcite:t:`SchKer2025r2v2`.
+
+    References
+    ----------
+    .. footbibliography::
+
+    Examples
+    --------
+    >>> dat = np.array([[5, 5], [4, 6], [2, 7], [7, 4]])
+    >>> moocore.r2_exact(dat, ref=[0, 0])
+    2.594191919191919
+
+    This function assumes that objectives must be minimized by default. We can
+    easily specify maximization:
+
+    >>> dat = np.array([[5, 5], [4, 6], [2, 7], [7, 4]])
+    >>> moocore.r2_exact(dat, ref=[10, 10], maximise=True)
+    2.519696969696969
+
+    Merge all the sets of a dataset by removing the set number column:
+
+    >>> dat = moocore.get_dataset("input1.dat")[:, :-1]
+    >>> len(dat)
+    100
+
+    Dominated points are ignored, so this:
+
+    >>> moocore.r2_exact(dat, ref=0)
+    0.3336076878950565
+
+    gives the same exact R2 value as this:
+
+    >>> dat = moocore.filter_dominated(dat)
+    >>> len(dat)
+    6
+    >>> moocore.r2_exact(dat, ref=0)
+    0.3336076878950565
+
+    """
+    # Convert to numpy.array in case the user provides a list.  We use
+    # np.asarray to convert it to floating-point, otherwise if a user inputs
+    # something like ref = np.array([10, 10]) then numpy would interpret it as
+    # an int array.
+    data, data_copied = asarray_maybe_copy(data)
+    nobj = data.shape[1]
+    if nobj != 2:
+        raise NotImplementedError("Only 2D datasets are currently supported")
+    # Make sure it is a 1D array of length nobj.
+    ref = array_1d_of_length_n(np.asarray(ref, dtype=float), nobj, name="ref")
+
+    maximise = _parse_maximise(maximise, nobj)
+    # FIXME: Do this in C.
+    if maximise.any():
+        if not data_copied:
+            data = data.copy()
+        data[:, maximise] = -data[:, maximise]
+        ref = ref.copy()
+        ref[maximise] = -ref[maximise]
+
+    data_p, npoints, nobj = np2d_to_double_array(
+        data, ctype_shape=("size_t", "uint_fast8_t")
+    )
+    ref_buf = ffi.from_buffer("double []", ref)
+    r2 = lib.r2_exact(data_p, npoints, nobj, ref_buf)
+    # if r2 < 0:
+    #     raise MemoryError("memory allocation failed")
+
+    return r2

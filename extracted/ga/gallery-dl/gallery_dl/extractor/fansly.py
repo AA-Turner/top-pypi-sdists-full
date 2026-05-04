@@ -235,10 +235,7 @@ class FanslyAPI():
 
     def __init__(self, extractor):
         self.extractor = extractor
-        self.headers = {
-            "fansly-client-ts": None,
-            "Origin"          : extractor.root,
-        }
+        self.headers = {}
 
         if token := extractor.config("token"):
             self.headers["authorization"] = token
@@ -400,12 +397,10 @@ class FanslyAPI():
     def _call(self, endpoint, params):
         url = f"{self.ROOT}/api{endpoint}"
         params["ngsw-bypass"] = "true"
-        headers = self.headers.copy()
-        headers["fansly-client-ts"] = str(int(time.time() * 1000))
+        self.headers["fansly-client-ts"] = str(int(time.time() * 1000))
 
-        data = self.extractor.request_json(
-            url, params=params, headers=headers)
-        return data["response"]
+        return self.extractor.request_json(
+            url, params=params, headers=self.headers)["response"]
 
     def _pagination(self, endpoint, params):
         while True:

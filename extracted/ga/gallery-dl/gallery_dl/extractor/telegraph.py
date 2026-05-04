@@ -34,12 +34,19 @@ class TelegraphGalleryExtractor(GalleryExtractor):
             "post_url": text.unescape(extr(
                 'rel="canonical" href="', '"')),
         }
+
+        pos = page.find("<article") + 8
+        data["html"] = self.html = \
+            page[page.find(">", pos)+1:page.find("</article>", pos)]
+        data["links"] = text.extract_urls(self.html)
         data["slug"] = data["post_url"][19:]
+
         return data
 
     def images(self, page):
-        figures = (tuple(text.extract_iter(page, "<figure>", "</figure>")) or
-                   tuple(text.extract_iter(page, "<img", ">")))
+        figures = (
+            tuple(text.extract_iter(self.html, "<figure>", "</figure>")) or
+            tuple(text.extract_iter(self.html, "<img", ">")))
         num_zeroes = len(str(len(figures)))
         num = 0
 

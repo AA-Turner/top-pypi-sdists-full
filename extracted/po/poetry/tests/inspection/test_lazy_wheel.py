@@ -3,10 +3,12 @@ from __future__ import annotations
 import re
 
 from enum import IntEnum
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Protocol
 from urllib.parse import urlparse
+from zipfile import ZipInfo
 
 import pytest
 import requests
@@ -17,7 +19,10 @@ from requests import codes
 from poetry.inspection.lazy_wheel import HTTPRangeRequestNotRespectedError
 from poetry.inspection.lazy_wheel import HTTPRangeRequestUnsupportedError
 from poetry.inspection.lazy_wheel import InvalidWheelError
+from poetry.inspection.lazy_wheel import LazyFileOverHTTP
+from poetry.inspection.lazy_wheel import LazyWheelOverHTTP
 from poetry.inspection.lazy_wheel import LazyWheelUnsupportedError
+from poetry.inspection.lazy_wheel import UnsupportedWheelError
 from poetry.inspection.lazy_wheel import metadata_from_wheel_url
 from tests.helpers import http_setup_redirect
 
@@ -469,3 +474,44 @@ def test_metadata_from_wheel_url_handles_unexpected_errors(
             "https://runtime-error.com/demo_missing_dist_info-0.1.0-py2.py3-none-any.whl",
             requests.Session(),
         )
+
+
+def test_prefetch_metadata_closes_zipfile_on_error(mocker: MockerFixture) -> None:
+    """ZipFile opened in _prefetch_metadata must be closed even if an error occurs."""
+    mock_zf = mocker.MagicMock()
+    # Return entries that don't match the metadata regex, triggering UnsupportedWheelError
+    mock_zf.infolist.return_value = [ZipInfo("pkg/data.txt")]
+    mocker.patch("poetry.inspection.lazy_wheel.ZipFile", return_value=mock_zf)
+
+    lazy = LazyWheelOverHTTP("url", requests.Session())
+
+    with pytest.raises(UnsupportedWheelError, match=r"no .* found for"):
+        lazy._prefetch_metadata("test-pkg")
+
+    mock_zf.__exit__.assert_called_once()
+
+
+def test_ensure_downloaded_writes_at_correct_offsets(mocker: MockerFixture) -> None:
+    """_ensure_downloaded must seek to range_start, not start."""
+    content = bytes(range(100))
+
+    mocker.patch(
+        "poetry.inspection.lazy_wheel.NamedTemporaryFile",
+        return_value=BytesIO(b"\x00" * 100),
+    )
+    lazy = LazyFileOverHTTP("url", requests.Session())
+
+    def fake_fetch(start: int, end: int) -> list[bytes]:
+        return [content[start : end + 1]]
+
+    mocker.patch.object(lazy, "_fetch_content_length", return_value=100)
+    mocker.patch.object(lazy, "_fetch_content_range", side_effect=fake_fetch)
+
+    with lazy:
+        # Download bytes 0-49, then request 30-80 (overlap).
+        # Only 50-79 needs fetching; the bug wrote that data at offset 30.
+        lazy._ensure_downloaded(0, 50)
+        lazy._ensure_downloaded(30, 80)
+
+        lazy._file.seek(0)
+        assert lazy._file.read(80) == content[:80]

@@ -139,14 +139,10 @@ class ForiioUserExtractor(ForiioExtractor):
             "page"    : 1,
             "per_page": "20",
         }
-        headers = {
-            "Referer": self.root + "/",
-            "Origin" : self.root,
-        }
 
         base = self.root + "/works/"
         while True:
-            data = self.request_json(url, params=params, headers=headers)
+            data = self.request_json(url, params=params)
 
             for work in data["works"]:
                 if posts and work.get("type") not in posts:

@@ -8,7 +8,8 @@ from PySide6.QtCore import Qt, QRectF
 from SciQLopPlots import (
     SciQLopPlot, SciQLopMultiPlotPanel, SciQLopVerticalSpan,
     SciQLopPlotRange, MultiPlotsVerticalSpan, SciQLopEllipseItem,
-    PlotType, GraphType, Coordinates,
+    SciQLopNDProjectionPlot, SciQLopTimeSeriesPlot,
+    PlotType, GraphType, GraphMarkerShape, ColorGradient, Coordinates,
     OverlayLevel, OverlaySizeMode, OverlayPosition,
 )
 
@@ -52,6 +53,34 @@ def uniform_colormap(nx=200, ny=200):
     return x, y, z
 
 
+def orbit_3d(start, stop):
+    n = max(int((stop - start) * 10), 200)
+    t = np.linspace(start, stop, n, dtype=np.float64)
+    phase = t * 2 * np.pi / (stop - start)
+    x = np.cos(phase) * (1 + 0.3 * np.sin(3 * phase))
+    y = np.sin(phase) * (1 + 0.3 * np.sin(3 * phase))
+    z = 0.5 * np.sin(2 * phase)
+    return t, x, y, z
+
+
+def orbit_components(start, stop):
+    t, x, y, z = orbit_3d(start, stop)
+    return t, np.column_stack([x, y, z])
+
+
+def boundary_model(start, stop):
+    """Fake magnetopause-like boundary: one closed contour per subplot (3*N)."""
+    theta = np.linspace(0, 2 * np.pi, 120, dtype=np.float64)
+    r_xy = 1.8 + 0.4 * np.cos(2 * theta)
+    r_yz = 1.5 + 0.3 * np.sin(3 * theta)
+    r_zx = 1.6 + 0.2 * np.cos(theta)
+    return [
+        r_xy * np.cos(theta), r_xy * np.sin(theta), np.abs(np.sin(theta)),
+        r_yz * np.cos(theta), r_yz * np.sin(theta), np.abs(np.cos(theta)),
+        r_zx * np.cos(theta), r_zx * np.sin(theta), theta / (2 * np.pi),
+    ]
+
+
 def bimodal_scatter(n=100_000):
     rng = np.random.default_rng(42)
     x1 = rng.normal(-2, 1.0, n // 2)
@@ -78,6 +107,27 @@ def create_colormap_tab():
     panel = SciQLopMultiPlotPanel(synchronize_x=True)
     panel.plot(*uniform_colormap(200, 200))
     panel.plot(*uniform_colormap(500, 300))
+    return panel
+
+
+def create_contour_tab():
+    panel = SciQLopMultiPlotPanel(synchronize_x=True)
+
+    x = np.linspace(-4, 4, 200)
+    y = np.linspace(-4, 4, 150)
+    xx, yy = np.meshgrid(x, y, indexing="ij")
+    z = np.sin(xx) * np.cos(yy) + 0.3 * np.sin(2 * xx + yy)
+
+    _, cmap1 = panel.plot(x, y, z)
+    cmap1.set_contour_levels([-0.8, -0.4, 0.0, 0.4, 0.8])
+    cmap1.set_contour_color(QColor("white"))
+    cmap1.set_contour_width(1.5)
+
+    _, cmap2 = panel.plot(x, y, z)
+    cmap2.set_auto_contour_levels(10)
+    cmap2.set_contour_color(QColor("black"))
+    cmap2.set_contour_labels_enabled(True)
+
     return panel
 
 
@@ -136,6 +186,37 @@ def create_histogram2d_tab():
     x, y = bimodal_scatter(100_000)
     hist = plot.add_histogram2d("Density", 80, 80)
     hist.set_data(x, y)
+    plot.x_axis().set_range(float(x.min()), float(x.max()))
+    plot.y_axis().set_range(float(y.min()), float(y.max()))
+    return plot
+
+
+def create_scatter_tab():
+    plot = SciQLopPlot()
+    x, y = bimodal_scatter(500_000)
+    plot.plot(
+        x, y,
+        labels=["density cloud"],
+        colors=[QColor(30, 100, 200, 180)],
+        graph_type=GraphType.Scatter,
+        marker=GraphMarkerShape.FilledCircle,
+    )
+    plot.x_axis().set_range(float(x.min()), float(x.max()))
+    plot.y_axis().set_range(float(y.min()), float(y.max()))
+    return plot
+
+
+def create_scatter_color_tab():
+    plot = SciQLopPlot()
+    x, y = bimodal_scatter(500_000)
+    r = np.sqrt(x**2 + y**2)
+    graph = plot.plot(
+        x, y,
+        labels=["radial distance"],
+        graph_type=GraphType.Scatter,
+        marker=GraphMarkerShape.FilledCircle,
+    )
+    graph.set_color_data(r, ColorGradient.Jet)
     plot.x_axis().set_range(float(x.min()), float(x.max()))
     plot.y_axis().set_range(float(y.min()), float(y.max()))
     return plot
@@ -255,6 +336,37 @@ def create_pipeline_tab():
     return panel
 
 
+def create_projection_tab():
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+
+    ts_panel = SciQLopMultiPlotPanel(synchronize_x=False, synchronize_time=True)
+    ts_plot, _ = ts_panel.plot(
+        orbit_components,
+        labels=["X", "Y", "Z"],
+        colors=[QColorConstants.Red, QColorConstants.Blue, QColorConstants.Green],
+        plot_type=PlotType.TimeSeries,
+    )
+
+    proj = SciQLopNDProjectionPlot(3)
+    proj.plot(orbit_3d, labels=["XY", "YZ", "ZX"], graph_type=GraphType.ParametricCurve)
+    proj.set_axis_labels(["X", "Y", "Z"])
+    proj.set_time_color_enabled(True)
+    proj.set_time_color_gradient(QColor(0, 0, 255), QColor(255, 0, 0))
+    proj.set_equal_aspect_ratio(True)
+    proj.set_linked_axes(True)
+
+    proj.add_model_curve(boundary_model, label="boundary", color=QColor(0, 180, 0))
+
+    ts_plot.cursor_time_changed.connect(proj.set_time_marker)
+    ts_plot.time_axis_range_changed.connect(proj.time_axis().set_range)
+
+    layout.addWidget(ts_panel, stretch=1)
+    layout.addWidget(proj, stretch=1)
+    return container
+
+
 def create_busy_indicator_tab():
     import time
 
@@ -322,12 +434,16 @@ window.resize(1000, 700)
 tabs = QTabWidget()
 tabs.addTab(with_export_button(create_line_tab()), "Line Graph")
 tabs.addTab(with_export_button(create_colormap_tab()), "Colormap")
+tabs.addTab(with_export_button(create_contour_tab()), "Contour Overlay")
 tabs.addTab(with_export_button(create_histogram2d_tab()), "Histogram 2D")
+tabs.addTab(with_export_button(create_scatter_tab()), "Scatter (500K)")
+tabs.addTab(with_export_button(create_scatter_color_tab()), "Scatter Color Axis")
 tabs.addTab(with_export_button(create_waterfall_tab()), "Waterfall")
 tabs.addTab(with_export_button(create_curve_tab()), "Parametric Curve")
 tabs.addTab(with_export_button(create_spans_tab()), "Vertical Spans")
 tabs.addTab(with_export_button(create_overlay_tab()), "Overlay")
 tabs.addTab(create_stacked_tab(), "Stacked Plots")
+tabs.addTab(create_projection_tab(), "Projection + Cursor Sync")
 tabs.addTab(with_export_button(create_pipeline_tab()), "Pipeline (FFT)")
 tabs.addTab(with_export_button(create_busy_indicator_tab()), "Busy Indicator")
 

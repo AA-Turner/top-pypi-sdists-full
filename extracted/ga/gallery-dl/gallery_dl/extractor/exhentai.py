@@ -139,6 +139,8 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
             self.items = self._items_hitomi
         elif source == "metadata":
             self.items = self._items_metadata
+        elif source == "torrent":
+            self.items = self._items_torrents
 
         limits = self.config("limits", False)
         if limits and limits.__class__ is int:
@@ -240,6 +242,25 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
 
     def _items_metadata(self):
         yield Message.Directory, "", self.metadata_from_api()
+
+    def _items_torrents(self):
+        data = self.metadata_from_api()
+        torrents = data.get("torrents") or ()
+        data["count"] = len(torrents)
+        yield Message.Directory, "", data
+
+        base = (f"https://ehtracker.org/get/{data['gid']}/"
+                if self.root[9] == "-" else
+                f"{self.root}/torrent/{data['gid']}/")
+
+        data["extension"] = "torrent"
+        for data["num"], torrent in enumerate(torrents, 1):
+            data.update(torrent)
+            data["date"] = self.parse_timestamp(torrent["added"])
+            data["filename"] = data["name"]
+            data["image_token"] = data["hash"][:10]
+            url = f"{base}{data['hash']}.torrent"
+            yield Message.Url, url, data
 
     def get_metadata(self, page):
         """Extract gallery metadata"""

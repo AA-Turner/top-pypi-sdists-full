@@ -1,21 +1,24 @@
+#include <float.h>
 #include "whv.h"
 #include "common.h"
-#include <float.h>
 
-static int cmp_data_y_desc (const void *p1, const void *p2)
+// FIXME: This function already exists in sort.h.
+static inline int
+cmp_data_y_desc(const void * p1, const void * p2)
 {
-    const double *x1 = (const double *)p1;
-    const double *x2 = (const double *)p2;
+    const double * x1 = (const double *)p1;
+    const double * x2 = (const double *)p2;
 
     return (x1[1] > x2[1]) ? -1 : (x1[1] < x2[1]) ? 1 :
         (x1[0] < x2[0]) ? -1 : (x1[0] > x2[0]) ? 1
         : 0;
 }
 
-static int cmp_rectangles_y_desc (const void *p1, const void *p2)
+static inline int
+cmp_rectangles_y_desc (const void * p1, const void * p2)
 {
-    const double *x1 = (const double *)p1;
-    const double *x2 = (const double *)p2;
+    const double * x1 = (const double *)p1;
+    const double * x2 = (const double *)p2;
 
     // Order by upper (top-right) corner.
     return (x1[3] > x2[3]) ? -1 : (x1[3] < x2[3]) ? 1 :
@@ -74,13 +77,13 @@ rect_weighted_hv2d(double *data, int n, double * rectangles,
                    int rectangles_nrow, const double * reference)
 {
 #define debug_print_point(k, p, r, rect)                                       \
-    DEBUG2_PRINT("%d: p[%lu] = (%16.15g, %16.15g)"                             \
-                 "\trectangle[%lu] = (%16.15g, %16.15g, %16.15g, %16.15g)\n",  \
-                 __LINE__, (unsigned long) k, p[0], p[1], (unsigned long) r, rect[0], rect[1], rect[2], rect[3])
+    DEBUG2_PRINT("%d: p[%zu] = (%16.15g, %16.15g)"                             \
+                 "\trectangle[%zu] = (%16.15g, %16.15g, %16.15g, %16.15g)\n",  \
+                 __LINE__, (size_t) k, p[0], p[1], (size_t) r, rect[0], rect[1], rect[2], rect[3])
 
 #define debug_print_rect(r, rect)                                              \
-    DEBUG2_PRINT("%d: rectangle[%lu] = (%16.15g, %16.15g, %16.15g, %16.15g, %16.15g)\n", \
-                 __LINE__, (unsigned long) r, rect[0], rect[1], rect[2], rect[3], rect[4])
+    DEBUG2_PRINT("%d: rectangle[%zu] = (%16.15g, %16.15g, %16.15g, %16.15g, %16.15g)\n", \
+                 __LINE__, (size_t) r, rect[0], rect[1], rect[2], rect[3], rect[4])
 
 // rectangles: Two points per row + color
 // FIXME: Should we really allow color == 0
@@ -103,8 +106,7 @@ rect_weighted_hv2d(double *data, int n, double * rectangles,
         debug_print_point(pk, p, r, rect);                                     \
     } while(0)
 
-    // We cannot use %zu for size_t because of MingW compiler.
-    DEBUG2_PRINT("n = %lu\trectangles = %lu\n", (unsigned long)n, (unsigned long)rectangles_nrow);
+    DEBUG2_PRINT("n = %zu\trectangles = %zu\n", (size_t)n, (size_t)rectangles_nrow);
     if (rectangles_nrow <= 0 || n <= 0) return 0;
 
     int old_rectangles_nrow = rectangles_nrow;

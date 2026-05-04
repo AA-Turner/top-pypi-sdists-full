@@ -4,12 +4,18 @@ use crate::{
 };
 use kornia_image::{
     allocator::{CpuAllocator, ImageAllocator},
-    Image, ImageSize,
+    color_spaces::{Gray16, Gray8, Rgb16, Rgb8, Rgba16, Rgba8},
+    Image, ImageLayout, ImageSize, PixelFormat,
 };
-use png::{BitDepth, ColorType, Decoder, Encoder};
-use std::{fs, fs::File, path::Path};
+use png::{BitDepth, ColorType, Decoder, DeflateCompression, Encoder};
+use std::{
+    fs,
+    fs::File,
+    io::{BufReader, Cursor, Write},
+    path::Path,
+};
 
-/// Read a PNG image with a single channel (mono8).
+/// Read a PNG image as grayscale (Gray8).
 ///
 /// # Arguments
 ///
@@ -17,15 +23,13 @@ use std::{fs, fs::File, path::Path};
 ///
 /// # Returns
 ///
-/// A grayscale image with a single channel (mono8).
-pub fn read_image_png_mono8(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u8, 1, CpuAllocator>, IoError> {
+/// A grayscale image (Gray8).
+pub fn read_image_png_mono8(file_path: impl AsRef<Path>) -> Result<Gray8<CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
-    Ok(Image::new(size.into(), buf, CpuAllocator)?)
+    Ok(Gray8::from_size_vec(size.into(), buf, CpuAllocator)?)
 }
 
-/// Read a PNG image with a three channels (rgb8).
+/// Read a PNG image as RGB8.
 ///
 /// # Arguments
 ///
@@ -33,15 +37,13 @@ pub fn read_image_png_mono8(
 ///
 /// # Returns
 ///
-/// A RGB image with three channels (rgb8).
-pub fn read_image_png_rgb8(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u8, 3, CpuAllocator>, IoError> {
+/// An RGB8 typed image.
+pub fn read_image_png_rgb8(file_path: impl AsRef<Path>) -> Result<Rgb8<CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
-    Ok(Image::new(size.into(), buf, CpuAllocator)?)
+    Ok(Rgb8::from_size_vec(size.into(), buf, CpuAllocator)?)
 }
 
-/// Read a PNG image with a four channels (rgba8).
+/// Read a PNG image as RGBA8.
 ///
 /// # Arguments
 ///
@@ -49,15 +51,13 @@ pub fn read_image_png_rgb8(
 ///
 /// # Returns
 ///
-/// A RGBA image with four channels (rgba8).
-pub fn read_image_png_rgba8(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u8, 4, CpuAllocator>, IoError> {
+/// An RGBA8 typed image.
+pub fn read_image_png_rgba8(file_path: impl AsRef<Path>) -> Result<Rgba8<CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
-    Ok(Image::new(size.into(), buf, CpuAllocator)?)
+    Ok(Rgba8::from_size_vec(size.into(), buf, CpuAllocator)?)
 }
 
-/// Read a PNG image with a three channels (rgb16).
+/// Read a PNG image as RGB16.
 ///
 /// # Arguments
 ///
@@ -65,17 +65,15 @@ pub fn read_image_png_rgba8(
 ///
 /// # Returns
 ///
-/// A RGB image with three channels (rgb16).
-pub fn read_image_png_rgb16(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u16, 3, CpuAllocator>, IoError> {
+/// An RGB16 typed image.
+pub fn read_image_png_rgb16(file_path: impl AsRef<Path>) -> Result<Rgb16<CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
     let buf_u16 = convert_buf_u8_u16(buf);
 
-    Ok(Image::new(size.into(), buf_u16, CpuAllocator)?)
+    Ok(Rgb16::from_size_vec(size.into(), buf_u16, CpuAllocator)?)
 }
 
-/// Read a PNG image with a four channels (rgba16).
+/// Read a PNG image as RGBA16.
 ///
 /// # Arguments
 ///
@@ -83,17 +81,15 @@ pub fn read_image_png_rgb16(
 ///
 /// # Returns
 ///
-/// A RGB image with four channels (rgb16).
-pub fn read_image_png_rgba16(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u16, 4, CpuAllocator>, IoError> {
+/// An RGBA16 typed image.
+pub fn read_image_png_rgba16(file_path: impl AsRef<Path>) -> Result<Rgba16<CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
     let buf_u16 = convert_buf_u8_u16(buf);
 
-    Ok(Image::new(size.into(), buf_u16, CpuAllocator)?)
+    Ok(Rgba16::from_size_vec(size.into(), buf_u16, CpuAllocator)?)
 }
 
-/// Read a PNG image with a single channel (mono16).
+/// Read a PNG image as grayscale (Gray16).
 ///
 /// # Arguments
 ///
@@ -101,25 +97,23 @@ pub fn read_image_png_rgba16(
 ///
 /// # Returns
 ///
-/// A grayscale image with a single channel (mono16).
-pub fn read_image_png_mono16(
-    file_path: impl AsRef<Path>,
-) -> Result<Image<u16, 1, CpuAllocator>, IoError> {
+/// A Gray16 typed image.
+pub fn read_image_png_mono16(file_path: impl AsRef<Path>) -> Result<Gray16<CpuAllocator>, IoError> {
     let (buf, size) = read_png_impl(file_path)?;
     let buf_u16 = convert_buf_u8_u16(buf);
 
-    Ok(Image::new(size.into(), buf_u16, CpuAllocator)?)
+    Ok(Gray16::from_size_vec(size.into(), buf_u16, CpuAllocator)?)
 }
 
-/// Decodes a PNG image with a single channel (mono8) from Raw Bytes.
+/// Decodes a PNG image with as grayscale (Gray8) from Raw Bytes.
 ///
 /// # Arguments
 ///
-/// - `image` - A mutable reference to your `Image`
-/// - `bytes` - Raw bytes of the png file
+/// - `src` - Raw bytes of the png file
+/// - `dst` - A mutable reference to your `Gray8` image
 pub fn decode_image_png_mono8<A: ImageAllocator>(
     src: &[u8],
-    dst: &mut Image<u8, 1, A>,
+    dst: &mut Gray8<A>,
 ) -> Result<(), IoError> {
     let size = dst.size();
     decode_png_impl::<1>(src, dst.as_slice_mut(), size)
@@ -129,11 +123,11 @@ pub fn decode_image_png_mono8<A: ImageAllocator>(
 ///
 /// # Arguments
 ///
-/// - `image` - A mutable reference to your `Image`
-/// - `bytes` - Raw bytes of the png file
+/// - `src` - Raw bytes of the png file
+/// - `dst` - A mutable reference to your `Rgb8` image
 pub fn decode_image_png_rgb8<A: ImageAllocator>(
     src: &[u8],
-    dst: &mut Image<u8, 3, A>,
+    dst: &mut Rgb8<A>,
 ) -> Result<(), IoError> {
     let size = dst.size();
     decode_png_impl::<3>(src, dst.as_slice_mut(), size)
@@ -143,25 +137,25 @@ pub fn decode_image_png_rgb8<A: ImageAllocator>(
 ///
 /// # Arguments
 ///
-/// - `image` - A mutable reference to your `Image`
-/// - `bytes` - Raw bytes of the png file
+/// - `src` - Raw bytes of the png file
+/// - `dst` - A mutable reference to your `Rgba8` image
 pub fn decode_image_png_rgba8<A: ImageAllocator>(
     src: &[u8],
-    dst: &mut Image<u8, 4, A>,
+    dst: &mut Rgba8<A>,
 ) -> Result<(), IoError> {
     let size = dst.size();
     decode_png_impl::<4>(src, dst.as_slice_mut(), size)
 }
 
-/// Decodes a PNG (16 Bit) image with a single channel (mono16) from Raw Bytes.
+/// Decodes a PNG (16 Bit) image as grayscale (Gray16) from Raw Bytes.
 ///
 /// # Arguments
 ///
-/// - `image` - A mutable reference to your `Image`
-/// - `bytes` - Raw bytes of the png file
+/// - `src` - Raw bytes of the png file
+/// - `dst` - A mutable reference to your `Gray16` image
 pub fn decode_image_png_mono16<A: ImageAllocator>(
     src: &[u8],
-    dst: &mut Image<u16, 1, A>,
+    dst: &mut Gray16<A>,
 ) -> Result<(), IoError> {
     let mut image_u8 = convert_buf_u16_u8(dst.as_slice());
     decode_png_impl::<1>(src, image_u8.as_mut_slice(), dst.size())?;
@@ -173,11 +167,11 @@ pub fn decode_image_png_mono16<A: ImageAllocator>(
 ///
 /// # Arguments
 ///
-/// - `image` - A mutable reference to your `Image`
-/// - `bytes` - Raw bytes of the png file
+/// - `src` - Raw bytes of the png file
+/// - `dst` - A mutable reference to your `Rgb16` image
 pub fn decode_image_png_rgb16<A: ImageAllocator>(
     src: &[u8],
-    dst: &mut Image<u16, 3, A>,
+    dst: &mut Rgb16<A>,
 ) -> Result<(), IoError> {
     let mut image_u8 = convert_buf_u16_u8(dst.as_slice());
     decode_png_impl::<3>(src, image_u8.as_mut_slice(), dst.size())?;
@@ -185,20 +179,64 @@ pub fn decode_image_png_rgb16<A: ImageAllocator>(
     Ok(())
 }
 
-/// Decodes a PNG (16 Bit) image with a four channel (rgba16) from Raw Bytes.
+/// Decodes a PNG (16 Bit) image with as RGBA (Rgba16) from Raw Bytes.
 ///
 /// # Arguments
 ///
-/// - `image` - A mutable reference to your `Image`
-/// - `bytes` - Raw bytes of the png file
+/// - `src` - Raw bytes of the png file
+/// - `dst` - A mutable reference to your `Rgba16` image
 pub fn decode_image_png_rgba16<A: ImageAllocator>(
     src: &[u8],
-    dst: &mut Image<u16, 4, A>,
+    dst: &mut Rgba16<A>,
 ) -> Result<(), IoError> {
     let mut image_u8 = convert_buf_u16_u8(dst.as_slice());
     decode_png_impl::<4>(src, image_u8.as_mut_slice(), dst.size())?;
     convert_buf_u8_u16_into_slice(image_u8.as_slice(), dst.as_slice_mut());
     Ok(())
+}
+
+/// Decodes PNG image metadata from raw bytes without decoding pixel data.
+///
+/// # Arguments
+///
+/// - `src` - Raw bytes of the PNG file
+///
+/// # Returns
+///
+/// An `ImageLayout` containing the image metadata (size, channels, pixel format).
+pub fn decode_image_png_layout(src: &[u8]) -> Result<ImageLayout, IoError> {
+    let cursor = Cursor::new(src);
+    let decoder = Decoder::new(cursor);
+    let reader = decoder
+        .read_info()
+        .map_err(|e| IoError::PngDecodeError(e.to_string()))?;
+
+    let info = reader.info();
+    let size = ImageSize {
+        width: info.width as usize,
+        height: info.height as usize,
+    };
+
+    let channels: u8 = match info.color_type {
+        ColorType::Grayscale => 1,
+        ColorType::Rgb => 3,
+        ColorType::Rgba => 4,
+        ColorType::GrayscaleAlpha => 2,
+        ColorType::Indexed => 1,
+    };
+
+    let pixel_format = match info.bit_depth {
+        BitDepth::Eight => PixelFormat::U8,
+        BitDepth::Sixteen => PixelFormat::U16,
+        other => {
+            return Err(IoError::PngDecodeError(format!(
+                "Unsupported bit depth: {:?}",
+                other
+            )))
+        }
+    };
+
+    Ok(ImageLayout::new(size, channels, pixel_format))
 }
 
 // utility function to read the png file
@@ -219,11 +257,15 @@ fn read_png_impl(file_path: impl AsRef<Path>) -> Result<(Vec<u8>, [usize; 2]), I
     }
 
     let file = fs::File::open(file_path)?;
-    let mut reader = Decoder::new(file)
+    let reader = BufReader::new(file);
+    let mut reader = Decoder::new(reader)
         .read_info()
         .map_err(|e| IoError::PngDecodeError(e.to_string()))?;
 
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let buffer_size = reader
+        .output_buffer_size()
+        .ok_or_else(|| IoError::PngDecodeError("PNG output buffer size overflowed".into()))?;
+    let mut buf = vec![0; buffer_size];
     let info = reader
         .next_frame(&mut buf)
         .map_err(|e| IoError::PngDecodeError(e.to_string()))?;
@@ -237,7 +279,8 @@ fn decode_png_impl<const C: usize>(
     dst: &mut [u8],
     image_size: ImageSize,
 ) -> Result<(), IoError> {
-    let mut reader = Decoder::new(src)
+    let cursor = Cursor::new(src);
+    let mut reader = Decoder::new(cursor)
         .read_info()
         .map_err(|e| IoError::PngDecodeError(e.to_string()))?;
 
@@ -251,11 +294,12 @@ fn decode_png_impl<const C: usize>(
         ));
     }
 
-    if dst.len() < reader.output_buffer_size() {
-        return Err(IoError::InvalidBufferSize(
-            dst.len(),
-            reader.output_buffer_size(),
-        ));
+    let buffer_size = reader
+        .output_buffer_size()
+        .ok_or_else(|| IoError::PngDecodeError("PNG output buffer size overflowed".into()))?;
+
+    if dst.len() < buffer_size {
+        return Err(IoError::InvalidBufferSize(dst.len(), buffer_size));
     }
 
     let _ = reader
@@ -270,7 +314,7 @@ fn decode_png_impl<const C: usize>(
 /// # Arguments
 ///
 /// - `file_path` - The path to the PNG image.
-/// - `image` - The tensor containing the PNG image data.
+/// - `image` - The Rgb8 image to write.
 pub fn write_image_png_rgb8<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
     image: &Image<u8, 3, A>,
@@ -289,7 +333,7 @@ pub fn write_image_png_rgb8<A: ImageAllocator>(
 /// # Arguments
 ///
 /// - `file_path` - The path to the PNG image.
-/// - `image` - The tensor containing the PNG image data.
+/// - `image` - The Rgba8 image to write.
 pub fn write_image_png_rgba8<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
     image: &Image<u8, 4, A>,
@@ -308,7 +352,7 @@ pub fn write_image_png_rgba8<A: ImageAllocator>(
 /// # Arguments
 ///
 /// - `file_path` - The path to the PNG image.
-/// - `image` - The tensor containing the PNG image data.
+/// - `image` - The Gray8 image to write.
 pub fn write_image_png_gray8<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
     image: &Image<u8, 1, A>,
@@ -327,7 +371,7 @@ pub fn write_image_png_gray8<A: ImageAllocator>(
 /// # Arguments
 ///
 /// - `file_path` - The path to the PNG image.
-/// - `image` - The tensor containing the PNG image data.
+/// - `image` - The Rgb16 image to write.
 pub fn write_image_png_rgb16<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
     image: &Image<u16, 3, A>,
@@ -349,7 +393,7 @@ pub fn write_image_png_rgb16<A: ImageAllocator>(
 /// # Arguments
 ///
 /// - `file_path` - The path to the PNG image.
-/// - `image` - The tensor containing the PNG image data.
+/// - `image` - The Rgba16 image to write.
 pub fn write_image_png_rgba16<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
     image: &Image<u16, 4, A>,
@@ -371,7 +415,7 @@ pub fn write_image_png_rgba16<A: ImageAllocator>(
 /// # Arguments
 ///
 /// - `file_path` - The path to the PNG image.
-/// - `image` - The tensor containing the PNG image data.
+/// - `image` - The Gray16 image to write.
 pub fn write_image_png_gray16<A: ImageAllocator>(
     file_path: impl AsRef<Path>,
     image: &Image<u16, 1, A>,
@@ -388,19 +432,38 @@ pub fn write_image_png_gray16<A: ImageAllocator>(
     )
 }
 
-fn write_png_impl(
-    file_path: impl AsRef<Path>,
+/// Writes PNG-encoded image data into any `Write` target — used by both the
+/// file-path `write_image_png_*` API and the in-memory `encode_image_png_*` API.
+///
+/// Callers are responsible for matching `depth`/`color_type` to the layout of
+/// `image_data` (e.g. 16-bit data must be passed as big-endian byte pairs and
+/// `BitDepth::Sixteen`).
+/// Maps a 0..=9 compression level (zlib convention) to png-crate's
+/// [`DeflateCompression`]. Level 1 routes to ``FdeflateUltraFast`` —
+/// the same fast path the `png` crate uses internally for ``Compression::Fast``,
+/// powered by the NEON/AVX2-accelerated `fdeflate` crate.
+fn level_to_deflate(level: u8) -> DeflateCompression {
+    match level {
+        0 => DeflateCompression::NoCompression,
+        1 => DeflateCompression::FdeflateUltraFast,
+        n => DeflateCompression::Level(n.min(9)),
+    }
+}
+
+fn write_png_into<W: Write>(
+    writer: W,
     image_data: &[u8],
     image_size: ImageSize,
-    // Make sure you set `depth` correctly
     depth: BitDepth,
     color_type: ColorType,
+    compress_level: Option<u8>,
 ) -> Result<(), IoError> {
-    let file = File::create(file_path)?;
-
-    let mut encoder = Encoder::new(file, image_size.width as u32, image_size.height as u32);
+    let mut encoder = Encoder::new(writer, image_size.width as u32, image_size.height as u32);
     encoder.set_color(color_type);
     encoder.set_depth(depth);
+    if let Some(level) = compress_level {
+        encoder.set_deflate_compression(level_to_deflate(level));
+    }
 
     let mut writer = encoder
         .write_header()
@@ -409,6 +472,141 @@ fn write_png_impl(
         .write_image_data(image_data)
         .map_err(|e| IoError::PngEncodingError(e.to_string()))?;
     Ok(())
+}
+
+fn write_png_impl(
+    file_path: impl AsRef<Path>,
+    image_data: &[u8],
+    image_size: ImageSize,
+    depth: BitDepth,
+    color_type: ColorType,
+) -> Result<(), IoError> {
+    let file = File::create(file_path)?;
+    write_png_into(file, image_data, image_size, depth, color_type, None)
+}
+
+// In-memory encoders. Buffer is appended to (caller clears for fresh encode,
+// or reuses the allocation across frames). 16-bit variants serialize `&[u16]`
+// to big-endian byte pairs as required by the PNG wire format.
+
+/// Encodes an RGB8 image as PNG bytes into `buffer`. Encoded data is
+/// appended (call `buffer.clear()` first to reuse the buffer fresh).
+///
+/// `compress_level` follows the zlib convention: 0 = no compression
+/// (fastest), 1 = ``FdeflateUltraFast`` (the NEON/AVX2 fast path; ~3×
+/// faster than the default at moderately worse compression), 2..9 =
+/// zlib levels (default is 6 / "balanced"). ``None`` keeps the
+/// `png` crate default.
+pub fn encode_image_png_rgb8<A: ImageAllocator>(
+    image: &Image<u8, 3, A>,
+    buffer: &mut Vec<u8>,
+    compress_level: Option<u8>,
+) -> Result<(), IoError> {
+    buffer.reserve(image.as_slice().len() / 2);
+    write_png_into(
+        buffer,
+        image.as_slice(),
+        image.size(),
+        BitDepth::Eight,
+        ColorType::Rgb,
+        compress_level,
+    )
+}
+
+/// Encodes an RGBA8 image as PNG bytes into `buffer`. See
+/// [`encode_image_png_rgb8`] for `compress_level` semantics.
+pub fn encode_image_png_rgba8<A: ImageAllocator>(
+    image: &Image<u8, 4, A>,
+    buffer: &mut Vec<u8>,
+    compress_level: Option<u8>,
+) -> Result<(), IoError> {
+    buffer.reserve(image.as_slice().len() / 2);
+    write_png_into(
+        buffer,
+        image.as_slice(),
+        image.size(),
+        BitDepth::Eight,
+        ColorType::Rgba,
+        compress_level,
+    )
+}
+
+/// Encodes a grayscale 8-bit image as PNG bytes into `buffer`. See
+/// [`encode_image_png_rgb8`] for `compress_level` semantics.
+pub fn encode_image_png_gray8<A: ImageAllocator>(
+    image: &Image<u8, 1, A>,
+    buffer: &mut Vec<u8>,
+    compress_level: Option<u8>,
+) -> Result<(), IoError> {
+    buffer.reserve(image.as_slice().len() / 2);
+    write_png_into(
+        buffer,
+        image.as_slice(),
+        image.size(),
+        BitDepth::Eight,
+        ColorType::Grayscale,
+        compress_level,
+    )
+}
+
+/// Encodes an RGB16 image as PNG bytes into `buffer`. See
+/// [`encode_image_png_rgb8`] for `compress_level` semantics.
+pub fn encode_image_png_rgb16<A: ImageAllocator>(
+    image: &Image<u16, 3, A>,
+    buffer: &mut Vec<u8>,
+    compress_level: Option<u8>,
+) -> Result<(), IoError> {
+    let image_size = image.size();
+    let image_buf = convert_buf_u16_u8(image.as_slice());
+    buffer.reserve(image_buf.len() / 2);
+    write_png_into(
+        buffer,
+        &image_buf,
+        image_size,
+        BitDepth::Sixteen,
+        ColorType::Rgb,
+        compress_level,
+    )
+}
+
+/// Encodes an RGBA16 image as PNG bytes into `buffer`. See
+/// [`encode_image_png_rgb8`] for `compress_level` semantics.
+pub fn encode_image_png_rgba16<A: ImageAllocator>(
+    image: &Image<u16, 4, A>,
+    buffer: &mut Vec<u8>,
+    compress_level: Option<u8>,
+) -> Result<(), IoError> {
+    let image_size = image.size();
+    let image_buf = convert_buf_u16_u8(image.as_slice());
+    buffer.reserve(image_buf.len() / 2);
+    write_png_into(
+        buffer,
+        &image_buf,
+        image_size,
+        BitDepth::Sixteen,
+        ColorType::Rgba,
+        compress_level,
+    )
+}
+
+/// Encodes a grayscale 16-bit image as PNG bytes into `buffer`. See
+/// [`encode_image_png_rgb8`] for `compress_level` semantics.
+pub fn encode_image_png_gray16<A: ImageAllocator>(
+    image: &Image<u16, 1, A>,
+    buffer: &mut Vec<u8>,
+    compress_level: Option<u8>,
+) -> Result<(), IoError> {
+    let image_size = image.size();
+    let image_buf = convert_buf_u16_u8(image.as_slice());
+    buffer.reserve(image_buf.len() / 2);
+    write_png_into(
+        buffer,
+        &image_buf,
+        image_size,
+        BitDepth::Sixteen,
+        ColorType::Grayscale,
+        compress_level,
+    )
 }
 
 #[cfg(test)]
@@ -466,13 +664,128 @@ mod tests {
     #[test]
     fn decode_png() -> Result<(), IoError> {
         let bytes = read("../../tests/data/dog-rgb8.png")?;
-        let mut image: Image<u8, 3, _> = Image::from_size_val([258, 195].into(), 0, CpuAllocator)?;
+        let mut image = Rgb8::from_size_val([258, 195].into(), 0, CpuAllocator)?;
         decode_image_png_rgb8(&bytes, &mut image)?;
 
         assert_eq!(image.cols(), 258);
         assert_eq!(image.rows(), 195);
         assert_eq!(image.num_channels(), 3);
 
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------
+    // In-memory encode round-trips: encode → decode equals the source.
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn encode_decode_png_rgb8_roundtrip() -> Result<(), IoError> {
+        let src = read_image_png_rgb8("../../tests/data/dog-rgb8.png")?;
+        let mut buffer = Vec::new();
+        encode_image_png_rgb8(&src, &mut buffer, None)?;
+        assert!(!buffer.is_empty());
+        // PNG magic header
+        assert_eq!(&buffer[..8], b"\x89PNG\r\n\x1a\n");
+
+        let mut decoded = Rgb8::from_size_val(src.size(), 0, CpuAllocator)?;
+        decode_image_png_rgb8(&buffer, &mut decoded)?;
+        assert_eq!(decoded.size(), src.size());
+        assert_eq!(decoded.as_slice(), src.as_slice());
+        Ok(())
+    }
+
+    #[test]
+    fn encode_decode_png_rgba8_roundtrip() -> Result<(), IoError> {
+        // Synthesize an RGBA8 image (no fixture in tests/data for this layout).
+        let mut data = vec![0u8; 16 * 16 * 4];
+        for (i, b) in data.iter_mut().enumerate() {
+            *b = (i % 251) as u8;
+        }
+        let src = Rgba8::from_size_vec([16, 16].into(), data, CpuAllocator)?;
+
+        let mut buffer = Vec::new();
+        encode_image_png_rgba8(&src, &mut buffer, None)?;
+        assert_eq!(&buffer[..8], b"\x89PNG\r\n\x1a\n");
+
+        let mut decoded = Rgba8::from_size_val(src.size(), 0, CpuAllocator)?;
+        decode_image_png_rgba8(&buffer, &mut decoded)?;
+        assert_eq!(decoded.as_slice(), src.as_slice());
+        Ok(())
+    }
+
+    #[test]
+    fn encode_decode_png_gray8_roundtrip() -> Result<(), IoError> {
+        let src = read_image_png_mono8("../../tests/data/dog.png")?;
+        let mut buffer = Vec::new();
+        encode_image_png_gray8(&src, &mut buffer, None)?;
+        assert_eq!(&buffer[..8], b"\x89PNG\r\n\x1a\n");
+
+        let mut decoded = Gray8::from_size_val(src.size(), 0, CpuAllocator)?;
+        decode_image_png_mono8(&buffer, &mut decoded)?;
+        assert_eq!(decoded.as_slice(), src.as_slice());
+        Ok(())
+    }
+
+    #[test]
+    fn encode_decode_png_rgb16_roundtrip() -> Result<(), IoError> {
+        let src = read_image_png_rgb16("../../tests/data/rgb16.png")?;
+        let mut buffer = Vec::new();
+        encode_image_png_rgb16(&src, &mut buffer, None)?;
+        assert_eq!(&buffer[..8], b"\x89PNG\r\n\x1a\n");
+
+        let mut decoded = Rgb16::from_size_val(src.size(), 0, CpuAllocator)?;
+        decode_image_png_rgb16(&buffer, &mut decoded)?;
+        assert_eq!(decoded.as_slice(), src.as_slice());
+        Ok(())
+    }
+
+    #[test]
+    fn encode_decode_png_gray16_roundtrip() -> Result<(), IoError> {
+        // Depth-style synthetic data: smooth gradient + a sharp object, in mm.
+        let (w, h) = (64usize, 48usize);
+        let mut data = vec![0u16; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                data[y * w + x] = 1000 + (x as u16) * 8 + (y as u16) * 4;
+            }
+        }
+        // Object discontinuity — the kind of edge that JPEG would smear.
+        for y in 10..20 {
+            for x in 20..40 {
+                data[y * w + x] = 500;
+            }
+        }
+        let src = Gray16::from_size_vec([w, h].into(), data, CpuAllocator)?;
+
+        let mut buffer = Vec::new();
+        encode_image_png_gray16(&src, &mut buffer, None)?;
+        assert_eq!(&buffer[..8], b"\x89PNG\r\n\x1a\n");
+        // Lossless u16 round-trip is the whole point of this codec for depth.
+        let mut decoded = Gray16::from_size_val(src.size(), 0, CpuAllocator)?;
+        decode_image_png_mono16(&buffer, &mut decoded)?;
+        assert_eq!(decoded.as_slice(), src.as_slice());
+        Ok(())
+    }
+
+    #[test]
+    fn encode_png_buffer_reuse() -> Result<(), IoError> {
+        // A streaming caller (e.g. a recorder) reuses one buffer across many
+        // encodes — verify two back-to-back encodes into the same Vec produce
+        // independently-decodable PNGs after `clear()`.
+        let src = read_image_png_rgb8("../../tests/data/dog-rgb8.png")?;
+        let mut buffer = Vec::with_capacity(64 * 1024);
+
+        encode_image_png_rgb8(&src, &mut buffer, None)?;
+        let cap_after_first = buffer.capacity();
+
+        buffer.clear();
+        encode_image_png_rgb8(&src, &mut buffer, None)?;
+
+        // Capacity should not have grown on the second encode (allocation reuse).
+        assert!(buffer.capacity() <= cap_after_first.max(buffer.len()));
+        let mut decoded = Rgb8::from_size_val(src.size(), 0, CpuAllocator)?;
+        decode_image_png_rgb8(&buffer, &mut decoded)?;
+        assert_eq!(decoded.as_slice(), src.as_slice());
         Ok(())
     }
 }

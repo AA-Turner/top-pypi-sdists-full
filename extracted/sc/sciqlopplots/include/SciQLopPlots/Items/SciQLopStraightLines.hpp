@@ -24,6 +24,8 @@
 #include "SciQLopPlotItem.hpp"
 #include "SciQLopPlots/SciQLopPlot.hpp"
 #include "SciQLopPlots/enums.hpp"
+#include <cmath>
+#include <optional>
 
 class StraightLine : public impl::SciQLopPlotItem<QCPItemStraightLine>, public impl::SciQlopItemWithToolTip
 {
@@ -31,6 +33,35 @@ class StraightLine : public impl::SciQLopPlotItem<QCPItemStraightLine>, public i
 
     Qt::Orientations m_orientation;
     Coordinates m_coordinates;
+    std::optional<double> m_min_value;
+    std::optional<double> m_max_value;
+
+    inline double _clamp(double pos) const
+    {
+        if (std::isnan(pos))
+        {
+            if (m_min_value)
+                return *m_min_value;
+            if (m_max_value)
+                return *m_max_value;
+            return 0.0;
+        }
+        // If both bounds are set but inverted (min > max), the user-most-recent
+        // setter wins by clamping to the tighter bound: max takes precedence
+        // because hitting the upper limit is the more common UI intent.
+        if (m_min_value && m_max_value && *m_min_value > *m_max_value)
+        {
+            // Inverted bounds — fall back to the upper bound to keep callers
+            // safe instead of silently violating max as the unconditional
+            // ladder would.
+            return *m_max_value;
+        }
+        if (m_min_value && pos < *m_min_value)
+            return *m_min_value;
+        if (m_max_value && pos > *m_max_value)
+            return *m_max_value;
+        return pos;
+    }
 
 public:
 
@@ -66,9 +97,19 @@ public:
 
     virtual ~StraightLine() { }
 
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& startPos) override;
+
     virtual void move(double dx, double dy) override;
     void set_position(double pos);
     [[nodiscard]] double position() const;
+
+    inline void set_min_value(double min) { m_min_value = min; }
+    inline void clear_min_value() { m_min_value.reset(); }
+    [[nodiscard]] inline std::optional<double> min_value() const { return m_min_value; }
+
+    inline void set_max_value(double max) { m_max_value = max; }
+    inline void clear_max_value() { m_max_value.reset(); }
+    [[nodiscard]] inline std::optional<double> max_value() const { return m_max_value; }
 
     void set_color(const QColor& color);
     [[nodiscard]] QColor color() const;
@@ -78,6 +119,15 @@ public:
 
     void set_line_style(Qt::PenStyle style);
     [[nodiscard]] Qt::PenStyle line_style() const;
+
+    virtual QCursor cursor(QMouseEvent* event) const noexcept override
+    {
+        if (!_movable)
+            return Qt::ArrowCursor;
+        if (m_orientation == Qt::Orientation::Vertical)
+            return Qt::SizeHorCursor;
+        return Qt::SizeVerCursor;
+    }
 
 #ifdef BINDINGS_H
 #define Q_SIGNAL
@@ -93,6 +143,13 @@ class SciQLopStraightLine : public QObject
     QPointer<StraightLine> m_line;
 
 public:
+    virtual ~SciQLopStraightLine()
+    {
+        if (!m_line.isNull())
+            if (auto* plot = m_line->parentPlot())
+                plot->removeItem(m_line);
+    }
+
     /*!
      * \brief SciQLopStraightLine
      * \param plot The plot to which the item will be added
@@ -106,6 +163,7 @@ public:
                         Qt::Orientation orientation = Qt::Orientation::Vertical)
     {
         m_line = new StraightLine(plot->qcp_plot(), position, movable, coordinates, orientation);
+        connect(m_line, &StraightLine::moved, this, &SciQLopStraightLine::position_changed);
     }
 
     void set_position(double pos);
@@ -155,6 +213,36 @@ public:
             return this->m_line->line_style();
         return Qt::SolidLine;
     }
+
+    inline void set_min_value(double min)
+    {
+        if (!m_line.isNull())
+            m_line->set_min_value(min);
+    }
+
+    inline void clear_min_value()
+    {
+        if (!m_line.isNull())
+            m_line->clear_min_value();
+    }
+
+    inline void set_max_value(double max)
+    {
+        if (!m_line.isNull())
+            m_line->set_max_value(max);
+    }
+
+    inline void clear_max_value()
+    {
+        if (!m_line.isNull())
+            m_line->clear_max_value();
+    }
+
+#ifdef BINDINGS_H
+#define Q_SIGNAL
+signals:
+#endif
+    Q_SIGNAL void position_changed(double new_position);
 };
 
 class SciQLopVerticalLine : public SciQLopStraightLine

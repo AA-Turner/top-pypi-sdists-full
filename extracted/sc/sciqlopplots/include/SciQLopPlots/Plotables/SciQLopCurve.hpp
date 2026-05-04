@@ -23,6 +23,7 @@
 #include "SciQLopPlots/Python/PythonInterface.hpp"
 
 #include "QCPAbstractPlottableWrapper.hpp"
+#include <optional>
 #include "SciQLopLineGraph.hpp"
 #include "SciQLopPlots/SciQLopPlotAxis.hpp"
 #include "SciQLopPlots/enums.hpp"
@@ -79,6 +80,13 @@ public:
     virtual QList<PyBuffer> data() const noexcept override;
 
     inline std::size_t line_count() const noexcept { return plottable_count(); }
+
+    void set_time_color_enabled(bool enabled);
+    bool time_color_enabled() const;
+    void set_time_values(const QVector<double>& times);
+    void set_color_values(const QVector<double>& values);
+    void set_time_color_gradient(const QColor& start, const QColor& end);
+    std::optional<QPointF> position_at_time(double t) const;
 
     virtual void set_x_axis(SciQLopPlotAxisInterface* axis) noexcept override;
 

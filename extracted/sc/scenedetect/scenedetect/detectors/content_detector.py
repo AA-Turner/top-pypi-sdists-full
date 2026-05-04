@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2018 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -16,13 +16,14 @@ This detector is available from the command-line as the `detect-content` command
 """
 
 import math
+import typing as ty
 from dataclasses import dataclass
-from typing import List, NamedTuple, Optional
 
 import cv2
 import numpy
 
-from scenedetect.scene_detector import FlashFilter, SceneDetector
+from scenedetect.common import FrameTimecode, TimecodeLike
+from scenedetect.detector import FlashFilter, SceneDetector
 
 
 def _mean_pixel_distance(left: numpy.ndarray, right: numpy.ndarray) -> float:
@@ -54,7 +55,7 @@ class ContentDetector(SceneDetector):
 
     # TODO: Come up with some good weights for a new default if there is one that can pass
     # a wider variety of test cases.
-    class Components(NamedTuple):
+    class Components(ty.NamedTuple):
         """Components that make up a frame's score, and their default values."""
 
         delta_hue: float = 1.0
@@ -84,7 +85,7 @@ class ContentDetector(SceneDetector):
     FRAME_SCORE_KEY = "content_val"
     """Key in statsfile representing the final frame score after weighed by specified components."""
 
-    METRIC_KEYS = [FRAME_SCORE_KEY, *Components._fields]
+    METRIC_KEYS: ty.ClassVar[list[str]] = [FRAME_SCORE_KEY, *Components._fields]
     """All statsfile keys this detector produces."""
 
     @dataclass
@@ -97,23 +98,24 @@ class ContentDetector(SceneDetector):
         """Frame saturation map [2D 8-bit]."""
         lum: numpy.ndarray
         """Frame luma/brightness map [2D 8-bit]."""
-        edges: Optional[numpy.ndarray]
+        edges: numpy.ndarray | None
         """Frame edge map [2D 8-bit, edges are 255, non edges 0]. Affected by `kernel_size`."""
 
     def __init__(
         self,
         threshold: float = 27.0,
-        min_scene_len: int = 15,
+        min_scene_len: TimecodeLike = 15,
         weights: "ContentDetector.Components" = DEFAULT_COMPONENT_WEIGHTS,
         luma_only: bool = False,
-        kernel_size: Optional[int] = None,
+        kernel_size: int | None = None,
         filter_mode: FlashFilter.Mode = FlashFilter.Mode.MERGE,
     ):
         """
         Arguments:
             threshold: Threshold the average change in pixel intensity must exceed to trigger a cut.
-            min_scene_len: Once a cut is detected, this many frames must pass before a new one can
-                be added to the scene list. Can be an int or FrameTimecode type.
+            min_scene_len: Once a cut is detected, this much time must pass before a new one can
+                be added to the scene list. Accepts an int (frames), float (seconds), or
+                str (e.g. ``"0.6s"``, ``"00:00:00.600"``).
             weights: Weight to place on each component when calculating frame score
                 (`content_val` in a statsfile, the value `threshold` is compared against).
             luma_only: If True, only considers changes in the luminance channel of the video.
@@ -125,27 +127,24 @@ class ContentDetector(SceneDetector):
         """
         super().__init__()
         self._threshold: float = threshold
-        self._min_scene_len: int = min_scene_len
-        self._last_above_threshold: Optional[int] = None
-        self._last_frame: Optional[ContentDetector._FrameData] = None
+        self._last_frame: ContentDetector._FrameData | None = None
         self._weights: ContentDetector.Components = weights
         if luma_only:
             self._weights = ContentDetector.LUMA_ONLY_WEIGHTS
-        self._kernel: Optional[numpy.ndarray] = None
+        self._kernel: numpy.ndarray | None = None
         if kernel_size is not None:
             if kernel_size < 3 or kernel_size % 2 == 0:
                 raise ValueError("kernel_size must be odd integer >= 3")
             self._kernel = numpy.ones((kernel_size, kernel_size), numpy.uint8)
-        self._frame_score: Optional[float] = None
+        self._frame_score: float | None = None
+        # TODO(https://scenedetect.com/issue/168): Figure out a better long term plan for handling
+        # `min_scene_len` which should be specified in seconds, not frames.
         self._flash_filter = FlashFilter(mode=filter_mode, length=min_scene_len)
 
     def get_metrics(self):
         return ContentDetector.METRIC_KEYS
 
-    def is_processing_required(self, frame_num):
-        return True
-
-    def _calculate_frame_score(self, frame_num: int, frame_img: numpy.ndarray) -> float:
+    def _calculate_frame_score(self, timecode: FrameTimecode, frame_img: numpy.ndarray) -> float:
         """Calculate score representing relative amount of motion in `frame_img` compared to
         the last time the function was called (returns 0.0 on the first call)."""
         # TODO: Add option to enable motion estimation before calculating score components.
@@ -169,25 +168,30 @@ class ContentDetector(SceneDetector):
             delta_sat=_mean_pixel_distance(sat, self._last_frame.sat),
             delta_lum=_mean_pixel_distance(lum, self._last_frame.lum),
             delta_edges=(
-                0.0 if edges is None else _mean_pixel_distance(edges, self._last_frame.edges)
+                0.0
+                if edges is None or self._last_frame.edges is None
+                else _mean_pixel_distance(edges, self._last_frame.edges)
             ),
         )
 
         frame_score: float = sum(
-            component * weight for (component, weight) in zip(score_components, self._weights)
+            component * weight
+            for (component, weight) in zip(score_components, self._weights, strict=True)
         ) / sum(abs(weight) for weight in self._weights)
 
         # Record components and frame score if needed for analysis.
         if self.stats_manager is not None:
             metrics = {self.FRAME_SCORE_KEY: frame_score}
             metrics.update(score_components._asdict())
-            self.stats_manager.set_metrics(frame_num, metrics)
+            self.stats_manager.set_metrics(timecode, metrics)
 
         # Store all data required to calculate the next frame's score.
         self._last_frame = ContentDetector._FrameData(hue, sat, lum, edges)
         return frame_score
 
-    def process_frame(self, frame_num: int, frame_img: numpy.ndarray) -> List[int]:
+    def process_frame(
+        self, timecode: FrameTimecode, frame_img: numpy.ndarray
+    ) -> list[FrameTimecode]:
         """Process the next frame. `frame_num` is assumed to be sequential.
 
         Args:
@@ -196,15 +200,15 @@ class ContentDetector(SceneDetector):
             frame_img (numpy.ndarray or None): Video frame corresponding to `frame_img`.
 
         Returns:
-            List[int]: List of frames where scene cuts have been detected. There may be 0
+           ty.List[int]: List of frames where scene cuts have been detected. There may be 0
             or more frames in the list, and not necessarily the same as frame_num.
         """
-        self._frame_score = self._calculate_frame_score(frame_num, frame_img)
+        self._frame_score = self._calculate_frame_score(timecode, frame_img)
         if self._frame_score is None:
             return []
 
         above_threshold: bool = self._frame_score >= self._threshold
-        return self._flash_filter.filter(frame_num=frame_num, above_threshold=above_threshold)
+        return self._flash_filter.filter(timecode=timecode, above_threshold=above_threshold)
 
     def _detect_edges(self, lum: numpy.ndarray) -> numpy.ndarray:
         """Detect edges using the luma channel of a frame.

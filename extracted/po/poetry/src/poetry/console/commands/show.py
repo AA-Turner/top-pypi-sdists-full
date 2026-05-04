@@ -13,6 +13,7 @@ from packaging.utils import canonicalize_name
 
 from poetry.console.commands.env_command import EnvCommand
 from poetry.console.commands.group_command import GroupCommand
+from poetry.utils.constants import POETRY_SYSTEM_PROJECT_NAME
 
 
 if TYPE_CHECKING:
@@ -147,8 +148,8 @@ lists all packages available."""
 
         if not self.poetry.locker.is_locked():
             self.line_error(
-                "<error>Error: poetry.lock not found. Run `poetry lock` to create"
-                " it.</error>"
+                f"<error>Error: poetry.lock not found. Run `{self._lock_create_command()}`"
+                " to create it.</error>"
             )
             return 1
 
@@ -164,6 +165,12 @@ lists all packages available."""
             return self._display_packages_tree_information(locked_repo, root)
 
         return self._display_packages_information(locked_repo, root)
+
+    def _lock_create_command(self) -> str:
+        if self.poetry.package.name == POETRY_SYSTEM_PROJECT_NAME:
+            return "poetry self lock"
+
+        return "poetry lock"
 
     def _display_single_package_information(
         self, package: str, locked_repository: Repository
@@ -547,7 +554,7 @@ lists all packages available."""
             self._write_tree_line(io, info)
 
             tree_bar = tree_bar.replace("└", " ")
-            packages_in_tree = [package.name, dependency.name]
+            packages_in_tree = {package.name, dependency.name}
 
             self._display_tree(
                 io,
@@ -563,7 +570,7 @@ lists all packages available."""
         io: IO,
         dependency: Dependency,
         installed_packages: list[Package],
-        packages_in_tree: list[NormalizedName],
+        packages_in_tree: set[NormalizedName],
         previous_tree_bar: str = "├",
         level: int = 1,
     ) -> None:
@@ -583,7 +590,6 @@ lists all packages available."""
         tree_bar = previous_tree_bar + "   ├"
         total = len(dependencies)
         for i, dependency in enumerate(dependencies, 1):
-            current_tree = packages_in_tree
             if i == total:
                 tree_bar = previous_tree_bar + "   └"
 
@@ -591,7 +597,7 @@ lists all packages available."""
             color = self.colors[color_ident]
 
             circular_warn = ""
-            if dependency.name in current_tree:
+            if dependency.name in packages_in_tree:
                 circular_warn = "(circular dependency aborted here)"
 
             info = (
@@ -602,17 +608,19 @@ lists all packages available."""
 
             tree_bar = tree_bar.replace("└", " ")
 
-            if dependency.name not in current_tree:
-                current_tree.append(dependency.name)
-
-                self._display_tree(
-                    io,
-                    dependency,
-                    installed_packages,
-                    current_tree,
-                    tree_bar,
-                    level + 1,
-                )
+            if dependency.name not in packages_in_tree:
+                packages_in_tree.add(dependency.name)
+                try:
+                    self._display_tree(
+                        io,
+                        dependency,
+                        installed_packages,
+                        packages_in_tree,
+                        tree_bar,
+                        level + 1,
+                    )
+                finally:
+                    packages_in_tree.discard(dependency.name)
 
     def _write_tree_line(self, io: IO, line: str) -> None:
         if not io.output.supports_utf8():

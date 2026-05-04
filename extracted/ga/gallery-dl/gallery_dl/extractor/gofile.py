@@ -61,11 +61,6 @@ class GofileFolderExtractor(Extractor):
                                content.get("name"), content["type"])
 
     def request_api(self, endpoint, params=None, headers=None, method="GET"):
-        if headers is None:
-            headers = {}
-        headers["Referer"] = self.root + "/"
-        headers["Origin"] = self.root
-
         response = self.request_json(
             "https://api.gofile.io" + endpoint,
             method=method, params=params, headers=headers)

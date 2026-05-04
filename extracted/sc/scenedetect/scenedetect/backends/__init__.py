@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2022 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -32,10 +32,10 @@ detection on it using :func:`open_video`:
 .. code:: python
 
     from scenedetect import open_video
-    video = open_video('video.mp4')
+    video = open_video("video.mp4")
 
 An optional backend from :data:`AVAILABLE_BACKENDS` can be passed to :func:`open_video`
-(e.g. `backend='opencv'`). Additional keyword arguments passed to :func:`open_video`
+(e.g. `backend="opencv"`). Additional keyword arguments passed to :func:`open_video`
 will be forwarded to the backend constructor. If the specified backend is unavailable, or
 loading the video fails, ``opencv`` will be tried as a fallback.
 
@@ -45,7 +45,7 @@ Lastly, to use a specific backend directly:
 
     # Manually importing and constructing a backend:
     from scenedetect.backends.opencv import VideoStreamCv2
-    video = VideoStreamCv2('video.mp4')
+    video = VideoStreamCv2("video.mp4")
 
 In both examples above, the resulting ``video`` can be used with
 :meth:`SceneManager.detect_scenes() <scenedetect.scene_manager.SceneManager.detect_scenes>`.
@@ -83,8 +83,6 @@ examples for details.
 # TODO: Future VideoStream implementations under consideration:
 #  - Nvidia VPF: https://developer.nvidia.com/blog/vpf-hardware-accelerated-video-processing-framework-in-python/
 
-from typing import Dict, Type
-
 # OpenCV must be available at minimum.
 from scenedetect.backends.opencv import VideoCaptureAdapter, VideoStreamCv2
 
@@ -100,7 +98,7 @@ except ImportError:
 
 # TODO: Lazy-loading backends would improve startup performance. However, this requires removing
 # some of the re-exported types above from the public API.
-AVAILABLE_BACKENDS: Dict[str, Type] = {
+AVAILABLE_BACKENDS: dict[str, type] = {
     backend.BACKEND_NAME: backend
     for backend in filter(
         None,
@@ -114,5 +112,5 @@ AVAILABLE_BACKENDS: Dict[str, Type] = {
 """All available backends that :func:`scenedetect.open_video` can consider for the `backend`
 parameter. These backends must support construction with the following signature:
 
-    BackendType(path: str, framerate: Optional[float])
+    BackendType(path: str, frame_rate: ty.Optional[float | Fraction])
 """

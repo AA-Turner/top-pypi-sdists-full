@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2016 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -17,7 +17,7 @@ from logging import getLogger
 from scenedetect._cli import scenedetect
 from scenedetect._cli.context import CliContext
 from scenedetect._cli.controller import run_scenedetect
-from scenedetect.platform import FakeTqdmLoggingRedirect, logging_redirect_tqdm
+from scenedetect.platform import DEBUG_MODE, FakeTqdmLoggingRedirect, logging_redirect_tqdm
 
 
 def main():
@@ -46,14 +46,14 @@ def main():
             run_scenedetect(context)
         except KeyboardInterrupt:
             logger.info("Stopped.")
-            if __debug__:
+            if DEBUG_MODE:
                 raise
+            raise SystemExit(1) from None
         except BaseException as ex:
-            if __debug__:
+            if DEBUG_MODE:
                 raise
-            else:
-                logger.critical("ERROR: Unhandled exception:", exc_info=ex)
-                raise SystemExit(1) from None
+            logger.critical("ERROR: Unhandled exception:", exc_info=ex)
+            raise SystemExit(1) from ex
 
 
 if __name__ == "__main__":

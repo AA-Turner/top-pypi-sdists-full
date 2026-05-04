@@ -214,10 +214,8 @@ class RedgifsAPI():
     def __init__(self, extractor):
         self.extractor = extractor
         self.headers = {
-            "Accept"        : "application/json, text/plain, */*",
-            "Referer"       : extractor.root + "/",
-            "Authorization" : None,
-            "Origin"        : extractor.root,
+            "Accept"       : "application/json, text/plain, */*",
+            "Authorization": None,
         }
 
     def gif(self, gif_id):

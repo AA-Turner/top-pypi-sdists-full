@@ -35,10 +35,12 @@
 #include <QObject>
 #include <QPointer>
 #include <QWidget>
+#include <memory>
 #include <utility>
 
 class SciQLopPlotAxisInterface;
 class InspectorExtension;
+class InspectorExtensionHolder;
 
 class SciQLopPlottableInterface : public QObject
 {
@@ -48,14 +50,14 @@ protected:
     SciQLopPlotRange m_range;
     SciQLopPlotRange m_data_range; // key range of currently loaded data
     QVariantMap m_metaData;
+    std::unique_ptr<InspectorExtensionHolder> m_extension_holder;
 
 public:
     Q_PROPERTY(bool selected READ selected WRITE set_selected NOTIFY selection_changed)
     Q_PROPERTY(QList<PyBuffer> data READ data NOTIFY data_changed BINDABLE bindable_data)
     Q_PROPERTY(bool busy READ busy WRITE set_busy NOTIFY busy_changed)
 
-    SciQLopPlottableInterface(QVariantMap metaData={},QObject* parent = nullptr)
-            : QObject(parent),m_metaData{std::move(metaData)} { }
+    SciQLopPlottableInterface(QVariantMap metaData={},QObject* parent = nullptr);
 
     virtual ~SciQLopPlottableInterface() = default;
 
@@ -92,6 +94,11 @@ public:
     Q_SLOT virtual void set_data(PyBuffer x, PyBuffer y, PyBuffer z) { WARN_ABSTRACT_METHOD; };
 
     Q_SLOT virtual void set_data(const QList<PyBuffer>& values) { WARN_ABSTRACT_METHOD; }
+
+    Q_SLOT virtual void set_color_data(PyBuffer values, ::ColorGradient gradient = ::ColorGradient::Jet)
+    {
+        WARN_ABSTRACT_METHOD;
+    }
 
     virtual QList<PyBuffer> data() const noexcept
     {
@@ -149,17 +156,23 @@ public:
 
     inline virtual std::size_t parent_plot_height() const noexcept
     {
-        return qobject_cast<QWidget*>(parent())->height();
+        if (auto* w = qobject_cast<QWidget*>(parent()))
+            return w->height();
+        return 0;
     }
 
     inline virtual std::size_t parent_plot_width() const noexcept
     {
-        return qobject_cast<QWidget*>(parent())->width();
+        if (auto* w = qobject_cast<QWidget*>(parent()))
+            return w->width();
+        return 0;
     }
 
     inline virtual QSize parent_plot_size() const noexcept
     {
-        return qobject_cast<QWidget*>(parent())->size();
+        if (auto* w = qobject_cast<QWidget*>(parent()))
+            return w->size();
+        return {};
     }
 
     void add_inspector_extension(InspectorExtension* extension);
@@ -188,7 +201,6 @@ signals:
 
     protected:
     bool _got_first_data = false;
-    QList<QPointer<InspectorExtension>> m_inspector_extensions;
 
     void check_first_data(std::size_t n)
     {

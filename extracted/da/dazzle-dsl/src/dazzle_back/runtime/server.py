@@ -544,6 +544,35 @@ class DazzleBackendApp:
             except Exception as exc:
                 logger.warning("Failed to migrate tenant schema %s: %s", schema_name, exc)
 
+    def _apply_search_indexes(self, engine: Any) -> None:
+        """Apply #954 cycle 2 search indexes (tsvector + GIN) to *engine*.
+
+        Reads ``self._appspec.searches`` and runs the DDL produced by
+        :func:`build_search_index_ddl`. No-op when the AppSpec has no
+        search blocks. Statements are idempotent (``IF NOT EXISTS``)
+        so dev-mode reboots don't error.
+        """
+        searches = list(getattr(self._appspec, "searches", []) or [])
+        if not searches:
+            return
+        from sqlalchemy import text as _sa_text
+
+        from dazzle_back.runtime.search_schema import build_search_index_ddl
+
+        statements = build_search_index_ddl(self._entities, searches)
+        if not statements:
+            return
+        with engine.begin() as conn:
+            for stmt in statements:
+                conn.execute(_sa_text(stmt))
+        logger.info(
+            "Applied %d FTS index statement%s for %d searchable entit%s",
+            len(statements),
+            "" if len(statements) == 1 else "s",
+            len(searches),
+            "y" if len(searches) == 1 else "ies",
+        )
+
     def _setup_models(self) -> None:
         """Generate Pydantic models and create/update schemas from the spec."""
         self._models = generate_all_entity_models(self._entities)
@@ -583,6 +612,10 @@ class DazzleBackendApp:
                 engine = _sa_create_engine(sa_url)
                 try:
                     metadata.create_all(engine)
+                    # #954 cycle 2 — apply tsvector + GIN index DDL after the
+                    # base schema lands. Idempotent (IF NOT EXISTS); safe to
+                    # re-run on every dev boot.
+                    self._apply_search_indexes(engine)
                 finally:
                     engine.dispose()
             except Exception as exc:
@@ -678,6 +711,28 @@ class DazzleBackendApp:
 
         # Wire project-level service hooks (v0.29.0)
         self._wire_service_hooks()
+        self._load_i18n_translations()
+
+    def _load_i18n_translations(self) -> None:
+        """Discover + register project translation files (#955 cycle 5).
+
+        Reads ``locale/<locale>/LC_MESSAGES/messages.{mo,po}`` under the
+        project root and registers each into the global
+        :class:`~dazzle.i18n.MessageCatalogue`. The cycle-2 ``_()``
+        filter then returns translated strings instead of source text.
+
+        No-op when the project has no ``locale/`` tree — that's the
+        common case for English-only apps. Failures are caught + logged
+        because a malformed .po file shouldn't block boot.
+        """
+        if not self._project_root:
+            return
+        try:
+            from dazzle.i18n.loader import load_translations
+
+            load_translations(self._project_root)
+        except Exception:
+            logger.warning("i18n translation load failed", exc_info=True)
 
     def _wire_service_hooks(self) -> None:
         """Discover and register project-level service hooks."""
@@ -737,6 +792,38 @@ class DazzleBackendApp:
 
             self._job_queue = InMemoryJobQueue()
             register_job_triggers(self._services, list(self._appspec.jobs), self._job_queue)
+
+        # #952 cycle 4 — wire notification dispatch callbacks against
+        # services for every `notification X:` block that declares a
+        # trigger entity. Manual-fire notifications (no trigger) and
+        # apps without any notification declarations both no-op.
+        notifications = list(getattr(self._appspec, "notifications", []) or [])
+        if notifications:
+            from dazzle.core.manifest import NotificationsConfig, load_manifest
+            from dazzle.notifications import build_dispatcher_from_manifest
+            from dazzle_back.runtime.notification_wiring import (
+                register_notification_triggers,
+            )
+
+            notifications_cfg = NotificationsConfig()
+            if self._project_root is not None:
+                manifest_path = self._project_root / "dazzle.toml"
+                if manifest_path.is_file():
+                    try:
+                        notifications_cfg = load_manifest(manifest_path).notifications
+                    except Exception:
+                        logger.warning(
+                            "Failed to load [notifications] from dazzle.toml — "
+                            "falling back to LogProvider",
+                            exc_info=True,
+                        )
+
+            self._notification_dispatcher = build_dispatcher_from_manifest(notifications_cfg)
+            register_notification_triggers(
+                self._services,
+                notifications,
+                self._notification_dispatcher,
+            )
 
         # Wire post_upload hooks to file upload callbacks (v0.39.0, #437)
         if hasattr(self, "_upload_callbacks"):
@@ -1155,6 +1242,34 @@ class DazzleBackendApp:
             )
             self._app.include_router(audit_history_router)
 
+        # #955 cycle 6 — locale switcher endpoint (`POST /_dazzle/i18n/locale`).
+        # Always mounted; the macro template only renders when supported_locales
+        # is non-empty. Cookie name + supported set come from manifest I18nConfig.
+        try:
+            from dazzle.core.manifest import I18nConfig, load_manifest
+            from dazzle_back.runtime.locale_routes import create_locale_routes
+
+            i18n_cfg = I18nConfig()
+            if self._project_root is not None:
+                manifest_path = self._project_root / "dazzle.toml"
+                if manifest_path.is_file():
+                    try:
+                        i18n_cfg = load_manifest(manifest_path).i18n
+                    except Exception:
+                        logger.debug(
+                            "i18n manifest load skipped — using defaults",
+                            exc_info=True,
+                        )
+            locale_router = create_locale_routes(
+                cookie_name=i18n_cfg.cookie_name,
+                supported_locales=frozenset(i18n_cfg.supported_locales)
+                if i18n_cfg.supported_locales
+                else None,
+            )
+            self._app.include_router(locale_router)
+        except Exception:
+            logger.warning("Locale router mount failed", exc_info=True)
+
         # File uploads
         if self._enable_files:
             from dazzle_back.runtime.file_storage import (
@@ -1226,6 +1341,26 @@ class DazzleBackendApp:
             )
             if search_router is not None:
                 self._app.include_router(search_router)
+
+        # #954 cycle 3 — tsvector-backed search endpoint(s). Registered
+        # only when the AppSpec declares `search on <Entity>:` blocks.
+        # The endpoint queries the cycle-2 search_vector column with
+        # scope-aware filtering — RBAC-correct on day one.
+        if getattr(self._appspec, "searches", None) and self._repositories:
+            try:
+                from dazzle_back.runtime.fts_routes import create_fts_routes
+
+                fts_router = create_fts_routes(
+                    appspec=self._appspec,
+                    repositories=self._repositories,
+                    fk_graph=getattr(self, "_fk_graph", None),
+                    auth_dep=auth_dep,
+                    admin_personas=getattr(self, "_admin_personas", None),
+                )
+                if fts_router is not None:
+                    self._app.include_router(fts_router)
+            except Exception:
+                logger.warning("FTS routes mount failed", exc_info=True)
 
         # Bulk-action endpoints (#785) — registered when any list-mode
         # surface declares `ux: bulk_actions:`.

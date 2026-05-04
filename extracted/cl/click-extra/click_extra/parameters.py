@@ -29,7 +29,7 @@ import click
 import cloup
 from deepmerge import always_merger
 
-from . import UNSET, EnumChoice, ParamType, Style, get_current_context
+from . import UNSET, EnumChoice, ParamType, Style, context, get_current_context
 from .envvar import param_envvar_ids
 
 TYPE_CHECKING = False
@@ -119,47 +119,6 @@ class Option(_ParameterMixin, cloup.Option):
     Inherits first from ``_ParameterMixin`` to allow future overrides of Click's
     ``Parameter`` methods.
     """
-
-
-class _LazyMetaDict(dict):
-    """Dict subclass that lazily resolves fields on first access.
-
-    Installed as ``ctx._meta`` so that ``ctx.meta["click_extra.<field>"]``
-    transparently evaluates the corresponding ``@cached_property`` on the
-    source object only when the key is actually read.
-    """
-
-    def __init__(
-        self,
-        base: dict[str, Any],
-        source: object,
-        fields: tuple[str, ...],
-    ) -> None:
-        super().__init__(base)
-        self._source = source
-        self._lazy_keys = {f"click_extra.{f}": f for f in fields}
-
-    def _resolve(self, key: str) -> Any:
-        """Resolve a lazy key, cache the result, and return it."""
-        value = getattr(self._source, self._lazy_keys[key])
-        # Store as a regular entry so subsequent reads are plain dict lookups.
-        dict.__setitem__(self, key, value)
-        return value
-
-    def __getitem__(self, key: str) -> Any:
-        if key in self._lazy_keys and not dict.__contains__(self, key):
-            return self._resolve(key)
-        return super().__getitem__(key)
-
-    def __contains__(self, key: object) -> bool:
-        return key in self._lazy_keys or super().__contains__(key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        if key in self._lazy_keys:
-            if dict.__contains__(self, key):
-                return super().__getitem__(key)
-            return self._resolve(key)
-        return super().get(key, default)
 
 
 class ExtraOption(Option):
@@ -496,21 +455,22 @@ def format_param_row(
             default_val,
         )
 
-    # Lazy import to avoid circular dependency with colorize.
-    from .colorize import KO, OK, default_theme
+    # Lazy import to avoid circular dependency with theme.
+    from .theme import KO, OK, get_current_theme
 
+    active_theme = get_current_theme()
     hidden = None
     if hasattr(param, "hidden"):
         hidden = OK if param.hidden is True else KO
     return (
-        default_theme.invoked_command(path),
-        default_theme.option(param_spec) if param_spec else param_spec,
+        active_theme.invoked_command(path),
+        active_theme.option(param_spec) if param_spec else param_spec,
         class_str,
         type_str,
-        default_theme.metavar(python_type_name),
+        active_theme.metavar(python_type_name),
         hidden,
-        ", ".join(map(default_theme.envvar, param_envvar_ids(param, ctx))),
-        default_theme.default(repr(param.get_default(ctx))),
+        ", ".join(map(active_theme.envvar, param_envvar_ids(param, ctx))),
+        active_theme.default(repr(param.get_default(ctx))),
     )
 
 
@@ -589,9 +549,9 @@ class ShowParamsOption(ExtraOption, ParamStructure):
             a ``click_extra.raw_args`` metadata entry to the context.
         """
         # Imported here to avoid circular imports.
-        from .colorize import KO, OK
         from .config import ConfigOption
         from .table import SERIALIZATION_FORMATS, print_table
+        from .theme import KO, OK
 
         # Exit early if the callback was processed but the option wasn't set.
         if not value:
@@ -602,9 +562,9 @@ class ShowParamsOption(ExtraOption, ParamStructure):
         get_param_value: Callable[[Any], Any]
         opts: dict = {}
 
-        if "click_extra.raw_args" in ctx.meta:
-            raw_args = ctx.meta.get("click_extra.raw_args", [])
-            logger.debug(f"click_extra.raw_args: {raw_args}")
+        if context.RAW_ARGS in ctx.meta:
+            raw_args = ctx.meta.get(context.RAW_ARGS, [])
+            logger.debug(f"{context.RAW_ARGS}: {raw_args}")
 
             # Mimics click.core.Command.parse_args() so we can produce the list of
             # parsed options values.
@@ -619,7 +579,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
             get_param_value = methodcaller("consume_value", ctx, opts)
 
         else:
-            logger.debug(f"click_extra.raw_args not in {ctx.meta}")
+            logger.debug(f"{context.RAW_ARGS} not in {ctx.meta}")
             logger.warning(
                 f"Cannot extract parameters values: "
                 f"{ctx.command} does not inherits from ExtraCommand.",

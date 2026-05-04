@@ -44,16 +44,16 @@ jobs:
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.2
 
       - name: Get packages
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v8.0.1
         with:
           name: Packages
           path: ./dist
 
       - name: Set up Python ${{ inputs.python-version }}
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ inputs.python-version }}
           allow-prereleases: true
@@ -83,7 +83,7 @@ jobs:
 
       - name: Store coverage data
         if: success() || failure()
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: coverage-data-${{ inputs.python-version }}-${{ inputs.qbittorrent-version }}
           path: ./.coverage.*
@@ -91,7 +91,7 @@ jobs:
 
       - name: Send mail
         if: failure() && github.event_name != 'pull_request'
-        uses: dawidd6/action-send-mail@v6
+        uses: dawidd6/action-send-mail@v17
         with:
           server_address: smtp.gmail.com
           server_port: 587

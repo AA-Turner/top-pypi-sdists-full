@@ -37,7 +37,6 @@ class BehanceExtractor(Extractor):
     def _request_graphql(self, endpoint, variables):
         url = self.root + "/v3/graphql"
         headers = {
-            "Origin": self.root,
             "X-BCP" : self._bcp,
             "X-Requested-With": "XMLHttpRequest",
         }

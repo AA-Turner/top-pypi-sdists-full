@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx-weekly
-Version: 1.22.0.dev20260430
+Version: 1.22.0.dev20260504
 Summary: Open Neural Network Exchange
 Author-email: ONNX Contributors <onnx-technical-discuss@lists.lfaidata.foundation>
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.23.2
 Requires-Dist: protobuf>=4.25.1
-Requires-Dist: typing_extensions>=4.7.1
+Requires-Dist: typing_extensions>=4.15.0
 Requires-Dist: ml_dtypes>=0.5.0; platform_machine != "s390x"
 Requires-Dist: ml_dtypes>=0.5.4; platform_machine == "s390x"
 Provides-Extra: reference

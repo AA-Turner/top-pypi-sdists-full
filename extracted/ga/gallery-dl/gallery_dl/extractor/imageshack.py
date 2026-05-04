@@ -43,13 +43,10 @@ class ImageshackExtractor(Extractor):
         url = f"{self.root}/rest_api/{endpoint}"
         params["ts"] = int(time.time())
         headers = {
-            "Accept"        : "application/json, text/javascript, */*; q=0.01",
-            "Content-Type"  : "application/json",
+            "Accept"      : "application/json, text/javascript, */*; q=0.01",
+            "Content-Type": "application/json",
             "X-Requested-With": "XMLHttpRequest",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-            "Priority"      : "u=0",
+            "Priority"    : "u=0",
         }
         return self.request_json(url, params=params, headers=headers)["result"]
 

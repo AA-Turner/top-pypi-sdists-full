@@ -63,7 +63,7 @@ class ClientTransaction():
 
     def _extract_verification_key(self, homepage):
         pos = homepage.find('name="twitter-site-verification"')
-        beg = homepage.rfind("<", 0, pos)
+        beg = homepage.rfind("<", None, pos)
         end = homepage.find(">", pos)
         return text.extr(homepage[beg:end], 'content="', '"')
 

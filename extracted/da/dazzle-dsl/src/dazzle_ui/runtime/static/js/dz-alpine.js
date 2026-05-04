@@ -18,7 +18,83 @@
  *  - dzCommandPalette — spotlight-style command palette (Cmd+K)
  *  - dzSlideOver      — side sheet overlay with width control
  *  - dzToggleGroup    — exclusive or multi-select button group
+ *
+ * Directives:
+ *  - x-flip               — FLIP-style animations for list reorders (#960)
+ *  - x-pull-to-refresh    — touch pull-down → refresh CustomEvent (#958)
+ *  - x-swipe              — horizontal swipe → swipe-left/right CustomEvent (#958)
+ *  - x-optimistic         — apply DOM change before htmx settle, rollback on error (#959)
  */
+
+// ── Haptic feedback (#958 cycle 5) ──────────────────────────────────
+//
+// Opt-in haptic feedback via the Vibration API. Activated by the
+// presence of `<meta name="dz-haptic" content="on">` in the page —
+// emitted by base.html when `[ui] haptic = true` in dazzle.toml.
+//
+// Auto-fires on:
+//   - showToast(success) → tap pattern (single 10ms pulse)
+//   - showToast(error)   → error pattern (two short pulses)
+//   - swipe-left / swipe-right → tap pattern
+//   - htmx:afterRequest with status >= 400 → error pattern
+//
+// Silently no-ops when navigator.vibrate is unsupported (most
+// desktop browsers), when the meta tag is absent, OR when the user
+// has prefers-reduced-motion set (vibration is a motion adjacent
+// signal and the same accessibility intent applies).
+//
+// Exposed as `window.dzHaptic` for adopters who want manual
+// triggers (e.g. inside an Alpine handler).
+(function () {
+  const meta = document.querySelector('meta[name="dz-haptic"]');
+  const enabled =
+    meta &&
+    meta.getAttribute("content") === "on" &&
+    typeof navigator !== "undefined" &&
+    typeof navigator.vibrate === "function";
+
+  const reduce =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const vibrate = (pattern) => {
+    if (!enabled || reduce) return false;
+    try {
+      return navigator.vibrate(pattern);
+    } catch {
+      return false;
+    }
+  };
+
+  window.dzHaptic = {
+    enabled: !!enabled && !reduce,
+    tap: () => vibrate(10),
+    success: () => vibrate(10),
+    error: () => vibrate([20, 40, 20]),
+    warning: () => vibrate([10, 30, 10]),
+    raw: vibrate,
+  };
+
+  if (!enabled || reduce) return;
+
+  // Auto-wire to standard event names. document.body may not exist
+  // yet when this script runs — use document and let bubbling carry.
+  document.addEventListener("showToast", (e) => {
+    const detail = e && e.detail;
+    if (detail && detail.type === "error") {
+      window.dzHaptic.error();
+    } else {
+      window.dzHaptic.success();
+    }
+  });
+  document.addEventListener("swipe-left", () => window.dzHaptic.tap());
+  document.addEventListener("swipe-right", () => window.dzHaptic.tap());
+  document.addEventListener("htmx:afterRequest", (e) => {
+    const xhr = e && e.detail && e.detail.xhr;
+    if (xhr && xhr.status >= 400) window.dzHaptic.error();
+  });
+})();
 
 document.addEventListener("alpine:init", () => {
   const Alpine = window.Alpine;
@@ -48,6 +124,621 @@ document.addEventListener("alpine:init", () => {
         throw err;
       }, 0);
     });
+  }
+
+  // ── x-flip directive (#960 layer 3) ─────────────────────────────────
+  //
+  // FLIP-style animation for list reorders (insert/remove/move). Apply
+  // `x-flip` to a container; each direct child needs a stable
+  // `data-flip-key` attribute (the user's row id, etc.) so the
+  // directive can match before/after positions across re-renders.
+  //
+  // Algorithm: snapshot child rects → MutationObserver fires → snapshot
+  // again → for each surviving child compute (before - after) delta,
+  // apply inverse translate, then transition back to identity. Browser
+  // does the heavy lifting via CSS transition on `transform`.
+  //
+  // Honours `prefers-reduced-motion: reduce` — observer is still wired
+  // (so the snapshot stays current) but transitions are skipped.
+  if (typeof Alpine.directive === "function") {
+    Alpine.directive("flip", (el) => {
+      const reduce =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Map<flipKey, DOMRect>
+      const lastRects = new Map();
+      const snapshot = () => {
+        const next = new Map();
+        for (const child of el.children) {
+          const key = child.dataset && child.dataset.flipKey;
+          if (!key) continue;
+          next.set(key, child.getBoundingClientRect());
+        }
+        return next;
+      };
+      // Initial snapshot — captures whatever's already rendered so the
+      // first mutation has a "before" to compare against.
+      for (const [k, r] of snapshot()) lastRects.set(k, r);
+
+      const onMutation = () => {
+        const newRects = snapshot();
+        if (!reduce) {
+          for (const child of el.children) {
+            const key = child.dataset && child.dataset.flipKey;
+            if (!key) continue;
+            const before = lastRects.get(key);
+            const after = newRects.get(key);
+            if (!before || !after) continue;
+            const dx = before.left - after.left;
+            const dy = before.top - after.top;
+            if (dx === 0 && dy === 0) continue;
+            // Apply inverse instantly (no transition), then in next
+            // frame clear and let the transition animate to identity.
+            child.style.transition = "none";
+            child.style.transform = `translate(${dx}px, ${dy}px)`;
+            requestAnimationFrame(() => {
+              child.style.transition =
+                "transform var(--duration-base) var(--ease-spring-2)";
+              child.style.transform = "";
+            });
+          }
+        }
+        // Refresh the cache regardless so the next mutation diffs
+        // against the current state.
+        lastRects.clear();
+        for (const [k, r] of newRects) lastRects.set(k, r);
+      };
+
+      const observer = new MutationObserver(onMutation);
+      observer.observe(el, { childList: true, subtree: false });
+
+      // Cleanup hook for Alpine teardown (component removed from DOM).
+      el._dzFlipObserver = observer;
+    });
+
+    // ── x-pull-to-refresh directive (#958 cycle 2) ────────────────────
+    //
+    // Pull-down-to-refresh on touch devices. Apply `x-pull-to-refresh`
+    // to a list / dashboard container; the directive listens for a
+    // touch-pull beyond `--dz-pull-threshold` (default 80px) and
+    // dispatches a `refresh` CustomEvent on the element. Wire it to
+    // an htmx swap by adding `hx-trigger="refresh"`:
+    //
+    //   <div x-pull-to-refresh
+    //        hx-get="/users" hx-trigger="refresh"
+    //        hx-target="this" hx-swap="innerHTML">
+    //
+    // Algorithm: capture touch start at scrollTop===0; track Y delta;
+    // apply a damped translateY for visual feedback as the user pulls;
+    // on release past threshold, fire `refresh`. Below threshold, snap
+    // back. `prefers-reduced-motion: reduce` skips the transform but
+    // still fires the event so the refresh works regardless.
+    //
+    // Touch-only via the same `pointer: coarse` rationale as
+    // touch-targets.css — desktop mouse users don't get the gesture.
+    if (typeof Alpine.directive === "function") {
+      Alpine.directive("pull-to-refresh", (el) => {
+        // Honour pointer:coarse only — desktop mouse drag would
+        // otherwise hijack scroll. Falls back to no-op on
+        // matchMedia-less environments.
+        const isTouch =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(pointer: coarse)").matches;
+        if (!isTouch) return;
+
+        const reduce =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const threshold = 80;
+        let startY = 0;
+        let pulling = false;
+        let pullDistance = 0;
+
+        const onStart = (e) => {
+          // Only engage when the container is scrolled to the top —
+          // otherwise the user wants to scroll up, not refresh.
+          if (el.scrollTop > 0) return;
+          startY = e.touches[0].clientY;
+          pulling = true;
+          pullDistance = 0;
+        };
+
+        const onMove = (e) => {
+          if (!pulling) return;
+          pullDistance = Math.max(0, e.touches[0].clientY - startY);
+          if (pullDistance > 0 && !reduce) {
+            // Damped: pull half the distance, capped at 1.5× threshold.
+            const visual = Math.min(pullDistance / 2, threshold * 1.5);
+            el.style.transform = "translateY(" + visual + "px)";
+          }
+        };
+
+        const onEnd = () => {
+          if (!pulling) return;
+          if (pullDistance >= threshold) {
+            // Fire refresh — htmx (or any listener) picks it up.
+            // `bubbles:true` so a parent's hx-trigger can also catch it.
+            el.dispatchEvent(new CustomEvent("refresh", { bubbles: true }));
+          }
+          if (!reduce) {
+            // Snap back smoothly.
+            el.style.transition =
+              "transform var(--duration-base) var(--ease-out)";
+            el.style.transform = "";
+            setTimeout(() => {
+              el.style.transition = "";
+            }, 200);
+          }
+          pulling = false;
+          pullDistance = 0;
+        };
+
+        // Use { passive: true } so the browser doesn't have to wait
+        // for our handler before handling native scroll — keeps the
+        // page responsive even if the JS hangs.
+        el.addEventListener("touchstart", onStart, { passive: true });
+        el.addEventListener("touchmove", onMove, { passive: true });
+        el.addEventListener("touchend", onEnd, { passive: true });
+        el.addEventListener("touchcancel", onEnd, { passive: true });
+
+        // Stash for potential teardown.
+        el._dzPullToRefresh = { onStart, onMove, onEnd };
+      });
+
+      // ── x-swipe directive (#958 cycle 3) ────────────────────────────
+      //
+      // Horizontal swipe gesture on list rows (or any element).
+      // Apply `x-swipe`; the directive fires `swipe-left` /
+      // `swipe-right` CustomEvents on threshold-crossing horizontal
+      // touch motion. Wire to Alpine handlers or htmx triggers:
+      //
+      //   <li x-swipe
+      //       @swipe-left="archive(item.id)"
+      //       @swipe-right="favorite(item.id)">
+      //
+      //   <li x-swipe
+      //       hx-post="/tasks/{id}/done" hx-trigger="swipe-left">
+      //
+      // Heuristics:
+      // - threshold 60px horizontal — deliberate movement, not a tap
+      // - max vertical drift 40px — anything more is a scroll
+      // - max duration 500ms — slower is a drag, not a swipe
+      //
+      // Touch-only via the same `pointer: coarse` rationale as
+      // x-pull-to-refresh — desktop mouse drag would be ambiguous
+      // with text selection.
+      Alpine.directive("swipe", (el) => {
+        const isTouch =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(pointer: coarse)").matches;
+        if (!isTouch) return;
+
+        const threshold = 60;
+        const maxVertical = 40;
+        const maxDurationMs = 500;
+        let startX = 0;
+        let startY = 0;
+        let startT = 0;
+        let active = false;
+
+        const onStart = (e) => {
+          // Single-finger only — pinch / multi-touch is its own
+          // gesture vocabulary; swipe with two fingers would also
+          // be ambiguous with browser-level navigation gestures.
+          if (e.touches.length !== 1) {
+            active = false;
+            return;
+          }
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          startT = Date.now();
+          active = true;
+        };
+
+        const onEnd = (e) => {
+          if (!active) return;
+          active = false;
+          // touchend's changedTouches carries the final position.
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          const dx = t.clientX - startX;
+          const dy = t.clientY - startY;
+          const dt = Date.now() - startT;
+          if (dt > maxDurationMs) return;
+          if (Math.abs(dy) > maxVertical) return;
+          if (Math.abs(dx) < threshold) return;
+          // Detail carries the raw delta + duration so handlers can
+          // do their own velocity-based logic (e.g. snap-vs-undo).
+          const detail = { dx: dx, dy: dy, durationMs: dt };
+          const name = dx < 0 ? "swipe-left" : "swipe-right";
+          el.dispatchEvent(
+            new CustomEvent(name, { bubbles: true, detail: detail }),
+          );
+        };
+
+        el.addEventListener("touchstart", onStart, { passive: true });
+        el.addEventListener("touchend", onEnd, { passive: true });
+        el.addEventListener(
+          "touchcancel",
+          () => {
+            active = false;
+          },
+          { passive: true },
+        );
+
+        el._dzSwipe = { onStart, onEnd };
+      });
+
+      // ── x-optimistic directive (#959 cycle 1) ──────────────────────
+      //
+      // Apply a visual change before the htmx response settles, then
+      // either keep it (success) or roll back (4xx/5xx). Closes the
+      // gap between "click delete" and "row disappears" — no waiting
+      // for the round-trip.
+      //
+      // Shapes (cycle 1):
+      //   x-optimistic="remove"                — drop the element itself
+      //   x-optimistic="remove:closest tr"     — drop a different element
+      //
+      // Cycles 2+ (deferred):
+      //   - prepend / append / replace shapes
+      //   - reconciliation with server response (merge attributes)
+      //   - undo stack integration
+      //
+      // Wire alongside an htmx mutation:
+      //
+      //   <button hx-delete="/api/tasks/{id}"
+      //           hx-target="closest tr"
+      //           hx-swap="outerHTML"
+      //           x-optimistic="remove:closest tr">Delete</button>
+      //
+      // Rollback path: on htmx:responseError or htmx:sendError, the
+      // removed node is re-inserted at its original position and a
+      // toast surfaces the failure. Adopters can listen for
+      // `dz:optimistic-rollback` if they want custom recovery UI.
+      //
+      // Cycle 3 — undo stack. Successful optimistic mutations push
+      // an entry onto a session-level stack capped at 20. Cmd+Z
+      // (Ctrl+Z elsewhere) pops the most recent entry, reverses the
+      // DOM where possible (remove/replace via the captured snapshot),
+      // and dispatches `dz:optimistic-undo` so the adopter can issue
+      // the server-side reversal request (e.g. an `hx-post` on a
+      // hidden form trigger).
+      const _DZ_OPTIMISTIC_UNDO_MAX = 20;
+      const _dzOptimisticUndoStack = [];
+      // Cycle 4 — redo stack. Cmd+Z moves entries from undo→redo;
+      // Shift+Cmd+Z moves them back. A NEW mutation push clears the
+      // redo stack — standard editor convention (you can't redo
+      // through a divergent history).
+      const _dzOptimisticRedoStack = [];
+
+      function _pushOptimisticUndo(entry) {
+        _dzOptimisticUndoStack.push(entry);
+        while (_dzOptimisticUndoStack.length > _DZ_OPTIMISTIC_UNDO_MAX) {
+          _dzOptimisticUndoStack.shift();
+        }
+        // New mutation — divergent history, redo no longer applies.
+        _dzOptimisticRedoStack.length = 0;
+      }
+
+      // Expose both stacks for tests + adopter introspection. Read-only
+      // by convention; popping should go through the keyboard handler.
+      window.dzOptimisticUndoStack = _dzOptimisticUndoStack;
+      window.dzOptimisticRedoStack = _dzOptimisticRedoStack;
+
+      // Single global keydown handler — registered once per page load
+      // even with many x-optimistic instances.
+      if (!window._dzOptimisticUndoBound) {
+        window._dzOptimisticUndoBound = true;
+        document.addEventListener("keydown", (e) => {
+          // Cmd+Z on macOS, Ctrl+Z elsewhere.
+          // Shift+Cmd+Z = redo (cycle 4).
+          const isModified = (e.metaKey || e.ctrlKey) && e.key === "z";
+          if (!isModified) return;
+
+          // Don't hijack undo/redo when the user is typing — let the
+          // input's native undo handle text edits.
+          const t = e.target;
+          if (t) {
+            const tag = (t.tagName || "").toLowerCase();
+            if (tag === "input" || tag === "textarea" || t.isContentEditable) {
+              return;
+            }
+          }
+
+          if (e.shiftKey) {
+            // Redo: pop from redo, run redo(), push back to undo.
+            const entry = _dzOptimisticRedoStack.pop();
+            if (!entry) return;
+            e.preventDefault();
+            try {
+              if (typeof entry.redo === "function") entry.redo();
+              _dzOptimisticUndoStack.push(entry);
+            } catch {
+              // Defensive — stale entry shouldn't break later presses.
+            }
+            return;
+          }
+
+          // Undo: pop from undo, run undo(), push to redo.
+          const entry = _dzOptimisticUndoStack.pop();
+          if (!entry) return;
+          e.preventDefault();
+          try {
+            entry.undo();
+            _dzOptimisticRedoStack.push(entry);
+          } catch {
+            // Defensive — stale undo shouldn't break later presses.
+          }
+        });
+      }
+
+      Alpine.directive("optimistic", (el, { expression }) => {
+        const action = (expression || "remove").trim();
+        // Parse "<verb>:<selector>" — selector defaults to the element
+        // itself for the bare "<verb>" form (most useful for `remove`).
+        const colonIdx = action.indexOf(":");
+        const verb =
+          colonIdx === -1 ? action : action.slice(0, colonIdx).trim();
+        const selectorRaw =
+          colonIdx === -1 ? "" : action.slice(colonIdx + 1).trim();
+
+        const KNOWN_VERBS = new Set(["remove", "prepend", "append", "replace"]);
+        if (!KNOWN_VERBS.has(verb)) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            "x-optimistic: shape '" +
+              verb +
+              "' not recognised. Known shapes: " +
+              [...KNOWN_VERBS].join(", "),
+          );
+          return;
+        }
+
+        const resolveTarget = () => {
+          if (!selectorRaw) return el;
+          // Mirror htmx's `closest <selector>` semantics for parity
+          // — the most common pattern in DSL-rendered list rows.
+          if (selectorRaw.startsWith("closest ")) {
+            return el.closest(selectorRaw.slice("closest ".length).trim());
+          }
+          return document.querySelector(selectorRaw);
+        };
+
+        // Build a placeholder element for prepend / append / replace.
+        // Sources, in priority order:
+        //   1. `x-optimistic-template="<id>"` → clone of <template id> content
+        //   2. Fallback: a generic "loading" div with aria-busy
+        // Templates are the recommended path — adopters control exactly
+        // what the placeholder looks like (matching row shape, etc.).
+        const buildPlaceholder = () => {
+          const templateId = el.getAttribute("x-optimistic-template");
+          if (templateId) {
+            const tpl = document.getElementById(templateId);
+            if (tpl && tpl.content) {
+              const wrapper = document.createElement("div");
+              wrapper.appendChild(tpl.content.cloneNode(true));
+              const node = wrapper.firstElementChild;
+              if (node) {
+                node.setAttribute("data-dz-optimistic-placeholder", "1");
+                node.setAttribute("aria-busy", "true");
+                return node;
+              }
+            }
+          }
+          const ph = document.createElement("div");
+          ph.className = "dz-optimistic-placeholder";
+          ph.setAttribute("data-dz-optimistic-placeholder", "1");
+          ph.setAttribute("aria-busy", "true");
+          return ph;
+        };
+
+        // State carried across the lifecycle:
+        // - snapshot: captures (node, parent, nextSibling) for `remove`
+        //   and `replace` rollback paths.
+        // - placeholder: the inserted element for prepend / append /
+        //   replace; removed on success or rollback.
+        let snapshot = null;
+        let placeholder = null;
+
+        const removePlaceholder = () => {
+          if (placeholder && placeholder.parentNode) {
+            try {
+              placeholder.parentNode.removeChild(placeholder);
+            } catch {
+              // Already detached; nothing to do.
+            }
+          }
+          placeholder = null;
+        };
+
+        const onBeforeRequest = (ev) => {
+          // Only react to htmx events fired by THIS element. Bubbled
+          // events from children would otherwise mutate the wrong row.
+          if (ev.target !== el) return;
+          const target = resolveTarget();
+          if (!target) return;
+
+          if (verb === "remove") {
+            if (!target.parentNode) return;
+            snapshot = {
+              node: target,
+              parent: target.parentNode,
+              nextSibling: target.nextSibling,
+            };
+            target.parentNode.removeChild(target);
+            return;
+          }
+
+          if (verb === "prepend") {
+            placeholder = buildPlaceholder();
+            target.insertBefore(placeholder, target.firstChild);
+            return;
+          }
+
+          if (verb === "append") {
+            placeholder = buildPlaceholder();
+            target.appendChild(placeholder);
+            return;
+          }
+
+          if (verb === "replace") {
+            if (!target.parentNode) return;
+            // Replace combines remove + insert: snapshot the original
+            // for rollback, then drop in the placeholder at its slot.
+            snapshot = {
+              node: target,
+              parent: target.parentNode,
+              nextSibling: target.nextSibling,
+            };
+            placeholder = buildPlaceholder();
+            target.parentNode.replaceChild(placeholder, target);
+          }
+        };
+
+        const restore = (reason) => {
+          // For prepend / append: just drop the placeholder.
+          // For remove / replace: re-insert the original node at its
+          // recorded position.
+          removePlaceholder();
+          if (snapshot) {
+            const { node, parent, nextSibling } = snapshot;
+            try {
+              if (nextSibling && nextSibling.parentNode === parent) {
+                parent.insertBefore(node, nextSibling);
+              } else {
+                parent.appendChild(node);
+              }
+            } catch {
+              // Parent is gone — nothing we can restore.
+            }
+            snapshot = null;
+          }
+          // Surface for adopter recovery hooks + user-visible nudge.
+          el.dispatchEvent(
+            new CustomEvent("dz:optimistic-rollback", {
+              bubbles: true,
+              detail: { reason: reason || "error", verb: verb },
+            }),
+          );
+          document.body.dispatchEvent(
+            new CustomEvent("showToast", {
+              detail: {
+                message: "Action could not be completed; restored",
+                type: "error",
+              },
+            }),
+          );
+        };
+
+        const onAfterRequest = (ev) => {
+          if (ev.target !== el) return;
+          const xhr = ev.detail && ev.detail.xhr;
+          const ok =
+            ev.detail && ev.detail.successful !== undefined
+              ? ev.detail.successful
+              : xhr && xhr.status < 400;
+          if (ok) {
+            // Success: drop the placeholder (htmx will have inserted
+            // the real content alongside or in its place) and clear
+            // the snapshot so we don't accidentally restore a stale
+            // node on a later event.
+            removePlaceholder();
+            // Cycle 3 — push an undo entry so Cmd+Z reverses the
+            // optimistic mutation. Capture `snapshot` by closure
+            // BEFORE clearing it; the entry's `undo` runs at an
+            // arbitrary later time when the directive's `snapshot`
+            // local has already been set to null by another mutation.
+            const undoSnapshot = snapshot;
+            _pushOptimisticUndo({
+              el: el,
+              verb: verb,
+              undo: () => {
+                // DOM-level reversal where possible: re-insert the
+                // captured node at its original position. Only meaningful
+                // for `remove` and `replace` — `prepend`/`append` have
+                // no captured snapshot (the placeholder was the only
+                // tracked node, and it's already gone).
+                if (undoSnapshot && (verb === "remove" || verb === "replace")) {
+                  const { node, parent, nextSibling } = undoSnapshot;
+                  try {
+                    if (nextSibling && nextSibling.parentNode === parent) {
+                      parent.insertBefore(node, nextSibling);
+                    } else if (parent) {
+                      parent.appendChild(node);
+                    }
+                  } catch {
+                    // Parent gone — DOM-level undo not possible. The
+                    // dz:optimistic-undo event still fires so the
+                    // adopter can reconcile server-side state.
+                  }
+                }
+                // Always dispatch — adopter wires the server-side
+                // reversal (e.g. POST /restore endpoint) through this
+                // event. Detail carries the verb + snapshot so the
+                // handler can branch on what was originally done.
+                el.dispatchEvent(
+                  new CustomEvent("dz:optimistic-undo", {
+                    bubbles: true,
+                    detail: { verb: verb, snapshot: undoSnapshot },
+                  }),
+                );
+              },
+              // Cycle 4 — redo. Reverses the undo: removes the
+              // restored node (remove/replace) and re-fires the
+              // mutation event for adopter-wired forward action.
+              redo: () => {
+                if (
+                  undoSnapshot &&
+                  (verb === "remove" || verb === "replace") &&
+                  undoSnapshot.node &&
+                  undoSnapshot.node.parentNode
+                ) {
+                  try {
+                    undoSnapshot.node.parentNode.removeChild(undoSnapshot.node);
+                  } catch {
+                    // Defensive — node already detached.
+                  }
+                }
+                el.dispatchEvent(
+                  new CustomEvent("dz:optimistic-redo", {
+                    bubbles: true,
+                    detail: { verb: verb, snapshot: undoSnapshot },
+                  }),
+                );
+              },
+            });
+            // Cycle 4 — reconciliation hook. Adopters that need to
+            // merge state (focus, scroll, custom attributes) between
+            // the optimistic placeholder and the server response can
+            // listen for `dz:optimistic-reconcile` on the bound
+            // element. Detail carries the verb + the htmx response
+            // xhr (when available) so handlers can inspect the
+            // returned HTML before deciding what to merge.
+            el.dispatchEvent(
+              new CustomEvent("dz:optimistic-reconcile", {
+                bubbles: true,
+                detail: { verb: verb, xhr: xhr },
+              }),
+            );
+            snapshot = null;
+            return;
+          }
+          restore("response-error");
+        };
+
+        const onSendError = (ev) => {
+          if (ev.target !== el) return;
+          restore("send-error");
+        };
+
+        el.addEventListener("htmx:beforeRequest", onBeforeRequest);
+        el.addEventListener("htmx:afterRequest", onAfterRequest);
+        el.addEventListener("htmx:sendError", onSendError);
+
+        el._dzOptimistic = { onBeforeRequest, onAfterRequest, onSendError };
+      });
+    }
   }
 
   // ── Toast Notifications ─────────────────────────────────────────────

@@ -82,6 +82,26 @@ allowed_files:
     added: "2024-10-15"
     review: "2026-06-13"
 
+  - file: "src/omnibase_core/utils/util_dod_receipt_migration.py"
+    reason: >-
+      Legacy DoD receipt migration utility (OMN-9790). Pre-OMN-9786 receipts cannot validate against the
+      new ModelDodReceipt schema by definition - the migration's purpose is to backfill the missing fields
+      so they can. Raw yaml.safe_load is required to read the legacy payload before rewriting it as a
+      ModelDodReceipt-compatible mapping.
+    added: "2026-04-26"
+    review: "2026-06-13"
+
+  - file: "src/omnibase_core/cli/cli_install.py"
+    reason: >-
+      onex pack/install CLI must parse heterogeneous third-party contract.yaml + metadata.yaml files from
+      .oncp archives before any Pydantic model applies. contract.yaml schemas vary by node type (ModelContractCompute,
+      ModelContractEffect, ModelContractReducer, ModelContractOrchestrator), so detect_contract_model()
+      requires raw YAML to route to the correct model. metadata.yaml is a thin descriptor (name + version
+      + entry_points) consumed before the registry lookup. Both sites validate required keys explicitly
+      (mapping check, name/version presence) before use. (OMN-7537)
+    added: "2026-04-23"
+    review: "2026-06-13"
+
   - file: "src/omnibase_core/validation/validator_contracts.py"
     reason: >-
       Central orchestrator for YAML contract file parsing and validation - provides high-level API for
@@ -268,12 +288,42 @@ allowed_files:
     added: "2026-04-17"
     review: "2026-06-13"
 
+  - file: "src/omnibase_core/validation/validator_receipt_reprobe.py"
+    reason: >-
+      Re-probe verification mode (OMN-9789) walks legacy ModelDodReceipt YAML artifacts and re-runs each
+      recorded probe_command. Receipts may be older than the current ModelDodReceipt schema, so the verifier
+      intentionally inspects raw mappings to extract probe_command/exit_code without binding to the current
+      model. Schema enforcement is the receipt-gate's job (above); this verifier answers the narrower
+      question of whether the recorded probe still exits as recorded. (OMN-9789)
+    added: "2026-04-26"
+    review: "2026-06-13"
+
   - file: "src/omnibase_core/cli/cli_refresh_credentials.py"
     reason: >-
       Loads ~/.onex/config.yaml as free-form user configuration. No fixed Pydantic schema exists for this
       file — the config contains arbitrary AWS section fields (secret_name, region) and is read to extract
       raw key-value pairs for Secrets Manager lookup. (OMN-9011)
     added: "2026-04-17"
+    review: "2026-06-13"
+
+  - file: "src/omnibase_core/cli/cli_pack.py"
+    reason: >-
+      onex pack CLI must parse heterogeneous third-party metadata.yaml + contract.yaml files from arbitrary
+      node directories before any Pydantic model applies. contract.yaml schemas vary by node type (ModelContractCompute,
+      ModelContractEffect, ModelContractReducer, ModelContractOrchestrator), so raw YAML parsing is required
+      to route to the correct model. metadata.yaml is a thin descriptor consumed before any registry lookup.
+      Both sites validate required keys explicitly (mapping check, name/version presence) before use.
+      Parallels cli_install.py pattern (OMN-7537).
+    added: "2026-04-24"
+    review: "2026-06-13"
+
+  - file: "src/omnibase_core/cli/cli_config.py"
+    reason: >-
+      onex config get reads ~/.onex/config.yaml as free-form user configuration. No fixed Pydantic schema
+      exists for this file — the config is a thin key-value YAML with optional sections (kafka, logging,
+      aws). Raw yaml.safe_load() is required to support dotted-key access (e.g. kafka.bootstrap_servers)
+      before any Pydantic model applies. Parallels cli_refresh_credentials.py pattern (OMN-9011).
+    added: "2026-04-24"
     review: "2026-06-13"
 
 # Specific filenames that are allowed (matched by basename)

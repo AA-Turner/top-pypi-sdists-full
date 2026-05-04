@@ -3,10 +3,187 @@
 from __future__ import annotations
 
 import base64
+import json
 from enum import IntEnum
 
 from xdrlib3 import Packer, Unpacker
 
+_CONTRACT_COST_TYPE_MAP = {
+    0: "wasminsnexec",
+    1: "memalloc",
+    2: "memcpy",
+    3: "memcmp",
+    4: "dispatchhostfunction",
+    5: "visitobject",
+    6: "valser",
+    7: "valdeser",
+    8: "computesha256hash",
+    9: "computeed25519pubkey",
+    10: "verifyed25519sig",
+    11: "vminstantiation",
+    12: "vmcachedinstantiation",
+    13: "invokevmfunction",
+    14: "computekeccak256hash",
+    15: "decodeecdsacurve256sig",
+    16: "recoverecdsasecp256k1key",
+    17: "int256addsub",
+    18: "int256mul",
+    19: "int256div",
+    20: "int256pow",
+    21: "int256shift",
+    22: "chacha20drawbytes",
+    23: "parsewasminstructions",
+    24: "parsewasmfunctions",
+    25: "parsewasmglobals",
+    26: "parsewasmtableentries",
+    27: "parsewasmtypes",
+    28: "parsewasmdatasegments",
+    29: "parsewasmelemsegments",
+    30: "parsewasmimports",
+    31: "parsewasmexports",
+    32: "parsewasmdatasegmentbytes",
+    33: "instantiatewasminstructions",
+    34: "instantiatewasmfunctions",
+    35: "instantiatewasmglobals",
+    36: "instantiatewasmtableentries",
+    37: "instantiatewasmtypes",
+    38: "instantiatewasmdatasegments",
+    39: "instantiatewasmelemsegments",
+    40: "instantiatewasmimports",
+    41: "instantiatewasmexports",
+    42: "instantiatewasmdatasegmentbytes",
+    43: "sec1decodepointuncompressed",
+    44: "verifyecdsasecp256r1sig",
+    45: "bls12381encodefp",
+    46: "bls12381decodefp",
+    47: "bls12381g1checkpointoncurve",
+    48: "bls12381g1checkpointinsubgroup",
+    49: "bls12381g2checkpointoncurve",
+    50: "bls12381g2checkpointinsubgroup",
+    51: "bls12381g1projectivetoaffine",
+    52: "bls12381g2projectivetoaffine",
+    53: "bls12381g1add",
+    54: "bls12381g1mul",
+    55: "bls12381g1msm",
+    56: "bls12381mapfptog1",
+    57: "bls12381hashtog1",
+    58: "bls12381g2add",
+    59: "bls12381g2mul",
+    60: "bls12381g2msm",
+    61: "bls12381mapfp2tog2",
+    62: "bls12381hashtog2",
+    63: "bls12381pairing",
+    64: "bls12381frfromu256",
+    65: "bls12381frtou256",
+    66: "bls12381fraddsub",
+    67: "bls12381frmul",
+    68: "bls12381frpow",
+    69: "bls12381frinv",
+    70: "bn254encodefp",
+    71: "bn254decodefp",
+    72: "bn254g1checkpointoncurve",
+    73: "bn254g2checkpointoncurve",
+    74: "bn254g2checkpointinsubgroup",
+    75: "bn254g1projectivetoaffine",
+    76: "bn254g1add",
+    77: "bn254g1mul",
+    78: "bn254pairing",
+    79: "bn254frfromu256",
+    80: "bn254frtou256",
+    81: "bn254fraddsub",
+    82: "bn254frmul",
+    83: "bn254frpow",
+    84: "bn254frinv",
+    85: "bn254g1msm",
+}
+_CONTRACT_COST_TYPE_REVERSE_MAP = {
+    "wasminsnexec": 0,
+    "memalloc": 1,
+    "memcpy": 2,
+    "memcmp": 3,
+    "dispatchhostfunction": 4,
+    "visitobject": 5,
+    "valser": 6,
+    "valdeser": 7,
+    "computesha256hash": 8,
+    "computeed25519pubkey": 9,
+    "verifyed25519sig": 10,
+    "vminstantiation": 11,
+    "vmcachedinstantiation": 12,
+    "invokevmfunction": 13,
+    "computekeccak256hash": 14,
+    "decodeecdsacurve256sig": 15,
+    "recoverecdsasecp256k1key": 16,
+    "int256addsub": 17,
+    "int256mul": 18,
+    "int256div": 19,
+    "int256pow": 20,
+    "int256shift": 21,
+    "chacha20drawbytes": 22,
+    "parsewasminstructions": 23,
+    "parsewasmfunctions": 24,
+    "parsewasmglobals": 25,
+    "parsewasmtableentries": 26,
+    "parsewasmtypes": 27,
+    "parsewasmdatasegments": 28,
+    "parsewasmelemsegments": 29,
+    "parsewasmimports": 30,
+    "parsewasmexports": 31,
+    "parsewasmdatasegmentbytes": 32,
+    "instantiatewasminstructions": 33,
+    "instantiatewasmfunctions": 34,
+    "instantiatewasmglobals": 35,
+    "instantiatewasmtableentries": 36,
+    "instantiatewasmtypes": 37,
+    "instantiatewasmdatasegments": 38,
+    "instantiatewasmelemsegments": 39,
+    "instantiatewasmimports": 40,
+    "instantiatewasmexports": 41,
+    "instantiatewasmdatasegmentbytes": 42,
+    "sec1decodepointuncompressed": 43,
+    "verifyecdsasecp256r1sig": 44,
+    "bls12381encodefp": 45,
+    "bls12381decodefp": 46,
+    "bls12381g1checkpointoncurve": 47,
+    "bls12381g1checkpointinsubgroup": 48,
+    "bls12381g2checkpointoncurve": 49,
+    "bls12381g2checkpointinsubgroup": 50,
+    "bls12381g1projectivetoaffine": 51,
+    "bls12381g2projectivetoaffine": 52,
+    "bls12381g1add": 53,
+    "bls12381g1mul": 54,
+    "bls12381g1msm": 55,
+    "bls12381mapfptog1": 56,
+    "bls12381hashtog1": 57,
+    "bls12381g2add": 58,
+    "bls12381g2mul": 59,
+    "bls12381g2msm": 60,
+    "bls12381mapfp2tog2": 61,
+    "bls12381hashtog2": 62,
+    "bls12381pairing": 63,
+    "bls12381frfromu256": 64,
+    "bls12381frtou256": 65,
+    "bls12381fraddsub": 66,
+    "bls12381frmul": 67,
+    "bls12381frpow": 68,
+    "bls12381frinv": 69,
+    "bn254encodefp": 70,
+    "bn254decodefp": 71,
+    "bn254g1checkpointoncurve": 72,
+    "bn254g2checkpointoncurve": 73,
+    "bn254g2checkpointinsubgroup": 74,
+    "bn254g1projectivetoaffine": 75,
+    "bn254g1add": 76,
+    "bn254g1mul": 77,
+    "bn254pairing": 78,
+    "bn254frfromu256": 79,
+    "bn254frtou256": 80,
+    "bn254fraddsub": 81,
+    "bn254frmul": 82,
+    "bn254frpow": 83,
+    "bn254frinv": 84,
+    "bn254g1msm": 85,
+}
 __all__ = ["ContractCostType"]
 
 
@@ -164,7 +341,40 @@ class ContractCostType(IntEnum):
             // Cost of performing BLS12-381 scalar element exponentiation
             Bls12381FrPow = 68,
             // Cost of performing BLS12-381 scalar element inversion
-            Bls12381FrInv = 69
+            Bls12381FrInv = 69,
+
+            // Cost of encoding a BN254 Fp (base field element)
+            Bn254EncodeFp = 70,
+            // Cost of decoding a BN254 Fp (base field element)
+            Bn254DecodeFp = 71,
+            // Cost of checking a G1 point lies on the curve
+            Bn254G1CheckPointOnCurve = 72,
+            // Cost of checking a G2 point lies on the curve
+            Bn254G2CheckPointOnCurve = 73,
+            // Cost of checking a G2 point belongs to the correct subgroup
+            Bn254G2CheckPointInSubgroup = 74,
+            // Cost of converting a BN254 G1 point from projective to affine coordinates
+            Bn254G1ProjectiveToAffine = 75,
+            // Cost of performing BN254 G1 point addition
+            Bn254G1Add = 76,
+            // Cost of performing BN254 G1 scalar multiplication
+            Bn254G1Mul = 77,
+            // Cost of performing BN254 pairing operation
+            Bn254Pairing = 78,
+            // Cost of converting a BN254 scalar element from U256
+            Bn254FrFromU256 = 79,
+            // Cost of converting a BN254 scalar element to U256
+            Bn254FrToU256 = 80,
+            // // Cost of performing BN254 scalar element addition/subtraction
+            Bn254FrAddSub = 81,
+            // Cost of performing BN254 scalar element multiplication
+            Bn254FrMul = 82,
+            // Cost of performing BN254 scalar element exponentiation
+            Bn254FrPow = 83,
+             // Cost of performing BN254 scalar element inversion
+            Bn254FrInv = 84,
+            // Cost of performing BN254 G1 multi-scalar multiplication (MSM)
+            Bn254G1Msm = 85
         };
     """
 
@@ -238,6 +448,22 @@ class ContractCostType(IntEnum):
     Bls12381FrMul = 67
     Bls12381FrPow = 68
     Bls12381FrInv = 69
+    Bn254EncodeFp = 70
+    Bn254DecodeFp = 71
+    Bn254G1CheckPointOnCurve = 72
+    Bn254G2CheckPointOnCurve = 73
+    Bn254G2CheckPointInSubgroup = 74
+    Bn254G1ProjectiveToAffine = 75
+    Bn254G1Add = 76
+    Bn254G1Mul = 77
+    Bn254Pairing = 78
+    Bn254FrFromU256 = 79
+    Bn254FrToU256 = 80
+    Bn254FrAddSub = 81
+    Bn254FrMul = 82
+    Bn254FrPow = 83
+    Bn254FrInv = 84
+    Bn254G1Msm = 85
 
     def pack(self, packer: Packer) -> None:
         packer.pack_int(self.value)
@@ -255,7 +481,11 @@ class ContractCostType(IntEnum):
     @classmethod
     def from_xdr_bytes(cls, xdr: bytes) -> ContractCostType:
         unpacker = Unpacker(xdr)
-        return cls.unpack(unpacker)
+        result = cls.unpack(unpacker)
+        remaining = len(xdr) - unpacker.get_position()
+        if remaining != 0:
+            raise ValueError(f"Unexpected trailing {remaining} bytes in XDR data")
+        return result
 
     def to_xdr(self) -> str:
         xdr_bytes = self.to_xdr_bytes()
@@ -265,3 +495,17 @@ class ContractCostType(IntEnum):
     def from_xdr(cls, xdr: str) -> ContractCostType:
         xdr_bytes = base64.b64decode(xdr.encode())
         return cls.from_xdr_bytes(xdr_bytes)
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_json_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> ContractCostType:
+        return cls.from_json_dict(json.loads(json_str))
+
+    def to_json_dict(self) -> str:
+        return _CONTRACT_COST_TYPE_MAP[self.value]
+
+    @classmethod
+    def from_json_dict(cls, json_value: str) -> ContractCostType:
+        return cls(_CONTRACT_COST_TYPE_REVERSE_MAP[json_value])

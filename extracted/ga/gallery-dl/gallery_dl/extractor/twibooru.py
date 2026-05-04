@@ -28,6 +28,7 @@ class TwibooruExtractor(BooruExtractor):
 
     def _init(self):
         self.api = TwibooruAPI(self)
+        self.comments = self.config("comments", False)
         if not self.config("svg", True):
             self._file_url = operator.itemgetter("view_url")
 
@@ -38,6 +39,10 @@ class TwibooruExtractor(BooruExtractor):
 
     def _prepare(self, post):
         post["date"] = self.parse_datetime_iso(post["created_at"])
+
+        if self.comments:
+            post["comments"] = (self.api.comments(post["id"])
+                                if post.get("comment_count") else ())
 
         if "name" in post:
             name, sep, rest = post["name"].rpartition(".")
@@ -122,6 +127,10 @@ class TwibooruAPI():
     def __init__(self, extractor):
         self.extractor = extractor
         self.root = "https://twibooru.org/api"
+
+    def comments(self, post_id):
+        endpoint = f"/v3/posts/{post_id}/comments"
+        return self._call(endpoint)
 
     def gallery(self, gallery_id):
         endpoint = "/v3/galleries/" + gallery_id

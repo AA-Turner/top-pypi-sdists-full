@@ -2,6 +2,6 @@
 
 __author__ = """Ritvik Sahajpal"""
 __email__ = "ritvik@umd.edu"
-__version__ = "0.4.557"
+__version__ = "0.4.558"
 
 __all__ = ["ml", "cid", "viz", "agmet", "fdw_export", "dashboard"]

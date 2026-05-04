@@ -11,6 +11,7 @@
 import os
 import sys
 import json
+import math
 import time
 import random
 import getpass
@@ -162,15 +163,24 @@ def generate_token(size=16):
     return random.getrandbits(size * 8).to_bytes(size, "big").hex()
 
 
-def format_value(value, suffixes="kMGTPEZY"):
+def format_bytes_decimal(value):
     value = str(value)
     value_len = len(value)
     index = value_len - 4
     if index >= 0:
         offset = (value_len - 1) % 3 + 1
         return (f"{value[:offset]}.{value[offset:offset+2]}"
-                f"{suffixes[index // 3]}")
+                f"{SUFFIXES[index // 3]}")
     return value
+
+
+def format_bytes_binary(value):
+    try:
+        index = int(math.log2(value) / 10)
+        return (str(value) if index < 1 else
+                f"{value/1024**index:.2f}{SUFFIXES[index-1]}i")
+    except Exception:
+        return "0"
 
 
 def combine_dict(a, b):
@@ -728,6 +738,7 @@ NONE = CustomNone()
 FLAGS = Flags()
 WINDOWS = (os.name == "nt")
 SENTINEL = object()
+SUFFIXES = "KMGTPEZY"
 EXECUTABLE = getattr(sys, "frozen", False)
 SPECIAL_EXTRACTORS = {"oauth", "recursive", "generic"}
 

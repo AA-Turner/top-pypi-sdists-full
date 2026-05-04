@@ -142,9 +142,6 @@ class MangareaderChapterExtractor(MangareaderBase, ChapterExtractor):
         }
         headers = {
             "X-Requested-With": "XMLHttpRequest",
-            "Sec-Fetch-Dest"  : "empty",
-            "Sec-Fetch-Mode"  : "cors",
-            "Sec-Fetch-Site"  : "same-origin",
         }
         html = self.request_json(url, params=params, headers=headers)["html"]
 

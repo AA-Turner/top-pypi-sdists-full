@@ -33,15 +33,8 @@ class TungstenExtractor(Extractor):
         params["page"] = 1
         params["per_page"] = 40
 
-        headers = {
-            "Origin": self.root,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-        }
-
         while True:
-            data = self.request_json(url, params=params, headers=headers)
+            data = self.request_json(url, params=params)
 
             yield from data
 

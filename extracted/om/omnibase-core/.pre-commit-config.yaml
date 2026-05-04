@@ -163,6 +163,17 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      # Hook bitmask drift check (OMN-9615)
+      # Regenerates hook_bits.sh from EnumHookBit and fails if the committed
+      # artifact is stale. Fires when the enum or generator changes.
+      - id: hook-bits-drift
+        name: hook_bits.sh drift check (regenerate if EnumHookBit changes)
+        entry: uv run python scripts/check_hook_bits_drift.py
+        language: system
+        pass_filenames: false
+        files: ^(src/omnibase_core/enums/enum_hook_bit\.py|scripts/gen_hook_bits\.py|scripts/check_hook_bits_drift\.py)$
+        stages: [pre-commit]
+
   # ONEX Framework Validation (from shared templates)
   - repo: local
     hooks:
@@ -251,13 +262,14 @@ repos:
       # Exclusions:
       # - typed_dict_demo.py: sample_id and ticket_id are external corpus identifiers, not internal UUIDs (OMN-1396)
       # - doctor_check_base.py: check_id is a semantic identifier ("kafka", "postgres"), not a version string
+      # - contracts/OMN-*.yaml: ticket-contract schema is owned by onex_change_control and currently requires string schema_version
       - id: validate-string-versions
         name: ONEX String Version Anti-Pattern Detection
         entry: uv run python scripts/validation/validate-string-versions.py
         language: system
         pass_filenames: true
         files: ^.*\.(py|yaml|yml)$
-        exclude: ^(tests/fixtures/validation/|archived/|archive/|src/omnibase_core/protocols/|src/omnibase_core/validation/validator_|src/omnibase_core/validation/visitor_|src/omnibase_core/models/contracts/subcontracts/model_validator_|src/omnibase_core/types/typed_dict_demo\.py|examples/contracts/handlers/|src/omnibase_core/models/ticket/model_ticket_context_bundle\.py$|src/omnibase_core/models/epic/model_epic_state\.py$|src/omnibase_core/doctor/doctor_check_base\.py$)
+        exclude: ^(tests/fixtures/validation/|archived/|archive/|contracts/OMN-[0-9]+\.yaml$|src/omnibase_core/protocols/|src/omnibase_core/validation/validator_|src/omnibase_core/validation/visitor_|src/omnibase_core/models/contracts/subcontracts/model_validator_|src/omnibase_core/types/typed_dict_demo\.py|examples/contracts/handlers/|src/omnibase_core/models/ticket/model_ticket_context_bundle\.py$|src/omnibase_core/models/epic/model_epic_state\.py$|src/omnibase_core/doctor/doctor_check_base\.py$)
         stages: [pre-commit]
 
       - id: validate-archived-imports
@@ -288,7 +300,7 @@ repos:
         language: system
         pass_filenames: true
         files: ^.*\.py$
-        exclude: ^(scripts/validation/validate-contracts\.py|scripts/validation/validate-string-versions\.py|scripts/validation/check_stub_implementations\.py|scripts/validation/validate-no-manual-yaml\.py|scripts/validation/validate_pr_deploy_required\.py|scripts/compute_contract_fingerprint\.py|scripts/lint_contract\.py|src/omnibase_core/utils/safe_yaml_loader\.py|src/omnibase_core/utils/util_safe_yaml_loader\.py|src/omnibase_core/validation/contracts\.py|src/omnibase_core/validation/contract_validator\.py|src/omnibase_core/validation/validator_base\.py|src/omnibase_core/validation/validator_any_type\.py|src/omnibase_core/validation/validator_contract_linter\.py|src/omnibase_core/validation/validator_requirements_consumer\.py|src/omnibase_core/discovery/mixin_discovery\.py|src/omnibase_core/cli/cli_demo\.py|tests/fixtures/validation/|src/omnibase_core/validation/scripts/validate_string_versions\.py)
+        exclude: ^(scripts/validation/validate-contracts\.py|scripts/validation/validate-string-versions\.py|scripts/validation/check_stub_implementations\.py|scripts/validation/validate-no-manual-yaml\.py|scripts/validation/validate_pr_deploy_required\.py|scripts/compute_contract_fingerprint\.py|scripts/lint_contract\.py|src/omnibase_core/utils/safe_yaml_loader\.py|src/omnibase_core/utils/util_safe_yaml_loader\.py|src/omnibase_core/validation/contracts\.py|src/omnibase_core/validation/contract_validator\.py|src/omnibase_core/validation/validator_base\.py|src/omnibase_core/validation/validator_any_type\.py|src/omnibase_core/validation/validator_contract_linter\.py|src/omnibase_core/validation/validator_requirements_consumer\.py|src/omnibase_core/validation/validator_runtime_profiles\.py|src/omnibase_core/discovery/mixin_discovery\.py|src/omnibase_core/cli/cli_demo\.py|tests/fixtures/validation/|src/omnibase_core/validation/scripts/validate_string_versions\.py)
         stages: [pre-commit]
         # validate_string_versions.py: validation script that must load YAML to validate it (OMN-4402)
 
@@ -609,6 +621,20 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      # ONEX Deterministic Skill Routing (OMN-8765)
+      # AST-based CI gate enforcing that every Tier 1 deterministic skill in
+      # omniclaude routes through `onex run-node` / `onex node` (or a Kafka
+      # publish) and surfaces `SkillRoutingError` on routing failure. Skips
+      # when the omniclaude sibling clone is absent (e.g., contributors who
+      # have not cloned the full omni_home registry).
+      - id: validate-deterministic-skill-routing
+        name: ONEX Deterministic Skill Routing (OMN-8765)
+        entry: bash scripts/pre_commit_validate_deterministic_skills.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       # ONEX Kafka/Listener API Prevention (OMN-1747, OMN-1745)
       # Prevents reintroduction of Kafka and listener management APIs removed from core.
       # omnibase_core must be transport-agnostic - use EventBusSubcontractWiring
@@ -744,6 +770,18 @@ repos:
         name: Enforce validator-requirements.yaml (OMN-9115)
         entry: uv run python -m omnibase_core.validation.validator_requirements_consumer --repo omnibase_core
           --repo-root . --baseline architecture-handshakes/validator-requirements-baseline.yaml
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-9886: ValidatorRuntimeProfiles — every command-consuming
+      # contract must declare runtime_profiles (top-level or under
+      # descriptor) or be on the explicit allowlist with a reason.
+      # Plan: docs/plans/2026-04-26-runtime-lifecycle-hardening-plan.md (Task 4).
+      - id: validate-runtime-profiles
+        name: Validate runtime_profiles on command-consuming contracts (OMN-9886)
+        entry: uv run python -m omnibase_core.validation.validator_runtime_profiles src/
         language: system
         pass_filenames: false
         always_run: true

@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2018 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -30,7 +30,7 @@ This module contains the following scene detection algorithms:
    Uses perceptual hashing to calculate similarity between adjacent frames.
 
 Detection algorithms are created by implementing the
-:class:`SceneDetector <scenedetect.scene_detector.SceneDetector>` interface. Detectors are
+:class:`SceneDetector <scenedetect.detector.SceneDetector>` interface. Detectors are
 typically attached to a :class:`SceneManager <scenedetect.scene_manager.SceneManager>` when
 processing videos, however they can also be used to process frames directly.
 """

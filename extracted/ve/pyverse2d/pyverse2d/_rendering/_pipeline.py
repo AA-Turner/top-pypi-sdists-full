@@ -316,47 +316,7 @@ class Pipeline:
         # Nettoyage de l'état courant
         self._context.clear()
         
-    # ======================================== SPACE CONVERSIONS ========================================
-    @contextmanager
-    def coords_context(self, viewport: Viewport = None, camera: Camera = None):
-        """Crée un contexte particulier de coordonnées
-        
-        Args:
-            viewport: ``Viewport`` à utiliser (par défaut le viewport courant)
-            camera: ``Camera`` à utiliser (par défaut la caméra courante)
-        """
-        coord = self.get_coord()
-
-        # Modification du contexte
-        if camera is None or viewport is None:
-            # Sauvegarde
-            old_camera = coord.temporary_camera
-            old_viewport = coord.current_viewport
-
-            # Recalcul pipeline
-            if camera is not None:
-                coord.bind_temporary_camera(camera)
-            if viewport is not None:
-                coord.bind_viewport(viewport)
-            coord.apply_context()
-
-            try:
-                yield
-            finally:
-                # Restauration
-                if camera is not None:
-                    coord.bind_temporary_camera(old_camera)
-                if viewport is not None:
-                    coord.bind_viewport(old_viewport)
-                coord.apply_context()
-
-        # Pas de modification
-        else:
-            try:
-                yield
-            finally:
-                pass
-    
+    # ======================================== SPACE CONVERSIONS ========================================    
     def convert(self, x: float, y: float, from_space: CoordSpace, to_space: CoordSpace, vector: bool = False, viewport: Viewport = None, camera: Camera = None) -> tuple[float, float]:
         """Convertit une position d'un espace à un autre
 
@@ -367,8 +327,9 @@ class Pipeline:
         viewport: viewport à utiliser (par défaut le viewport courant)
         camera: camera à utiliser (par défaut la camera courante)
         """
-        with self.coords_context(viewport=viewport, camera=camera):
-            return self.get_coord().convert(x, y, from_space, to_space, vector=vector)
+        coord = self.get_coord()
+        with coord.temporary_context(viewport=viewport, camera=camera):
+            return coord.convert(x, y, from_space, to_space, vector=vector)
 
     def world_to_framebuffer(self, x: float, y: float, vector: bool = False, viewport: Viewport = None, camera: Camera = None) -> tuple[int, int]:
         """Convertit un point monde en pixel framebuffer
@@ -379,8 +340,9 @@ class Pipeline:
             viewport: Viewport à utiliser (par défaut le viewport courant)
             camera: Camera à utiliser (par défaut la caméra courante)
         """
-        with self.coords_context(viewport=viewport, camera=camera):
-            return self.get_coord().world_to_framebuffer(x, y, vector=vector)
+        coord = self.get_coord()
+        with coord.temporary_context(viewport=viewport, camera=camera):
+            return coord.world_to_framebuffer(x, y, vector=vector)
 
     def framebuffer_to_world(self, x: int, y: int, vector: bool = False, viewport: Viewport =  None, camera: Camera = None) -> tuple[float, float]:
         """Convertit un pixel framebuffer en point monde
@@ -391,8 +353,9 @@ class Pipeline:
             viewport: Viewport à utiliser (par défaut le viewport courant)
             camera: Camera à utiliser (par défaut la caméra courante)
         """
-        with self.coords_context(viewport=viewport, camera=camera):
-            return self.get_coord().framebuffer_to_world(x, y, vector=vector)
+        coord = self.get_coord()
+        with coord.temporary_context(viewport=viewport, camera=camera):
+            return coord.framebuffer_to_world(x, y, vector=vector)
 
     # ======================================== UTILITAIRES ========================================
     def visible_world_rect(self) -> tuple[float, float, float, float]:

@@ -5,7 +5,7 @@ Returns a PseudonymLLMResult dataclass with three text forms sharing one key dic
 
 from __future__ import annotations
 
-from argus_redact._types import KeyEntry, PseudonymLLMResult
+from argus_redact._types import PseudonymLLMResult
 from argus_redact.glue import redact as _redact_module
 from argus_redact.pure.display_marker import mark_for_display, resolve_marker
 from argus_redact.pure.normalize import MAX_INPUT_SIZE
@@ -13,9 +13,6 @@ from argus_redact.pure.replacer import VALID_STRATEGIES
 from argus_redact.pure.reserved_range_scanner import scan_for_pollution
 from argus_redact.specs.profiles import get_profile
 
-# Bytes prefix used to derive an int seed from a salt (replace() takes int seeds).
-_SALT_SEED_BYTES = 8
-_SALT_SEED_MASK = 0x7FFFFFFFFFFFFFFF
 
 
 class PseudonymPollutionError(ValueError):
@@ -59,6 +56,7 @@ def redact_pseudonym_llm(
     existing_key: dict[str, str] | None = None,
     reserved_names: dict[str, tuple[str, ...]] | None = None,
     strategy_overrides: dict[str, str] | None = None,
+    unified_prefix: str | None = None,
 ) -> PseudonymLLMResult:
     """Redact `text` with the pseudonym-llm profile, returning three text forms.
 
@@ -137,7 +135,7 @@ def redact_pseudonym_llm(
     # so audit_text always contains [TYPE-NNNNN] placeholders.
     audit_config = {ent_type: {"strategy": "remove"} for ent_type in realistic_config}
 
-    seed = _seed_from_salt(salt)
+    seed = _salt_to_bytes(salt)
 
     resolved_lang = lang
     if resolved_lang == "auto":
@@ -154,8 +152,7 @@ def redact_pseudonym_llm(
         types_exclude=types_exclude,
     )
 
-    realistic_aliases: dict[str, list[str]] = {}
-    downstream_text, key = _redact_module._replace_and_emit(
+    downstream_text, key, realistic_aliases = _redact_module._replace_and_emit(
         text,
         entities,
         seed=seed,
@@ -166,9 +163,9 @@ def redact_pseudonym_llm(
         langs=langs,
         timing=dict(timing),
         mode=mode,
-        aliases_out=realistic_aliases,
+        unified_prefix=unified_prefix,
     )
-    audit_text, audit_key = _redact_module._replace_and_emit(
+    audit_text, audit_key, _audit_aliases = _redact_module._replace_and_emit(
         text,
         entities,
         seed=seed,
@@ -179,6 +176,7 @@ def redact_pseudonym_llm(
         langs=langs,
         timing=dict(timing),
         mode=mode,
+        unified_prefix=unified_prefix,
     )
 
     marker = resolve_marker(display_marker)
@@ -188,31 +186,34 @@ def redact_pseudonym_llm(
     # output spaces (realistic digits/Chinese vs [TYPE-NNNNN] placeholders),
     # so a simple union is collision-free by construction.
     unified_key = {**key, **audit_key}
-    # Attach aliases (only realistic-pass fakers emit them; audit placeholders
-    # never have transliterations).
-    unified_entries = {
-        fake: KeyEntry(
-            original=orig, aliases=tuple(realistic_aliases.get(fake, ()))
-        )
-        for fake, orig in unified_key.items()
+    # Aliases only attach to realistic-pass fakers; audit placeholders never
+    # have transliterations. Skip empty alias lists to keep the dict tight.
+    unified_aliases = {
+        fake: tuple(realistic_aliases.get(fake, ()))
+        for fake in unified_key
+        if realistic_aliases.get(fake)
     }
 
     return PseudonymLLMResult(
         audit_text=audit_text,
         downstream_text=downstream_text,
         display_text=display_text,
-        _key_entries=unified_entries,
+        key=unified_key,
+        aliases=unified_aliases,
     )
 
 
-def _seed_from_salt(salt: bytes | None) -> int | None:
-    """Derive a 63-bit non-negative int seed from a salt.
+def _salt_to_bytes(salt: bytes | None) -> bytes | None:
+    """Pass user-supplied salt through to ``replace()`` as bytes.
 
-    `random.Random(seed)` accepts arbitrary ints, but masking to 63 bits keeps
-    the seed within a machine-word range for reproducibility across platforms.
+    v0.6.0 truncated to 8 bytes + 63 bits; v0.6.1+ preserves the full salt so
+    HMAC-SHA256 inside the realistic faker path receives the entropy the caller
+    asked for. Returns ``None`` only when caller explicitly omitted salt — in
+    which case ``_resolve_salt`` (commit 3) will raise rather than silently
+    falling back to ``b""``.
     """
     if salt is None:
         return None
     if not isinstance(salt, (bytes, bytearray)):
         raise TypeError(f"salt must be bytes, got {type(salt).__name__}")
-    return int.from_bytes(salt[:_SALT_SEED_BYTES].ljust(_SALT_SEED_BYTES, b"\x00"), "big") & _SALT_SEED_MASK
+    return bytes(salt)

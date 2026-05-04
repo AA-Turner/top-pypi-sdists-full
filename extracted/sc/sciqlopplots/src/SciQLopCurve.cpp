@@ -21,6 +21,7 @@
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/Plotables/AxisHelpers.hpp"
 #include "SciQLopPlots/Plotables/SciQLopCurve.hpp"
+#include "SciQLopPlots/Plotables/SciQLopTimeColoredCurve.hpp"
 #include "SciQLopPlots/Plotables/Resamplers/SciQLopCurveResampler.hpp"
 
 void SciQLopCurve::_range_changed(const QCPRange& newRange, const QCPRange& oldRange)
@@ -30,7 +31,12 @@ void SciQLopCurve::_range_changed(const QCPRange& newRange, const QCPRange& oldR
 
 void SciQLopCurve::_setCurveData(QList<QVector<QCPCurveData>> data)
 {
-    for (std::size_t i = 0; i < plottable_count(); i++)
+    // The resampler emits via QueuedConnection, so the component count may
+    // have grown or shrunk between emit and delivery. Cap iteration to the
+    // smaller of the two to avoid OOB indexing into `data`.
+    const std::size_t n = std::min<std::size_t>(plottable_count(),
+                                                static_cast<std::size_t>(data.size()));
+    for (std::size_t i = 0; i < n; i++)
     {
         auto curve = line(i);
         if (curve)
@@ -126,7 +132,7 @@ void SciQLopCurve::create_graphs(const QStringList& labels)
         clear_curves();
     for (const auto& label : labels)
     {
-        this->newComponent<QCPCurve>(_keyAxis->qcp_axis(), _valueAxis->qcp_axis(), label);
+        this->newComponent<SciQLopTimeColoredCurve>(_keyAxis->qcp_axis(), _valueAxis->qcp_axis(), label);
     }
     if (!m_components.isEmpty())
     {
@@ -135,6 +141,50 @@ void SciQLopCurve::create_graphs(const QStringList& labels)
                     this, &SciQLopPlottableInterface::busy_changed);
     }
     _resampler->set_line_count(plottable_count());
+}
+
+void SciQLopCurve::set_time_color_enabled(bool enabled)
+{
+    for (auto comp : m_components)
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
+            tc->set_time_color_enabled(enabled);
+}
+
+bool SciQLopCurve::time_color_enabled() const
+{
+    if (!m_components.isEmpty())
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(m_components.first()->plottable()))
+            return tc->time_color_enabled();
+    return false;
+}
+
+void SciQLopCurve::set_time_values(const QVector<double>& times)
+{
+    for (auto comp : m_components)
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
+            tc->set_time_values(times);
+}
+
+void SciQLopCurve::set_color_values(const QVector<double>& values)
+{
+    for (auto comp : m_components)
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
+            tc->set_color_values(values);
+}
+
+void SciQLopCurve::set_time_color_gradient(const QColor& start, const QColor& end)
+{
+    for (auto comp : m_components)
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
+            tc->set_gradient_colors(start, end);
+}
+
+std::optional<QPointF> SciQLopCurve::position_at_time(double t) const
+{
+    if (!m_components.isEmpty())
+        if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(m_components.first()->plottable()))
+            return tc->position_at_time(t);
+    return std::nullopt;
 }
 
 SciQLopCurveFunction::SciQLopCurveFunction(QCustomPlot* parent, SciQLopPlotAxis* key_axis,

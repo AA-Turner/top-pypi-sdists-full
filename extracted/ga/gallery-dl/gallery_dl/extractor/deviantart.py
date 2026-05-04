@@ -161,6 +161,8 @@ class DeviantartExtractor(Extractor):
         response = self.request(url, method="POST", data=data)
 
         if not response.history:
+            if b"<title>Access to this page has been deni" in response.content:
+                raise self.exc.AuthorizationError("CAPTCHA required")
             raise self.exc.AuthenticationError()
 
         return {cookie.name: cookie.value

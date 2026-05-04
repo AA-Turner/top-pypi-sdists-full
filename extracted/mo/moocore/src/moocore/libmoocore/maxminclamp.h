@@ -1,31 +1,32 @@
 #ifndef _MAXMINCLAMP_H_
 #define _MAXMINCLAMP_H_
 
+#include "gcc_attribs.h"
+
 /* ---------- STATIC_ASSERT ---------- */
 // Prefer _Static_assert (C11). Otherwise use typedef negative-size fallback.
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-  #define STATIC_ASSERT(cond, msg) _Static_assert((cond), msg)
+# define STATIC_ASSERT(cond, msg) _Static_assert((cond), msg)
 #else
-  #define STATIC_ASSERT_GLUE(a, b) a##b
-  #define STATIC_ASSERT_JOIN(a, b) STATIC_ASSERT_GLUE(a, b)
-  // Unique name using __LINE__
-  #define STATIC_ASSERT(cond, msg) \
-      typedef char STATIC_ASSERT_JOIN(static_assertion_at_line_, __LINE__)[(cond) ? 1 : -1]
+# define STATIC_ASSERT_GLUE(a, b) a##b
+# define STATIC_ASSERT_JOIN(a, b) STATIC_ASSERT_GLUE(a, b)
+// Unique name using __LINE__
+# define STATIC_ASSERT(cond, msg)                                              \
+    _attr_maybe_unused typedef char                                            \
+    STATIC_ASSERT_JOIN(static_assertion_at_line_, __LINE__)[(cond) ? 1 : -1]
 #endif
 
 #if (defined(__GNUC__) && __GNUC__ >= 3) || defined(__clang__)
-#define STATIC_ASSERT_TYPES_COMPATIBLE(x,y, msg)                               \
+#define STATIC_ASSERT_TYPES_COMPATIBLE(x, y, msg)                              \
     STATIC_ASSERT(__builtin_types_compatible_p(__typeof__(x), __typeof__(y)), msg)
 #else
-#define STATIC_ASSERT_TYPES_COMPATIBLE(x,y, msg) ((void) (&x == &y))
+#define STATIC_ASSERT_TYPES_COMPATIBLE(x, y, msg) ((void) (&(x) == &(y)))
 #endif
 
 /**
-
    The macros are optimized for the pattern x = MAX(x,y) and x = MIN(x,y), so
    that when x == y, it will generate x = x instead of x = y, and the compiler
    will optimize the assignment out.
-
 */
 #if (defined(__GNUC__) && __GNUC__ >= 3) || defined(__clang__)
 #define __cmp_op_MAX <

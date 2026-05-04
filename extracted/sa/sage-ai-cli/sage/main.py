@@ -9446,16 +9446,36 @@ def _build_tool_followup_prompt(
             "explicitly asked for code changes."
         )
 
+    # Detect simple update/replacement tasks that don't need TDD
+    task_prompt_lower = (_get_current_task_prompt() or "").lower()
+    is_simple_update = any(kw in task_prompt_lower for kw in (
+        "update", "replace", "rename", "change the", "switch", "swap", "upgrade",
+        "domain", "url", "variable", "config", "constant", "string",
+    )) and not any(kw in task_prompt_lower for kw in (
+        "feature", "function", "class", "implement", "add", "build", "create",
+    ))
+
+    if is_simple_update:
+        return (
+            f"Here are the results of your tool commands:\n\n{tool_context}\n\n"
+            "Now apply the change.\n"
+            "You have the exact file contents from the tool results above.\n"
+            "Output FILE: blocks with the complete updated file contents.\n"
+            "Do NOT write tests for simple string/config replacements.\n"
+            "Do NOT ask for confirmation — just make the change.\n"
+        )
+
     return (
         f"Here are the results of your tool commands:\n\n{tool_context}\n\n"
         "Now continue with your implementation.\n"
         "You already have real workspace evidence from the tool results above.\n"
         "Do NOT ask the user to provide file contents, outputs, or confirmation.\n"
-        "If this task changes behavior, follow TDD:\n"
+        "If this task involves new logic or changed behavior, follow TDD:\n"
         "1. Write failing tests FIRST using FILE: blocks.\n"
         "2. Write the implementation using FILE: blocks.\n"
         "3. Use RUN: commands for the relevant tests.\n"
         "4. Do NOT answer with prose-only plans or assumptions.\n"
+        "For simple updates (config, strings, domain changes), just output FILE: blocks directly.\n"
     )
 
 
@@ -10026,6 +10046,80 @@ def _expand_prompt(user_input: str) -> str:
             )
 
     return user_input
+
+
+def _ai_understand_prompt(
+    raw_input: str,
+    cwd: Path,
+    send_fn: Callable[[str], str | None],
+) -> str:
+    """Use the AI model to understand and expand a vague user prompt.
+
+    Performs a single hidden turn:
+    - Corrects spelling/grammar
+    - Identifies true intent from brief/ambiguous input
+    - Gathers codebase context (file tree, recent changes) automatically
+    - Produces a clear, actionable task description for the coding agent
+
+    Returns the expanded prompt, or the original if anything fails.
+    The result is never shown to the user directly — it becomes the task
+    that the agent works from.
+    """
+    # Skip enhancement for already-detailed prompts (> 40 words)
+    if len(raw_input.split()) > 40:
+        return raw_input
+
+    # Build a lightweight codebase snapshot for context
+    try:
+        # Top-level structure
+        ls_out = _run_shell("find . -maxdepth 3 -type f | grep -v '__pycache__\\|.git\\|node_modules\\|.gguf\\|\\.pyc' | head -80", cwd, timeout=5)
+        # Recent git changes (what's been worked on)
+        git_recent = _run_shell("git log --oneline -8 2>/dev/null || echo 'no git'", cwd, timeout=5)
+        # Active file count by type
+        type_summary = _run_shell(
+            "find . -maxdepth 4 -type f | grep -oE '\\.[^./]+$' | sort | uniq -c | sort -rn | head -15 2>/dev/null",
+            cwd, timeout=5
+        )
+        codebase_snapshot = (
+            f"Project file tree (sample):\n{ls_out[:1500]}\n\n"
+            f"Recent commits:\n{git_recent}\n\n"
+            f"File types:\n{type_summary}"
+        ).strip()
+    except Exception:
+        codebase_snapshot = "(codebase context unavailable)"
+
+    meta_prompt = (
+        "You are a task clarification system for SAGE, an autonomous coding agent.\n\n"
+        f"The user typed: \"{raw_input}\"\n\n"
+        f"Codebase context:\n{codebase_snapshot}\n\n"
+        "Your job:\n"
+        "1. Fix any spelling or grammar errors in the user's request\n"
+        "2. Understand what the user truly wants, even from very brief or vague input\n"
+        "3. Infer the relevant files, components, or systems from the codebase context\n"
+        "4. Write a clear, specific, actionable task description (3-6 sentences) that a "
+        "coding agent can execute directly without asking follow-up questions\n\n"
+        "Rules:\n"
+        "- Output ONLY the enhanced task description — no preamble, no 'Sure!', no explanation\n"
+        "- Include specific file paths or component names inferred from the codebase context\n"
+        "- If the request is already clear, output it verbatim (corrected spelling only)\n"
+        "- Never invent requirements not implied by the user's words\n"
+        "- Keep it under 100 words"
+    )
+
+    try:
+        enhanced = send_fn(meta_prompt)
+        if enhanced and enhanced.strip() and len(enhanced.strip()) > len(raw_input):
+            # Sanity check: result should not be wildly different from original intent
+            original_words = set(raw_input.lower().split())
+            enhanced_words = set(enhanced.lower().split())
+            # At least a few words should overlap (guards against hallucinated task switches)
+            overlap = original_words & enhanced_words
+            if len(overlap) >= min(2, len(original_words)):
+                return enhanced.strip()
+    except Exception:
+        pass
+
+    return raw_input
 
 
 def _enhance_task_prompt(user_input: str) -> str:
@@ -12277,9 +12371,23 @@ def run(
                 renderer.error(str(exc))
             continue
 
-        # Default: Execute coding/analysis task via SAGEAgent
+        # Default: Execute coding/analysis task via SAGEAgent.
+        # First, let the model understand and expand the prompt — this turns brief
+        # or misspelled input into a grounded, actionable task description.
+        task_to_run = user_input
+        if len(user_input.split()) <= 40:
+            try:
+                with renderer.status_spinner("Understanding task...", "thinking"):
+                    task_to_run = _ai_understand_prompt(
+                        user_input,
+                        cwd,
+                        sage_agent.send_single_turn_to_model,
+                    )
+            except Exception:
+                task_to_run = user_input  # fall back to original on any error
+
         try:
-            sage_agent.execute_task_prompt(user_input, save_history=True)
+            sage_agent.execute_task_prompt(task_to_run, save_history=True)
         except KeyboardInterrupt:
             renderer.warning("\nInterrupted by user")
         except Exception as e:
@@ -12569,7 +12677,17 @@ def ask(
         context_manager=context_persistence_mgr,
     )
 
-    full_prompt = _enhance_task_prompt(raw_prompt)
+    # AI-powered prompt understanding for vague/brief inputs
+    understood_prompt = raw_prompt
+    if len(raw_prompt.split()) <= 40:
+        try:
+            understood_prompt = _ai_understand_prompt(
+                raw_prompt, cwd, _global_agent.send_single_turn_to_model
+            )
+        except Exception:
+            understood_prompt = raw_prompt
+
+    full_prompt = _enhance_task_prompt(understood_prompt)
     resolved_cloud_provider = _resolve_cloud_provider_preference(
         raw_prompt,
         cfg,

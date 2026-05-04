@@ -29,6 +29,7 @@ from poetry.repositories import Repository
 from poetry.repositories import RepositoryPool
 from poetry.repositories.installed_repository import InstalledRepository
 from poetry.toml.file import TOMLFile
+from poetry.utils.constants import POETRY_SYSTEM_PROJECT_NAME
 from poetry.utils.env import MockEnv
 from poetry.utils.env import NullEnv
 from tests.helpers import MOCK_DEFAULT_GIT_REVISION
@@ -223,6 +224,19 @@ def test_not_fresh_lock(installer: Installer, locker: Locker) -> None:
         match=re.escape(
             "pyproject.toml changed significantly since poetry.lock was last generated. "
             "Run `poetry lock` to fix the lock file."
+        ),
+    ):
+        installer.run()
+
+
+def test_not_fresh_lock_self_project(installer: Installer, locker: Locker) -> None:
+    installer.set_package(ProjectPackage(POETRY_SYSTEM_PROJECT_NAME, "1.0"))
+    locker.locked().fresh(False)
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "pyproject.toml changed significantly since poetry.lock was last generated. "
+            "Run `poetry self lock` to fix the lock file."
         ),
     ):
         installer.run()

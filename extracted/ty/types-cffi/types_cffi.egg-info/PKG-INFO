@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-cffi
-Version: 2.0.0.20260429
+Version: 2.0.0.20260504
 Summary: Typing stubs for cffi
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -36,4 +36,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`e4d32e01bee44241a5e7c33298c261175b9f1bdb`](https://github.com/python/typeshed/commit/e4d32e01bee44241a5e7c33298c261175b9f1bdb).
+[`483fd73dcea6f5fbc04ea602e802e798024fa2e2`](https://github.com/python/typeshed/commit/483fd73dcea6f5fbc04ea602e802e798024fa2e2).

@@ -146,6 +146,18 @@ class AryionExtractor(Extractor):
 
         self.kwdict["folder"] = ""
 
+    def _pagination_users(self, url, params):
+        while True:
+            page = self.request(url, params=params).text
+            pos = page.find("id='gallery-items'")
+
+            yield from text.extract_iter(
+                page, "class='user-link' href='", "'", pos)
+
+            if ">Next &gt;&gt;<" not in page:
+                break
+            params["p"] += 1
+
     def _parse_post(self, post_id):
         url = f"{self.root}/g4/data.php?id={post_id}"
         with self.request(url, method="HEAD", fatal=False) as response:
@@ -251,9 +263,9 @@ class AryionFavoriteExtractor(AryionExtractor):
         return self._pagination_folders(url, self.groups[1])
 
 
-class AryionWatchExtractor(AryionExtractor):
-    """Extractor for your watched users and tags"""
-    subcategory = "watch"
+class AryionMessagepageExtractor(AryionExtractor):
+    """Extractor for submissions by watched users and tags"""
+    subcategory = "messagepage"
     directory_fmt = ("{category}", "{user!l}",)
     pattern = BASE_PATTERN + r"/messagepage\.php()"
     example = "https://aryion.com/g4/messagepage.php"
@@ -321,3 +333,19 @@ class AryionPostExtractor(AryionExtractor):
     def posts(self):
         post_id, self.user = self.user, None
         return (post_id,)
+
+
+class AryionWatchExtractor(AryionExtractor):
+    """Extractor for watched users"""
+    subcategory = "watch"
+    directory_fmt = ("{category}", "{user!l}",)
+    pattern = BASE_PATTERN + r"/watch\.php\?id=([^&#]+)"
+    example = "https://aryion.com/g4/watch.php?id=USER"
+
+    def items(self):
+        data = {"_extractor": AryionGalleryExtractor}
+
+        url = f"{self.root}/g4/watch.php"
+        params = {"id": self.user, "p": 1}
+        for path in self._pagination_users(url, params):
+            yield Message.Queue, self.root + path, data

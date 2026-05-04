@@ -29,13 +29,8 @@ class FanboxExtractor(Extractor):
 
     def _init(self):
         self.headers = {
-            "Accept" : "application/json, text/plain, */*",
-            "Origin" : "https://www.fanbox.cc",
-            "Referer": "https://www.fanbox.cc/",
-            "Cookie" : None,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
+            "Accept": "application/json, text/plain, */*",
+            "Cookie": None,
         }
         self.embeds = self.config("embeds", True)
 

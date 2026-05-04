@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: argus-redact
-Version: 0.5.10
+Version: 0.6.4
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -19,6 +19,7 @@ Requires-Dist: ruff>=0.8 ; extra == 'dev'
 Requires-Dist: build>=1.0 ; extra == 'dev'
 Requires-Dist: requests>=2.28 ; extra == 'dev'
 Requires-Dist: uvicorn>=0.20 ; extra == 'dev'
+Requires-Dist: hypothesis>=6.0 ; extra == 'dev'
 Requires-Dist: spacy>=3.0,<4.0 ; extra == 'en'
 Requires-Dist: hanlp>=2.1,<3.0 ; extra == 'full'
 Requires-Dist: spacy>=3.0,<4.0 ; extra == 'full'
@@ -110,15 +111,18 @@ Other tools shred your PII — it's gone forever. argus-redact encrypts it with 
 To **unify all reversible types** under one prefix (hides PII type from the LLM):
 
 ```python
-redact(text, config={
-    "_unified_prefix": "R",
-    "phone": {"strategy": "remove"},   # mask types must opt in to participate
-    "email": {"strategy": "remove"},
-})
+redact(
+    text,
+    unified_prefix="R",
+    config={
+        "phone": {"strategy": "remove"},   # mask types must opt in to participate
+        "email": {"strategy": "remove"},
+    },
+)
 # → "员工R-83811，身份证R-89732，电话R-12345"
 ```
 
-`<TYPE_N>` 1-based sequential token style is roadmapped for v0.6.x. See [docs/configuration.md](docs/configuration.md#unified-prefix-hide-pii-type) for full strategy reference.
+`<TYPE_N>` 1-based sequential token style is on the future-release candidate list (no committed timeline). See [docs/configuration.md](docs/configuration.md#unified-prefix-hide-pii-type) for the current strategy reference.
 
 ## Privacy Levels
 
@@ -214,11 +218,11 @@ Pre-built wheels for all major platforms — no Rust toolchain needed to install
 
 ## North Star
 
-| Dimension | Current (v0.5.10) | Next milestone |
+| Dimension | Current (v0.6.4) | Next milestone |
 |-----------|:----------------:|:---:|
-| **Protected** | ~47 PII types, L1-L4. PII leak 0% across GPT-4o / Claude / Gemini. Cross-layer hints in 8 langs (zh/en/ja/ko/de/uk/in/br). MCP token-only key handling. Windows CI | Adversarial testing |
-| **Usable** | PRvL U=100%. Pseudonym codes + realistic mode (zh + en + RFC shared) + per-call strategy overrides + `keep` strategy + resumable streaming sessions + incremental streaming default + cross-language alias restore (zh ↔ en) | Task-aware guidance |
-| **Reversible** | PRvL R by task: reference 100%, extract 50%, creative 0% (by design). Cross-language LLM rewrites (`张三` → `Zhang San`) auto-restored via `KeyEntry.aliases` | Task-aware guidance |
+| **Protected** | ~47 PII types, L1-L4. PII leak 0% across GPT-4o / Claude / Gemini. Cross-layer hints in 8 langs (zh/en/ja/ko/de/uk/in/br). SHAKE-256 derivation + full-salt entropy + faker identity-pass guard. State export omits salt by default; HTTP server refuses no-auth start; CLI writes O_NOFOLLOW + key files mode 0600; MCP token store TTL+LRU (v0.6.2). Windows CI + property-tested invariants + mutation-tested core (v0.6.3) + perf budget CI gate (v0.6.4) | Adversarial testing |
+| **Usable** | PRvL U=100%. Pseudonym codes + realistic mode (zh + en + RFC shared) + per-call strategy overrides + `keep` strategy (whitelisted) + resumable streaming sessions + incremental streaming default + cross-language alias restore (zh ↔ en) | Task-aware guidance |
+| **Reversible** | PRvL R by task: reference 100%, extract 50%, creative 0% (by design). Cross-language LLM rewrites (`张三` → `Zhang San`) auto-restored via `result.aliases` + `restore(text, key, aliases=...)` | Task-aware guidance |
 | **Compliance** | PIPL ~85%, risk assessment + profiles | PIPL/GDPR/HIPAA (byproduct) |
 | **Coverage** | 8 langs, 4 LLMs benchmarked, 6 frameworks | Browser extension |
 
@@ -318,7 +322,7 @@ True byte-level streaming (entities crossing chunk boundaries) needs full increm
 
 > ⚠️ Realistic-mode output **must not be re-redacted** (it would corrupt the key dict). `redact_pseudonym_llm` will raise `PseudonymPollutionError` if called on already-faked input — call `restore()` first.
 
-[Full API →](docs/api-reference.md#redact_pseudonym_llm) · [Known limitations →](docs/known-issues.md#pseudonym-llm-limitations)
+[Full API →](docs/api-reference.md#redact_pseudonym_llm) · [Design constraints →](docs/known-issues.md#design-constraints)
 
 ## Integrations
 

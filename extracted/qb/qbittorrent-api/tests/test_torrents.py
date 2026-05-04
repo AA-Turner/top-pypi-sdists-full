@@ -901,17 +901,21 @@ def test_torrents_info_tag(client, new_torrent, info_func):
 def test_stop_start(client, new_torrent, stop_func, start_func):
     client.func(stop_func)(torrent_hashes=new_torrent.hash)
     check(
-        lambda: client.torrents_info(torrent_hashes=new_torrent.hash)[
-            0
-        ].state_enum.is_paused,
+        lambda: (
+            client.torrents_info(torrent_hashes=new_torrent.hash)[
+                0
+            ].state_enum.is_paused
+        ),
         True,
     )
 
     client.func(start_func)(torrent_hashes=new_torrent.hash)
     check(
-        lambda: client.torrents_info(torrent_hashes=new_torrent.hash)[
-            0
-        ].state_enum.is_paused,
+        lambda: (
+            client.torrents_info(torrent_hashes=new_torrent.hash)[
+                0
+            ].state_enum.is_paused
+        ),
         False,
     )
 
@@ -1290,6 +1294,40 @@ def test_torrents_set_auto_management(client, orig_torrent, set_auto_mgmt_func):
     client.func(set_auto_mgmt_func)(
         enable=False, torrent_hashes=orig_torrent.hash
     )  # leave on False
+
+
+@pytest.mark.parametrize(
+    "set_comment_func",
+    [
+        "torrents_set_comment",
+        "torrents_setComment",
+        "torrents.set_comment",
+        "torrents.setComment",
+    ],
+)
+@pytest.mark.skipif_before_api_version("2.12.1")
+def test_torrents_set_comment(client, orig_torrent, set_comment_func):
+    client.func(set_comment_func)(
+        comment="new comment", torrent_hashes=orig_torrent.hash
+    )
+    check(lambda: orig_torrent.info.comment, "new comment")
+    client.func(set_comment_func)(comment="", torrent_hashes=orig_torrent.hash)
+    check(lambda: orig_torrent.info.comment, "")
+
+
+@pytest.mark.skipif_after_api_version("2.12.1")
+@pytest.mark.parametrize(
+    "set_comment_func",
+    [
+        "torrents_set_comment",
+        "torrents_setComment",
+        "torrents.set_comment",
+        "torrents.setComment",
+    ],
+)
+def test_torrents_set_comment_not_implemented(client, set_comment_func):
+    with pytest.raises(NotImplementedError):
+        client.func(set_comment_func)()
 
 
 @pytest.mark.parametrize(

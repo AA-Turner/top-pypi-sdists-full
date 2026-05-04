@@ -5,7 +5,7 @@
 #     [  Docs:    https://scenedetect.com/docs/                     ]
 #     [  Github:  https://github.com/Breakthrough/PySceneDetect/    ]
 #
-# Copyright (C) 2014-2024 Brandon Castellano <http://www.bcastell.com>.
+# Copyright (C) 2018 Brandon Castellano <http://www.bcastell.com>.
 # PySceneDetect is licensed under the BSD 3-Clause License; see the
 # included LICENSE file, or visit one of the above pages for details.
 #
@@ -16,12 +16,14 @@ This detector is available from the command-line as the `detect-threshold` comma
 """
 
 import typing as ty
+import warnings
 from enum import Enum
 from logging import getLogger
 
 import numpy
 
-from scenedetect.scene_detector import SceneDetector
+from scenedetect.common import FrameTimecode, TimecodeLike
+from scenedetect.detector import SceneDetector
 
 logger = getLogger("pyscenedetect")
 
@@ -46,7 +48,7 @@ class ThresholdDetector(SceneDetector):
     def __init__(
         self,
         threshold: float = 12,
-        min_scene_len: int = 15,
+        min_scene_len: TimecodeLike = 15,
         fade_bias: float = 0.0,
         add_final_scene: bool = False,
         method: Method = Method.FLOOR,
@@ -56,8 +58,9 @@ class ThresholdDetector(SceneDetector):
         Arguments:
             threshold:  8-bit intensity value that each pixel value (R, G, and B)
                 must be <= to in order to trigger a fade in/out.
-            min_scene_len:   Once a cut is detected, this many frames must pass before a new one can
-                be added to the scene list. Can be an int or FrameTimecode type.
+            min_scene_len:   Once a cut is detected, this much time must pass before a new one can
+                be added to the scene list. Accepts an int (frames), float (seconds), or
+                str (e.g. ``"0.6s"``, ``"00:00:00.600"``).
             fade_bias:  Float between -1.0 and +1.0 representing the percentage of
                 timecode skew for the start of a scene (-1.0 causing a cut at the
                 fade-to-black, 0.0 in the middle, and +1.0 causing the cut to be
@@ -67,9 +70,12 @@ class ThresholdDetector(SceneDetector):
             method: How to treat `threshold` when detecting fade events.
             block_size: [DEPRECATED] DO NOT USE. For backwards compatibility.
         """
-        # TODO(v0.7): Replace with DeprecationWarning that `block_size` will be removed in v0.8.
         if block_size is not None:
-            logger.error("block_size is deprecated.")
+            warnings.warn(
+                "The `block_size` argument is deprecated and will be removed in v0.8.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         super().__init__()
         self.threshold = int(threshold)
@@ -77,56 +83,50 @@ class ThresholdDetector(SceneDetector):
         self.fade_bias = fade_bias
         self.min_scene_len = min_scene_len
         self.processed_frame = False
-        self.last_scene_cut = None
+        self.last_scene_cut: FrameTimecode | None = None
         # Whether to add an additional scene or not when ending on a fade out
         # (as cuts are only added on fade ins; see post_process() for details).
         self.add_final_scene = add_final_scene
         # Where the last fade (threshold crossing) was detected.
-        self.last_fade = {
-            "frame": 0,  # frame number where the last detected fade is
+        self.last_fade: dict[str, ty.Any] = {
+            "frame": None,  # FrameTimecode where the last detected fade is
             "type": None,  # type of fade, can be either 'in' or 'out'
         }
         self._metric_keys = [ThresholdDetector.THRESHOLD_VALUE_KEY]
 
-    def get_metrics(self) -> ty.List[str]:
+    def get_metrics(self) -> list[str]:
         return self._metric_keys
 
-    def process_frame(self, frame_num: int, frame_img: numpy.ndarray) -> ty.List[int]:
-        """Process the next frame. `frame_num` is assumed to be sequential.
+    def process_frame(
+        self, timecode: FrameTimecode, frame_img: numpy.ndarray
+    ) -> list[FrameTimecode]:
+        """Process the next frame.
 
         Args:
-            frame_num (int): Frame number of frame that is being passed. Can start from any value
-                but must remain sequential.
-            frame_img (numpy.ndarray or None): Video frame corresponding to `frame_img`.
+            timecode: FrameTimecode of the current frame position.
+            frame_img (numpy.ndarray or None): Video frame corresponding to `timecode`.
 
         Returns:
-            ty.List[int]: List of frames where scene cuts have been detected. There may be 0
-            or more frames in the list, and not necessarily the same as frame_num.
+            List of FrameTimecodes where scene cuts have been detected.
         """
-
         # Initialize last scene cut point at the beginning of the frames of interest.
         if self.last_scene_cut is None:
-            self.last_scene_cut = frame_num
+            self.last_scene_cut = timecode
 
-        # Compare the # of pixels under threshold in current_frame & last_frame.
-        # If absolute value of pixel intensity delta is above the threshold,
-        # then we trigger a new scene cut/break.
-
-        # List of cuts to return.
-        cut_list = []
+        cuts: list[FrameTimecode] = []
 
         # The metric used here to detect scene breaks is the percent of pixels
         # less than or equal to the threshold; however, since this differs on
         # user-supplied values, we supply the average pixel intensity as this
         # frame metric instead (to assist with manually selecting a threshold)
         if (self.stats_manager is not None) and (
-            self.stats_manager.metrics_exist(frame_num, self._metric_keys)
+            self.stats_manager.metrics_exist(timecode, self._metric_keys)
         ):
-            frame_avg = self.stats_manager.get_metrics(frame_num, self._metric_keys)[0]
+            frame_avg = self.stats_manager.get_metrics(timecode, self._metric_keys)[0]
         else:
             frame_avg = numpy.mean(frame_img)
             if self.stats_manager is not None:
-                self.stats_manager.set_metrics(frame_num, {self._metric_keys[0]: frame_avg})
+                self.stats_manager.set_metrics(timecode, {self._metric_keys[0]: frame_avg})
 
         if self.processed_frame:
             if self.last_fade["type"] == "in" and (
@@ -135,34 +135,39 @@ class ThresholdDetector(SceneDetector):
             ):
                 # Just faded out of a scene, wait for next fade in.
                 self.last_fade["type"] = "out"
-                self.last_fade["frame"] = frame_num
+                self.last_fade["frame"] = timecode
 
             elif self.last_fade["type"] == "out" and (
                 (self.method == ThresholdDetector.Method.FLOOR and frame_avg >= self.threshold)
                 or (self.method == ThresholdDetector.Method.CEILING and frame_avg < self.threshold)
             ):
                 # Only add the scene if min_scene_len frames have passed.
-                if (frame_num - self.last_scene_cut) >= self.min_scene_len:
+                if (timecode - self.last_scene_cut) >= self.min_scene_len:
                     # Just faded into a new scene, compute timecode for the scene
-                    # split based on the fade bias.
+                    # split based on the fade bias. Use frame-number arithmetic so the
+                    # result is identical across backends - float seconds + framerate
+                    # multiplication can land on a .5 rounding boundary and tip the
+                    # frame number by 1 between PyAV (sub-microsecond PTS) and OpenCV
+                    # (millisecond-truncated CAP_PROP_POS_MSEC).
                     f_out = self.last_fade["frame"]
-                    f_split = int(
-                        (frame_num + f_out + int(self.fade_bias * (frame_num - f_out))) / 2
+                    duration_frames = timecode.frame_num - f_out.frame_num
+                    split_frame_num = f_out.frame_num + round(
+                        duration_frames * (1.0 + self.fade_bias) / 2.0
                     )
-                    cut_list.append(f_split)
-                    self.last_scene_cut = frame_num
+                    cuts.append(FrameTimecode(split_frame_num, fps=timecode))
+                    self.last_scene_cut = timecode
                 self.last_fade["type"] = "in"
-                self.last_fade["frame"] = frame_num
+                self.last_fade["frame"] = timecode
         else:
-            self.last_fade["frame"] = 0
+            self.last_fade["frame"] = timecode
             if frame_avg < self.threshold:
                 self.last_fade["type"] = "out"
             else:
                 self.last_fade["type"] = "in"
         self.processed_frame = True
-        return cut_list
+        return cuts
 
-    def post_process(self, frame_num: int):
+    def post_process(self, timecode: FrameTimecode) -> list[FrameTimecode]:
         """Writes a final scene cut if the last detected fade was a fade-out.
 
         Only writes the scene cut if add_final_scene is true, and the last fade
@@ -174,14 +179,13 @@ class ThresholdDetector(SceneDetector):
         # If the last fade detected was a fade out, we add a corresponding new
         # scene break to indicate the end of the scene.  This is only done for
         # fade-outs, as a scene cut is already added when a fade-in is found.
-        cut_times = []
+        cuts: list[FrameTimecode] = []
+        elapsed = timecode if self.last_scene_cut is None else timecode - self.last_scene_cut
         if (
             self.last_fade["type"] == "out"
             and self.add_final_scene
-            and (
-                (self.last_scene_cut is None and frame_num >= self.min_scene_len)
-                or (frame_num - self.last_scene_cut) >= self.min_scene_len
-            )
+            and self.last_fade["frame"] is not None
+            and elapsed >= self.min_scene_len
         ):
-            cut_times.append(self.last_fade["frame"])
-        return cut_times
+            cuts.append(self.last_fade["frame"])
+        return cuts

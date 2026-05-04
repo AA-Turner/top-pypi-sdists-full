@@ -29,13 +29,17 @@ def _partition(G: nx.Graph) -> dict[str, int]:
     """
     try:
         from graspologic.partition import leiden
-        # Suppress graspologic output to prevent ANSI escape codes from
-        # corrupting PowerShell 5.1 scroll buffer (issue #19)
+        # Seed Leiden for deterministic output — prevents graph.json churn in
+        # multi-dev repos where two devs rebuilding from identical code would
+        # otherwise produce different community IDs and cause merge conflicts.
+        leiden_kwargs: dict = {}
+        if "seed" in inspect.signature(leiden).parameters:
+            leiden_kwargs["seed"] = 42
         old_stderr = sys.stderr
         try:
             sys.stderr = io.StringIO()
             with _suppress_output():
-                result = leiden(G)
+                result = leiden(G, **leiden_kwargs)
         finally:
             sys.stderr = old_stderr
         return result
@@ -54,6 +58,8 @@ def _partition(G: nx.Graph) -> dict[str, int]:
 
 _MAX_COMMUNITY_FRACTION = 0.25   # communities larger than 25% of graph get split
 _MIN_SPLIT_SIZE = 10             # only split if community has at least this many nodes
+_COHESION_SPLIT_THRESHOLD = 0.05 # re-split communities with cohesion below this
+_COHESION_SPLIT_MIN_SIZE = 50    # only cohesion-split if community has at least this many nodes
 
 
 def cluster(G: nx.Graph) -> dict[int, list[str]]:
@@ -98,6 +104,17 @@ def cluster(G: nx.Graph) -> dict[int, list[str]]:
             final_communities.extend(_split_community(G, nodes))
         else:
             final_communities.append(nodes)
+
+    # Second pass: re-split low-cohesion communities caused by doc-hub nodes
+    # that bridge otherwise-unrelated subsystems (e.g. CLAUDE.md connected to everything).
+    second_pass: list[list[str]] = []
+    for nodes in final_communities:
+        if len(nodes) >= _COHESION_SPLIT_MIN_SIZE and cohesion_score(G, nodes) < _COHESION_SPLIT_THRESHOLD:
+            splits = _split_community(G, nodes)
+            second_pass.extend(splits if len(splits) > 1 else [nodes])
+        else:
+            second_pass.append(nodes)
+    final_communities = second_pass
 
     # Re-index by size descending for deterministic ordering
     final_communities.sort(key=len, reverse=True)

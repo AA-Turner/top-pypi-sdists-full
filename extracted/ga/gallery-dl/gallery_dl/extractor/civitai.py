@@ -951,10 +951,6 @@ class CivitaiSearchAPI():
             "Content-Type": "application/json",
             "X-Meilisearch-Client": "Meilisearch instant-meilisearch (v0.13.5)"
                                     " ; Meilisearch JavaScript (v0.34.0)",
-            "Origin": extractor.root,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
             "Priority": "u=4",
         }
 

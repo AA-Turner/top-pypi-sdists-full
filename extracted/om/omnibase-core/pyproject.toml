@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_core"
-version = "0.40.0"
+version = "0.40.1"
 description = "ONEX Core Framework - Base classes and essential implementations"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -41,11 +41,13 @@ dependencies = [
     "dependency-injector>=4.48.3,<5.0.0",
     "deepdiff>=8.0.0,<10.0.0",
     "click>=8.3.1,<9.0.0",
-    "cryptography>=46.0.3,<47.0.0",
+    "cryptography>=46.0.3,<48.0.0",
     "jsonschema>=4.25.1,<5.0.0",
     "httpx>=0.27.0,<1.0.0",
     "blake3>=1.0.8,<2.0.0",
     "ruamel-yaml>=0.18.0",
+    "tree-sitter>=0.25.2,<0.26",
+    "tree-sitter-python>=0.25.0,<0.26",
 ]
 
 [project.urls]
@@ -99,10 +101,11 @@ spi = ["omnibase-spi>=0.20.2"]
 # model_onex_container falls back to an inline equivalent when not installed.
 compat = ["omnibase-compat>=0.3.1,<1.0.0"]
 cli = ["psutil>=7.2.1"]
+kafka = ["confluent-kafka>=2.12.0,<3.0.0"]
 cache = ["redis>=5.0.0,<8.0.0"]
 metrics = ["prometheus-client>=0.21.0,<1.0.0"]
 sql-parser = ["sqlglot>=26.0.0,<31.0.0"]
-full = ["omnibase-spi>=0.20.2", "omnibase-compat>=0.3.1,<1.0.0", "psutil>=7.2.1", "redis>=5.0.0,<8.0.0", "prometheus-client>=0.21.0,<1.0.0", "sqlglot>=26.0.0,<31.0.0"]
+full = ["omnibase-spi>=0.20.2", "omnibase-compat>=0.3.1,<1.0.0", "psutil>=7.2.1", "confluent-kafka>=2.12.0,<3.0.0", "redis>=5.0.0,<8.0.0", "prometheus-client>=0.21.0,<1.0.0", "sqlglot>=26.0.0,<31.0.0"]
 
 [dependency-groups]
 dev = [
@@ -123,6 +126,7 @@ dev = [
     "interrogate>=1.7.0",
     "hypothesis>=6.150",
     "psutil>=7.2.1",
+    "confluent-kafka>=2.12.0,<3.0.0",
     "prometheus-client>=0.21.0,<1.0.0",
     "types-psutil>=7.2.1.20260116",
     "sqlglot>=26.0.0,<31.0.0",
@@ -276,6 +280,7 @@ ignore = [
 "src/omnibase_core/infrastructure/node_base.py" = ["I001"]  # Import order to avoid circular dependencies
 "src/omnibase_core/models/container/model_onex_container.py" = ["I001"]  # Dual-Import Pattern (OMN-1261)
 # T201 per-file-ignores: intentional print() for CLI output, validation reports, and script output [OMN-5080]
+"src/omnibase_core/cli/substrate_gates/_base.py" = ["T201"]
 "src/omnibase_core/cli/cli_spdx.py" = ["T201"]
 "src/omnibase_core/mixins/mixin_cli_handler.py" = ["T201"]
 "src/omnibase_core/models/container/model_enhanced_logger.py" = ["T201"]
@@ -288,7 +293,10 @@ ignore = [
 "src/omnibase_core/validation/validator_circular_import.py" = ["T201"]
 "src/omnibase_core/validation/validator_cli.py" = ["T201"]
 "src/omnibase_core/validation/receipt_gate_cli.py" = ["T201"]
+"src/omnibase_core/validation/validator_receipt_reprobe.py" = ["T201"]  # CLI output for re-probe verification (OMN-9789)
+"scripts/analysis/co_change_dark_matter.py" = ["T201"]
 "scripts/validation/validate_pr_receipts.py" = ["T201"]
+"scripts/validation/validate_pr_deploy_required.py" = ["T201"]
 "src/omnibase_core/validation/validator_contracts.py" = ["T201"]
 "src/omnibase_core/validation/validator_local_paths.py" = ["T201"]
 "src/omnibase_core/validation/validator_patterns.py" = ["T201"]
@@ -301,6 +309,8 @@ ignore = [
 "src/omnibase_core/scripts/validate_markdown_links.py" = ["T201"]
 "scripts/pin_bump.py" = ["T201"]  # CLI output for publish-downstream-pin-bump workflow [OMN-9050]
 "scripts/emit_ts_types.py" = ["T201"]  # CLI output for omnidash-v2 TS type generation
+"scripts/validate_deterministic_skill_routing.py" = ["T201"]  # CLI output for CI gate report
+"scripts/migrate_dod_receipts.py" = ["T201"]  # CLI output for legacy DoD receipt migration [OMN-9790]
 # Test files: print() used for debug output and test diagnostics — bulk removal deferred
 "tests/**/*.py" = ["T201"]
 

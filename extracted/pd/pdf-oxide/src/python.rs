@@ -349,16 +349,14 @@ impl PyPdfDocument {
 
             let mut options = crate::rendering::RenderOptions::with_dpi(dpi.unwrap_or(72));
             if let Some(fmt) = format {
-                match fmt.to_lowercase().as_str() {
-                    "jpeg" | "jpg" => {
-                        options = options.as_jpeg(quality);
-                    },
-                    "png" => { /* default */ },
-                    _ => {
-                        return Err(PyValueError::new_err(format!(
-                            "format must be 'png' or 'jpeg', got {fmt:?}",
-                        )))
-                    },
+                if fmt.eq_ignore_ascii_case("jpeg") || fmt.eq_ignore_ascii_case("jpg") {
+                    options = options.as_jpeg(quality);
+                } else if fmt.eq_ignore_ascii_case("png") {
+                    // default — no change
+                } else {
+                    return Err(PyValueError::new_err(format!(
+                        "format must be 'png' or 'jpeg', got {fmt:?}",
+                    )));
                 }
             }
             if let Some((r, g, b, a)) = background {
@@ -378,6 +376,101 @@ impl PyPdfDocument {
         #[cfg(not(feature = "rendering"))]
         {
             let _ = (page, dpi, format, background, transparent, render_annotations, jpeg_quality);
+            Err(PyRuntimeError::new_err("Rendering feature not enabled."))
+        }
+    }
+
+    /// Render a page to fit inside a target pixel bounding box, preserving
+    /// aspect ratio. Picks the largest DPI such that both rendered
+    /// dimensions are ≤ the target box. Useful for thumbnails / fixed-size
+    /// previews where the caller doesn't want to do DPI arithmetic.
+    ///
+    /// Args:
+    ///     page (int):   Zero-based page index.
+    ///     width (int):  Target box width in pixels (must be > 0).
+    ///     height (int): Target box height in pixels (must be > 0).
+    ///     format (str, optional): "png" (default) or "jpeg".
+    ///     background (tuple[float, float, float, float], optional):
+    ///         RGBA in 0..1. Default white.
+    ///     transparent (bool, optional): If True, no background fill.
+    ///     render_annotations (bool, optional): default True.
+    ///     jpeg_quality (int, optional): 1-100, default 85.
+    ///
+    /// Returns: bytes of the rendered image. Issue #441 / #448.
+    #[pyo3(signature = (
+        page, width, height, *,
+        format=None, background=None, transparent=false,
+        render_annotations=None, jpeg_quality=None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn render_page_fit(
+        &mut self,
+        page: usize,
+        width: u32,
+        height: u32,
+        format: Option<&str>,
+        background: Option<(f32, f32, f32, f32)>,
+        transparent: bool,
+        render_annotations: Option<bool>,
+        jpeg_quality: Option<u8>,
+    ) -> PyResult<Vec<u8>> {
+        #[cfg(feature = "rendering")]
+        {
+            use pyo3::exceptions::PyValueError;
+
+            if width == 0 || height == 0 {
+                return Err(PyValueError::new_err("width and height must be > 0"));
+            }
+            let quality = match jpeg_quality {
+                Some(q) => {
+                    if !(1..=100).contains(&q) {
+                        return Err(PyValueError::new_err(format!(
+                            "jpeg_quality must be 1-100, got {q}",
+                        )));
+                    }
+                    q
+                },
+                None => 85,
+            };
+
+            let mut options = crate::rendering::RenderOptions::default();
+            if let Some(fmt) = format {
+                if fmt.eq_ignore_ascii_case("jpeg") || fmt.eq_ignore_ascii_case("jpg") {
+                    options = options.as_jpeg(quality);
+                } else if fmt.eq_ignore_ascii_case("png") {
+                    // default — no change
+                } else {
+                    return Err(PyValueError::new_err(format!(
+                        "format must be 'png' or 'jpeg', got {fmt:?}",
+                    )));
+                }
+            }
+            if let Some((r, g, b, a)) = background {
+                options.background = Some([r, g, b, a]);
+            }
+            if transparent {
+                options.background = None;
+            }
+            if let Some(flag) = render_annotations {
+                options.render_annotations = flag;
+            }
+
+            crate::rendering::render_page_fit(&mut self.inner, page, width, height, &options)
+                .map(|img| img.data)
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to render page: {e}")))
+        }
+        #[cfg(not(feature = "rendering"))]
+        {
+            let _ = (
+                page,
+                width,
+                height,
+                format,
+                background,
+                transparent,
+                render_annotations,
+                jpeg_quality,
+            );
             Err(PyRuntimeError::new_err("Rendering feature not enabled."))
         }
     }
@@ -409,30 +502,62 @@ impl PyPdfDocument {
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract characters: {}", e)))
     }
 
-    /// Extract words.
+    /// Extract words from a page.
     ///
     /// Args:
     ///     page (int): Page index (0-based)
-    ///     region (tuple, optional): (x, y, width, height) to filter by
-    ///     word_gap_threshold (float, optional): Override for the horizontal gap
-    ///         (in PDF points) used to split characters into words. Smaller values
-    ///         produce more words.
-    ///     profile (ExtractionProfile, optional): Pre-tuned extraction profile
-    ///         that controls how raw text is parsed from the PDF content stream.
-    #[pyo3(signature = (page, region=None, word_gap_threshold=None, profile=None))]
+    ///     include_artifacts (bool, optional): Include words tagged as
+    ///         `/Artifact` (running headers/footers, page numbers,
+    ///         watermarks; ISO 32000-1:2008 §14.8.2.2.1). Default
+    ///         **True** for backward compatibility with 0.3.41 — the
+    ///         pre-existing code path returned all spans regardless of
+    ///         artifact tag and the cross-build regression sweep showed
+    ///         flipping the default would surface as a content
+    ///         regression on PDFs whose running-artifact heuristic
+    ///         over-triggers on real content. Pass `False` to get the
+    ///         spec-correct behavior (artifact-tagged spans excluded).
+    ///
+    ///     region, word_gap_threshold, profile (deprecated, optional):
+    ///         Power-user overrides retained for backward compatibility.
+    ///         Passing any of these emits a DeprecationWarning. They will
+    ///         move to a separate `extract_words_advanced` method in a
+    ///         future minor release.
+    #[pyo3(signature = (page, *, include_artifacts=true, region=None, word_gap_threshold=None, profile=None))]
     fn extract_words(
         &mut self,
+        py: Python<'_>,
         page: usize,
+        include_artifacts: bool,
         region: Option<(f32, f32, f32, f32)>,
         word_gap_threshold: Option<f32>,
         profile: Option<PyExtractionProfile>,
     ) -> PyResult<Vec<PyWord>> {
         use crate::layout::{RectFilterMode, SpatialCollectionFiltering};
 
-        let words = self
-            .inner
-            .extract_words_with_thresholds(page, word_gap_threshold, profile.map(|p| p.inner))
-            .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract words: {}", e)))?;
+        if region.is_some() || word_gap_threshold.is_some() || profile.is_some() {
+            warn_deprecated_kwargs(
+                py,
+                "extract_words",
+                &["region", "word_gap_threshold", "profile"],
+            );
+        }
+
+        // Default (`include_artifacts=False`, the new spec-correct path)
+        // routes through the `_no_artifacts` variant. The legacy
+        // include-artifacts path keeps the pre-0.3.42 output verbatim.
+        let words = if include_artifacts {
+            self.inner
+                .extract_words_with_thresholds(page, word_gap_threshold, profile.map(|p| p.inner))
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract words: {}", e)))?
+        } else {
+            self.inner
+                .extract_words_with_thresholds_no_artifacts(
+                    page,
+                    word_gap_threshold,
+                    profile.map(|p| p.inner),
+                )
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract words: {}", e)))?
+        };
 
         let filtered = if let Some((x, y, w, h)) = region {
             let rect = crate::geometry::Rect::new(x, y, w, h);
@@ -444,21 +569,28 @@ impl PyPdfDocument {
         Ok(filtered.into_iter().map(|w| PyWord { inner: w }).collect())
     }
 
-    /// Extract text lines.
+    /// Extract text lines from a page.
     ///
     /// Args:
     ///     page (int): Page index (0-based)
-    ///     region (tuple, optional): (x, y, width, height) to filter by
-    ///     word_gap_threshold (float, optional): Override for the horizontal gap
-    ///         (in PDF points) used to split characters into words.
-    ///     line_gap_threshold (float, optional): Override for the vertical gap
-    ///         (in PDF points) used to group words into lines.
-    ///     profile (ExtractionProfile, optional): Pre-tuned extraction profile
-    ///         that controls how raw text is parsed from the PDF content stream.
-    #[pyo3(signature = (page, region=None, word_gap_threshold=None, line_gap_threshold=None, profile=None))]
+    ///     include_artifacts (bool, optional): Include lines whose words
+    ///         are tagged as `/Artifact` (running headers/footers, page
+    ///         numbers, watermarks; ISO 32000-1:2008 §14.8.2.2.1).
+    ///         Default **True** for backward compatibility with 0.3.41.
+    ///         Pass `False` to get the spec-correct behavior
+    ///         (artifact-tagged spans excluded).
+    ///
+    ///     region, word_gap_threshold, line_gap_threshold, profile
+    ///         (deprecated, optional): Power-user overrides retained for
+    ///         backward compatibility. Passing any of these emits a
+    ///         DeprecationWarning. They will move to a separate
+    ///         `extract_text_lines_advanced` method in a future release.
+    #[pyo3(signature = (page, *, include_artifacts=true, region=None, word_gap_threshold=None, line_gap_threshold=None, profile=None))]
     fn extract_text_lines(
         &mut self,
+        py: Python<'_>,
         page: usize,
+        include_artifacts: bool,
         region: Option<(f32, f32, f32, f32)>,
         word_gap_threshold: Option<f32>,
         line_gap_threshold: Option<f32>,
@@ -466,15 +598,42 @@ impl PyPdfDocument {
     ) -> PyResult<Vec<PyTextLine>> {
         use crate::layout::{RectFilterMode, SpatialCollectionFiltering};
 
-        let lines = self
-            .inner
-            .extract_text_lines_with_thresholds(
-                page,
-                word_gap_threshold,
-                line_gap_threshold,
-                profile.map(|p| p.inner),
-            )
-            .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract lines: {}", e)))?;
+        if region.is_some()
+            || word_gap_threshold.is_some()
+            || line_gap_threshold.is_some()
+            || profile.is_some()
+        {
+            warn_deprecated_kwargs(
+                py,
+                "extract_text_lines",
+                &[
+                    "region",
+                    "word_gap_threshold",
+                    "line_gap_threshold",
+                    "profile",
+                ],
+            );
+        }
+
+        let lines = if include_artifacts {
+            self.inner
+                .extract_text_lines_with_thresholds(
+                    page,
+                    word_gap_threshold,
+                    line_gap_threshold,
+                    profile.map(|p| p.inner),
+                )
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract lines: {}", e)))?
+        } else {
+            self.inner
+                .extract_text_lines_with_thresholds_no_artifacts(
+                    page,
+                    word_gap_threshold,
+                    line_gap_threshold,
+                    profile.map(|p| p.inner),
+                )
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to extract lines: {}", e)))?
+        };
 
         let filtered = if let Some((x, y, w, h)) = region {
             let rect = crate::geometry::Rect::new(x, y, w, h);
@@ -2093,6 +2252,25 @@ impl PyPdfDocument {
         })
     }
 
+    /// Iterable view of all pages in this document. Equivalent to
+    /// `iter(doc)` but explicitly named for discoverability — issue
+    /// #447 — and matches the C# `doc.Pages` / Go `doc.Pages()`
+    /// surface that already exists in those bindings. Each iteration
+    /// yields a `Page` object that exposes per-page extraction APIs.
+    ///
+    /// Example:
+    ///     for page in doc.pages:
+    ///         print(page.text[:80])
+    #[getter]
+    fn pages(slf: Py<Self>, py: Python<'_>) -> PyResult<PyDocPageIter> {
+        let count = slf.borrow_mut(py).page_count()?;
+        Ok(PyDocPageIter {
+            doc: slf,
+            index: 0,
+            count,
+        })
+    }
+
     fn __repr__(&self) -> String {
         format!("PdfDocument(version={}.{})", self.inner.version().0, self.inner.version().1)
     }
@@ -2170,16 +2348,26 @@ impl PyDocPage {
 
     #[getter]
     fn words(&self, py: Python<'_>) -> PyResult<Vec<PyWord>> {
+        // `include_artifacts=true` mirrors the public `PdfDocument.extract_words`
+        // default. If that default is ever flipped (spec-correct exclude), update
+        // this getter (and the `lines` getter below) to match — there's no shared
+        // constant because pyo3 signatures need literal bools.
         self.doc
             .borrow_mut(py)
-            .extract_words(self.page_index, None, None, None)
+            .extract_words(py, self.page_index, true, None, None, None)
     }
 
     #[getter]
     fn lines(&self, py: Python<'_>) -> PyResult<Vec<PyTextLine>> {
-        self.doc
-            .borrow_mut(py)
-            .extract_text_lines(self.page_index, None, None, None, None)
+        self.doc.borrow_mut(py).extract_text_lines(
+            py,
+            self.page_index,
+            true,
+            None,
+            None,
+            None,
+            None,
+        )
     }
 
     #[getter]
@@ -2399,6 +2587,27 @@ impl PyFormField {
     fn __repr__(&self) -> String {
         format!("FormField(name=\"{}\", type=\"{}\")", self.inner.full_name, self.field_type())
     }
+}
+
+/// Emit a `DeprecationWarning` when one of the named kwargs is supplied
+/// to a method whose advanced surface is on the way out (issue #457
+/// Step 5). Best effort: any error from the `warnings` module is
+/// swallowed — the caller still gets the usable result with the
+/// deprecated kwarg honored.
+fn warn_deprecated_kwargs(py: Python<'_>, method: &str, kwargs: &[&str]) {
+    let msg = format!(
+        "{}() kwargs {:?} are deprecated and will move to a separate \
+         {}_advanced method in a future release. The default API is now \
+         knob-free; pass the kwarg only if you genuinely need to override \
+         the spec-correct default.",
+        method, kwargs, method,
+    );
+    let _: PyResult<()> = (|| {
+        let warnings = py.import("warnings")?;
+        let deprecation = py.import("builtins")?.getattr("DeprecationWarning")?;
+        warnings.call_method1("warn", (msg, deprecation))?;
+        Ok(())
+    })();
 }
 
 fn field_value_to_python(value: &RustFieldValue, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -2785,11 +2994,11 @@ impl PyPdfPageRegion {
     }
     fn extract_words(&self, py: Python<'_>) -> PyResult<Vec<PyWord>> {
         let mut d = self.doc.bind(py).borrow_mut();
-        d.extract_words(self.page_index, Some(self.bbox()), None, None)
+        d.extract_words(py, self.page_index, true, Some(self.bbox()), None, None)
     }
     fn extract_text_lines(&self, py: Python<'_>) -> PyResult<Vec<PyTextLine>> {
         let mut d = self.doc.bind(py).borrow_mut();
-        d.extract_text_lines(self.page_index, Some(self.bbox()), None, None, None)
+        d.extract_text_lines(py, self.page_index, true, Some(self.bbox()), None, None, None)
     }
     #[pyo3(signature = (table_settings=None))]
     fn extract_tables(

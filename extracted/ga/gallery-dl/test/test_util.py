@@ -1046,18 +1046,33 @@ value = 123
         self.assertEqual(len(token), 80 * 2)
         self.assertRegex(token, r"^[0-9a-f]+$")
 
-    def test_format_value(self):
-        self.assertEqual(util.format_value(0)         , "0")
-        self.assertEqual(util.format_value(1)         , "1")
-        self.assertEqual(util.format_value(12)        , "12")
-        self.assertEqual(util.format_value(123)       , "123")
-        self.assertEqual(util.format_value(1234)      , "1.23k")
-        self.assertEqual(util.format_value(12345)     , "12.34k")
-        self.assertEqual(util.format_value(123456)    , "123.45k")
-        self.assertEqual(util.format_value(1234567)   , "1.23M")
-        self.assertEqual(util.format_value(12345678)  , "12.34M")
-        self.assertEqual(util.format_value(123456789) , "123.45M")
-        self.assertEqual(util.format_value(1234567890), "1.23G")
+    def test_format_bytes_decimal(self):
+        f = util.format_bytes_decimal
+        self.assertEqual(f(0)         , "0")
+        self.assertEqual(f(1)         , "1")
+        self.assertEqual(f(12)        , "12")
+        self.assertEqual(f(123)       , "123")
+        self.assertEqual(f(1234)      , "1.23K")
+        self.assertEqual(f(12345)     , "12.34K")
+        self.assertEqual(f(123456)    , "123.45K")
+        self.assertEqual(f(1234567)   , "1.23M")
+        self.assertEqual(f(12345678)  , "12.34M")
+        self.assertEqual(f(123456789) , "123.45M")
+        self.assertEqual(f(1234567890), "1.23G")
+
+    def test_format_bytes_binary(self):
+        f = util.format_bytes_binary
+        self.assertEqual(f(0)         , "0")
+        self.assertEqual(f(1)         , "1")
+        self.assertEqual(f(12)        , "12")
+        self.assertEqual(f(123)       , "123")
+        self.assertEqual(f(1234)      , "1.21Ki")
+        self.assertEqual(f(12345)     , "12.06Ki")
+        self.assertEqual(f(123456)    , "120.56Ki")
+        self.assertEqual(f(1234567)   , "1.18Mi")
+        self.assertEqual(f(12345678)  , "11.77Mi")
+        self.assertEqual(f(123456789) , "117.74Mi")
+        self.assertEqual(f(1234567890), "1.15Gi")
 
     def test_combine_dict(self):
         self.assertEqual(

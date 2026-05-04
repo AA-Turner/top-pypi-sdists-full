@@ -290,12 +290,12 @@ class ImgurAPI():
         endpoint = "/post/v1/posts/" + gallery_hash
         return self._call(endpoint)
 
-    def _call(self, endpoint, params=None, headers=None):
+    def _call(self, endpoint, params=None):
         while True:
             try:
                 return self.extractor.request_json(
                     "https://api.imgur.com" + endpoint,
-                    params=params, headers=(headers or self.headers))
+                    params=params, headers=self.headers)
             except self.extractor.exc.HttpError as exc:
                 if exc.status not in (403, 429) or \
                         b"capacity" not in exc.response.content:
@@ -322,10 +322,9 @@ class ImgurAPI():
             params["page"] = 0
         if "sort" not in params:
             params["sort"] = "newest"
-        headers = {"Origin": "https://imgur.com"}
 
         while True:
-            data = self._call(endpoint, params, headers)
+            data = self._call(endpoint, params)
             if "data" in data:
                 data = data["data"]
             if not data:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2017-2023 Mike Fährmann
+# Copyright 2017-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -49,18 +49,18 @@ class WarosuThreadExtractor(Extractor):
                 yield Message.Url, post["image"], post
 
     def metadata(self, page):
-        boardname = text.extr(page, "<title>", "</title>")
-        title = text.unescape(text.extr(page, "class=filetitle>", "<"))
         return {
             "board"     : self.board,
-            "board_name": boardname.split(" - ")[1],
             "thread"    : self.thread,
-            "title"     : title,
+            "board_name": text.extr(
+                page, "<title>", "</title>").split(" - ")[1].strip(),
+            "title"     : text.unescape(text.extr(
+                page, 'property="og:title" content="', '"')),
         }
 
     def posts(self, page):
         """Build a list of all post objects"""
-        page = text.extr(page, "<div class=content", "</form>")
+        page = text.extr(page, '<div class="content"', "</form>")
         needle = "<table>"
         return [self.parse(post) for post in page.split(needle)]
 
@@ -77,24 +77,25 @@ class WarosuThreadExtractor(Extractor):
     def _extract_post(self, post):
         extr = text.extract_from(post)
         return {
-            "no"  : extr("id=p", ">"),
-            "name": extr("class=postername>", "<").strip(),
-            "time": extr("class=posttime title=", "000>"),
+            "no"  : extr('id="p', '"'),
+            "name": extr('class="postername ">', "<").strip(),
+            "time": extr('class="posttime" title="', '000"'),
             "com" : text.unescape(text.remove_html(extr(
                 "<blockquote>", "</blockquote>").strip())),
         }
 
     def _extract_image(self, post, data):
         extr = text.extract_from(post)
-        extr('<span class="fileinfo">', "")
+        extr('<span class="fileinfo', "")
         data["fsize"] = extr("File: ", ", ")
         data["w"] = extr("", "x")
         data["h"] = extr("", ", ")
         data["filename"] = text.unquote(extr(
             "", "<").rstrip().rpartition(".")[0])
-        extr("<br>", "")
+        extr("<br", "")
 
         if url := extr("<a href=", ">"):
+            url = url.strip("\"'")
             if url[0] == "/":
                 data["image"] = self.root + url
             elif "warosu." not in url:

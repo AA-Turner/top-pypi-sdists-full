@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2025 Mike Fährmann
+# Copyright 2019-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -41,7 +41,7 @@ class _35photoExtractor(Extractor):
 
     def _pagination(self, params, extra_ids=None):
         url = "https://35photo.pro/show_block.php"
-        headers = {"Referer": self.root, "X-Requested-With": "XMLHttpRequest"}
+        headers = {"X-Requested-With": "XMLHttpRequest"}
         params["type"] = "getNextPageData"
 
         if "lastId" not in params:

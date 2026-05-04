@@ -17,9 +17,11 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import os
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from argus_redact import __version__, redact, restore
+from argus_redact.pure.replacer import SecurityWarning
 
 try:
     from starlette.requests import Request
@@ -182,10 +184,30 @@ def _auth_middleware(app):
     return middleware
 
 
-def create_app():
-    """Create Starlette ASGI app. Requires: pip install argus-redact[serve]"""
+def create_app(*, allow_no_auth: bool = False):
+    """Create Starlette ASGI app. Requires: pip install argus-redact[serve].
+
+    Refuses to start when ``ARGUS_API_KEY`` is unset (the ``/restore``
+    endpoint exposes PII recovery — running it open to the network is unsafe).
+    Pass ``allow_no_auth=True`` (CLI: ``--insecure``) for local development;
+    a ``SecurityWarning`` is emitted in that case.
+    """
     from starlette.applications import Starlette
     from starlette.routing import Route
+
+    api_key = os.environ.get("ARGUS_API_KEY")
+    if not api_key and not allow_no_auth:
+        raise RuntimeError(
+            "Set ARGUS_API_KEY for Bearer-token auth, or pass allow_no_auth=True "
+            "(CLI: --insecure) for local dev."
+        )
+    if not api_key and allow_no_auth:
+        warnings.warn(
+            "argus-redact server running with no auth (allow_no_auth=True). "
+            "Anyone reaching the listening port can call /redact and /restore.",
+            SecurityWarning,
+            stacklevel=2,
+        )
 
     routes = [
         Route("/redact", handle_redact, methods=["POST"]),
@@ -205,9 +227,14 @@ def main():
     parser = argparse.ArgumentParser(description="argus-redact HTTP API server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="Run without ARGUS_API_KEY auth (local development only).",
+    )
     args = parser.parse_args()
 
-    app = create_app()
+    app = create_app(allow_no_auth=args.insecure)
     uvicorn.run(app, host=args.host, port=args.port)
 
 

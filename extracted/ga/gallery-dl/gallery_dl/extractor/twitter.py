@@ -679,7 +679,7 @@ class TwitterExtractor(Extractor):
                 udata["friends_mutual"] = self.api.friends_following_list(
                     uid).get("total_count")
             except Exception as exc:
-                self.traceback(exc)
+                self.log.traceback(exc)
                 self.log.warning("u%s: Failed to extract extended user "
                                  "metadata (%s: %s)",
                                  uid, exc.__class__.__name__, exc)

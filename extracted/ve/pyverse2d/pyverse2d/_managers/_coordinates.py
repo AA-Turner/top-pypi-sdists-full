@@ -6,6 +6,7 @@ from .._rendering import Viewport, Camera
 from ..abc import Manager
 
 from pyglet.math import Mat4
+from contextlib import contextmanager
 
 from ._context import ContextManager
 
@@ -147,6 +148,44 @@ class CoordinatesManager(Manager):
 
         self._pipeline = None
         self._inv_pipeline = None
+
+    @contextmanager
+    def temporary_context(self, viewport: Viewport = None, camera: Camera = None):
+        """Crée un contexte particulier de coordonnées
+        
+        Args:
+            viewport: ``Viewport`` à utiliser (par défaut le viewport courant)
+            camera: ``Camera`` à utiliser (par défaut la caméra courante)
+        """
+        # Modification du contexte
+        if camera is None or viewport is None:
+            # Sauvegarde
+            old_camera = self._temporary_camera
+            old_viewport = self._viewport
+
+            # Recalcul pipeline
+            if camera is not None:
+                self.bind_temporary_camera(camera)
+            if viewport is not None:
+                self.bind_viewport(viewport)
+            self.apply_context()
+
+            try:
+                yield
+            finally:
+                # Restauration
+                if camera is not None:
+                    self.bind_temporary_camera(old_camera)
+                if viewport is not None:
+                    self.bind_viewport(old_viewport)
+                self.apply_context()
+
+        # Pas de modification
+        else:
+            try:
+                yield
+            finally:
+                pass
     
     # ======================================== TRANSFORMATIONS ========================================
     def homogeneous(self, x: float, y: float, vector: bool = False) -> tuple[float, float, float, float]:
