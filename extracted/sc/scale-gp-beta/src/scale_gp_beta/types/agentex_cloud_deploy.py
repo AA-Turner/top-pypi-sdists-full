@@ -34,6 +34,10 @@ class AgentexCloudDeploy(BaseModel):
     deploy_events: Optional[List[AgentexCloudDeployEvent]] = None
     """Kubernetes events for this deployment."""
 
+    expires_at: Optional[datetime] = None
+
     helm_release_name: Optional[str] = None
 
     object: Optional[Literal["agentex_cloud_deploy"]] = None
+
+    preview_label: Optional[str] = None

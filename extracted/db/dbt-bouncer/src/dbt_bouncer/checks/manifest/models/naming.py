@@ -1,12 +1,16 @@
 """Checks related to model naming conventions."""
 
-from dbt_bouncer.check_decorator import check, fail
+from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import compile_pattern, get_clean_model_name
 
 
 @check
 def check_model_names(model, *, model_name_pattern: str):
     """Models must have a name that matches the supplied regex.
+
+    !!! info "Rationale"
+
+        Naming conventions such as `stg_` for staging models and `int_` for intermediate models are a cornerstone of readable dbt projects. Enforcing these patterns in CI prevents inconsistently named models from being merged, keeping the project navigable as it grows.
 
     Parameters:
         model_name_pattern (str): Regexp the model name must match.

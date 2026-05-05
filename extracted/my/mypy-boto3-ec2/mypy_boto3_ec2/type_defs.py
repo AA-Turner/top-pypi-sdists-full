@@ -7953,8 +7953,8 @@ class RemovePrefixListEntryTypeDef(TypedDict):
 
 
 class ModifyManagedResourceVisibilityRequestTypeDef(TypedDict):
+    DefaultVisibility: ManagedResourceDefaultVisibilityType
     DryRun: NotRequired[bool]
-    DefaultVisibility: NotRequired[ManagedResourceDefaultVisibilityType]
 
 
 class NetworkInterfaceAttachmentChangesTypeDef(TypedDict):
@@ -8209,6 +8209,7 @@ class ModifyVpnConnectionOptionsRequestTypeDef(TypedDict):
     RemoteIpv4NetworkCidr: NotRequired[str]
     LocalIpv6NetworkCidr: NotRequired[str]
     RemoteIpv6NetworkCidr: NotRequired[str]
+    TunnelBandwidth: NotRequired[VpnTunnelBandwidthType]
     DryRun: NotRequired[bool]
 
 

@@ -10,6 +10,8 @@ __all__ = ["OpenAIResponseUsage", "InputTokensDetails", "OutputTokensDetails"]
 
 
 class InputTokensDetails(BaseModel):
+    """A detailed breakdown of the input tokens."""
+
     cached_tokens: int
 
     if TYPE_CHECKING:
@@ -26,6 +28,8 @@ class InputTokensDetails(BaseModel):
 
 
 class OutputTokensDetails(BaseModel):
+    """A detailed breakdown of the output tokens."""
+
     reasoning_tokens: int
 
     if TYPE_CHECKING:
@@ -42,13 +46,20 @@ class OutputTokensDetails(BaseModel):
 
 
 class OpenAIResponseUsage(BaseModel):
+    """
+    Represents token usage details including input tokens, output tokens,
+    a breakdown of output tokens, and the total tokens used.
+    """
+
     input_tokens: int
 
     input_tokens_details: InputTokensDetails
+    """A detailed breakdown of the input tokens."""
 
     output_tokens: int
 
     output_tokens_details: OutputTokensDetails
+    """A detailed breakdown of the output tokens."""
 
     total_tokens: int
 

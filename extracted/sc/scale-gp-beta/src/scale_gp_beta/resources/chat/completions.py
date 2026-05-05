@@ -18,10 +18,11 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._streaming import Stream, AsyncStream
-from ...types.chat import SortOrder, completion_create_params, completion_models_params
+from ...types.chat import SortOrder, InferenceModelVendor, completion_create_params, completion_models_params
 from ..._base_client import make_request_options
 from ...types.chat.sort_order import SortOrder
 from ...types.chat.chat_completion_chunk import ChatCompletionChunk
+from ...types.chat.inference_model_vendor import InferenceModelVendor
 from ...types.chat.completion_create_response import CompletionCreateResponse
 from ...types.chat.completion_models_response import CompletionModelsResponse
 
@@ -530,21 +531,7 @@ class CompletionsResource(SyncAPIResource):
         *,
         ending_before: str | Omit = omit,
         limit: int | Omit = omit,
-        model_vendor: Literal[
-            "openai",
-            "cohere",
-            "vertex_ai",
-            "anthropic",
-            "azure",
-            "gemini",
-            "launch",
-            "llmengine",
-            "model_zoo",
-            "bedrock",
-            "xai",
-            "fireworks_ai",
-        ]
-        | Omit = omit,
+        model_vendor: InferenceModelVendor | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
         starting_after: str | Omit = omit,
@@ -1092,21 +1079,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
         *,
         ending_before: str | Omit = omit,
         limit: int | Omit = omit,
-        model_vendor: Literal[
-            "openai",
-            "cohere",
-            "vertex_ai",
-            "anthropic",
-            "azure",
-            "gemini",
-            "launch",
-            "llmengine",
-            "model_zoo",
-            "bedrock",
-            "xai",
-            "fireworks_ai",
-        ]
-        | Omit = omit,
+        model_vendor: InferenceModelVendor | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
         starting_after: str | Omit = omit,

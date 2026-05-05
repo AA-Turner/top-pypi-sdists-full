@@ -2,10 +2,12 @@ use crate::core::BitCollection;
 use bitvec::prelude::*;
 use half::f16;
 use lru::LruCache;
+use memchr::memmem;
 use once_cell::sync::Lazy;
 use pyo3::exceptions::{PyIndexError, PyOverflowError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyByteArray, PyBytes, PyInt, PyMemoryView};
+use pyo3::types::{PyBool, PyByteArray, PyBytes, PyInt, PyList, PyMemoryView, PyTuple};
+use pyo3::{PyErr, ffi};
 use rand::rngs::{StdRng, SysRng};
 use rand::{Rng, SeedableRng, TryRng};
 use sha2::{Digest, Sha256};
@@ -78,116 +80,264 @@ pub(crate) fn find_bitvec(
     debug_assert!(end >= start);
     debug_assert!(end <= haystack.len());
     let lps = compute_lps(needle);
-    if byte_aligned {
-        find_bitvec_impl_with_lps::<true>(&haystack, &needle, &lps, start, end)
-    } else {
-        find_bitvec_impl_with_lps::<false>(&haystack, &needle, &lps, start, end)
-    }
+    let alignment_mod8 = if byte_aligned { Some(0) } else { None };
+    find_bitvec_with_lps_aligned(haystack, needle, &lps, start, end, alignment_mod8)
 }
 
-pub(crate) fn find_bitvec_with_lps(
-    haystack: &BS,
-    needle: &BS,
-    lps: &[usize],
-    start: usize,
-    end: usize,
-    byte_aligned: bool,
-) -> Option<usize> {
-    debug_assert!(end >= start);
-    debug_assert!(end <= haystack.len());
-    if byte_aligned {
-        find_bitvec_impl_with_lps::<true>(haystack, needle, &lps, start, end)
-    } else {
-        find_bitvec_impl_with_lps::<false>(haystack, needle, &lps, start, end)
-    }
-}
-
-pub(crate) fn rfind_bitvec(
+pub(crate) fn find_bitvec_aligned(
     haystack: &BS,
     needle: &BS,
     start: usize,
     end: usize,
-    byte_aligned: bool,
+    alignment_mod8: Option<usize>,
 ) -> Option<usize> {
     debug_assert!(end >= start);
     debug_assert!(end <= haystack.len());
     let lps = compute_lps(needle);
-    if byte_aligned {
-        rfind_bitvec_impl_with_lps::<true>(&haystack, &needle, &lps, start, end)
-    } else {
-        rfind_bitvec_impl_with_lps::<false>(&haystack, &needle, &lps, start, end)
-    }
+    find_bitvec_with_lps_aligned(haystack, needle, &lps, start, end, alignment_mod8)
 }
 
-pub(crate) fn rfind_bitvec_with_lps(
+pub(crate) fn find_bitvec_with_lps_aligned(
     haystack: &BS,
     needle: &BS,
     lps: &[usize],
     start: usize,
     end: usize,
-    byte_aligned: bool,
+    alignment_mod8: Option<usize>,
 ) -> Option<usize> {
     debug_assert!(end >= start);
     debug_assert!(end <= haystack.len());
-    if byte_aligned {
-        rfind_bitvec_impl_with_lps::<true>(&haystack, &needle, &lps, start, end)
-    } else {
-        rfind_bitvec_impl_with_lps::<false>(&haystack, &needle, &lps, start, end)
+    if let Some(found) = try_find_byte_search(haystack, needle, start, end, alignment_mod8, false) {
+        return found;
     }
+    find_bitvec_impl_with_lps_aligned(haystack, needle, lps, start, end, alignment_mod8)
 }
 
-fn rfind_bitvec_impl_with_lps<const BYTE_ALIGNED: bool>(
+pub(crate) fn rfind_bitvec_aligned(
+    haystack: &BS,
+    needle: &BS,
+    start: usize,
+    end: usize,
+    alignment_mod8: Option<usize>,
+) -> Option<usize> {
+    debug_assert!(end >= start);
+    debug_assert!(end <= haystack.len());
+    let lps = compute_lps(needle);
+    rfind_bitvec_with_lps_aligned(haystack, needle, &lps, start, end, alignment_mod8)
+}
+
+pub(crate) fn rfind_bitvec_with_lps_aligned(
     haystack: &BS,
     needle: &BS,
     lps: &[usize],
     start: usize,
     end: usize,
+    alignment_mod8: Option<usize>,
+) -> Option<usize> {
+    debug_assert!(end >= start);
+    debug_assert!(end <= haystack.len());
+    if let Some(found) = try_find_byte_search(haystack, needle, start, end, alignment_mod8, true) {
+        return found;
+    }
+    rfind_bitvec_impl_with_lps_aligned(haystack, needle, lps, start, end, alignment_mod8)
+}
+
+pub(crate) fn collect_find_all_positions(
+    haystack: &BS,
+    needle: &BS,
+    haystack_len: usize,
+    start: usize,
+    end: usize,
+    byte_aligned: bool,
+) -> Vec<u64> {
+    debug_assert!(!needle.is_empty());
+    debug_assert!(end >= start);
+    debug_assert!(end <= haystack.len());
+
+    let needle_len = needle.len();
+    let is_reverse = false;
+    let step = if byte_aligned { 8 } else { 1 };
+    let alignment_mod8 = if byte_aligned { Some(0) } else { None };
+
+    if let Some((byte_haystack, byte_needle, byte_base)) =
+        byte_search_prep(haystack, needle, start, end, alignment_mod8)
+    {
+        let mut matches = Vec::new();
+        let mut byte_current = if is_reverse { end / 8 - byte_base } else { 0 };
+
+        loop {
+            let found = if is_reverse {
+                if byte_current == 0 {
+                    None
+                } else {
+                    memmem::rfind(&byte_haystack[..byte_current], &byte_needle)
+                }
+            } else if byte_current >= byte_haystack.len() {
+                None
+            } else {
+                memmem::find(&byte_haystack[byte_current..], &byte_needle)
+                    .map(|pos| pos + byte_current)
+            };
+
+            let Some(byte_pos) = found else {
+                break;
+            };
+            matches.push(((byte_base + byte_pos) * 8) as u64);
+            if is_reverse {
+                byte_current = byte_pos + byte_needle.len().saturating_sub(1);
+            } else {
+                byte_current = byte_pos + 1;
+            }
+        }
+
+        return matches;
+    }
+
+    let lps = compute_lps(needle);
+    let mut current_pos = if is_reverse { end } else { start };
+    let mut matches = Vec::new();
+
+    loop {
+        let found = if is_reverse {
+            if current_pos <= start || current_pos > end {
+                None
+            } else {
+                rfind_bitvec_with_lps_aligned(
+                    haystack,
+                    needle,
+                    &lps,
+                    start,
+                    current_pos,
+                    alignment_mod8,
+                )
+            }
+        } else if current_pos >= haystack_len || end.saturating_sub(current_pos) < needle_len {
+            None
+        } else {
+            find_bitvec_with_lps_aligned(haystack, needle, &lps, current_pos, end, alignment_mod8)
+        };
+
+        let Some(pos) = found else {
+            break;
+        };
+        matches.push(pos as u64);
+        if is_reverse {
+            current_pos = pos + needle_len.saturating_sub(step);
+        } else {
+            current_pos = pos + step;
+        }
+    }
+
+    matches
+}
+
+#[inline]
+pub(crate) fn bits_to_bytes(bits: &BS) -> Vec<u8> {
+    debug_assert!(bits.len().is_multiple_of(8));
+    bits.chunks_exact(8)
+        .map(|chunk| chunk.load_be::<u8>())
+        .collect()
+}
+
+pub(crate) fn byte_search_prep(
+    haystack: &BS,
+    needle: &BS,
+    start: usize,
+    end: usize,
+    alignment_mod8: Option<usize>,
+) -> Option<(Vec<u8>, Vec<u8>, usize)> {
+    if alignment_mod8 != Some(0) || !needle.len().is_multiple_of(8) {
+        return None;
+    }
+
+    let start_byte = start.div_ceil(8);
+    let end_byte = end / 8;
+    if start_byte > end_byte {
+        return None;
+    }
+    let haystack_bytes = bits_to_bytes(&haystack[start_byte * 8..end_byte * 8]);
+    let needle_bytes = bits_to_bytes(needle);
+    Some((haystack_bytes, needle_bytes, start_byte))
+}
+
+#[inline]
+fn matches_alignment(match_pos: usize, alignment_mod8: Option<usize>) -> bool {
+    match alignment_mod8 {
+        Some(required) => (match_pos & 7) == required,
+        None => true,
+    }
+}
+
+fn try_find_byte_search(
+    haystack: &BS,
+    needle: &BS,
+    start: usize,
+    end: usize,
+    alignment_mod8: Option<usize>,
+    reverse: bool,
+) -> Option<Option<usize>> {
+    let Some((search_bytes, needle_bytes, start_byte)) =
+        byte_search_prep(haystack, needle, start, end, alignment_mod8)
+    else {
+        return None;
+    };
+    let found = if reverse {
+        memmem::rfind(&search_bytes, &needle_bytes)
+    } else {
+        memmem::find(&search_bytes, &needle_bytes)
+    };
+    Some(found.map(|index| (start_byte + index) * 8))
+}
+
+fn rfind_bitvec_impl_with_lps_aligned(
+    haystack: &BS,
+    needle: &BS,
+    _lps: &[usize],
+    start: usize,
+    end: usize,
+    alignment_mod8: Option<usize>,
 ) -> Option<usize> {
     if needle.is_empty() || needle.len() > end - start {
         return None;
     }
-    let needle_len = needle.len();
 
-    // 2. Search backwards in haystack
-    // i is the current index in haystack (moving backwards)
-    // j is the length of the current match (matched from right to left)
-    // The visual index in haystack for comparison is (i - j).
-    let mut i = end;
+    let needle_len = needle.len();
+    let reversed_needle: BV = needle.iter().by_vals().rev().collect();
+    let reversed_lps = compute_lps(reversed_needle.as_bitslice());
+    let search_len = end - start;
+    let mut i = 0;
     let mut j = 0;
 
-    while i > start {
-        // We compare haystack[i - 1] (char to left of cursor)
-        // with needle[needle_len - 1 - j] (char to left of match-cursor in needle)
-        if haystack[i - 1] == needle[needle_len - 1 - j] {
-            i -= 1;
+    while i < search_len {
+        if reversed_needle[j] == haystack[end - 1 - i] {
+            i += 1;
             j += 1;
 
             if j == needle_len {
-                // Found a match starting at i
-                if !BYTE_ALIGNED || (i & 7) == 0 {
-                    return Some(i);
+                let reversed_match_pos = i - j;
+                let match_pos = end - needle_len - reversed_match_pos;
+                if matches_alignment(match_pos, alignment_mod8) {
+                    return Some(match_pos);
                 }
-                // Mismatch due to alignment, slide using the table
-                j = lps[j - 1];
+                j = reversed_lps[j - 1];
             }
         } else if j != 0 {
-            // Mismatch, but we have some progress `j`.
-            // Jump to the longest suffix that is also a prefix (in reverse logic)
-            j = lps[j - 1];
+            j = reversed_lps[j - 1];
         } else {
-            i -= 1;
+            i += 1;
         }
     }
 
     None
 }
 
-fn find_bitvec_impl_with_lps<const BYTE_ALIGNED: bool>(
+fn find_bitvec_impl_with_lps_aligned(
     haystack: &BS,
     needle: &BS,
     lps: &[usize],
     start: usize,
     end: usize,
+    alignment_mod8: Option<usize>,
 ) -> Option<usize> {
     if needle.is_empty() || needle.len() > end - start {
         return None;
@@ -203,7 +353,7 @@ fn find_bitvec_impl_with_lps<const BYTE_ALIGNED: bool>(
 
             if j == needle_len {
                 let match_pos = i - j;
-                if !BYTE_ALIGNED || (match_pos & 7) == 0 {
+                if matches_alignment(match_pos, alignment_mod8) {
                     return Some(match_pos);
                 }
                 // Continue searching for a byte-aligned match
@@ -248,23 +398,19 @@ pub(crate) fn count_bitvec(haystack: &BS, needle: &BS) -> usize {
     count
 }
 
-/// Validates the index is in range and returns an absolute MSB0 index.
-pub(crate) fn validate_index(index: i64, length: usize, is_msb0: bool) -> PyResult<usize> {
+/// Validates the index is in range and returns an absolute bit index.
+pub(crate) fn validate_index(index: isize, length: usize) -> PyResult<usize> {
     let index_p = if index < 0 {
-        length as i64 + index
+        length as isize + index
     } else {
         index
     };
-    if index_p >= length as i64 || index_p < 0 {
+    if index_p >= length as isize || index_p < 0 {
         return Err(PyIndexError::new_err(format!(
             "Index of {index} is out of range for length of {length}"
         )));
     }
-    if is_msb0 {
-        Ok(index_p as usize)
-    } else {
-        Ok((length as i64 - index_p - 1) as usize)
-    }
+    Ok(index_p as usize)
 }
 
 pub(crate) fn validate_shift(s: &impl BitCollection, n: i64) -> PyResult<usize> {
@@ -284,52 +430,24 @@ pub(crate) fn validate_shift(s: &impl BitCollection, n: i64) -> PyResult<usize> 
 #[inline]
 pub(crate) fn validate_slice(
     length: usize,
-    start: Option<i64>,
-    end: Option<i64>,
+    start: Option<isize>,
+    end: Option<isize>,
 ) -> PyResult<(usize, usize)> {
     let mut start = start.unwrap_or(0);
-    let mut end = end.unwrap_or(length as i64);
+    let mut end = end.unwrap_or(length as isize);
     if start < 0 {
-        start += length as i64;
+        start += length as isize;
     }
     if end < 0 {
-        end += length as i64;
+        end += length as isize;
     }
 
-    if !(0 <= start && start <= end && end <= length as i64) {
+    if !(0 <= start && start <= end && end <= length as isize) {
         return Err(PyValueError::new_err(format!(
             "Invalid slice positions for length of {length}: start={start}, end={end}."
         )));
     }
     Ok((start as usize, end as usize))
-}
-
-#[inline]
-pub(crate) fn logical_range_to_physical(
-    length: usize,
-    start: usize,
-    end: usize,
-    msb0: bool,
-) -> (usize, usize) {
-    if msb0 {
-        (start, end)
-    } else {
-        (length - end, length - start)
-    }
-}
-
-#[inline]
-pub(crate) fn physical_match_to_logical_start(
-    length: usize,
-    needle_len: usize,
-    physical_start: usize,
-    msb0: bool,
-) -> usize {
-    if msb0 {
-        physical_start
-    } else {
-        length - needle_len - physical_start
-    }
 }
 
 pub(crate) fn process_seed(seed: &Option<Vec<u8>>) -> [u8; 32] {
@@ -618,6 +736,23 @@ pub(crate) fn bv_from_f64(value: f64, length: i64, is_little_endian: bool) -> Py
 }
 
 pub(crate) fn bv_from_bools(iterable: &Bound<'_, PyAny>) -> PyResult<BV> {
+    // Lists and tuples are the common bulk path. Reading their items through
+    // the C API avoids creating a Bound<PyAny> wrapper for every bit.
+    if let Ok(list) = iterable.cast::<PyList>() {
+        return unsafe {
+            bv_from_py_sequence_items(iterable.py(), list.len(), |index| {
+                ffi::PyList_GetItem(list.as_ptr(), index as ffi::Py_ssize_t)
+            })
+        };
+    }
+    if let Ok(tuple) = iterable.cast::<PyTuple>() {
+        return unsafe {
+            bv_from_py_sequence_items(iterable.py(), tuple.len(), |index| {
+                ffi::PyTuple_GetItem(tuple.as_ptr(), index as ffi::Py_ssize_t)
+            })
+        };
+    }
+
     // For sequences, we can pre-allocate the capacity.
     let capacity = iterable.len().ok().unwrap_or(64);
     let mut bv = BV::with_capacity(capacity);
@@ -625,6 +760,43 @@ pub(crate) fn bv_from_bools(iterable: &Bound<'_, PyAny>) -> PyResult<BV> {
     for value in iterable.try_iter()? {
         bv.push(value?.is_truthy()?);
     }
+    Ok(bv)
+}
+
+unsafe fn bv_from_py_sequence_items(
+    py: Python<'_>,
+    len: usize,
+    mut get_item: impl FnMut(usize) -> *mut ffi::PyObject,
+) -> PyResult<BV> {
+    // The callers pass list/tuple indices in bounds, so borrowed item pointers
+    // are valid while the GIL is held. Pack directly into Msb0 bytes to avoid
+    // BitVec::push overhead for large Python bool sequences.
+    let mut bytes = vec![0u8; len.div_ceil(8)];
+    let py_true = unsafe { ffi::Py_True() };
+    let py_false = unsafe { ffi::Py_False() };
+
+    for index in 0..len {
+        let item = get_item(index);
+        // Python bools are singletons, so pointer comparison handles the
+        // benchmark path cheaply. Other objects keep normal truthiness.
+        let bit = if item == py_true {
+            true
+        } else if item == py_false {
+            false
+        } else {
+            match unsafe { ffi::PyObject_IsTrue(item) } {
+                0 => false,
+                1 => true,
+                -1 => return Err(PyErr::fetch(py)),
+                _ => unreachable!("PyObject_IsTrue only returns -1, 0, or 1"),
+            }
+        };
+        if bit {
+            bytes[index / 8] |= 0x80 >> (index & 7);
+        }
+    }
+    let mut bv = BV::from_vec(bytes);
+    bv.truncate(len);
     Ok(bv)
 }
 
@@ -653,7 +825,9 @@ pub(crate) fn str_to_bv(s: String) -> PyResult<BV> {
     let s: String = s.chars().filter(|c| !c.is_whitespace()).collect();
     // Check if it's already in the cache
     {
-        let mut cache = BITS_CACHE.lock().unwrap();
+        let mut cache = BITS_CACHE
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("Internal bits cache mutex poisoned?"))?;
         if let Some(cached_data) = cache.get(&s) {
             return Ok(cached_data.clone());
         }
@@ -684,7 +858,9 @@ pub(crate) fn str_to_bv(s: String) -> PyResult<BV> {
     };
     // Update cache with new result
     {
-        let mut cache = BITS_CACHE.lock().unwrap();
+        let mut cache = BITS_CACHE
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("Internal bits cache mutex poisoned?"))?;
         cache.put(s, result.clone());
     }
     Ok(result)
@@ -707,12 +883,8 @@ pub(crate) fn promote_to_bv(any: &Bound<'_, PyAny>) -> PyResult<BV> {
     }
 
     // Is it an iterable that we can convert each element to a bool?
-    if let Ok(iter) = any.try_iter() {
-        let mut bv = BV::new();
-        for item in iter {
-            bv.push(item?.is_truthy()?);
-        }
-        return Ok(bv);
+    if any.try_iter().is_ok() {
+        return bv_from_bools(any);
     }
     let type_name = match any.get_type().name() {
         Ok(name) => name.to_string(),

@@ -24,7 +24,7 @@ import numpy as np
 
 from pytensor import config, utils
 from pytensor.graph.basic import Apply, Constant, Variable
-from pytensor.graph.fg import FunctionGraph
+from pytensor.graph.fg import AbstractFunctionGraph, FunctionGraph
 
 
 if TYPE_CHECKING:
@@ -145,9 +145,11 @@ def streamline(
     fgraph: FunctionGraph,
     thunks: Sequence[Callable[[], None]],
     order: Sequence[Apply],
+    *,
     post_thunk_old_storage: list["StorageCellType"] | None = None,
     no_recycling: list["StorageCellType"] | None = None,
     nice_errors: bool = True,
+    output_storage: list["StorageCellType"],
 ) -> "BasicThunkType":
     """Construct a single thunk that runs a list of thunks.
 
@@ -197,6 +199,7 @@ def streamline(
                     thunk()
                     for old_s in old_storage:
                         old_s[0] = None
+                return [out[0] for out in output_storage]
             except Exception:
                 raise_with_op(fgraph, node, thunk)
 
@@ -212,6 +215,7 @@ def streamline(
                     thunk()
             except Exception:
                 raise_with_op(fgraph, node, thunk)
+            return [out[0] for out in output_storage]
 
         f = streamline_nice_errors_f
     else:
@@ -222,6 +226,7 @@ def streamline(
                 x[0] = None
             for thunk in thunks:
                 thunk()
+            return [out[0] for out in output_storage]
 
         f = streamline_fast_f
     return f
@@ -664,11 +669,11 @@ def unique_name_generator(
 
 
 def fgraph_to_python(
-    fgraph: FunctionGraph,
+    fgraph: AbstractFunctionGraph,
     op_conversion_fn: Callable,
     *,
     type_conversion_fn: Callable = lambda x, **kwargs: x,
-    order: list[Apply] | None = None,
+    order: Sequence[Apply] | None = None,
     storage_map: Optional["StorageMapType"] = None,
     fgraph_name: str = "fgraph_to_python",
     global_env: dict[Any, Any] | None = None,
@@ -741,11 +746,7 @@ def fgraph_to_python(
             is_constant = isinstance(inp, Constant)
             input_storage = storage_map.setdefault(
                 inp,
-                [
-                    inp.data  # type: ignore[attr-defined]
-                    if is_constant
-                    else None
-                ],
+                [inp.data if isinstance(inp, Constant) else None],
             )
             if (
                 is_constant or input_storage[0] is not None

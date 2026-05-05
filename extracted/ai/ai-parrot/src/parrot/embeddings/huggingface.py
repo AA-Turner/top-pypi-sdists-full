@@ -1,37 +1,40 @@
 from __future__ import annotations
-from typing import List, Any, Optional, Tuple, TYPE_CHECKING
+from typing import List, Any, Optional, Tuple
 from enum import Enum
 import logging
 import numpy as np
 from parrot._imports import lazy_import
 from .base import EmbeddingModel
 from ..conf import HUGGINGFACE_EMBEDDING_CACHE_DIR
+from .catalog import EMBEDDING_MODELS
+
+logger = logging.getLogger(__name__)
+
+# Built once at import time from the catalog — O(1) lookup at runtime.
+# Keys are lowercased model identifiers; values are (prefix_query, prefix_passage).
+# The catalog's Pydantic validator guarantees the pair is consistent with
+# requires_prefix, so the result here is correct by construction.
+_PREFIX_LOOKUP: dict[str, tuple[str | None, str | None]] = {
+    entry["model"].lower(): (entry["prefix_query"], entry["prefix_passage"])
+    for entry in EMBEDDING_MODELS
+}
 
 
-def _resolve_prefixes(model_name: str) -> Tuple[Optional[str], Optional[str]]:
-    """Return the (query_prefix, passage_prefix) pair for a model, or (None, None).
+def _resolve_prefixes(model_name: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Return the (query_prefix, passage_prefix) pair for a model.
 
-    A number of modern sentence-encoder families were trained with
-    asymmetric instruction prefixes and produce near-random embeddings
-    when the prefix is omitted. This helper centralises the mapping so
-    ``embed_documents`` / ``embed_query`` can apply the right text
-    contract automatically.
+    Catalog-driven: looks up ``model_name`` (case-insensitive) in
+    ``EMBEDDING_MODELS`` and returns the per-model prefix pair declared
+    there. The catalog's Pydantic validator guarantees the pair is
+    consistent with ``requires_prefix``, so the result here is correct
+    by construction.
 
-    Covered families:
-
-    * **E5** (``intfloat/e5-*``, ``intfloat/multilingual-e5-*``): uses
-      the canonical ``"query: "`` / ``"passage: "`` pair for every
-      variant. Required — omitting these drops retrieval quality to
-      near baseline.
-    * **BGE English v1.5** (``BAAI/bge-*-en-v1.5``): queries are
-      prefixed with the long retrieval instruction, passages go in raw.
-      Multilingual BGE (``bge-m3``) does **not** use a prefix.
-
-    GTE, MPNet, MiniLM, Gemma and Arctic families do not use prefixes
-    and return ``(None, None)``.
+    Out-of-catalog models return ``(None, None)`` and emit one INFO log,
+    preserving the silent-passthrough behaviour required for backward
+    compatibility with operators using third-party models.
 
     Args:
-        model_name: HuggingFace model identifier.
+        model_name: Model identifier (HuggingFace, OpenAI, or Google).
 
     Returns:
         Tuple ``(query_prefix, passage_prefix)``. Either entry may be
@@ -39,22 +42,14 @@ def _resolve_prefixes(model_name: str) -> Tuple[Optional[str], Optional[str]]:
     """
     if not model_name:
         return (None, None)
-
-    lower = model_name.lower()
-
-    # E5 family — every checkpoint uses the same contract.
-    if "/e5-" in lower or "intfloat/e5" in lower or "multilingual-e5" in lower:
-        return ("query: ", "passage: ")
-
-    # BGE English v1.5 — asymmetric: long instruction on queries only.
-    if "baai/bge-" in lower and "en-v1.5" in lower:
-        return (
-            "Represent this sentence for searching relevant passages: ",
-            None,
+    pair = _PREFIX_LOOKUP.get(model_name.lower())
+    if pair is None:
+        logger.info(
+            "Model %s not in embedding catalog; encoding without prefix",
+            model_name,
         )
-
-    # Everything else: no prefix.
-    return (None, None)
+        return (None, None)
+    return pair
 
 
 class ModelType(Enum):
@@ -69,6 +64,7 @@ class ModelType(Enum):
     GTE_LARGE = "thenlper/gte-large"
     MSMARCO = "sentence-transformers/msmarco-MiniLM-L12-v3"
     MULTI_QA = "sentence-transformers/multi-qa-mpnet-base-dot-v1"
+    MULTI_QA_COS = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
     GTR_T5 = "sentence-transformers/gtr-t5-large"
     E5_BASE = "intfloat/e5-base-v2"
     E5_LARGE = "intfloat/e5-large-v2"
@@ -86,6 +82,7 @@ class ModelType(Enum):
     # Code / Technical
     JINA_CODE = "jinaai/jina-embeddings-v2-base-code"
     JINA_EN = "jinaai/jina-embeddings-v2-base-en"
+    JINA_V3 = "jinaai/jina-embeddings-v3"
     # Matryoshka / Flexible Dimensions
     NOMIC = "nomic-ai/nomic-embed-text-v1.5"
     MXBAI_LARGE = "mixedbread-ai/mxbai-embed-large-v1"
@@ -95,6 +92,11 @@ class ModelType(Enum):
     ARCTIC_S = "Snowflake/snowflake-arctic-embed-s"
     ARCTIC_M = "Snowflake/snowflake-arctic-embed-m-v1.5"
     ARCTIC_L = "Snowflake/snowflake-arctic-embed-l"
+    # Instruct-Tuned
+    GTE_QWEN2_INSTRUCT = "Alibaba-NLP/gte-Qwen2-1.5B-instruct"
+    E5_MISTRAL_INSTRUCT = "intfloat/e5-mistral-7b-instruct"
+    # High-Dimension / Specialized
+    NV_EMBED_V2 = "nvidia/NV-Embed-v2"
 
 
 class SentenceTransformerModel(EmbeddingModel):
@@ -124,7 +126,7 @@ class SentenceTransformerModel(EmbeddingModel):
                 self.model_name, self._query_prefix, self._passage_prefix,
             )
         self.logger.info(
-            f"Initialized SentenceTransformerModel with model: {self.model_name}"
+            "Initialized SentenceTransformerModel with model: %s", self.model_name
         )
 
     def _apply_query_prefix(self, text: str) -> str:
@@ -152,7 +154,7 @@ class SentenceTransformerModel(EmbeddingModel):
         the centroid and ranking becomes essentially random.
         """
         prefixed = self._apply_passage_prefix(texts)
-        result = await self.encode(prefixed)
+        result = await self.encode(prefixed, normalize_embeddings=True)
         if hasattr(result, "tolist"):
             return result.tolist()
         return result
@@ -202,7 +204,7 @@ class SentenceTransformerModel(EmbeddingModel):
         model_name = model_name or self.model_name
         
         self.logger.info(
-            f"Loading embedding model '{model_name}' on device '{device}'"
+            "Loading embedding model '%s' on device '%s'", model_name, device
         )
         
         # Suppress noisy DEBUG output from HTTP transport used by
@@ -242,7 +244,7 @@ class SentenceTransformerModel(EmbeddingModel):
         # Resolve model on the main thread (triggers lazy load if needed)
         # so the executor thread never calls _create_embedding.
         raw_model = self.model
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             self.executor,
             lambda: raw_model.encode(texts, **kwargs)

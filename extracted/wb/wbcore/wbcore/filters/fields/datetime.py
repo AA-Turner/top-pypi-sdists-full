@@ -5,7 +5,6 @@ from django.contrib.postgres.fields import RangeField
 from django_filters.constants import EMPTY_VALUES
 from django_filters.utils import get_model_field
 
-from wbcore.filters.fields.mixins import RangeMixin
 from wbcore.filters.mixins import WBCoreFilterMixin
 from wbcore.forms import DateRangeField, DateTimeRangeField
 from wbcore.utils.date import financial_performance_shortcuts
@@ -39,7 +38,7 @@ class ShortcutAndPerformanceMixin(WBCoreFilterMixin):
         return representation, lookup_expr
 
 
-class DateRangeFilter(RangeMixin, ShortcutAndPerformanceMixin, django_filters.Filter):
+class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
     field_class = DateRangeField
     filter_type = "daterange"
     initial_format = "%Y-%m-%d"
@@ -55,10 +54,19 @@ class DateRangeFilter(RangeMixin, ShortcutAndPerformanceMixin, django_filters.Fi
             return issubclass(field.__class__, RangeField)
         return False
 
+    def _validate_initial(self, request, initial):
+        if isinstance(initial, (list, tuple, set)):
+            initial = ",".join(map(lambda o: "" if o is None else str(o), initial))
+        return initial
+
     def _get_initial(self, *args):
         initial = super()._get_initial(*args)
         if initial is not None:
-            if isinstance(initial, tuple):
+            if isinstance(
+                initial, str
+            ):  # we need to passthrough str because we support "Component" style initial value
+                return initial
+            elif isinstance(initial, tuple):
                 lower, upper = initial
             else:
                 lower, upper = initial.lower, initial.upper

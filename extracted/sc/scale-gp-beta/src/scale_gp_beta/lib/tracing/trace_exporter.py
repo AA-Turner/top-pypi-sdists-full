@@ -1,7 +1,7 @@
 import time
 import logging
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Callable, Optional
 from typing_extensions import TypeAlias
 
 from scale_gp_beta import SGPClient
@@ -28,11 +28,13 @@ class TraceExporter:
         max_retries: int,
         backoff: float = INITIAL_BACKOFF,
         max_backoff: float = MAX_BACKOFF,
+        export_fn: Optional[Callable[[SpanRequestBatch], None]] = None,
     ):
         self.max_batch_size = max_batch_size
         self.max_retries = max_retries
         self.backoff = backoff
         self.max_backoff = max_backoff
+        self.export_fn = export_fn
 
     def export_span(self, client: SGPClient, span: "Span") -> None:
         # only upsert endpoint is batch upsert, so we work in batches
@@ -58,10 +60,18 @@ class TraceExporter:
     def _export_batch(self, batch: SpanRequestBatch, client: SGPClient) -> None:
         attempts_remaining = self.max_retries
         backoff_delay = self.backoff
+
+        def sleep_with_backoff() -> float:
+            time.sleep(backoff_delay)
+            return min(backoff_delay * 2, self.max_backoff)
+
         while attempts_remaining > 0:
             attempts_remaining -= 1
             try:
-                client.spans.upsert_batch(items=batch)
+                if self.export_fn is not None:
+                    self.export_fn(batch)
+                else:
+                    client.spans.upsert_batch(items=batch)
                 return
             except APIError as e:
                 log.warning(
@@ -69,8 +79,16 @@ class TraceExporter:
                 )
                 if attempts_remaining == 0:
                     continue
-                time.sleep(backoff_delay)
-                backoff_delay = min(backoff_delay * 2, self.max_backoff)
+                backoff_delay = sleep_with_backoff()
+            except Exception as e:
+                if self.export_fn is None:
+                    raise
+                log.warning(
+                    f"export_fn raised an unexpected error: {e}, attempts remaining: {attempts_remaining}"
+                )
+                if attempts_remaining == 0:
+                    continue
+                backoff_delay = sleep_with_backoff()
 
         log.error(f"Failed to export span batch after {self.max_retries} attempts, dropping...")
 

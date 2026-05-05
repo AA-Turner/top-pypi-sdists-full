@@ -10,7 +10,7 @@ class DictionaryTypeCheckerStrictLevel0(TypeCheckerBase):
         return isinstance(self._value, dict)
 
     def is_valid_after_convert(self, converted_value):
-        return isinstance(converted_value, dict) and converted_value
+        return isinstance(converted_value, dict) and bool(converted_value)
 
 
 class DictionaryTypeCheckerStrictLevel1(DictionaryTypeCheckerStrictLevel0):

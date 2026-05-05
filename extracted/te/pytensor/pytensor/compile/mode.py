@@ -5,9 +5,9 @@ WRITEME
 
 import logging
 import warnings
-from typing import Any, Literal
+from typing import Any
 
-from pytensor.compile.function.types import Supervisor
+from pytensor.compile.aliasing import Supervisor
 from pytensor.configdefaults import config
 from pytensor.graph.destroyhandler import DestroyHandler
 from pytensor.graph.rewriting.basic import (
@@ -141,7 +141,7 @@ class AddDestroyHandler(GraphRewriter):
                 (
                     f"A Supervisor feature is missing from {fgraph}.\n"
                     "This is needed for inplace rewrites. Either exclude inplace rewrites or add a Supervisor feature.\n"
-                    "A Supervisor feature can be added via `pytensor.compile.function.types.add_supervisor_to_fgraph`."
+                    "A Supervisor feature can be added via `pytensor.compile.aliasing.add_supervisor_to_fgraph`."
                 ),
                 stacklevel=3,
             )
@@ -311,7 +311,7 @@ class Mode:
         if linker is None:
             linker = config.linker
         if isinstance(linker, str) and linker == "auto":
-            linker = "cvm" if config.cxx else "vm"
+            linker = "numba"
         if isinstance(optimizer, str) and optimizer == "default":
             optimizer = config.optimizer
 
@@ -367,6 +367,12 @@ class Mode:
             f"optimizer={self.provided_optimizer}, "
             f"optdb={self.optdb})"
         )
+
+    @property
+    def function_maker(self):
+        from pytensor.compile.maker import FunctionMaker
+
+        return FunctionMaker
 
     @property
     def optimizer(self):
@@ -467,7 +473,7 @@ PYTORCH = Mode(
 
 MLX = Mode(
     MLXLinker(),
-    RewriteDatabaseQuery(include=["fast_run"]),
+    RewriteDatabaseQuery(include=["fast_run", "mlx"]),
 )
 
 FAST_COMPILE = Mode(
@@ -494,7 +500,7 @@ predefined_modes = {
 _CACHED_RUNTIME_MODES: dict[Any, Mode] = {}
 
 
-def get_mode(orig_string):
+def get_mode(orig_string=None):
     if orig_string is None:
         string = config.mode
     else:
@@ -512,7 +518,7 @@ def get_mode(orig_string):
     if upper_string == "FAST_RUN":
         linker = config.linker
         if linker == "auto":
-            return CVM if config.cxx else VM
+            return NUMBA
         return fast_run_linkers_to_mode[linker]
 
     global _CACHED_RUNTIME_MODES
@@ -528,12 +534,12 @@ def get_mode(orig_string):
     if upper_string == "MODE":
         ret = Mode(linker=config.linker, optimizer=config.optimizer)
     elif upper_string in ("DEBUGMODE", "DEBUG_MODE"):
-        from pytensor.compile.debugmode import DebugMode
+        from pytensor.compile.debug.debugmode import DebugMode
 
         # DebugMode use its own linker.
         ret = DebugMode(optimizer=config.optimizer)
     elif upper_string == "NANGUARDMODE":
-        from pytensor.compile.nanguardmode import NanGuardMode
+        from pytensor.compile.debug.nanguardmode import NanGuardMode
 
         # NanGuardMode use its own linker.
         ret = NanGuardMode(True, True, True, optimizer=config.optimizer)
@@ -565,26 +571,3 @@ def register_mode(name, mode):
     if name in predefined_modes:
         raise ValueError(f"Mode name already taken: {name}")
     predefined_modes[name] = mode
-
-
-def get_target_language(mode=None) -> tuple[Literal["py", "c", "numba", "jax"], ...]:
-    """Get the compilation target language."""
-
-    if mode is None:
-        mode = get_default_mode()
-
-    linker = mode.linker
-
-    if isinstance(linker, NumbaLinker):
-        return ("numba",)
-    if isinstance(linker, JAXLinker):
-        return ("jax",)
-    if isinstance(linker, PerformLinker):
-        return ("py",)
-    if isinstance(linker, CLinker):
-        return ("c",)
-
-    if isinstance(linker, VMLinker | OpWiseCLinker):
-        return ("c", "py") if config.cxx else ("py",)
-
-    raise Exception(f"Unsupported Linker: {linker}")

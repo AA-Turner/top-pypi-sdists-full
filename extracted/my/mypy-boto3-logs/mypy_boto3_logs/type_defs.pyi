@@ -27,6 +27,8 @@ from .literals import (
     AnomalyDetectorStatusType,
     DataProtectionStatusType,
     DeliveryDestinationTypeType,
+    DeliverySourceConfigurationSchemaValueTypeType,
+    DeliverySourceStatusType,
     DistributionType,
     EntityRejectionErrorTypeType,
     EvaluationFrequencyType,
@@ -132,6 +134,7 @@ __all__ = (
     "DeleteTransformerRequestTypeDef",
     "DeliveryDestinationConfigurationTypeDef",
     "DeliveryDestinationTypeDef",
+    "DeliverySourceConfigurationSchemaTypeDef",
     "DeliverySourceTypeDef",
     "DeliveryTypeDef",
     "DescribeAccountPoliciesRequestTypeDef",
@@ -371,6 +374,7 @@ __all__ = (
     "S3ConfigurationTypeDef",
     "S3DeliveryConfigurationTypeDef",
     "S3TableIntegrationSourceTypeDef",
+    "S3TablesIntegrationTypeDef",
     "ScheduledQueryDestinationTypeDef",
     "ScheduledQuerySummaryTypeDef",
     "SearchedLogStreamTypeDef",
@@ -511,9 +515,21 @@ class S3DeliveryConfigurationTypeDef(TypedDict):
     suffixPath: NotRequired[str]
     enableHiveCompatiblePath: NotRequired[bool]
 
+class DeliverySourceConfigurationSchemaTypeDef(TypedDict):
+    keyName: str
+    valueType: DeliverySourceConfigurationSchemaValueTypeType
+    defaultValue: str
+    supportedValues: NotRequired[list[str]]
+    minValue: NotRequired[float]
+    maxValue: NotRequired[float]
+
 class RecordFieldTypeDef(TypedDict):
     name: NotRequired[str]
     mandatory: NotRequired[bool]
+
+class S3TablesIntegrationTypeDef(TypedDict):
+    datasourceName: NotRequired[str]
+    datasourceType: NotRequired[str]
 
 class CopyValueEntryTypeDef(TypedDict):
     source: str
@@ -673,6 +689,9 @@ class DeliverySourceTypeDef(TypedDict):
     service: NotRequired[str]
     logType: NotRequired[str]
     tags: NotRequired[dict[str, str]]
+    deliverySourceConfiguration: NotRequired[dict[str, str]]
+    status: NotRequired[DeliverySourceStatusType]
+    statusReason: NotRequired[Literal["RESOURCE_DELETED"]]
 
 class DescribeAccountPoliciesRequestTypeDef(TypedDict):
     policyType: PolicyTypeType
@@ -1247,6 +1266,7 @@ class PutDeliverySourceRequestTypeDef(TypedDict):
     resourceArn: str
     logType: str
     tags: NotRequired[Mapping[str, str]]
+    deliverySourceConfiguration: NotRequired[Mapping[str, str]]
 
 class PutDestinationPolicyRequestTypeDef(TypedDict):
     destinationName: str
@@ -2117,6 +2137,8 @@ class ConfigurationTemplateTypeDef(TypedDict):
     allowedActionForAllowVendedLogsDeliveryForResource: NotRequired[str]
     allowedFieldDelimiters: NotRequired[list[str]]
     allowedSuffixPathFields: NotRequired[list[str]]
+    deliverySourceConfiguration: NotRequired[list[DeliverySourceConfigurationSchemaTypeDef]]
+    s3TablesIntegration: NotRequired[S3TablesIntegrationTypeDef]
 
 class CreateDeliveryResponseTypeDef(TypedDict):
     delivery: DeliveryTypeDef

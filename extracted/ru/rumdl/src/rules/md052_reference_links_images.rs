@@ -364,9 +364,9 @@ impl MD052ReferenceLinkImages {
                 continue;
             }
 
-            // Skip Quarto/Pandoc citations ([@citation], @citation)
+            // Skip Pandoc/Quarto citations ([@citation], @citation)
             // Citations look like reference links but are bibliography references
-            if ctx.flavor == crate::config::MarkdownFlavor::Quarto && ctx.is_in_citation(link.byte_offset) {
+            if ctx.flavor.is_pandoc_compatible() && ctx.is_in_citation(link.byte_offset) {
                 continue;
             }
 
@@ -698,6 +698,13 @@ impl MD052ReferenceLinkImages {
                             && (is_mkdocs_auto_reference(stripped_ref)
                                 || (reference != stripped_ref && Self::is_valid_python_identifier(stripped_ref)))
                         {
+                            continue;
+                        }
+
+                        // Pandoc-flavor implicit header references: `[Section name]` resolves
+                        // to a heading whose Pandoc slug matches the bracketed text. These are
+                        // not undefined references — Pandoc renders them as anchor links.
+                        if ctx.flavor.is_pandoc_compatible() && ctx.matches_implicit_header_reference(reference) {
                             continue;
                         }
 
@@ -1753,5 +1760,53 @@ See [other docs][MissingRef] for more.
             "Reference defined inside nested code fence should not count as a definition"
         );
         assert!(result[0].message.contains("ref-inside"));
+    }
+
+    #[test]
+    fn test_pandoc_flavor_skips_citations() {
+        // Pandoc citations ([@key]) are bibliography references, not undefined reference
+        // links. MD052 should skip them under Pandoc flavor, mirroring the Quarto skip.
+        let rule = MD052ReferenceLinkImages::new();
+        let content = "See [@smith2020] for details.\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Pandoc, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "MD052 should skip Pandoc citations under Pandoc flavor: {result:?}"
+        );
+    }
+
+    #[test]
+    fn md052_pandoc_skips_implicit_header_refs_with_shortcut_syntax() {
+        // Implicit header references (`[Section name]` resolving to a heading
+        // whose Pandoc slug matches the bracketed text) only flow through
+        // MD052's shortcut-syntax regex path — pulldown-cmark drops them as
+        // broken links before they reach `ctx.links`. Enabling
+        // `shortcut_syntax = true` exercises the SHORTCUT_REF_REGEX scan where
+        // the Pandoc implicit-header-ref guard lives.
+        use crate::config::MarkdownFlavor;
+        let rule = MD052ReferenceLinkImages::from_config_struct(MD052Config {
+            shortcut_syntax: true,
+            ..Default::default()
+        });
+        let content = "# My Section\n\nSee [My Section] for details.\n";
+
+        // Under Standard flavor (no implicit-header-ref resolution), shortcut
+        // checking flags the bracketed text as undefined.
+        let ctx_std = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let std_result = rule.check(&ctx_std).unwrap();
+        assert_eq!(
+            std_result.len(),
+            1,
+            "Standard flavor with shortcut_syntax should flag [My Section]: {std_result:?}"
+        );
+
+        // Under Pandoc flavor, the implicit-header-ref guard resolves it.
+        let ctx_pandoc = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+        let pandoc_result = rule.check(&ctx_pandoc).unwrap();
+        assert!(
+            pandoc_result.is_empty(),
+            "Pandoc flavor should accept [My Section] as an implicit header ref: {pandoc_result:?}"
+        );
     }
 }

@@ -15,9 +15,6 @@ class SpanAssessmentCreateParams(TypedDict, total=False):
     assessment_type: Required[AssessmentType]
     """Type of assessment"""
 
-    span_id: Required[str]
-    """The ID of the span this assessment is attached to"""
-
     trace_id: Required[str]
     """The ID of the trace this assessment is attached to"""
 
@@ -38,3 +35,9 @@ class SpanAssessmentCreateParams(TypedDict, total=False):
 
     rubric: Dict[str, str]
     """Rule key-value pairs for rubric evaluation"""
+
+    span_id: str
+    """The ID of the span this assessment is attached to.
+
+    If omitted, the assessment is attached to the root span of the trace.
+    """

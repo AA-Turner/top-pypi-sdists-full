@@ -4,11 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("example_app", "0003_stadium_seating_capacity_stadium_standing_capacity"),
-        ("example_app", "0004_remove_stadium_capacity"),
-    ]
-
     dependencies = [
         ("example_app", "0002_sportperson_profile"),
     ]

@@ -11,6 +11,8 @@ __all__ = ["OpenAIResponseInputText"]
 
 
 class OpenAIResponseInputText(BaseModel):
+    """A text input to the model."""
+
     text: str
 
     type: Literal["input_text"]

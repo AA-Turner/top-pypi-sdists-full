@@ -58,9 +58,15 @@ DBUSER = config.get('DBUSER')
 DBPWD = config.get('DBPWD')
 DBNAME = config.get('DBNAME', fallback='navigator')
 DBPORT = config.get('DBPORT', fallback=5432)
-default_dsn = f'postgres://{DBUSER}:{DBPWD}@{DBHOST}:{DBPORT}/{DBNAME}'
-async_default_dsn = f'postgresql+asyncpg://{DBUSER}:{DBPWD}@{DBHOST}:{DBPORT}/{DBNAME}'
-sqlalchemy_url = f'postgresql://{DBUSER}:{DBPWD}@{DBHOST}:{DBPORT}/{DBNAME}'
+if DBUSER:
+    _pwd = f":{DBPWD}" if DBPWD else ""
+    default_dsn = f'postgres://{DBUSER}{_pwd}@{DBHOST}:{DBPORT}/{DBNAME}'
+    async_default_dsn = f'postgresql+asyncpg://{DBUSER}{_pwd}@{DBHOST}:{DBPORT}/{DBNAME}'
+    sqlalchemy_url = f'postgresql://{DBUSER}{_pwd}@{DBHOST}:{DBPORT}/{DBNAME}'
+else:
+    default_dsn = None
+    async_default_dsn = None
+    sqlalchemy_url = None
 
 
 # Environment
@@ -227,15 +233,22 @@ DBPWD = config.get("DBPWD")
 DBNAME = config.get("DBNAME", fallback="navigator")
 DBPORT = config.get("DBPORT", fallback=5432)
 # sqlalchemy+asyncpg connector:
-default_sqlalchemy_pg = f"postgresql+asyncpg://{DBUSER}:{DBPWD}@{DBHOST}:{DBPORT}/{DBNAME}"
+if DBUSER:
+    default_sqlalchemy_pg = f"postgresql+asyncpg://{DBUSER}:{DBPWD}@{DBHOST}:{DBPORT}/{DBNAME}"
+else:
+    default_sqlalchemy_pg = None
 
 PG_USER = config.get('PG_USER', fallback=DBUSER)
 PG_PWD = config.get('PG_PWD', fallback=DBPWD)
 PG_HOST = config.get('PG_HOST', fallback=DBHOST)
 PG_PORT = config.get('PG_PORT', fallback=DBPORT)
 PG_DATABASE = config.get('PG_DATABASE', fallback=DBNAME)
+
 # asyncpg url for sqlalchemy:
-asyncpg_sqlalchemy_url = f"postgresql+asyncpg://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}"
+if PG_USER:
+    asyncpg_sqlalchemy_url = f"postgresql+asyncpg://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}"
+else:
+    asyncpg_sqlalchemy_url = None
 
 # ScyllaDB Database:
 SCYLLADB_DRIVER = config.get('SCYLLADB_DRIVER', fallback='scylladb')
@@ -558,6 +571,12 @@ WORKDAY_WSDL_PATHS = {
     "recruiting": WORKDAY_WSDL_RECRUITING,
     "payroll": WORKDAY_WSDL_PAYROLL
 }
+
+# NetSuite MCP settings (OAuth2 Client Credentials M2M + certificate)
+NETSUITE_ACCOUNT_ID = config.get("NETSUITE_ACCOUNT_ID")
+NETSUITE_CLIENT_ID = config.get("NETSUITE_CLIENT_ID")
+NETSUITE_CERTIFICATE_ID = config.get("NETSUITE_CERTIFICATE_ID")
+NETSUITE_PRIVATE_KEY_PATH = config.get("NETSUITE_PRIVATE_KEY_PATH")
 
 # Final sys.path adjustment: Ensure AGENTS_DIR takes precedence over PLUGINS_DIR
 # This is necessary because parrot.plugins.__init__.py may have inserted PLUGINS_DIR

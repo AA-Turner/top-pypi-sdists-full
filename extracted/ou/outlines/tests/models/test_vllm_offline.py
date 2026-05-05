@@ -1,6 +1,7 @@
 import io
 import re
 from enum import Enum
+from unittest.mock import MagicMock, patch
 
 import pytest
 from PIL import Image as PILImage
@@ -28,6 +29,34 @@ pytestmark = pytest.mark.skipif(
     not HAS_VLLM,
     reason="vLLM models can only be run on GPU."
 )
+
+
+def _make_vllm_offline_with_tokenizer(tokenizer) -> VLLMOffline:
+    """Bypass __init__ to create a VLLMOffline with a mock tokenizer."""
+    instance = VLLMOffline.__new__(VLLMOffline)
+    instance.tokenizer = tokenizer
+    return instance
+
+
+def test_check_chat_template_hf_with_template():
+    """HF tokenizer with a valid chat template returns True via step 1."""
+    tok = MagicMock()
+    with patch("outlines.models.tokenizer._check_hf_chat_template", return_value=True):
+        assert _make_vllm_offline_with_tokenizer(tok)._check_chat_template() is True
+
+
+def test_check_chat_template_step1_false_does_not_block_step2():
+    """Step 1 returning False must not block step 2 from returning True."""
+    tok = MagicMock()
+    tok.apply_chat_template.return_value = "formatted"
+    with patch("outlines.models.tokenizer._check_hf_chat_template", return_value=False):
+        assert _make_vllm_offline_with_tokenizer(tok)._check_chat_template() is True
+
+
+def test_check_chat_template_no_template_attrs():
+    """Tokenizer with no relevant attributes returns False."""
+    assert _make_vllm_offline_with_tokenizer(MagicMock(spec=[]))._check_chat_template() is False
+
 
 @pytest.fixture(scope="session")
 def image():

@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2022, 2024, Oracle and/or its affiliates.
+# Copyright (c) 2022, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -236,7 +236,9 @@ cdef class OsonDecoder(Buffer):
                 offset = temp16
             else:
                 self.read_uint32be(&offset)
+            check_min_length(field_names_seg_size, offset + 1)
             temp16 = decode_uint16be(&ptr[offset])
+            check_min_length(field_names_seg_size, offset + temp16 + 2)
             field_names[i] = ptr[offset + 2:offset + temp16 + 2].decode()
         self.skip_to(final_pos)
         return field_names
@@ -313,7 +315,9 @@ cdef class OsonDecoder(Buffer):
                 offset = temp16
             else:
                 self.read_uint32be(&offset)
+            check_min_length(field_names_seg_size, offset + 1)
             temp8 = ptr[offset]
+            check_min_length(field_names_seg_size, offset + temp8 + 1)
             field_names[i] = ptr[offset + 1:offset + temp8 + 1].decode()
         self.skip_to(final_pos)
         return field_names
@@ -815,7 +819,8 @@ cdef class OsonEncoder(GrowableBuffer):
         if seg._pos > 0:
             self.write_raw(seg._data, seg._pos)
 
-    cdef int encode(self, object value, ssize_t max_fname_size) except -1:
+    cdef int encode(self, object value,
+                    bint supports_long_fnames=False) except -1:
         """
         Encodes the given value to OSON.
         """
@@ -825,7 +830,7 @@ cdef class OsonEncoder(GrowableBuffer):
             uint16_t flags
 
         # determine the flags to use
-        self.max_fname_size = max_fname_size
+        self.max_fname_size = 65535 if supports_long_fnames else 255
         self._determine_flags(value, &flags)
 
         # encode values into tree segment

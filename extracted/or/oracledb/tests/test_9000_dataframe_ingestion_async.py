@@ -26,6 +26,7 @@
 Module for testing DataFrame ingestion with asyncio
 """
 
+import pandas
 import pytest
 import datetime
 import decimal
@@ -87,8 +88,7 @@ async def test_9000(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName",
@@ -96,8 +96,7 @@ async def test_9000(async_conn, async_cursor, empty_tab):
             DateOfBirth as "DateOfBirth"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -128,8 +127,7 @@ async def test_9001(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName",
@@ -137,8 +135,7 @@ async def test_9001(async_conn, async_cursor, empty_tab):
             DateOfBirth as "DateOfBirth"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -152,13 +149,11 @@ async def test_9002(async_conn, async_cursor, empty_tab):
         "insert into TestDataFrame (Id) values (:1)", df
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select Id as "Id"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -182,16 +177,14 @@ async def test_9003(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             LongData as "LongData",
             LongRawData as "LongRawData"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -261,16 +254,14 @@ async def test_9005(skip_unless_native_boolean_supported, async_conn):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             IntCol as "IntCol",
             BooleanCol1 as "BooleanCol1",
             BooleanCol2 as "BooleanCol2"
         from TestBooleans
         order by IntCol
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -299,15 +290,13 @@ async def test_9006(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             LastUpdated as "LastUpdated"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -388,16 +377,14 @@ async def test_9010(async_conn, async_cursor):
             df,
         )
         await async_conn.commit()
-        odf = await async_conn.fetch_df_all(
-            """
+        odf = await async_conn.fetch_df_all("""
             select
                 Id as "Id",
                 FirstName as "FirstName",
                 Salary as "Salary"
             from TestDataFrame
             order by Id
-            """
-        )
+            """)
         fetched_df = pyarrow.table(odf)
         assert fetched_df.equals(df)
 
@@ -432,13 +419,11 @@ async def test_9011(async_conn, async_cursor, empty_tab):
     )
     await async_conn.commit()
     query_values = ",".join(f'{name} as "{name}"' for name in names)
-    odf = await async_conn.fetch_df_all(
-        f"""
+    odf = await async_conn.fetch_df_all(f"""
         select {query_values}
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -461,16 +446,14 @@ async def test_9012(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             LongData as "LongData",
             LongRawData as "LongRawData"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -503,15 +486,13 @@ async def test_9013(async_conn, async_cursor, empty_tab, test_env):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -591,15 +572,13 @@ async def test_9015(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             LastUpdated as "LastUpdated"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -625,16 +604,14 @@ async def test_9016(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    odf = await async_conn.fetch_df_all(
-        """
+    odf = await async_conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName",
             Salary as "Salary"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -688,13 +665,11 @@ async def test_9017(skip_unless_sparse_vectors_supported, async_conn):
     )
     await async_conn.commit()
     query_names = ",".join(f'{name} as "{name}"' for name in names)
-    odf = await async_conn.fetch_df_all(
-        f"""
+    odf = await async_conn.fetch_df_all(f"""
         select {query_names}
         from TestSparseVectors
         order by IntCol
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -849,13 +824,11 @@ async def test_9018(skip_unless_vectors_supported, async_conn, async_cursor):
     )
     await async_conn.commit()
     query_names = ",".join(f'{name} as "{name}"' for name in names)
-    odf = await async_conn.fetch_df_all(
-        f"""
+    odf = await async_conn.fetch_df_all(f"""
         select {query_names}
         from TestVectors
         order by IntCol
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -890,13 +863,11 @@ async def test_9019(values, dtype, async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    await async_cursor.execute(
-        """
+    await async_cursor.execute("""
         select to_char(LongIntegerData)
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_values = [int(s) async for s, in async_cursor]
     assert fetched_values == values
 
@@ -938,13 +909,11 @@ async def test_9020(values, dtype, async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    await async_cursor.execute(
-        """
+    await async_cursor.execute("""
         select DateOfBirth
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_values = [d async for d, in async_cursor]
     assert fetched_values == values
 
@@ -1038,12 +1007,63 @@ async def test_9023(async_conn, async_cursor, empty_tab):
         df,
     )
     await async_conn.commit()
-    await async_cursor.execute(
-        """
+    await async_cursor.execute("""
         select DateOfBirth
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_values = [d async for d, in async_cursor]
     assert fetched_values == values
+
+
+async def test_9024(async_conn, async_cursor, empty_tab):
+    "9024 - test ingestion with data frame view"
+    input_df = pandas.DataFrame({"Id": [1, 2, 3]}).convert_dtypes(
+        dtype_backend="pyarrow"
+    )
+    df = input_df.iloc[1:2]
+    await async_cursor.executemany(
+        "insert into TestDataFrame (Id) values (:1)", df
+    )
+    await async_conn.commit()
+    odf = await async_conn.fetch_df_all("""
+        select Id as "Id"
+        from TestDataFrame
+        order by Id
+        """)
+    fetched_df = pyarrow.table(odf)
+    assert fetched_df.equals(pyarrow.table(df))
+
+
+async def test_9025(test_env, async_conn, async_cursor, empty_tab):
+    "9025 - test ingestion with string and binary views"
+    short_str = "Short"
+    short_raw = bytes.fromhex("1F3D527A9BC4")
+    long_str = "Long " * 200
+    long_raw = bytes.fromhex("9ACB413FD257") * 200
+    arrays = [
+        pyarrow.array([1, 2], pyarrow.int64()),
+        pyarrow.array([short_str, long_str], pyarrow.string_view()),
+        pyarrow.array([long_raw, short_raw], pyarrow.binary_view()),
+    ]
+    names = ["Id", "LongData", "LongRawData"]
+    df = pyarrow.table(arrays, names)
+    await async_cursor.executemany(
+        """
+        insert into TestDataFrame (Id, LongData, LongRawData)
+        values (:1, :2, :3)
+        """,
+        df,
+    )
+    await async_conn.commit()
+    odf = await async_conn.fetch_df_all("""
+        select
+            Id as "Id",
+            LongData as "LongData",
+            LongRawData as "LongRawData"
+        from TestDataFrame
+        order by Id
+        """)
+    expected_data = test_env.get_data_from_df(df.to_pandas())
+    fetched_data = test_env.get_data_from_df(pyarrow.table(odf).to_pandas())
+    assert fetched_data == expected_data

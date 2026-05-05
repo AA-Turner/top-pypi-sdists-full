@@ -55,6 +55,7 @@ from .types import ApiFetchContentsResponseSuccess
 from .types import ReloadRegion
 from .types import ReloadOperationError
 from .types import ReloadOperationException
+from .types import ReloadOperationFile
 from .types import ReloadOperationObject
 from .types import ReloadOperationRun
 from .types import ReloadOperationUI
@@ -62,7 +63,6 @@ from .types import ReloadOperationUI
 
 class ReloadRun(NamedTuple):
     activity: EventSource
-    thread: threading.Thread
 
 
 class ReloadServer:
@@ -115,16 +115,22 @@ class ReloadServer:
             return  ApiCreateReloadResponseError(status='alreadyReloading')
 
         filepath = (Path.cwd() / req.filepath).resolve()
-        if not filepath.is_relative_to(Path.cwd()) or (code_file := self.registry.get(str(filepath))) is None:
+        if not filepath.is_relative_to(Path.cwd()):
             return  ApiCreateReloadResponseError(status='fileNotFound')
 
-        Path(req.filepath).write_text(req.contents)
+        created = not filepath.exists()
+        filepath.write_text(req.contents)
         activity = EventSource(save_history=True) # TODO: Generic EventSource[ApiGetReloadEventSourceMessage]
-        code_file.activity = activity
-
-        thread = create_thread(self.run_reload, code_file)
         reload_id = str(uuid4()) if req.reloadId is None else req.reloadId
-        self.reload_runs[reload_id] = ReloadRun(activity, thread)
+        self.reload_runs[reload_id] = ReloadRun(activity)
+
+        if (code_file := self.registry.get(str(filepath))) is None:
+            activity.emit(ApiGetReloadEventSourceData(data=ReloadOperationFile(kind='file', created=created)))
+            activity.emit(None)
+            return ApiCreateReloadResponseSuccess(status='created', reloadId=reload_id)
+
+        code_file.activity = activity
+        thread = create_thread(self.run_reload, code_file)
         self.active_reload_id = reload_id
         thread.start()
 
@@ -149,7 +155,7 @@ class ReloadServer:
 
         reload_id = req.reloadId
         if (run := self.reload_runs.get(reload_id, None)) is None:
-            raise HTTPException(404, f"{reload_id=} not found")
+            raise HTTPException(204, f"{reload_id=} not found")
 
         queue = Queue()
         run.activity.register(queue.put, apply_history=True)
@@ -166,7 +172,7 @@ class ReloadServer:
             for data in activity_stream(queue):
                 yield data.model_dump_json()
 
-        return EventSourceResponse(event_source_stream())
+        return EventSourceResponse(event_source_stream(), ping=5)
 
 
     def run_reload(self, code_file: CodeFile):
@@ -211,7 +217,7 @@ def serialize_code_operation(cf_operation: CodeFileOperation):
         if isinstance(cf_operation, AddOperation):
             kind = 'add'
         elif isinstance(cf_operation, UpdateOperation):
-            if not isinstance(defn, FunctionDefinition):
+            if not isinstance(defn, (ClassDefinition, FunctionDefinition)):
                 return None
             kind = 'update'
         else:

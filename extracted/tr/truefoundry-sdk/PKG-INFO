@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: truefoundry-sdk
-Version: 0.3.3
+Version: 0.3.4
 Summary: 
-Requires-Python: >=3.8
+Requires-Python: >=3.10,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -11,8 +11,6 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,11 +20,11 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp (>=3.10.0,<4) ; extra == "aiohttp"
+Requires-Dist: aiohttp (>=3.13.4,<4) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: httpx (>=0.21.2)
-Requires-Dist: httpx-aiohttp (==0.1.8) ; extra == "aiohttp"
+Requires-Dist: httpx-aiohttp (==0.1.8) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2,<2.44.0)
+Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
 Requires-Dist: typing_extensions (>=4.0.0)
 Project-URL: Repository, https://github.com/truefoundry/truefoundry-python-sdk
 Description-Content-Type: text/markdown
@@ -231,11 +229,21 @@ The SDK is instrumented with automatic retries with exponential backoff. A reque
 as the request is deemed retryable and the number of retry attempts has not grown larger than the configured
 retry limit (default: 2).
 
-A request is deemed retryable when any of the following HTTP status codes is returned:
+Which status codes are retried depends on the `retryStatusCodes` generator configuration:
 
+**`legacy`** (current default): retries on
 - [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
+- [409](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409) (Conflict)
 - [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
-- [5XX](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500) (Internal Server Errors)
+- [5XX](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses) (All server errors, including 500)
+
+**`recommended`**: retries on
+- [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
+- [409](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409) (Conflict)
+- [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
+- [502](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502) (Bad Gateway)
+- [503](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503) (Service Unavailable)
+- [504](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504) (Gateway Timeout)
 
 Use the `max_retries` request option to configure this behavior.
 

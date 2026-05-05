@@ -9,12 +9,7 @@ import pytest
 
 from tests.utils import assert_matches_type
 from scale_gp_beta import SGPClient, AsyncSGPClient
-from scale_gp_beta.types import (
-    SecretListResponse,
-    SecretCreateResponse,
-    SecretUpdateResponse,
-    SecretRetrieveResponse,
-)
+from scale_gp_beta.types import CloudSecret
 from scale_gp_beta.pagination import SyncCursorPage, AsyncCursorPage
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -29,7 +24,7 @@ class TestSecrets:
             key="key",
             value="x",
         )
-        assert_matches_type(SecretCreateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_method_create_with_all_params(self, client: SGPClient) -> None:
@@ -38,7 +33,7 @@ class TestSecrets:
             value="x",
             description="description",
         )
-        assert_matches_type(SecretCreateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_raw_response_create(self, client: SGPClient) -> None:
@@ -50,7 +45,7 @@ class TestSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = response.parse()
-        assert_matches_type(SecretCreateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_streaming_response_create(self, client: SGPClient) -> None:
@@ -62,7 +57,7 @@ class TestSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = response.parse()
-            assert_matches_type(SecretCreateResponse, secret, path=["response"])
+            assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -71,7 +66,7 @@ class TestSecrets:
         secret = client.secrets.retrieve(
             "secret_id",
         )
-        assert_matches_type(SecretRetrieveResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: SGPClient) -> None:
@@ -82,7 +77,7 @@ class TestSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = response.parse()
-        assert_matches_type(SecretRetrieveResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_streaming_response_retrieve(self, client: SGPClient) -> None:
@@ -93,7 +88,7 @@ class TestSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = response.parse()
-            assert_matches_type(SecretRetrieveResponse, secret, path=["response"])
+            assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -109,7 +104,7 @@ class TestSecrets:
         secret = client.secrets.update(
             secret_id="secret_id",
         )
-        assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_method_update_with_all_params(self, client: SGPClient) -> None:
@@ -118,7 +113,7 @@ class TestSecrets:
             description="description",
             value="x",
         )
-        assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_raw_response_update(self, client: SGPClient) -> None:
@@ -129,7 +124,7 @@ class TestSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = response.parse()
-        assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_streaming_response_update(self, client: SGPClient) -> None:
@@ -140,7 +135,7 @@ class TestSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = response.parse()
-            assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+            assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -154,7 +149,7 @@ class TestSecrets:
     @parametrize
     def test_method_list(self, client: SGPClient) -> None:
         secret = client.secrets.list()
-        assert_matches_type(SyncCursorPage[SecretListResponse], secret, path=["response"])
+        assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     def test_method_list_with_all_params(self, client: SGPClient) -> None:
@@ -165,7 +160,7 @@ class TestSecrets:
             sort_order="asc",
             starting_after="starting_after",
         )
-        assert_matches_type(SyncCursorPage[SecretListResponse], secret, path=["response"])
+        assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: SGPClient) -> None:
@@ -174,7 +169,7 @@ class TestSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = response.parse()
-        assert_matches_type(SyncCursorPage[SecretListResponse], secret, path=["response"])
+        assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     def test_streaming_response_list(self, client: SGPClient) -> None:
@@ -183,7 +178,7 @@ class TestSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = response.parse()
-            assert_matches_type(SyncCursorPage[SecretListResponse], secret, path=["response"])
+            assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -237,7 +232,7 @@ class TestAsyncSecrets:
             key="key",
             value="x",
         )
-        assert_matches_type(SecretCreateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncSGPClient) -> None:
@@ -246,7 +241,7 @@ class TestAsyncSecrets:
             value="x",
             description="description",
         )
-        assert_matches_type(SecretCreateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
@@ -258,7 +253,7 @@ class TestAsyncSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = await response.parse()
-        assert_matches_type(SecretCreateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncSGPClient) -> None:
@@ -270,7 +265,7 @@ class TestAsyncSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = await response.parse()
-            assert_matches_type(SecretCreateResponse, secret, path=["response"])
+            assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -279,7 +274,7 @@ class TestAsyncSecrets:
         secret = await async_client.secrets.retrieve(
             "secret_id",
         )
-        assert_matches_type(SecretRetrieveResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncSGPClient) -> None:
@@ -290,7 +285,7 @@ class TestAsyncSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = await response.parse()
-        assert_matches_type(SecretRetrieveResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncSGPClient) -> None:
@@ -301,7 +296,7 @@ class TestAsyncSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = await response.parse()
-            assert_matches_type(SecretRetrieveResponse, secret, path=["response"])
+            assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -317,7 +312,7 @@ class TestAsyncSecrets:
         secret = await async_client.secrets.update(
             secret_id="secret_id",
         )
-        assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncSGPClient) -> None:
@@ -326,7 +321,7 @@ class TestAsyncSecrets:
             description="description",
             value="x",
         )
-        assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncSGPClient) -> None:
@@ -337,7 +332,7 @@ class TestAsyncSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = await response.parse()
-        assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+        assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncSGPClient) -> None:
@@ -348,7 +343,7 @@ class TestAsyncSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = await response.parse()
-            assert_matches_type(SecretUpdateResponse, secret, path=["response"])
+            assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -362,7 +357,7 @@ class TestAsyncSecrets:
     @parametrize
     async def test_method_list(self, async_client: AsyncSGPClient) -> None:
         secret = await async_client.secrets.list()
-        assert_matches_type(AsyncCursorPage[SecretListResponse], secret, path=["response"])
+        assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncSGPClient) -> None:
@@ -373,7 +368,7 @@ class TestAsyncSecrets:
             sort_order="asc",
             starting_after="starting_after",
         )
-        assert_matches_type(AsyncCursorPage[SecretListResponse], secret, path=["response"])
+        assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncSGPClient) -> None:
@@ -382,7 +377,7 @@ class TestAsyncSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         secret = await response.parse()
-        assert_matches_type(AsyncCursorPage[SecretListResponse], secret, path=["response"])
+        assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncSGPClient) -> None:
@@ -391,7 +386,7 @@ class TestAsyncSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             secret = await response.parse()
-            assert_matches_type(AsyncCursorPage[SecretListResponse], secret, path=["response"])
+            assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

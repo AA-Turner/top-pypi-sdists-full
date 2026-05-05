@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qcodes
-Version: 0.57.0
+Version: 0.58.0
 Summary: Python-based data acquisition framework developed by the Copenhagen / Delft / Sydney / Microsoft quantum computing consortium
 Maintainer-email: QCoDeS Core Developers <qcodes-support@microsoft.com>
 License-Expression: MIT

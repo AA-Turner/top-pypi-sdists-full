@@ -48,16 +48,9 @@ def get_default_optlib_eco():
         optlib = "cmaes"
     elif importlib.util.find_spec("nevergrad"):
         optlib = "nevergrad"
-    elif importlib.util.find_spec("optuna"):
-        optlib = "optuna"
     else:
-        optlib = "random"
-        warnings.warn(
-            "Couldn't find `optuna`, `cmaes`, or `nevergrad` so will use "
-            "completely random sampling in place of hyper-optimization. "
-            "It is recommended to install one of these libraries for higher "
-            "quality contraction paths."
-        )
+        # cotengra's dependency free steady state evolutionary strategy
+        optlib = "sses"
     return optlib
 
 
@@ -68,21 +61,15 @@ def get_default_optlib():
         optlib = "optuna"
     elif importlib.util.find_spec("cmaes"):
         optlib = "cmaes"
-    elif importlib.util.find_spec("nevergrad"):
-        optlib = "nevergrad"
     else:
-        optlib = "random"
-        warnings.warn(
-            "Couldn't find `optuna`, `cmaes`, or `nevergrad` so will use "
-            "completely random sampling in place of hyper-optimization. "
-            "It is recommended to install one of these libraries for higher "
-            "quality hyper-optimization."
-        )
+        # cotengra's dependency free implementation of Nelder-Mead Subplex
+        optlib = "sbplx"
     return optlib
 
 
 _PATH_FNS = {}
 _OPTLIB_FNS = {}
+_OPTLIB_DEFAULTS = {}
 _HYPER_SEARCH_SPACE = {}
 _HYPER_CONSTANTS = {}
 
@@ -95,8 +82,75 @@ def get_hyper_constants():
     return _HYPER_CONSTANTS
 
 
-def register_hyper_optlib(name, init_optimizers, get_setting, report_result):
-    _OPTLIB_FNS[name] = (init_optimizers, get_setting, report_result)
+class HyperOptLib:
+    """Base class for hyper-optimization library interfaces.
+
+    Subclasses should implement ``setup``, ``get_setting``, and
+    ``report_result``.
+    """
+
+    def setup(self, methods, space, optimizer=None, **kwargs):
+        """Initialize the optimizer state.
+
+        Parameters
+        ----------
+        methods : list[str]
+            The list of contraction methods to optimize over.
+        space : dict[str, dict[str, dict]]
+            The search space for each method.
+        optimizer : HyperOptimizer, optional
+            The parent ``HyperOptimizer`` instance, for accessing
+            attributes like ``max_repeats``.
+        kwargs
+            Extra options specific to the optimizer library.
+        """
+        raise NotImplementedError
+
+    def get_setting(self):
+        """Suggest the next setting to trial.
+
+        Returns
+        -------
+        setting : dict
+            Must contain at least ``{"method": str, "params": dict}``.
+            May also include tokens for reporting.
+        """
+        raise NotImplementedError
+
+    def report_result(self, setting, trial, score):
+        """Report the result of a trial.
+
+        Parameters
+        ----------
+        setting : dict
+            The setting dict returned by ``get_setting``.
+        trial : dict
+            The trial result dict.
+        score : float
+            The scalar score for this trial.
+        """
+        raise NotImplementedError
+
+    def cleanup(self):
+        """Clean up any resources (threads, connections, etc.).
+
+        Called at the end of each ``HyperOptimizer._search()`` run.
+        The default implementation does nothing.
+        """
+
+
+def register_hyper_optlib(name, cls, defaults=None):
+    """Register a hyper-optimization library backend.
+
+    Parameters
+    ----------
+    name : str
+        The name of the backend.
+    cls : type
+        A ``HyperOptLib`` subclass.
+    """
+    _OPTLIB_FNS[name] = cls
+    _OPTLIB_DEFAULTS[name] = defaults or {}
 
 
 def register_hyper_function(name, ssa_func, space, constants=None):
@@ -126,7 +180,20 @@ def list_hyper_functions():
 
 
 def base_trial_fn(inputs, output, size_dict, method, **kwargs):
-    tree = _PATH_FNS[method](inputs, output, size_dict, **kwargs)
+
+    # NOTE: for 1 or 2 inputs there is no optimization to be done, so we
+    # shortcut here. We might even sooner in `search`, but then we wouldn't
+    # generate any 'trials', even if they are identical.
+    N = len(inputs)
+    if N == 1:
+        tree = ContractionTree(inputs, output, size_dict)
+    elif N == 2:
+        tree = ContractionTree.from_path(
+            inputs, output, size_dict, path=[(0, 1)]
+        )
+    else:
+        tree = _PATH_FNS[method](inputs, output, size_dict, **kwargs)
+
     return {"tree": tree}
 
 
@@ -312,12 +379,19 @@ class ComputeScore:
         ti = time.time()
         try:
             trial = self.fn(*args, **kwargs)
-            trial["score"] = self.score_fn(trial) ** self.score_compression
-            # random smudge is for baytune/scikit-learn nan/inf bug
-            trial["score"] += self.rng.gauss(0.0, self.score_smudge)
+            score = self.score_fn(trial)
+            trial["score"] = score
+            # modify score to tell to the optimizer slightly:
+            trial["score_optimize"] = (
+                # compression controls exploration/exploitation
+                (score**self.score_compression)
+                # random smudge is for scikit-learn nan/inf bug
+                + self.rng.gauss(0.0, self.score_smudge)
+            )
         except BadTrial:
             trial = {
                 "score": float("inf"),
+                "score_optimize": float("inf"),
                 "flops": float("inf"),
                 "write": float("inf"),
                 "size": float("inf"),
@@ -333,6 +407,7 @@ class ComputeScore:
                 )
             trial = {
                 "score": float("inf"),
+                "score_optimize": float("inf"),
                 "flops": float("inf"),
                 "write": float("inf"),
                 "size": float("inf"),
@@ -355,7 +430,16 @@ def progress_description(best, info="concise"):
 
 class HyperOptimizer(PathOptimizer):
     """A path optimizer that samples a series of contraction trees
-    while optimizing the hyper parameters used to generate them.
+    while optimizing the hyper parameters used to generate them. The drivers
+    specified in ``methods`` are used to generate the trial contraction trees
+    according to certain hyper-parameters, and the results are scored according
+    to ``minimize`` and fed back to ``optlib`` to suggest new parameters.
+
+    If any of ``simulated_annealing_opts``, ``slicing_opts``,
+    ``slicing_reconf_opts``, or ``reconf_opts`` are supplied, then once a trial
+    tree is generated, it will be modified by the corresponding options (and in
+    the order above) and the flops and size of the trial will be updated to the
+    modified version, before the score is reported.
 
     Parameters
     ----------
@@ -364,7 +448,8 @@ class HyperOptimizer(PathOptimizer):
     minimize : str, Objective or callable, optional
         How to score each trial, used to train the optimizer and rank the
         results. If a custom callable, it should take a ``trial`` dict as its
-        argument and return a single float.
+        argument and return a single float. It is also supplied by default to
+        any relevant refinement stages, such as subtree reconfiguration.
     max_repeats : int, optional
         The maximum number of trial contraction trees to generate.
         Default: 128.
@@ -376,21 +461,54 @@ class HyperOptimizer(PathOptimizer):
         searching, allowing quick termination on easy contractions.
     parallel : 'auto', False, True, int, or distributed.Client
         Whether to parallelize the search.
+    simulated_annealing_opts : dict, optional
+        If supplied, once a trial contraction path is found, refine it using
+        simulated annealing with the given options, and then update the flops
+        and size of the trial with the refined version. Notable options and
+        defaults:
+
+        - `tsteps=50`: number of temperature steps,
+        - `target_size`: simulteneously slice the tree to this size,
+        - `tfinal=0.05`: final temperature,
+        - `tstart=2`: initial temperature.
+
+        See :meth:`ContractionTree.simulated_anneal` for full details.
     slicing_opts : dict, optional
         If supplied, once a trial contraction path is found, try slicing with
         the given options, and then update the flops and size of the trial with
-        the sliced versions.
+        the sliced versions. Notable options:
+
+        - `target_size`: slice until reaching this size,
+        - `target_slices`: slice into this many slices.
+
+        See :meth:`ContractionTree.slice` for full details.
     slicing_reconf_opts : dict, optional
         If supplied, once a trial contraction path is found, try slicing
         interleaved with subtree reconfiguation with the given options, and
         then update the flops and size of the trial with the sliced and
         reconfigured versions.
+
+        - `target_size`: slice until reaching this size,
+        - `reconf_opts`: options passed to the subtree reconfiguration stage,
+          see below.
+
+        See :meth:`ContractionTree.slice_and_reconfigure` for full details.
     reconf_opts : dict, optional
         If supplied, once a trial contraction path is found, try subtree
         reconfiguation with the given options, and then update the flops and
-        size of the trial with the reconfigured versions.
-    optlib : {'optuna', 'cmaes', 'nevergrad', 'skopt', ...}, optional
+        size of the trial with the reconfigured versions. Notable options and
+        defaults are:
+
+        - `subtree_size=6`: size of subtree to optimally reconfigure,
+        - `maxiter="auto"`: maximum number of subtree reconfigurations, by
+          default scales with size of contraction (up to 1024),
+        - `select='max'`: which subtrees to prioritize for reconfiguration.
+
+        See :meth:`ContractionTree.subtree_reconfigure` for full details.
+    optlib : {'optuna', 'cmaes', 'nevergrad', 'sses', 'sbplx', ...}, optional
         Which optimizer to sample and train with.
+    optlib_opts
+        Supplied to the hyper-optimizer library initialization.
     space : dict, optional
         The hyper space to search, see ``get_hyper_space`` for the default.
     score_compression : float, optional
@@ -406,10 +524,15 @@ class HyperOptimizer(PathOptimizer):
         The maximum number of trials to train the optimizer with. Setting this
         can be helpful when the optimizer itself becomes costly to train (e.g.
         for Gaussian Processes).
+    constants : dict[dict], optional
+        A dict mapping method name to a dict of constant parameters to pass to
+        the trial function for that method. Any parameters specified here will
+        override those in the search space.
     progbar : bool, optional
         Show live progress of the best contraction found so far.
-    optlib_opts
-        Supplied to the hyper-optimizer library initialization.
+    kwargs
+        Extra options to pass to the optimizer library initialization, on top
+        of those in ``optlib_opts`` (which take precedence).
     """
 
     compressed = False
@@ -422,17 +545,19 @@ class HyperOptimizer(PathOptimizer):
         max_repeats=128,
         max_time=None,
         parallel="auto",
-        simulated_annealing_opts=None,
-        slicing_opts=None,
-        slicing_reconf_opts=None,
-        reconf_opts=None,
+        simulated_annealing_opts="auto",
+        slicing_opts="auto",
+        slicing_reconf_opts="auto",
+        reconf_opts="auto",
         optlib=None,
+        optlib_opts=None,
         space=None,
         score_compression=0.75,
         on_trial_error="warn",
         max_training_steps=None,
+        constants=None,
         progbar=False,
-        **optlib_opts,
+        **kwargs,
     ):
         self.max_repeats = max_repeats
         self._repeats_start = 0
@@ -447,12 +572,51 @@ class HyperOptimizer(PathOptimizer):
         self.costs_write = []
         self.costs_size = []
 
+        # refinement steps
+        if (
+            (simulated_annealing_opts == "auto")
+            and (slicing_opts == "auto")
+            and (slicing_reconf_opts == "auto")
+            and (reconf_opts == "auto")
+        ):
+            # default to subtree reconfiguration only
+            simulated_annealing_opts = None
+            slicing_opts = None
+            slicing_reconf_opts = None
+            reconf_opts = {}
+
+        self.simulated_annealing_opts = (
+            None
+            if simulated_annealing_opts in ("auto", None)
+            else dict(simulated_annealing_opts)
+        )
+        self.slicing_opts = (
+            None if slicing_opts in ("auto", None) else dict(slicing_opts)
+        )
+        self.reconf_opts = (
+            None if reconf_opts in ("auto", None) else dict(reconf_opts)
+        )
+        self.slicing_reconf_opts = (
+            None
+            if slicing_reconf_opts in ("auto", None)
+            else dict(slicing_reconf_opts)
+        )
+
         if methods is None:
             self._methods = get_default_hq_methods()
         elif isinstance(methods, str):
             self._methods = [methods]
         else:
             self._methods = list(methods)
+
+        if constants is None:
+            self._constants = {method: {} for method in self._methods}
+        else:
+            self._constants = dict(constants)
+
+        for method in self._methods:
+            for k, v in _HYPER_CONSTANTS[method].items():
+                self._constants[method].setdefault(k, v)
 
         if optlib is None:
             optlib = get_default_optlib()
@@ -468,28 +632,18 @@ class HyperOptimizer(PathOptimizer):
         self.best = {"score": inf, "size": inf, "flops": inf}
         self.trials_since_best = 0
 
-        self.simulated_annealing_opts = (
-            None
-            if simulated_annealing_opts is None
-            else dict(simulated_annealing_opts)
-        )
-        self.slicing_opts = (
-            None if slicing_opts is None else dict(slicing_opts)
-        )
-        self.reconf_opts = None if reconf_opts is None else dict(reconf_opts)
-        self.slicing_reconf_opts = (
-            None if slicing_reconf_opts is None else dict(slicing_reconf_opts)
-        )
-        self.progbar = progbar
-
         if space is None:
             space = get_hyper_space()
 
-        self._optimizer = dict(
-            zip(["init", "get_setting", "report_result"], _OPTLIB_FNS[optlib])
+        self._optimizer = _OPTLIB_FNS[optlib]()
+        optlib_opts = _OPTLIB_DEFAULTS[optlib] | kwargs | (optlib_opts or {})
+        self._optimizer.setup(
+            self._methods,
+            space,
+            optimizer=self,
+            **optlib_opts,
         )
-
-        self._optimizer["init"](self, self._methods, space, **optlib_opts)
+        self.progbar = progbar
 
     @property
     def minimize(self):
@@ -587,14 +741,16 @@ class HyperOptimizer(PathOptimizer):
             (self.max_training_steps is None)
             or (len(self.scores) < self.max_training_steps)
             or new_best
-        ) and (
-            # don't report bad trials
-            # XXX: should we map to some high value?
-            trial["score"] < float("inf")
+            # always report inf-scored trials so sampler internal state
+            # (e.g. init-phase counters) stays consistent, the optlib itself
+            # can decide to ignore these if it wants to
+            or trial["score"] == float("inf")
         )
 
         if should_report:
-            self._optimizer["report_result"](self, setting, trial, score)
+            # this has compression and smudge applied
+            score_optimize = trial["score_optimize"]
+            self._optimizer.report_result(setting, trial, score_optimize)
 
         self.method_choices.append(setting["method"])
         self.param_choices.append(setting["params"])
@@ -606,18 +762,18 @@ class HyperOptimizer(PathOptimizer):
         self.times.append(trial["time"])
 
     def _gen_results(self, repeats, trial_fn, trial_args):
-        constants = get_hyper_constants()
 
         for _ in repeats:
-            setting = self._optimizer["get_setting"](self)
+            setting = self._optimizer.get_setting()
             method = setting["method"]
 
-            trial = trial_fn(
-                *trial_args,
-                method=method,
+            trial_kwargs = {
+                "method": method,
                 **setting["params"],
-                **constants[method],
-            )
+                **self._constants[method],
+            }
+
+            trial = trial_fn(*trial_args, **trial_kwargs)
 
             self._maybe_report_result(setting, trial)
 
@@ -640,7 +796,7 @@ class HyperOptimizer(PathOptimizer):
         self._futures = []
 
         for _ in repeats:
-            setting = self._optimizer["get_setting"](self)
+            setting = self._optimizer.get_setting()
             method = setting["method"]
 
             future = submit(
@@ -736,6 +892,7 @@ class HyperOptimizer(PathOptimizer):
             pbar.close()
 
         self._maybe_cancel_futures()
+        self._optimizer.cleanup()
 
     def search(self, inputs, output, size_dict):
         """Run this optimizer and return the ``ContractionTree`` for the best
@@ -979,7 +1136,7 @@ class HyperCompressedOptimizer(HyperOptimizer):
         If supplied, once a trial contraction path is found, try subtree
         reconfiguation with the given options, and then update the flops and
         size of the trial with the reconfigured versions.
-    optlib : {'baytune', 'nevergrad', 'chocolate', 'skopt'}, optional
+    optlib : {'cmaes', 'optuna', 'nevergrad', 'skopt', ...}, optional
         Which optimizer to sample and train with.
     space : dict, optional
         The hyper space to search, see ``get_hyper_space`` for the default.
@@ -1005,6 +1162,8 @@ class HyperCompressedOptimizer(HyperOptimizer):
         chi=None,
         methods=("greedy-compressed", "greedy-span", "kahypar-agglom"),
         minimize="peak-compressed",
+        simulated_annealing_opts="auto",
+        reconf_opts="auto",
         **kwargs,
     ):
         if (chi is not None) and not callable(minimize):
@@ -1013,14 +1172,20 @@ class HyperCompressedOptimizer(HyperOptimizer):
         kwargs["methods"] = methods
         kwargs["minimize"] = minimize
 
-        if kwargs.pop("slicing_opts", None) is not None:
+        if kwargs.pop("slicing_opts", None) not in (None, "auto"):
             raise ValueError(
                 "Cannot use slicing_opts with compressed contraction."
             )
-        if kwargs.pop("slicing_reconf_opts", None) is not None:
+        if kwargs.pop("slicing_reconf_opts", None) not in (None, "auto"):
             raise ValueError(
                 "Cannot use slicing_reconf_opts with compressed contraction."
             )
+
+        if simulated_annealing_opts == "auto" and reconf_opts == "auto":
+            # for compressed contraction, we turn these off
+            # TODO: benchmark the time vs cost benefit of using?
+            kwargs["simulated_annealing_opts"] = None
+            kwargs["reconf_opts"] = None
 
         super().__init__(**kwargs)
 

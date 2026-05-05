@@ -7,8 +7,9 @@ from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import jsonable_encoder
+from ..core.jsonable_encoder import encode_path_param
 from ..core.pagination import AsyncPager, SyncPager
+from ..core.parse_error import ParsingError
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.unchecked_base_model import construct_type
@@ -21,10 +22,10 @@ from ..types.import_api_request import ImportApiRequest
 from ..types.lse_project_create import LseProjectCreate
 from ..types.lse_project_response import LseProjectResponse
 from ..types.lse_project_update import LseProjectUpdate
-from ..types.mode_enum import ModeEnum
 from ..types.paginated_all_roles_project_list_list import PaginatedAllRolesProjectListList
 from ..types.paginated_lse_project_counts_list import PaginatedLseProjectCountsList
 from ..types.prediction_request import PredictionRequest
+from ..types.project_duplicate_mode_enum import ProjectDuplicateModeEnum
 from ..types.project_label_config import ProjectLabelConfig
 from ..types.review_settings_request import ReviewSettingsRequest
 from ..types.sampling_de5enum import SamplingDe5Enum
@@ -34,6 +35,7 @@ from ..types.user_simple_request import UserSimpleRequest
 from .types.duplicate_projects_response import DuplicateProjectsResponse
 from .types.import_predictions_projects_response import ImportPredictionsProjectsResponse
 from .types.import_tasks_projects_response import ImportTasksProjectsResponse
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -160,6 +162,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
@@ -169,10 +175,14 @@ class RawProjectsClient:
         color: typing.Optional[str] = OMIT,
         control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
+        custom_interface_code: typing.Optional[str] = OMIT,
+        custom_interface_compiled: typing.Optional[str] = OMIT,
+        custom_interface_params: typing.Optional[typing.Any] = OMIT,
         description: typing.Optional[str] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
+        input_schema: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -191,9 +201,12 @@ class RawProjectsClient:
         show_overlap_first: typing.Optional[bool] = OMIT,
         show_skip_button: typing.Optional[bool] = OMIT,
         skip_queue: typing.Optional[SkipQueueEnum] = OMIT,
+        source_interface_id: typing.Optional[int] = OMIT,
+        source_interface_version: typing.Optional[int] = OMIT,
         task_data_login: typing.Optional[str] = OMIT,
         task_data_password: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
+        use_custom_interface: typing.Optional[bool] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseProjectCreate]:
@@ -213,6 +226,12 @@ class RawProjectsClient:
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
 
+        custom_interface_code : typing.Optional[str]
+
+        custom_interface_compiled : typing.Optional[str]
+
+        custom_interface_params : typing.Optional[typing.Any]
+
         description : typing.Optional[str]
             Project Description
 
@@ -224,6 +243,8 @@ class RawProjectsClient:
 
         expert_instruction : typing.Optional[str]
             Labeling instructions in HTML format
+
+        input_schema : typing.Optional[typing.Any]
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -274,6 +295,10 @@ class RawProjectsClient:
 
         skip_queue : typing.Optional[SkipQueueEnum]
 
+        source_interface_id : typing.Optional[int]
+
+        source_interface_version : typing.Optional[int]
+
         task_data_login : typing.Optional[str]
             Task data credentials: login
 
@@ -282,6 +307,8 @@ class RawProjectsClient:
 
         title : typing.Optional[str]
             Project Title
+
+        use_custom_interface : typing.Optional[bool]
 
         workspace : typing.Optional[int]
             In Workspace
@@ -308,10 +335,14 @@ class RawProjectsClient:
                 "created_by": convert_and_respect_annotation_metadata(
                     object_=created_by, annotation=UserSimpleRequest, direction="write"
                 ),
+                "custom_interface_code": custom_interface_code,
+                "custom_interface_compiled": custom_interface_compiled,
+                "custom_interface_params": custom_interface_params,
                 "description": description,
                 "enable_empty_annotation": enable_empty_annotation,
                 "evaluate_predictions_automatically": evaluate_predictions_automatically,
                 "expert_instruction": expert_instruction,
+                "input_schema": input_schema,
                 "is_draft": is_draft,
                 "is_published": is_published,
                 "label_config": label_config,
@@ -330,9 +361,12 @@ class RawProjectsClient:
                 "show_overlap_first": show_overlap_first,
                 "show_skip_button": show_skip_button,
                 "skip_queue": skip_queue,
+                "source_interface_id": source_interface_id,
+                "source_interface_version": source_interface_version,
                 "task_data_login": task_data_login,
                 "task_data_password": task_data_password,
                 "title": title,
+                "use_custom_interface": use_custom_interface,
                 "workspace": workspace,
             },
             headers={
@@ -354,6 +388,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def list_counts(
@@ -449,6 +487,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get(
@@ -477,7 +519,7 @@ class RawProjectsClient:
             Project information. Not all fields are available for all roles.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/",
+            f"api/projects/{encode_path_param(id)}/",
             method="GET",
             params={
                 "members_limit": members_limit,
@@ -497,6 +539,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[None]:
@@ -515,7 +561,7 @@ class RawProjectsClient:
         HttpResponse[None]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/",
+            f"api/projects/{encode_path_param(id)}/",
             method="DELETE",
             request_options=request_options,
         )
@@ -525,6 +571,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def update(
@@ -546,12 +596,16 @@ class RawProjectsClient:
         comment_classification_config: typing.Optional[str] = OMIT,
         control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
+        custom_interface_code: typing.Optional[str] = OMIT,
+        custom_interface_compiled: typing.Optional[str] = OMIT,
+        custom_interface_params: typing.Optional[typing.Any] = OMIT,
         custom_script: typing.Optional[str] = OMIT,
         custom_task_lock_ttl: typing.Optional[int] = OMIT,
         description: typing.Optional[str] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
+        input_schema: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -575,10 +629,13 @@ class RawProjectsClient:
         show_skip_button: typing.Optional[bool] = OMIT,
         show_unused_data_columns_to_annotators: typing.Optional[bool] = OMIT,
         skip_queue: typing.Optional[SkipQueueEnum] = OMIT,
+        source_interface_id: typing.Optional[int] = OMIT,
+        source_interface_version: typing.Optional[int] = OMIT,
         strict_task_overlap: typing.Optional[bool] = OMIT,
         task_data_login: typing.Optional[str] = OMIT,
         task_data_password: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
+        use_custom_interface: typing.Optional[bool] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseProjectUpdate]:
@@ -635,6 +692,12 @@ class RawProjectsClient:
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
 
+        custom_interface_code : typing.Optional[str]
+
+        custom_interface_compiled : typing.Optional[str]
+
+        custom_interface_params : typing.Optional[typing.Any]
+
         custom_script : typing.Optional[str]
             Plugins
 
@@ -652,6 +715,8 @@ class RawProjectsClient:
 
         expert_instruction : typing.Optional[str]
             Instructions
+
+        input_schema : typing.Optional[typing.Any]
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -718,6 +783,10 @@ class RawProjectsClient:
 
         skip_queue : typing.Optional[SkipQueueEnum]
 
+        source_interface_id : typing.Optional[int]
+
+        source_interface_version : typing.Optional[int]
+
         strict_task_overlap : typing.Optional[bool]
             Enforce strict overlap limit
 
@@ -729,6 +798,8 @@ class RawProjectsClient:
 
         title : typing.Optional[str]
             Project Name
+
+        use_custom_interface : typing.Optional[bool]
 
         workspace : typing.Optional[int]
             Workspace
@@ -742,7 +813,7 @@ class RawProjectsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/",
+            f"api/projects/{encode_path_param(id)}/",
             method="PATCH",
             params={
                 "members_limit": members_limit,
@@ -770,12 +841,16 @@ class RawProjectsClient:
                 "created_by": convert_and_respect_annotation_metadata(
                     object_=created_by, annotation=UserSimpleRequest, direction="write"
                 ),
+                "custom_interface_code": custom_interface_code,
+                "custom_interface_compiled": custom_interface_compiled,
+                "custom_interface_params": custom_interface_params,
                 "custom_script": custom_script,
                 "custom_task_lock_ttl": custom_task_lock_ttl,
                 "description": description,
                 "enable_empty_annotation": enable_empty_annotation,
                 "evaluate_predictions_automatically": evaluate_predictions_automatically,
                 "expert_instruction": expert_instruction,
+                "input_schema": input_schema,
                 "is_draft": is_draft,
                 "is_published": is_published,
                 "label_config": label_config,
@@ -801,10 +876,13 @@ class RawProjectsClient:
                 "show_skip_button": show_skip_button,
                 "show_unused_data_columns_to_annotators": show_unused_data_columns_to_annotators,
                 "skip_queue": skip_queue,
+                "source_interface_id": source_interface_id,
+                "source_interface_version": source_interface_version,
                 "strict_task_overlap": strict_task_overlap,
                 "task_data_login": task_data_login,
                 "task_data_password": task_data_password,
                 "title": title,
+                "use_custom_interface": use_custom_interface,
                 "workspace": workspace,
             },
             headers={
@@ -826,6 +904,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def list_unique_annotators(
@@ -847,7 +929,7 @@ class RawProjectsClient:
             List of annotator users
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/annotators/",
+            f"api/projects/{encode_path_param(id)}/annotators/",
             method="GET",
             request_options=request_options,
         )
@@ -864,13 +946,17 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def duplicate(
         self,
         id: int,
         *,
-        mode: ModeEnum,
+        mode: ProjectDuplicateModeEnum,
         title: str,
         workspace: int,
         description: typing.Optional[str] = OMIT,
@@ -889,7 +975,7 @@ class RawProjectsClient:
         ----------
         id : int
 
-        mode : ModeEnum
+        mode : ProjectDuplicateModeEnum
             What to Duplicate (Project configuration only / Project configuration and tasks)
 
             * `settings` - Only settings
@@ -913,7 +999,7 @@ class RawProjectsClient:
             Project duplicated
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/duplicate/",
+            f"api/projects/{encode_path_param(id)}/duplicate/",
             method="POST",
             json={
                 "description": description,
@@ -940,6 +1026,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def import_tasks(
@@ -1045,7 +1135,7 @@ class RawProjectsClient:
             Tasks successfully imported or import queued. **For non-Community editions**, the response will be `{"import": <import_id>}` which you can use to poll the import status. **For Community edition**, the response contains task counts and is processed synchronously.
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/import",
+            f"api/projects/{encode_path_param(id)}/import",
             method="POST",
             params={
                 "commit_to_project": commit_to_project,
@@ -1085,6 +1175,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def import_predictions(
@@ -1113,7 +1207,7 @@ class RawProjectsClient:
             Predictions successfully imported
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/import/predictions",
+            f"api/projects/{encode_path_param(id)}/import/predictions",
             method="POST",
             json=convert_and_respect_annotation_metadata(
                 object_=request, annotation=typing.Sequence[PredictionRequest], direction="write"
@@ -1148,6 +1242,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def validate_label_config(
@@ -1173,7 +1271,7 @@ class RawProjectsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/validate/",
+            f"api/projects/{encode_path_param(id)}/validate/",
             method="POST",
             json={
                 "label_config": label_config,
@@ -1197,6 +1295,10 @@ class RawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -1324,6 +1426,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
@@ -1333,10 +1439,14 @@ class AsyncRawProjectsClient:
         color: typing.Optional[str] = OMIT,
         control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
+        custom_interface_code: typing.Optional[str] = OMIT,
+        custom_interface_compiled: typing.Optional[str] = OMIT,
+        custom_interface_params: typing.Optional[typing.Any] = OMIT,
         description: typing.Optional[str] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
+        input_schema: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -1355,9 +1465,12 @@ class AsyncRawProjectsClient:
         show_overlap_first: typing.Optional[bool] = OMIT,
         show_skip_button: typing.Optional[bool] = OMIT,
         skip_queue: typing.Optional[SkipQueueEnum] = OMIT,
+        source_interface_id: typing.Optional[int] = OMIT,
+        source_interface_version: typing.Optional[int] = OMIT,
         task_data_login: typing.Optional[str] = OMIT,
         task_data_password: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
+        use_custom_interface: typing.Optional[bool] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseProjectCreate]:
@@ -1377,6 +1490,12 @@ class AsyncRawProjectsClient:
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
 
+        custom_interface_code : typing.Optional[str]
+
+        custom_interface_compiled : typing.Optional[str]
+
+        custom_interface_params : typing.Optional[typing.Any]
+
         description : typing.Optional[str]
             Project Description
 
@@ -1388,6 +1507,8 @@ class AsyncRawProjectsClient:
 
         expert_instruction : typing.Optional[str]
             Labeling instructions in HTML format
+
+        input_schema : typing.Optional[typing.Any]
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -1438,6 +1559,10 @@ class AsyncRawProjectsClient:
 
         skip_queue : typing.Optional[SkipQueueEnum]
 
+        source_interface_id : typing.Optional[int]
+
+        source_interface_version : typing.Optional[int]
+
         task_data_login : typing.Optional[str]
             Task data credentials: login
 
@@ -1446,6 +1571,8 @@ class AsyncRawProjectsClient:
 
         title : typing.Optional[str]
             Project Title
+
+        use_custom_interface : typing.Optional[bool]
 
         workspace : typing.Optional[int]
             In Workspace
@@ -1472,10 +1599,14 @@ class AsyncRawProjectsClient:
                 "created_by": convert_and_respect_annotation_metadata(
                     object_=created_by, annotation=UserSimpleRequest, direction="write"
                 ),
+                "custom_interface_code": custom_interface_code,
+                "custom_interface_compiled": custom_interface_compiled,
+                "custom_interface_params": custom_interface_params,
                 "description": description,
                 "enable_empty_annotation": enable_empty_annotation,
                 "evaluate_predictions_automatically": evaluate_predictions_automatically,
                 "expert_instruction": expert_instruction,
+                "input_schema": input_schema,
                 "is_draft": is_draft,
                 "is_published": is_published,
                 "label_config": label_config,
@@ -1494,9 +1625,12 @@ class AsyncRawProjectsClient:
                 "show_overlap_first": show_overlap_first,
                 "show_skip_button": show_skip_button,
                 "skip_queue": skip_queue,
+                "source_interface_id": source_interface_id,
+                "source_interface_version": source_interface_version,
                 "task_data_login": task_data_login,
                 "task_data_password": task_data_password,
                 "title": title,
+                "use_custom_interface": use_custom_interface,
                 "workspace": workspace,
             },
             headers={
@@ -1518,6 +1652,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def list_counts(
@@ -1613,6 +1751,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get(
@@ -1641,7 +1783,7 @@ class AsyncRawProjectsClient:
             Project information. Not all fields are available for all roles.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/",
+            f"api/projects/{encode_path_param(id)}/",
             method="GET",
             params={
                 "members_limit": members_limit,
@@ -1661,6 +1803,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def delete(
@@ -1681,7 +1827,7 @@ class AsyncRawProjectsClient:
         AsyncHttpResponse[None]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/",
+            f"api/projects/{encode_path_param(id)}/",
             method="DELETE",
             request_options=request_options,
         )
@@ -1691,6 +1837,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def update(
@@ -1712,12 +1862,16 @@ class AsyncRawProjectsClient:
         comment_classification_config: typing.Optional[str] = OMIT,
         control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
+        custom_interface_code: typing.Optional[str] = OMIT,
+        custom_interface_compiled: typing.Optional[str] = OMIT,
+        custom_interface_params: typing.Optional[typing.Any] = OMIT,
         custom_script: typing.Optional[str] = OMIT,
         custom_task_lock_ttl: typing.Optional[int] = OMIT,
         description: typing.Optional[str] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
+        input_schema: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
@@ -1741,10 +1895,13 @@ class AsyncRawProjectsClient:
         show_skip_button: typing.Optional[bool] = OMIT,
         show_unused_data_columns_to_annotators: typing.Optional[bool] = OMIT,
         skip_queue: typing.Optional[SkipQueueEnum] = OMIT,
+        source_interface_id: typing.Optional[int] = OMIT,
+        source_interface_version: typing.Optional[int] = OMIT,
         strict_task_overlap: typing.Optional[bool] = OMIT,
         task_data_login: typing.Optional[str] = OMIT,
         task_data_password: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
+        use_custom_interface: typing.Optional[bool] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseProjectUpdate]:
@@ -1801,6 +1958,12 @@ class AsyncRawProjectsClient:
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
 
+        custom_interface_code : typing.Optional[str]
+
+        custom_interface_compiled : typing.Optional[str]
+
+        custom_interface_params : typing.Optional[typing.Any]
+
         custom_script : typing.Optional[str]
             Plugins
 
@@ -1818,6 +1981,8 @@ class AsyncRawProjectsClient:
 
         expert_instruction : typing.Optional[str]
             Instructions
+
+        input_schema : typing.Optional[typing.Any]
 
         is_draft : typing.Optional[bool]
             Whether or not the project is in the middle of being created
@@ -1884,6 +2049,10 @@ class AsyncRawProjectsClient:
 
         skip_queue : typing.Optional[SkipQueueEnum]
 
+        source_interface_id : typing.Optional[int]
+
+        source_interface_version : typing.Optional[int]
+
         strict_task_overlap : typing.Optional[bool]
             Enforce strict overlap limit
 
@@ -1895,6 +2064,8 @@ class AsyncRawProjectsClient:
 
         title : typing.Optional[str]
             Project Name
+
+        use_custom_interface : typing.Optional[bool]
 
         workspace : typing.Optional[int]
             Workspace
@@ -1908,7 +2079,7 @@ class AsyncRawProjectsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/",
+            f"api/projects/{encode_path_param(id)}/",
             method="PATCH",
             params={
                 "members_limit": members_limit,
@@ -1936,12 +2107,16 @@ class AsyncRawProjectsClient:
                 "created_by": convert_and_respect_annotation_metadata(
                     object_=created_by, annotation=UserSimpleRequest, direction="write"
                 ),
+                "custom_interface_code": custom_interface_code,
+                "custom_interface_compiled": custom_interface_compiled,
+                "custom_interface_params": custom_interface_params,
                 "custom_script": custom_script,
                 "custom_task_lock_ttl": custom_task_lock_ttl,
                 "description": description,
                 "enable_empty_annotation": enable_empty_annotation,
                 "evaluate_predictions_automatically": evaluate_predictions_automatically,
                 "expert_instruction": expert_instruction,
+                "input_schema": input_schema,
                 "is_draft": is_draft,
                 "is_published": is_published,
                 "label_config": label_config,
@@ -1967,10 +2142,13 @@ class AsyncRawProjectsClient:
                 "show_skip_button": show_skip_button,
                 "show_unused_data_columns_to_annotators": show_unused_data_columns_to_annotators,
                 "skip_queue": skip_queue,
+                "source_interface_id": source_interface_id,
+                "source_interface_version": source_interface_version,
                 "strict_task_overlap": strict_task_overlap,
                 "task_data_login": task_data_login,
                 "task_data_password": task_data_password,
                 "title": title,
+                "use_custom_interface": use_custom_interface,
                 "workspace": workspace,
             },
             headers={
@@ -1992,6 +2170,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def list_unique_annotators(
@@ -2013,7 +2195,7 @@ class AsyncRawProjectsClient:
             List of annotator users
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/annotators/",
+            f"api/projects/{encode_path_param(id)}/annotators/",
             method="GET",
             request_options=request_options,
         )
@@ -2030,13 +2212,17 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def duplicate(
         self,
         id: int,
         *,
-        mode: ModeEnum,
+        mode: ProjectDuplicateModeEnum,
         title: str,
         workspace: int,
         description: typing.Optional[str] = OMIT,
@@ -2055,7 +2241,7 @@ class AsyncRawProjectsClient:
         ----------
         id : int
 
-        mode : ModeEnum
+        mode : ProjectDuplicateModeEnum
             What to Duplicate (Project configuration only / Project configuration and tasks)
 
             * `settings` - Only settings
@@ -2079,7 +2265,7 @@ class AsyncRawProjectsClient:
             Project duplicated
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/duplicate/",
+            f"api/projects/{encode_path_param(id)}/duplicate/",
             method="POST",
             json={
                 "description": description,
@@ -2106,6 +2292,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def import_tasks(
@@ -2211,7 +2401,7 @@ class AsyncRawProjectsClient:
             Tasks successfully imported or import queued. **For non-Community editions**, the response will be `{"import": <import_id>}` which you can use to poll the import status. **For Community edition**, the response contains task counts and is processed synchronously.
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/import",
+            f"api/projects/{encode_path_param(id)}/import",
             method="POST",
             params={
                 "commit_to_project": commit_to_project,
@@ -2251,6 +2441,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def import_predictions(
@@ -2279,7 +2473,7 @@ class AsyncRawProjectsClient:
             Predictions successfully imported
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/import/predictions",
+            f"api/projects/{encode_path_param(id)}/import/predictions",
             method="POST",
             json=convert_and_respect_annotation_metadata(
                 object_=request, annotation=typing.Sequence[PredictionRequest], direction="write"
@@ -2314,6 +2508,10 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def validate_label_config(
@@ -2339,7 +2537,7 @@ class AsyncRawProjectsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/validate/",
+            f"api/projects/{encode_path_param(id)}/validate/",
             method="POST",
             json={
                 "label_config": label_config,
@@ -2363,4 +2561,8 @@ class AsyncRawProjectsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

@@ -11,7 +11,7 @@ class ListTypeCheckerStrictLevel0(TypeCheckerBase):
         return isinstance(self._value, list)
 
     def is_valid_after_convert(self, converted_value):
-        return isinstance(converted_value, list) and converted_value
+        return isinstance(converted_value, list) and bool(converted_value)
 
     def is_exclude_instance(self):
         return isstring(self._value)

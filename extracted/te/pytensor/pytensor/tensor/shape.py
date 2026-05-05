@@ -10,7 +10,7 @@ import numpy as np
 from numpy.lib.array_utils import normalize_axis_tuple
 
 import pytensor
-from pytensor.gradient import disconnected_type
+from pytensor.gradient import DisconnectedType, disconnected_type
 from pytensor.graph import Op
 from pytensor.graph.basic import Apply, Variable
 from pytensor.graph.replace import _vectorize_node
@@ -71,13 +71,8 @@ class Shape(COp):
     __props__ = ()
 
     def make_node(self, x):
-        if not isinstance(x, Variable):
-            x = ptb.as_tensor_variable(x)
-
-        if isinstance(x.type, TensorType):
-            out_var = TensorType("int64", (x.type.ndim,))()
-        else:
-            out_var = pytensor.tensor.type.lvector()
+        x = ptb.as_tensor_variable(x)
+        out_var = tensor(dtype="int64", shape=(x.type.ndim,))
 
         return Apply(self, [x], [out_var])
 
@@ -97,7 +92,7 @@ class Shape(COp):
         # part of the graph
         return [[False]]
 
-    def grad(self, inp, grads):
+    def pullback(self, inputs, outputs, output_grads):
         # the grad returns the gradient with respect to the
         # elements of a tensor variable
         # the elements of the tensor variable do not participate
@@ -105,8 +100,8 @@ class Shape(COp):
         # part of the graph
         return [disconnected_type()]
 
-    def R_op(self, inputs, eval_points):
-        return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        return [disconnected_type()]
 
     def c_code(self, node, name, inames, onames, sub):
         (iname,) = inames
@@ -313,12 +308,12 @@ class Shape_i(COp):
         # part of the graph
         return [[False]]
 
-    def grad(self, inp, grads):
+    def pullback(self, inputs, outputs, output_grads):
         return [
             pytensor.gradient.grad_not_implemented(
                 op=self,
                 x_pos=0,
-                x=inp[0],
+                x=inputs[0],
                 comment="No gradient for the shape of a matrix is implemented.",
             )
         ]
@@ -471,18 +466,17 @@ class SpecifyShape(COp):
     def connection_pattern(self, node):
         return [[True], *[[False]] * len(node.inputs[1:])]
 
-    def grad(self, inp, grads):
-        _x, *shape = inp
-        (gz,) = grads
+    def pullback(self, inputs, outputs, output_grads):
+        _x, *shape = inputs
+        (gz,) = output_grads
         return [
             specify_shape(gz, shape),
             *(disconnected_type() for _ in range(len(shape))),
         ]
 
-    def R_op(self, inputs, eval_points):
-        if eval_points[0] is None:
-            # It means that this op sits on top of a non-differentiable path
-            return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        if isinstance(eval_points[0].type, DisconnectedType):
+            return [disconnected_type()]
         return self.make_node(eval_points[0], *inputs[1:]).outputs
 
     def c_code(self, node, name, i_names, o_names, sub):
@@ -723,14 +717,14 @@ class Reshape(COp):
     def connection_pattern(self, node):
         return [[True], [False]]
 
-    def grad(self, inp, grads):
-        x, _shp = inp
-        (g_out,) = grads
+    def pullback(self, inputs, outputs, output_grads):
+        x, _shp = inputs
+        (g_out,) = output_grads
         return [reshape(g_out, shape(x), ndim=x.ndim), disconnected_type()]
 
-    def R_op(self, inputs, eval_points):
-        if eval_points[0] is None:
-            return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        if isinstance(eval_points[0].type, DisconnectedType):
+            return [disconnected_type()]
         return self(eval_points[0], *inputs[1:], return_list=True)
 
     def infer_shape(self, fgraph, node, ishapes):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import pytest
-from tibs import Tibs, Mutibs, BitIndexing, Endianness
-
+from tibs import Tibs, Mutibs, Endianness, Codec
+import random
 
 def test_from_bin():
     a = Tibs.from_bin('010')
@@ -50,6 +50,12 @@ def test_rfind():
     a += '0b1110001110'
     b = a.rfind('0b111')
     assert b == 6
+
+
+def test_mutibs_find_byte_aligned_whole_bytes():
+    a = Mutibs.from_bytes(b"\x11\x22\x33\x22")
+    assert a.find("0x22", byte_aligned=True) == 8
+    assert a.rfind("0x22", byte_aligned=True) == 24
 
 
 def test_count_large():
@@ -246,16 +252,65 @@ def test_count_expanded():
     assert b == 0
 
 
-def test_lsb0_start_and_ends_with():
-    a = Tibs.from_bytes(b'xyz', bit_indexing=BitIndexing.Lsb0)
-    assert a.starts_with(b'z')
-    assert a.ends_with(b'x')
+def test_tibs_set_at_returns_new_instance():
+    a = Tibs('0b0000')
+    b = a.set_at([0, -1])
+    assert a == '0b0000'
+    assert b == '0b1001'
+    assert isinstance(b, Tibs)
+
+
+def test_tibs_unset_at_returns_new_instance():
+    a = Tibs('0b1111')
+    b = a.unset_at(range(2))
+    assert a == '0b1111'
+    assert b == '0b0011'
+
+
+def test_tibs_inverted_returns_new_instance():
+    a = Tibs('0b1010')
+    b = a.inverted([0, -1])
+    assert a == '0b1010'
+    assert b == '0b0011'
+
+
+def test_tibs_inserted_returns_new_instance():
+    a = Tibs('0b1010')
+    b = a.inserted(2, '0b11')
+    assert a == '0b1010'
+    assert b == '0b101110'
+
+
+def test_tibs_replaced_returns_new_instance():
+    a = Tibs('0b10101010')
+    b = a.replaced('0b10', '0b11', count=2)
+    assert a == '0b10101010'
+    assert b == '0b11111010'
+
+
+def test_tibs_rotated_left_returns_new_instance():
+    a = Tibs('0b1010')
+    b = a.rotated_left(1)
+    assert a == '0b1010'
+    assert b == '0b0101'
+    assert isinstance(b, Tibs)
+
+
+def test_tibs_rotated_right_with_slice():
+    a = Tibs('0b10101100')
+    b = a.rotated_right(2, start=2, end=6)
+    assert a == '0b10101100'
+    assert b == '0b10111000'
+
+
+def test_start_and_ends_with():
+    a = Tibs.from_bytes(b'xyz')
+    assert a.starts_with(b'x')
+    assert a.ends_with(b'z')
 
     b = Mutibs.from_bytes(b'abcde')
     assert b.starts_with(b'a')
-    b.bit_indexing = BitIndexing.Lsb0
-    assert b.starts_with(b'e')
-    assert b.ends_with(b'a')
+    assert b.ends_with(b'e')
 
 
 def test_special_method_creation_fails():
@@ -275,46 +330,11 @@ def test_special_method_creation_fails():
 def test_rfind_all():
     t = Mutibs.from_zeros(100)
     t.set([4, 8, 14, 99])
-    a = t.to_tibs().rfind_all([1])
+    a = t.to_tibs().rfind_all_iter([1])
     assert list(a) == [99, 14, 8, 4]
-    a = t.to_tibs().rfind_all([1, 0])
+    a = t.to_tibs().rfind_all_iter([1, 0])
     assert list(a) == [14, 8, 4]
 
-
-def test_rfind_all_lsb0():
-    t = Mutibs.from_zeros(100, bit_indexing=BitIndexing.Lsb0)
-    t.set([0, 1, 10, 11, 80])
-    t = t.as_tibs()
-    a = t.rfind_all([1])
-    assert list(a) == [80, 11, 10, 1, 0]
-    a = t.rfind_all([1, 1])
-    assert list(a) == [10, 0]
-
-
-def test_find_methods_lsb0_logical_indices():
-    t = Tibs("0b110100", bit_indexing=BitIndexing.Lsb0)
-    assert t.find("0b1") == 2
-    assert t.rfind("0b1") == 5
-    assert list(t.find_all("0b1")) == [2, 4, 5]
-    assert list(t.rfind_all("0b1")) == [5, 4, 2]
-
-
-def test_lsb0_find_all():
-    t = Tibs.from_random(10_000)
-    a1 = list(t.find_all([1, 0, 1]))  # The needle looks the same forward and backwards.
-    t2 = Tibs(t.reversed(), bit_indexing=BitIndexing.Lsb0)
-    assert t == t2.reversed()
-    a2 = list(t2.find_all([1, 0, 1]))
-    assert a1 == a2
-
-
-def test_lsb0_find():
-    t = Tibs.from_random(10_000)
-    a1 = t.find([1, 0, 1])  # The needle looks the same forward and backwards.
-    t2 = Tibs(t.reversed(), bit_indexing=BitIndexing.Lsb0)
-    assert t == t2.reversed()
-    a2 = t2.find([1, 0, 1])
-    assert a1 == a2
 
 def test_endianness_i():
     t1 = Tibs.from_i(3, 16, endianness=Endianness.Big)
@@ -322,8 +342,8 @@ def test_endianness_i():
     t2 = Tibs.from_i(3, 16, endianness=Endianness.Little)
     assert t2.bin == '0000001100000000'
     assert t1.to_i() == 3
-    assert t1.to_i(Endianness.Big) == 3
-    assert t2.to_i(Endianness.Little) == 3
+    assert t1.be.i == 3
+    assert t2.le.i == 3
     assert t2.to_i() == 3 << 8
 
 def test_endianness_u():
@@ -334,8 +354,208 @@ def test_endianness_u():
     assert t1 != t3
     assert t2.to_u() == 10001
     assert t3.to_u() != 10001
-    assert t3.to_u(Endianness.Little) == 10001
+    assert t3.le.to_u() == 10001
     with pytest.raises(ValueError):
         _ = Tibs.from_u(999, 31, Endianness.Big)
     with pytest.raises(ValueError):
-        _ = Tibs('0x123').to_u(Endianness.Big)
+        _ = Tibs('0x123').be.u
+
+
+def test_rchunks():
+    t = Tibs('0b111')
+    for i in range(5):
+        t += Tibs.from_u(i, 7)
+    c = list(t.rchunks_iter(7))
+    assert c[-1] == '0b111'
+    for i in range(5):
+        assert c[i].to_u() == 4 - i
+        assert len(c[i]) == 7
+
+
+def test_rchunks_remainder_and_count():
+    t = Tibs('0b1010110010')
+
+    # Reverse chunks are yielded from the end of the bitstring.
+    all_chunks = list(t.rchunks_iter(4))
+    assert [chunk.bin for chunk in all_chunks] == ['0010', '1011', '10']
+
+    # count limits the number of yielded chunks, even in reverse mode.
+    limited_chunks = list(t.rchunks_iter(4, count=2))
+    assert [chunk.bin for chunk in limited_chunks] == ['0010', '1011']
+
+
+
+def encode_long_int(u: int) -> Tibs:
+    if u <= 127:
+        return [0] + Tibs.from_u(u, 7)
+    # Work out how many bits long it is
+    t = Tibs.from_u(u, 64)
+    t = t[t.find([1]):]
+    # For each non-final chunk of 7, we want a continuation bit and then the data
+    chunks = list(t.rchunks_iter(7))[::-1]
+    if len(chunks[0]) < 7:
+        chunks[0] = [0]*(7 - len(chunks[0])) + chunks[0]
+    m = Mutibs()
+    for chunk in chunks[:-1]:
+        m += [1] + chunk  # With continuation bit
+    m += [0] + chunks[-1]
+    assert len(m) % 8 == 0
+    return m.as_tibs()
+
+
+def decode_to_long_int(t: Tibs) -> int:
+    assert len(t) > 0 and len(t) % 8 == 0
+    if len(t) == 8:
+        assert t[0] == 0
+        return t[1:].to_u()
+    m = Mutibs()
+    for byte in t.chunks(8):
+        m += byte[1:]
+        if byte[0] == 0:
+            break
+    return m.to_u()
+
+
+def test_encoding_ints():
+    lengths = [0, 1, 2, 3, 14, 55, 101, 1022, 1023123, 12312451251, 86987698138715283]
+    for u in lengths:
+        t = encode_long_int(u)
+        u2 = decode_to_long_int(t)
+        assert u == u2
+
+
+def encode_tibs(t: Tibs) -> bytes:
+    n = len(t)
+
+    # Single-byte form: bit0=1, then prefix-coded length/data for 0..6 bits.
+    if n <= 6:
+        if n == 6:
+            e = Mutibs.from_joined([[1, 1], t])
+        elif n == 5:
+            e = Mutibs.from_joined([[1, 0, 1], t])
+        elif n == 4:
+            e = Mutibs.from_joined([[1, 0, 0, 1], t])
+        elif n == 3:
+            e = Mutibs.from_joined([[1, 0, 0, 0, 1], t])
+        elif n == 2:
+            e = Mutibs.from_joined([[1, 0, 0, 0, 0, 1], t])
+        elif n == 1:
+            e = Mutibs.from_joined([[1, 0, 0, 0, 0, 0, 1], t])
+        else:
+            e = Mutibs([1, 0, 0, 0, 0, 0, 0, 1])
+        assert len(e) == 8
+        return e.to_bytes()
+
+    # Short form: bit0=0, bit1=1, bit2..bit4 = byte_length_minus_1, bit5..bit7 = bit_padding.
+    if n <= 64:
+        byte_length = (n + 7) // 8
+        bit_padding = byte_length * 8 - n
+        header = Mutibs.from_joined([
+            [0, 1],
+            Tibs.from_u(byte_length - 1, 3),
+            Tibs.from_u(bit_padding, 3),
+        ])
+        e = Mutibs.from_joined([header, t])
+        if bit_padding:
+            e += [0] * bit_padding
+        return e.to_bytes()
+
+    # Long form: bit0=0, bit1=0, codec=000(raw), bit_padding(3).
+    byte_length = (n + 7) // 8
+    bit_padding = byte_length * 8 - n
+    header = Mutibs.from_joined([[0, 0, 0, 0, 0], Tibs.from_u(bit_padding, 3)])
+    var_length = encode_long_int(byte_length)
+    e = Mutibs.from_joined([header, var_length, t])
+    if bit_padding:
+        e += [0] * bit_padding
+    assert len(e) % 8 == 0
+    return e.to_bytes()
+
+
+def decode_tibs(b: bytes) -> Tibs:
+    m = Mutibs.from_bytes(b)
+    single_byte_flag, short_form_flag = m[0], m[1]
+
+    if single_byte_flag:
+        if m[1] == 1:
+            m_out = m[2:8]
+        elif m[2] == 1:
+            m_out = m[3:8]
+        elif m[3] == 1:
+            m_out = m[4:8]
+        elif m[4] == 1:
+            m_out = m[5:8]
+        elif m[5] == 1:
+            m_out = m[6:8]
+        elif m[6] == 1:
+            m_out = m[7:8]
+        else:
+            m_out = Mutibs()
+        return m_out.as_tibs()
+
+    if short_form_flag:
+        byte_length = m[2:5].to_u() + 1
+        bit_padding = m[5:8].to_u()
+        short_length = byte_length * 8 - bit_padding
+        m_out = m[8:8 + short_length]
+        return m_out.as_tibs()
+
+    codec = m[2:5].to_u()
+    assert codec == 0
+    bit_padding = m[5:8].to_u()
+    u = Mutibs()
+    for byte in m[8:].to_tibs().chunks(8):
+        u += byte
+        if byte[0] == 0:
+            break
+    data_start = 8 + len(u)
+    byte_length = decode_to_long_int(u.as_tibs())
+    m_out = m[data_start: data_start + byte_length * 8]
+    if bit_padding:
+        m_out = m_out[:-bit_padding]
+    return m_out.as_tibs()
+
+
+def test_encoding():
+    for _ in [None]:
+        for length in range(400):
+            # value = random.randint(0, (1 << length) - 1)
+            t = Tibs.from_zeros(length)
+            # b = encode_tibs(t)
+            b2 = t.encode()
+            # assert b == b2
+            # t2 = decode_tibs(b)
+            t3 = Tibs.decode(b2)
+            # assert t == t2
+            assert t == t3
+
+
+def test_encoding_boundaries():
+    assert Tibs.from_zeros(0).encode() == bytes.fromhex("81")
+    assert Tibs.from_zeros(6).encode() == bytes.fromhex("c0")
+    assert Tibs.from_zeros(7).encode() == bytes.fromhex("4100")
+    assert Tibs.from_zeros(24).encode() == bytes.fromhex("50000000")
+    assert Tibs.from_zeros(25).encode() == bytes.fromhex("0a0124a0")
+
+
+def test_more_encoding():
+    t = Tibs.from_ones(50) + [0] + Tibs.from_ones(50)
+    b1 = t.encode()
+    b2 = t.encode(Codec.Raw)
+    rice = t.encode(Codec.Rice)
+    assert b1 == rice
+    assert len(b2) > len(b1)
+    assert Tibs.decode(b1) == t
+    assert Tibs.decode(b2) == t
+
+    t2 = Tibs.from_random(8191, seed=b'x') & Tibs.from_random(8191, seed=b'y')
+    b_auto = t2.encode(Codec.Auto)
+    b_zstd = t2.encode(Codec.Zstd)
+    b_raw = t2.encode(Codec.Raw)
+    b_rice = t2.encode(Codec.Rice)
+
+    temp = Tibs.decode(b_zstd)
+    assert len(temp) == 8191
+
+    assert b_auto == b_zstd
+    assert Tibs.decode(b_zstd) == Tibs.decode(b_raw) == Tibs.decode(b_rice)

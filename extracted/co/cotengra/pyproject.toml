@@ -5,18 +5,17 @@ readme = { file = "README.md", content-type = "text/markdown" }
 dynamic = ["version"]
 authors = [{ name = "Johnnie Gray", email = "johnniemcgray@gmail.com" }]
 license = { file = "LICENSE.md" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
 ]
 keywords = [
@@ -39,9 +38,10 @@ dependencies = ["autoray"]
 [project.optional-dependencies]
 recommended = [
     "cmaes",
-    "cotengrust >= 0.1.3",
+    "cotengrust",
     "cytoolz",
     "kahypar",
+    "matplotlib",
     "networkx",
     "numpy",
     "opt_einsum",
@@ -50,32 +50,15 @@ recommended = [
     "tqdm",
 ]
 docs = [
-    "astroid < 3.0.0",
+    "astroid",
     "furo",
-    "ipython != 8.7.0",
+    "ipython",
     "myst-nb",
     "setuptools_scm",
-    "sphinx >= 2.0",
+    "sphinx",
     "sphinx-autoapi",
     "sphinx-copybutton",
     "sphinx-design",
-]
-test = [
-    "altair",
-    "baytune",
-    "chocolate",
-    "cmaes",
-    "dask",
-    "distributed",
-    "kahypar",
-    "matplotlib",
-    "networkx",
-    "nevergrad",
-    "numpy",
-    "opt_einsum",
-    "pytest",
-    "scikit-optimize",
-    "seaborn",
 ]
 
 [build-system]
@@ -90,22 +73,176 @@ version-file = "cotengra/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = "tests"
-# addopts = "--cov=cotengra --cov-report term-missing --cov-report xml:coverage.xml --verbose --durations=10"
-# filterwarnings = "once"
+markers = [
+    "localonly: marks test to be skipped on CI",
+]
 
 [tool.coverage.run]
 omit = ["*/cotengra/experimental/*"]
 source = ["cotengra"]
 
-[tool.pylama]
-ignore = "C901"
-max_line_length = 79
-
 [tool.ruff]
 line-length = 79
-target-version = "py38"
+target-version = "py310"
 lint.ignore = ["E741"]
 
-[tool.black]
-line-length = 79
-target-version = ['py38']
+# ---------------------------------- pixi ----------------------------------- #
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+
+[tool.pixi.dependencies]
+autoray = ">=0.8.0,<0.9"
+
+[tool.pixi.pypi-dependencies]
+cotengra = { path = ".", editable = true }
+
+[tool.pixi.feature.basic.dependencies]
+cmaes = "*"
+matplotlib = "*"
+networkx = "*"
+optuna = "*"
+seaborn = "*"
+tqdm = "*"
+
+[tool.pixi.feature.full.dependencies]
+opt_einsum = "*"
+distributed = "*"
+[tool.pixi.feature.full.pypi-dependencies]
+cotengrust = ">=0.2.0"
+[tool.pixi.feature.full.target.linux-64.pypi-dependencies]
+kahypar = "*"
+[tool.pixi.feature.full.target.osx-arm64.pypi-dependencies]
+kahypar = "*"
+
+[tool.pixi.feature.tests.dependencies]
+coverage = "*"
+pytest = "*"
+pytest-cov = "*"
+
+[tool.pixi.feature.pyold.dependencies]
+python = "3.10.*"
+[tool.pixi.feature.pymid.dependencies]
+python = "3.12.*"
+[tool.pixi.feature.pynew.dependencies]
+python = "3.14.*"
+
+[tool.pixi.feature.torch]
+platforms = ["linux-64", "osx-arm64"]
+[tool.pixi.feature.torch.pypi-dependencies]
+torch = "*"
+
+[tool.pixi.feature.jax]
+platforms = ["linux-64", "osx-arm64"]
+[tool.pixi.feature.jax.pypi-dependencies]
+jax = "*"
+
+[tool.pixi.feature.tensorflow]
+platforms = ["linux-64", "osx-arm64"]
+[tool.pixi.feature.tensorflow.pypi-dependencies]
+tensorflow = "*"
+
+[tool.pixi.feature.docs.dependencies]
+astroid = "*"
+furo = "*"
+ipython = "*"
+myst-nb = "*"
+ruff = "*"
+setuptools_scm = "*"
+sphinx = "*"
+sphinx-autoapi = "*"
+sphinx-copybutton = "*"
+sphinx-design = "*"
+[tool.pixi.feature.docs.pypi-dependencies]
+squeaky = "*"
+
+[tool.pixi.environments]
+testminimal = { features = ["pymid", "basic", "tests"] }
+testpynew = { features = ["pynew", "basic", "full", "tests"] }
+testpymid = { features = ["pymid", "basic", "full", "tests"] }
+testpyold = { features = ["pyold", "basic", "full", "tests"] }
+testtorch = { features = ["pymid", "basic", "tests", "torch"] }
+testjax = { features = ["pymid", "basic", "tests", "jax"] }
+testtensorflow = { features = ["pymid", "basic", "tests", "tensorflow"] }
+docs = { features = ["pynew", "docs"] }
+
+# ---------------------------------- tasks ---------------------------------- #
+
+[tool.pixi.tasks.pytest]
+default-environment = "testpymid"
+cmd = "pytest"
+cwd = "."
+description = "Run pytest."
+
+[tool.pixi.tasks.test]
+cmd = """
+pytest \
+    tests/ \
+    --cov=cotengra \
+    --cov-report=xml \
+    --verbose \
+    --durations=10 \
+    -m "not localonly"
+"""
+cwd = "."
+default-environment = "testpymid"
+description = "Run the test suite."
+
+[tool.pixi.tasks.test-backends]
+cmd = """
+pytest \
+    tests/test_backends.py \
+    --cov=cotengra \
+    --cov-report=xml \
+    --verbose \
+    --durations=10
+"""
+cwd = "."
+default-environment = "testpymid"
+description = "Run cross-backend contraction tests (test_backends.py)."
+
+[tool.pixi.feature.docs.tasks.docs]
+cmd = "sphinx-build -b html docs docs/_build/html"
+cwd = "."
+description = "Build the HTML documentation."
+
+[tool.pixi.feature.docs.tasks.readthedocs]
+cmd = "sphinx-build -T -b html docs $READTHEDOCS_OUTPUT/html"
+cwd = "."
+description = "Specific task for building docs on ReadTheDocs."
+
+[tool.pixi.feature.docs.tasks.docs-clean]
+cmd = "rm -rf docs/_build"
+cwd = "."
+description = "Remove documentation build artifacts."
+
+[tool.pixi.feature.docs.tasks.docs-serve]
+cmd = "python -m http.server -d docs/_build/html 8000"
+cwd = "."
+description = "Serve the documentation locally."
+
+[tool.pixi.feature.docs.tasks.lint]
+cmd = """
+    ruff check --select I
+    && ruff format --check
+"""
+cwd = "."
+description = "Check code formatting and imports with ruff."
+
+[tool.pixi.feature.docs.tasks.format]
+cmd = """
+    ruff check --select I --fix
+    && ruff format
+"""
+cwd = "."
+description = "Apply code formatting and fix imports with ruff."
+
+[tool.pixi.feature.docs.tasks.format-all]
+cmd = """
+    ruff check --select I --fix
+    && ruff format
+    && find . -name "*.ipynb" -print0 | xargs -0 squeaky
+"""
+cwd = "."
+description = "Format all files including notebooks with squeaky."

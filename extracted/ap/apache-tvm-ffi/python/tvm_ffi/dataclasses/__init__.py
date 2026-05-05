@@ -16,8 +16,31 @@
 # under the License.
 """FFI dataclass decorators: ``c_class`` for C++-backed types, ``py_class`` for Python-defined types."""
 
+from tvm_ffi.core import MISSING, Object
+
 from .c_class import c_class
+from .common import asdict, astuple, fields, is_dataclass, replace
+from .enum import Enum, EnumAttrMap, IntEnum, StrEnum, auto, entry
 from .field import KW_ONLY, Field, field
 from .py_class import py_class
 
-__all__ = ["KW_ONLY", "Field", "c_class", "field", "py_class"]
+__all__ = [
+    "KW_ONLY",
+    "MISSING",
+    "Enum",
+    "EnumAttrMap",
+    "Field",
+    "IntEnum",
+    "Object",
+    "StrEnum",
+    "asdict",
+    "astuple",
+    "auto",
+    "c_class",
+    "entry",
+    "field",
+    "fields",
+    "is_dataclass",
+    "py_class",
+    "replace",
+]

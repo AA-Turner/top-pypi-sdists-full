@@ -21,7 +21,6 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
-from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -677,36 +676,38 @@ def encode_unload_resolvers(
     """Encode unload_resolvers into the wire format (list of spec dicts).
 
     Accepts either:
-    - The literal ... (or the single-element sequence [...]) to unload all eligible resolvers.
+    - The literal "*" (or the single-element sequence ["*"]) to unload all eligible resolvers.
     - A list of resolver FQNs or Resolver objects (no partitioning).
     - A dict mapping resolver -> tuple of partition-by expressions.
     """
     if unload_resolvers is None:
         return None
 
-    def to_fqn(resolver: str | Resolver | EllipsisType) -> str:
+    def to_fqn(resolver: str | Resolver) -> str:
         match resolver:
+            case "*":  # Technically redundant with the case below it, but safer to do this.
+                return "*"
             case str():
                 return resolver
             case Resolver():
                 return resolver.fqn
-            case EllipsisType():
-                return "*"
 
-    # Ellipsis → [{"fqn": "*"}] (sentinel value which tells server to auto-detect unload resolvers)
-    if unload_resolvers is ...:  # unload_resolvers="all"
-        return [{"fqn": to_fqn(unload_resolvers)}]
+    # "*" → [{"fqn": "*"}] (sentinel value which tells server to auto-detect unload resolvers)
+    if unload_resolvers == "*":  # unload_resolvers="all"
+        return [{"fqn": "*"}]
 
     if isinstance(unload_resolvers, Mapping):
-        result = list[dict[str, Any]]()  # unload_resolvers={"fqn1": (partition1,), ...: ()}
+        result = list[dict[str, Any]]()  # unload_resolvers={"fqn1": (partition1,), "*": ()}
         for resolver, partition_exprs in unload_resolvers.items():
             fqn = to_fqn(resolver)
             partition_by = [encode_partition_expr(expr) for expr in partition_exprs]
+            if fqn == "*" and partition_by:
+                raise ValueError(f"Autounload selector '{fqn}' does not accept partition expressions.")
             result.append({"fqn": fqn, "partition_by": partition_by})
         return result
     else:
-        items = list(unload_resolvers)  # unload_resolvers=["fqn1", ...]
-        # ... in sequence -> sentinel to select everything else
+        items = list(unload_resolvers)  # unload_resolvers=["fqn1", "*"]
+        # "*" in sequence -> sentinel to select everything else
         return [{"fqn": to_fqn(r)} for r in items]
 
 

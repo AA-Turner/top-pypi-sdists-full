@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-bouncer
-Version: 3.0.2
+Version: 3.2.0
 Summary: Configure and enforce conventions for your dbt project.
 Author-email: Padraic Slattery <pgoslatara@gmail.com>
 Maintainer-email: Padraic Slattery <pgoslatara@gmail.com>
@@ -20,12 +20,12 @@ License-File: LICENSE
 Requires-Dist: jellyfish<2,>=1
 Requires-Dist: jinja2-simple-tags<1
 Requires-Dist: jinja2<4,>=3
-Requires-Dist: junitparser<5,>=2
+Requires-Dist: junitparser<6,>=2
 Requires-Dist: orjson<4,>=3
 Requires-Dist: packaging<27
 Requires-Dist: pydantic<3,>=2
 Requires-Dist: pyyaml<7
-Requires-Dist: rich<15,>=13
+Requires-Dist: rich<16,>=13
 Requires-Dist: semver<4
 Requires-Dist: typer<1,>=0.12
 Provides-Extra: dev
@@ -33,7 +33,7 @@ Requires-Dist: bandit~=1.0; extra == "dev"
 Requires-Dist: dbt-core<2,>=1.11.2; extra == "dev"
 Requires-Dist: dbt-duckdb~=1.0; extra == "dev"
 Requires-Dist: prek<1,>=0.1; extra == "dev"
-Requires-Dist: pytest<9,>=8; extra == "dev"
+Requires-Dist: pytest<10,>=8; extra == "dev"
 Requires-Dist: pytest-cov<8,>=5; extra == "dev"
 Requires-Dist: pytest-xdist~=3.0; extra == "dev"
 Requires-Dist: pyupgrade~=3.0; extra == "dev"
@@ -92,7 +92,7 @@ Dynamic: license-file
     <img alt="Docker Supported" src="https://img.shields.io/badge/Docker%20-Supported-0db7ed?logo=docker">
   </a>
   <a>
-    <img alt="GitHub Supported" src="https://img.shields.io/badge/GitHub%20-Supported-333?logo=github">
+    <img alt="GitHub Actions Supported" src="https://img.shields.io/badge/GitHub%20-Supported-333?logo=github">
   </a>
 </div>
 

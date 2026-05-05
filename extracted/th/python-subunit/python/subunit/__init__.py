@@ -144,7 +144,7 @@ from subunit.v2 import ByteStreamToStreamResult, StreamResultToBytes
 # If the releaselevel is 'final', then the tarball will be major.minor.micro.
 # Otherwise it is major.minor.micro~$(revno).
 
-__version__ = (1, 4, 5, "final", 0)
+__version__ = (1, 4, 6, "final", 0)
 
 version_string = ".".join(map(str, __version__[:3]))
 
@@ -173,12 +173,6 @@ PROGRESS_SET = 0
 PROGRESS_CUR = 1
 PROGRESS_PUSH = 2
 PROGRESS_POP = 3
-
-
-def test_suite():
-    import subunit.tests
-
-    return subunit.tests.test_suite()
 
 
 def join_dir(base_path, path):
@@ -1117,6 +1111,307 @@ def TAP2SubUnit(tap, output_stream):
         missing_test(plan_start)
         plan_start += 1
     return 0
+
+
+def GoJSON2SubUnit(gojson, output_stream):
+    """Filter a `go test -json` stream into a subunit v2 byte stream.
+
+    `go test -json` (or `go tool test2json`) emits one JSON object per line.
+    Each object carries an `Action` (`run`, `output`, `pass`, `fail`, `skip`,
+    `pause`, `cont`, `bench`, `start`), a `Package`, an optional `Test`, and
+    on terminal events an `Elapsed` and `Time`. This function maps each
+    test's lifecycle to a pair of subunit packets — `inprogress` at the
+    `run` event and the final status at the terminal event — so the
+    consumer can derive a duration. Captured `output` lines for the test
+    are folded into a single `text/plain; charset=UTF8` attachment on the
+    terminal packet.
+
+    Test IDs are formed as ``<package>.<TestName>``. Subtests keep Go's
+    native ``Parent/Sub`` form, so the resulting ID is
+    ``<package>.<Parent>/<Sub>``, which round-trips through
+    ``go test -run '^Parent$/^Sub$'``.
+
+    Package-level failures (no `Test` field on a `fail` event — typically
+    a build error) are reported as a synthetic ``<package> [build]`` test
+    so the failure shows up alongside the test results instead of being
+    silently swallowed.
+
+    :param gojson: An iterable of text lines (e.g. ``sys.stdin``) carrying
+        the `go test -json` stream.
+    :param output_stream: A binary stream to write subunit v2 bytes to.
+    :return: 0 if no test failed, 1 otherwise — matching the convention
+        used by `TAP2SubUnit`.
+    """
+    import json
+
+    output = StreamResultToBytes(output_stream)
+    UTF8_TEXT = "text/plain; charset=UTF8"
+    # Per-test buffered `output` chunks plus the start timestamp captured
+    # on the `run` event, keyed by full test_id.
+    buffers = {}
+    start_times = {}
+    # Per-package buffered output, used to attribute build / setup failures
+    # that don't carry a `Test` field.
+    pkg_buffers = {}
+    any_failed = False
+
+    def parse_time(value):
+        if not value:
+            return None
+        try:
+            return iso8601.parse_date(value)
+        except (TypeError, ValueError, iso8601.ParseError):
+            return None
+
+    def make_test_id(pkg, test):
+        # Both package and test are required for an unambiguous ID; the
+        # caller checks for `Test` before reaching here.
+        return "{}.{}".format(pkg, test)
+
+    for line in gojson:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except (TypeError, ValueError):
+            # `go test -json` occasionally interleaves a non-JSON banner
+            # (e.g. on a panic during package init). Drop it rather than
+            # aborting the whole stream.
+            continue
+        if not isinstance(event, dict):
+            continue
+
+        action = event.get("Action")
+        pkg = event.get("Package") or ""
+        test = event.get("Test")
+        timestamp = parse_time(event.get("Time"))
+
+        if action == "output":
+            chunk = event.get("Output", "")
+            if test:
+                buffers.setdefault(make_test_id(pkg, test), []).append(chunk)
+            elif pkg:
+                pkg_buffers.setdefault(pkg, []).append(chunk)
+            continue
+
+        if action == "run" and test:
+            test_id = make_test_id(pkg, test)
+            start_times[test_id] = timestamp
+            output.status(
+                test_id=test_id,
+                test_status="inprogress",
+                timestamp=timestamp,
+            )
+            continue
+
+        if action in ("pass", "fail", "skip") and test:
+            status = {"pass": "success", "fail": "fail", "skip": "skip"}[action]
+            test_id = make_test_id(pkg, test)
+            chunks = buffers.pop(test_id, [])
+            start_times.pop(test_id, None)
+            file_bytes = ("".join(chunks)).encode("utf-8") if chunks else None
+            output.status(
+                test_id=test_id,
+                test_status=status,
+                eof=True,
+                file_name="go test output" if file_bytes else None,
+                file_bytes=file_bytes,
+                mime_type=UTF8_TEXT if file_bytes else None,
+                timestamp=timestamp,
+            )
+            if action == "fail":
+                any_failed = True
+            continue
+
+        if action == "fail" and not test and pkg:
+            # Package-level failure (build error, init panic, etc.). Emit
+            # a synthetic test so the failure is visible.
+            chunks = pkg_buffers.pop(pkg, [])
+            file_bytes = ("".join(chunks)).encode("utf-8") if chunks else None
+            output.status(
+                test_id="{} [build]".format(pkg),
+                test_status="fail",
+                eof=True,
+                file_name="go test output" if file_bytes else None,
+                file_bytes=file_bytes,
+                mime_type=UTF8_TEXT if file_bytes else None,
+                timestamp=timestamp,
+            )
+            any_failed = True
+            continue
+
+        # `pass`/`skip` without `Test` is a package-level summary; harmless
+        # to drop. `pause`/`cont`/`start`/`bench` aren't terminal — skip.
+
+    # Any tests still in-progress at EOF were aborted (the runner died
+    # mid-test). Surface them as failures so they're not silently lost.
+    for test_id, chunks in list(buffers.items()):
+        file_bytes = ("".join(chunks)).encode("utf-8") if chunks else None
+        output.status(
+            test_id=test_id,
+            test_status="fail",
+            eof=True,
+            file_name="go test output" if file_bytes else None,
+            file_bytes=file_bytes,
+            mime_type=UTF8_TEXT if file_bytes else None,
+        )
+        any_failed = True
+
+    return 1 if any_failed else 0
+
+
+def JUnitXML2SubUnit(xml_files, output_stream):
+    """Convert JUnit XML test reports to a subunit v2 byte stream.
+
+    Reads each path in ``xml_files`` (in the supplied order) and emits
+    one subunit packet pair per ``<testcase>`` element. The packet pair
+    is ``inprogress`` followed by the terminal status, with synthetic
+    timestamps spaced by the testcase's ``time`` attribute so consumers
+    can recover the recorded duration.
+
+    Test IDs are formed as ``<classname>::<name>`` from the testcase's
+    ``classname`` and ``name`` attributes. Maven Surefire and Gradle
+    both populate ``classname`` with the fully-qualified Java class
+    (e.g. ``com.example.FooTest``), so the resulting ID is
+    ``com.example.FooTest::testBar``.
+
+    Mapping rules:
+      * ``<failure>`` child → status ``fail`` (an assertion failure).
+      * ``<error>`` child → status ``fail`` (an unexpected exception);
+        subunit doesn't distinguish these and the JUnit author intent is
+        identical for our purposes (both mean "did not pass").
+      * ``<skipped>`` child → status ``skip``.
+      * Otherwise → status ``success``.
+
+    The body text and ``message``/``type`` attributes of the failure
+    element are folded into a single ``text/plain`` attachment on the
+    terminal packet, mirroring how ``GoJSON2SubUnit`` attaches captured
+    stdout to its results.
+
+    Per-class ``<system-out>`` / ``<system-err>`` blocks aren't attributed
+    to individual testcases by the JUnit schema (they cover the whole
+    suite). They're dropped — preserving them would require attaching
+    them to a synthetic suite-level packet, and most consumers don't
+    surface that.
+
+    :param xml_files: Iterable of file paths containing JUnit XML.
+    :param output_stream: A binary stream to write subunit v2 bytes to.
+    :return: 0 if no testcase failed or errored, 1 otherwise. Files that
+        fail to parse are reported on stderr and counted as a failure so
+        the broken XML doesn't get silently swallowed.
+    """
+    import datetime
+    import xml.etree.ElementTree as ET
+
+    output = StreamResultToBytes(output_stream)
+    UTF8_TEXT = "text/plain; charset=UTF8"
+    any_failed = False
+    # Synthetic timestamps. We don't know when the JUnit run actually
+    # happened, but spacing the inprogress/terminal packets by each
+    # testcase's recorded `time` attribute lets consumers compute the
+    # right duration without making up wall-clock data.
+    clock = datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
+
+    def parse_time(value):
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def iter_testsuites(root):
+        # JUnit XML files come in two shapes: a single ``<testsuite>``
+        # at the root, or a ``<testsuites>`` wrapper containing many.
+        if root.tag == "testsuite":
+            yield root
+        elif root.tag == "testsuites":
+            for ts in root.findall("testsuite"):
+                yield ts
+        # Anything else is silently ignored — a non-JUnit document.
+
+    for path in xml_files:
+        try:
+            tree = ET.parse(path)
+        except (OSError, ET.ParseError) as exc:
+            sys.stderr.write("JUnitXML2SubUnit: failed to parse {}: {}\n".format(path, exc))
+            any_failed = True
+            continue
+
+        root = tree.getroot()
+        for suite in iter_testsuites(root):
+            for case in suite.findall("testcase"):
+                classname = case.get("classname") or ""
+                name = case.get("name") or ""
+                if not name:
+                    # Without a name there's no usable test_id; skip
+                    # rather than emit a malformed ID.
+                    continue
+                test_id = "{}::{}".format(classname, name) if classname else name
+                duration = parse_time(case.get("time"))
+
+                failure = case.find("failure")
+                error = case.find("error")
+                skipped = case.find("skipped")
+
+                if failure is not None or error is not None:
+                    status = "fail"
+                    detail = failure if failure is not None else error
+                    file_bytes = _format_junit_detail(detail)
+                    any_failed = True
+                elif skipped is not None:
+                    status = "skip"
+                    file_bytes = _format_junit_detail(skipped)
+                else:
+                    status = "success"
+                    file_bytes = None
+
+                start_ts = clock
+                end_ts = clock + datetime.timedelta(seconds=duration)
+                clock = end_ts
+
+                output.status(
+                    test_id=test_id,
+                    test_status="inprogress",
+                    timestamp=start_ts,
+                )
+                output.status(
+                    test_id=test_id,
+                    test_status=status,
+                    eof=True,
+                    file_name="junit detail" if file_bytes else None,
+                    file_bytes=file_bytes,
+                    mime_type=UTF8_TEXT if file_bytes else None,
+                    timestamp=end_ts,
+                )
+
+    return 1 if any_failed else 0
+
+
+def _format_junit_detail(element):
+    """Serialise a ``<failure>``/``<error>``/``<skipped>`` body to bytes.
+
+    JUnit elements carry the message and exception type as attributes and
+    the stack trace as element text. Combine both into a single
+    text/plain blob so the consumer sees everything on one packet. Returns
+    ``None`` when there's nothing to attach (an empty ``<skipped/>``).
+    """
+    parts = []
+    msg = element.get("message")
+    typ = element.get("type")
+    if typ and msg:
+        parts.append("{}: {}".format(typ, msg))
+    elif typ:
+        parts.append(typ)
+    elif msg:
+        parts.append(msg)
+    body = (element.text or "").strip()
+    if body:
+        parts.append(body)
+    if not parts:
+        return None
+    return ("\n".join(parts) + "\n").encode("utf-8")
 
 
 def tag_stream(original, filtered, tags):

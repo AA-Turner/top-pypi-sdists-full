@@ -46,6 +46,8 @@ use super::validation::Validation;
 #[derive(Debug, Hash, FromPyObject, Serialize)]
 #[pyo3(from_item_all)]
 pub struct Project {
+    /// Project root directory.
+    pub root_dir: PathBuf,
     /// Site name.
     pub site_name: String,
     /// Site URL.
@@ -98,8 +100,6 @@ pub struct Project {
     pub template_hash: u64,
     /// Plugins hash.
     pub plugins_hash: u64,
-    /// Source files.
-    pub source_files: Vec<(PathBuf, u64)>,
-    /// Snippet files.
-    pub snippet_files: Vec<(PathBuf, u64)>,
+    /// Watched files.
+    pub watched_files: Vec<(PathBuf, u64)>,
 }

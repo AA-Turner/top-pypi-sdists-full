@@ -91,6 +91,27 @@ class Test_DateTime:
 
         assert result == expected
 
+    @pytest.mark.parametrize(
+        ["value"],
+        [
+            [{"1"}],
+            [{"1", "2"}],
+            [["1"]],
+            [["1", "2"]],
+            [{"a": 1}],
+            [(1, 2)],
+            [None],
+        ],
+    )
+    def test_abnormal_non_string(self, value):
+        from typepy.error import TypeConversionError
+
+        with pytest.raises(TypeConversionError):
+            typepy.DateTime({"1"}, strict_level=StrictLevel.MIN).convert()
+
+        assert typepy.DateTime(value, strict_level=StrictLevel.MIN).is_type() is False
+        assert typepy.DateTime(value, strict_level=StrictLevel.MIN).try_convert() is None
+
 
 class Test_IpAddress:
     @pytest.mark.parametrize(

@@ -1,23 +1,29 @@
 # ======================================== IMPORTS ========================================
-from ._light import (
+from . import light
+from .light import (
     PointLight, ConeLight,
     Ambient, Bloom, Tint, Vignette,
     LightRenderer,
 )
 
-from ._particles import (
+from . import particle
+from .particle import (
     Particle,
     PointEmitter, CircleEmitter, LineEmitter, ConeEmitter,
+    Gravity, Wind, Drag,
     ParticleRenderer,
 )
 
 # ======================================== EXPORTS ========================================
 __all__ = [
+    "light",
     "PointLight", "ConeLight",
     "Ambient", "Bloom", "Tint", "Vignette",
     "LightRenderer",
 
+    "particle",
     "Particle",
     "PointEmitter", "CircleEmitter", "LineEmitter", "ConeEmitter",
+    "Gravity", "Wind", "Drag",
     "ParticleRenderer",
 ]

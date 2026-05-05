@@ -25,6 +25,7 @@ from pytensor.tensor.basic import (
     MakeVector,
     alloc,
     as_tensor_variable,
+    atleast_Nd,
     cast,
     constant,
     expand_dims,
@@ -40,6 +41,7 @@ from pytensor.tensor.basic import (
 from pytensor.tensor.elemwise import CAReduce, DimShuffle, Elemwise
 from pytensor.tensor.exceptions import NotScalarConstantError
 from pytensor.tensor.extra_ops import broadcast_arrays, concat_with_broadcast
+from pytensor.tensor.linalg.constructors import BlockDiagonal
 from pytensor.tensor.math import (
     Dot,
     Prod,
@@ -63,6 +65,7 @@ from pytensor.tensor.math import (
     ge,
     int_div,
     isinf,
+    ive,
     kve,
     le,
     log,
@@ -106,9 +109,7 @@ from pytensor.tensor.rewriting.basic import (
 )
 from pytensor.tensor.rewriting.blockwise import blockwise_of
 from pytensor.tensor.rewriting.elemwise import apply_local_dimshuffle_lift
-from pytensor.tensor.rewriting.linalg import is_matrix_transpose
 from pytensor.tensor.shape import Shape, Shape_i, specify_shape
-from pytensor.tensor.slinalg import BlockDiagonal
 from pytensor.tensor.subtensor import Subtensor
 from pytensor.tensor.type import (
     complex_dtypes,
@@ -246,7 +247,10 @@ def local_lift_transpose_through_dot(fgraph, node):
 
     [(client, _)] = clients
 
-    if not (isinstance(client.op, DimShuffle) and is_matrix_transpose(client.out)):
+    if not (
+        isinstance(client.op, DimShuffle)
+        and client.op.is_left_expanded_matrix_transpose
+    ):
         return None
 
     x, y = node.inputs
@@ -256,7 +260,10 @@ def local_lift_transpose_through_dot(fgraph, node):
     # Copy over stack trace to output from result of dot-product
     copy_stack_trace(node.out, ret)
 
-    return {client.out: ret}
+    replaced_client = client.out
+    ret = atleast_Nd(ret, n=replaced_client.type.ndim)
+
+    return {replaced_client: ret}
 
 
 def _batched_matmul_to_core_matmul(fgraph, node, allow_reshape: bool):
@@ -726,6 +733,32 @@ def local_mul_exp_to_exp_add(fgraph, node):
             if new_out.dtype != node.outputs[0].dtype:
                 new_out = cast(new_out, dtype=node.outputs[0].dtype)
         return [new_out]
+
+
+@register_specialize
+@node_rewriter([true_div])
+def local_div_exp_to_mul_exp(fgraph, node):
+    """Replace ``A / exp(B)`` with ``A * exp(-B)``.
+
+    Multiplication is generally cheaper than division and the resulting
+    ``exp(-B)`` may fuse with other exponentials via
+    ``local_mul_exp_to_exp_add``.
+    """
+    num, denom = node.inputs
+
+    if not (
+        denom.owner
+        and isinstance(denom.owner.op, Elemwise)
+        and isinstance(denom.owner.op.scalar_op, ps.Exp)
+    ):
+        return None
+
+    exp_arg = denom.owner.inputs[0]
+    new_out = num * exp(neg(exp_arg))
+    if new_out.dtype != node.outputs[0].dtype:
+        new_out = cast(new_out, dtype=node.outputs[0].dtype)
+    copy_stack_trace(node.outputs[0], new_out)
+    return [new_out]
 
 
 @register_specialize
@@ -3888,3 +3921,17 @@ local_log_kv = PatternNodeRewriter(
 )
 
 register_stabilize(local_log_kv)
+
+
+local_log_iv = PatternNodeRewriter(
+    # Rewrite log(iv(v, x)) = log(ive(v, x) * exp(abs(x))) -> log(ive(v, x)) + abs(x)
+    (log, (mul, (ive, "v", "x"), (exp, (pt_abs, "x")))),
+    (add, (log, (ive, "v", "x")), (pt_abs, "x")),
+    allow_multiple_clients=True,
+    name="local_log_iv",
+    # Start the rewrite from the less likely ive node
+    tracks=[ive],
+    get_nodes=get_clients_at_depth2,
+)
+
+register_stabilize(local_log_iv)

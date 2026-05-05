@@ -18,6 +18,9 @@ import grpc
 import grpc.experimental
 import requests
 from google.protobuf import empty_pb2, timestamp_pb2
+from rich.console import Console
+from rich.style import Style
+from rich.text import Text
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
 from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
@@ -127,6 +130,7 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
 )
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
+from chalk._reporting.rich.color import CHALK_WEBSITE_GREEN
 from chalk.client import ChalkAuthException, ChalkError, FeatureReference
 from chalk.client.client_headers import (
     CHALK_BRANCH_ID_HEADER,
@@ -136,6 +140,7 @@ from chalk.client.client_headers import (
     CHALK_GRPC_TRACE_ID_HEADER,
 )
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
+from chalk.client.model_image import build_inferred_image, generate_volume_name, upload_model_to_volume
 from chalk.client.models import (
     BulkOnlineQueryResponse,
     BulkOnlineQueryResult,
@@ -3620,6 +3625,86 @@ class ChalkGRPCClient:
 
         return self._stub_refresher.call_aggregate_stub(lambda stub: stub.CreateAggregateBackfillJob(req, timeout=None))
 
+    def _ensure_model_image(
+        self, model_name: str, model_version: int, validate: bool = True
+    ) -> tuple[int, List[Dict[str, str]]]:
+        """If the model version has no model_image, create a new version with an inferred image.
+
+        Returns (version_number, volume_mounts) where volume_mounts is a list of
+        {"name": ..., "mount_path": ..., "type": "chalkfs"} dicts for the deploy request.
+        """
+        model_version_resp: GetModelVersionResponse = self._stub_refresher.call_model_stub(
+            lambda x: x.GetModelVersion(
+                GetModelVersionRequest(
+                    model_name=model_name,
+                    version=model_version,
+                )
+            )
+        )
+        spec = model_version_resp.model_version.model_artifact.spec
+        if spec.HasField("model_image") and spec.model_image:
+            return model_version, []
+
+        artifact_result = self.download_model_artifact(model_name, model_version)
+        model_files = artifact_result.downloaded_model_files
+        if not model_files:
+            return model_version, []
+
+        try:
+            vol_name = generate_volume_name(model_name, model_version)
+
+            image_uri, model_filename = build_inferred_image(spec, model_files, vol_name, validate=validate)
+
+            if validate:
+                Console().print(
+                    Text(
+                        f"✓ Model handler validation passed for '{model_name}' v{model_version}",
+                        style=Style(color=CHALK_WEBSITE_GREEN, bold=True),
+                    )
+                )
+
+            presigned = self._get_model_artifact_presigned(model_paths=[])
+
+            new_spec = _model_artifact_pb2.ModelArtifactSpec()
+            new_spec.CopyFrom(spec)
+            new_spec.model_image = image_uri
+
+            resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.CreateModelVersion(
+                    CreateModelVersionRequest(
+                        model_name=model_name,
+                        model_artifact_id=presigned.model_artifact_id,
+                        model_artifact=new_spec,
+                    )
+                )
+            )
+
+            new_version = resp.model_version.version
+            chalk_logger.info(
+                f"Inferred image for model '{model_name}': registered new model version {new_version} with image {image_uri}"
+            )
+            Console().print(
+                Text(
+                    f"✓ Inferred image for model '{model_name}': registered new model version {new_version}",
+                    style=Style(color=CHALK_WEBSITE_GREEN, bold=True),
+                )
+            )
+
+            upload_model_to_volume(
+                volume_name=vol_name,
+                model_filename=model_filename,
+                model_file_path=model_files[0],
+            )
+        finally:
+            import shutil
+
+            download_dir = os.path.dirname(model_files[0])
+            if download_dir and os.path.exists(download_dir):
+                shutil.rmtree(download_dir)
+
+        volume_mounts = [{"name": vol_name, "mount_path": f"/volumes/{vol_name}", "type": "chalkfs"}]
+        return new_version, volume_mounts
+
     def deploy_model_version_to_scaling_group(
         self,
         name: str,
@@ -3633,12 +3718,22 @@ class ChalkGRPCClient:
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
         target_cpu_utilization_percentage: Optional[int] = None,
+        validate: bool = True,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
         Uses the authenticated gRPC channel with a raw unary call since
         Python scaling group proto stubs are not yet generated.
         """
+        model_version, inferred_volumes = self._ensure_model_image(model_name, model_version, validate=validate)
+
+        if inferred_volumes:
+            if handler is None:
+                handler = "model_handler.handler"
+            if env_vars is None:
+                env_vars = {}
+            env_vars.setdefault("PYTHONPATH", "/app")
+
         # Build protobuf-compatible JSON request matching CreateModelScalingGroupRequest
         request_data: Dict[str, Any] = {
             "name": name,
@@ -3666,6 +3761,9 @@ class ChalkGRPCClient:
 
         if env_vars:
             container_spec["env_vars"] = env_vars
+
+        if inferred_volumes:
+            container_spec["volumes"] = inferred_volumes
 
         if container_spec:
             request_data["container_spec"] = container_spec

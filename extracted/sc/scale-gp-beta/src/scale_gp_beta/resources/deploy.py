@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Union
+from datetime import datetime
+
 import httpx
 
 from ..types import deploy_list_params, deploy_logs_params, deploy_create_params
@@ -51,9 +54,11 @@ class DeployResource(SyncAPIResource):
         environment_config: str,
         manifest_file: str,
         build_id: str | Omit = omit,
+        expires_at: Union[str, datetime] | Omit = omit,
         image_name: str | Omit = omit,
         image_tag: str | Omit = omit,
         preview: bool | Omit = omit,
+        preview_label: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -76,12 +81,24 @@ class DeployResource(SyncAPIResource):
           build_id: The build_id of the cloud build. Required if image_name and image_tag are not
               provided.
 
+          expires_at: ISO 8601 expiry timestamp. Only valid for preview deployments. If omitted on a
+              preview deployment, defaults to 8 hours from now. Previews are always ephemeral
+              and always have an expires_at.
+
           image_name: Name of the image to deploy. Required if build_id is not provided.
 
           image_tag: Tag of the image to deploy. Required if build_id is not provided.
 
-          preview: When True, creates a preview deployment with a unique slug appended to the helm
-              release name.
+          preview: When True, creates a preview deployment with a unique deployment-id suffix
+              appended to the helm release name.
+
+          preview_label: Non-unique grouping label for the preview (e.g. branch name, PR number).
+              Persisted on the deployment record so callers can list all deploys for a given
+              label via `GET /v5/agentex/deployments?preview_label=X&limit=1` (get the
+              latest). Sanitized to lowercase alphanumeric + hyphens for K8s DNS-label
+              compatibility (max 30 characters after sanitization). Each deploy still gets a
+              unique helm release name regardless of label, so concurrent redeploys never
+              share K8s resources. Only valid when preview=True.
 
           extra_headers: Send extra headers
 
@@ -98,9 +115,11 @@ class DeployResource(SyncAPIResource):
                     "environment_config": environment_config,
                     "manifest_file": manifest_file,
                     "build_id": build_id,
+                    "expires_at": expires_at,
                     "image_name": image_name,
                     "image_tag": image_tag,
                     "preview": preview,
+                    "preview_label": preview_label,
                 },
                 deploy_create_params.DeployCreateParams,
             ),
@@ -150,6 +169,7 @@ class DeployResource(SyncAPIResource):
         build_id: str | Omit = omit,
         ending_before: str | Omit = omit,
         limit: int | Omit = omit,
+        preview_label: str | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
         starting_after: str | Omit = omit,
@@ -167,6 +187,10 @@ class DeployResource(SyncAPIResource):
           agent_name: Filter deployments by agent name (via associated build)
 
           build_id: Filter deployments by build ID
+
+          preview_label: Filter deployments by preview label (e.g. branch name). The label is non-unique
+              — many deployments can share it. Combine with limit=1 to get the latest deploy
+              for that label.
 
           extra_headers: Send extra headers
 
@@ -190,6 +214,7 @@ class DeployResource(SyncAPIResource):
                         "build_id": build_id,
                         "ending_before": ending_before,
                         "limit": limit,
+                        "preview_label": preview_label,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
                         "starting_after": starting_after,
@@ -198,6 +223,40 @@ class DeployResource(SyncAPIResource):
                 ),
             ),
             model=AgentexCloudDeploy,
+        )
+
+    def delete(
+        self,
+        deployment_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AgentexCloudDeploy:
+        """Soft-delete a deployment.
+
+        Marks it as deleted and triggers K8s resource cleanup.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not deployment_id:
+            raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
+        return self._delete(
+            path_template("/v5/agentex/deployments/{deployment_id}", deployment_id=deployment_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=AgentexCloudDeploy,
         )
 
     def logs(
@@ -282,9 +341,11 @@ class AsyncDeployResource(AsyncAPIResource):
         environment_config: str,
         manifest_file: str,
         build_id: str | Omit = omit,
+        expires_at: Union[str, datetime] | Omit = omit,
         image_name: str | Omit = omit,
         image_tag: str | Omit = omit,
         preview: bool | Omit = omit,
+        preview_label: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -307,12 +368,24 @@ class AsyncDeployResource(AsyncAPIResource):
           build_id: The build_id of the cloud build. Required if image_name and image_tag are not
               provided.
 
+          expires_at: ISO 8601 expiry timestamp. Only valid for preview deployments. If omitted on a
+              preview deployment, defaults to 8 hours from now. Previews are always ephemeral
+              and always have an expires_at.
+
           image_name: Name of the image to deploy. Required if build_id is not provided.
 
           image_tag: Tag of the image to deploy. Required if build_id is not provided.
 
-          preview: When True, creates a preview deployment with a unique slug appended to the helm
-              release name.
+          preview: When True, creates a preview deployment with a unique deployment-id suffix
+              appended to the helm release name.
+
+          preview_label: Non-unique grouping label for the preview (e.g. branch name, PR number).
+              Persisted on the deployment record so callers can list all deploys for a given
+              label via `GET /v5/agentex/deployments?preview_label=X&limit=1` (get the
+              latest). Sanitized to lowercase alphanumeric + hyphens for K8s DNS-label
+              compatibility (max 30 characters after sanitization). Each deploy still gets a
+              unique helm release name regardless of label, so concurrent redeploys never
+              share K8s resources. Only valid when preview=True.
 
           extra_headers: Send extra headers
 
@@ -329,9 +402,11 @@ class AsyncDeployResource(AsyncAPIResource):
                     "environment_config": environment_config,
                     "manifest_file": manifest_file,
                     "build_id": build_id,
+                    "expires_at": expires_at,
                     "image_name": image_name,
                     "image_tag": image_tag,
                     "preview": preview,
+                    "preview_label": preview_label,
                 },
                 deploy_create_params.DeployCreateParams,
             ),
@@ -381,6 +456,7 @@ class AsyncDeployResource(AsyncAPIResource):
         build_id: str | Omit = omit,
         ending_before: str | Omit = omit,
         limit: int | Omit = omit,
+        preview_label: str | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
         starting_after: str | Omit = omit,
@@ -398,6 +474,10 @@ class AsyncDeployResource(AsyncAPIResource):
           agent_name: Filter deployments by agent name (via associated build)
 
           build_id: Filter deployments by build ID
+
+          preview_label: Filter deployments by preview label (e.g. branch name). The label is non-unique
+              — many deployments can share it. Combine with limit=1 to get the latest deploy
+              for that label.
 
           extra_headers: Send extra headers
 
@@ -421,6 +501,7 @@ class AsyncDeployResource(AsyncAPIResource):
                         "build_id": build_id,
                         "ending_before": ending_before,
                         "limit": limit,
+                        "preview_label": preview_label,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
                         "starting_after": starting_after,
@@ -429,6 +510,40 @@ class AsyncDeployResource(AsyncAPIResource):
                 ),
             ),
             model=AgentexCloudDeploy,
+        )
+
+    async def delete(
+        self,
+        deployment_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AgentexCloudDeploy:
+        """Soft-delete a deployment.
+
+        Marks it as deleted and triggers K8s resource cleanup.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not deployment_id:
+            raise ValueError(f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}")
+        return await self._delete(
+            path_template("/v5/agentex/deployments/{deployment_id}", deployment_id=deployment_id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=AgentexCloudDeploy,
         )
 
     async def logs(
@@ -500,6 +615,9 @@ class DeployResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             deploy.list,
         )
+        self.delete = to_raw_response_wrapper(
+            deploy.delete,
+        )
         self.logs = to_raw_response_wrapper(
             deploy.logs,
         )
@@ -517,6 +635,9 @@ class AsyncDeployResourceWithRawResponse:
         )
         self.list = async_to_raw_response_wrapper(
             deploy.list,
+        )
+        self.delete = async_to_raw_response_wrapper(
+            deploy.delete,
         )
         self.logs = async_to_raw_response_wrapper(
             deploy.logs,
@@ -536,6 +657,9 @@ class DeployResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             deploy.list,
         )
+        self.delete = to_streamed_response_wrapper(
+            deploy.delete,
+        )
         self.logs = to_streamed_response_wrapper(
             deploy.logs,
         )
@@ -553,6 +677,9 @@ class AsyncDeployResourceWithStreamingResponse:
         )
         self.list = async_to_streamed_response_wrapper(
             deploy.list,
+        )
+        self.delete = async_to_streamed_response_wrapper(
+            deploy.delete,
         )
         self.logs = async_to_streamed_response_wrapper(
             deploy.logs,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-evals
-Version: 3.0.0
+Version: 3.1.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -37,7 +37,7 @@ Provides-Extra: test
 Requires-Dist: anthropic>=0.18.0; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
 Requires-Dist: litellm<1.82.7,>=1.28.9; extra == 'test'
-Requires-Dist: mistralai<2,>=1.0.0; extra == 'test'
+Requires-Dist: mistralai>=1.0.0; extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'
 Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
@@ -235,4 +235,5 @@ Join our community to connect with thousands of AI builders:
 - 🌟 Leave a star on our [GitHub](https://github.com/Arize-ai/phoenix).
 - 🐞 Report bugs with [GitHub Issues](https://github.com/Arize-ai/phoenix/issues).
 - 𝕏 Follow us on [𝕏](https://twitter.com/ArizePhoenix).
+- 💼 Follow us on [LinkedIn](https://www.linkedin.com/showcase/113218220).
 - 🗺️ Check out our [roadmap](https://github.com/orgs/Arize-ai/projects/45) to see where we're heading next.

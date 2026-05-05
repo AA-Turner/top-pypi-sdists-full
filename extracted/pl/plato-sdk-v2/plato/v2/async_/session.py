@@ -13,7 +13,7 @@ import multiprocessing
 import signal
 import time
 import uuid
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -1187,7 +1187,10 @@ class Session:
 
         logger.debug(f"Removed job {job_id} (alias={alias}) from session {self.session_id}")
 
-    async def cleanup_databases(self) -> SessionCleanupResult:
+    async def cleanup_databases(
+        self,
+        aliases: Iterable[str] | None = None,
+    ) -> SessionCleanupResult:
         """Clean up database audit logs for all environments.
 
         For each environment:
@@ -1201,6 +1204,12 @@ class Session:
 
         Requires the 'db-cleanup' optional dependencies:
             pip install plato-sdk-v2[db-cleanup]
+
+        Args:
+            aliases: Optional iterable of env aliases to limit cleanup to. When
+                provided, only envs whose alias is in the set are cleaned;
+                others (e.g. infrastructure VMs added during the session) are
+                skipped. ``None`` cleans every env in the session.
 
         Returns:
             SessionCleanupResult with results for each environment.
@@ -1218,6 +1227,8 @@ class Session:
                 "Database cleanup requires optional dependencies. Install them with: pip install plato-sdk-v2[db-cleanup]"
             ) from e
 
+        alias_filter = set(aliases) if aliases is not None else None
+
         # Build EnvironmentInfo objects
         env_infos = [
             EnvironmentInfo(
@@ -1227,6 +1238,7 @@ class Session:
                 get_state_fn=env.get_state,
             )
             for env in self.envs
+            if alias_filter is None or env.alias in alias_filter
         ]
 
         cleaner = DatabaseCleaner()

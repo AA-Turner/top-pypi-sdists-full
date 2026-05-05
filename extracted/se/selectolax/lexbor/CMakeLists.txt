@@ -10,6 +10,8 @@ cmake_minimum_required(VERSION 2.8.12...3.27)
 #    LEXBOR_BUILD_STATIC                 default: ON; Create static library
 #    LEXBOR_BUILD_SEPARATELY             default: OFF; Build all modules separately.
 #                                         Each module will have its own shared library
+#    LEXBOR_BUILD_WASM                   default: OFF; Build WASM modules (requires Emscripten)
+#    LEXBOR_WASM_INSTALL_DIR             default: "share/lexbor/wasm"; Install directory for WASM files
 #    LEXBOR_BUILD_EXAMPLES               default: OFF; Build all examples
 #    LEXBOR_BUILD_TESTS                  default: OFF; Build tests
 #    LEXBOR_BUILD_TESTS_CPP              default: OFF; Build C++ tests.
@@ -50,6 +52,7 @@ option(LEXBOR_WITHOUT_THREADS "Build without Threads" ON)
 option(LEXBOR_BUILD_SHARED "Build shared library" ON)
 option(LEXBOR_BUILD_STATIC "Build static library" ON)
 option(LEXBOR_BUILD_SEPARATELY "Build modules separately" OFF)
+option(LEXBOR_BUILD_WASM "Build WASM modules (requires Emscripten)" OFF)
 option(LEXBOR_BUILD_EXAMPLES "Build examples" OFF)
 option(LEXBOR_BUILD_TESTS "Build tests" OFF)
 option(LEXBOR_BUILD_TESTS_CPP "Build C++ tests" OFF)
@@ -63,6 +66,8 @@ option(LEXBOR_INSTALL_HEADERS "Install header files" ON)
 option(LEXBOR_WITH_PERF "Enables support for rdtsc." OFF)
 option(LEXBOR_MAKE_PACKAGES_FILES "Create files for build packages" OFF)
 option(LEXBOR_PRINT_MODULE_DEPENDENCIES "Prints dependencies" OFF)
+
+set(LEXBOR_WASM_INSTALL_DIR "share/lexbor/wasm" CACHE STRING "Install directory for WASM files")
 
 IF(NOT LEXBOR_MAKE_DISTRO_NUM)
     set(LEXBOR_MAKE_DISTRO_NUM "1")
@@ -198,6 +203,12 @@ ENDFOREACH()
 ## First, need to add target for shared and static library
 IF(LEXBOR_BUILD_SHARED)
     add_library(${LEXBOR_LIB_NAME} SHARED ${LEXBOR_SOURCES})
+    if(UNIX)
+        set_target_properties(${LEXBOR_LIB_NAME} PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR} VERSION ${PROJECT_VERSION})
+    endif()
+    if ((WIN32) AND (CMAKE_VERSION VERSION_GREATER_EQUAL "3.27"))
+        set_target_properties(${LEXBOR_LIB_NAME} PROPERTIES DLL_NAME_WITH_SOVERSION 1)
+    endif()
     target_include_directories(${LEXBOR_LIB_NAME} PUBLIC $<BUILD_INTERFACE:${LEXBOR_SOURCE}>
                                                          $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
     target_compile_definitions(${LEXBOR_LIB_NAME} PRIVATE "LEXBOR_BUILDING")
@@ -324,6 +335,45 @@ IF(${LEXBOR_HAVE_FUZZER})
 ENDIF()
 
 ################
+## WASM
+#########################
+IF(LEXBOR_BUILD_WASM)
+    message(STATUS "WASM build: enabled.")
+
+    IF(LEXBOR_BUILD_SHARED)
+        set(LEXBOR_BUILD_SHARED OFF)
+        message(STATUS "WASM: set LEXBOR_BUILD_SHARED to OFF.")
+    ENDIF()
+
+    IF(NOT LEXBOR_BUILD_STATIC)
+        set(LEXBOR_BUILD_STATIC ON)
+        message(STATUS "WASM: set LEXBOR_BUILD_STATIC to ON.")
+    ENDIF()
+
+    IF(LEXBOR_BUILD_TESTS)
+        set(LEXBOR_BUILD_TESTS OFF)
+        message(STATUS "WASM: set LEXBOR_BUILD_TESTS to OFF.")
+    ENDIF()
+
+    IF(LEXBOR_BUILD_EXAMPLES)
+        set(LEXBOR_BUILD_EXAMPLES OFF)
+        message(STATUS "WASM: set LEXBOR_BUILD_EXAMPLES to OFF.")
+    ENDIF()
+
+    IF(LEXBOR_BUILD_UTILS)
+        set(LEXBOR_BUILD_UTILS OFF)
+        message(STATUS "WASM: set LEXBOR_BUILD_UTILS to OFF.")
+    ENDIF()
+
+    IF(LEXBOR_BUILD_BENCHMARKS)
+        set(LEXBOR_BUILD_BENCHMARKS OFF)
+        message(STATUS "WASM: set LEXBOR_BUILD_BENCHMARKS to OFF.")
+    ENDIF()
+
+    add_subdirectory(wasm)
+ENDIF()
+
+################
 ## Tests
 #########################
 IF(LEXBOR_BUILD_TESTS)
@@ -355,27 +405,42 @@ ENDIF()
 ################
 ## CMake target export
 #########################
-include("CMakePackageConfigHelpers")
+IF(NOT LEXBOR_BUILD_WASM)
+    include("CMakePackageConfigHelpers")
 
-install(
-    EXPORT "${PROJECT_NAME}-export"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/"
-    FILE "${PROJECT_NAME}-targets.cmake"
-    NAMESPACE "${PROJECT_NAME}::")
+    install(
+        EXPORT "${PROJECT_NAME}-export"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/"
+        FILE "${PROJECT_NAME}-targets.cmake"
+        NAMESPACE "${PROJECT_NAME}::")
 
-configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}-config.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
-    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/")
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}-config.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/")
 
-write_basic_package_version_file(
-    "${PROJECT_NAME}-config-version.cmake"
-    COMPATIBILITY SameMajorVersion
-    VERSION "${LEXBOR_VERSION_STRING}")
+    write_basic_package_version_file(
+        "${PROJECT_NAME}-config-version.cmake"
+        COMPATIBILITY SameMajorVersion
+        VERSION "${LEXBOR_VERSION_STRING}")
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+                  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/")
+
+################
+## pkg-config configuration
+#########################
+    configure_file(
+      "${PROJECT_SOURCE_DIR}/lexbor.pc.in"
+      "${PROJECT_BINARY_DIR}/lexbor.pc"
+      @ONLY
+    )
+    install(
+      FILES "${PROJECT_BINARY_DIR}/lexbor.pc"
+      DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+    )
+ENDIF()
 
 ################
 ## Build an RPM.

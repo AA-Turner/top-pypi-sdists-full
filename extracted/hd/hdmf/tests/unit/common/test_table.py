@@ -3211,6 +3211,7 @@ class TestDataIOReferences(H5RoundTripMixin, TestCase):
 
         self.assertContainerEqual(read_container['table']['y'][-1], group1)
 
+
 class TestVectorIndexDtype(TestCase):
 
     def set_up_array_index(self):
@@ -3492,6 +3493,40 @@ class TestMeaningsTableRoundTrip(H5RoundTripMixin, TestCase):
         self.assertEqual(len(mt), 3)
         self.assertEqual(list(mt['value'].data), ['a', 'b', 'c'])
         self.assertEqual(list(mt['meaning'].data), ['stimulus A', 'stimulus B', 'stimulus C'])
+
+
+class TestMeaningsTableLengthMismatchRoundTrip(H5RoundTripMixin, TestCase):
+    """Roundtrip when MeaningsTable row count differs from the target column row count.
+
+    Regression test: the target link's VectorData was being included as an extra
+    column of the MeaningsTable during read, which failed the equal-length check
+    when the target column had more (or fewer) rows than the MeaningsTable.
+    """
+
+    def setUpContainer(self):
+        table = DynamicTable(name='test_table', description='a test table')
+        table.add_column(name='stimulus_type', description='stimulus type')
+        # three rows in the target column
+        table.add_row(stimulus_type='a')
+        table.add_row(stimulus_type='b')
+        table.add_row(stimulus_type='a')
+
+        # two rows in the MeaningsTable (unique values only)
+        mt = MeaningsTable(target=table['stimulus_type'])
+        mt.add_row(value='a', meaning='stimulus A')
+        mt.add_row(value='b', meaning='stimulus B')
+        table.add_meanings_table(mt)
+
+        return table
+
+    def test_roundtrip_mismatched_lengths(self):
+        read_container = self.roundtripContainer()
+        mt = read_container.get_meanings_table('stimulus_type_meanings')
+        self.assertEqual(len(mt), 2)
+        self.assertEqual(tuple(mt.colnames), ('value', 'meaning'))
+        self.assertEqual(list(mt['value'].data), ['a', 'b'])
+        self.assertEqual(list(mt['meaning'].data), ['stimulus A', 'stimulus B'])
+        self.assertEqual(mt.target.name, 'stimulus_type')
 
 
 class TestMultipleMeaningsTablesRoundTrip(H5RoundTripMixin, TestCase):

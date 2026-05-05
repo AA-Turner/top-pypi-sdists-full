@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from dbt_bouncer.check_decorator import check, fail
+from dbt_bouncer.check_framework.decorator import check, fail
 
 
 @check
@@ -11,10 +11,16 @@ def check_source_has_tags(
 ):
     """Sources must have the specified tags.
 
+    !!! info "Rationale"
+
+        Tags are the primary mechanism for grouping dbt nodes into logical categories — domain areas, sensitivity levels, scheduling tiers, or compliance scopes. When sources are missing required tags, they fall outside automated workflows that rely on tag-based selection (e.g. `dbt build --select tag:pii` or scheduled refreshes filtered by domain). This check ensures that every source is tagged correctly at registration time, preventing ungrouped sources from slipping through governance and operational processes.
+
     Parameters:
         criteria: (Literal["any", "all", "one"] | None): Whether the source must have any, all, or exactly one of the specified tags. Default: `all`.
-        source (SourceNode): The SourceNode object to check.
         tags (list[str]): List of tags to check for.
+
+    Receives:
+        source (SourceNode): The SourceNode object to check.
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.

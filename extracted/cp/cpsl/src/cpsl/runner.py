@@ -97,7 +97,7 @@ from .decorators import (
 )
 from .msg import Message
 from .home import HomeContext, serialize_suggestions
-from .session import ReplyStream, RequestContext, Session, UserInfo
+from .session import ReplyStream, RequestContext, Session, UserInfo, _track_data_value
 from .task_types import TaskDescriptor, GlobalTaskQuery
 from .task_exec import _retry_on_errors, run_task_subprocess
 from .workflow import Workflow, WorkflowInput
@@ -572,7 +572,7 @@ class Runner:
             if resp.channel_type:
                 session.channel = SessionChannel(type=resp.channel_type)
             if resp.data_json:
-                session.data = json.loads(resp.data_json)
+                session.data = _track_data_value(json.loads(resp.data_json), session._notify_data_changed)
 
             raw = [
                 Message(text=e.text, sender=e.sender, channel_type=e.channel_type)
@@ -849,6 +849,10 @@ class Runner:
             async def _block(block_json: str) -> None:
                 self._submit_block(sid, block_json)
 
+            async def _data_changed() -> None:
+                await self._persist(session)
+                self._submit_widget_update(sid, reason="data")
+
             async def _notify(m):
                 if self._session_stub and hasattr(self._session_stub, "notify_session"):
                     await self._run_rpc(
@@ -873,6 +877,7 @@ class Runner:
             session._stream_reply_factory = None
             session._notify_callback = _notify
             session._block_callback = _block
+            session._data_change_callback = _data_changed
 
             identity_token = self._set_session_on_refs(session)
             try:
@@ -1430,6 +1435,20 @@ class Runner:
         Blocks are fire-and-forget — no result channel is opened because the
         UI fetches current state from the task/resource directly.
         """
+        self._submit(
+            request_id=str(uuid.uuid4()),
+            text="",
+            done=True,
+            session_id=session_id,
+            block_json=block_json,
+        )
+
+    def _submit_widget_update(self, session_id: str, *, reason: str = "data") -> None:
+        block_json = json.dumps({
+            "id": f"widget_update_{session_id}",
+            "type": "widget_update",
+            "payload": {"reason": reason, "session_id": session_id},
+        })
         self._submit(
             request_id=str(uuid.uuid4()),
             text="",

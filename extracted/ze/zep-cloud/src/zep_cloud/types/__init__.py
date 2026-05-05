@@ -6,14 +6,25 @@ from .add_thread_messages_request import AddThreadMessagesRequest
 from .add_thread_messages_response import AddThreadMessagesResponse
 from .add_triple_response import AddTripleResponse
 from .api_error import ApiError
+from .apidata_batch_add_item_role import ApidataBatchAddItemRole
+from .apidata_batch_add_item_type import ApidataBatchAddItemType
+from .batch_add_item import BatchAddItem
+from .batch_item_detail import BatchItemDetail
+from .batch_item_kind import BatchItemKind
+from .batch_item_list_response import BatchItemListResponse
+from .batch_item_status import BatchItemStatus
+from .batch_list_response import BatchListResponse
+from .batch_progress import BatchProgress
+from .batch_status import BatchStatus
+from .batch_summary import BatchSummary
 from .clone_graph_response import CloneGraphResponse
 from .cluster_detect_config import ClusterDetectConfig
 from .co_occurrence_detect_config import CoOccurrenceDetectConfig
-from .community_node import CommunityNode
 from .comparison_operator import ComparisonOperator
 from .context_template_response import ContextTemplateResponse
 from .custom_instruction import CustomInstruction
 from .date_filter import DateFilter
+from .derived_node import DerivedNode
 from .detect_config import DetectConfig
 from .detect_patterns_response import DetectPatternsResponse
 from .edge_type import EdgeType
@@ -31,15 +42,14 @@ from .episode_metadata_filter import EpisodeMetadataFilter
 from .episode_response import EpisodeResponse
 from .get_task_response import GetTaskResponse
 from .graph import Graph
-from .graph_communities_request import GraphCommunitiesRequest
 from .graph_data_type import GraphDataType
 from .graph_edges_request import GraphEdgesRequest
 from .graph_list_response import GraphListResponse
 from .graph_nodes_request import GraphNodesRequest
-from .graph_sagas_request import GraphSagasRequest
+from .graph_observations_request import GraphObservationsRequest
 from .graph_search_results import GraphSearchResults
 from .graph_search_scope import GraphSearchScope
-from .graph_themes_request import GraphThemesRequest
+from .graph_thread_summaries_request import GraphThreadSummariesRequest
 from .graphiti_metadata_filter_group_type import GraphitiMetadataFilterGroupType
 from .graphiti_saga_node import GraphitiSagaNode
 from .hub_detect_config import HubDetectConfig
@@ -67,6 +77,7 @@ from .task_progress import TaskProgress
 from .thread import Thread
 from .thread_context_response import ThreadContextResponse
 from .thread_list_response import ThreadListResponse
+from .thread_summary import ThreadSummary
 from .user import User
 from .user_instruction import UserInstruction
 from .user_list_response import UserListResponse
@@ -77,14 +88,25 @@ __all__ = [
     "AddThreadMessagesResponse",
     "AddTripleResponse",
     "ApiError",
+    "ApidataBatchAddItemRole",
+    "ApidataBatchAddItemType",
+    "BatchAddItem",
+    "BatchItemDetail",
+    "BatchItemKind",
+    "BatchItemListResponse",
+    "BatchItemStatus",
+    "BatchListResponse",
+    "BatchProgress",
+    "BatchStatus",
+    "BatchSummary",
     "CloneGraphResponse",
     "ClusterDetectConfig",
     "CoOccurrenceDetectConfig",
-    "CommunityNode",
     "ComparisonOperator",
     "ContextTemplateResponse",
     "CustomInstruction",
     "DateFilter",
+    "DerivedNode",
     "DetectConfig",
     "DetectPatternsResponse",
     "EdgeType",
@@ -102,15 +124,14 @@ __all__ = [
     "EpisodeResponse",
     "GetTaskResponse",
     "Graph",
-    "GraphCommunitiesRequest",
     "GraphDataType",
     "GraphEdgesRequest",
     "GraphListResponse",
     "GraphNodesRequest",
-    "GraphSagasRequest",
+    "GraphObservationsRequest",
     "GraphSearchResults",
     "GraphSearchScope",
-    "GraphThemesRequest",
+    "GraphThreadSummariesRequest",
     "GraphitiMetadataFilterGroupType",
     "GraphitiSagaNode",
     "HubDetectConfig",
@@ -138,6 +159,7 @@ __all__ = [
     "Thread",
     "ThreadContextResponse",
     "ThreadListResponse",
+    "ThreadSummary",
     "User",
     "UserInstruction",
     "UserListResponse",

@@ -1,6 +1,7 @@
 from pathlib import Path
 from polylith_cli.polylith import interactive, project
 from polylith_cli.polylith.bricks import base, component
+from polylith_cli.polylith.cli import options
 from polylith_cli.polylith.commands.create import create
 from polylith_cli.polylith.workspace.create import create_workspace
 from typer import Exit, Option, Typer
@@ -35,10 +36,11 @@ def _create_project(root: Path, options: dict):
     project.create_project(root, template, name, description or '')
 
 @app.command('project')
-def project_command(name: Annotated[str, Option(help='Name of the project.')], description: Annotated[str, Option(help='Description of the project.')]=''):
+def project_command(name: Annotated[str, Option(help='Name of the project.')], description: Annotated[str, Option(help='Description of the project.')]='', quiet: Annotated[bool, options.quiet]=False):
     """Creates a Polylith project."""
     create(name, description, _create_project)
-    interactive.project.run(name)
+    if not quiet:
+        interactive.project.run(name)
 
 @app.command('workspace')
 def workspace_command(name: Annotated[str, Option(help='Name of the workspace.')], theme: Annotated[str, Option(help='Workspace theme.')]='tdd'):

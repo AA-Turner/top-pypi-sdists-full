@@ -117,7 +117,16 @@ def _rebuild_code(watch_path: Path, *, follow_symlinks: bool = False, force: boo
         cohesion = score_all(G, communities)
         gods = god_nodes(G)
         surprises = surprising_connections(G, communities)
-        labels = {cid: "Community " + str(cid) for cid in communities}
+        labels_file = out / ".graphify_labels.json"
+        try:
+            raw = json.loads(labels_file.read_text(encoding="utf-8")) if labels_file.exists() else {}
+            labels = {int(k): v for k, v in raw.items() if int(k) in communities}
+        except Exception:
+            raw = {}
+            labels = {}
+        for cid in communities:
+            if cid not in labels:
+                labels[cid] = "Community " + str(cid)
         questions = suggest_questions(G, communities, labels)
 
         out.mkdir(exist_ok=True)

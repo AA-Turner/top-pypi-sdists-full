@@ -1,6 +1,6 @@
 """Checks related to column tests."""
 
-from dbt_bouncer.check_decorator import check, fail
+from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import compile_pattern
 
 
@@ -9,6 +9,10 @@ def check_column_has_specified_test(
     catalog_node, ctx, *, column_name_pattern: str, test_name: str
 ):
     """Columns that match the specified regexp pattern must have a specified test.
+
+    !!! info "Rationale"
+
+        Naming conventions communicate expectations: a column named `is_active` implies it is boolean and never null; a column ending in `_id` implies it is a valid foreign key. Without enforcement, these implicit contracts go untested, and referential integrity issues or null values can silently corrupt downstream aggregations. This check bridges naming conventions and data quality by automatically requiring specific tests on columns that match a pattern, eliminating the manual overhead of reviewing every column individually.
 
     Parameters:
         column_name_pattern (str): Regex pattern to match the column name.

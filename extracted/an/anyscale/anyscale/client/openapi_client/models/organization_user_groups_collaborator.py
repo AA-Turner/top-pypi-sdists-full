@@ -40,7 +40,9 @@ class OrganizationUserGroupsCollaborator(object):
         'updated_at': 'datetime',
         'permission_levels': 'list[OrganizationPermissionLevel]',
         'members': 'list[MiniUser]',
-        'member_count': 'int'
+        'member_count': 'int',
+        'created_by': 'str',
+        'created_by_type': 'str'
     }
 
     attribute_map = {
@@ -51,10 +53,12 @@ class OrganizationUserGroupsCollaborator(object):
         'updated_at': 'updated_at',
         'permission_levels': 'permission_levels',
         'members': 'members',
-        'member_count': 'member_count'
+        'member_count': 'member_count',
+        'created_by': 'created_by',
+        'created_by_type': 'created_by_type'
     }
 
-    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, permission_levels=None, members=None, member_count=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, permission_levels=None, members=None, member_count=None, created_by=None, created_by_type=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationUserGroupsCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +72,8 @@ class OrganizationUserGroupsCollaborator(object):
         self._permission_levels = None
         self._members = None
         self._member_count = None
+        self._created_by = None
+        self._created_by_type = None
         self.discriminator = None
 
         self.id = id
@@ -80,6 +86,10 @@ class OrganizationUserGroupsCollaborator(object):
         if members is not None:
             self.members = members
         self.member_count = member_count
+        if created_by is not None:
+            self.created_by = created_by
+        if created_by_type is not None:
+            self.created_by_type = created_by_type
 
     @property
     def id(self):
@@ -270,6 +280,58 @@ class OrganizationUserGroupsCollaborator(object):
             raise ValueError("Invalid value for `member_count`, must not be `None`")  # noqa: E501
 
         self._member_count = member_count
+
+    @property
+    def created_by(self):
+        """Gets the created_by of this OrganizationUserGroupsCollaborator.  # noqa: E501
+
+        Display name of the group creator. Null for SCIM-synced groups.  # noqa: E501
+
+        :return: The created_by of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :rtype: str
+        """
+        return self._created_by
+
+    @created_by.setter
+    def created_by(self, created_by):
+        """Sets the created_by of this OrganizationUserGroupsCollaborator.
+
+        Display name of the group creator. Null for SCIM-synced groups.  # noqa: E501
+
+        :param created_by: The created_by of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :type: str
+        """
+
+        self._created_by = created_by
+
+    @property
+    def created_by_type(self):
+        """Gets the created_by_type of this OrganizationUserGroupsCollaborator.  # noqa: E501
+
+        Type of creator: 'user' for manually created groups, 'scim' for IdP-synced groups.  # noqa: E501
+
+        :return: The created_by_type of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :rtype: str
+        """
+        return self._created_by_type
+
+    @created_by_type.setter
+    def created_by_type(self, created_by_type):
+        """Sets the created_by_type of this OrganizationUserGroupsCollaborator.
+
+        Type of creator: 'user' for manually created groups, 'scim' for IdP-synced groups.  # noqa: E501
+
+        :param created_by_type: The created_by_type of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :type: str
+        """
+        allowed_values = ["user", "scim"]  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and created_by_type not in allowed_values:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `created_by_type` ({0}), must be one of {1}"  # noqa: E501
+                .format(created_by_type, allowed_values)
+            )
+
+        self._created_by_type = created_by_type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

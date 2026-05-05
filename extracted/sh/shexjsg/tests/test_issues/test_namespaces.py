@@ -1,11 +1,10 @@
-import unittest
-
+import pytest
+from rdflib import Graph
 
 from tests import SHEXC_INSTALLED
 from ShExJSG.ShExC import ShExC
 if SHEXC_INSTALLED:
     from pyshexc.parser_impl.generate_shexj import parse
-from rdflib import Graph
 
 
 shex_c = """
@@ -74,34 +73,31 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     )
 }"""
 
-@unittest.skipIf(not SHEXC_INSTALLED, "Have to install ShExC to run these tests")
-class NamespaceTestCase(unittest.TestCase):
-    def test_namespaces(self):
-        """ Test a graph based namespace manager """
-        shex = parse(shex_c)
-        g = Graph()
-        g.bind('ex', 'http://example.org/sample/example1/')
-        g.bind('foaf', 'http://xmlns.com/foaf/0.1/')
-        self.assertEqual(expected, str(ShExC(shex, namespaces=g)).strip())
 
-    def test_namespaces2(self):
-        """ Test a plain namespace manager """
-        shex = parse(shex_c)
-        g = Graph()
-        g.bind('ex', 'http://example.org/sample/example1/')
-        g.bind('foaf', 'http://xmlns.com/foaf/0.1/')
-        self.maxDiff = None
-        self.assertEqual(expected, str(ShExC(shex, namespaces=g.namespace_manager)).strip())
+@pytest.fixture
+def shex_graph():
+    g = Graph()
+    g.bind('ex', 'http://example.org/sample/example1/')
+    g.bind('foaf', 'http://xmlns.com/foaf/0.1/')
+    return g
 
-    def test_with_base(self):
-        """ Test namespaces with base """
-        shex = parse(shex_c)
-        g = Graph()
-        g.bind('ex', 'http://example.org/sample/example1/')
-        g.bind('foaf', 'http://xmlns.com/foaf/0.1/')
-        self.maxDiff = None
-        self.assertEqual(expected_base,
-                         str(ShExC(shex, base='http://example.org/sample/example1/', namespaces=g)).strip())
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.skipif(not SHEXC_INSTALLED, reason="Have to install ShExC to run these tests")
+def test_namespaces(shex_graph):
+    """Test a graph based namespace manager."""
+    shex = parse(shex_c)
+    assert expected == str(ShExC(shex, namespaces=shex_graph)).strip()
+
+
+@pytest.mark.skipif(not SHEXC_INSTALLED, reason="Have to install ShExC to run these tests")
+def test_namespaces2(shex_graph):
+    """Test a plain namespace manager."""
+    shex = parse(shex_c)
+    assert expected == str(ShExC(shex, namespaces=shex_graph.namespace_manager)).strip()
+
+
+@pytest.mark.skipif(not SHEXC_INSTALLED, reason="Have to install ShExC to run these tests")
+def test_with_base(shex_graph):
+    """Test namespaces with base."""
+    shex = parse(shex_c)
+    assert expected_base == str(ShExC(shex, base='http://example.org/sample/example1/', namespaces=shex_graph)).strip()

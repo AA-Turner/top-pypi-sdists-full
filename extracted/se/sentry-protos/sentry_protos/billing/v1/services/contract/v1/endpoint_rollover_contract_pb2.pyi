@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import sentry_protos.billing.v1.common.v1.address_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
@@ -25,20 +26,24 @@ class RolloverContractRequest(google.protobuf.message.Message):
     CONTRACT_ID_FIELD_NUMBER: builtins.int
     LAST_USAGE_TS_FIELD_NUMBER: builtins.int
     LINE_ITEMS_FIELD_NUMBER: builtins.int
+    ADDRESS_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
     @property
     def last_usage_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem]: ...
+    @property
+    def address(self) -> sentry_protos.billing.v1.common.v1.address_pb2.Address: ...
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
         last_usage_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         line_items: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem] | None = ...,
+        address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["last_usage_ts", b"last_usage_ts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "last_usage_ts", b"last_usage_ts", "line_items", b"line_items"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["address", b"address", "last_usage_ts", b"last_usage_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["address", b"address", "contract_id", b"contract_id", "last_usage_ts", b"last_usage_ts", "line_items", b"line_items"]) -> None: ...
 
 global___RolloverContractRequest = RolloverContractRequest
 

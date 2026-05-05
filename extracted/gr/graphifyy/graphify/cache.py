@@ -35,38 +35,30 @@ def _normalize_path(path: Path) -> Path:
 
 
 def file_hash(path: Path, root: Path = Path(".")) -> str:
-    """SHA256 of file contents only (path-independent for rename safety).
+    """SHA256 of file contents + path relative to root.
 
-    Content-only hashing means renamed files reuse their cache entry.
-    The root parameter is kept for API compatibility but not used in the hash.
+    Using a relative path (not absolute) makes cache entries portable across
+    machines and checkout directories, so shared caches and CI work correctly.
+    Falls back to the resolved absolute path if the file is outside root.
 
     For Markdown files (.md), only the body below the YAML frontmatter is hashed,
     so metadata-only changes (e.g. reviewed, status, tags) do not invalidate the cache.
     """
     p = _normalize_path(Path(path))
+    root = _normalize_path(Path(root))
     if not p.is_file():
         raise IsADirectoryError(f"file_hash requires a file, got: {p}")
     raw = p.read_bytes()
     content = _body_content(raw) if p.suffix.lower() == ".md" else raw
     h = hashlib.sha256()
     h.update(content)
-    return h.hexdigest()
-
-
-def _update_source_file(result: dict, path: Path, root: Path) -> None:
-    """Update source_file in cached nodes/edges to match the actual file path.
-
-    Needed after renames: cache was saved with the old path, but the file has
-    moved. Rewriting source_file ensures the graph reflects the new location.
-    """
+    h.update(b"\x00")
     try:
-        rel = str(path.resolve().relative_to(Path(root).resolve()))
+        rel = p.resolve().relative_to(Path(root).resolve())
+        h.update(str(rel).encode())
     except ValueError:
-        rel = str(path.resolve())
-    rel = rel.replace("\\", "/")
-    for item in result.get("nodes", []) + result.get("edges", []):
-        if "source_file" in item:
-            item["source_file"] = rel
+        h.update(str(p.resolve()).encode())
+    return h.hexdigest()
 
 
 def cache_dir(root: Path = Path("."), kind: str = "ast") -> Path:
@@ -99,10 +91,7 @@ def load_cached(path: Path, root: Path = Path("."), kind: str = "ast") -> dict |
     entry = cache_dir(root, kind) / f"{h}.json"
     if entry.exists():
         try:
-            result = json.loads(entry.read_text(encoding="utf-8"))
-            if kind == "ast":
-                _update_source_file(result, path, root)
-            return result
+            return json.loads(entry.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return None
     # Migration fallback: check legacy flat cache/ dir for AST entries
@@ -110,9 +99,7 @@ def load_cached(path: Path, root: Path = Path("."), kind: str = "ast") -> dict |
         legacy = Path(root).resolve() / _GRAPHIFY_OUT / "cache" / f"{h}.json"
         if legacy.exists():
             try:
-                result = json.loads(legacy.read_text(encoding="utf-8"))
-                _update_source_file(result, path, root)
-                return result
+                return json.loads(legacy.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 return None
     return None

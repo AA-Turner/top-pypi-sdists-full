@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class UpdateableAccount(BaseModel):
@@ -30,7 +31,10 @@ class UpdateableAccount(BaseModel):
     )
     __properties: ClassVar[List[str]] = ["id"]
     model_config = ConfigDict(
-        populate_by_name=True, validate_assignment=True, protected_namespaces=()
+        populate_by_name=True,
+        validate_assignment=True,
+        protected_namespaces=(),
+        json_schema_extra={"x-capability-level": "write"},
     )
 
     def to_str(self) -> str:
@@ -69,3 +73,6 @@ class UpdateableAccount(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate({"id": obj.get("id")})
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

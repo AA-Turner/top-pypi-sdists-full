@@ -55,7 +55,7 @@ class IntegerTypeCheckerStrictLevel1(IntegerTypeCheckerStrictLevel0):
 
 class IntegerTypeCheckerStrictLevel2(IntegerTypeCheckerStrictLevel1):
     def is_exclude_instance(self):
-        return isinstance(self._value, (str,) + (bool, float, Decimal))
+        return isinstance(self._value, (str, bool, float, Decimal))
 
 
 _factory = CheckerFactory(

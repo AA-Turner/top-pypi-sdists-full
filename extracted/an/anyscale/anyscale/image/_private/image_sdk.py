@@ -423,6 +423,11 @@ class PrivateImageSDK(BaseSDK):
         Raises:
             ValueError: If the image is not found or cannot be archived.
         """
+        if self.client.get_deployment_infra_provider() == "azure":
+            raise ValueError(
+                "Archiving container images is not supported on Azure Control Plane."
+            )
+
         if name is None and image_id is None:
             raise ValueError("Either 'name' or 'image_id' must be provided.")
 

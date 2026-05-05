@@ -11,8 +11,6 @@ import wbcore.contrib.directory.models.entries
 
 
 class Migration(migrations.Migration):
-    replaces = [("directory", "0001_initial")]
-
     initial = True
 
     dependencies = [

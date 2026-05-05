@@ -27,6 +27,7 @@ class _BaseUnitEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumT
     BASE_UNIT_BYTE: _BaseUnit.ValueType  # 1
     BASE_UNIT_COUNT: _BaseUnit.ValueType  # 2
     BASE_UNIT_SECOND: _BaseUnit.ValueType  # 3
+    BASE_UNIT_MILLISECOND: _BaseUnit.ValueType  # 4
 
 class BaseUnit(_BaseUnit, metaclass=_BaseUnitEnumTypeWrapper):
     """Base unit types for measurement and conversion."""
@@ -35,6 +36,7 @@ BASE_UNIT_UNSPECIFIED: BaseUnit.ValueType  # 0
 BASE_UNIT_BYTE: BaseUnit.ValueType  # 1
 BASE_UNIT_COUNT: BaseUnit.ValueType  # 2
 BASE_UNIT_SECOND: BaseUnit.ValueType  # 3
+BASE_UNIT_MILLISECOND: BaseUnit.ValueType  # 4
 global___BaseUnit = BaseUnit
 
 @typing.final

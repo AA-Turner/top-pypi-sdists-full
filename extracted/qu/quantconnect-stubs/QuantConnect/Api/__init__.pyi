@@ -1506,7 +1506,7 @@ class BacktestSummary(QuantConnect.Api.BasicBacktest):
 
     @property
     def loss_rate(self) -> typing.Optional[float]:
-        """The ratio of the number of losing trades to the total number of trades"""
+        """The ratio of the number of trades with zero or negative profit loss to the total number of trades"""
         ...
 
     @loss_rate.setter
@@ -1578,7 +1578,7 @@ class BacktestSummary(QuantConnect.Api.BasicBacktest):
 
     @property
     def win_rate(self) -> typing.Optional[float]:
-        """The ratio of the number of winning trades to the total number of trades"""
+        """The ratio of the number of trades with positive profit loss to the total number of trades"""
         ...
 
     @win_rate.setter

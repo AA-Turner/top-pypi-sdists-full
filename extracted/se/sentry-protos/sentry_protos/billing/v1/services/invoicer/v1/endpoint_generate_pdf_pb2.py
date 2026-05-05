@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/invoicer/v1/endpoint_generate_pdf.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\">\n\x12GeneratePdfRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12\x14\n\x0cinvoice_guid\x18\x02 \x01(\t\"\xd0\x02\n\x07PdfData\x12\x0e\n\x06header\x18\x01 \x03(\t\x12\x15\n\rbilling_lines\x18\x02 \x03(\t\x12Y\n\rinvoice_lines\x18\x03 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.invoicer.v1.PdfData.LabeledLine\x12S\n\ntable_data\x18\x04 \x03(\x0b\x32?.sentry_protos.billing.v1.services.invoicer.v1.PdfData.TableRow\x12\x17\n\ndisclaimer\x18\x05 \x01(\tH\x00\x88\x01\x01\x1a+\n\x0bLabeledLine\x12\r\n\x05label\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\x1a\x19\n\x08TableRow\x12\r\n\x05\x63\x65lls\x18\x01 \x03(\tB\r\n\x0b_disclaimer\"q\n\x13GeneratePdfResponse\x12H\n\x08pdf_data\x18\x01 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.invoicer.v1.PdfData\x12\x10\n\x08\x66ilename\x18\x02 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/invoicer/v1/endpoint_generate_pdf.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\"W\n\x12GeneratePdfRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12\x14\n\x0cinvoice_guid\x18\x02 \x01(\t\x12\x17\n\x0forganization_id\x18\x03 \x01(\x04\"\xd0\x02\n\x07PdfData\x12\x0e\n\x06header\x18\x01 \x03(\t\x12\x15\n\rbilling_lines\x18\x02 \x03(\t\x12Y\n\rinvoice_lines\x18\x03 \x03(\x0b\x32\x42.sentry_protos.billing.v1.services.invoicer.v1.PdfData.LabeledLine\x12S\n\ntable_data\x18\x04 \x03(\x0b\x32?.sentry_protos.billing.v1.services.invoicer.v1.PdfData.TableRow\x12\x17\n\ndisclaimer\x18\x05 \x01(\tH\x00\x88\x01\x01\x1a+\n\x0bLabeledLine\x12\r\n\x05label\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\x1a\x19\n\x08TableRow\x12\r\n\x05\x63\x65lls\x18\x01 \x03(\tB\r\n\x0b_disclaimer\"q\n\x13GeneratePdfResponse\x12H\n\x08pdf_data\x18\x01 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.invoicer.v1.PdfData\x12\x10\n\x08\x66ilename\x18\x02 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -22,13 +22,13 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_GENERATEPDFREQUEST']._serialized_start=124
-  _globals['_GENERATEPDFREQUEST']._serialized_end=186
-  _globals['_PDFDATA']._serialized_start=189
-  _globals['_PDFDATA']._serialized_end=525
-  _globals['_PDFDATA_LABELEDLINE']._serialized_start=440
-  _globals['_PDFDATA_LABELEDLINE']._serialized_end=483
-  _globals['_PDFDATA_TABLEROW']._serialized_start=485
-  _globals['_PDFDATA_TABLEROW']._serialized_end=510
-  _globals['_GENERATEPDFRESPONSE']._serialized_start=527
-  _globals['_GENERATEPDFRESPONSE']._serialized_end=640
+  _globals['_GENERATEPDFREQUEST']._serialized_end=211
+  _globals['_PDFDATA']._serialized_start=214
+  _globals['_PDFDATA']._serialized_end=550
+  _globals['_PDFDATA_LABELEDLINE']._serialized_start=465
+  _globals['_PDFDATA_LABELEDLINE']._serialized_end=508
+  _globals['_PDFDATA_TABLEROW']._serialized_start=510
+  _globals['_PDFDATA_TABLEROW']._serialized_end=535
+  _globals['_GENERATEPDFRESPONSE']._serialized_start=552
+  _globals['_GENERATEPDFRESPONSE']._serialized_end=665
 # @@protoc_insertion_point(module_scope)

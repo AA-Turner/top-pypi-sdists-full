@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: label-studio-sdk
-Version: 2.0.20
+Version: 2.0.21
 Summary: 
 Requires-Python: >=3.10,<4
 Classifier: Intended Audience :: Developers
@@ -15,24 +15,27 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: Pillow (>=11.3.0)
+Provides-Extra: aiohttp
+Requires-Dist: Pillow (>=12.2.0)
+Requires-Dist: aiohttp (>=3.13.4,<4) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: appdirs (>=1.4.3)
 Requires-Dist: datamodel-code-generator (==0.26.1)
 Requires-Dist: httpx (>=0.21.2)
+Requires-Dist: httpx-aiohttp (==0.1.8) ; (python_version >= "3.9") and (extra == "aiohttp")
 Requires-Dist: ijson (>=3.2.3)
 Requires-Dist: jsf (>=0.11.2,<0.12.0)
 Requires-Dist: jsonschema (>=4.23.0)
-Requires-Dist: lxml (>=4.2.5)
+Requires-Dist: lxml (>=6.1.0)
 Requires-Dist: nltk (>=3.9.4,<4.0.0)
 Requires-Dist: numpy (>=2.2,<3.0.0)
 Requires-Dist: opencv-python-headless (>=4.12.0,<4.13)
 Requires-Dist: pandas (>=0.24.0)
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2)
+Requires-Dist: pydantic-core (>=2.18.2,<2.44.0)
 Requires-Dist: pyjwt (>=2.12.0,<3.0.0)
 Requires-Dist: requests (>=2.33.0)
 Requires-Dist: requests-mock (==1.12.1)

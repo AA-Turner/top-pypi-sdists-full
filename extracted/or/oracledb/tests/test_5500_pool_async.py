@@ -56,14 +56,12 @@ async def _verify_connection(
     connection, expected_user, expected_proxy_user=None
 ):
     cursor = connection.cursor()
-    await cursor.execute(
-        """
+    await cursor.execute("""
         select
             sys_context('userenv', 'session_user'),
             sys_context('userenv', 'proxy_user')
         from dual
-        """
-    )
+        """)
     actual_user, actual_proxy_user = await cursor.fetchone()
     assert actual_user == expected_user.upper()
     if expected_proxy_user is not None:
@@ -698,4 +696,19 @@ async def test_5545(test_env):
         assert conn.call_timeout == desired_value
     async with pool.acquire() as conn:
         assert conn.call_timeout == desired_value
+    await pool.close()
+
+
+async def test_5546(test_env):
+    "5546 - test on_connect_callback is triggered for each pool acquire()"
+    counter = 0
+
+    async def callback(conn):
+        nonlocal counter
+        counter += 1
+
+    pool = test_env.get_pool_async(on_connect_callback=callback)
+    for i in range(10):
+        async with pool.acquire():
+            assert counter == i + 1
     await pool.close()

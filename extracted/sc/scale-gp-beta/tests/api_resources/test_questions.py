@@ -170,6 +170,7 @@ class TestQuestions:
     def test_method_list_with_all_params(self, client: SGPClient) -> None:
         question = client.questions.list(
             ending_before="ending_before",
+            ids=["string"],
             include_archived=True,
             limit=1,
             sort_by="sort_by",
@@ -432,6 +433,7 @@ class TestAsyncQuestions:
     async def test_method_list_with_all_params(self, async_client: AsyncSGPClient) -> None:
         question = await async_client.questions.list(
             ending_before="ending_before",
+            ids=["string"],
             include_archived=True,
             limit=1,
             sort_by="sort_by",

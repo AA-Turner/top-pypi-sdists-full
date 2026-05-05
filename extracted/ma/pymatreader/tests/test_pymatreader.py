@@ -72,6 +72,7 @@ def test_v4v7():
     del v7_data['a_unit64']
     del v7_data['a_cell_array']
     del v7_data['a_heading_cell_array']
+    del v7_data['a_complex_3d_single_matrix']
 
     assertDeepAlmostEqual(v4_data, v7_data)
 
@@ -116,6 +117,11 @@ def test_xmlv7():
     """Test that the XML data is read correctly from v7."""
     v7_data = _sanitize_dict(read_mat(Path(test_data_folder, testdata_v7_fname)))
     xml_data = _read_xml_data(Path(test_data_folder, testdata_xml))
+
+    # Remove the complex 3d single matrix from both, because XML cannot represent it and thus we cannot compare it
+
+    del v7_data['a_complex_3d_single_matrix']
+    del xml_data['a_complex_3d_single_matrix']
 
     assertDeepAlmostEqual(v7_data, xml_data)
 

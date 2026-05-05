@@ -75,14 +75,13 @@ pub(crate) fn collect_all_dependency_requirements_from_document_tree<'a>(
 }
 
 pub(crate) fn get_dependency_accessors(accessors: &[Accessor]) -> Option<&[Accessor]> {
-    if matches_accessors!(accessors, ["project", "dependencies", _]) {
-        Some(&accessors[..3])
-    } else if matches_accessors!(accessors, ["project", "optional-dependencies", _, _]) {
-        Some(&accessors[..4])
-    } else if matches_accessors!(accessors, ["dependency-groups", _, _]) {
-        Some(&accessors[..3])
-    } else if is_uv_dependency_accessor(accessors) {
-        Some(&accessors[..4])
+    if matches_accessors!(accessors, ["project", "dependencies", _])
+        || matches_accessors!(accessors, ["build-system", "requires", _])
+        || matches_accessors!(accessors, ["dependency-groups", _, _])
+        || matches_accessors!(accessors, ["project", "optional-dependencies", _, _])
+        || is_uv_dependency_accessor(accessors)
+    {
+        Some(accessors)
     } else {
         None
     }
@@ -93,12 +92,9 @@ fn is_uv_dependency_accessor(accessors: &[Accessor]) -> bool {
         return false;
     }
     matches!(
-        (&accessors[0], &accessors[1], &accessors[3]),
-        (Accessor::Key(a), Accessor::Key(b), Accessor::Index(_))
-        if a == "tool" && b == "uv"
-    ) && matches!(
-        &accessors[2],
-        Accessor::Key(key) if UV_DEPENDENCY_KEYS.contains(&key.as_str())
+        (&accessors[0], &accessors[1], &accessors[2], &accessors[3]),
+        (Accessor::Key(tool), Accessor::Key(uv), Accessor::Key(key), Accessor::Index(_))
+        if tool == "tool" && uv == "uv" && UV_DEPENDENCY_KEYS.contains(&key.as_str())
     )
 }
 
@@ -185,11 +181,11 @@ pub(crate) fn include_group_locations(
     pyproject_toml_path: &std::path::Path,
 ) -> Result<Vec<tombi_extension::Location>, tower_lsp::jsonrpc::Error> {
     let Some(tombi_schema_store::Accessor::Key(group_name)) = accessors.get(1) else {
-        return Ok(Vec::with_capacity(0));
+        return Ok(Vec::new());
     };
 
     let Ok(uri) = tombi_uri::Uri::from_file_path(pyproject_toml_path) else {
-        return Ok(Vec::with_capacity(0));
+        return Ok(Vec::new());
     };
 
     Ok(collect_include_group_values(document_tree, group_name)
@@ -208,7 +204,7 @@ pub(crate) fn collect_include_group_values<'a>(
     let Some((_, Value::Table(dependency_groups))) =
         dig_keys(document_tree, &["dependency-groups"])
     else {
-        return Vec::with_capacity(0);
+        return Vec::new();
     };
 
     let mut include_group_values = Vec::new();
@@ -283,6 +279,20 @@ mod tests {
             Accessor::Key("tool".to_string()),
             Accessor::Key("uv".to_string()),
             Accessor::Key("override-dependencies".to_string()),
+            Accessor::Index(0),
+        ];
+
+        assert_eq!(
+            get_dependency_accessors(&accessors),
+            Some(accessors.as_slice())
+        );
+    }
+
+    #[test]
+    fn recognizes_build_system_requires_accessors() {
+        let accessors = vec![
+            Accessor::Key("build-system".to_string()),
+            Accessor::Key("requires".to_string()),
             Accessor::Index(0),
         ];
 

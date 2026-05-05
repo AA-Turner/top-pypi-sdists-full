@@ -61,7 +61,8 @@ class PdfObject (pdfium_i.AutoCloseable):
         return instance
     
     
-    def __init__(self, raw, page=None, pdf=None, container=None, level=0):
+    # textpage is only picked up by the PdfTextObj subclass, but included here so get_object() can just unconditionally pass the textpage without need for type if-checks
+    def __init__(self, raw, page=None, pdf=None, container=None, level=0, textpage=None, tracked=False):
         
         self.raw = raw
         self.page = page
@@ -76,13 +77,13 @@ class PdfObject (pdfium_i.AutoCloseable):
                 raise ValueError("*page* must belong to *pdf* when constructing a pageobject.")
         
         # TODO if page is not None, hold it in the finalizer, unless the pageobject is detached from the page
-        super().__init__(pdfium_c.FPDFPageObj_Destroy, needs_free=(page is None))
+        super().__init__(pdfium_c.FPDFPageObj_Destroy, needs_free=(page is None), tracked=tracked)
     
     
     @property
     def parent(self):  # AutoCloseable hook
-        # May be None (loose pageobject)
-        return self.pdf if self.page is None else self.page
+        # Not actually used by the autoclose machinery. PdfObjects are not tracked, and if they are part of a page we don't have ownership anyway.
+        return self.pdf if self.page is None else self.page  # May be None (loose pageobject)
     
     
     def get_bounds(self):
@@ -164,6 +165,10 @@ class PdfTextObj (PdfObject):
     Textobject helper class.
     
     You may want to call :meth:`.PdfPage.get_objects` or :meth:`.PdfTextPage.get_textobj` to obtain an instance of this class.
+    
+    Attributes:
+        textpage (PdfTextPage | None):
+            The parent textpage, or None if not set.
     """
     
     # TODO hold parent object in finalizer
@@ -177,7 +182,13 @@ class PdfTextObj (PdfObject):
         """
         Returns:
             str: The objects's text content.
+        Note:
+            This method requires the :attr:`.textpage` attribute to be set.
+            For textobjects obtained through :meth:`.PdfPage.get_objects`, use the ``textpage`` passthrough parameter.
         """
+        if not self.textpage:
+            raise RuntimeError("PdfTextObj.extract() requires textpage to be set.")
+        
         n_bytes = pdfium_c.FPDFTextObj_GetText(self, self.textpage, None, 0)
         if n_bytes == 0:
             raise PdfiumError("Failed to get text from textobject.")
@@ -195,7 +206,7 @@ class PdfTextObj (PdfObject):
         """
         # The font object is _not_ owned by the caller, and the PdfTextObj must remain alive while the font object lives.
         raw_font = pdfium_c.FPDFTextObj_GetFont(self)
-        return PdfFont(raw_font, self)
+        return PdfFont(raw_font, self, needs_free=False)
     
     def get_font_size(self):
         """
@@ -209,26 +220,16 @@ class PdfTextObj (PdfObject):
         return r_size.value
 
 
-class PdfFont (pdfium_i.AutoCastable):
+class PdfFont (pdfium_i.AutoCloseable):
     """
     Font helper class.
     """
     
     # TODO hold parent in finalizer
-    def __init__(self, raw, parent=None):
+    def __init__(self, raw, parent=None, needs_free=False):
         self.raw = raw
         self.parent = parent
-    
-    def _get_name_impl(self, api, which):
-        
-        bufsize = api(self, None, 0)
-        if bufsize == 0:
-            raise PdfiumError(f"Failed to get font {which} name.")
-        
-        buffer = ctypes.create_string_buffer(bufsize)
-        api(self, buffer, bufsize)
-        
-        return decode(memoryview(buffer)[:bufsize-1], "utf-8")
+        super().__init__(pdfium_c.FPDFFont_Close, needs_free=needs_free, tracked=needs_free)
     
     @cached_property
     def is_embedded(self):
@@ -241,19 +242,30 @@ class PdfFont (pdfium_i.AutoCastable):
             raise PdfiumError("Failed to determine font embedding status.")
         return rc == 1
     
-    def get_base_name(self):
+    def _get_name_impl(self, api, which, errors):
+        
+        bufsize = api(self, None, 0)
+        if bufsize == 0:
+            raise PdfiumError(f"Failed to get font {which} name.")
+        
+        buffer = ctypes.create_string_buffer(bufsize)
+        api(self, buffer, bufsize)
+        
+        return decode(memoryview(buffer)[:bufsize-1], "utf-8", errors=errors)
+    
+    def get_base_name(self, errors="replace"):
         """
         Returns:
             str: The base font name.
         """
-        return self._get_name_impl(pdfium_c.FPDFFont_GetBaseFontName, "base")
+        return self._get_name_impl(pdfium_c.FPDFFont_GetBaseFontName, "base", errors)
     
-    def get_family_name(self):
+    def get_family_name(self, errors="replace"):
         """
         Returns:
             str: The font family name.
         """
-        return self._get_name_impl(pdfium_c.FPDFFont_GetFamilyName, "family")
+        return self._get_name_impl(pdfium_c.FPDFFont_GetFamilyName, "family", errors)
     
     def get_weight(self):
         """
@@ -264,6 +276,36 @@ class PdfFont (pdfium_i.AutoCastable):
         if weight == -1:
             raise PdfiumError("Failed to get font weight.")
         return weight
+    
+    STANDARD_FONTS = ("Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic", "Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique", "Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique", "Symbol", "ZapfDingbats")
+    """
+    Standard 14 fonts (Type 1, PostScript names) according to PDF32000_2008, section 9.6.2.2.
+    These fonts or suitable substitutes should be available to all PDF engines,
+    so PDFs that uses them without embedding can still be expected to display correctly.
+    """
+    
+    @classmethod
+    def load_standard(cls, pdf, name):
+        """
+        Load one of the Standard 14 fonts defined above into a PDF.
+        
+        If the font is not available in the system, a substitute may be used.
+        Checking :meth:`.get_family_name` should give a clue about internal substitution (e.g. "Chrom Sans OTF", "Chrom Serif OTF").
+        For system substitution, consider intercepting what goes through the :class:`.PdfSysfontBase` callbacks.
+        
+        Parameters:
+            pdf (PdfDocument):
+                The document to which the font shall be loaded.
+            name (str):
+                The font name. Must be one of :attr:`.STANDARD_FONTS`.
+        """
+        assert name in cls.STANDARD_FONTS
+        raw_font = pdfium_c.FPDFText_LoadStandardFont(pdf, name.encode("utf-8"))
+        if not raw_font:
+            raise PdfiumError(f"Failed to load standard font {name!r}.")
+        helper = cls(raw_font, parent=pdf, needs_free=True)
+        pdf._add_kid(helper)
+        return helper
 
 
 class PdfImage (PdfObject):

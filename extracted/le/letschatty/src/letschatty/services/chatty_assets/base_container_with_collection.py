@@ -21,8 +21,8 @@ P = TypeVar('P', bound=ChattyAssetPreview)
 
 
 class CacheConfig(BaseModel):
-    cache_ttl: int = Field(default=60 * 5, description="TTL in seconds for individual items")
-    preview_cache_ttl: int = Field(default=60 * 5, description="TTL in seconds for preview lists")
+    cache_ttl: int = Field(default=60 * 60 * 24, description="TTL in seconds for individual items")
+    preview_cache_ttl: int = Field(default=60 * 60 * 24, description="TTL in seconds for preview lists")
 
     @classmethod
     def default(cls) -> 'CacheConfig':

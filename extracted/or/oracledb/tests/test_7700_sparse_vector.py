@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2024, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2024, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -111,24 +111,20 @@ def _fetch_with_vector(
         """,
         vector=vector,
     )
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select
         vector({column_name}, {dimensions}, {vector_format}, DENSE)
         from TestSparseVectors
-        """
-    )
+        """)
     (fetched_value,) = cursor.fetchone()
     assert isinstance(fetched_value, array.array)
     assert fetched_value.typecode == expected_typecode
 
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select
         vector({column_name}, {dimensions}, {vector_format}, SPARSE)
         from TestSparseVectors
-        """
-    )
+        """)
     (fetched_value,) = cursor.fetchone()
     assert isinstance(fetched_value, oracledb.SparseVector)
     assert fetched_value.values.typecode == expected_typecode
@@ -521,15 +517,13 @@ def test_7727(cursor):
         """,
         [vector],
     )
-    cursor.execute(
-        """
+    cursor.execute("""
         select json_object(
             'id': 7732,
             'vector' : vector(SparseVector64Col, 16, float64, sparse)
             returning json
         ) from TestSparseVectors
-        """
-    )
+        """)
     (result,) = cursor.fetchone()
     fetched_vector = result["vector"]
     assert isinstance(fetched_vector, oracledb.SparseVector)
@@ -575,12 +569,10 @@ def test_7729(cursor):
         """,
         list(enumerate(values)),
     )
-    cursor.execute(
-        """
+    cursor.execute("""
         select SparseVectorFlex64Col
         from TestSparseVectors order by IntCol
-        """
-    )
+        """)
     (fetched_vector1,), (fetched_vector2,) = cursor.fetchall()
     assert fetched_vector1.values == array.array("d", [144.0, 1000.0])
     assert fetched_vector1.indices == array.array("I", [0, 2])
@@ -590,23 +582,23 @@ def test_7729(cursor):
     assert fetched_vector2.num_dimensions == vector.num_dimensions
 
 
-def test_7730(cursor, test_env):
-    "7730 - vector with zero dimensions"
-    cursor.setinputsizes(oracledb.DB_TYPE_VECTOR)
+def test_7730(skip_unless_thin_mode, cursor, test_env):
+    "7730 - sparse vector with zero dimensions"
+    if not test_env.has_client_and_server_version(23, 26):
+        pytest.skip("no zero dimension sparse vector support")
     vector = oracledb.SparseVector(4, [], [])
-    with test_env.assert_raises_full_code("ORA-51803", "ORA-21560"):
-        cursor.execute("select :1", [vector])
+    cursor.execute("select :1", [vector])
+    (fetched_vector,) = cursor.fetchone()
+    assert fetched_vector == vector
 
 
 def test_7731(cursor):
     "7731 - test inserting a vector as a string and fetching it"
     cursor.execute("delete from TestSparseVectors")
-    cursor.execute(
-        """
+    cursor.execute("""
         insert into TestSparseVectors (IntCol, SparseVectorFlexAllCol)
         values (1, '[4, [1, 3], [1.0, 2.0]]')
-        """
-    )
+        """)
     cursor.execute("select SparseVectorFlexAllCol from TestSparseVectors")
     vector = cursor.fetchone()[0]
     assert vector.values == array.array("f", [1, 2])
@@ -718,48 +710,36 @@ def test_7736(cursor):
         """,
         vector=vector,
     )
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select from_vector({column_name} returning clob format sparse)
         from TestSparseVectors
-        """
-    )
+        """)
     (lob,) = cursor.fetchone()
     assert json.loads(lob.read()) == values
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select from_vector({column_name} returning clob format dense)
         from TestSparseVectors
-        """
-    )
+        """)
     (lob,) = cursor.fetchone()
     assert json.loads(lob.read()) == dense_vector
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select from_vector({column_name} returning clob)
         from TestSparseVectors
-        """
-    )
+        """)
     (lob,) = cursor.fetchone()
     assert json.loads(lob.read()) == values
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select from_vector({column_name} returning varchar2 format sparse)
         from TestSparseVectors
-        """
-    )
+        """)
     assert json.loads(cursor.fetchone()[0]) == values
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select from_vector({column_name} returning varchar2 format dense)
         from TestSparseVectors
-        """
-    )
+        """)
     assert json.loads(cursor.fetchone()[0]) == dense_vector
-    cursor.execute(
-        f"""
+    cursor.execute(f"""
         select from_vector({column_name} returning varchar2)
         from TestSparseVectors
-        """
-    )
+        """)
     assert json.loads(cursor.fetchone()[0]) == values

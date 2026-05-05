@@ -1,8 +1,11 @@
+import contextlib
 import json
 import logging
 import os
+import pathlib
 import stat
 import sys
+import tempfile
 
 import pytest
 from nbformat import validate
@@ -156,6 +159,47 @@ def test_atomic_writing_in_readonly_dir(tmp_path):
     assert mode == 0o500
 
 
+@contextlib.contextmanager
+def tmp_dir(tmp_root: pathlib.Path):
+    """Thin wrapper around `TemporaryDirectory` adopting it to `pathlib.Path`s"""
+    # we need to append `/` if we want to get a sub-directory
+    prefix = str(tmp_root) + "/"
+    with tempfile.TemporaryDirectory(prefix=prefix) as temp_path:
+        yield pathlib.Path(temp_path)
+
+
+@pytest.mark.skipif(
+    not pathlib.Path("/tmp/nfs_mount").exists(), reason="requires a local NFS mount"
+)
+def test_atomic_writing_permission_cache():
+    remote_source = pathlib.Path("/tmp/nfs_source")
+    local_mount = pathlib.Path("/tmp/nfs_mount")
+
+    with tmp_dir(tmp_root=local_mount) as local_mount_path:
+        f = local_mount_path / "file.txt"
+
+        # write initial content
+        f.write_text("original content")
+
+        # make the file non-writable
+        f.chmod(0o500)
+
+        # attempt write, should fail due to NFS attribute cache
+        with pytest.raises(PermissionError):
+            with atomic_writing(str(f)) as ff:
+                ff.write("new content")
+
+        source_path = remote_source / local_mount_path.name / "file.txt"
+
+        # make it readable by modifying attributes at source
+        source_path.chmod(0o700)
+
+        with atomic_writing(str(f)) as ff:
+            ff.write("new content")
+
+        assert f.read_text() == "new content"
+
+
 @pytest.mark.skipif(os.name == "nt", reason="test fails on Windows")
 def test_file_manager_mixin(tmp_path):
     mixin = FileManagerMixin()
@@ -235,3 +279,23 @@ async def test_AsyncFileManagerMixin_read_file_no_raw(tmpdir):
     answer = await mixin._read_file(file_path, "text")
 
     assert len(answer) == 2
+
+
+# CVE-2026-35397 : Path traversal via incorrect startswith() root directory check
+# allows access to sibling directories
+def test_path_traversal_when_sibling_dir_starts_with_root_dir(tmpdir):
+    class FileManagerMixinTest(FileManagerMixin):
+        root_dir = tmpdir / "test"
+
+    # testtest starts with test, which was what allowed access to the sibling directory
+    victim_file_path = tmpdir / "testtest/secret.txt"
+    victim_file_path.write_text("secret_file_content", "utf8", ensure=True)
+
+    mixin = FileManagerMixinTest()
+    mixin.log = logging.getLogger()
+
+    with pytest.raises(HTTPError) as err:
+        mixin._get_os_path("../testtest/secret.txt")
+
+    assert err.value.status_code == 404
+    assert "outside root contents directory" in str(err.value)

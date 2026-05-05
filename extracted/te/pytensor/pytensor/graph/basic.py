@@ -2,6 +2,7 @@
 
 import abc
 import warnings
+import weakref
 from collections.abc import (
     Hashable,
     Iterable,
@@ -14,6 +15,7 @@ from typing import (
     Any,
     Generic,
     Optional,
+    Self,
     TypeVar,
     Union,
     cast,
@@ -21,14 +23,10 @@ from typing import (
 
 import numpy as np
 
-from pytensor.configdefaults import config
 from pytensor.graph.utils import (
     MetaObject,
     Scratchpad,
-    TestValueError,
-    ValidatingScratchpad,
     add_tag_trace,
-    get_variable_trace_string,
 )
 
 
@@ -119,7 +117,7 @@ class Apply(Node, Generic[OpType]):
     This class is typically instantiated by a `Op.make_node` method, which
     is called by `Op.__call__`.
 
-    The function `pytensor.compile.function.function` uses `Apply.inputs`
+    The function `pytensor.compile.maker.function` uses `Apply.inputs`
     together with `Variable.owner` to search the expression graph and determine
     which inputs are necessary to compute the function's outputs.
 
@@ -460,7 +458,7 @@ class Variable(Node, Generic[_TypeType, OptionalApplyType]):
     ) -> None:
         super().__init__()
 
-        self.tag = ValidatingScratchpad("test_value", type.filter)
+        self.tag = Scratchpad()
 
         self.type = type
 
@@ -479,20 +477,6 @@ class Variable(Node, Generic[_TypeType, OptionalApplyType]):
 
         self.auto_name = f"auto_{next(self.__count__)}"
 
-    def get_test_value(self):
-        """Get the test value.
-
-        Raises
-        ------
-        TestValueError
-
-        """
-        if not hasattr(self.tag, "test_value"):
-            detailed_err_msg = get_variable_trace_string(self)
-            raise TestValueError(f"{self} has no test value {detailed_err_msg}")
-
-        return self.tag.test_value
-
     def __str__(self):
         """Return a ``str`` representation of the `Variable`."""
         if self.name is not None:
@@ -506,29 +490,9 @@ class Variable(Node, Generic[_TypeType, OptionalApplyType]):
         else:
             return f"<{self.type}>"
 
-    def __repr_test_value__(self):
-        """Return a ``repr`` of the test value.
-
-        Return a printable representation of the test value. It can be
-        overridden by classes with non printable test_value to provide a
-        suitable representation of the test_value.
-        """
-        return repr(self.get_test_value())
-
     def __repr__(self, firstPass=True):
-        """Return a ``repr`` of the `Variable`.
-
-        Return a printable name or description of the Variable. If
-        ``config.print_test_value`` is ``True`` it will also print the test
-        value, if any.
-        """
-        to_print = [str(self)]
-        if config.print_test_value and firstPass:
-            try:
-                to_print.append(self.__repr_test_value__())
-            except TestValueError:
-                pass
-        return "\n".join(to_print)
+        """Return a ``repr`` of the `Variable`."""
+        return str(self)
 
     def clone(self, **kwargs):
         """Return a new, un-owned `Variable` like `self`.
@@ -553,30 +517,26 @@ class Variable(Node, Generic[_TypeType, OptionalApplyType]):
         cp.tag = copy(self.tag)
         return cp
 
-    def __lt__(self, other):
-        raise NotImplementedError(
-            "Subclasses of Variable must provide __lt__", self.__class__.__name__
-        )
-
-    def __le__(self, other):
-        raise NotImplementedError(
-            "Subclasses of Variable must provide __le__", self.__class__.__name__
-        )
-
-    def __gt__(self, other):
-        raise NotImplementedError(
-            "Subclasses of Variable must provide __gt__", self.__class__.__name__
-        )
-
-    def __ge__(self, other):
-        raise NotImplementedError(
-            "Subclasses of Variable must provide __ge__", self.__class__.__name__
-        )
-
     def get_parents(self):
         if self.owner is not None:
             return [self.owner]
         return []
+
+    @property
+    def owner_op(self) -> Optional["Op"]:
+        if (apply := self.owner) is not None:
+            return apply.op  # type: ignore[no-any-return]
+        else:
+            return None
+
+    @property
+    def owner_op_and_inputs(
+        self,
+    ) -> tuple[Optional["Op"], *tuple["Variable", ...]]:
+        if (apply := self.owner) is not None:
+            return apply.op, *apply.inputs  # type: ignore[has-type]
+        else:
+            return (None,)
 
     def eval(
         self,
@@ -619,7 +579,7 @@ class Variable(Node, Generic[_TypeType, OptionalApplyType]):
         This way of computing has more overhead than a normal PyTensor
         function, so don't use it too much in real scripts.
         """
-        from pytensor.compile.function import function
+        from pytensor.compile.maker import function
         from pytensor.graph.traversal import get_var_by_name
 
         ignore_unused_input = kwargs.get("on_unused_input", None) in ("ignore", "warn")
@@ -670,15 +630,6 @@ class Variable(Node, Generic[_TypeType, OptionalApplyType]):
     def __getstate__(self):
         d = self.__dict__.copy()
         d.pop("_fn_cache", None)
-        if (not config.pickle_test_value) and (hasattr(self.tag, "test_value")):
-            if not type(config).pickle_test_value.is_default:
-                warnings.warn(
-                    "pickle_test_value is not default value (True).\n"
-                    f"Test value of variable {d['auto_name']}({d['name']}) will not be dumped."
-                )
-            t = copy(d["tag"])
-            del t.test_value
-            d["tag"] = t
         return d
 
 
@@ -740,7 +691,7 @@ class NominalVariable(Generic[_TypeType, _IdType], AtomicVariable[_TypeType]):
                 return cls, (self.id, self.type)
 
             def _str(self):
-                return f"*{self.id}-{var_type.__str__(self)}"
+                return f"i{self.id}"
 
             new_type = type(
                 type_name, (cls, var_type), {"__reduce__": _reduce, "__str__": _str}
@@ -793,16 +744,28 @@ class Constant(AtomicVariable[_TypeType]):
     """
 
     # __slots__ = ['data']
+    # Allow pattern matching on data field positionally
+    __match_args__ = ("data",)
 
     def __init__(self, type: _TypeType, data: Any, name: str | None = None):
         super().__init__(type, name=name)
         self.data = type.filter(data)
         add_tag_trace(self)
 
-    def get_test_value(self):
-        return self.data
-
     def signature(self):
+        """Return a hashable object identifying this Constant by value.
+
+        The returned object must satisfy:
+        1. Hashable: ``hash(sig)`` must not raise.
+        2. Self-equality: ``sig == sig`` must be ``True`` (not an array).
+        3. Pickle-stable: ``pickle.loads(pickle.dumps(sig)) == sig``
+           and same ``hash``. This is required for C module cache keys.
+
+        The default ``(type, data)`` is sufficient for simple Python
+        objects (None, slices, etc.) but breaks for numpy data (NaN,
+        arrays). Subclasses with numeric data must override this.
+        See ``TensorConstantSignature``, ``ScalarConstantSignature``.
+        """
         return (self.type, self.data)
 
     def __str__(self):
@@ -836,6 +799,90 @@ class Constant(AtomicVariable[_TypeType]):
     @property
     def value(self):
         return self.data
+
+
+def _get_frozen_output(apply_node: "FrozenApply", index: int) -> Variable:
+    """Resolve a FrozenApply output by index. Used by pickle."""
+    return apply_node.outputs[index]
+
+
+def _make_frozen_output_reduce(out: Variable):
+    """Create a __reduce_ex__ override for a FrozenApply output Variable."""
+    owner = out.owner
+    index = out.index
+
+    def __reduce_ex__(protocol):
+        return (_get_frozen_output, (owner, index))
+
+    return __reduce_ex__
+
+
+class FrozenApply(Apply):
+    """An immutable, globally-interned Apply node for frozen graphs.
+
+    Uses tuples for ``inputs`` and ``outputs`` so mutation raises ``TypeError``
+    at the language level.  Interned by ``(op, cache_key(inputs))`` —
+    constructing a ``FrozenApply`` with the same op and input variables returns
+    the cached instance.
+
+    Constants are keyed by their ``signature()`` so that two independently
+    created Constants with the same value resolve to the same cached node.
+    """
+
+    _cache: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+    @staticmethod
+    def _input_to_key(inp: Variable):
+        """Convert an input Variable to a hashable, value-based cache key element.
+
+        Non-Constants (NominalVariables, FrozenApply outputs) are already
+        globally interned, so ``id()`` is a correct identity key.  Using
+        ``id()`` instead of the object itself avoids strong references in
+        cache keys that would prevent GC from collecting chains of
+        FrozenApply nodes in a single pass.
+
+        Constants use their ``signature()`` for value-based deduplication.
+        """
+        if isinstance(inp, Constant):
+            return inp.signature()
+        return id(inp)
+
+    def __new__(
+        cls,
+        op: "Op",
+        inputs: tuple[Variable, ...],
+        output_types: tuple["Type", ...],
+    ):
+        cache_key = (op, tuple(cls._input_to_key(i) for i in inputs))
+        cached = cls._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        instance = object.__new__(cls)
+        instance.op = op
+        instance.inputs = inputs  # type: ignore[assignment]
+        instance.outputs = tuple(  # type: ignore[assignment]
+            t.variable_type(type=t, owner=instance, index=i)
+            for i, t in enumerate(output_types)
+        )
+        # Give each output Variable a __reduce__ that resolves to the
+        # canonical output on unpickle, avoiding fresh Variable objects.
+        for out in instance.outputs:
+            out.__reduce_ex__ = _make_frozen_output_reduce(out)  # type: ignore[method-assign]
+        instance.tag = Scratchpad()
+        cls._cache[cache_key] = instance
+        return instance
+
+    def __init__(self, op, inputs, output_types):
+        # All initialization is done in __new__
+        pass
+
+    def clone(self, clone_inner_graph: bool = False) -> Self:
+        """Frozen nodes are immutable — cloning returns self."""
+        return self
+
+    def __reduce__(self):
+        return (type(self), (self.op, self.inputs, tuple(o.type for o in self.outputs)))
 
 
 def clone(
@@ -1154,14 +1201,14 @@ def equal_computations(
 
     for x, y in zip(xs, ys, strict=True):
         if not isinstance(x, Variable) and not isinstance(y, Variable):
-            return np.array_equal(x, y)
+            return np.array_equal(x, y, equal_nan=True)
         if not isinstance(x, Variable):
             if isinstance(y, Constant):
-                return np.array_equal(y.data, x)
+                return np.array_equal(y.data, x, equal_nan=True)
             return False
         if not isinstance(y, Variable):
             if isinstance(x, Constant):
-                return np.array_equal(x.data, y)
+                return np.array_equal(x.data, y, equal_nan=True)
             return False
         x_is_owned, y_is_owned = (x.owner is not None, y.owner is not None)
         if x_is_owned != y_is_owned:

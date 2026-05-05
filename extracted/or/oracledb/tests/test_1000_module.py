@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -27,8 +27,10 @@
 """
 
 import datetime
+import threading
 
 import oracledb
+import pytest
 
 
 def test_1000():
@@ -238,3 +240,189 @@ def test_1009(test_env, conn):
         oracledb.enable_thin_mode()
         with test_env.assert_raises_full_code("DPY-2019"):
             oracledb.init_oracle_client()
+
+
+def test_1010():
+    "1010 - test creation and updating of secret values"
+    secret = "secret_1010"
+    value = oracledb.SecretValue(secret)
+    assert value.value == secret
+    another_secret = "secret_1010_modified"
+    value.value = another_secret
+    assert value.value == another_secret
+
+
+def test_1011():
+    "1011 - test secret values that expire are not returned"
+    secret = "secret_1011"
+    expires = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(1)
+    value = oracledb.SecretValue(secret, expires=expires)
+    assert value.value is None
+
+
+def test_1012():
+    "1012 - test secret values require a timezone-aware date"
+    secret = "secret_1012"
+    expires = datetime.datetime.now() - datetime.timedelta(1)
+    with pytest.raises(ValueError):
+        oracledb.SecretValue(secret, expires=expires)
+
+
+def test_1013():
+    "1013 - test secret values that have not expired are returned"
+    secret = "secret_1013"
+    expires = datetime.datetime.now(
+        datetime.timezone.utc
+    ) + datetime.timedelta(10)
+    value = oracledb.SecretValue(secret, expires=expires)
+    assert value.value == secret
+
+
+def test_1014():
+    "1014 - test storing secrets in the global cache"
+    key = (1014, "key")
+    secret = "secret_1014"
+    assert oracledb.get_secret(key) is None
+    oracledb.save_secret(key, secret)
+    assert oracledb.get_secret(key).value == secret
+
+
+def test_1015():
+    "1015 - test storing secrets in the thread local cache"
+    key = (1015, "key")
+    main_secret = "secret_1015"
+
+    def thread_fn():
+        assert oracledb.get_secret(key, thread_local=True) is None
+        thread_secret = "secret_1015_thread"
+        oracledb.save_secret(key, thread_secret, thread_local=True)
+        secret_value = oracledb.get_secret(key, thread_local=True)
+        assert secret_value.value == thread_secret
+
+    assert oracledb.get_secret(key, thread_local=True) is None
+    oracledb.save_secret(key, main_secret, thread_local=True)
+    secret_value = oracledb.get_secret(key, thread_local=True)
+    assert secret_value.value == main_secret
+
+    thread = threading.Thread(target=thread_fn)
+    thread.start()
+    thread.join()
+    secret_value = oracledb.get_secret(key, thread_local=True)
+    assert secret_value.value == main_secret
+
+
+def test_1016():
+    "1016 - test secrets that have expired are not returned"
+    key = (1016, "key")
+    secret = "secret_1016"
+    expires = datetime.datetime.now(
+        datetime.timezone.utc
+    ) - datetime.timedelta(1)
+    oracledb.save_secret(key, secret, expires=expires)
+    assert oracledb.get_secret(key) is None
+
+
+def test_1017():
+    "1017 - test secrets that have not expired are returned correctly"
+    key = (1017, "key")
+    secret = "secret_1017"
+    expires = datetime.datetime.now(
+        datetime.timezone.utc
+    ) + datetime.timedelta(10)
+    oracledb.save_secret(key, secret, expires=expires)
+    assert oracledb.get_secret(key).value == secret
+
+
+def test_1018():
+    "1018 - test storing a secret value of None"
+    key = (1018, "key")
+    assert oracledb.save_secret(key, None) is None
+    assert oracledb.get_secret(key) is None
+    secret = "secret_1018"
+    oracledb.save_secret(key, secret)
+    assert oracledb.get_secret(key).value == secret
+    oracledb.save_secret(key, None)
+    assert oracledb.get_secret(key) is None
+
+
+def test_1019():
+    "1019 - test storing a secret value containing bytes"
+    key = (1019, "key")
+    secret = b"secret_1019"
+    oracledb.save_secret(key, secret)
+    assert oracledb.get_secret(key).value_bytes == secret
+
+
+def test_1020():
+    "1020 - test enquote_literal()"
+    options = [
+        ("test_1020", "'test_1020'"),
+        ("a'b'c'd", "'a''b''c''d'"),
+        ("'abc'", "'''abc'''"),
+        ("", "''"),
+    ]
+    for in_value, out_value in options:
+        assert oracledb.enquote_literal(in_value) == out_value
+
+
+def test_1021(test_env):
+    "1021 - test enquote_name()"
+    options = [
+        ("test_1021a", True, '"TEST_1021A"'),
+        ("test_1021b", False, '"test_1021b"'),
+        ("", False, '""'),
+        ("", True, '""'),
+    ]
+    for in_value, capitalize, out_value in options:
+        assert oracledb.enquote_name(in_value, capitalize) == out_value
+    with test_env.assert_raises_full_code("DPY-2074"):
+        oracledb.enquote_name('test_"1021c')
+
+
+def test_1022():
+    "1022 - test is_simple_sql_name()"
+    options = [
+        ("test_1022a#$", True),
+        ("    test_1022b    ", True),
+        ('"test_1022c"', True),
+        ('    "test_1022c"    ', True),
+        ("    ", False),
+        ('""', False),
+        ('    ""    ', False),
+        ("test_1022d.", False),
+        ('"test_1022d".', False),
+        ('"test_1022e" after', False),
+        ("test_1022f embedded spaces", False),
+        ('"test_1022g" extraneous', False),
+        ("12345", False),
+    ]
+    for value, expected_result in options:
+        assert oracledb.is_simple_sql_name(value) == expected_result
+
+
+def test_1023():
+    "1023 - test is_qualified_sql_name()"
+    options = [
+        ("test_1023a", True),
+        ("test_1023b.secondary", True),
+        ("test_1023c.secondary.tertiary", True),
+        ("     test_1023d    ", True),
+        ("     test_1023e  .   secondary  ", True),
+        ('     "test_1023f"  .   secondary  ', True),
+        ('     "test_1023g"  .   "secondary"  ', True),
+        ("test_1023h@dblink", True),
+        ("test_1023i   @    dblink", True),
+        ('test_1023j   @    "dblink"', True),
+        ("test_1023k   @    dblink.part2", True),
+        ("    ", False),
+        ('""', False),
+        ("test_1023k   @    ", False),
+        ('     "test_1023l"  .   "secondary"  extraneous', False),
+        ('     "test_1023m"  -   "secondary"', False),
+        ("test_1023n.1not_an_identifier", False),
+        ("test_1023o@1not_a_dblink", False),
+    ]
+    for value, expected_result in options:
+        assert oracledb.is_qualified_sql_name(value) == expected_result

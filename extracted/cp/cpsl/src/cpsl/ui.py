@@ -83,12 +83,14 @@ class Column(_Widget):
         *,
         width: int | str | None = None,
         flex: int | float | str | None = None,
+        rows: list[str | int | float] | None = None,
         gap: int | str | None = None,
         fill: bool = False,
     ) -> None:
         self.children = children
         self.width = width
         self.flex = flex
+        self.rows = rows
         self.gap = gap
         self.fill = fill
 
@@ -98,6 +100,8 @@ class Column(_Widget):
             d["width"] = self.width
         if self.flex is not None:
             d["flex"] = self.flex
+        if self.rows is not None:
+            d["rows"] = list(self.rows)
         if self.gap is not None:
             d["gap"] = self.gap
         if self.fill:
@@ -403,12 +407,14 @@ class ImageGallery(_Widget):
 
     def __init__(
         self,
-        images: list[str | dict[str, Any] | Image],
+        images: list[str | dict[str, Any] | Image] | None = None,
         *,
+        data: str | None = None,
         title: str | None = None,
         columns: int | None = None,
     ) -> None:
-        self.images = images
+        self.images = images or []
+        self.data = data
         self.title = title
         self.columns = columns
 
@@ -426,6 +432,104 @@ class ImageGallery(_Widget):
             "type": self._type,
             "images": [self._serialize_image(image) for image in self.images],
         }
+        if self.data:
+            d["data"] = self.data
+        if self.title:
+            d["title"] = self.title
+        if self.columns is not None:
+            d["columns"] = self.columns
+        return d
+
+
+class Video(_Widget):
+    """Static video player widget for generated clips, walkthroughs, or demos."""
+
+    _type = "video"
+
+    def __init__(
+        self,
+        src: str,
+        *,
+        poster: str | None = None,
+        title: str | None = None,
+        caption: str | None = None,
+        controls: bool = True,
+        autoplay: bool = False,
+        loop: bool = False,
+        muted: bool = False,
+        width: int | str | None = None,
+        aspect_ratio: str | None = None,
+    ) -> None:
+        self.src = src
+        self.poster = poster
+        self.title = title
+        self.caption = caption
+        self.controls = controls
+        self.autoplay = autoplay
+        self.loop = loop
+        self.muted = muted
+        self.width = width
+        self.aspect_ratio = aspect_ratio
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "type": self._type,
+            "src": self.src,
+            "controls": self.controls,
+        }
+        if self.poster:
+            d["poster"] = self.poster
+        if self.title:
+            d["title"] = self.title
+        if self.caption:
+            d["caption"] = self.caption
+        if self.autoplay:
+            d["autoplay"] = True
+        if self.loop:
+            d["loop"] = True
+        if self.muted:
+            d["muted"] = True
+        if self.width is not None:
+            d["width"] = self.width
+        if self.aspect_ratio:
+            d["aspect_ratio"] = self.aspect_ratio
+        return d
+
+
+class VideoGallery(_Widget):
+    """Responsive video gallery for generated clips or walkthroughs."""
+
+    _type = "video_gallery"
+
+    def __init__(
+        self,
+        videos: list[str | dict[str, Any] | Video] | None = None,
+        *,
+        data: str | None = None,
+        title: str | None = None,
+        columns: int | None = None,
+    ) -> None:
+        self.videos = videos or []
+        self.data = data
+        self.title = title
+        self.columns = columns
+
+    def _serialize_video(self, video: str | dict[str, Any] | Video) -> dict[str, Any]:
+        if isinstance(video, Video):
+            d = video.to_dict()
+            d.pop("type", None)
+            return d
+        if isinstance(video, str):
+            return {"src": video}
+        return dict(video)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "type": self._type,
+            "videos": [self._serialize_video(video) for video in self.videos],
+        }
+        if self.data:
+            d["data"] = self.data
         if self.title:
             d["title"] = self.title
         if self.columns is not None:

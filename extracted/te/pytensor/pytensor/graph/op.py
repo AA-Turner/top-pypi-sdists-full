@@ -1,5 +1,3 @@
-import copy
-import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
@@ -11,21 +9,17 @@ from typing import (
     cast,
 )
 
-import pytensor
-from pytensor.configdefaults import config
 from pytensor.graph.basic import Apply, Variable
 from pytensor.graph.traversal import io_toposort
 from pytensor.graph.utils import (
     MetaObject,
-    TestValueError,
     add_tag_trace,
-    get_variable_trace_string,
 )
 
 
 if TYPE_CHECKING:
-    from pytensor.compile.function.types import Function
-    from pytensor.graph.fg import FunctionGraph
+    from pytensor.compile.executor import Function
+    from pytensor.graph.fg import AbstractFunctionGraph, FunctionGraph
     from pytensor.graph.type import Type
 
 StorageCellType = list[Any | None]
@@ -53,85 +47,6 @@ class ThunkType(Protocol[C]):
 def is_thunk_type(thunk: ThunkCallableType) -> ThunkType:
     res = cast(ThunkType, thunk)
     return res
-
-
-def compute_test_value(node: Apply):
-    r"""Computes the test value of a node.
-
-    Parameters
-    ----------
-    node : Apply
-        The `Apply` node for which the test value is computed.
-
-    Returns
-    -------
-    None
-        The `tag.test_value`\s are updated in each `Variable` in `node.outputs`.
-
-    """
-    # Gather the test values for each input of the node
-    storage_map = {}
-    compute_map = {}
-    for i, ins in enumerate(node.inputs):
-        try:
-            storage_map[ins] = [ins.get_test_value()]
-            compute_map[ins] = [True]
-        except TestValueError:
-            # no test-value was specified, act accordingly
-            if config.compute_test_value == "warn":
-                warnings.warn(
-                    f"Warning, Cannot compute test value: input {i} ({ins}) of Op {node} missing default value",
-                    stacklevel=2,
-                )
-                return
-            elif config.compute_test_value == "raise":
-                detailed_err_msg = get_variable_trace_string(ins)
-
-                raise ValueError(
-                    f"Cannot compute test value: input {i} ({ins}) of Op {node} missing default value. {detailed_err_msg}"
-                )
-            elif config.compute_test_value == "ignore":
-                return
-            elif config.compute_test_value == "pdb":
-                import pdb
-
-                pdb.post_mortem(sys.exc_info()[2])
-            else:
-                raise ValueError(
-                    f"{config.compute_test_value} is invalid for option config.compute_test_value"
-                )
-
-    # All inputs have test-values; perform the `Op`'s computation
-
-    # The original values should not be destroyed, so we copy the values of the
-    # inputs in `destroy_map`
-    destroyed_inputs_idx = set()
-    if node.op.destroy_map:
-        for i_pos_list in node.op.destroy_map.values():
-            destroyed_inputs_idx.update(i_pos_list)
-    for inp_idx in destroyed_inputs_idx:
-        inp = node.inputs[inp_idx]
-        storage_map[inp] = [copy.copy(storage_map[inp][0])]
-
-    # Prepare `storage_map` and `compute_map` for the outputs
-    for o in node.outputs:
-        storage_map[o] = [None]
-        compute_map[o] = [False]
-
-    # Create a thunk that performs the computation
-    thunk = node.op.make_thunk(node, storage_map, compute_map, no_recycling=[])
-    thunk.inputs = [storage_map[v] for v in node.inputs]
-    thunk.outputs = [storage_map[v] for v in node.outputs]
-
-    thunk()
-
-    for output in node.outputs:
-        # Check that the output has been computed
-        assert compute_map[output][0], (output, storage_map[output][0])
-
-        # Add 'test_value' to output tag, so that downstream `Op`s can use
-        # these numerical values as test values
-        output.tag.test_value = storage_map[output][0]
 
 
 class Op(MetaObject):
@@ -301,9 +216,6 @@ class Op(MetaObject):
                 for i, n in enumerate(node.outputs):
                     n.name = f"{name}_{i}"
 
-        if config.compute_test_value != "off":
-            compute_test_value(node)
-
         if self.default_output is not None:
             rval = node.outputs[self.default_output]
             if return_list:
@@ -324,10 +236,117 @@ class Op(MetaObject):
     # just to self.add_tag_trace
     add_tag_trace = staticmethod(add_tag_trace)
 
+    def pullback(
+        self,
+        inputs: Sequence[Variable],
+        outputs: Sequence[Variable],
+        cotangents: Sequence[Variable],
+    ) -> list[Variable]:
+        r"""Construct a graph for the vector-Jacobian product (pullback).
+
+        Given a function :math:`f` implemented by this `Op` with inputs :math:`x`
+        and outputs :math:`y = f(x)`, the pullback computes :math:`\bar{x} = \bar{y}^T J`
+        where :math:`J` is the Jacobian :math:`\frac{\partial f}{\partial x}` and
+        :math:`\bar{y}` are the cotangent vectors (upstream gradients).
+
+        This is the core method for reverse-mode automatic differentiation.
+
+        If the output is not differentiable with respect to an input,
+        return a variable of type `DisconnectedType` for that input. If the
+        gradient is not implemented for some input, return a variable of type
+        `NullType` (see :func:`pytensor.gradient.grad_not_implemented` and
+        :func:`pytensor.gradient.grad_undefined`).
+
+        Parameters
+        ----------
+        inputs : Sequence[Variable]
+            The input variables of the `Apply` node using this `Op`.
+        outputs : Sequence[Variable]
+            The output variables of the `Apply` node using this `Op`.
+        cotangents : Sequence[Variable]
+            The cotangent vectors (gradients w.r.t. each output).
+
+        Returns
+        -------
+        input_cotangents : list of Variable
+            The cotangent vectors w.r.t. each input. One `Variable` per input.
+
+        """
+        # Fall back to deprecated L_op/grad if overridden by subclass
+        if type(self).L_op is not Op.L_op or type(self).grad is not Op.grad:
+            warnings.warn(
+                f"{type(self).__name__} should implement `pullback` instead of "
+                f"`L_op`/`grad`. Direct `L_op`/`grad` implementations are deprecated "
+                f"and will stop being called in a future version.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            return self.L_op(inputs, outputs, cotangents)
+        raise NotImplementedError(f"pullback not implemented for {self}")
+
+    def pushforward(
+        self,
+        inputs: Sequence[Variable],
+        outputs: Sequence[Variable],
+        tangents: Sequence[Variable],
+    ) -> list[Variable]:
+        r"""Construct a graph for the Jacobian-vector product (pushforward).
+
+        Given a function :math:`f` implemented by this `Op` with inputs :math:`x`
+        and outputs :math:`y = f(x)`, the pushforward computes :math:`\dot{y} = J \dot{x}`
+        where :math:`J` is the Jacobian :math:`\frac{\partial f}{\partial x}` and
+        :math:`\dot{x}` are the tangent vectors.
+
+        This is the core method for forward-mode automatic differentiation.
+
+        If an output is not differentiable with respect to any input, return a
+        variable of type `DisconnectedType` for that output. Unlike the legacy
+        `R_op` method, `pushforward` must never use ``None`` to indicate
+        disconnected outputs.
+
+        Parameters
+        ----------
+        inputs : Sequence[Variable]
+            The input variables of the `Apply` node using this `Op`.
+        outputs : Sequence[Variable]
+            The output variables of the `Apply` node using this `Op`.
+        tangents : Sequence[Variable]
+            The tangent vectors. One per input. A variable of `DisconnectedType`
+            indicates that the corresponding input is not being differentiated.
+
+        Returns
+        -------
+        output_tangents : list of Variable
+            The tangent vectors w.r.t. each output. One `Variable` per output.
+
+        """
+        from pytensor.gradient import DisconnectedType, disconnected_type
+
+        # Fall back to deprecated R_op if overridden by subclass
+        if type(self).R_op is not Op.R_op:
+            warnings.warn(
+                f"{type(self).__name__} should implement `pushforward` instead of "
+                f"`R_op`. Direct `R_op` implementations are deprecated "
+                f"and will stop being called in a future version.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            # Convert DisconnectedType tangents to None for R_op compatibility
+            eval_points: list[Variable | None] = [
+                None if isinstance(t.type, DisconnectedType) else t for t in tangents
+            ]
+            result = self.R_op(inputs, eval_points)
+            # Convert None returns to DisconnectedType
+            return [disconnected_type() if r is None else r for r in result]
+        raise NotImplementedError(f"pushforward not implemented for {self}")
+
     def grad(
         self, inputs: Sequence[Variable], output_grads: Sequence[Variable]
     ) -> list[Variable]:
         r"""Construct a graph for the gradient with respect to each input variable.
+
+        .. deprecated::
+            Implement :meth:`pullback` instead.
 
         Each returned `Variable` represents the gradient with respect to that
         input computed based on the symbolic gradients with respect to each
@@ -364,7 +383,7 @@ class Op(MetaObject):
 
         References
         ----------
-        .. [1] Giles, Mike. 2008. “An Extended Collection of Matrix Derivative Results for Forward and Reverse Mode Automatic Differentiation.”
+        .. [1] Giles, Mike. 2008. "An Extended Collection of Matrix Derivative Results for Forward and Reverse Mode Automatic Differentiation."
 
         """
         raise NotImplementedError(f"grad not implemented for Op {self}")
@@ -377,14 +396,13 @@ class Op(MetaObject):
     ) -> list[Variable]:
         r"""Construct a graph for the L-operator.
 
+        .. deprecated::
+            Implement :meth:`pullback` instead.
+
         The L-operator computes a row vector times the Jacobian.
 
-        This method dispatches to :meth:`Op.grad` by default.  In one sense,
-        this method provides the original outputs when they're needed to
-        compute the return value, whereas `Op.grad` doesn't.
-
-        See `Op.grad` for a mathematical explanation of the inputs and outputs
-        of this method.
+        This method dispatches to :meth:`pullback` if overridden by a
+        subclass, otherwise falls back to :meth:`Op.grad`.
 
         Parameters
         ----------
@@ -396,14 +414,20 @@ class Op(MetaObject):
             The gradients with respect to each `Variable` in `inputs`.
 
         """
+        if type(self).pullback is not Op.pullback:
+            return self.pullback(inputs, outputs, output_grads)
         return self.grad(inputs, output_grads)
 
     def R_op(
-        self, inputs: list[Variable], eval_points: Variable | list[Variable]
+        self, inputs: Sequence[Variable], eval_points: Sequence[Variable | None]
     ) -> list[Variable]:
         r"""Construct a graph for the R-operator.
 
-        This method is primarily used by `Rop`.
+        .. deprecated::
+            Implement :meth:`pushforward` instead.
+
+        This method is primarily used by `Rop`. It dispatches to
+        :meth:`pushforward` if overridden by a subclass.
 
         Parameters
         ----------
@@ -419,6 +443,15 @@ class Op(MetaObject):
         ``rval[i]`` should be ``Rop(f=f_i(inputs), wrt=inputs, eval_points=eval_points)``.
 
         """
+        from pytensor.gradient import DisconnectedType, disconnected_type
+
+        if type(self).pushforward is not Op.pushforward:
+            outputs = self.make_node(*inputs).outputs
+            # Convert None eval_points to DisconnectedType for pushforward
+            tangents = [disconnected_type() if ep is None else ep for ep in eval_points]
+            result = self.pushforward(inputs, outputs, tangents)
+            # Convert DisconnectedType back to None for R_op callers
+            return [None if isinstance(r.type, DisconnectedType) else r for r in result]  # type: ignore[misc]
         raise NotImplementedError()
 
     @abstractmethod
@@ -459,16 +492,18 @@ class Op(MetaObject):
         """
 
     def do_constant_folding(self, fgraph: "FunctionGraph", node: Apply) -> bool:
-        """Determine whether or not constant folding should be performed for the given node.
+        """Determine whether constant folding should be performed for the given node.
 
         This allows each `Op` to determine if it wants to be constant
         folded when all its inputs are constant. This allows it to choose where
         it puts its memory/speed trade-off. Also, it could make things faster
-        as constants can't be used for in-place operations (see
-        ``*IncSubtensor``).
+        as constants can't be used for in-place operations (see ``*IncSubtensor``).
 
         Parameters
         ----------
+        fgraph : FunctionGraph
+            Function graph to which `node` belongs. This is passed in case the `Op` needs to inspect the graph to make
+            its decision.
         node : Apply
             The node for which the constant folding determination is made.
 
@@ -633,8 +668,8 @@ class _NoPythonOp(Op):
 class HasInnerGraph(ABC):
     r"""A mixin for an `Op` that contain an inner graph."""
 
-    fgraph: "FunctionGraph"
-    """A `FunctionGraph` of the inner function."""
+    fgraph: "AbstractFunctionGraph"
+    """The inner function graph (FunctionGraph or FrozenFunctionGraph)."""
 
     @property
     @abstractmethod
@@ -654,106 +689,6 @@ class HasInnerGraph(ABC):
     @abstractmethod
     def clone(self) -> Op:
         """Clone the `Op` and its inner-graph."""
-
-
-def get_test_value(v: Any) -> Any:
-    """Get the test value for `v`.
-
-    If input `v` is not already a variable, it is turned into one by calling
-    ``as_tensor_variable(v)``.
-
-    Raises
-    ------
-    ``AttributeError`` if no test value is set.
-
-    """
-    if not isinstance(v, Variable):
-        v = pytensor.tensor.as_tensor_variable(v)
-
-    return v.get_test_value()
-
-
-def missing_test_message(msg: str) -> None:
-    """Display a message saying that some test_value is missing.
-
-    This uses the appropriate form based on ``config.compute_test_value``:
-
-        off:
-            The interactive debugger is off, so we do nothing.
-
-        ignore:
-            The interactive debugger is set to ignore missing inputs, so do
-            nothing.
-
-        warn:
-            Display `msg` as a warning.
-
-
-    Raises
-    ------
-    AttributeError
-        With msg as the exception text.
-
-    """
-    action = config.compute_test_value
-    if action == "raise":
-        raise TestValueError(msg)
-    elif action == "warn":
-        warnings.warn(msg, stacklevel=2)
-    else:
-        assert action in ("ignore", "off")
-
-
-def get_test_values(*args: Variable) -> Any | list[Any]:
-    r"""Get test values for multiple `Variable`\s.
-
-    Intended use:
-
-    .. code-block:: python
-
-        for val_1, ..., val_n in get_debug_values(var_1, ..., var_n):
-            if some condition on val_1, ..., val_n is not met:
-                missing_test_message("condition was not met")
-
-
-    Given a list of variables, `get_debug_values` does one of three things:
-
-    1. If the interactive debugger is off, returns an empty list
-    2. If the interactive debugger is on, and all variables have
-       debug values, returns a list containing a single element.
-       This single element is either:
-
-           a) if there is only one variable, the element is its
-               value
-           b) otherwise, a tuple containing debug values of all
-               the variables.
-
-    3. If the interactive debugger is on, and some variable does
-       not have a debug value, issue a `missing_test_message` about
-       the variable, and, if still in control of execution, return
-       an empty list.
-
-    """
-
-    if config.compute_test_value == "off":
-        return []
-
-    rval = []
-
-    for i, arg in enumerate(args):
-        try:
-            rval.append(get_test_value(arg))
-        except TestValueError:
-            if hasattr(arg, "name") and arg.name is not None:
-                missing_test_message(f"Argument {i} ('{arg.name}') has no test value")
-            else:
-                missing_test_message(f"Argument {i} has no test value")
-            return []
-
-    if len(rval) == 1:
-        return rval
-
-    return [tuple(rval)]
 
 
 def io_connection_pattern(inputs, outputs):

@@ -114,9 +114,11 @@ class BiolibJobApi:
         job_uuid: str,
         job_auth_token: str,
         storage_type: Literal['input', 'results'],
+        api_client: Optional[ApiClient] = None,
     ) -> str:
+        api = api_client or biolib.api.client
         try:
-            response = biolib.api.client.get(
+            response = api.get(
                 path=f'/jobs/{job_uuid}/storage/{storage_type}/download/',
                 authenticate=True,
                 headers={'Job-Auth-Token': job_auth_token},

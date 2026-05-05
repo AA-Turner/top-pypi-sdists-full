@@ -11,6 +11,8 @@ __all__ = ["ToolChoiceAllowed"]
 
 
 class ToolChoiceAllowed(BaseModel):
+    """Constrains the tools available to the model to a pre-defined set."""
+
     mode: Literal["auto", "required"]
 
     tools: List[Dict[str, object]]

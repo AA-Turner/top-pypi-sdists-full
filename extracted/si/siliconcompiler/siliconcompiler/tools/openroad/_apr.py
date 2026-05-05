@@ -1,7 +1,7 @@
 import os
 import json
 
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Set
 
 from siliconcompiler import sc_open
 from siliconcompiler import utils
@@ -1225,6 +1225,25 @@ class APRTask(OpenROADTask):
         self.add_parameter("global_connect_fileset", "[(str,str)]",
                            "list of libraries and filesets to generate connects from")
 
+        self.add_parameter("enablehier", "bool",
+                           "Enable hierarchical design support in OpenROAD when linking",
+                           defvalue=self._default_enable_hier())
+
+    def _default_enable_hier(self) -> bool:
+        return False
+
+    def set_openroad_enablehier(self, enable: bool,
+                                step: Optional[str] = None, index: Optional[str] = None):
+        """
+        Enables or disables hierarchical design support in OpenROAD.
+
+        Args:
+            enable: True to enable hierarchical design support, False to disable it.
+            step: The specific step to apply this configuration to.
+            index: The specific index to apply this configuration to.
+        """
+        self.set("var", "enablehier", enable, step=step, index=index)
+
     def add_openroad_skipreport(self, report_type: Union[List[str], str],
                                 step: Optional[str] = None, index: Optional[str] = None,
                                 clobber: bool = False) -> None:
@@ -1347,6 +1366,7 @@ class APRTask(OpenROADTask):
         if self.get("var", "skip_reports"):
             self.add_required_key("var", "skip_reports")
 
+        self.add_required_key("var", "enablehier")
         self.add_required_key("var", "ord_enable_images")
         self.add_required_key("var", "ord_heatmap_bins")
         self.add_required_key("var", "load_grt_setup")
@@ -1414,30 +1434,43 @@ class APRTask(OpenROADTask):
         if "power" in self.get("var", "reports"):
             self.add_required_key("var", "power_corner")
 
+    def _get_modes(self) -> Set[str]:
+        modes = set()
+        for scenario in self.project.constraint.timing.get_scenario().values():
+            mode = scenario.get_mode(self.step, self.index)
+            if mode:
+                modes.add(mode)
+        return modes
+
     def _add_pnr_inputs(self):
         if self.get("var", "load_sdcs"):
-            if f"{self.design_topmodule}.sdc" in self.get_files_from_input_nodes():
+            modes = self._get_modes()
+            if modes and \
+                    all(f"{self.design_topmodule}.{mode}.sdc" in self.get_files_from_input_nodes()
+                        for mode in modes):
+                for mode in modes:
+                    self.add_input_file(ext=f"{mode}.sdc")
+            elif f"{self.design_topmodule}.sdc" in self.get_files_from_input_nodes():
                 self.add_input_file(ext="sdc")
             else:
                 for lib, fileset in self.project.get_filesets():
                     if lib.has_file(fileset=fileset, filetype="sdc"):
                         self.add_required_key(lib, "fileset", fileset, "file", "sdc")
 
-                modes = set()
                 for scenario in self.project.constraint.timing.get_scenario().values():
                     mode = scenario.get_mode(self.step, self.index)
                     if mode:
-                        modes.add(mode)
                         self.add_required_key(scenario, "mode")
                         mode_obj = self.project.constraint.timing.get_mode(mode)
                         self.add_required_key(mode_obj, "sdcfileset")
 
-                for mode in modes:
+                for mode in self._get_modes():
                     mode_obj = self.project.constraint.timing.get_mode(mode)
                     for lib, fileset in mode_obj.get_sdcfileset():
                         libobj = self.project.get_library(lib)
                         self.add_required_key(libobj, "fileset", fileset, "file", "sdc")
 
+        load_vg = False
         load_tech = True
         if f"{self.design_topmodule}.odb.gz" in self.get_files_from_input_nodes():
             self.add_input_file(ext="odb.gz")
@@ -1446,11 +1479,23 @@ class APRTask(OpenROADTask):
             self.add_input_file(ext="odb")
             load_tech = False
         elif f"{self.design_topmodule}.def.gz" in self.get_files_from_input_nodes():
-            self.add_input_file(ext="def.gz")
+            if not self.get("var", "enablehier"):
+                self.add_input_file(ext="def.gz")
+            load_vg = self.get("var", "enablehier")
         elif f"{self.design_topmodule}.def" in self.get_files_from_input_nodes():
-            self.add_input_file(ext="def")
+            if not self.get("var", "enablehier"):
+                self.add_input_file(ext="def")
+            load_vg = self.get("var", "enablehier")
         else:
-            pass
+            load_vg = True
+
+        if load_vg:
+            if f"{self.design_topmodule}.vg.gz" in self.get_files_from_input_nodes():
+                self.add_input_file(ext="vg.gz")
+            elif f"{self.design_topmodule}.vg" in self.get_files_from_input_nodes():
+                self.add_input_file(ext="vg")
+            else:
+                pass
 
         if load_tech:
             pdk = self.project.get_library(self.project.get("asic", "pdk"))

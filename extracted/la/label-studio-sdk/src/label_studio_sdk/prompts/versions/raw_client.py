@@ -6,13 +6,15 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
-from ...core.jsonable_encoder import jsonable_encoder
+from ...core.jsonable_encoder import encode_path_param
+from ...core.parse_error import ParsingError
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
 from ...types.inference_run_cost_estimate import InferenceRunCostEstimate
 from ...types.provider_enum import ProviderEnum
 from ...types.refined_prompt_response import RefinedPromptResponse
 from ...types.third_party_model_version import ThirdPartyModelVersion
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -46,7 +48,7 @@ class RawVersionsClient:
         HttpResponse[None]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/get-default-version-name",
+            f"api/prompts/{encode_path_param(id)}/get-default-version-name",
             method="GET",
             request_options=request_options,
         )
@@ -56,6 +58,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def list(
@@ -90,7 +96,7 @@ class RawVersionsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions",
             method="GET",
             params={
                 "ordering": ordering,
@@ -110,6 +116,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
@@ -119,6 +129,7 @@ class RawVersionsClient:
         prompt: str,
         provider_model_id: str,
         title: str,
+        max_few_shot_examples: typing.Optional[int] = OMIT,
         model_provider_connection: typing.Optional[int] = OMIT,
         organization: typing.Optional[int] = OMIT,
         parent_model: typing.Optional[int] = OMIT,
@@ -147,6 +158,9 @@ class RawVersionsClient:
         title : str
             Model name
 
+        max_few_shot_examples : typing.Optional[int]
+            Max number of few-shot examples to include in prompts. 0 = disabled.
+
         model_provider_connection : typing.Optional[int]
 
         organization : typing.Optional[int]
@@ -174,9 +188,10 @@ class RawVersionsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions",
             method="POST",
             json={
+                "max_few_shot_examples": max_few_shot_examples,
                 "model_provider_connection": model_provider_connection,
                 "organization": organization,
                 "parent_model": parent_model,
@@ -204,6 +219,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get(
@@ -233,7 +252,7 @@ class RawVersionsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}",
             method="GET",
             request_options=request_options,
         )
@@ -250,6 +269,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def delete(
@@ -278,7 +301,7 @@ class RawVersionsClient:
         HttpResponse[None]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}",
             method="DELETE",
             request_options=request_options,
         )
@@ -288,6 +311,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def update(
@@ -295,6 +322,7 @@ class RawVersionsClient:
         prompt_id: int,
         version_id: int,
         *,
+        max_few_shot_examples: typing.Optional[int] = OMIT,
         model_provider_connection: typing.Optional[int] = OMIT,
         organization: typing.Optional[int] = OMIT,
         parent_model: typing.Optional[int] = OMIT,
@@ -318,6 +346,9 @@ class RawVersionsClient:
         prompt_id : int
 
         version_id : int
+
+        max_few_shot_examples : typing.Optional[int]
+            Max number of few-shot examples to include in prompts. 0 = disabled.
 
         model_provider_connection : typing.Optional[int]
 
@@ -355,9 +386,10 @@ class RawVersionsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}",
             method="PATCH",
             json={
+                "max_few_shot_examples": max_few_shot_examples,
                 "model_provider_connection": model_provider_connection,
                 "organization": organization,
                 "parent_model": parent_model,
@@ -385,6 +417,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def cost_estimate(
@@ -414,7 +450,7 @@ class RawVersionsClient:
             Cost estimate response
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/cost-estimate",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/cost-estimate",
             method="GET",
             request_options=request_options,
         )
@@ -431,6 +467,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get_refined_prompt(
@@ -468,7 +508,7 @@ class RawVersionsClient:
             Refined prompt response
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/refine",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/refine",
             method="GET",
             params={
                 "refinement_job_id": refinement_job_id,
@@ -488,6 +528,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def refine_prompt(
@@ -537,7 +581,7 @@ class RawVersionsClient:
             Refined prompt response
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/refine",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/refine",
             method="POST",
             params={
                 "async": async_,
@@ -566,6 +610,10 @@ class RawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -597,7 +645,7 @@ class AsyncRawVersionsClient:
         AsyncHttpResponse[None]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/get-default-version-name",
+            f"api/prompts/{encode_path_param(id)}/get-default-version-name",
             method="GET",
             request_options=request_options,
         )
@@ -607,6 +655,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def list(
@@ -641,7 +693,7 @@ class AsyncRawVersionsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions",
             method="GET",
             params={
                 "ordering": ordering,
@@ -661,6 +713,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
@@ -670,6 +726,7 @@ class AsyncRawVersionsClient:
         prompt: str,
         provider_model_id: str,
         title: str,
+        max_few_shot_examples: typing.Optional[int] = OMIT,
         model_provider_connection: typing.Optional[int] = OMIT,
         organization: typing.Optional[int] = OMIT,
         parent_model: typing.Optional[int] = OMIT,
@@ -698,6 +755,9 @@ class AsyncRawVersionsClient:
         title : str
             Model name
 
+        max_few_shot_examples : typing.Optional[int]
+            Max number of few-shot examples to include in prompts. 0 = disabled.
+
         model_provider_connection : typing.Optional[int]
 
         organization : typing.Optional[int]
@@ -725,9 +785,10 @@ class AsyncRawVersionsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions",
             method="POST",
             json={
+                "max_few_shot_examples": max_few_shot_examples,
                 "model_provider_connection": model_provider_connection,
                 "organization": organization,
                 "parent_model": parent_model,
@@ -755,6 +816,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get(
@@ -784,7 +849,7 @@ class AsyncRawVersionsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}",
             method="GET",
             request_options=request_options,
         )
@@ -801,6 +866,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def delete(
@@ -829,7 +898,7 @@ class AsyncRawVersionsClient:
         AsyncHttpResponse[None]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}",
             method="DELETE",
             request_options=request_options,
         )
@@ -839,6 +908,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def update(
@@ -846,6 +919,7 @@ class AsyncRawVersionsClient:
         prompt_id: int,
         version_id: int,
         *,
+        max_few_shot_examples: typing.Optional[int] = OMIT,
         model_provider_connection: typing.Optional[int] = OMIT,
         organization: typing.Optional[int] = OMIT,
         parent_model: typing.Optional[int] = OMIT,
@@ -869,6 +943,9 @@ class AsyncRawVersionsClient:
         prompt_id : int
 
         version_id : int
+
+        max_few_shot_examples : typing.Optional[int]
+            Max number of few-shot examples to include in prompts. 0 = disabled.
 
         model_provider_connection : typing.Optional[int]
 
@@ -906,9 +983,10 @@ class AsyncRawVersionsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}",
             method="PATCH",
             json={
+                "max_few_shot_examples": max_few_shot_examples,
                 "model_provider_connection": model_provider_connection,
                 "organization": organization,
                 "parent_model": parent_model,
@@ -936,6 +1014,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def cost_estimate(
@@ -965,7 +1047,7 @@ class AsyncRawVersionsClient:
             Cost estimate response
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/cost-estimate",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/cost-estimate",
             method="GET",
             request_options=request_options,
         )
@@ -982,6 +1064,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_refined_prompt(
@@ -1019,7 +1105,7 @@ class AsyncRawVersionsClient:
             Refined prompt response
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/refine",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/refine",
             method="GET",
             params={
                 "refinement_job_id": refinement_job_id,
@@ -1039,6 +1125,10 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def refine_prompt(
@@ -1088,7 +1178,7 @@ class AsyncRawVersionsClient:
             Refined prompt response
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/refine",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/refine",
             method="POST",
             params={
                 "async": async_,
@@ -1117,4 +1207,8 @@ class AsyncRawVersionsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

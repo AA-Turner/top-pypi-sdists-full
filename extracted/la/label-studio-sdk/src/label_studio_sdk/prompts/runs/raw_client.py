@@ -7,13 +7,15 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
-from ...core.jsonable_encoder import jsonable_encoder
+from ...core.jsonable_encoder import encode_path_param
+from ...core.parse_error import ParsingError
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
 from ...types.cancel_model_run_response import CancelModelRunResponse
 from ...types.model_run import ModelRun
 from ...types.project_subset_enum import ProjectSubsetEnum
 from .types.list_runs_request_project_subset import ListRunsRequestProjectSubset
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -70,7 +72,7 @@ class RawRunsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/inference-runs",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/inference-runs",
             method="GET",
             params={
                 "ordering": ordering,
@@ -93,6 +95,10 @@ class RawRunsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
@@ -101,11 +107,13 @@ class RawRunsClient:
         version_id: int,
         *,
         project: int,
+        filters_json: typing.Optional[typing.Any] = OMIT,
         job_id: typing.Optional[str] = OMIT,
         only_missing_predictions: typing.Optional[bool] = OMIT,
         organization: typing.Optional[int] = OMIT,
         predictions_updated_at: typing.Optional[dt.datetime] = OMIT,
         project_subset: typing.Optional[ProjectSubsetEnum] = OMIT,
+        sample_subset_size: typing.Optional[int] = OMIT,
         total_correct_predictions: typing.Optional[int] = OMIT,
         total_predictions: typing.Optional[int] = OMIT,
         total_tasks: typing.Optional[int] = OMIT,
@@ -128,6 +136,9 @@ class RawRunsClient:
 
         project : int
 
+        filters_json : typing.Optional[typing.Any]
+            DM filter group for Filtered subset. Stored for display/re-run purposes.
+
         job_id : typing.Optional[str]
             Job ID for inference job for a ModelRun e.g. Adala job ID
 
@@ -139,6 +150,9 @@ class RawRunsClient:
         predictions_updated_at : typing.Optional[dt.datetime]
 
         project_subset : typing.Optional[ProjectSubsetEnum]
+
+        sample_subset_size : typing.Optional[int]
+            Custom sample size for Sample subset. Uses PROMPTER_SAMPLE_SUBSET_SIZE if not set.
 
         total_correct_predictions : typing.Optional[int]
 
@@ -155,15 +169,17 @@ class RawRunsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/inference-runs",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/inference-runs",
             method="POST",
             json={
+                "filters_json": filters_json,
                 "job_id": job_id,
                 "only_missing_predictions": only_missing_predictions,
                 "organization": organization,
                 "predictions_updated_at": predictions_updated_at,
                 "project": project,
                 "project_subset": project_subset,
+                "sample_subset_size": sample_subset_size,
                 "total_correct_predictions": total_correct_predictions,
                 "total_predictions": total_predictions,
                 "total_tasks": total_tasks,
@@ -187,6 +203,10 @@ class RawRunsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def cancel(
@@ -223,7 +243,7 @@ class RawRunsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/inference-runs/{jsonable_encoder(inference_run_id)}/cancel",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/inference-runs/{encode_path_param(inference_run_id)}/cancel",
             method="POST",
             request_options=request_options,
         )
@@ -240,6 +260,10 @@ class RawRunsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -294,7 +318,7 @@ class AsyncRawRunsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/inference-runs",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/inference-runs",
             method="GET",
             params={
                 "ordering": ordering,
@@ -317,6 +341,10 @@ class AsyncRawRunsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
@@ -325,11 +353,13 @@ class AsyncRawRunsClient:
         version_id: int,
         *,
         project: int,
+        filters_json: typing.Optional[typing.Any] = OMIT,
         job_id: typing.Optional[str] = OMIT,
         only_missing_predictions: typing.Optional[bool] = OMIT,
         organization: typing.Optional[int] = OMIT,
         predictions_updated_at: typing.Optional[dt.datetime] = OMIT,
         project_subset: typing.Optional[ProjectSubsetEnum] = OMIT,
+        sample_subset_size: typing.Optional[int] = OMIT,
         total_correct_predictions: typing.Optional[int] = OMIT,
         total_predictions: typing.Optional[int] = OMIT,
         total_tasks: typing.Optional[int] = OMIT,
@@ -352,6 +382,9 @@ class AsyncRawRunsClient:
 
         project : int
 
+        filters_json : typing.Optional[typing.Any]
+            DM filter group for Filtered subset. Stored for display/re-run purposes.
+
         job_id : typing.Optional[str]
             Job ID for inference job for a ModelRun e.g. Adala job ID
 
@@ -363,6 +396,9 @@ class AsyncRawRunsClient:
         predictions_updated_at : typing.Optional[dt.datetime]
 
         project_subset : typing.Optional[ProjectSubsetEnum]
+
+        sample_subset_size : typing.Optional[int]
+            Custom sample size for Sample subset. Uses PROMPTER_SAMPLE_SUBSET_SIZE if not set.
 
         total_correct_predictions : typing.Optional[int]
 
@@ -379,15 +415,17 @@ class AsyncRawRunsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/inference-runs",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/inference-runs",
             method="POST",
             json={
+                "filters_json": filters_json,
                 "job_id": job_id,
                 "only_missing_predictions": only_missing_predictions,
                 "organization": organization,
                 "predictions_updated_at": predictions_updated_at,
                 "project": project,
                 "project_subset": project_subset,
+                "sample_subset_size": sample_subset_size,
                 "total_correct_predictions": total_correct_predictions,
                 "total_predictions": total_predictions,
                 "total_tasks": total_tasks,
@@ -411,6 +449,10 @@ class AsyncRawRunsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def cancel(
@@ -447,7 +489,7 @@ class AsyncRawRunsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(prompt_id)}/versions/{jsonable_encoder(version_id)}/inference-runs/{jsonable_encoder(inference_run_id)}/cancel",
+            f"api/prompts/{encode_path_param(prompt_id)}/versions/{encode_path_param(version_id)}/inference-runs/{encode_path_param(inference_run_id)}/cancel",
             method="POST",
             request_options=request_options,
         )
@@ -464,4 +506,8 @@ class AsyncRawRunsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

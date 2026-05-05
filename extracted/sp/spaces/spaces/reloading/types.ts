@@ -39,7 +39,8 @@ export interface ApiGetReloadEventSourceData {
     | ReloadOperationException
     | ReloadOperationObject
     | ReloadOperationRun
-    | ReloadOperationUI;
+    | ReloadOperationUI
+    | ReloadOperationFile;
 }
 export interface ReloadOperationError {
   kind: "error";
@@ -72,6 +73,10 @@ export interface ReloadOperationRun {
 export interface ReloadOperationUI {
   kind: "ui";
   updated: boolean;
+}
+export interface ReloadOperationFile {
+  kind: "file";
+  created: boolean;
 }
 export interface ApiGetReloadRequest {
   reloadId: string;

@@ -128,7 +128,7 @@ export default {
           ]
         }
       ],
-      "copyright": "Solace Agent Mesh. Copyright © 2026 Solace. Version: 1.23.0",
+      "copyright": "Solace Agent Mesh. Copyright © 2026 Solace. Version: 1.23.2",
       "logo": {
         "alt": "Solace Logo",
         "src": "img/solace-logo.png",

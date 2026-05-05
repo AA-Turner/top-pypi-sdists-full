@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -162,6 +162,25 @@ cpdef enum:
     AUTH_MODE_SYSRAC = 0x00100000
 
 cpdef enum:
+    EVENT_AQ = 100
+    EVENT_DEREG = 5
+    EVENT_NONE = 0
+    EVENT_OBJCHANGE = 6
+    EVENT_QUERYCHANGE = 7
+    EVENT_SHUTDOWN = 2
+    EVENT_SHUTDOWN_ANY = 3
+    EVENT_STARTUP = 1
+
+cpdef enum:
+    OPCODE_ALLOPS = 0
+    OPCODE_ALLROWS = 0x01
+    OPCODE_ALTER = 0x10
+    OPCODE_DELETE = 0x08
+    OPCODE_DROP = 0x20
+    OPCODE_INSERT = 0x02
+    OPCODE_UPDATE = 0x04
+
+cpdef enum:
     PIPELINE_OP_TYPE_CALL_FUNC = 1
     PIPELINE_OP_TYPE_CALL_PROC = 2
     PIPELINE_OP_TYPE_COMMIT = 3
@@ -181,6 +200,18 @@ cpdef enum:
     PURITY_DEFAULT = 0
     PURITY_NEW = 1
     PURITY_SELF = 2
+
+cpdef enum:
+    SUBSCR_NAMESPACE_AQ = 1
+    SUBSCR_NAMESPACE_DBCHANGE = 2
+
+cpdef enum:
+    SUBSCR_QOS_BEST_EFFORT = 0x10
+    SUBSCR_QOS_DEFAULT = 0
+    SUBSCR_QOS_DEREG_NFY = 0x02
+    SUBSCR_QOS_QUERY = 0x08
+    SUBSCR_QOS_RELIABLE = 0x01
+    SUBSCR_QOS_ROWIDS = 0x04
 
 cpdef enum:
     TPC_TXN_FLAGS_JOIN = 0x00000002
@@ -217,6 +248,7 @@ cdef str ARRAY_TYPE_CODE_UINT32
 
 cdef const char* ENCODING_UTF8
 cdef const char* ENCODING_UTF16
+cdef const char* ENCODING_UTF16LE
 
 cdef class ApiType:
     cdef:
@@ -326,8 +358,8 @@ cdef class Buffer:
     cdef int _write_raw_bytes_and_length(self, const char_type *ptr,
                                          ssize_t num_bytes) except -1
     cdef inline ssize_t bytes_left(self)
-    cdef object read_bytes(self)
-    cdef object read_bytes_with_length(self)
+    cdef bytes read_bytes(self)
+    cdef bytes read_bytes_with_length(self)
     cdef int read_int32be(self, int32_t *value) except -1
     cdef const char_type* read_raw_bytes(self, ssize_t num_bytes) except NULL
     cdef int read_raw_bytes_and_length(self, const char_type **ptr,
@@ -349,6 +381,8 @@ cdef class Buffer:
     cdef int read_uint16be(self, uint16_t *value) except -1
     cdef int read_uint16le(self, uint16_t *value) except -1
     cdef int read_uint32be(self, uint32_t *value) except -1
+    cdef int skip_bytes(self) except -1
+    cdef int skip_bytes_with_length(self) except -1
     cdef int skip_raw_bytes(self, ssize_t num_bytes) except -1
     cdef inline int skip_sb4(self) except -1
     cdef inline void skip_to(self, ssize_t pos)
@@ -361,11 +395,12 @@ cdef class Buffer:
     cdef int write_bool(self, bint value) except -1
     cdef int write_bytes(self, bytes value) except -1
     cdef int write_bytes_with_length(self, bytes value) except -1
+    cdef int write_bytes_with_two_lengths(self, object value) except -1
     cdef int write_interval_ds(self, object value) except -1
     cdef int write_interval_ym(self, object value) except -1
     cdef int write_oracle_date(self, object value, uint8_t length) except -1
     cdef int write_oracle_number(self, bytes num_bytes) except -1
-    cdef int write_oson(self, value, ssize_t max_fname_size,
+    cdef int write_oson(self, value, bint supports_long_fnames,
                         bint write_length=*) except -1
     cdef int write_raw(self, const char_type *data, ssize_t length) except -1
     cdef int write_sb4(self, int32_t value) except -1
@@ -454,7 +489,7 @@ cdef class OsonEncoder(GrowableBuffer):
     cdef int _examine_node(self, object value) except -1
     cdef int _write_extended_header(self) except -1
     cdef int _write_fnames_seg(self, OsonFieldNamesSegment seg) except -1
-    cdef int encode(self, object value, ssize_t max_fname_size) except -1
+    cdef int encode(self, object value, bint supports_long_fnames=*) except -1
 
 
 cdef class VectorDecoder(Buffer):
@@ -605,19 +640,14 @@ cdef class ConnectParamsImpl:
         uint64_t _external_handle
         public str debug_jdwp
         object access_token_callback
-        object access_token_expires
+        public object on_connect_callback
         Description _default_description
         Address _default_address
-        bytearray _password
-        bytearray _password_obfuscator
-        bytearray _new_password
-        bytearray _new_password_obfuscator
-        bytearray _wallet_password
-        bytearray _wallet_password_obfuscator
-        bytearray _token
-        bytearray _token_obfuscator
-        bytearray _private_key
-        bytearray _private_key_obfuscator
+        SecretValueImpl _password
+        SecretValueImpl _new_password
+        SecretValueImpl _wallet_password
+        SecretValueImpl _token
+        SecretValueImpl _private_key
         public str program
         public str machine
         public str terminal
@@ -631,7 +661,6 @@ cdef class ConnectParamsImpl:
     cdef int _copy(self, ConnectParamsImpl other_params) except -1
     cdef str _get_connect_string(self)
     cdef bytes _get_new_password(self)
-    cdef bytearray _get_obfuscator(self, str secret_value)
     cdef bytes _get_password(self)
     cdef str _get_private_key(self)
     cdef str _get_token(self)
@@ -642,11 +671,11 @@ cdef class ConnectParamsImpl:
     cdef int _parse_connect_string(self, str connect_string) except -1
     cdef int _set_access_token(self, object val, int error_num) except -1
     cdef int _set_access_token_param(self, object val) except -1
+    cdef int _set_on_connect_param(self, object val) except -1
     cdef int _set_new_password(self, object password) except -1
     cdef int _set_password(self, object password) except -1
     cdef int _set_wallet_password(self, object password) except -1
     cdef str _transform_password(self, object password)
-    cdef bytearray _xor_bytes(self, bytearray a, bytearray b)
 
 
 cdef class PoolParamsImpl(ConnectParamsImpl):
@@ -680,7 +709,7 @@ cdef class BaseConnImpl:
         public bint invoke_session_callback
         readonly tuple server_version
         readonly bint supports_bool
-        ssize_t _oson_max_fname_size
+        bint supports_oson_long_field_names
         bint _allow_bind_str_to_lob
         bint _in_request
 
@@ -970,6 +999,19 @@ cdef class PipelineOpResultImpl:
     cdef int _capture_err(self, Exception exc) except -1
 
 
+cdef class SecretValueImpl:
+    cdef:
+        bytearray value
+        bytearray obfuscator
+        object expires
+
+    cdef bytearray _xor_bytes(self, bytearray value)
+    cpdef str get_value(self)
+    cpdef bytes get_value_as_bytes(self)
+    cpdef bool has_expired(self)
+    cpdef int set_value(self, object secret_value, object expires=*) except -1
+
+
 cdef class SparseVectorImpl:
     cdef:
         readonly uint32_t num_dimensions
@@ -1031,6 +1073,8 @@ cdef struct OracleData:
     OracleDataBuffer buffer
 
 
+cdef int check_min_data_length(bytes data, ssize_t min_len) except -1
+cdef int check_min_length(ssize_t actual_len, ssize_t min_len) except -1
 cdef object convert_arrow_to_oracle_data(OracleMetadata metadata,
                                          OracleData* data,
                                          ArrowArrayImpl array_impl,
@@ -1042,11 +1086,13 @@ cdef int convert_oracle_data_to_arrow(OracleMetadata from_metadata,
 cdef object convert_oracle_data_to_python(OracleMetadata from_metadata,
                                           OracleMetadata to_metadatda,
                                           OracleData* data,
+                                          const char* encoding,
                                           const char* encoding_errors,
                                           bint from_dbobject)
 cdef object convert_python_to_oracle_data(OracleMetadata metadata,
                                           OracleData* data,
-                                          object value)
+                                          object value,
+                                          const char* encoding)
 cdef int convert_vector_to_arrow(ArrowArrayImpl array_impl,
                                  object vector) except -1
 cdef cydatetime.datetime convert_date_to_python(OracleDataBuffer *buffer)

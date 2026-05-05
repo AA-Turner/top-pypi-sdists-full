@@ -1,15 +1,19 @@
 """A container for specifying and manipulating a graph with distinct inputs and outputs."""
 
 import time
+from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Sequence, Set
+from functools import partial
 from typing import Any, Union, cast
 
-import pytensor
 from pytensor.configdefaults import config
 from pytensor.graph.basic import (
     Apply,
     AtomicVariable,
+    Constant,
+    FrozenApply,
+    NominalVariable,
     Variable,
     clone_get_equiv,
 )
@@ -23,10 +27,23 @@ from pytensor.graph.traversal import (
     toposort_with_orderings,
     vars_between,
 )
-from pytensor.graph.utils import MetaObject, MissingInputError, TestValueError
+from pytensor.graph.utils import MissingInputError
 
 
 ClientType = tuple[Apply, int]
+
+
+class AbstractFunctionGraph(ABC):
+    """Read-only interface shared by FunctionGraph and FrozenFunctionGraph."""
+
+    inputs: Sequence[Variable]
+    outputs: Sequence[Variable]
+    apply_nodes: Set[Apply]  # abc.Set covers both set and frozenset
+    variables: Set[Variable]
+    clients: dict[Variable, list[ClientType]]
+
+    @abstractmethod
+    def toposort(self) -> Sequence[Apply]: ...
 
 
 class Output(Op):
@@ -47,7 +64,7 @@ class Output(Op):
         return f"output[{self.idx}]"
 
 
-class FunctionGraph(MetaObject):
+class FunctionGraph(AbstractFunctionGraph):
     r"""
     A `FunctionGraph` represents a subgraph bound by a set of input variables and
     a set of output variables, ie a subgraph that specifies an PyTensor function.
@@ -126,12 +143,12 @@ class FunctionGraph(MetaObject):
             inputs = [cast(Variable, _memo[i]) for i in inputs]
 
         self.execute_callbacks_time: float = 0.0
-        self.execute_callbacks_times: dict[Feature, float] = defaultdict(float)
 
         if features is None:
             features = []
 
         self._features: list[Feature] = []
+        self._feature_methods: dict[str, Feature] = {}
         # All apply nodes in the subgraph defined by inputs and
         # outputs are cached in this field
         self.apply_nodes: set[Apply] = set()
@@ -509,22 +526,6 @@ class FunctionGraph(MetaObject):
             # raise ValueError()
             return
 
-        if config.compute_test_value != "off":
-            try:
-                tval = pytensor.graph.op.get_test_value(var)
-                new_tval = pytensor.graph.op.get_test_value(new_var)
-            except TestValueError:
-                pass
-            else:
-                tval_shape = getattr(tval, "shape", None)
-                new_tval_shape = getattr(new_tval, "shape", None)
-                if tval_shape != new_tval_shape:
-                    raise AssertionError(
-                        "The replacement variable has a test value with "
-                        "a shape different from the original variable's "
-                        f"test value. Original: {tval_shape}, new: {new_tval_shape}"
-                    )
-
         for node, i in list(self.clients[var]):
             self.change_node_input(
                 node, i, new_var, reason=reason, import_missing=import_missing
@@ -682,8 +683,9 @@ class FunctionGraph(MetaObject):
         #    raise TypeError("Expected Feature instance, got "+\
         #            str(type(feature)))
 
-        # Add the feature
         self._features.append(feature)
+        for name in getattr(feature, "provides", ()):
+            self._feature_methods[name] = feature
 
     def remove_feature(self, feature: Feature) -> None:
         """Remove a feature from the graph.
@@ -693,48 +695,56 @@ class FunctionGraph(MetaObject):
 
         """
         try:
-            # Why do we catch the exception anyway?
             self._features.remove(feature)
         except ValueError:
             return
+        for name in list(self._feature_methods):
+            if self._feature_methods[name] is feature:
+                del self._feature_methods[name]
         detach = getattr(feature, "on_detach", None)
         if detach is not None:
             detach(self)
 
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        try:
+            feature_methods = self.__dict__["_feature_methods"]
+        except KeyError:
+            raise AttributeError(name)
+        try:
+            feature = feature_methods[name]
+        except KeyError:
+            raise AttributeError(name)
+        return partial(getattr(feature, name), self)
+
     def execute_callbacks(self, name: str, *args, **kwargs) -> None:
         """Execute callbacks.
 
-        Calls ``getattr(feature, name)(*args)`` for each feature which has
-        a method called after name.
-
+        For each attached feature whose class registered ``name`` via
+        ``@register_feature_callback``, call ``feature.<name>(self, *args)``.
         """
         t0 = time.perf_counter()
         for feature in self._features:
-            try:
-                fn = getattr(feature, name)
-            except AttributeError:
-                # this is safe because there is no work done inside the
-                # try; the AttributeError really must come from feature.${name}
-                # not existing
+            if name not in type(feature)._feature_callbacks:
                 continue
             tf0 = time.perf_counter()
-            fn(self, *args, **kwargs)
+            getattr(feature, name)(self, *args, **kwargs)
             self.execute_callbacks_times[feature] += time.perf_counter() - tf0
         self.execute_callbacks_time += time.perf_counter() - t0
 
     def collect_callbacks(self, name: str, *args) -> dict[Feature, Any]:
-        """Collects callbacks
+        """Collect callback return values.
 
-        Returns a dictionary d such that ``d[feature] == getattr(feature, name)(*args)``
-        For each feature which has a method called after name.
+        Returns a dict mapping each attached feature whose class registered
+        ``name`` via ``@register_feature_callback`` to the result of
+        ``feature.<name>(*args)``.
         """
         d = {}
         for feature in self._features:
-            try:
-                fn = getattr(feature, name)
-            except AttributeError:
+            if name not in type(feature)._feature_callbacks:
                 continue
-            d[feature] = fn(*args)
+            d[feature] = getattr(feature, name)(*args)
         return d
 
     def toposort(self) -> list[Apply]:
@@ -885,29 +895,26 @@ class FunctionGraph(MetaObject):
                 e.attach_feature(feature.clone())
         return e, equiv
 
+    @property
+    def execute_callbacks_times(self) -> dict[Feature, float]:
+        """Per-feature accumulator of callback execution time.
+
+        Lazily initialized and stored under a private key so it stays out of
+        ``__dict__`` until first read. ``__getstate__`` drops it on pickle
+        (callback-time entries may close over optimizer references that
+        aren't picklable); the property re-creates it transparently.
+        """
+        d = self.__dict__
+        cbt: dict[Feature, float] | None = d.get("_execute_callbacks_times_dict")
+        if cbt is None:
+            cbt = defaultdict(float)
+            d["_execute_callbacks_times_dict"] = cbt
+        return cbt
+
     def __getstate__(self):
-        # This is needed as some features introduce instance methods
-        # This is not picklable
         d = self.__dict__.copy()
-        for feature in self._features:
-            for attr in getattr(feature, "pickle_rm_attr", []):
-                del d[attr]
-
-        # XXX: The `Feature` `DispatchingFeature` takes functions as parameter
-        # and they can be lambda functions, making them unpicklable.
-
-        # execute_callbacks_times have reference to optimizer, and they can't
-        # be pickled as the decorators with parameters aren't pickable.
-        if "execute_callbacks_times" in d:
-            del d["execute_callbacks_times"]
-
+        d.pop("_execute_callbacks_times_dict", None)
         return d
-
-    def __setstate__(self, dct):
-        self.__dict__.update(dct)
-        for feature in self._features:
-            if hasattr(feature, "unpickle"):
-                feature.unpickle(self)
 
     def __contains__(self, item: Variable | Apply) -> bool:
         if isinstance(item, Variable):
@@ -928,3 +935,166 @@ class FunctionGraph(MetaObject):
         from pytensor.printing import debugprint
 
         return debugprint(self, **kwargs)
+
+    def freeze(self) -> "FrozenFunctionGraph":
+        """Return a frozen, hashable version of this FunctionGraph."""
+        return FrozenFunctionGraph(self.inputs, self.outputs)
+
+
+class FrozenFunctionGraph(AbstractFunctionGraph):
+    """Immutable, hashable function graph for inner graphs of Ops.
+
+    All internal nodes are globally interned via ``FrozenApply``.  Two
+    ``FrozenFunctionGraph`` instances built from structurally identical source
+    graphs share the same interned output objects, so equality reduces to
+    identity comparison on the outputs tuple.
+
+    Use ``FunctionGraph.freeze()`` or ``FrozenFunctionGraph(inputs, outputs)``
+    to create instances.
+
+    .. code-block:: python
+
+        from pytensor.scalar.basic import float64, add
+        from pytensor.graph.fg import FunctionGraph
+
+        x, y = float64("x"), float64("y")
+        frozen = FunctionGraph([x, y], [add(x, y)]).freeze()
+        frozen2 = FunctionGraph([x, y], [add(x, y)]).freeze()
+
+        assert frozen == frozen2
+        assert {frozen: "value"}[frozen2] == "value"
+    """
+
+    def __init__(
+        self,
+        inputs: Sequence[Variable],
+        outputs: Sequence[Variable],
+    ):
+        nominal_inputs = tuple(
+            NominalVariable(i, inp.type) for i, inp in enumerate(inputs)
+        )
+
+        memo: dict[Variable, Variable] = dict(zip(inputs, nominal_inputs, strict=True))
+        sorted_apply_nodes: list[Apply] = []
+
+        def _resolve_input(inp, memo=memo):
+            mapped = memo.get(inp)
+            if mapped is not None:
+                return mapped
+            if isinstance(inp, Constant):
+                memo[inp] = inp
+                return inp
+            raise ValueError(
+                f"Orphan {inp} found in the graph. "
+                "All variables must be graph inputs, constants, "
+                "or produced by Apply nodes reachable from the inputs."
+            )
+
+        for node in toposort(outputs, blockers=inputs):
+            new_inputs = tuple(_resolve_input(inp) for inp in node.inputs)
+            output_types = tuple(out.type for out in node.outputs)
+            new_node = FrozenApply(node.op, new_inputs, output_types)
+            sorted_apply_nodes.append(new_node)
+
+            memo.update(zip(node.outputs, new_node.outputs, strict=True))
+
+        # Create dummy Output nodes for each output, mirroring FunctionGraph.
+        # (It also makes eq/hash cheaper)
+        output_nodes = []
+        for i, o in enumerate(outputs):
+            try:
+                resolved = memo[o]
+            except KeyError:
+                if not isinstance(o, AtomicVariable):
+                    raise ValueError(
+                        f"Output variable {o} could not be mapped to a frozen graph variable. "
+                        "All outputs must be graph inputs, constants, "
+                        "or produced by Apply nodes reachable from the inputs."
+                    )
+                # A constant or graph input passed directly as output;
+                # these are the only cases not already in memo.
+                out_node = FrozenApply(Output(i), (o,), ())
+                output_nodes.append(out_node)
+                # FrozenApply interning may return a cached node that holds a previously seen equal constant.
+                # Store the canonical constant in memo for vars_between/clients.
+                memo[o] = out_node.inputs[0]
+            else:
+                output_nodes.append(FrozenApply(Output(i), (resolved,), ()))
+
+        self.inputs: tuple[Variable, ...] = nominal_inputs
+        self.outputs: tuple[Variable, ...] = tuple(
+            node.inputs[0] for node in output_nodes
+        )
+        self.apply_nodes: frozenset[Apply] = frozenset(sorted_apply_nodes)
+        self._toposort: tuple[Apply, ...] = tuple(sorted_apply_nodes)
+        self._output_nodes: tuple[Apply, ...] = tuple(output_nodes)
+        self._variables: frozenset[Variable] | None = None
+        self._clients: dict[Variable, list[ClientType]] | None = None
+
+    def __reduce__(self):
+        return FrozenFunctionGraph, (self.inputs, self.outputs)
+
+    def __hash__(self):
+        return hash(self._output_nodes)
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        if not isinstance(other, FrozenFunctionGraph):
+            return False
+        return self.outputs == other.outputs and self.inputs == other.inputs
+
+    def __repr__(self):
+        return f"FrozenFunctionGraph(inputs={list(self.inputs)}, outputs={list(self.outputs)})"
+
+    def __copy__(self):
+        return self
+
+    def __deepcopy__(self, memo):
+        return self
+
+    def toposort(self) -> tuple[Apply, ...]:
+        return self._toposort
+
+    @property
+    def variables(self) -> frozenset[Variable]:  # type: ignore[override]
+        if self._variables is None:
+            self._variables = frozenset(vars_between(self.inputs, self.outputs))
+        return self._variables
+
+    @property
+    def clients(self) -> dict[Variable, list[ClientType]]:  # type: ignore[override]
+        if self._clients is None:
+            clients: dict[Variable, list[ClientType]] = {v: [] for v in self.variables}
+            for node in self.toposort():
+                for i, inp in enumerate(node.inputs):
+                    clients[inp].append((node, i))
+            for out_node in self._output_nodes:
+                clients[out_node.inputs[0]].append((out_node, 0))
+            self._clients = clients
+        return self._clients
+
+    def unfreeze(self) -> "FunctionGraph":
+        """Return a mutable FunctionGraph with fresh mutable Apply nodes."""
+        memo: dict[Variable, Variable] = {inp: inp.type() for inp in self.inputs}
+
+        for node in self.toposort():
+            for i in node.inputs:
+                if i not in memo:
+                    if isinstance(i, AtomicVariable):
+                        memo[i] = i
+                    else:
+                        memo[i] = i.clone()
+
+            new_node = Apply(
+                node.op,
+                [memo[i] for i in node.inputs],
+                [o.type() for o in node.outputs],
+            )
+            memo.update(zip(node.outputs, new_node.outputs))
+
+        return FunctionGraph(
+            [memo[i] for i in self.inputs],
+            [memo[o] for o in self.outputs],
+            clone=False,
+        )

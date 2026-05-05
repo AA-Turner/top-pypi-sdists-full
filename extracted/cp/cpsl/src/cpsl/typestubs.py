@@ -84,7 +84,27 @@ declare module "@capsule/page" {
     appId: string;
     user: { email: string } | null;
     login: () => void;
+    navigate: (target: NavigationTarget) => void;
   }
+
+  type NavigationTarget =
+    | "home"
+    | "chat"
+    | "api"
+    | "docs"
+    | "logs"
+    | "integrations"
+    | "connections"
+    | "org"
+    | "team"
+    | string
+    | { kind: "home" }
+    | { kind: "chat"; sessionId?: string }
+    | { kind: "api" | "docs" | "logs" | "integrations" | "connections" | "org" | "team" }
+    | { path: string }
+    | { href: string }
+    | { kind: "page"; pageId?: string; page?: string; name?: string }
+    | { kind: "workflow"; workflowName?: string; workflow?: string; name?: string; sessionId?: string };
 
   export function useData<T = unknown>(
     name: string,
@@ -92,6 +112,8 @@ declare module "@capsule/page" {
   ): DataResult<T>;
   export function useEndpoint<T = unknown>(path: string): EndpointResult<T>;
   export function useCapsule(): CapsuleContext;
+  export function navigate(target: NavigationTarget): void;
+  export function useNavigate(): (target: NavigationTarget) => void;
 
   // -----------------------------------------------------------------------
   // Theme

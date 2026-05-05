@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import collections.abc
 import os
-import warnings
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -15,13 +14,18 @@ except ImportError:
     has_loop = False
 from typing import Generic
 
-from qcodes.utils import QCoDeSDeprecationWarning
-
-from .parameter_base import InstrumentTypeVar_co, ParameterBase, ParameterDataTypeVar
+from .parameter_base import (
+    InstrumentTypeVar_co,
+    ParameterBase,
+    ParameterBaseKWArgs,
+    ParameterDataTypeVar,
+)
 from .sequence_helpers import is_sequence_of
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Sequence
+
+    from typing_extensions import Unpack
 
 
 try:
@@ -41,9 +45,6 @@ except ImportError:
         collections.abc.Iterator,
         np.ndarray,
     )
-
-
-_SHAPE_UNSET: Any = object()
 
 
 class ArrayParameter(
@@ -86,9 +87,6 @@ class ArrayParameter(
             to expect. Scalars should be denoted by (), 1D arrays as (n,),
             2D arrays as (n, m), etc.
 
-        instrument: The instrument this parameter
-            belongs to, if any.
-
         label: Normally used as the axis label when this
             parameter is graphed, along with ``unit``.
 
@@ -117,48 +115,18 @@ class ArrayParameter(
             field of the object. The ``__doc__`` field of the instance
             is used by some help systems, but not all.
 
-        snapshot_get: Prevent any update to the parameter, for example
-            if it takes too long to update. Default ``True``.
-
-        snapshot_value: Should the value of the parameter be stored in the
-            snapshot. Unlike Parameter this defaults to False as
-            ArrayParameters are potentially huge.
-
-        snapshot_exclude: ``True`` prevents parameter to be
-            included in the snapshot. Useful if there are many of the same
-            parameter which are clogging up the snapshot.
-
-            Default ``False``.
-
-        metadata: Extra information to include with the
-            JSON snapshot of the parameter.
+        **kwargs: Forwarded to the ``ParameterBase`` base class.
+            Note that ``snapshot_value`` defaults to ``False`` for
+            ``ArrayParameter``. See :class:`ParameterBaseKWArgs` for
+            details.
 
     """
-
-    _DEPRECATED_POSITIONAL_ARGS: ClassVar[tuple[str, ...]] = (
-        "shape",
-        "instrument",
-        "label",
-        "unit",
-        "setpoints",
-        "setpoint_names",
-        "setpoint_labels",
-        "setpoint_units",
-        "docstring",
-        "snapshot_get",
-        "snapshot_value",
-        "snapshot_exclude",
-        "metadata",
-    )
 
     def __init__(
         self,
         name: str,
-        *args: Any,
-        shape: Sequence[int] = _SHAPE_UNSET,
-        # mypy seems to be confused here. The bound and default for InstrumentTypeVar_co
-        # contains None but mypy will not allow it as a default as of v 1.19.0
-        instrument: InstrumentTypeVar_co = None,  # type: ignore[assignment]
+        *,
+        shape: Sequence[int],
         label: str | None = None,
         unit: str | None = None,
         setpoints: Sequence[Any] | None = None,
@@ -166,103 +134,13 @@ class ArrayParameter(
         setpoint_labels: Sequence[str] | None = None,
         setpoint_units: Sequence[str] | None = None,
         docstring: str | None = None,
-        snapshot_get: bool = True,
-        snapshot_value: bool = False,
-        snapshot_exclude: bool = False,
-        metadata: Mapping[Any, Any] | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[
+            ParameterBaseKWArgs[ParameterDataTypeVar, InstrumentTypeVar_co]
+        ],
     ) -> None:
-        if args:
-            # TODO: After QCoDeS 0.57 remove the args argument and delete this code block.
-            # we hardcode the class since mypy does not support __class__ and
-            # self / self.__class__ / type(self) in class bodies does not give
-            # exactly this class but the type of a subclass
-            positional_names = ArrayParameter._DEPRECATED_POSITIONAL_ARGS
-            if len(args) > len(positional_names):
-                raise TypeError(
-                    f"{type(self).__name__}.__init__() takes at most "
-                    f"{len(positional_names) + 2} positional arguments "
-                    f"({len(args) + 2} given)"
-                )
-
-            _defaults: dict[str, Any] = {
-                "shape": _SHAPE_UNSET,
-                "instrument": None,
-                "label": None,
-                "unit": None,
-                "setpoints": None,
-                "setpoint_names": None,
-                "setpoint_labels": None,
-                "setpoint_units": None,
-                "docstring": None,
-                "snapshot_get": True,
-                "snapshot_value": False,
-                "snapshot_exclude": False,
-                "metadata": None,
-            }
-
-            _kwarg_vals: dict[str, Any] = {
-                "shape": shape,
-                "instrument": instrument,
-                "label": label,
-                "unit": unit,
-                "setpoints": setpoints,
-                "setpoint_names": setpoint_names,
-                "setpoint_labels": setpoint_labels,
-                "setpoint_units": setpoint_units,
-                "docstring": docstring,
-                "snapshot_get": snapshot_get,
-                "snapshot_value": snapshot_value,
-                "snapshot_exclude": snapshot_exclude,
-                "metadata": metadata,
-            }
-
-            for i in range(len(args)):
-                arg_name = positional_names[i]
-                if _kwarg_vals[arg_name] is not _defaults[arg_name]:
-                    raise TypeError(
-                        f"{type(self).__name__}.__init__() got multiple "
-                        f"values for argument '{arg_name}'"
-                    )
-
-            positional_arg_names = positional_names[: len(args)]
-            names_str = ", ".join(f"'{n}'" for n in positional_arg_names)
-            warnings.warn(
-                f"Passing {names_str} as positional argument(s) to "
-                f"{type(self).__name__} is deprecated. "
-                f"Please pass them as keyword arguments.",
-                QCoDeSDeprecationWarning,
-                stacklevel=2,
-            )
-
-            _pos = dict(zip(positional_names, args))
-            shape = _pos.get("shape", shape)
-            instrument = _pos.get("instrument", instrument)
-            label = _pos.get("label", label)
-            unit = _pos.get("unit", unit)
-            setpoints = _pos.get("setpoints", setpoints)
-            setpoint_names = _pos.get("setpoint_names", setpoint_names)
-            setpoint_labels = _pos.get("setpoint_labels", setpoint_labels)
-            setpoint_units = _pos.get("setpoint_units", setpoint_units)
-            docstring = _pos.get("docstring", docstring)
-            snapshot_get = _pos.get("snapshot_get", snapshot_get)
-            snapshot_value = _pos.get("snapshot_value", snapshot_value)
-            snapshot_exclude = _pos.get("snapshot_exclude", snapshot_exclude)
-            metadata = _pos.get("metadata", metadata)
-
-        if shape is _SHAPE_UNSET:
-            raise TypeError(
-                f"{type(self).__name__}.__init__() missing required "
-                f"keyword argument: 'shape'"
-            )
-
+        kwargs.setdefault("snapshot_value", False)
         super().__init__(
             name,
-            instrument=instrument,
-            snapshot_get=snapshot_get,
-            metadata=metadata,
-            snapshot_value=snapshot_value,
-            snapshot_exclude=snapshot_exclude,
             **kwargs,
         )
 

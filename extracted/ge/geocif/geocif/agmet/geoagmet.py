@@ -73,7 +73,10 @@ class AgmetGeo(base.BaseGeo):
             "eo_plot",
             ["ndvi", "chirts_era5_tmax", "chirts_era5_tmin", "chirps", "esi_4wk", "nsidc_surface", "nsidc_rootzone"],
         )
-        self.eo_plot = self._expand_eo_plot(eo_plot_raw)
+        self.plot_snow_thickness = self.parser.getboolean(
+            "AGMET", "plot_snow_thickness", fallback=False
+        )
+        self.eo_plot = self._expand_eo_plot(eo_plot_raw, self.plot_snow_thickness)
         self.eo_model = self._get_option(
             "eo_model",
             ["ndvi", "chirts_era5_tmax", "chirts_era5_tmin", "chirps", "esi_4wk", "nsidc_surface", "nsidc_rootzone"],
@@ -86,13 +89,17 @@ class AgmetGeo(base.BaseGeo):
         )
 
     @staticmethod
-    def _expand_eo_plot(eo_plot_raw):
+    def _expand_eo_plot(eo_plot_raw, plot_snow_thickness=False):
         """Map raw EO variable names to subplot names in GEOGLAM display order.
 
         Layout (3 columns):
             Row 0: ndvi            | cumulative_precip | <soil/other>
             Row 1: yearly_ndvi     | daily_precip      | <soil/other>
             Row 2: esi_4wk         | cpc_tmax          | ...
+
+        When ``plot_snow_thickness`` is True, the sub-surface soil moisture
+        subplot (``nsidc_rootzone``) is replaced in-place by AgERA5 snow
+        thickness (LWE), preserving the layout slot.
         """
         # Desired order of subplot names matching GEOGLAM layout
         ordered = [
@@ -124,7 +131,15 @@ class AgmetGeo(base.BaseGeo):
         # Return in GEOGLAM order, then any extras not in the template
         result = [s for s in ordered if s in subplot_set]
         extras = [s for s in subplot_set if s not in ordered]
-        return result + extras
+        final = result + extras
+
+        if plot_snow_thickness:
+            final = [
+                "agera5_snow_thickness_lwe" if s == "nsidc_rootzone" else s
+                for s in final
+            ]
+
+        return final
 
     def read_statistics(self, country=None, read_countries=False, **kwargs):
         """Read zone/country info. country is optional when only reading countries."""

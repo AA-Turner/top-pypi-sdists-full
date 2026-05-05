@@ -29,7 +29,7 @@ from pytensor.graph.fg import FunctionGraph, Output
 from pytensor.graph.op import Op
 from pytensor.graph.replace import _vectorize_node
 from pytensor.graph.rewriting.db import EquilibriumDB
-from pytensor.graph.type import HasDataType, HasShape, Type
+from pytensor.graph.type import HasDataType, HasShape
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
 from pytensor.printing import Printer, min_informative_str, pprint, set_precedence
@@ -273,7 +273,7 @@ def _get_underlying_scalar_constant_value(
     """Return the constant scalar(0-D) value underlying variable `v`.
 
     If `v` is the output of dimshuffles, fills, allocs, etc,
-    cast, OutputGuard, DeepCopyOp, ScalarFromTensor, ScalarOp, Elemwise
+    cast, DeepCopyOp, ScalarFromTensor, ScalarOp, Elemwise
     and some pattern with Subtensor, this function digs through them.
 
     If `v` is not some view of constant scalar data, then raise a
@@ -293,7 +293,7 @@ def _get_underlying_scalar_constant_value(
         The maximum number of recursion.
 
     """
-    from pytensor.compile.ops import DeepCopyOp, OutputGuard, TypeCastingOp
+    from pytensor.compile.ops import DeepCopyOp, TypeCastingOp
     from pytensor.sparse import CSM
     from pytensor.tensor.subtensor import Subtensor
 
@@ -335,9 +335,7 @@ def _get_underlying_scalar_constant_value(
         if not only_process_constants and getattr(v, "owner", None) and max_recur > 0:
             op = v.owner.op
             max_recur -= 1
-            if isinstance(
-                op, Alloc | DimShuffle | TypeCastingOp | DeepCopyOp | OutputGuard
-            ):
+            if isinstance(op, Alloc | DimShuffle | TypeCastingOp | DeepCopyOp):
                 v = v.owner.inputs[0]
                 continue
             elif isinstance(op, Shape_i):
@@ -434,7 +432,7 @@ def _get_underlying_scalar_constant_value(
                         var.ndim == 1 for var in v.owner.inputs[0].owner.inputs[1:]
                     ):
                         idx = v.owner.op.idx_list[0]
-                        if isinstance(idx, Type):
+                        if isinstance(idx, int):
                             idx = _get_underlying_scalar_constant_value(
                                 v.owner.inputs[1], max_recur=max_recur
                             )
@@ -468,7 +466,7 @@ def _get_underlying_scalar_constant_value(
                     and len(v.owner.op.idx_list) == 1
                 ):
                     idx = v.owner.op.idx_list[0]
-                    if isinstance(idx, Type):
+                    if isinstance(idx, int):
                         idx = _get_underlying_scalar_constant_value(
                             v.owner.inputs[1], max_recur=max_recur
                         )
@@ -489,7 +487,7 @@ def _get_underlying_scalar_constant_value(
                     op = owner.op
                     idx_list = op.idx_list
                     idx = idx_list[0]
-                    if isinstance(idx, Type):
+                    if isinstance(idx, int):
                         idx = _get_underlying_scalar_constant_value(
                             owner.inputs[1], max_recur=max_recur
                         )
@@ -538,7 +536,7 @@ def get_underlying_scalar_constant_value(
     """Return the unique constant scalar(0-D) value underlying variable `v`.
 
     If `v` is the output of dimshuffles, fills, allocs, etc,
-    cast, OutputGuard, DeepCopyOp, ScalarFromTensor, ScalarOp, Elemwise
+    cast, DeepCopyOp, ScalarFromTensor, ScalarOp, Elemwise
     and some pattern with Subtensor, this function digs through them.
 
     If `v` is not some view of constant scalar data, then raise a
@@ -633,7 +631,7 @@ class TensorFromScalar(COp):
     def infer_shape(self, fgraph, node, in_shapes):
         return [()]
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (s,) = inp
         (dt,) = grads
         if s.type.dtype in float_dtypes:
@@ -694,14 +692,14 @@ class ScalarFromTensor(COp):
     def infer_shape(self, fgraph, node, in_shapes):
         return [()]
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (_s,) = inp
         (dt,) = grads
         return [tensor_from_scalar(dt)]
 
-    def R_op(self, inputs, eval_points):
-        if None in eval_points:
-            return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        if any(isinstance(t.type, DisconnectedType) for t in eval_points):
+            return [disconnected_type()]
         return self.make_node(*eval_points).outputs
 
     def c_code(self, node, name, inputs, outputs, sub):
@@ -987,7 +985,7 @@ class Nonzero(Op):
         for i, res in enumerate(result_tuple):
             out_[i][0] = res.astype("int64")
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         return [grad_undefined(self, 0, inp[0])]
 
 
@@ -1376,7 +1374,7 @@ class Eye(Op):
         out_shape = [node.inputs[0], node.inputs[1]]
         return [out_shape]
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         return [grad_undefined(self, i, inp[i]) for i in range(3)]
 
     @staticmethod
@@ -1709,7 +1707,7 @@ class Alloc(COp):
 
         return rval
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         x = inputs[0]
         gz = grads[0]
         n_axes_to_sum = gz.ndim - x.ndim
@@ -1744,9 +1742,9 @@ class Alloc(COp):
         # change.
         return [gx, *(disconnected_type() for _ in range(len(inputs) - 1))]
 
-    def R_op(self, inputs, eval_points):
-        if eval_points[0] is None:
-            return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        if isinstance(eval_points[0].type, DisconnectedType):
+            return [disconnected_type()]
         return self(eval_points[0], *inputs[1:], return_list=True)
 
     def do_constant_folding(self, fgraph, node):
@@ -1962,7 +1960,7 @@ class MakeVector(COp):
     def infer_shape(self, fgraph, node, ishapes):
         return [(len(ishapes),)]
 
-    def grad(self, inputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         # If the output is of an integer dtype, no gradient shall pass
         if self.dtype in discrete_dtypes:
             return [ipt.zeros_like(dtype=config.floatX) for ipt in inputs]
@@ -1970,9 +1968,9 @@ class MakeVector(COp):
         grads = [output_gradients[0][i] for i in range(len(inputs))]
         return grads
 
-    def R_op(self, inputs, eval_points):
-        if None in eval_points:
-            return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        if any(isinstance(t.type, DisconnectedType) for t in eval_points):
+            return [disconnected_type()]
         return self.make_node(*eval_points).outputs
 
 
@@ -2058,39 +2056,6 @@ def register_transfer(fn):
 tensor_copy = Elemwise(ps.identity)
 pprint.assign(tensor_copy, printing.IgnorePrinter())
 identity = tensor_copy
-
-
-class Default(Op):
-    """
-    Takes an input x and a default value.
-
-    If the input is not None, a reference to it is returned.
-    If the input is None, a copy of the default value is returned instead.
-    The input and the default must have exactly the same type.
-
-    """
-
-    view_map = {0: [0]}
-    __props__ = ()
-
-    def make_node(self, x, default):
-        x, default = as_tensor_variable(x), as_tensor_variable(default)
-        if not x.type.in_same_class(default.type):
-            raise TypeError("Both arguments must have compatible types")
-        return Apply(self, [x, default], [default.type()])
-
-    def perform(self, node, inp, out_):
-        x, default = inp
-        (out,) = out_
-        if x is None:
-            # why copy?  PyTensor can't yet understand out[0] being a view of
-            # either x or y, so we can be a view of x, but only a copy of y.
-            out[0] = default.copy()
-        else:
-            out[0] = x
-
-
-default = Default()
 
 
 def extract_constant(x, elemwise=True, only_process_constants=False):
@@ -2300,7 +2265,7 @@ class Split(COp):
             [False] * n_out,
         ]
 
-    def L_op(self, inputs, outputs, g_outputs):
+    def pullback(self, inputs, outputs, g_outputs):
         """Join the gradients along the axis that was used to split x."""
         _x, axis, _n = inputs
 
@@ -2318,9 +2283,9 @@ class Split(COp):
             disconnected_type(),
         ]
 
-    def R_op(self, inputs, eval_points):
-        if eval_points[0] is None:
-            return [None for i in self.len_splits]
+    def pushforward(self, inputs, outputs, eval_points):
+        if isinstance(eval_points[0].type, DisconnectedType):
+            return [disconnected_type() for i in self.len_splits]
         return self.make_node(eval_points[0], *inputs[1:]).outputs
 
     def c_code_cache_version(self):
@@ -2695,12 +2660,12 @@ class Join(COp):
         """
         return code
 
-    def R_op(self, inputs, eval_points):
-        if None in eval_points[1:]:
-            return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        if any(isinstance(t.type, DisconnectedType) for t in eval_points[1:]):
+            return [disconnected_type()]
         return self.make_node(inputs[0], *eval_points[1:]).outputs
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         """The gradient wrt a join op is a `Split`, used to partition
         the gradient along the `axis` which was used for joining.
         """
@@ -3364,7 +3329,7 @@ class ARange(COp):
     def connection_pattern(self, node):
         return [[True], [False], [True]]
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         start, _stop, step = inputs
         (gz,) = grads
         # `start` and `step` affect the output values
@@ -3389,8 +3354,8 @@ class ARange(COp):
                 (gz * arange(num_steps_taken, dtype=self.dtype)).sum(),
             ]
 
-    def R_op(self, inputs, eval_points):
-        return [None]
+    def pushforward(self, inputs, outputs, eval_points):
+        return [disconnected_type()]
 
 
 _arange = {}
@@ -3676,7 +3641,7 @@ class PermuteRowElements(Op):
         out_shape = [maximum(sx, sy) for sx, sy in zip(shp_x, shp_y, strict=True)]
         return [out_shape]
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         from pytensor.tensor.math import Sum
 
         x, y = inp
@@ -3894,7 +3859,7 @@ class ExtractDiag(COp):
     def c_code_cache_version(self):
         return (0,)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         # Avoid circular import
         from pytensor.tensor.subtensor import set_subtensor
 
@@ -4270,6 +4235,9 @@ class Choose(Op):
 
     def infer_shape(self, fgraph, node, shapes):
         a_shape, choices_shape = shapes
+        if choices_shape is None:
+            # choices is a TypedList, not a tensor; no shape to broadcast
+            return [a_shape]
         out_shape = pytensor.tensor.extra_ops.broadcast_shape(
             a_shape, choices_shape[1:], arrays_are_shapes=True
         )
@@ -4291,8 +4259,10 @@ class Choose(Op):
         # otherwise use as_tensor_variable
         if isinstance(choices, tuple | list):
             choice = pytensor.typed_list.make_list(choices)
+            choice_dtype = choice.ttype.dtype
         else:
             choice = as_tensor_variable(choices)
+            choice_dtype = choice.dtype
 
         (out_shape,) = self.infer_shape(
             None, None, [shape_tuple(a), shape_tuple(choice)]
@@ -4310,7 +4280,7 @@ class Choose(Op):
             else:
                 static_out_shape += (None,)
 
-        o = TensorType(choice.dtype, shape=static_out_shape)
+        o = TensorType(choice_dtype, shape=static_out_shape)
         return Apply(self, [a, choice], [o()])
 
     def perform(self, node, inputs, outputs):
@@ -4411,10 +4381,10 @@ class AllocEmpty(COp):
     def connection_pattern(self, node):
         return [[False] for i in node.inputs]
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         return [disconnected_type() for _ in range(len(inputs))]
 
-    def R_op(self, inputs, eval_points):
+    def pushforward(self, inputs, outputs, eval_points):
         return [zeros(inputs, self.dtype)]
 
 
@@ -4600,7 +4570,6 @@ __all__ = [
     "choose",
     "concatenate",
     "constant",
-    "default",
     "diag",
     "diagonal",
     "empty",

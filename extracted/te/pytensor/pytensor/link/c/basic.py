@@ -1368,7 +1368,7 @@ class CLinker(Linker):
         # DynamicModule always add the include <numpy/arrayobject.h>
         sig.append(f"NPY_ABI_VERSION=0x{NDARRAY_C_VERSION:X}")
         if c_compiler:
-            sig.append("c_compiler_str=" + c_compiler.version_str())
+            sig.append(f"c_compiler_str={config.cxx} {config.gcc_version_str}")
 
         # IMPORTANT: The 'md5' prefix is used to isolate the compilation
         # parameters from the rest of the key. If you want to add more key
@@ -1718,6 +1718,7 @@ class _CThunk:
         self.error_storage = error_storage
         self.module = module
         self.nodes = None
+        self.allow_gc = False
 
     def find_task(self, failure_code):
         """
@@ -1869,9 +1870,10 @@ class OpWiseCLinker(LocalLinker):
             fgraph,
             thunks,
             order,
-            post_thunk_old_storage,
+            post_thunk_old_storage=post_thunk_old_storage,
             no_recycling=no_recycling,
             nice_errors=self.nice_errors,
+            output_storage=output_storage,
         )
 
         f.allow_gc = self.allow_gc

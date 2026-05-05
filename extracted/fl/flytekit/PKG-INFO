@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flytekit
-Version: 1.16.19
+Version: 1.16.20
 Summary: Flyte SDK for Python
 Author-email: Flyte Contributors <admin@flyte.org>
 License: Apache-2.0
@@ -43,7 +43,7 @@ Requires-Dist: markdown-it-py
 Requires-Dist: marshmallow<4,>=3
 Requires-Dist: marshmallow-enum
 Requires-Dist: marshmallow-jsonschema>=0.12.0
-Requires-Dist: setuptools<70
+Requires-Dist: setuptools<82
 Requires-Dist: mashumaro>=3.15
 Requires-Dist: msgpack>=1.1.0
 Requires-Dist: protobuf!=4.25.0
@@ -66,6 +66,18 @@ Provides-Extra: connector
 Requires-Dist: grpcio-health-checking<=1.68.0; extra == "connector"
 Requires-Dist: httpx; extra == "connector"
 Requires-Dist: prometheus-client; extra == "connector"
+Dynamic: license-file
+
+> [!IMPORTANT]
+> ## Looking for Flyte 2?
+>
+> - **⭐️ Flyte 2 Devbox is now available!** Check out the guide [here](https://www.union.ai/docs/v2/flyte/user-guide/run-modes/running-devbox/)
+> - **Use Flyte 2 locally?** Head to **[flyte-sdk](https://github.com/flyteorg/flyte-sdk)** — the new Python SDK for Flyte 2.
+> - **Want to contribute to the Flyte 2 distributed backend?** See the **[`main` branch](https://github.com/flyteorg/flyte/tree/main)** of this repo.
+>
+> **The README below is for Flyte 1.x.**
+
+---
 
 <p align="center">
     <img src="https://raw.githubusercontent.com/flyteorg/static-resources/main/common/flyte_circle_gradient_1_4x4.png" alt="Flyte Logo" width="100">

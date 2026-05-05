@@ -18,11 +18,8 @@ from .._response import (
 from ..pagination import SyncCursorPage, AsyncCursorPage
 from ..types.chat import SortOrder
 from .._base_client import AsyncPaginator, make_request_options
+from ..types.cloud_secret import CloudSecret
 from ..types.chat.sort_order import SortOrder
-from ..types.secret_list_response import SecretListResponse
-from ..types.secret_create_response import SecretCreateResponse
-from ..types.secret_update_response import SecretUpdateResponse
-from ..types.secret_retrieve_response import SecretRetrieveResponse
 
 __all__ = ["SecretsResource", "AsyncSecretsResource"]
 
@@ -59,7 +56,7 @@ class SecretsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SecretCreateResponse:
+    ) -> CloudSecret:
         """
         Create an account-level secret.
 
@@ -96,7 +93,7 @@ class SecretsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=SecretCreateResponse,
+            cast_to=CloudSecret,
         )
 
     def retrieve(
@@ -109,7 +106,7 @@ class SecretsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SecretRetrieveResponse:
+    ) -> CloudSecret:
         """Get a single secret's metadata by ID.
 
         The value is never returned.
@@ -130,7 +127,7 @@ class SecretsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=SecretRetrieveResponse,
+            cast_to=CloudSecret,
         )
 
     def update(
@@ -145,7 +142,7 @@ class SecretsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SecretUpdateResponse:
+    ) -> CloudSecret:
         """
         Update an existing secret's description and/or value.
 
@@ -179,7 +176,7 @@ class SecretsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=SecretUpdateResponse,
+            cast_to=CloudSecret,
         )
 
     def list(
@@ -196,7 +193,7 @@ class SecretsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncCursorPage[SecretListResponse]:
+    ) -> SyncCursorPage[CloudSecret]:
         """List secret metadata for the account.
 
         Values are never returned.
@@ -212,7 +209,7 @@ class SecretsResource(SyncAPIResource):
         """
         return self._get_api_list(
             "/v5/sgp/secrets",
-            page=SyncCursorPage[SecretListResponse],
+            page=SyncCursorPage[CloudSecret],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -229,7 +226,7 @@ class SecretsResource(SyncAPIResource):
                     secret_list_params.SecretListParams,
                 ),
             ),
-            model=SecretListResponse,
+            model=CloudSecret,
         )
 
     def delete(
@@ -299,7 +296,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SecretCreateResponse:
+    ) -> CloudSecret:
         """
         Create an account-level secret.
 
@@ -336,7 +333,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=SecretCreateResponse,
+            cast_to=CloudSecret,
         )
 
     async def retrieve(
@@ -349,7 +346,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SecretRetrieveResponse:
+    ) -> CloudSecret:
         """Get a single secret's metadata by ID.
 
         The value is never returned.
@@ -370,7 +367,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=SecretRetrieveResponse,
+            cast_to=CloudSecret,
         )
 
     async def update(
@@ -385,7 +382,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SecretUpdateResponse:
+    ) -> CloudSecret:
         """
         Update an existing secret's description and/or value.
 
@@ -419,7 +416,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=SecretUpdateResponse,
+            cast_to=CloudSecret,
         )
 
     def list(
@@ -436,7 +433,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[SecretListResponse, AsyncCursorPage[SecretListResponse]]:
+    ) -> AsyncPaginator[CloudSecret, AsyncCursorPage[CloudSecret]]:
         """List secret metadata for the account.
 
         Values are never returned.
@@ -452,7 +449,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         """
         return self._get_api_list(
             "/v5/sgp/secrets",
-            page=AsyncCursorPage[SecretListResponse],
+            page=AsyncCursorPage[CloudSecret],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -469,7 +466,7 @@ class AsyncSecretsResource(AsyncAPIResource):
                     secret_list_params.SecretListParams,
                 ),
             ),
-            model=SecretListResponse,
+            model=CloudSecret,
         )
 
     async def delete(

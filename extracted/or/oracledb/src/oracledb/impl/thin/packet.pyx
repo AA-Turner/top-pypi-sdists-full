@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -433,18 +433,12 @@ cdef class ReadBuffer(Buffer):
         it.
         """
         cdef:
-            bytes oid = None, toid = None
             ThinDbObjectImpl obj_impl
             uint32_t num_bytes
-        self.read_ub4(&num_bytes)
-        if num_bytes > 0:                   # type OID
-            toid = self.read_bytes()
-        self.read_ub4(&num_bytes)
-        if num_bytes > 0:                   # OID
-            oid = self.read_bytes()
-        self.read_ub4(&num_bytes)
-        if num_bytes > 0:                   # snapshot
-            self.read_bytes()
+            bytes oid, toid
+        toid = self.read_bytes_with_length()
+        oid = self.read_bytes_with_length()
+        self.skip_bytes_with_length()       # snapshot
         self.skip_ub2()                     # version
         self.read_ub4(&num_bytes)           # length of data
         self.skip_ub2()                     # flags
@@ -533,7 +527,6 @@ cdef class ReadBuffer(Buffer):
             int input_offset = 1, output_offset = 0
             const char_type *input_ptr
             bytearray output_value
-            uint32_t num_bytes
             uint8_t length
             Rowid rowid
 
@@ -542,6 +535,7 @@ cdef class ReadBuffer(Buffer):
         if input_ptr == NULL:
             return None
         self.read_raw_bytes_and_length(&input_ptr, &input_len)
+        check_min_length(input_len, 13)
 
         # handle physical rowid
         if input_ptr[0] == 1:
@@ -630,15 +624,9 @@ cdef class ReadBuffer(Buffer):
         cdef:
             DbObjectPickleBuffer buf
             uint32_t num_bytes
-        self.read_ub4(&num_bytes)
-        if num_bytes > 0:                   # type OID
-            self.read_bytes()
-        self.read_ub4(&num_bytes)
-        if num_bytes > 0:                   # OID
-            self.read_bytes()
-        self.read_ub4(&num_bytes)
-        if num_bytes > 0:                   # snapshot
-            self.read_bytes()
+        self.skip_bytes_with_length()       # type OID
+        self.skip_bytes_with_length()       # OID
+        self.skip_bytes_with_length()       # snapshot
         self.skip_ub2()                     # version
         self.read_ub4(&num_bytes)           # length of data
         self.skip_ub2()                     # flags
@@ -708,25 +696,6 @@ cdef class ReadBuffer(Buffer):
         """
         self._saved_packet_pos = self._next_packet_pos - 1
         self._saved_pos = self._pos
-
-    cdef int skip_raw_bytes_chunked(self) except -1:
-        """
-        Skip a number of bytes that may or may not be chunked in the buffer.
-        The first byte gives the length. If the length is
-        TNS_LONG_LENGTH_INDICATOR, however, chunks are read and discarded.
-        """
-        cdef:
-            uint32_t temp_num_bytes
-            uint8_t length
-        self.read_ub1(&length)
-        if length != TNS_LONG_LENGTH_INDICATOR:
-            self.skip_raw_bytes(length)
-        else:
-            while True:
-                self.read_ub4(&temp_num_bytes)
-                if temp_num_bytes == 0:
-                    break
-                self.skip_raw_bytes(temp_num_bytes)
 
     async def wait_for_packets_async(self):
         """
@@ -878,13 +847,8 @@ cdef class WriteBuffer(Buffer):
             ThinDbObjectTypeImpl typ_impl = obj_impl.type
             uint32_t num_bytes
             bytes packed_data
-        self.write_ub4(len(obj_impl.toid))
-        self.write_bytes_with_length(obj_impl.toid)
-        if obj_impl.oid is None:
-            self.write_ub4(0)
-        else:
-            self.write_ub4(len(obj_impl.oid))
-            self.write_bytes_with_length(obj_impl.oid)
+        self.write_bytes_with_two_lengths(obj_impl.toid)
+        self.write_bytes_with_two_lengths(obj_impl.oid)
         self.write_ub4(0)                   # snapshot
         self.write_ub4(0)                   # version
         packed_data = obj_impl._get_packed_data()
@@ -897,26 +861,15 @@ cdef class WriteBuffer(Buffer):
         """
         Writes a keyword/value pair (text and binary values) to the buffer.
         """
-        cdef bytes text_value_bytes
-        if text_value is None:
-            self.write_ub4(0)
-        else:
-            text_value_bytes = text_value.encode()
-            self.write_ub4(len(text_value_bytes))
-            self.write_bytes_with_length(text_value_bytes)
-        if binary_value is None:
-            self.write_ub4(0)
-        else:
-            self.write_ub4(len(binary_value))
-            self.write_bytes_with_length(binary_value)
+        self.write_bytes_with_two_lengths(text_value)
+        self.write_bytes_with_two_lengths(binary_value)
         self.write_ub2(keyword)
 
     cdef int write_lob_with_length(self, BaseThinLobImpl lob_impl) except -1:
         """
         Writes a LOB locator to the buffer.
         """
-        self.write_ub4(len(lob_impl._locator))
-        self.write_bytes_with_length(lob_impl._locator)
+        self.write_bytes_with_two_lengths(lob_impl._locator)
 
     cdef int write_qlocator(self, uint64_t data_length,
                             bint write_length=True) except -1:
@@ -941,14 +894,14 @@ cdef class WriteBuffer(Buffer):
         self.write_uint64be(0)              # unused
         self.write_uint64be(0)              # unused
 
-    cdef int write_oson(self, value, ssize_t max_fname_size,
+    cdef int write_oson(self, value, bint supports_long_fnames,
                         bint write_length=True) except -1:
         """
         Encodes the given value to OSON and then writes that to the buffer.
         it.
         """
         cdef OsonEncoder encoder = OsonEncoder.__new__(OsonEncoder)
-        encoder.encode(value, max_fname_size)
+        encoder.encode(value, supports_long_fnames)
         self.write_qlocator(encoder._pos, write_length)
         self._write_raw_bytes_and_length(encoder._data, encoder._pos)
 

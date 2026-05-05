@@ -154,6 +154,16 @@ class Pipeline:
         return self._context.projection_matrix
     
     @property
+    def viewport_matrix(self) -> Mat4:
+        """Matrice du viewport"""
+        return self._context.viewport_matrix
+    
+    @property
+    def static_matrix(self) -> Mat4:
+        """Vp @ P"""
+        return self._context.static_matrix
+    
+    @property
     def view_matrix(self) -> Mat4:
         """Matrice de vue"""
         return self._context.view_matrix

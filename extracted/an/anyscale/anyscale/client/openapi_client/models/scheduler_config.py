@@ -33,7 +33,6 @@ class SchedulerConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'launch_templates': 'list[LaunchTemplate]',
         'resource_flavors': 'list[ResourceFlavor]',
         'resource_queues': 'list[ResourceQueue]',
         'scheduling_rules': 'list[SchedulingRule]',
@@ -41,28 +40,24 @@ class SchedulerConfig(object):
     }
 
     attribute_map = {
-        'launch_templates': 'launch_templates',
         'resource_flavors': 'resource_flavors',
         'resource_queues': 'resource_queues',
         'scheduling_rules': 'scheduling_rules',
         'recycle_policy': 'recycle_policy'
     }
 
-    def __init__(self, launch_templates=None, resource_flavors=None, resource_queues=None, scheduling_rules=None, recycle_policy=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, resource_flavors=None, resource_queues=None, scheduling_rules=None, recycle_policy=None, local_vars_configuration=None):  # noqa: E501
         """SchedulerConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._launch_templates = None
         self._resource_flavors = None
         self._resource_queues = None
         self._scheduling_rules = None
         self._recycle_policy = None
         self.discriminator = None
 
-        if launch_templates is not None:
-            self.launch_templates = launch_templates
         if resource_flavors is not None:
             self.resource_flavors = resource_flavors
         if resource_queues is not None:
@@ -71,27 +66,6 @@ class SchedulerConfig(object):
             self.scheduling_rules = scheduling_rules
         if recycle_policy is not None:
             self.recycle_policy = recycle_policy
-
-    @property
-    def launch_templates(self):
-        """Gets the launch_templates of this SchedulerConfig.  # noqa: E501
-
-
-        :return: The launch_templates of this SchedulerConfig.  # noqa: E501
-        :rtype: list[LaunchTemplate]
-        """
-        return self._launch_templates
-
-    @launch_templates.setter
-    def launch_templates(self, launch_templates):
-        """Sets the launch_templates of this SchedulerConfig.
-
-
-        :param launch_templates: The launch_templates of this SchedulerConfig.  # noqa: E501
-        :type: list[LaunchTemplate]
-        """
-
-        self._launch_templates = launch_templates
 
     @property
     def resource_flavors(self):

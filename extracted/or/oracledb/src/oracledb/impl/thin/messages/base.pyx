@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -136,6 +136,7 @@ cdef class Message:
 
         # extract the parts of the data
         buf = <uint8_t*> data
+        check_min_data_length(data, 2)
         buf_len = len(data)
         transaction_id = data[:buf_len - 2]
         sessionless_state = <uint8_t> buf[buf_len - 2]
@@ -189,9 +190,7 @@ cdef class Message:
         buf.skip_ub1()                      # call number
         buf.skip_ub2()                      # padding
         buf.skip_ub4()                      # success iters
-        buf.read_ub4(&num_bytes)            # oerrdd (logical rowid)
-        if num_bytes > 0:
-            buf.skip_raw_bytes_chunked()
+        buf.skip_bytes_with_length()        # oerrdd (logical rowid)
 
         # batch error codes
         buf.read_ub2(&num_errors)           # batch error codes array
@@ -403,7 +402,7 @@ cdef class Message:
             pass
         elif opcode == TNS_SERVER_PIGGYBACK_OS_PID_MTS:
             buf.read_ub2(&temp16)
-            buf.skip_raw_bytes_chunked()
+            buf.skip_bytes()
         elif opcode == TNS_SERVER_PIGGYBACK_SYNC:
             buf.skip_ub2()                  # skip number of DTYs
             buf.skip_ub1()                  # skip length of DTYs
@@ -420,9 +419,7 @@ cdef class Message:
             buf.skip_ub4()                  # skip flags
             buf.skip_ub4()                  # skip error code
             buf.skip_ub1()                  # skip queue
-            buf.read_ub4(&num_bytes)        # skip replay context
-            if num_bytes > 0:
-                buf.skip_raw_bytes_chunked()
+            buf.skip_bytes_with_length()    # skip replay context
         elif opcode == TNS_SERVER_PIGGYBACK_SESS_RET:
             buf.skip_ub2()
             buf.skip_ub1()
@@ -432,10 +429,10 @@ cdef class Message:
                 for i in range(num_elements):
                     buf.read_ub2(&temp16)
                     if temp16 > 0:          # skip key
-                        buf.skip_raw_bytes_chunked()
+                        buf.skip_bytes()
                     buf.read_ub2(&temp16)
                     if temp16 > 0:          # skip value
-                        buf.skip_raw_bytes_chunked()
+                        buf.skip_bytes()
                     buf.skip_ub2()          # skip flags
             buf.read_ub4(&flags)            # session flags
             if flags & TNS_SESSGET_SESSION_CHANGED:
@@ -466,6 +463,16 @@ cdef class Message:
             self.warning = errors._Error(message, code=error_num,
                                          iswarning=True)
 
+    cdef int _write_str_keyword_value_pair(self, WriteBuffer buf, str key,
+                                           bytes value_bytes, uint32_t flags=0,
+                                           str text=None) except -1:
+        cdef:
+            uint32_t value_len = <uint32_t> len(value_bytes)
+        buf.write_ub4(flags)
+        buf.write_bytes_with_two_lengths(key)
+        buf.write_bytes_with_two_lengths(text)
+        buf.write_bytes_with_two_lengths(value_bytes)
+
     cdef int _write_begin_pipeline_piggyback(self, WriteBuffer buf) except -1:
         """
         Writes the piggyback to the server that informs the server that a
@@ -495,8 +502,7 @@ cdef class Message:
         self._write_piggyback_code(buf, TNS_FUNC_SET_SCHEMA)
         buf.write_uint8(1)                  # pointer
         schema_bytes = self.conn_impl._current_schema.encode()
-        buf.write_ub4(len(schema_bytes))
-        buf.write_bytes_with_length(schema_bytes)
+        buf.write_bytes_with_two_lengths(schema_bytes)
 
     cdef int _write_close_temp_lobs_piggyback(self,
                                               WriteBuffer buf) except -1:
@@ -540,6 +546,21 @@ cdef class Message:
         # reset values
         self.conn_impl._temp_lobs_to_close = None
         self.conn_impl._temp_lobs_total_size = 0
+
+    cdef int _write_end_user_sec_piggyback(self, WriteBuffer buf) except -1:
+        """
+        Writes the piggyback that informs the server of the
+        EndUserSecurityContext required for Deep Data Security.
+        """
+        self._write_piggyback_code(buf, TNS_FUNC_END_USER_SECURITY_CTX)
+        buf.write_ub4(TNS_SECURITY_CONTEXT_ATTACH_FLAG)
+        buf.write_uint8(1)                  # pointer(kpdkve)
+        buf.write_ub4(1)                    # num of key value
+        self._write_str_keyword_value_pair(
+            buf,
+            "ORCL_XS_AUTHZ_CONTEXT",
+            self.conn_impl.security_context.oson_bytes.get_value_as_bytes()
+        )
 
     cdef int _write_end_to_end_piggyback(self, WriteBuffer buf) except -1:
         """
@@ -694,6 +715,8 @@ cdef class Message:
         """
         Writes all of the piggybacks to the server.
         """
+        if self.conn_impl.security_context is not None:
+            self._write_end_user_sec_piggyback(buf)
         if self.conn_impl.pipeline_mode != 0:
             self._write_begin_pipeline_piggyback(buf)
             self.conn_impl.pipeline_mode = 0
@@ -841,7 +864,7 @@ cdef class MessageWithData(Message):
         cdef const char_type *ptr = buf.read_raw_bytes(num_bytes)
         if self.bit_vector_buf is None:
             self.bit_vector_buf = array.array('B')
-            array.resize(self.bit_vector_buf, num_bytes)
+        array.resize(self.bit_vector_buf, num_bytes)
         self.bit_vector = <const char_type*> self.bit_vector_buf.data.as_chars
         memcpy(<void*> self.bit_vector, ptr, num_bytes)
 
@@ -1001,6 +1024,7 @@ cdef class MessageWithData(Message):
             uint8_t num_bytes, ora_type_num, csfrm
             ThinDbObjectTypeImpl typ_impl
             BaseThinCursorImpl cursor_impl
+            const char *encoding = NULL
             object column_value = None
             ThinDbObjectImpl obj_impl
             int32_t actual_num_bytes
@@ -1079,14 +1103,14 @@ cdef class MessageWithData(Message):
                 decode_str=self.cursor_impl.fetching_arrow
             )
             if metadata.dbtype._csfrm == CS_FORM_NCHAR:
-                buf._caps._check_ncharset_id()
+                encoding = buf._caps._get_nencoding()
             if self.cursor_impl.fetching_arrow:
                 convert_oracle_data_to_arrow(
                     metadata, var_impl.metadata, &data, var_impl._arrow_array
                 )
             else:
                 column_value = convert_oracle_data_to_python(
-                    metadata, var_impl.metadata, &data,
+                    metadata, var_impl.metadata, &data, encoding,
                     var_impl._encoding_errors, from_dbobject=False
                 )
         if not self.in_fetch:
@@ -1113,9 +1137,9 @@ cdef class MessageWithData(Message):
             list prev_fetch_var_impls
             object type_handler, conn
             OracleMetadata metadata
-            uint32_t num_bytes, i
             bint uses_metadata
             str message
+            uint32_t i
         buf.skip_ub4()                      # max row size
         buf.read_ub4(&cursor_impl._num_columns)
         prev_fetch_var_impls = stmt._fetch_var_impls
@@ -1137,16 +1161,12 @@ cdef class MessageWithData(Message):
                 stmt._no_prefetch = True
             cursor_impl._create_fetch_var(conn, self.cursor, type_handler,
                                           uses_metadata, i, metadata)
-        buf.read_ub4(&num_bytes)
-        if num_bytes > 0:
-            buf.skip_raw_bytes_chunked()    # current date
+        buf.skip_bytes_with_length()        # current date
         buf.skip_ub4()                      # dcbflag
         buf.skip_ub4()                      # dcbmdbz
         buf.skip_ub4()                      # dcbmnpr
         buf.skip_ub4()                      # dcbmxpr
-        buf.read_ub4(&num_bytes)
-        if num_bytes > 0:
-            buf.skip_raw_bytes_chunked()    # dcbqcky
+        buf.skip_bytes_with_length()        # dcbqcky
         stmt._fetch_metadata = cursor_impl.fetch_metadata
         stmt._fetch_vars = cursor_impl.fetch_vars
         stmt._fetch_var_impls = cursor_impl.fetch_var_impls
@@ -1245,7 +1265,7 @@ cdef class MessageWithData(Message):
             self.flush_out_binds = True
             self.end_of_response = True
         elif message_type == TNS_MSG_TYPE_DESCRIBE_INFO:
-            buf.skip_raw_bytes_chunked()
+            buf.skip_bytes()
             self._process_describe_info(buf, self.cursor, self.cursor_impl)
             self.out_var_impls = self.cursor_impl.fetch_var_impls
         elif message_type == TNS_MSG_TYPE_ERROR:
@@ -1261,8 +1281,9 @@ cdef class MessageWithData(Message):
 
     cdef int _process_return_parameters(self, ReadBuffer buf) except -1:
         cdef:
+            uint32_t num_rows, i, query_id_lsb, query_id_msb
             uint16_t num_params, num_bytes
-            uint32_t num_rows, i
+            const char_type* ptr
             uint64_t rowcount
             bytes key_value
             list rowcounts
@@ -1274,9 +1295,15 @@ cdef class MessageWithData(Message):
             buf.skip_raw_bytes(num_bytes)
         buf.read_ub2(&num_params)           # num key/value pairs
         self._process_keyword_value_pairs(buf, num_params)
-        buf.read_ub2(&num_bytes)            # registration
+        buf.read_ub2(&num_bytes)            # registration info
         if num_bytes > 0:
-            buf.skip_raw_bytes(num_bytes)
+            # the last 8 bytes refer to the query id so extract that
+            # information and ignore the rest
+            ptr = buf.read_raw_bytes(num_bytes)
+            query_id_msb = decode_uint32be(&ptr[num_bytes - 4])
+            query_id_lsb = decode_uint32be(&ptr[num_bytes - 8])
+            self.cursor_impl._query_id = \
+                    (<uint64_t> query_id_msb) << 32 | query_id_lsb
         if self.arraydmlrowcounts:
             buf.read_ub4(&num_rows)
             rowcounts = self.cursor_impl._dmlrowcounts = []
@@ -1340,9 +1367,7 @@ cdef class MessageWithData(Message):
         if num_bytes > 0:
             buf.skip_ub1()                  # skip repeated length
             self._get_bit_vector(buf, num_bytes)
-        buf.read_ub4(&num_bytes)
-        if num_bytes > 0:
-            buf.skip_raw_bytes_chunked()    # rxhrid
+        buf.skip_bytes_with_length()        # rxhrid
 
     cdef int _write_column_metadata(self, WriteBuffer buf,
                                     list bind_var_impls) except -1:
@@ -1387,8 +1412,7 @@ cdef class MessageWithData(Message):
             buf.write_ub8(cont_flag)
             if metadata.objtype is not None:
                 typ_impl = metadata.objtype
-                buf.write_ub4(len(typ_impl.oid))
-                buf.write_bytes_with_length(typ_impl.oid)
+                buf.write_bytes_with_two_lengths(typ_impl.oid)
                 buf.write_ub4(typ_impl.version)
             else:
                 buf.write_ub4(0)            # OID
@@ -1408,6 +1432,7 @@ cdef class MessageWithData(Message):
         cdef:
             ThinDbObjectTypeImpl typ_impl
             BaseThinCursorImpl cursor_impl
+            const char* encoding = NULL
             BaseThinLobImpl lob_impl
             OracleMetadata metadata
             uint8_t ora_type_num
@@ -1421,8 +1446,11 @@ cdef class MessageWithData(Message):
             value = convert_arrow_to_oracle_data(metadata, &data,
                                                  var_impl._arrow_array, offset)
         else:
+            if metadata.dbtype._csfrm == CS_FORM_NCHAR:
+                encoding = ENCODING_UTF16
             value = convert_python_to_oracle_data(metadata, &data,
-                                                  var_impl._values[offset])
+                                                  var_impl._values[offset],
+                                                  encoding)
         ora_type_num = metadata.dbtype._ora_type_num
         if data.is_null:
             if ora_type_num == ORA_TYPE_NUM_BOOLEAN:
@@ -1487,7 +1515,8 @@ cdef class MessageWithData(Message):
         elif ora_type_num == ORA_TYPE_NUM_OBJECT:
             buf.write_dbobject(value._impl)
         elif ora_type_num == ORA_TYPE_NUM_JSON:
-            buf.write_oson(value, self.conn_impl._oson_max_fname_size)
+            buf.write_oson(value,
+                           self.conn_impl.supports_oson_long_field_names)
         elif ora_type_num == ORA_TYPE_NUM_VECTOR:
             buf.write_vector(value)
         else:

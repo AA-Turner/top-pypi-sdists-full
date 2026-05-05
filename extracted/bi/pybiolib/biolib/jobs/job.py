@@ -44,7 +44,7 @@ class Result:
     )
 
     def __init__(self, job_dict: JobDict, _api_client: Optional[ApiClient] = None):
-        self._api_client: Optional[ApiClient] = _api_client
+        self._api_client: ApiClient = _api_client or biolib.api.client
 
         self._uuid: str = job_dict['uuid']
         self._auth_token: str = job_dict['auth_token']
@@ -112,7 +112,11 @@ class Result:
     @property
     def result(self) -> JobResult:
         if not self._result:
-            self._result = JobResult(job_uuid=self._uuid, job_auth_token=self._auth_token)
+            self._result = JobResult(
+                job_uuid=self._uuid,
+                job_auth_token=self._auth_token,
+                api_client=self._api_client,
+            )
 
         return self._result
 
@@ -219,6 +223,7 @@ class Result:
             job_uuid=self.id,
             job_auth_token=self._auth_token,
             storage_type='input',
+            api_client=self._api_client,
         )
         response = HttpClient.request(url=presigned_download_url)
         module_input_serialized: bytes = response.content
@@ -269,6 +274,7 @@ class Result:
             job_uuid=self._job_dict['uuid'],
             job_auth_token=self._job_dict['auth_token'],
             storage_type='input',
+            api_client=self._api_client,
         )
         response = HttpClient.request(url=presigned_download_url)
         module_input_serialized: bytes = response.content
@@ -387,7 +393,7 @@ class Result:
 
     def cancel(self) -> None:
         try:
-            biolib.api.client.patch(
+            self._api_client.patch(
                 path=f'/jobs/{self._uuid}/',
                 headers={'Job-Auth-Token': self._auth_token} if self._auth_token else None,
                 data={'state': 'cancelled'},
@@ -404,14 +410,14 @@ class Result:
             >>> result.delete()
         """
         try:
-            biolib.api.client.delete(path=f'/jobs/{self._uuid}/')
+            self._api_client.delete(path=f'/jobs/{self._uuid}/')
             logger.info(f'Result {self._uuid} deleted')
         except Exception as error:
             raise BioLibError(f'Failed to delete job {self._uuid} due to: {error}') from error
 
     def rename(self, name: str) -> None:
         try:
-            biolib.api.client.patch(
+            self._api_client.patch(
                 path=f'/jobs/{self._uuid}/main_result/',
                 headers={'Job-Auth-Token': self._auth_token} if self._auth_token else None,
                 data={'result_name_prefix': name},
@@ -452,12 +458,13 @@ class Result:
             >>> new_result = result.recompute(arguments=["--new-arg", "value"])
         """
         self._refetch_job_dict()
-        app_response = BiolibAppApi.get_by_uri(uri=app_uri or self._job_dict['app_uri'])
+        app_response = BiolibAppApi.get_by_uri(uri=app_uri or self._job_dict['app_uri'], api_client=self._api_client)
 
         job_storage_input = RemoteJobStorageEndpoint(
             job_auth_token=self._auth_token,
             job_uuid=self._uuid,
             storage_type='input',
+            api_client=self._api_client,
         )
         http_response = HttpClient.request(url=job_storage_input.get_remote_url())
         module_input_serialized = http_response.content
@@ -481,6 +488,7 @@ class Result:
             module_input_serialized=module_input_serialized,
             override_command=self._job_dict['arguments_override_command'],
             machine=machine if machine else original_requested_machine,
+            api_client=self._api_client,
         )
         if blocking:
             job.stream_logs()
@@ -495,37 +503,51 @@ class Result:
         return self._job_dict['cloud_job']
 
     def _set_result_module_output(self, module_output: ModuleOutputV2) -> None:
-        self._result = JobResult(job_uuid=self._uuid, job_auth_token=self._auth_token, module_output=module_output)
+        self._result = JobResult(
+            job_uuid=self._uuid,
+            job_auth_token=self._auth_token,
+            module_output=module_output,
+            api_client=self._api_client,
+        )
 
     @staticmethod
-    def fetch_jobs(count: int, status: Optional[str] = None) -> List['Result']:
-        job_dicts = Result._get_job_dicts(count, status)
-        return [Result(job_dict) for job_dict in job_dicts]
+    def fetch_jobs(
+        count: int,
+        status: Optional[str] = None,
+        _api_client: Optional[ApiClient] = None,
+    ) -> List['Result']:
+        job_dicts = Result._get_job_dicts(count, status, api_client=_api_client)
+        return [Result(job_dict, _api_client=_api_client) for job_dict in job_dicts]
 
     @staticmethod
-    def show_jobs(count: int = 25) -> None:
-        job_dicts = Result._get_job_dicts(count)
+    def show_jobs(count: int = 25, _api_client: Optional[ApiClient] = None) -> None:
+        job_dicts = Result._get_job_dicts(count, api_client=_api_client)
         BioLibTable(columns_to_row_map=Job.table_columns_to_row_map, rows=job_dicts, title='Jobs').print_table()
 
     @staticmethod
-    def _get_job_dicts(count: int, status: Optional[str] = None) -> List['JobDict']:
+    def _get_job_dicts(
+        count: int,
+        status: Optional[str] = None,
+        api_client: Optional[ApiClient] = None,
+    ) -> List['JobDict']:
         job_states = ['in_progress', 'completed', 'failed', 'cancelled']
         if status is not None and status not in job_states:
             raise Exception('Invalid status filter')
 
+        api = api_client or biolib.api.client
         page_size = min(count, 1_000)
         params: Dict[str, Union[str, int]] = dict(page_size=page_size)
         if status:
             params['state'] = status
 
         api_path = '/jobs/'
-        response = biolib.api.client.get(api_path, params=params).json()
+        response = api.get(api_path, params=params).json()
         jobs = [job_dict for job_dict in response['results']]
 
         for page_number in range(2, response['page_count'] + 1):
             if len(jobs) >= count:
                 break
-            page_response = biolib.api.client.get(path=api_path, params=dict(**params, page=page_number)).json()
+            page_response = api.get(path=api_path, params=dict(**params, page=page_number)).json()
             jobs.extend([job_dict for job_dict in page_response['results']])
 
         return jobs[:count]
@@ -541,9 +563,13 @@ class Result:
         return job_dict
 
     @staticmethod
-    def create_from_uuid(uuid: str, auth_token: Optional[str] = None) -> 'Result':
-        job_dict = Result._get_job_dict(uuid=uuid, auth_token=auth_token)
-        return Result(job_dict)
+    def create_from_uuid(
+        uuid: str,
+        auth_token: Optional[str] = None,
+        _api_client: Optional[ApiClient] = None,
+    ) -> 'Result':
+        job_dict = Result._get_job_dict(uuid=uuid, auth_token=auth_token, api_client=_api_client)
+        return Result(job_dict, _api_client=_api_client)
 
     @staticmethod
     def _yield_logs_packages(stdout_and_stderr_packages_b64) -> Generator[Tuple[str, bytes], None, None]:
@@ -705,7 +731,7 @@ class Result:
         if not force_refetch and self._job_dict_last_fetched_at > datetime.now(timezone.utc) - timedelta(seconds=2):
             return
 
-        self._job_dict = self._get_job_dict(self._uuid, self._auth_token)
+        self._job_dict = self._get_job_dict(self._uuid, self._auth_token, api_client=self._api_client)
         self._job_dict_last_fetched_at = datetime.now(timezone.utc)
 
     @staticmethod
@@ -737,7 +763,7 @@ class Result:
                 requested_machine_count=requested_machine_count,
                 api_client=api_client,
             )
-            return Result(cast(JobDict, _job_dict))
+            return Result(cast(JobDict, _job_dict), _api_client=api_client)
 
         job_dict: CreatedJobDict = BiolibJobApi.create(
             app_version_id=app_version_uuid,
@@ -755,8 +781,13 @@ class Result:
             job_uuid=job_dict['public_id'],
             job_auth_token=job_dict['auth_token'],
             module_input_serialized=module_input_serialized,
+            api_client=api_client,
         )
-        cloud_job = BiolibJobApi.create_cloud_job(job_id=job_dict['public_id'], result_name_prefix=result_prefix)
+        cloud_job = BiolibJobApi.create_cloud_job(
+            job_id=job_dict['public_id'],
+            result_name_prefix=result_prefix,
+            api_client=api_client,
+        )
         logger.debug(f"Cloud: Job created with id {cloud_job['public_id']}")
         return Result(cast(JobDict, job_dict), _api_client=api_client)
 

@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseInputItemLocalShellCallOutput"]
 
 
 class OpenAITypesResponsesResponseInputItemLocalShellCallOutput(BaseModel):
+    """The output of a local shell tool call."""
+
     id: str
 
     output: str

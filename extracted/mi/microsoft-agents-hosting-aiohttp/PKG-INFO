@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-agents-hosting-aiohttp
-Version: 0.9.0
+Version: 0.9.1
 Summary: Integration library for Microsoft Agents with aiohttp
 Author: Microsoft Corporation
 License-Expression: MIT
@@ -15,7 +15,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: microsoft-agents-hosting-core==0.9.0
+Requires-Dist: microsoft-agents-hosting-core==0.9.1
 Requires-Dist: aiohttp>=3.11.11
 Dynamic: license-file
 Dynamic: requires-dist

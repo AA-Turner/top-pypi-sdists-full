@@ -17,7 +17,7 @@ try:
     from claude_mpm.hooks.claude_hooks.hook_handler import _log
 except ImportError:
 
-    def _log(msg: str) -> None:
+    def _log(message: str) -> None:
         pass  # Silent fallback
 
 
@@ -43,6 +43,9 @@ class ResponseTrackingManager:
         self.track_all_interactions = (
             False  # Track all Claude interactions, not just delegations
         )
+        # Optional auto-pause handler linked by HookHandler after construction.
+        # Typed as Any to avoid a hard dependency on AutoPauseHandler here.
+        self.auto_pause_handler: Any | None = None
 
         if RESPONSE_TRACKING_AVAILABLE:
             self._initialize_response_tracking()
@@ -73,7 +76,7 @@ class ResponseTrackingManager:
                 # Use specific config file with ConfigLoader
                 pattern = ConfigPattern(
                     filenames=[Path(config_file).name],
-                    search_paths=[Path(config_file).parent],
+                    search_paths=[str(Path(config_file).parent)],
                     env_prefix="CLAUDE_MPM_",
                 )
                 config = config_loader.load_config(
@@ -363,6 +366,11 @@ class ResponseTrackingManager:
                     _log(
                         f"No response content in event for session {session_id[:8]}..."
                     )
+                return
+
+            if self.response_tracker is None:
+                if DEBUG:
+                    _log("Response tracker not initialized; skipping response tracking")
                 return
 
             # Track the response

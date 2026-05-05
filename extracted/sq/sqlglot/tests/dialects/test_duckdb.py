@@ -486,6 +486,14 @@ class TestDuckDB(Validator):
         self.validate_identity("FROM (FROM tbl)", "SELECT * FROM (SELECT * FROM tbl)")
         self.validate_identity("FROM tbl", "SELECT * FROM tbl")
         self.validate_identity(
+            "FROM (FROM tbl_1) AS t1 POSITIONAL JOIN (FROM tbl_2) AS t2 SELECT t1.x AS x1, t2.x AS x2",
+            "SELECT t1.x AS x1, t2.x AS x2 FROM (SELECT * FROM tbl_1) AS t1 POSITIONAL JOIN (SELECT * FROM tbl_2) AS t2",
+        )
+        self.validate_identity(
+            "FROM (FROM a) AS t1 JOIN (FROM b) AS t2 ON t1.x = t2.x JOIN (FROM c) AS t3 ON t2.y = t3.y SELECT t1.x, t2.x, t3.y",
+            "SELECT t1.x, t2.x, t3.y FROM (SELECT * FROM a) AS t1 JOIN (SELECT * FROM b) AS t2 ON t1.x = t2.x JOIN (SELECT * FROM c) AS t3 ON t2.y = t3.y",
+        )
+        self.validate_identity(
             "SELECT * FROM t1 WHERE NOT EXISTS(FROM t2 WHERE t2.id = t1.id)",
             "SELECT * FROM t1 WHERE NOT EXISTS(SELECT * FROM t2 WHERE t2.id = t1.id)",
         )
@@ -575,6 +583,13 @@ class TestDuckDB(Validator):
             write={
                 "duckdb": "SELECT JSON_ARRAY()",
                 "snowflake": "SELECT TO_VARIANT(ARRAY_CONSTRUCT())",
+            },
+        )
+        self.validate_all(
+            "SELECT JSON_ARRAY('a', 'b', 'c', 'd', 'e')",
+            write={
+                "duckdb": "SELECT JSON_ARRAY('a', 'b', 'c', 'd', 'e')",
+                "snowflake": "SELECT TO_VARIANT(ARRAY_CONSTRUCT('a', 'b', 'c', 'd', 'e'))",
             },
         )
         self.validate_identity(
@@ -689,6 +704,20 @@ class TestDuckDB(Validator):
         self.validate_all(
             "SELECT LIST(DISTINCT sample_col) FILTER(WHERE NOT sample_col IS NULL) FROM sample_table",
             read={"spark": "SELECT COLLECT_SET(sample_col) FROM sample_table"},
+        )
+        self.validate_all(
+            "SELECT LIST(col) FROM t",
+            write={
+                "duckdb": "SELECT ARRAY_AGG(col) FROM t",
+                "snowflake": "SELECT ARRAY_AGG(col) FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT LIST_DISTINCT(col)",
+            write={
+                "duckdb": "SELECT LIST_DISTINCT(col)",
+                "snowflake": "SELECT ARRAY_DISTINCT(ARRAY_COMPACT(col))",
+            },
         )
         self.validate_all(
             "SELECT LIST_TRANSFORM(STR_SPLIT_REGEX('abc , dfg ', ','), x -> TRIM(x))",
@@ -961,9 +990,6 @@ class TestDuckDB(Validator):
         )
         self.validate_all(
             "STRING_TO_ARRAY(x, 'a')",
-            read={
-                "snowflake": "STRTOK_TO_ARRAY(x, 'a')",
-            },
             write={
                 "duckdb": "STR_SPLIT(x, 'a')",
                 "presto": "SPLIT(x, 'a')",

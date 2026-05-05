@@ -82,11 +82,13 @@ except ImportError:
     # Add parent directory to path
     sys.path.insert(0, str(Path(__file__).parent))
 
-    from auto_pause_handler import AutoPauseHandler
-    from event_handlers import EventHandlers
-    from memory_integration import MemoryHookManager
-    from response_tracking import ResponseTrackingManager
-    from services import (
+    from auto_pause_handler import AutoPauseHandler  # type: ignore[import-not-found]
+    from event_handlers import EventHandlers  # type: ignore[import-not-found]
+    from memory_integration import MemoryHookManager  # type: ignore[import-not-found]
+    from response_tracking import (  # type: ignore[import-not-found]
+        ResponseTrackingManager,
+    )
+    from services import (  # type: ignore[import-not-found]
         ConnectionManagerService,
         DuplicateEventDetector,
         HookServiceContainer,
@@ -100,13 +102,17 @@ try:
     from .correlation_manager import CorrelationManager
 except ImportError:
     try:
-        from correlation_manager import CorrelationManager
+        from correlation_manager import CorrelationManager  # type: ignore[import-not-found,no-redef] # noqa: I001
     except ImportError:
         # Fallback: create a no-op class if module unavailable
-        class CorrelationManager:
+        # Use a different name then alias to avoid type incompatibility with the
+        # real CorrelationManager class from correlation_manager module.
+        class _NoOpCorrelationManager:
             @staticmethod
-            def cleanup_old():
+            def cleanup_old() -> None:
                 pass
+
+        CorrelationManager = _NoOpCorrelationManager  # type: ignore[assignment,misc]
 
 
 """
@@ -428,6 +434,13 @@ class ClaudeHookHandler:
                 if isinstance(handler_result, dict) and "decision" in handler_result:
                     # Stop hook returned a decision - output it directly
                     print(json.dumps(handler_result), flush=True)
+                elif (
+                    isinstance(handler_result, dict)
+                    and "hookSpecificOutput" in handler_result
+                ):
+                    # PreToolUse hook returned a permissionDecision envelope
+                    # (e.g. context circuit-breaker deny) -- emit it directly.
+                    print(json.dumps(handler_result), flush=True)
                 else:
                     # Normal continue (with optional modified input for PreToolUse)
                     self._continue_execution(handler_result)
@@ -442,7 +455,7 @@ class ClaudeHookHandler:
             # Cancel the alarm
             signal.alarm(0)
 
-    def _read_hook_event(self) -> dict:
+    def _read_hook_event(self) -> dict | None:
         """
         Read and parse hook event from stdin with timeout.
 
@@ -539,6 +552,10 @@ class ClaudeHookHandler:
             # Agent Teams events (experimental in Claude Code v2.1.47+)
             "TeammateIdle": self.event_handlers.handle_teammate_idle_fast,
             "TaskCompleted": self.event_handlers.handle_task_completed_fast,
+            # Permission policy events (claude-mpm v6.3.2+, issue #421).
+            # The wire-format decision is emitted by model_tier_hook.py; this
+            # handler exists to surface decisions on the dashboard for audit.
+            "PermissionRequest": self.event_handlers.handle_permission_request_fast,
         }
 
         # Call appropriate handler if exists

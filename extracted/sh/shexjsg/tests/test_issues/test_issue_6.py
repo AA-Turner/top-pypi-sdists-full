@@ -1,6 +1,4 @@
-import unittest
 from pyjsg.jsglib.loader import loads as jsg_loads
-
 
 from ShExJSG import ShExJ
 
@@ -22,11 +20,5 @@ shex = """{
 }"""
 
 
-class ContextTestCase(unittest.TestCase):
-    def test_context(self):
-        shema = jsg_loads(shex, ShExJ)
-        self.assertTrue(True)
-
-
-if __name__ == '__main__':
-    unittest.main()
+def test_context():
+    jsg_loads(shex, ShExJ)

@@ -951,7 +951,7 @@ class TestDialect(Validator):
             write={
                 "duckdb": "SUBSTRING(CAST(x AS TEXT), 1, 10)",
                 "hive": "SUBSTRING(CAST(x AS STRING), 1, 10)",
-                "presto": "SUBSTRING(CAST(x AS VARCHAR), 1, 10)",
+                "presto": "SUBSTR(CAST(x AS VARCHAR), 1, 10)",
                 "doris": "SUBSTRING(CAST(x AS STRING), 1, 10)",
             },
         )
@@ -2403,7 +2403,7 @@ class TestDialect(Validator):
         self.validate_all(
             "STR_POSITION(haystack, needle, position)",
             write={
-                "athena": "IF(STRPOS(SUBSTRING(haystack, position), needle) = 0, 0, STRPOS(SUBSTRING(haystack, position), needle) + position - 1)",
+                "athena": "IF(STRPOS(SUBSTR(haystack, position), needle) = 0, 0, STRPOS(SUBSTR(haystack, position), needle) + position - 1)",
                 "bigquery": "INSTR(haystack, needle, position)",
                 "clickhouse": "POSITION(haystack, needle, position)",
                 "databricks": "LOCATE(needle, haystack, position)",
@@ -2415,7 +2415,7 @@ class TestDialect(Validator):
                 "mysql": "LOCATE(needle, haystack, position)",
                 "oracle": "INSTR(haystack, needle, position)",
                 "postgres": "CASE WHEN POSITION(needle IN SUBSTRING(haystack FROM position)) = 0 THEN 0 ELSE POSITION(needle IN SUBSTRING(haystack FROM position)) + position - 1 END",
-                "presto": "IF(STRPOS(SUBSTRING(haystack, position), needle) = 0, 0, STRPOS(SUBSTRING(haystack, position), needle) + position - 1)",
+                "presto": "IF(STRPOS(SUBSTR(haystack, position), needle) = 0, 0, STRPOS(SUBSTR(haystack, position), needle) + position - 1)",
                 "redshift": "CASE WHEN POSITION(needle IN SUBSTRING(haystack FROM position)) = 0 THEN 0 ELSE POSITION(needle IN SUBSTRING(haystack FROM position)) + position - 1 END",
                 "risingwave": "CASE WHEN POSITION(needle IN SUBSTRING(haystack FROM position)) = 0 THEN 0 ELSE POSITION(needle IN SUBSTRING(haystack FROM position)) + position - 1 END",
                 "snowflake": "CHARINDEX(needle, haystack, position)",
@@ -2424,7 +2424,7 @@ class TestDialect(Validator):
                 "sqlite": "IIF(INSTR(SUBSTRING(haystack, position), needle) = 0, 0, INSTR(SUBSTRING(haystack, position), needle) + position - 1)",
                 "tableau": "IF FIND(SUBSTRING(haystack, position), needle) = 0 THEN 0 ELSE FIND(SUBSTRING(haystack, position), needle) + position - 1 END",
                 "teradata": "INSTR(haystack, needle, position)",
-                "trino": "IF(STRPOS(SUBSTRING(haystack, position), needle) = 0, 0, STRPOS(SUBSTRING(haystack, position), needle) + position - 1)",
+                "trino": "IF(STRPOS(SUBSTR(haystack, position), needle) = 0, 0, STRPOS(SUBSTR(haystack, position), needle) + position - 1)",
                 "tsql": "CHARINDEX(needle, haystack, position)",
             },
         )
@@ -2438,10 +2438,10 @@ class TestDialect(Validator):
             write={
                 "bigquery": "INSTR(haystack, needle, position, occurrence)",
                 "oracle": "INSTR(haystack, needle, position, occurrence)",
-                "presto": "IF(STRPOS(SUBSTRING(haystack, position), needle, occurrence) = 0, 0, STRPOS(SUBSTRING(haystack, position), needle, occurrence) + position - 1)",
+                "presto": "IF(STRPOS(SUBSTR(haystack, position), needle, occurrence) = 0, 0, STRPOS(SUBSTR(haystack, position), needle, occurrence) + position - 1)",
                 "tableau": "IF FINDNTH(SUBSTRING(haystack, position), needle, occurrence) = 0 THEN 0 ELSE FINDNTH(SUBSTRING(haystack, position), needle, occurrence) + position - 1 END",
                 "teradata": "INSTR(haystack, needle, position, occurrence)",
-                "trino": "IF(STRPOS(SUBSTRING(haystack, position), needle, occurrence) = 0, 0, STRPOS(SUBSTRING(haystack, position), needle, occurrence) + position - 1)",
+                "trino": "IF(STRPOS(SUBSTR(haystack, position), needle, occurrence) = 0, 0, STRPOS(SUBSTR(haystack, position), needle, occurrence) + position - 1)",
             },
         )
         self.validate_all(
@@ -2449,10 +2449,9 @@ class TestDialect(Validator):
             write={
                 "clickhouse": "CONCAT_WS('-', 'a', 'b')",
                 "duckdb": "CASE WHEN '-' IS NULL OR 'a' IS NULL OR 'b' IS NULL THEN NULL ELSE CONCAT_WS('-', 'a', 'b') END",
-                "presto": "CONCAT_WS('-', CAST('a' AS VARCHAR), CAST('b' AS VARCHAR))",
-                "hive": "CONCAT_WS('-', 'a', 'b')",
-                "spark": "CONCAT_WS('-', 'a', 'b')",
-                "trino": "CONCAT_WS('-', CAST('a' AS VARCHAR), CAST('b' AS VARCHAR))",
+                "hive": "CASE WHEN '-' IS NULL OR 'a' IS NULL OR 'b' IS NULL THEN NULL ELSE CONCAT_WS('-', 'a', 'b') END",
+                "spark": "CASE WHEN '-' IS NULL OR 'a' IS NULL OR 'b' IS NULL THEN NULL ELSE CONCAT_WS('-', 'a', 'b') END",
+                "trino": "CASE WHEN '-' IS NULL OR 'a' IS NULL OR 'b' IS NULL THEN NULL ELSE CONCAT_WS('-', CAST('a' AS VARCHAR), CAST('b' AS VARCHAR)) END",
             },
         )
 
@@ -2461,10 +2460,9 @@ class TestDialect(Validator):
             write={
                 "clickhouse": "CONCAT_WS('-', x)",
                 "duckdb": "CASE WHEN '-' IS NULL OR x IS NULL THEN NULL ELSE CONCAT_WS('-', x) END",
-                "hive": "CONCAT_WS('-', x)",
-                "presto": "CONCAT_WS('-', CAST(x AS VARCHAR))",
-                "spark": "CONCAT_WS('-', x)",
-                "trino": "CONCAT_WS('-', CAST(x AS VARCHAR))",
+                "hive": "CASE WHEN '-' IS NULL OR x IS NULL THEN NULL ELSE CONCAT_WS('-', x) END",
+                "spark": "CASE WHEN '-' IS NULL OR x IS NULL THEN NULL ELSE CONCAT_WS('-', x) END",
+                "trino": "CASE WHEN '-' IS NULL OR x IS NULL THEN NULL ELSE CONCAT_WS('-', CAST(x AS VARCHAR)) END",
             },
         )
         self.validate_all(
@@ -3883,7 +3881,6 @@ FROM subquery2""",
                 "trino": "UUID()",
                 "mysql": "UUID()",
                 "postgres": "GEN_RANDOM_UUID()",
-                "snowflake": "UUID_STRING()",
                 "tsql": "NEWID()",
             },
             write={

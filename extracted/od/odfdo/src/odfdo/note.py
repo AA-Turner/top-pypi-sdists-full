@@ -121,16 +121,31 @@ class Note(MDNote, LinkMixin, Element):
         note_class: str = "footnote",
         note_id: str | None = None,
         citation: str | None = None,
+        label: str | None = None,
         body: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a Note element (footnote or endnote).
 
+        A note can be either auto-numbered or have a fixed label:
+
+        - **Auto-numbered**: the consumer (e.g. LibreOffice) generates the
+          citation number from <text:notes-configuration>. Create this by
+          providing only "citation" (pre-filled display text) or nothing at
+          all. No "text:label" attribute is written.
+
+        - **Labeled**: the note carries a fixed label. Create this by providing
+          "label" (sets the "text:label" attribute). If "citation" is not
+          given, the display text defaults to the label value.
+
         Args:
             note_class: The class of the note ("footnote" or "endnote").
                 Defaults to "footnote".
             note_id: A unique ID for the note. If None, one is generated.
-            citation: The citation text for the note.
+            citation: The display text of the note citation. If provided alone,
+                the note is auto-numbered (no text:label attribute).
+            label: The fixed label value (text:label attribute). When provided
+                without citation, the display text defaults to this value.
             body: The content of the note body. Can be a string or an `Element`.
             **kwargs: Additional keyword arguments for the parent `Element` class.
         """
@@ -141,7 +156,13 @@ class Note(MDNote, LinkMixin, Element):
             self.note_class = note_class
             if note_id is not None:
                 self.note_id = note_id
-            if citation is not None:
+            if label is not None and citation is None:
+                self.label = label
+                self.citation = label
+            elif label is not None and citation is not None:
+                self.label = label
+                self.citation = citation
+            elif citation is not None:
                 self.citation = citation
             if body is not None:
                 self.note_body = body
@@ -168,6 +189,30 @@ class Note(MDNote, LinkMixin, Element):
         note_citation = self.get_element("text:note-citation")
         if note_citation:
             note_citation.text = text
+
+    @property
+    def label(self) -> str:
+        """Get the text:label attribute of the note citation.
+
+        Returns:
+            str: The label value, or an empty string if not found.
+        """
+        note_citation = self.get_element("text:note-citation")
+        if note_citation:
+            value = note_citation.get_attribute("text:label")
+            return str(value or "")
+        return ""
+
+    @label.setter
+    def label(self, text: str | None) -> None:
+        """Set the text:label attribute of the note citation.
+
+        Args:
+            text: The new label value, or None to remove the attribute.
+        """
+        note_citation = self.get_element("text:note-citation")
+        if note_citation:
+            note_citation.set_attribute("text:label", text)
 
     @property
     def note_body(self) -> str:

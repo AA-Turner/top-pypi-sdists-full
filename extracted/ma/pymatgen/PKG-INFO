@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymatgen
-Version: 2026.3.23
+Version: 2026.5.4
 Summary: Python Materials Genomics is a robust materials analysis code that defines core object representations for structures
 Author-email: Pymatgen Development Team <shyue@nus.edu.sg>
 Maintainer-email: Matthew Horton <m.k.horton@gmail.com>, Shyue Ping Ong <shyue@nus.edu.sg>
@@ -27,7 +27,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pymatgen-core>=2026.3.9
+Requires-Dist: pymatgen-core>=2026.4.16
 Provides-Extra: abinit
 Requires-Dist: netcdf4>=1.7.2; extra == "abinit"
 Provides-Extra: ase
@@ -40,7 +40,7 @@ Requires-Dist: matgl>=2.0.4; python_version < "3.13" and extra == "mlp"
 Provides-Extra: numba
 Requires-Dist: numba>=0.55; extra == "numba"
 Provides-Extra: numpy-v1
-Requires-Dist: numpy<2,>=1.25.0; extra == "numpy-v1"
+Requires-Dist: numpy<2,>=1.25.0; python_version < "3.13" and extra == "numpy-v1"
 Provides-Extra: optional
 Requires-Dist: pymatgen[abinit,ase,matcalc,mlp,tblite,zeopp]; extra == "optional"
 Requires-Dist: beautifulsoup4; extra == "optional"

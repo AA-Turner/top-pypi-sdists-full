@@ -1415,3 +1415,405 @@ fn test_reference_link_empty_title_in_definition() {
     assert_eq!(ctx.reference_defs.len(), 1);
     assert_eq!(ctx.reference_defs[0].title.as_deref(), Some(""));
 }
+
+#[test]
+fn test_pandoc_flavor_detects_div_blocks() {
+    let content = "::: {.callout-note}\nA note.\n:::\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    assert!(
+        ctx.is_in_div_block(content.find(":::").unwrap()),
+        "Pandoc flavor should detect div block ranges"
+    );
+}
+
+#[test]
+fn test_pandoc_flavor_detects_citations() {
+    let content = "See [@smith2020] for details.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("[@smith2020]").unwrap() + 1;
+    assert!(ctx.is_in_citation(pos), "Pandoc flavor should detect citation ranges");
+}
+
+#[test]
+fn test_pandoc_flavor_detects_inline_footnotes() {
+    let content = "Text ^[note here] more.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("^[").unwrap() + 1;
+    assert!(
+        ctx.is_in_inline_footnote(pos),
+        "Pandoc flavor should detect inline footnote ranges"
+    );
+}
+
+#[test]
+fn test_standard_flavor_skips_inline_footnotes() {
+    let content = "Text ^[note here] more.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("^[").unwrap() + 1;
+    assert!(
+        !ctx.is_in_inline_footnote(pos),
+        "Standard flavor should not detect inline footnote ranges"
+    );
+}
+
+#[test]
+fn test_pandoc_flavor_resolves_implicit_header_reference() {
+    let content = "# My Section\n\nSee [My Section] for details.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    assert!(ctx.matches_implicit_header_reference("My Section"));
+    assert!(!ctx.matches_implicit_header_reference("Nonexistent"));
+}
+
+#[test]
+fn test_standard_flavor_does_not_resolve_implicit_header_reference() {
+    let content = "# My Section\n\nSee [My Section] for details.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert!(!ctx.matches_implicit_header_reference("My Section"));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_example_list_markers() {
+    use crate::config::MarkdownFlavor;
+    let content = "(@) First item.\n(@good) Second item.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("(@)").unwrap();
+    assert!(ctx.is_in_example_list_marker(pos));
+    let pos2 = content.find("(@good)").unwrap();
+    assert!(ctx.is_in_example_list_marker(pos2));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_example_references() {
+    use crate::config::MarkdownFlavor;
+    let content = "(@good) First.\n\nAs shown in (@good), it works.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let ref_pos = content.rfind("(@good)").unwrap();
+    assert!(ctx.is_in_example_reference(ref_pos));
+    // The line-start marker is NOT a reference (filtered out).
+    let marker_pos = content.find("(@good)").unwrap();
+    assert!(!ctx.is_in_example_reference(marker_pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_example_lists() {
+    use crate::config::MarkdownFlavor;
+    let content = "(@) First.\nAs shown in (@good), it works.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("(@)").unwrap();
+    assert!(!ctx.is_in_example_list_marker(pos));
+    let ref_pos = content.find("(@good)").unwrap();
+    assert!(!ctx.is_in_example_reference(ref_pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_subscript() {
+    use crate::config::MarkdownFlavor;
+    let content = "H~2~O is water.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("~2~").unwrap() + 1;
+    assert!(ctx.is_in_subscript_or_superscript(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_superscript() {
+    use crate::config::MarkdownFlavor;
+    let content = "2^10^ is 1024.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("^10^").unwrap() + 1;
+    assert!(ctx.is_in_subscript_or_superscript(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_does_not_match_strikethrough() {
+    use crate::config::MarkdownFlavor;
+    let content = "This is ~~struck~~.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("~~struck~~").unwrap() + 2;
+    assert!(!ctx.is_in_subscript_or_superscript(pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_sub_super() {
+    use crate::config::MarkdownFlavor;
+    let content = "H~2~O and 2^10^.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("~2~").unwrap() + 1;
+    assert!(!ctx.is_in_subscript_or_superscript(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_inline_code_attribute() {
+    use crate::config::MarkdownFlavor;
+    let content = "Use `print()`{.python} for output.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("{.python}").unwrap() + 1;
+    assert!(ctx.is_in_inline_code_attr(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_skips_bare_brace_block() {
+    use crate::config::MarkdownFlavor;
+    // A `{...}` not preceded by `` `code` `` is not an inline-code attribute.
+    let content = "Use {.example} for the class.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("{.example}").unwrap() + 1;
+    assert!(!ctx.is_in_inline_code_attr(pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_inline_code_attribute() {
+    use crate::config::MarkdownFlavor;
+    let content = "Use `print()`{.python} for output.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("{.python}").unwrap() + 1;
+    assert!(!ctx.is_in_inline_code_attr(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_bracketed_span() {
+    use crate::config::MarkdownFlavor;
+    let content = "This is [some text]{.smallcaps} here.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("[some text]").unwrap();
+    assert!(ctx.is_in_bracketed_span(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_skips_link() {
+    use crate::config::MarkdownFlavor;
+    let content = "A [link](http://example.com) here.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("[link]").unwrap();
+    assert!(!ctx.is_in_bracketed_span(pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_bracketed_span() {
+    use crate::config::MarkdownFlavor;
+    let content = "This is [some text]{.smallcaps} here.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("[some text]").unwrap();
+    assert!(!ctx.is_in_bracketed_span(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_line_block() {
+    use crate::config::MarkdownFlavor;
+    let content = "| The Lord of the Rings\n| by J.R.R. Tolkien\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("Lord").unwrap();
+    assert!(ctx.is_in_line_block(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_line_block_does_not_match_pipe_table() {
+    use crate::config::MarkdownFlavor;
+    let content = "| col1 | col2 |\n|------|------|\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("col1").unwrap();
+    assert!(!ctx.is_in_line_block(pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_line_block() {
+    use crate::config::MarkdownFlavor;
+    let content = "| The Lord of the Rings\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("Lord").unwrap();
+    assert!(!ctx.is_in_line_block(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_line_block_continuation_is_in_block() {
+    // The continuation line (whitespace-indented, no leading pipe) belongs
+    // to the active block, so a position inside it must report true.
+    use crate::config::MarkdownFlavor;
+    let content = "| First line\n  continuation here\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("continuation").unwrap();
+    assert!(ctx.is_in_line_block(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_pipe_table_caption_below() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
+| col1 | col2 |
+|------|------|
+| a    | b    |
+
+: My caption
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("My caption").unwrap();
+    assert!(ctx.is_in_pipe_table_caption(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_definition_term_is_not_pipe_table_caption() {
+    use crate::config::MarkdownFlavor;
+    let content = "Term\n: definition\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("definition").unwrap();
+    assert!(!ctx.is_in_pipe_table_caption(pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_pipe_table_caption() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
+| col1 |
+|------|
+| a    |
+
+: Caption
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("Caption").unwrap();
+    assert!(!ctx.is_in_pipe_table_caption(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_pipe_table_caption_above() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
+: Caption first
+
+| col1 | col2 |
+|------|------|
+| a    | b    |
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("Caption first").unwrap();
+    assert!(ctx.is_in_pipe_table_caption(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_metadata_block_at_start() {
+    use crate::config::MarkdownFlavor;
+    let content = "---\ntitle: Doc\n---\n\nBody.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("title").unwrap();
+    assert!(ctx.is_in_pandoc_metadata(pos));
+    let body_pos = content.find("Body").unwrap();
+    assert!(!ctx.is_in_pandoc_metadata(body_pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_mid_document_metadata() {
+    use crate::config::MarkdownFlavor;
+    let content = "Intro.\n\n---\nauthor: X\n---\n\nBody.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find("author").unwrap();
+    assert!(ctx.is_in_pandoc_metadata(pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_pandoc_metadata() {
+    use crate::config::MarkdownFlavor;
+    let content = "---\ntitle: Doc\n---\n\nBody.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("title").unwrap();
+    assert!(!ctx.is_in_pandoc_metadata(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_grid_table() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
++---+---+
+| a | b |
++---+---+
+| 1 | 2 |
++---+---+
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let pos = content.find('a').unwrap();
+    assert!(ctx.is_in_grid_table(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_grid_table_excludes_surrounding_text() {
+    use crate::config::MarkdownFlavor;
+    let content = "Before.\n\n+---+---+\n| a | b |\n+---+---+\n\nAfter.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let before_pos = content.find("Before").unwrap();
+    let after_pos = content.find("After").unwrap();
+    assert!(!ctx.is_in_grid_table(before_pos));
+    assert!(!ctx.is_in_grid_table(after_pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_grid_table() {
+    use crate::config::MarkdownFlavor;
+    let content = "+---+---+\n| a | b |\n+---+---+\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find('a').unwrap();
+    assert!(!ctx.is_in_grid_table(pos));
+}
+
+#[test]
+fn test_pandoc_flavor_detects_multi_line_table() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
+-------------------------------------------------------------
+ Centered   Default           Right Left
+  Header    Aligned         Aligned Aligned
+----------- ------- --------------- -------------------------
+   First    row                12.0 Example of a row that
+                                    spans multiple lines.
+
+  Second    row                 5.0 Here's another one. Note
+                                    the blank line between
+                                    rows.
+-------------------------------------------------------------
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    // The entire content should be detected as a single multi-line table.
+    let first_pos = content.find("First").unwrap();
+    let second_pos = content.find("Second").unwrap();
+    assert!(ctx.is_in_multi_line_table(first_pos));
+    assert!(ctx.is_in_multi_line_table(second_pos));
+    // The detection covers byte 0 (the top border) through content.len().
+    assert!(ctx.is_in_multi_line_table(0));
+}
+
+#[test]
+fn test_pandoc_flavor_multi_line_table_excludes_surrounding_text() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
+Before text.
+
+-------------------------------------------------------------
+ Centered   Default           Right Left
+  Header    Aligned         Aligned Aligned
+----------- ------- --------------- -------------------------
+   First    row                12.0 Example.
+-------------------------------------------------------------
+
+After text.
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+    let before_pos = content.find("Before").unwrap();
+    let after_pos = content.find("After").unwrap();
+    let inside_pos = content.find("First").unwrap();
+    assert!(!ctx.is_in_multi_line_table(before_pos));
+    assert!(!ctx.is_in_multi_line_table(after_pos));
+    assert!(ctx.is_in_multi_line_table(inside_pos));
+}
+
+#[test]
+fn test_standard_flavor_skips_multi_line_table() {
+    use crate::config::MarkdownFlavor;
+    let content = "\
+-------------------------------------------------------------
+ Centered   Default           Right Left
+  Header    Aligned         Aligned Aligned
+----------- ------- --------------- -------------------------
+   First    row                12.0 Example.
+-------------------------------------------------------------
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let pos = content.find("First").unwrap();
+    assert!(!ctx.is_in_multi_line_table(pos));
+}

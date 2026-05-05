@@ -5,7 +5,11 @@ import biolib.utils
 from biolib.typing_utils import Optional, Tuple
 
 
-def parse_result_id_or_url(result_id_or_url: str, default_token: Optional[str] = None) -> Tuple[str, Optional[str]]:
+def parse_result_id_or_url(
+    result_id_or_url: str,
+    default_token: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> Tuple[str, Optional[str]]:
     result_id_or_url = result_id_or_url.strip()
 
     if '/' not in result_id_or_url:
@@ -16,10 +20,11 @@ def parse_result_id_or_url(result_id_or_url: str, default_token: Optional[str] =
 
     parsed_url = urlparse(result_id_or_url)
 
-    if biolib.utils.BIOLIB_BASE_URL:
-        expected_base = urlparse(biolib.utils.BIOLIB_BASE_URL)
+    expected_base_url = base_url or biolib.utils.BIOLIB_BASE_URL
+    if expected_base_url:
+        expected_base = urlparse(expected_base_url)
         if parsed_url.scheme != expected_base.scheme or parsed_url.netloc != expected_base.netloc:
-            raise ValueError(f'URL must start with {biolib.utils.BIOLIB_BASE_URL}, got: {result_id_or_url}')
+            raise ValueError(f'URL must start with {expected_base_url}, got: {result_id_or_url}')
 
     pattern = r'/results?/(?P<uuid>[a-f0-9-]+)/?(?:\?token=(?P<token>[^&]+))?'
     match = re.search(pattern, result_id_or_url, re.IGNORECASE)

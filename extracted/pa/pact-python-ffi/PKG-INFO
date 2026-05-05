@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pact-python-ffi
-Version: 0.5.3.0
+Version: 0.5.4.0
 Summary: Python bindings for the Pact FFI library
 Project-URL: Bug Tracker, https://github.com/pact-foundation/pact-python/issues
 Project-URL: Changelog, https://github.com/pact-foundation/pact-python/blob/main/pact-python-ffi/CHANGELOG.md

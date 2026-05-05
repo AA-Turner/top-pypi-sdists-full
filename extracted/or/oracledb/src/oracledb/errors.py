@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -222,6 +222,7 @@ ERR_NOT_A_QUERY = 1003
 ERR_NO_STATEMENT_EXECUTED = 1004
 ERR_POOL_HAS_BUSY_CONNECTIONS = 1005
 ERR_CURSOR_NOT_OPEN = 1006
+ERR_NOT_SUBSCRIBED = 1007
 
 # error numbers that result in ProgrammingError
 ERR_MESSAGE_HAS_NO_PAYLOAD = 2000
@@ -293,6 +294,12 @@ ERR_EMPTY_STATEMENT = 2066
 ERR_WRONG_DIRECT_PATH_DATA_TYPE = 2067
 ERR_SCROLL_NOT_SUPPORTED = 2068
 ERR_WRONG_REQUESTED_SCHEMA_LENGTH = 2069
+ERR_INVALID_CALLABLE_FUN = 2070
+ERR_REGISTER_QUERY_ON_AQ_SUBSCR = 2071
+ERR_INVALID_END_USER_SECURITY_CONTEXT_LENGTH = 2072
+ERR_END_USER_SECURITY_CONTEXT_REQUIRES_TCPS = 2073
+ERR_NAME_HAS_EMBEDDED_QUOTES = 2074
+ERR_PARAM_SIZE_TOO_LARGE = 2075
 
 # error numbers that result in NotSupportedError
 ERR_TIME_NOT_SUPPORTED = 3000
@@ -334,6 +341,8 @@ ERR_SESSIONLESS_INACTIVE = 3036
 ERR_UNSUPPORTED_ARROW_TYPE = 3037
 ERR_CANNOT_CONVERT_TO_ARROW_TYPE = 3038
 ERR_CANNOT_CONVERT_FROM_ARROW_TYPE = 3039
+ERR_DB_CS_NOT_SUPPORTED = 3040
+ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE = 3041
 
 # error numbers that result in DatabaseError
 ERR_TNS_ENTRY_NOT_FOUND = 4000
@@ -392,6 +401,7 @@ ERR_UNEXPECTED_PIPELINE_FAILURE = 5011
 ERR_NOT_IMPLEMENTED = 5012
 ERR_INTERNAL_CREATION_REQUIRED = 5013
 ERR_UNKNOWN_TRANSACTION_SYNC_VERSION = 5014
+ERR_NUMBER_TOO_LARGE = 5015
 
 # error numbers that result in OperationalError
 ERR_LISTENER_REFUSED_CONNECTION = 6000
@@ -401,6 +411,7 @@ ERR_INVALID_SID = 6003
 ERR_PROXY_FAILURE = 6004
 ERR_CONNECTION_FAILED = 6005
 ERR_INVALID_SERVER_NAME = 6006
+ERR_SUBSCR_FAILED = 6007
 
 # error numbers that result in Warning
 WRN_COMPILATION_ERROR = 7000
@@ -457,6 +468,7 @@ ERR_ORACLE_ERROR_XREF = {
     26216: ERR_SESSIONLESS_ALREADY_ACTIVE,
     27146: ERR_CONNECTION_CLOSED,
     28511: ERR_CONNECTION_CLOSED,
+    29970: ERR_NOT_SUBSCRIBED,
     38902: ERR_TOO_MANY_BATCH_ERRORS,
     56600: ERR_CONNECTION_CLOSED,
 }
@@ -471,6 +483,7 @@ ERR_DPI_ERROR_XREF = {
     1063: ERR_EXECUTE_MODE_ONLY_FOR_DML,
     1067: (ERR_CALL_TIMEOUT_EXCEEDED, r"call timeout of (?P<timeout>\d+) ms"),
     1080: ERR_CONNECTION_CLOSED,
+    1087: ERR_NOT_A_QUERY,
 }
 
 # Oracle error codes that result in IntegrityError exceptions
@@ -640,6 +653,10 @@ ERR_MESSAGE_FORMATS = {
     ),
     ERR_CURSOR_HAS_BEEN_CLOSED: "cursor has been closed by the database",
     ERR_CURSOR_NOT_OPEN: "cursor is not open",
+    ERR_DB_CS_NOT_SUPPORTED: (
+        "database character set id {charset_id} is not supported by "
+        "python-oracledb in thin mode"
+    ),
     ERR_DBOBJECT_ATTR_MAX_SIZE_VIOLATED: (
         "attribute {attr_name} of type {type_name} exceeds its maximum size "
         "(actual: {actual_size}, maximum: {max_size})"
@@ -658,6 +675,9 @@ ERR_MESSAGE_FORMATS = {
     ),
     ERR_DUPLICATED_PARAMETER: (
         '"{deprecated_name}" and "{new_name}" cannot be specified together'
+    ),
+    ERR_END_USER_SECURITY_CONTEXT_REQUIRES_TCPS: (
+        "end_user_security_context requires use of the tcps protocol"
     ),
     ERR_EMPTY_STATEMENT: ("an empty statement cannot be executed"),
     ERR_EXCEEDED_IDLE_TIME: (
@@ -716,6 +736,7 @@ ERR_MESSAGE_FORMATS = {
     ERR_INVALID_BIND_NAME: (
         'no bind placeholder named ":{name}" was found in the SQL text'
     ),
+    ERR_INVALID_CALLABLE_FUN: "Expected a callable function",
     ERR_INVALID_CONN_CLASS: "invalid connection class",
     ERR_INVALID_CONNECT_DESCRIPTOR: 'invalid connect descriptor "{data}"',
     ERR_INVALID_CONNECT_PARAMS: "invalid connection params",
@@ -725,6 +746,10 @@ ERR_MESSAGE_FORMATS = {
         "{max_index}"
     ),
     ERR_INVALID_ENUM_VALUE: "invalid value for enumeration {name}: {value}",
+    ERR_INVALID_END_USER_SECURITY_CONTEXT_LENGTH: (
+        "Specified end-user security context exceeds the maximum supported "
+        "size"
+    ),
     ERR_INVALID_INTEGER: (
         "integer {value} cannot be represented as Apache Arrow type "
         "{arrow_type}"
@@ -812,6 +837,7 @@ ERR_MESSAGE_FORMATS = {
     ERR_MIXED_POSITIONAL_AND_NAMED_BINDS: (
         "positional and named binds cannot be intermixed"
     ),
+    ERR_NAME_HAS_EMBEDDED_QUOTES: "name has embedded quotes",
     ERR_NAMED_POOL_EXISTS: (
         'connection pool with alias "{alias}" already exists'
     ),
@@ -837,11 +863,13 @@ ERR_MESSAGE_FORMATS = {
     ERR_NOT_A_QUERY: "the executed statement does not return rows",
     ERR_NOT_CONNECTED: "not connected to database",
     ERR_NOT_IMPLEMENTED: "not implemented",
+    ERR_NOT_SUBSCRIBED: "subscription is not active",
     ERR_NULLS_NOT_ALLOWED: (
         'value for column "{column_name}" may not be null on row {row_num}'
     ),
     ERR_NUMBER_STRING_OF_ZERO_LENGTH: "invalid number: zero length string",
     ERR_NUMBER_STRING_TOO_LONG: "invalid number: string too long",
+    ERR_NUMBER_TOO_LARGE: "encoded number data too long ({num_bytes} bytes)",
     ERR_NUMBER_WITH_EMPTY_EXPONENT: "invalid number: empty exponent",
     ERR_NUMBER_WITH_INVALID_EXPONENT: "invalid number: invalid exponent",
     ERR_OBJECT_IS_NOT_A_COLLECTION: "object {name} is not a collection",
@@ -865,6 +893,10 @@ ERR_MESSAGE_FORMATS = {
         "OSON node type 0x{node_type:x} is not supported"
     ),
     ERR_OSON_VERSION_NOT_SUPPORTED: "OSON version {version} is not supported",
+    ERR_PARAM_SIZE_TOO_LARGE: (
+        'the length of the "{name}" parameter exceeds the maximum allowed '
+        "length of {max_length} UTF-8 encoded bytes"
+    ),
     ERR_PARAMS_HOOK_HANDLER_FAILED: (
         "registered handler for params hook failed"
     ),
@@ -896,6 +928,9 @@ ERR_MESSAGE_FORMATS = {
     ERR_PYTHON_VALUE_NOT_SUPPORTED: (
         'Python value of type "{type_name}" is not supported'
     ),
+    ERR_REGISTER_QUERY_ON_AQ_SUBSCR: (
+        "cannot register a query on an AQ subscription"
+    ),
     ERR_SCROLL_NOT_SUPPORTED: (
         "scroll operation is not supported on a non-scrollable cursor"
     ),
@@ -916,6 +951,7 @@ ERR_MESSAGE_FORMATS = {
         "DBMS_TRANSACTION or with python-oracledb, but not both"
     ),
     ERR_SESSIONLESS_INACTIVE: ("no Sessionless Transaction is active"),
+    ERR_SUBSCR_FAILED: "subscription could not be created",
     ERR_TDS_TYPE_NOT_SUPPORTED: "Oracle TDS data type {num} is not supported",
     ERR_THICK_MODE_ENABLED: (
         "python-oracledb thin mode cannot be used because thick mode has "
@@ -958,6 +994,9 @@ ERR_MESSAGE_FORMATS = {
         "internal error: unknown transaction sync version {version}"
     ),
     ERR_UNSUPPORTED_ARROW_TYPE: 'unsupported Apache Arrow type "{arrow_type}"',
+    ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE: (
+        "database version does not support the Oracle Deep Data Security feature"
+    ),
     ERR_UNSUPPORTED_INBAND_NOTIFICATION: (
         "unsupported in-band notification with error number {err_num}"
     ),

@@ -7,7 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import DuplicateProjectsResponse, ImportPredictionsProjectsResponse, ImportTasksProjectsResponse
-    from . import assignments, exports, members, metrics, pauses, roles, stats
+    from . import assignments, exports, members, metrics, pauses, review_routing_rules, roles, stats
     from .assignments import (
         AssignAssignmentsRequestType,
         BulkAssignAssignmentsRequestFilters,
@@ -38,6 +38,8 @@ if typing.TYPE_CHECKING:
         IaaStatsResponseStd,
         LeadTimeStatsResponse,
         LeadTimeStatsResponseLeadTimeStatsItem,
+        MemberPerformanceRowsStatsRequestTable,
+        MemberPerformanceRowsStatsResponse,
         ModelVersionAnnotatorAgreementStatsResponse,
         ModelVersionGroundTruthAgreementStatsResponse,
         ModelVersionPredictionAgreementStatsResponse,
@@ -89,6 +91,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ImportTasksProjectsResponse": ".types",
     "LeadTimeStatsResponse": ".stats",
     "LeadTimeStatsResponseLeadTimeStatsItem": ".stats",
+    "MemberPerformanceRowsStatsRequestTable": ".stats",
+    "MemberPerformanceRowsStatsResponse": ".stats",
     "ModelVersionAnnotatorAgreementStatsResponse": ".stats",
     "ModelVersionGroundTruthAgreementStatsResponse": ".stats",
     "ModelVersionPredictionAgreementStatsResponse": ".stats",
@@ -115,6 +119,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "members": ".members",
     "metrics": ".metrics",
     "pauses": ".pauses",
+    "review_routing_rules": ".review_routing_rules",
     "roles": ".roles",
     "stats": ".stats",
 }
@@ -171,6 +176,8 @@ __all__ = [
     "ImportTasksProjectsResponse",
     "LeadTimeStatsResponse",
     "LeadTimeStatsResponseLeadTimeStatsItem",
+    "MemberPerformanceRowsStatsRequestTable",
+    "MemberPerformanceRowsStatsResponse",
     "ModelVersionAnnotatorAgreementStatsResponse",
     "ModelVersionGroundTruthAgreementStatsResponse",
     "ModelVersionPredictionAgreementStatsResponse",
@@ -197,6 +204,7 @@ __all__ = [
     "members",
     "metrics",
     "pauses",
+    "review_routing_rules",
     "roles",
     "stats",
 ]

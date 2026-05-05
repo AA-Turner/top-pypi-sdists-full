@@ -23,10 +23,9 @@ import pytensor
 from pytensor import printing
 from pytensor.configdefaults import config
 from pytensor.gradient import disconnected_type, grad_undefined
-from pytensor.graph.basic import Apply, Constant, Variable, clone
-from pytensor.graph.fg import FunctionGraph
-from pytensor.graph.op import HasInnerGraph
-from pytensor.graph.rewriting.basic import MergeOptimizer
+from pytensor.graph.basic import Apply, Constant, Variable
+from pytensor.graph.fg import FrozenFunctionGraph
+from pytensor.graph.op import HasInnerGraph, Op
 from pytensor.graph.traversal import applys_between
 from pytensor.graph.type import HasDataType, HasShape
 from pytensor.graph.utils import MetaObject, MethodNotDefined
@@ -767,7 +766,7 @@ def get_scalar_type(dtype, cache: dict[str, ScalarType] = {}) -> ScalarType:
 
 
 # Register C code for ViewOp on Scalars.
-pytensor.compile.register_view_op_c_code(
+pytensor.compile.ops.register_view_op_c_code(
     ScalarType,
     """
     %(oname)s = %(iname)s;
@@ -959,9 +958,30 @@ class ScalarVariable(_scalar_py_operators, Variable):
 ScalarType.variable_type = ScalarVariable
 
 
+class ScalarConstantSignature(tuple):
+    """Signature for ScalarConstant that handles NaN equality and hashing."""
+
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        (t0, d0), (t1, d1) = self, other
+        if t0 != t1:
+            return False
+        return (d0 == d1) or (np.isnan(d0) and np.isnan(d1))
+
+    def __hash__(self):
+        t, d = self
+        if np.isnan(d):
+            return hash((type(self), t, "NaN"))
+        return hash((type(self), t, d))
+
+
 class ScalarConstant(ScalarVariable, Constant):
     def __init__(self, *args, **kwargs):
         Constant.__init__(self, *args, **kwargs)
+
+    def signature(self):
+        return ScalarConstantSignature((self.type, self.data))
 
 
 # Register ScalarConstant as the type of Constant corresponding to ScalarType
@@ -975,10 +995,12 @@ def constant(x, name=None, dtype=None) -> ScalarConstant:
 
 
 def as_scalar(x: Any, name: str | None = None) -> ScalarVariable:
-    if isinstance(x, ScalarVariable):
-        return x
-
     if isinstance(x, Variable):
+        if isinstance(x.type, ScalarType):
+            # NOTE: We may have a Variable with ScalarType that is not ScalarVariable/ScalarConstant/ScalarSharedVariable
+            # if it bypasses those constructs (same issue with TensorVariables). We should make that impossible to happen!
+            return x  # type: ignore[return-value]
+
         from pytensor.tensor.basic import scalar_from_tensor
         from pytensor.tensor.type import TensorType
 
@@ -1253,11 +1275,13 @@ class ScalarOp(COp):
     def impl(self, *inputs):
         raise MethodNotDefined("impl", type(self), self.__class__.__name__)
 
-    def grad(self, inputs, output_gradients):
-        raise MethodNotDefined("grad", type(self), self.__class__.__name__)
-
-    def L_op(self, inputs, outputs, output_gradients):
-        return self.grad(inputs, output_gradients)
+    def pullback(self, inputs, outputs, output_gradients):
+        # Fall back to deprecated L_op/grad if overridden by subclass
+        if type(self).L_op is not Op.L_op:
+            return type(self).L_op(self, inputs, outputs, output_gradients)
+        if type(self).grad is not Op.grad:
+            return self.grad(inputs, output_gradients)
+        raise MethodNotDefined("pullback", type(self), self.__class__.__name__)
 
     def __eq__(self, other):
         return type(self) is type(other) and getattr(
@@ -1323,6 +1347,10 @@ class UnaryScalarOp(ScalarOp):
     nin = 1
     amd_float32: str | None = None
     amd_float64: str | None = None
+
+    preserves_zero = False
+    monotonic_increasing = False
+    monotonic_decreasing = False
 
     def c_code_contiguous(self, node, name, inputs, outputs, sub):
         (x,) = inputs
@@ -1390,7 +1418,7 @@ class LogicalComparison(BinaryScalarOp):
     def output_types(self, *input_dtypes):
         return [bool] if getattr(self, "bool", False) else [int8]
 
-    def L_op(self, inputs, outputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         x, y = inputs
         assert outputs[0].type == bool
         return [
@@ -1426,7 +1454,7 @@ class FixedLogicalComparison(UnaryScalarOp):
     def output_types(self, *input_dtypes):
         return [bool] if getattr(self, "bool", False) else [int8]
 
-    def L_op(self, inputs, outputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         (x,) = inputs
         assert outputs[0].type == bool
         return [x.zeros_like(dtype=config.floatX)]
@@ -1625,7 +1653,7 @@ class Switch(ScalarOp):
         (z,) = outputs
         return f"{z} = {cond} ? {ift} : {iff};"
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (cond, ift, iff) = inputs
         (gz,) = gout
         first_part = switch(cond, gz, 0.0)
@@ -1664,7 +1692,7 @@ class UnaryBitOp(UnaryScalarOp):
                 )
         return upcast_out(*input_types[0])
 
-    def grad(self, inputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         return [inputs[0].zeros_like(dtype=config.floatX)]
 
 
@@ -1682,7 +1710,7 @@ class BinaryBitOp(BinaryScalarOp):
                 )
         return upcast_out(*input_types[0])
 
-    def grad(self, inputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         a, b = inputs
         return [
             a.zeros_like(dtype=config.floatX),
@@ -1750,6 +1778,7 @@ and_ = AND()
 
 class Invert(UnaryBitOp):
     nfunc_spec = ("invert", 1, 1)
+    monotonic_decreasing = True
 
     def impl(self, x):
         return ~x
@@ -1787,7 +1816,7 @@ class Maximum(BinaryScalarOp):
         # Test for both y>x and x>=y to detect NaN
         return f'{z} = (({y})>({x})? ({y}): (({x})>=({y})? ({x}): nan("")));'
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -1833,7 +1862,7 @@ class Minimum(BinaryScalarOp):
             raise NotImplementedError()
         return f'{z} = (({y})<({x})? ({y}): (({x})<=({y})? ({x}): nan("")));'
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -1881,7 +1910,7 @@ class Add(ScalarOp):
         else:
             return z + " = " + op.join(inputs) + ";"
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (gz,) = gout
         if gz.type in complex_types:
             raise NotImplementedError()
@@ -1923,7 +1952,7 @@ class Mul(ScalarOp):
         else:
             return z + " = " + op.join(inputs) + ";"
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (gz,) = gout
         retval = []
 
@@ -1976,7 +2005,7 @@ class Sub(BinaryScalarOp):
         (z,) = outputs
         return f"{z} = {x} - {y};"
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -2026,7 +2055,7 @@ class TrueDiv(BinaryScalarOp):
             return f"{z} = ((double){x}) / {y};"
         return f"{z} = {x} / {y};"
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -2147,7 +2176,7 @@ class IntDiv(BinaryScalarOp):
     def c_code_cache_version(self):
         return (6,)
 
-    def grad(self, inputs, g_output):
+    def pullback(self, inputs, outputs, g_output):
         return [inp.zeros_like(dtype=config.floatX) for inp in inputs]
 
 
@@ -2263,7 +2292,7 @@ class Mod(BinaryScalarOp):
             """
         )
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         if outputs[0].type in discrete_types:
@@ -2282,7 +2311,7 @@ class Pow(BinaryScalarOp):
     nfunc_spec = ("power", 2, 1)
 
     def impl(self, x, y):
-        return x**y
+        return np.power(x, y)
 
     def c_code(self, node, name, inputs, outputs, sub):
         (x, y) = inputs
@@ -2291,7 +2320,7 @@ class Pow(BinaryScalarOp):
             raise NotImplementedError("type not supported", type)
         return f"{z} = pow({x}, {y});"
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -2381,7 +2410,7 @@ class Clip(ScalarOp):
         (z,) = outputs
         return f"{z} = {x} < {min} ? {min} : {x} > {max} ? {max} : {x};"
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, mn, mx) = inputs
         (gz,) = gout
         assert gz.type not in complex_types
@@ -2421,7 +2450,7 @@ class Second(BinaryScalarOp):
 
         return [[False], [True]]
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (_x, y) = inputs
         (gz,) = gout
         if y.type in continuous_types:
@@ -2439,6 +2468,9 @@ second = Second(name="second")
 
 
 class Identity(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     def impl(self, input):
         return input
 
@@ -2447,7 +2479,7 @@ class Identity(UnaryScalarOp):
         (z,) = outputs
         return f"{z} = {x};"
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in continuous_types:
@@ -2486,7 +2518,7 @@ class Cast(UnaryScalarOp):
             return f"{z} = ({x}) ? 1 : 0;"
         return f"{z} = ({node.outputs[0].type.dtype_specs()[1]}){x};"
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if self.o_type in continuous_types:
@@ -2555,6 +2587,7 @@ def cast(x, dtype):
 
 
 class Abs(UnaryScalarOp):
+    preserves_zero = True
     nfunc_spec = ("abs", 1, 1)
 
     def make_node(self, x):
@@ -2570,7 +2603,7 @@ class Abs(UnaryScalarOp):
     def impl(self, x):
         return np.abs(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if outputs[0].type in discrete_types:
@@ -2605,6 +2638,9 @@ abs = Abs(same_out)
 
 
 class Sign(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("sign", 1, 1)
 
     @staticmethod
@@ -2617,7 +2653,7 @@ class Sign(UnaryScalarOp):
         # casting to output type is handled by filter
         return np.sign(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (_gz,) = gout
         rval = x.zeros_like()
@@ -2653,12 +2689,15 @@ sign = Sign(name="sign", output_types_preference=Sign._output_types_preference)
 
 
 class Ceil(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("ceil", 1, 1)
 
     def impl(self, x):
         return np.ceil(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (_gz,) = gout
         rval = x.zeros_like()
@@ -2679,12 +2718,15 @@ ceil = Ceil(upgrade_to_float_no_complex, name="ceil")
 
 
 class Floor(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("floor", 1, 1)
 
     def impl(self, x):
         return np.floor(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (_gz,) = gout
         rval = x.zeros_like()
@@ -2705,12 +2747,15 @@ floor = Floor(upgrade_to_float_no_complex, name="floor")
 
 
 class Trunc(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("trunc", 1, 1)
 
     def impl(self, x):
         return np.trunc(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (_gz,) = gout
         return [x.zeros_like(dtype=config.floatX)]
@@ -2725,6 +2770,9 @@ trunc = Trunc(upgrade_to_float_no_complex, name="trunc")
 
 
 class RoundHalfToEven(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     """
     This function implement the same rounding than numpy: Round half to even.
 
@@ -2738,7 +2786,7 @@ class RoundHalfToEven(UnaryScalarOp):
     def impl(self, x):
         return np.round(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (_gz,) = gout
         rval = x.zeros_like()
@@ -2813,6 +2861,9 @@ def round_half_away_from_zero_vec(a):
 
 
 class RoundHalfAwayFromZero(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     """
     Implement the same rounding algo as c round() fct.
 
@@ -2824,7 +2875,7 @@ class RoundHalfAwayFromZero(UnaryScalarOp):
     def impl(self, x):
         return round_half_away_from_zero_vec(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (_gz,) = gout
         rval = x.zeros_like()
@@ -2847,6 +2898,8 @@ round_half_away_from_zero = RoundHalfAwayFromZero(same_out_float_only)
 
 
 class Neg(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_decreasing = True
     # We can use numpy.negative here, because even if it gives unexpected
     # results on Boolean arrays, it will be passed other dtypes as PyTensor
     # does not have a Boolean type for tensors.
@@ -2855,7 +2908,7 @@ class Neg(UnaryScalarOp):
     def impl(self, x):
         return -x
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if outputs[0].type in discrete_types:
@@ -2892,7 +2945,7 @@ class Reciprocal(UnaryScalarOp):
     def impl(self, x):
         return np.float32(1.0) / x
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -2922,6 +2975,7 @@ class Log(UnaryScalarOp):
 
     """
 
+    monotonic_increasing = True
     nfunc_spec = ("log", 1, 1)
     amd_float32 = "amd_vrsa_logf"
     amd_float64 = "amd_vrda_log"
@@ -2934,7 +2988,7 @@ class Log(UnaryScalarOp):
             return np.log(x, dtype=np.float32)
         return np.log(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -2968,6 +3022,7 @@ class Log2(UnaryScalarOp):
 
     """
 
+    monotonic_increasing = True
     nfunc_spec = ("log2", 1, 1)
     amd_float32 = "amd_vrsa_log2f"
     amd_float64 = "amd_vrda_log2"
@@ -2980,7 +3035,7 @@ class Log2(UnaryScalarOp):
             return np.log2(x, dtype=np.float32)
         return np.log2(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3011,6 +3066,7 @@ class Log10(UnaryScalarOp):
 
     """
 
+    monotonic_increasing = True
     nfunc_spec = ("log10", 1, 1)
     amd_float32 = "amd_vrsa_log10f"
     amd_float64 = "amd_vrda_log10"
@@ -3023,7 +3079,7 @@ class Log10(UnaryScalarOp):
             return np.log10(x, dtype=np.float32)
         return np.log10(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3049,6 +3105,8 @@ log10 = Log10(upgrade_to_float, name="log10")
 
 
 class Log1p(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     """
     log(1+x).
 
@@ -3064,7 +3122,7 @@ class Log1p(UnaryScalarOp):
             return np.log1p(x, dtype=np.float32)
         return np.log1p(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3090,6 +3148,7 @@ log1p = Log1p(upgrade_to_float, name="log1p")
 
 
 class Exp(UnaryScalarOp):
+    monotonic_increasing = True
     nfunc_spec = ("exp", 1, 1)
     amd_float32 = "amd_vrsa_expf"
     amd_float64 = "amd_vrda_exp"
@@ -3102,7 +3161,7 @@ class Exp(UnaryScalarOp):
             return np.exp(x, dtype=np.float32)
         return np.exp(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3128,6 +3187,7 @@ exp = Exp(upgrade_to_float, name="exp")
 
 
 class Exp2(UnaryScalarOp):
+    monotonic_increasing = True
     nfunc_spec = ("exp2", 1, 1)
 
     def impl(self, x):
@@ -3138,7 +3198,7 @@ class Exp2(UnaryScalarOp):
             return np.exp2(x, dtype=np.float32)
         return np.exp2(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3164,6 +3224,8 @@ exp2 = Exp2(upgrade_to_float, name="exp2")
 
 
 class Expm1(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     nfunc_spec = ("expm1", 1, 1)
 
     def impl(self, x):
@@ -3174,7 +3236,7 @@ class Expm1(UnaryScalarOp):
             return np.expm1(x, dtype=np.float32)
         return np.expm1(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3203,12 +3265,13 @@ expm1 = Expm1(upgrade_to_float, name="expm1")
 
 
 class Sqr(UnaryScalarOp):
+    preserves_zero = True
     nfunc_spec = ("square", 1, 1)
 
     def impl(self, x):
         return x * x
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3231,6 +3294,9 @@ sqr = Sqr(same_out, name="sqr")
 
 
 class Sqrt(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("sqrt", 1, 1)
 
     def impl(self, x):
@@ -3241,7 +3307,7 @@ class Sqrt(UnaryScalarOp):
             return np.sqrt(x, dtype=np.float32)
         return np.sqrt(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3267,6 +3333,9 @@ sqrt = Sqrt(upgrade_to_float, name="sqrt")
 
 
 class Deg2Rad(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("deg2rad", 1, 1)
 
     def impl(self, x):
@@ -3277,7 +3346,7 @@ class Deg2Rad(UnaryScalarOp):
             return np.deg2rad(x, dtype=np.float32)
         return np.deg2rad(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3302,6 +3371,9 @@ deg2rad = Deg2Rad(upgrade_to_float, name="deg2rad")
 
 
 class Rad2Deg(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
+
     nfunc_spec = ("rad2deg", 1, 1)
 
     def impl(self, x):
@@ -3312,7 +3384,7 @@ class Rad2Deg(UnaryScalarOp):
             return np.rad2deg(x, dtype=np.float32)
         return np.rad2deg(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3349,7 +3421,7 @@ class Cos(UnaryScalarOp):
             return np.cos(x, dtype=np.float32)
         return np.cos(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3375,6 +3447,7 @@ cos = Cos(upgrade_to_float, name="cos")
 
 
 class ArcCos(UnaryScalarOp):
+    monotonic_decreasing = True
     nfunc_spec = ("arccos", 1, 1)
 
     def impl(self, x):
@@ -3385,7 +3458,7 @@ class ArcCos(UnaryScalarOp):
             return np.arccos(x, dtype=np.float32)
         return np.arccos(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3411,6 +3484,7 @@ arccos = ArcCos(upgrade_to_float, name="arccos")
 
 
 class Sin(UnaryScalarOp):
+    preserves_zero = True
     nfunc_spec = ("sin", 1, 1)
     amd_float32 = "amd_vrsa_sinf"
     amd_float64 = "amd_vrda_sin"
@@ -3423,7 +3497,7 @@ class Sin(UnaryScalarOp):
             return np.sin(x, dtype=np.float32)
         return np.sin(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3449,6 +3523,8 @@ sin = Sin(upgrade_to_float, name="sin")
 
 
 class ArcSin(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     nfunc_spec = ("arcsin", 1, 1)
 
     def impl(self, x):
@@ -3459,7 +3535,7 @@ class ArcSin(UnaryScalarOp):
             return np.arcsin(x, dtype=np.float32)
         return np.arcsin(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3485,6 +3561,7 @@ arcsin = ArcSin(upgrade_to_float, name="arcsin")
 
 
 class Tan(UnaryScalarOp):
+    preserves_zero = True
     nfunc_spec = ("tan", 1, 1)
 
     def impl(self, x):
@@ -3495,7 +3572,7 @@ class Tan(UnaryScalarOp):
             return np.tan(x, dtype=np.float32)
         return np.tan(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3521,6 +3598,8 @@ tan = Tan(upgrade_to_float, name="tan")
 
 
 class ArcTan(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     nfunc_spec = ("arctan", 1, 1)
 
     def impl(self, x):
@@ -3531,7 +3610,7 @@ class ArcTan(UnaryScalarOp):
             return np.arctan(x, dtype=np.float32)
         return np.arctan(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3569,7 +3648,7 @@ class ArcTan2(BinaryScalarOp):
                 return np.arctan2(y, x, dtype=np.float32)
         return np.arctan2(y, x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (y, x) = inputs
         (gz,) = gout
         if gz.type in complex_types:
@@ -3618,7 +3697,7 @@ class Cosh(UnaryScalarOp):
             return np.cosh(x, dtype=np.float32)
         return np.cosh(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3644,6 +3723,7 @@ cosh = Cosh(upgrade_to_float, name="cosh")
 
 
 class ArcCosh(UnaryScalarOp):
+    monotonic_increasing = True
     nfunc_spec = ("arccosh", 1, 1)
 
     def impl(self, x):
@@ -3654,7 +3734,7 @@ class ArcCosh(UnaryScalarOp):
             return np.arccosh(x, dtype=np.float32)
         return np.arccosh(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3680,6 +3760,8 @@ arccosh = ArcCosh(upgrade_to_float, name="arccosh")
 
 
 class Sinh(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     """
     sinh(x) = (exp(x) - exp(-x)) / 2.
 
@@ -3695,7 +3777,7 @@ class Sinh(UnaryScalarOp):
             return np.sinh(x, dtype=np.float32)
         return np.sinh(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3721,6 +3803,8 @@ sinh = Sinh(upgrade_to_float, name="sinh")
 
 
 class ArcSinh(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     nfunc_spec = ("arcsinh", 1, 1)
 
     def impl(self, x):
@@ -3731,7 +3815,7 @@ class ArcSinh(UnaryScalarOp):
             return np.arcsinh(x, dtype=np.float32)
         return np.arcsinh(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3757,6 +3841,8 @@ arcsinh = ArcSinh(upgrade_to_float, name="arcsinh")
 
 
 class Tanh(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     """
     tanh(x) = sinh(x) / cosh(x)
             = (exp(2*x) - 1) / (exp(2*x) + 1).
@@ -3773,7 +3859,7 @@ class Tanh(UnaryScalarOp):
             return np.tanh(x, dtype=np.float32)
         return np.tanh(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3799,6 +3885,8 @@ tanh = Tanh(upgrade_to_float, name="tanh")
 
 
 class ArcTanh(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     nfunc_spec = ("arctanh", 1, 1)
 
     def impl(self, x):
@@ -3809,7 +3897,7 @@ class ArcTanh(UnaryScalarOp):
             return np.arctanh(x, dtype=np.float32)
         return np.arctanh(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3835,6 +3923,7 @@ arctanh = ArcTanh(upgrade_to_float, name="arctanh")
 
 
 class Real(UnaryScalarOp):
+    preserves_zero = True
     """
     Extract the real coordinate of a complex number.
 
@@ -3846,7 +3935,7 @@ class Real(UnaryScalarOp):
     def impl(self, x):
         return np.real(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (_x,) = inputs
         (gz,) = gout
         return [complex(gz, 0)]
@@ -3859,12 +3948,13 @@ real = Real(real_out, name="real")
 
 
 class Imag(UnaryScalarOp):
+    preserves_zero = True
     nfunc_spec = ("imag", 1, 1)
 
     def impl(self, x):
         return np.imag(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -3887,7 +3977,7 @@ class Angle(UnaryScalarOp):
     def impl(self, x):
         return np.angle(x)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         # y = x.imag
         # r = sqrt(y**2 + x.real**2)
         # g = y/r
@@ -3938,7 +4028,7 @@ class Complex(BinaryScalarOp):
     def impl(self, x, y):
         return builtins.complex(x, y)
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x, y) = inputs
         (gz,) = gout
         return [cast(real(gz), x.type.dtype), cast(imag(gz), y.type.dtype)]
@@ -3951,6 +4041,7 @@ complex = Complex(name="complex")
 
 
 class Conj(UnaryScalarOp):
+    preserves_zero = True
     nfunc_spec = ("conj", 1, 1)
 
     def impl(self, x):
@@ -3983,7 +4074,7 @@ class ComplexFromPolar(BinaryScalarOp):
         else:
             return np.complex128(builtins.complex(x, y))
 
-    def grad(self, inputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (r, theta) = inputs
         (gz,) = gout
         gr = gz * complex_from_polar(1, theta)
@@ -4000,45 +4091,20 @@ complex_from_polar = ComplexFromPolar(name="complex_from_polar")
 class ScalarInnerGraphOp(ScalarOp, HasInnerGraph):
     """Includes boilerplate code for Python and C-implementation of Scalar Ops with inner graph."""
 
+    __props__ = ("fgraph",)
+
     def __init__(self, *args, **kwargs):
         self.prepare_node_called = set()
         super().__init__(*args, **kwargs)
 
-    def _cleanup_graph(self, inputs, outputs, clone: builtins.bool = True):
-        # TODO: We could convert to TensorVariable, optimize graph,
-        # and then convert back to ScalarVariable.
-        # This would introduce rewrites like `log(1 + x) -> log1p`.
-
-        fgraph = FunctionGraph(inputs, outputs, clone=clone)
-
-        # Validate node types
+    def _validate_inner_graph(self, fgraph):
+        """Validate that all ops in the inner graph are ScalarOps."""
         for node in fgraph.apply_nodes:
             if not isinstance(node.op, ScalarOp):
                 raise TypeError(
                     f"The fgraph of {self.__class__.__name__} must be exclusively "
                     "composed of scalar operations."
                 )
-
-        # Run MergeOptimization to avoid duplicated nodes
-        MergeOptimizer().rewrite(fgraph)
-
-        inputs, outputs = fgraph.inputs, fgraph.outputs
-
-        # Clone identical outputs that may have been merged
-        # If fgraph.outputs = [out_A, out_B, out_A], then final outputs = [out_A, out_B, clone(out_A)]
-        if len(set(fgraph.outputs)) != len(outputs):
-            old_outputs = outputs
-            outputs = []
-            for old_output in old_outputs:
-                if old_output not in outputs:
-                    outputs.append(old_output)
-                else:
-                    node = old_output.owner
-                    output_idx = node.outputs.index(old_output)
-                    output = node.clone().outputs[output_idx]
-                    outputs.append(output)
-
-        return inputs, outputs
 
     @property
     def fn(self):
@@ -4116,6 +4182,8 @@ class ScalarInnerGraphOp(ScalarOp, HasInnerGraph):
         return "\n".join(sorted(rval))
 
     def c_support_code_apply(self, node, name):
+        # Ensure nodenames is populated (side effect of c_code_template)
+        _ = self.c_code_template
         rval = []
         for subnode, subnodename in zip(
             self.fgraph.toposort(), self.nodenames, strict=True
@@ -4137,41 +4205,10 @@ class ScalarInnerGraphOp(ScalarOp, HasInnerGraph):
                 n.op.prepare_node(n, None, None, impl)
             self.prepare_node_called.add(impl)
 
-    def __eq__(self, other):
-        if self is other:
-            return True
-        if (
-            type(self) is not type(other)
-            or self.nin != other.nin
-            or self.nout != other.nout
-        ):
-            return False
-
-        # TODO FIXME: Why this?  Shouldn't we expect equivalent inputs to this
-        # object to generate the same `_c_code`?
-        return self.c_code_template == other.c_code_template
-
-    def __hash__(self):
-        # Note that in general, the configparser settings at the time
-        # of code generation (__init__) affect the semantics of this Op.
-        # This function assumes that all relevant info about the configparser
-        # is embodied in _c_code.  So the _c_code, rather than self.fgraph,
-        # is the signature of the semantics of this Op.
-        # _c_code is preserved through unpickling, so the Op will not change
-        # semantics when it is reloaded with different configparser
-        # settings.
-        #
-        # TODO FIXME: Doesn't the above just mean that we should be including
-        # the relevant "configparser settings" here?  Also, why should we even
-        # care about the exact form of the generated C code when comparing
-        # `Op`s?  All this smells of leaky concerns and interfaces.
-        return hash((type(self), self.nin, self.nout, self.c_code_template))
-
     def __getstate__(self):
         rval = dict(self.__dict__)
         rval.pop("_c_code", None)
         rval.pop("_py_perform_fn", None)
-        rval.pop("_fgraph", None)
         rval.pop("prepare_node_called", None)
         return rval
 
@@ -4190,78 +4227,51 @@ class Composite(ScalarInnerGraphOp):
 
     """
 
-    init_param: tuple[str, ...] = ("inputs", "outputs")
-
     def __init__(
-        self, inputs, outputs, name="Composite", clone_graph: builtins.bool = True
+        self,
+        inputs,
+        outputs,
+        name="Composite",
     ):
         self.name = name
         self._name = None
-        # We need to clone the graph as sometimes its nodes already
-        # contain a reference to an fgraph. As we want the Composite
-        # to be pickable, we can't have reference to fgraph.
 
-        # Also, if there is Composite in the inner graph, we want to
-        # remove them. In that case, we do a more complicated clone
-        # that will flatten Composite. We don't need to do this
-        # recursively, as the way the fusion optimizer work, we have
-        # only 1 new Composite each time at the output.
         for i in inputs:
             assert i not in outputs  # This isn't supported, use identity
 
-        if len(outputs) > 1 or not any(
-            isinstance(var.owner.op, Composite) for var in outputs
+        # Flatten nested Composites in single-output case
+        if len(outputs) == 1 and any(
+            var.owner is not None and isinstance(var.owner.op, Composite)
+            for var in outputs
         ):
-            if clone_graph:
-                inputs, outputs = clone(inputs, outputs)
-
-        else:
-            # Inner Composite that we need to flatten
-            # FIXME: There could be a composite in the middle of the graph, why is this here?
-            #  If anything it should be an optimization, but I suspect lower-level compilation can handle this anyway.
-            assert len(outputs) == 1
-            # 1. Create a new graph from inputs up to the
-            # Composite
+            inner_op = outputs[0].owner.op
+            inner_fgraph = inner_op.fgraph.unfreeze()
             res = pytensor.compile.rebuild_collect_shared(
                 inputs=inputs, outputs=outputs[0].owner.inputs, copy_inputs_over=False
-            )  # Clone also the inputs
-            # 2. We continue this partial clone with the graph in
-            # the inner Composite
+            )
             res2 = pytensor.compile.rebuild_collect_shared(
-                inputs=outputs[0].owner.op.inputs,
-                outputs=outputs[0].owner.op.outputs,
-                replace=dict(zip(outputs[0].owner.op.inputs, res[1], strict=True)),
+                inputs=inner_fgraph.inputs,
+                outputs=inner_fgraph.outputs,
+                replace=dict(zip(inner_fgraph.inputs, res[1], strict=True)),
             )
             assert len(res2[1]) == len(outputs)
             assert len(res[0]) == len(inputs)
-            assert res[0] != inputs
             inputs, outputs = res[0], res2[1]
 
-        # We already cloned the graph, or the user told us there was no need for it
-        self.inputs, self.outputs = self._cleanup_graph(inputs, outputs, clone=False)
-        self.inputs_type = tuple(input.type for input in self.inputs)
-        self.outputs_type = tuple(output.type for output in self.outputs)
-        self.nin = len(inputs)
-        self.nout = len(outputs)
+        self.fgraph = FrozenFunctionGraph(inputs, outputs)
+        self._validate_inner_graph(self.fgraph)
+
+        self.inputs = self.fgraph.inputs
+        self.outputs = self.fgraph.outputs
+        self.inputs_type = tuple(inp.type for inp in self.inputs)
+        self.outputs_type = tuple(out.type for out in self.outputs)
+        self.nin = len(self.inputs)
+        self.nout = len(self.outputs)
         super().__init__()
 
     def __str__(self):
         if self._name is not None:
             return self._name
-
-        # Rename internal variables
-        for i, r in enumerate(self.fgraph.inputs):
-            r.name = f"i{i}"
-        for i, r in enumerate(self.fgraph.outputs):
-            r.name = f"o{i}"
-        io = set(self.fgraph.inputs + self.fgraph.outputs)
-        for i, r in enumerate(self.fgraph.variables):
-            if (
-                not isinstance(r, Constant)
-                and r not in io
-                and len(self.fgraph.clients[r]) > 1
-            ):
-                r.name = f"t{i}"
 
         if len(self.fgraph.outputs) > 1 or len(self.fgraph.apply_nodes) > 10:
             self._name = "Composite{...}"
@@ -4271,18 +4281,9 @@ class Composite(ScalarInnerGraphOp):
 
         return self._name
 
-    @property
-    def fgraph(self):
-        if hasattr(self, "_fgraph"):
-            return self._fgraph
-        # fgraph cannot be a property of the base class because it messes up with C caching.
-        # We also need a `FunctionGraph(clone=True)` (default) according to an old comment
-        fgraph = FunctionGraph(self.inputs, self.outputs)
-        self._fgraph = fgraph
-        return self._fgraph
-
     def clone(self):
-        return self.__class__(self.fgraph.inputs, self.fgraph.outputs)
+        mutable_fg = self.fgraph.unfreeze()
+        return self.__class__(mutable_fg.inputs, mutable_fg.outputs)
 
     def output_types(self, input_types):
         if tuple(input_types) != self.inputs_type:
@@ -4292,14 +4293,16 @@ class Composite(ScalarInnerGraphOp):
         return self.outputs_type
 
     def make_node(self, *inputs):
-        if tuple(i.type for i in self.inputs) == tuple(i.type for i in inputs):
+        if self.inputs_type == tuple(i.type for i in inputs):
             return super().make_node(*inputs)
         else:
-            # Make a new op with the right input type.
+            # Make a new op with the right input types.
+            # Unfreeze the frozen inner graph for rebuild_collect_shared.
             assert len(inputs) == self.nin
+            mutable_fg = self.fgraph.unfreeze()
             res = pytensor.compile.rebuild_collect_shared(
-                self.outputs,
-                replace=dict(zip(self.inputs, inputs, strict=True)),
+                mutable_fg.outputs,
+                replace=dict(zip(mutable_fg.inputs, inputs, strict=True)),
                 rebuild_strict=False,
             )
             # After rebuild_collect_shared, the Variable in inputs
@@ -4316,7 +4319,7 @@ class Composite(ScalarInnerGraphOp):
         for storage, out_val in zip(output_storage, outputs):
             storage[0] = out_val
 
-    def grad(self, inputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         raise NotImplementedError("grad is not implemented for Composite")
 
     @property

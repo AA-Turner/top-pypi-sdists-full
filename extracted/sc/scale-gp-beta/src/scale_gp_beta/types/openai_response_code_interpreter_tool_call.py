@@ -7,15 +7,12 @@ from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = [
-    "OpenAIResponseCodeInterpreterToolCall",
-    "Output",
-    "OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputLogs",
-    "OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputImage",
-]
+__all__ = ["OpenAIResponseCodeInterpreterToolCall", "Output", "OutputOutputLogs", "OutputOutputImage"]
 
 
-class OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputLogs(BaseModel):
+class OutputOutputLogs(BaseModel):
+    """The logs output from the code interpreter."""
+
     logs: str
 
     type: Literal["logs"]
@@ -33,7 +30,9 @@ class OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputLogs(BaseMo
         __pydantic_extra__: Dict[str, object]
 
 
-class OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputImage(BaseModel):
+class OutputOutputImage(BaseModel):
+    """The image output from the code interpreter."""
+
     type: Literal["image"]
 
     url: str
@@ -51,13 +50,12 @@ class OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputImage(BaseM
         __pydantic_extra__: Dict[str, object]
 
 
-Output: TypeAlias = Union[
-    OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputLogs,
-    OutputOpenAITypesResponsesResponseCodeInterpreterToolCallOutputImage,
-]
+Output: TypeAlias = Union[OutputOutputLogs, OutputOutputImage]
 
 
 class OpenAIResponseCodeInterpreterToolCall(BaseModel):
+    """A tool call to run code."""
+
     id: str
 
     container_id: str

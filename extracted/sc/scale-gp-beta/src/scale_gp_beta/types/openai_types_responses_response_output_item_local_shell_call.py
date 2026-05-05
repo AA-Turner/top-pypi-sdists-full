@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseOutputItemLocalShellCall", "Action"]
 
 
 class Action(BaseModel):
+    """Execute a shell command on the server."""
+
     command: List[str]
 
     env: Dict[str, str]
@@ -37,9 +39,12 @@ class Action(BaseModel):
 
 
 class OpenAITypesResponsesResponseOutputItemLocalShellCall(BaseModel):
+    """A tool call to run a command on the local shell."""
+
     id: str
 
     action: Action
+    """Execute a shell command on the server."""
 
     call_id: str
 

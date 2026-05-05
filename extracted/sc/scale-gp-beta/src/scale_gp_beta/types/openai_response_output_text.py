@@ -10,16 +10,18 @@ from .._models import BaseModel
 __all__ = [
     "OpenAIResponseOutputText",
     "Annotation",
-    "AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFileCitation",
+    "AnnotationAnnotationFileCitation",
     "AnnotationOpenAITypesResponsesResponseOutputTextAnnotationURLCitation",
-    "AnnotationOpenAITypesResponsesResponseOutputTextAnnotationContainerFileCitation",
-    "AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFilePath",
+    "AnnotationAnnotationContainerFileCitation",
+    "AnnotationAnnotationFilePath",
     "Logprob",
     "LogprobTopLogprob",
 ]
 
 
-class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFileCitation(BaseModel):
+class AnnotationAnnotationFileCitation(BaseModel):
+    """A citation to a file."""
+
     file_id: str
 
     filename: str
@@ -42,6 +44,8 @@ class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFileCitation(Bas
 
 
 class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationURLCitation(BaseModel):
+    """A citation for a web resource used to generate a model response."""
+
     end_index: int
 
     start_index: int
@@ -65,7 +69,9 @@ class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationURLCitation(Base
         __pydantic_extra__: Dict[str, object]
 
 
-class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationContainerFileCitation(BaseModel):
+class AnnotationAnnotationContainerFileCitation(BaseModel):
+    """A citation for a container file used to generate a model response."""
+
     container_id: str
 
     end_index: int
@@ -91,7 +97,9 @@ class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationContainerFileCit
         __pydantic_extra__: Dict[str, object]
 
 
-class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFilePath(BaseModel):
+class AnnotationAnnotationFilePath(BaseModel):
+    """A path to a file."""
+
     file_id: str
 
     index: int
@@ -112,14 +120,16 @@ class AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFilePath(BaseMod
 
 
 Annotation: TypeAlias = Union[
-    AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFileCitation,
+    AnnotationAnnotationFileCitation,
     AnnotationOpenAITypesResponsesResponseOutputTextAnnotationURLCitation,
-    AnnotationOpenAITypesResponsesResponseOutputTextAnnotationContainerFileCitation,
-    AnnotationOpenAITypesResponsesResponseOutputTextAnnotationFilePath,
+    AnnotationAnnotationContainerFileCitation,
+    AnnotationAnnotationFilePath,
 ]
 
 
 class LogprobTopLogprob(BaseModel):
+    """The top log probability of a token."""
+
     token: str
 
     bytes: List[int]
@@ -140,6 +150,8 @@ class LogprobTopLogprob(BaseModel):
 
 
 class Logprob(BaseModel):
+    """The log probability of a token."""
+
     token: str
 
     bytes: List[int]
@@ -162,6 +174,8 @@ class Logprob(BaseModel):
 
 
 class OpenAIResponseOutputText(BaseModel):
+    """A text output from the model."""
+
     annotations: List[Annotation]
 
     text: str

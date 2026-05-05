@@ -1,4 +1,5 @@
 import re
+from unittest.mock import patch
 
 import llama_cpp
 import pytest
@@ -8,12 +9,13 @@ from outlines_core import Index, Vocabulary
 import outlines
 from outlines.backends.outlines_core import (
     OutlinesCoreBackend,
-    OutlinesCoreLogitsProcessor
+    OutlinesCoreLogitsProcessor,
 )
 from tests.backends.test_backends_utils import simulate_model_calling_processor
 
 try:
     import mlx_lm
+
     HAS_MLX = True
 except ImportError:
     HAS_MLX = False
@@ -25,6 +27,7 @@ def model_transformers():
         transformers.AutoTokenizer.from_pretrained("erwanf/gpt2-mini"),
     )
 
+
 def model_llamacpp():
     return outlines.from_llamacpp(
         llama_cpp.Llama.from_pretrained(
@@ -34,10 +37,10 @@ def model_llamacpp():
         )
     )
 
+
 def model_mlxlm():
-    return outlines.from_mlxlm(
-        *mlx_lm.load("mlx-community/SmolLM-135M-Instruct-4bit")
-    )
+    return outlines.from_mlxlm(*mlx_lm.load("mlx-community/SmolLM-135M-Instruct-4bit"))
+
 
 @pytest.fixture
 def json_schema():
@@ -47,9 +50,11 @@ def json_schema():
         + '"additionalProperties": false}'
     )
 
+
 @pytest.fixture
 def regex():
     return r"[0-9]{3}"
+
 
 @pytest.fixture
 def cfg():
@@ -84,11 +89,7 @@ def test_outlines_core_processor_torch(regex):
     processor = OutlinesCoreLogitsProcessor(index, "torch")
     for _ in range(2):
         input_ids = simulate_model_calling_processor(
-            processor,
-            "torch",
-            len(tokenizer.get_vocab()),
-            tokenizer.eos_token_id,
-            2
+            processor, "torch", len(tokenizer.get_vocab()), tokenizer.eos_token_id, 2
         )
         assert re.match(regex, hf_tokenizer.decode(input_ids[0]))
         assert re.match(regex, hf_tokenizer.decode(input_ids[1]))
@@ -102,11 +103,7 @@ def test_outlines_core_processor_numpy(regex):
     processor = OutlinesCoreLogitsProcessor(index, "numpy")
     for _ in range(2):
         input_ids = simulate_model_calling_processor(
-            processor,
-            "numpy",
-            len(tokenizer.vocabulary),
-            tokenizer.eos_token_id,
-            2
+            processor, "numpy", len(tokenizer.vocabulary), tokenizer.eos_token_id, 2
         )
         assert re.match(regex, tokenizer.decode(input_ids[0])[0])
         assert re.match(regex, tokenizer.decode(input_ids[1])[0])
@@ -121,14 +118,34 @@ def test_outlines_core_processor_mlx():
     processor = OutlinesCoreLogitsProcessor(index, "mlx")
     for _ in range(2):
         input_ids = simulate_model_calling_processor(
-            processor,
-            "mlx",
-            len(tokenizer.vocabulary),
-            tokenizer.eos_token_id,
-            2
+            processor, "mlx", len(tokenizer.vocabulary), tokenizer.eos_token_id, 2
         )
         assert re.match(regex, tokenizer.decode(input_ids[0]))
         assert re.match(regex, tokenizer.decode(input_ids[1]))
+
+
+def test_create_vocabulary_preserves_duplicate_token_ids():
+    vocab = {
+        "hello": 1,
+        "world": 2,
+        "<0x20>": 3,
+        "▁": 4,
+    }
+
+    def token_to_str(token):
+        if token in ("<0x20>", "▁"):
+            return " "
+        return token
+
+    vocabulary = OutlinesCoreBackend.create_outlines_core_vocabulary(
+        vocab=vocab,
+        eos_token_id=0,
+        eos_token="hello",
+        token_to_str=token_to_str,
+    )
+
+    # 4 original IDs - 1 popped (hello) + 1 EOS added by Vocabulary = 4
+    assert len(vocabulary) == 4
 
 
 models = [
@@ -137,6 +154,7 @@ models = [
 ]
 if HAS_MLX:
     models.append((model_mlxlm(), "mlx"))
+
 
 @pytest.mark.parametrize("model, tensor_library_name", models)
 def test_outlines_core_backend(model, tensor_library_name, json_schema, regex, cfg):
@@ -172,7 +190,9 @@ def test_outlines_core_backend(model, tensor_library_name, json_schema, regex, c
     generator = outlines.Generator(model, backend="outlines_core", processor=processor)
     for _ in range(2):
         if tensor_library_name == "torch":
-            response = generator.batch(["Create a character", "Hello, how are you?"], max_new_tokens=200)
+            response = generator.batch(
+                ["Create a character", "Hello, how are you?"], max_new_tokens=200
+            )
             assert len(response) == 2
             for r in response:
                 assert r[0] == "{"
@@ -181,3 +201,81 @@ def test_outlines_core_backend(model, tensor_library_name, json_schema, regex, c
             response = generator("Create a character", max_tokens=20)
             assert response[0] == "{"
             assert "name" in response
+
+
+def test_create_vocabulary_preserves_distinct_decoded_strings():
+    """Test that tokens decoding to distinct strings each get their own entry
+    and that eos_token is correctly excluded from the vocabulary.
+    """
+    vocab = {
+        "▁hello": 1,
+        "hello": 2,
+        "▁the": 3,
+        "<eos>": 0,
+    }
+    eos_token_id = 0
+    eos_token = "<eos>"
+
+    # token_to_str strips the leading "▁" (sentencepiece style)
+    def token_to_str(token):
+        return token.replace("▁", " ") if token.startswith("▁") else token
+
+    # Capture the formatted_vocab dict passed to Vocabulary
+    captured = {}
+
+    def mock_vocabulary(eos_id, fmt_vocab):
+        captured.update(fmt_vocab)
+        return Vocabulary(eos_id, fmt_vocab)
+
+    with patch(
+        "outlines.backends.outlines_core.Vocabulary",
+        side_effect=mock_vocabulary,
+    ):
+        OutlinesCoreBackend.create_outlines_core_vocabulary(
+            vocab, eos_token_id, eos_token, token_to_str
+        )
+
+    assert captured[" hello"] == [1]
+    assert captured["hello"] == [2]
+    assert captured[" the"] == [3]
+    assert eos_token not in captured
+    assert len(captured) == 3
+    assert sum(len(ids) for ids in captured.values()) == 3
+
+
+def test_create_vocabulary_duplicate_decoded_strings():
+    """Test that when token_to_str maps multiple tokens to the SAME string,
+    all their IDs are accumulated in a single list.
+    """
+    # Both tokens decode to the exact same string "hi"
+    vocab = {
+        "▁hi": 1,
+        " hi": 2,
+        "hi": 3,
+        "<eos>": 0,
+    }
+    eos_token_id = 0
+    eos_token = "<eos>"
+
+    # token_to_str strips the leading "▁" (sentencepiece style)
+    def token_to_str(token):
+        return token.replace("▁", " ") if token.startswith("▁") else token
+
+    captured = {}
+
+    def mock_vocabulary(eos_id, fmt_vocab):
+        captured.update(fmt_vocab)
+        return Vocabulary(eos_id, fmt_vocab)
+
+    with patch(
+        "outlines.backends.outlines_core.Vocabulary",
+        side_effect=mock_vocabulary,
+    ):
+        OutlinesCoreBackend.create_outlines_core_vocabulary(
+            vocab, eos_token_id, eos_token, token_to_str
+        )
+
+    assert sorted(captured[" hi"]) == [1, 2]
+    assert captured["hi"] == [3]
+    assert len(captured) == 2
+    assert sum(len(ids) for ids in captured.values()) == 3

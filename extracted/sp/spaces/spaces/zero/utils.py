@@ -8,12 +8,18 @@ from functools import cache
 from pathlib import Path
 from uuid import uuid4
 from typing import Any
+from typing import NamedTuple
 
 from ..config import ZEROGPU_HOME
 from ..config import Config
 
 
 CLEANUPS_BASE_DIR = ZEROGPU_HOME / 'cleanups'
+
+
+class ProcessConnection(NamedTuple):
+    fd: int
+    port: int
 
 
 def register_cleanup(pid: int, target_dir: Path):
@@ -41,6 +47,38 @@ def read_map_files():
         except OSError: # pragma: no cover
             continue
         yield map_file.name, path
+
+
+def _get_socket_inodes():
+    for proc_net in (
+        '/proc/net/tcp',
+        '/proc/net/tcp6',
+        '/proc/net/udp',
+        '/proc/net/udp6',
+    ):
+        if Path(proc_net).exists():
+            lines = Path(proc_net).read_text().splitlines()
+            for line in lines[1:]:
+                if len(fields := line.split()) >= 10:
+                    local_address, inode = fields[1], fields[9]
+                    port = int(local_address.rsplit(':', 1)[1], 16)
+                    if inode != '0':
+                        yield inode, port
+
+
+def get_process_connections():
+    socket_inodes = {inode: port for inode, port in _get_socket_inodes()}
+    for fd_path in Path('/proc/self/fd').iterdir():
+        fd = int(fd_path.name)
+        try:
+            target = fd_path.readlink()
+        except (OSError, ValueError): # pragma: no cover
+            continue
+        if not target.name.startswith('socket:[') or not target.name.endswith(']'):
+            continue
+        inode = target.name[8:-1]
+        if inode in socket_inodes:
+            yield ProcessConnection(fd, socket_inodes[inode])
 
 
 @cache

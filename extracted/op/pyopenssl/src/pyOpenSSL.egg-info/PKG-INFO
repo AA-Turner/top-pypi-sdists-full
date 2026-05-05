@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyOpenSSL
-Version: 26.1.0
+Version: 26.2.0
 Summary: Python wrapper module around the OpenSSL library
 Home-page: https://pyopenssl.org/
 Author: The pyOpenSSL developers
@@ -27,7 +27,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Python: >=3.8
 License-File: LICENSE
-Requires-Dist: cryptography<48,>=46.0.0
+Requires-Dist: cryptography<49,>=46.0.0
 Requires-Dist: typing-extensions>=4.9; python_version < "3.13" and python_version >= "3.8"
 Provides-Extra: test
 Requires-Dist: pytest-rerunfailures; extra == "test"
@@ -95,6 +95,24 @@ You can also join ``#pyca`` on ``irc.libera.chat`` to ask questions or get invol
 
 Release Information
 ===================
+
+26.2.0 (2026-05-04)
+-------------------
+
+Backward-incompatible changes:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Removed deprecated ``OpenSSL.crypto.X509Extension``, ``OpenSSL.crypto.X509Req.add_extension``, ``OpenSSL.crypto.X509Req.get_extensions``, ``OpenSSL.crypto.X509.add_extension``, ``OpenSSL.crypto.X509.get_extensions``. ``cryptography.x509`` should be used instead.
+- It is now an error to calling any mutating method on ``OpenSSL.SSL.Context`` after it has been used to create a ``Connection``. This was previously deprecated and has always been unsafe.
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Changes:
+^^^^^^^^
+
+- Maximum supported ``cryptography`` version is now 48.x.
+- Added ``OpenSSL.SSL.Connection.set_options`` to set options on a per-connection basis.
 
 26.1.0 (2026-04-24)
 -------------------

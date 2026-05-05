@@ -23,7 +23,6 @@ from typing import Generic
 from typing_extensions import assert_never
 
 import gradio as gr
-import psutil
 
 from ..config import Config
 from ..reloading import reload_server_ports
@@ -45,6 +44,7 @@ from .gradio import try_process_queue_event
 from .tqdm import remove_tqdm_multiprocessing_lock
 from .tqdm import tqdm
 from .utils import apply_cleanups
+from .utils import get_process_connections
 from .types import * # TODO: Please don't do that
 
 
@@ -88,7 +88,7 @@ class Worker(Generic[Res]):
         if (gradio_server_port := get_server_port()) is not None:
             server_ports |= {gradio_server_port}
         server_ports |= reload_server_ports
-        fds = [conn.fd for conn in psutil.Process().connections() if conn.laddr.port in server_ports]
+        fds = [conn.fd for conn in get_process_connections() if conn.port in server_ports]
         args = self.arg_queue, self.res_queue, self.stop_event, allow_token, nvidia_uuid, fds
         if TYPE_CHECKING:
             target(*args)

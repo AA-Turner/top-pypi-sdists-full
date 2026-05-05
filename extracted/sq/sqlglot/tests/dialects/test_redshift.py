@@ -344,6 +344,16 @@ class TestRedshift(Validator):
         self.validate_identity("SELECT DATEADD(DAY, 1, 'today')")
         self.validate_identity("SELECT * FROM #x")
         self.validate_identity("SELECT INTERVAL '5 DAY'")
+        self.validate_identity("SELECT date_col - INTERVAL '30' FROM t")
+        self.validate_identity("SELECT date_col - INTERVAL '1' AS one_second_later")
+        self.validate_identity(
+            "SELECT date_col - INTERVAL '30' DAY FROM t",
+            "SELECT date_col - INTERVAL '30 DAY' FROM t",
+        )
+        self.validate_identity(
+            "SELECT date_col - INTERVAL '1' HOUR AS one_hour_later",
+            "SELECT date_col - INTERVAL '1 HOUR' AS one_hour_later",
+        )
         self.validate_identity("foo$")
         self.validate_identity("CAST('bla' AS SUPER)")
         self.validate_identity("CREATE TABLE real1 (realcol REAL)")
@@ -352,6 +362,9 @@ class TestRedshift(Validator):
         self.validate_identity("'%' SIMILAR TO '^%' ESCAPE '^'")
         self.validate_identity("CREATE TABLE datetable (start_date DATE, end_date DATE)")
         self.validate_identity("SELECT APPROXIMATE AS y")
+        self.validate_identity(
+            "SELECT APPROXIMATE PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY totalprice)"
+        )
         self.validate_identity("CREATE TABLE t (c BIGINT IDENTITY(0, 1))")
         self.validate_identity(
             "COPY test_staging_tbl FROM 's3://your/bucket/prefix/here' IAM_ROLE default FORMAT AS AVRO 'auto'"

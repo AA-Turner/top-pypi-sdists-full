@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -407,38 +407,44 @@ def test_2719(conn, queue, book_data):
     assert props1 is None
 
 
-def test_2720(skip_unless_thick_mode, conn, queue, book_data, test_env):
+def test_2720(conn, book_data, test_env):
     "2720 - verify attributes of AQ message which spawned notification"
     if test_env.is_on_oracle_cloud:
         pytest.skip("AQ notification not supported on the cloud")
-    condition = threading.Condition()
+    queue = test_env.get_and_clear_queue(
+        conn, "TEST_SHARDED_BOOK_QUEUE", "UDT_BOOK"
+    )
+    event = threading.Event()
     other_conn = test_env.get_connection(events=True)
 
     def notification_callback(message=None, *args, **kwargs):
         cursor = conn.cursor()
-        cursor.execute("select msgid from book_queue_tab")
+        cursor.execute("""
+            select msg_id
+            from aq$test_sharded_book_queue
+            where msg_state = 'READY'
+            """)
         (actual_msgid,) = cursor.fetchone()
         assert message.msgid == actual_msgid
         assert message.consumer_name is None
         main_user = test_env.main_user.upper()
         assert message.queue_name == f'"{main_user}"."{queue.name}"'
         assert message.type == oracledb.EVENT_AQ
-        with condition:
-            condition.notify()
+        event.set()
 
     sub = other_conn.subscribe(
         namespace=oracledb.SUBSCR_NAMESPACE_AQ,
         name=queue.name,
         timeout=300,
         callback=notification_callback,
+        client_initiated=True,
     )
     book = queue.payload_type.newobject()
     book.TITLE, book.AUTHORS, book.PRICE = book_data[0]
     props = conn.msgproperties(payload=book)
     queue.enqone(props)
     conn.commit()
-    with condition:
-        assert condition.wait(5)
+    assert event.wait(5)
     other_conn.unsubscribe(sub)
     other_conn.close()
 

@@ -33,20 +33,18 @@ class SchedulingRule(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'selector': 'str',
+        'selector': 'list[MatchExpression]',
         'resource_queue': 'str',
-        'priority_policy': 'PriorityPolicy',
-        'reject': 'bool'
+        'priority_policy': 'PriorityPolicy'
     }
 
     attribute_map = {
         'selector': 'selector',
         'resource_queue': 'resource_queue',
-        'priority_policy': 'priority_policy',
-        'reject': 'reject'
+        'priority_policy': 'priority_policy'
     }
 
-    def __init__(self, selector=None, resource_queue=None, priority_policy=None, reject=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, selector=None, resource_queue=None, priority_policy=None, local_vars_configuration=None):  # noqa: E501
         """SchedulingRule - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -55,7 +53,6 @@ class SchedulingRule(object):
         self._selector = None
         self._resource_queue = None
         self._priority_policy = None
-        self._reject = None
         self.discriminator = None
 
         if selector is not None:
@@ -63,8 +60,6 @@ class SchedulingRule(object):
         self.resource_queue = resource_queue
         if priority_policy is not None:
             self.priority_policy = priority_policy
-        if reject is not None:
-            self.reject = reject
 
     @property
     def selector(self):
@@ -72,7 +67,7 @@ class SchedulingRule(object):
 
 
         :return: The selector of this SchedulingRule.  # noqa: E501
-        :rtype: str
+        :rtype: list[MatchExpression]
         """
         return self._selector
 
@@ -82,7 +77,7 @@ class SchedulingRule(object):
 
 
         :param selector: The selector of this SchedulingRule.  # noqa: E501
-        :type: str
+        :type: list[MatchExpression]
         """
 
         self._selector = selector
@@ -130,27 +125,6 @@ class SchedulingRule(object):
         """
 
         self._priority_policy = priority_policy
-
-    @property
-    def reject(self):
-        """Gets the reject of this SchedulingRule.  # noqa: E501
-
-
-        :return: The reject of this SchedulingRule.  # noqa: E501
-        :rtype: bool
-        """
-        return self._reject
-
-    @reject.setter
-    def reject(self, reject):
-        """Sets the reject of this SchedulingRule.
-
-
-        :param reject: The reject of this SchedulingRule.  # noqa: E501
-        :type: bool
-        """
-
-        self._reject = reject
 
     def to_dict(self):
         """Returns the model properties as a dict"""

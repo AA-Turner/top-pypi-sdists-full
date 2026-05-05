@@ -5,7 +5,7 @@ use chroma_types::{
     Operation, Schema, SegmentType, SegmentUuid, UpdateMetadata, UpdateMetadataValue,
 };
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use thiserror::Error;
 use tracing::{Instrument, Span};
@@ -144,7 +144,7 @@ pub struct MaterializedLogRecord {
     // in the record segment at which the record was found.
     // If not present in the segment then it is the offset id
     // at which it should be inserted.
-    offset_id: u32,
+    offset_id: AtomicU32,
     // Set only for the records that are being inserted for the first time
     // in the log since data_record will be None in such cases. For other
     // cases, just read from data record.
@@ -185,7 +185,7 @@ impl MaterializedLogRecord {
     fn from_segment_offset_id(offset_id: u32) -> Self {
         Self {
             offset_id_exists_in_segment: true,
-            offset_id,
+            offset_id: AtomicU32::new(offset_id),
             user_id_at_log_index: None,
             final_operation: MaterializedLogOperation::Initial,
             metadata_to_be_merged: None,
@@ -232,7 +232,7 @@ impl MaterializedLogRecord {
 
         Ok(Self {
             offset_id_exists_in_segment: false,
-            offset_id,
+            offset_id: AtomicU32::new(offset_id),
             user_id_at_log_index: Some(log_index),
             final_operation: MaterializedLogOperation::AddNew,
             metadata_to_be_merged: merged_metadata,
@@ -253,7 +253,15 @@ pub struct BorrowedMaterializedLogRecord<'log_data> {
 
 impl<'log_data> BorrowedMaterializedLogRecord<'log_data> {
     pub fn get_offset_id(&self) -> u32 {
-        self.materialized_log_record.offset_id
+        self.materialized_log_record
+            .offset_id
+            .load(Ordering::Relaxed)
+    }
+
+    pub fn set_offset_id(&self, id: u32) {
+        self.materialized_log_record
+            .offset_id
+            .store(id, Ordering::Relaxed);
     }
 
     pub fn get_operation(&self) -> MaterializedLogOperation {
@@ -294,7 +302,11 @@ impl<'log_data> BorrowedMaterializedLogRecord<'log_data> {
 
         match record_segment_reader {
             Some(reader) => Ok(reader
-                .get_user_id_for_offset_id(self.materialized_log_record.offset_id)
+                .get_user_id_for_offset_id(
+                    self.materialized_log_record
+                        .offset_id
+                        .load(Ordering::Relaxed),
+                )
                 .await?
                 .to_string()),
             None => Err(LogMaterializerError::RecordSegmentReaderShardRequired),
@@ -311,7 +323,11 @@ impl<'log_data> BorrowedMaterializedLogRecord<'log_data> {
             true => match record_segment_reader {
                 Some(reader) => {
                     reader
-                        .get_data_for_offset_id(self.materialized_log_record.offset_id)
+                        .get_data_for_offset_id(
+                            self.materialized_log_record
+                                .offset_id
+                                .load(Ordering::Relaxed),
+                        )
                         .await?
                 }
                 None => None,
@@ -336,7 +352,9 @@ pub struct HydratedMaterializedLogRecord<'log_data, 'segment_data> {
 
 impl<'log_data, 'segment_data: 'log_data> HydratedMaterializedLogRecord<'log_data, 'segment_data> {
     pub fn get_offset_id(&self) -> u32 {
-        self.materialized_log_record.offset_id
+        self.materialized_log_record
+            .offset_id
+            .load(Ordering::Relaxed)
     }
 
     pub fn get_operation(&self) -> MaterializedLogOperation {
@@ -554,12 +572,18 @@ impl PartitionedMaterializeLogsResult {
         self.shards.iter().any(|s| s.has_backfill())
     }
 
-    pub fn split(&self, pivot_offset_id: u32) -> Option<PartitionedMaterializeLogsResult> {
-        let mut new_partitioned = self.clone();
-        let active_shard = new_partitioned.shards.last_mut()?;
-        let new_active_shard = active_shard.split(pivot_offset_id);
-        new_partitioned.shards.push(new_active_shard);
-        Some(new_partitioned)
+    pub fn split(
+        &self,
+        pivot_offset_id: u32,
+        next_new_offset_id: Option<&AtomicU32>,
+    ) -> Option<PartitionedMaterializeLogsResult> {
+        let mut new = self.clone();
+        let new_shard = new
+            .shards
+            .last_mut()?
+            .split(pivot_offset_id, next_new_offset_id);
+        new.shards.push(new_shard);
+        Some(new)
     }
 
     pub fn get_active_record_delta(&self) -> i32 {
@@ -613,7 +637,11 @@ impl MaterializeLogsResult {
         }
     }
 
-    pub fn split(&mut self, pivot_offset_id: u32) -> MaterializeLogsResult {
+    pub fn split(
+        &mut self,
+        pivot_offset_id: u32,
+        next_new_offset_id: Option<&AtomicU32>,
+    ) -> MaterializeLogsResult {
         let mut other_mat_logs = self.clone();
         let mut old_visibility = vec![false; self.materialized.total_len()];
         let mut new_visibility = old_visibility.clone();
@@ -625,7 +653,7 @@ impl MaterializeLogsResult {
 
         for (record, idx) in self.materialized.iter() {
             if record.final_operation == MaterializedLogOperation::AddNew
-                && record.offset_id >= pivot_offset_id
+                && record.offset_id.load(Ordering::Relaxed) >= pivot_offset_id
             {
                 old_visibility[idx] = false;
                 new_visibility[idx] = true;
@@ -635,11 +663,27 @@ impl MaterializeLogsResult {
         self.materialized.set_visibility(old_visibility);
 
         other_mat_logs.materialized.set_visibility(new_visibility);
+
+        match next_new_offset_id {
+            Some(counter) => {
+                for record in other_mat_logs.iter() {
+                    let id = counter.fetch_add(1, Ordering::SeqCst);
+                    record.set_offset_id(id);
+                }
+            }
+            None => {
+                let mut new_offset_id = 1u32;
+                for record in other_mat_logs.iter() {
+                    record.set_offset_id(new_offset_id);
+                    new_offset_id += 1;
+                }
+            }
+        }
+
         other_mat_logs
     }
 }
 
-// IntoIterator is implemented for &'a MaterializeLogsResult rather than MaterializeLogsResult because the iterator needs to hand out values with a lifetime of 'a.
 impl<'log_data> IntoIterator for &'log_data MaterializeLogsResult {
     type Item = BorrowedMaterializedLogRecord<'log_data>;
     type IntoIter = MaterializeLogsResultIter<'log_data>;
@@ -789,7 +833,7 @@ pub async fn materialize_logs(
                                 // Overwrite.
                                 let mut materialized_record =
                                     match MaterializedLogRecord::from_log_record(
-                                        curr_val.offset_id,
+                                        curr_val.offset_id.load(Ordering::Relaxed),
                                         log_index,
                                         log_record,
                                     ) {
@@ -929,7 +973,7 @@ pub async fn materialize_logs(
                                         let curr_val = existing_id_to_materialized.remove(log_record.record.id.as_str()).unwrap();
                                         // Overwrite.
                                         let mut materialized_record =
-                                            match MaterializedLogRecord::from_log_record(curr_val.offset_id, log_index, log_record) {
+                                            match MaterializedLogRecord::from_log_record(curr_val.offset_id.load(Ordering::Relaxed), log_index, log_record) {
                                                 Ok(record) => record,
                                                 Err(e) => {
                                                     return Err(e);
@@ -1044,7 +1088,11 @@ pub async fn materialize_logs(
     for (_key, value) in new_id_to_materialized {
         res.push(value);
     }
-    res.sort_by(|x, y| x.offset_id.cmp(&y.offset_id));
+    res.sort_by(|x, y| {
+        x.offset_id
+            .load(Ordering::Relaxed)
+            .cmp(&y.offset_id.load(Ordering::Relaxed))
+    });
 
     tracing::info!(
         "Log count before materialization: {}, after materialization: {}. Total number of logs in chunk: {}",
@@ -1652,6 +1700,7 @@ mod tests {
                 &metadata_segment_shard,
                 &blockfile_provider,
                 None,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1832,6 +1881,7 @@ mod tests {
             &metadata_segment_shard,
             &blockfile_provider,
             None,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1989,6 +2039,7 @@ mod tests {
                 &database_id,
                 &metadata_segment_shard,
                 &blockfile_provider,
+                None,
                 None,
             )
             .await
@@ -2161,6 +2212,7 @@ mod tests {
             &metadata_segment_shard,
             &blockfile_provider,
             None,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -2319,6 +2371,7 @@ mod tests {
                 &database_id,
                 &metadata_segment_shard,
                 &blockfile_provider,
+                None,
                 None,
             )
             .await
@@ -2510,6 +2563,7 @@ mod tests {
             &database_id,
             &metadata_segment_shard,
             &blockfile_provider,
+            None,
             None,
         )
         .await

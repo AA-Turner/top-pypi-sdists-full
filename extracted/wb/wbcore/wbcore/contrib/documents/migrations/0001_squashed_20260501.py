@@ -11,14 +11,6 @@ import wbcore.contrib.documents.models.documents
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("documents", "0001_initial"),
-        ("documents", "0002_documentmodelrelationship_primary_and_more"),
-        ("documents", "0003_alter_documentmodelrelationship_unique_together_and_more"),
-        ("documents", "0004_auto_20240103_0958"),
-        ("documents", "0005_document_valid_from_document_valid_until_and_more"),
-    ]
-
     initial = True
 
     dependencies = [

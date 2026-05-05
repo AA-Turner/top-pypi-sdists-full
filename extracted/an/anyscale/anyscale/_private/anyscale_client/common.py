@@ -99,6 +99,10 @@ WORKSPACE_CLUSTER_NAME_PREFIX = "workspace-cluster-"
 DEFAULT_MAX_RUNS_PER_JOB = 100
 
 
+class CloudNotFoundError(ValueError):
+    """Raised when a cloud name cannot be resolved to a cloud ID."""
+
+
 class AnyscaleClientInterface(ABC):
     @abstractmethod
     def get_job_ui_url(self, job_id: str) -> str:

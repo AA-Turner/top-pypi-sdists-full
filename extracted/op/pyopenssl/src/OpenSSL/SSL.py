@@ -856,13 +856,9 @@ def _require_not_used(f: F) -> F:
     @wraps(f)
     def inner(self: Context, *args: Any, **kwargs: Any) -> Any:
         if self._used:
-            warnings.warn(
-                (
-                    "Attempting to mutate a Context after a Connection was "
-                    "created. In the future, this will raise an exception"
-                ),
-                DeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                "Context has already been used to create a Connection, it "
+                "cannot be mutated again"
             )
         return f(self, *args, **kwargs)
 
@@ -2104,6 +2100,19 @@ class Connection:
         _lib.SSL_set_SSL_CTX(self._ssl, context._context)
         self._context = context
         self._context._used = True
+
+    def set_options(self, options: int) -> int:
+        """
+        Add options. Options set before are not cleared!
+        This method should be used with the :const:`OP_*` constants.
+
+        :param options: The options to add.
+        :return: The new option bitmask.
+        """
+        if not isinstance(options, int):
+            raise TypeError("options must be an integer")
+
+        return _lib.SSL_set_options(self._ssl, options)
 
     def get_servername(self) -> bytes | None:
         """

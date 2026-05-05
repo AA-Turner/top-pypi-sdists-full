@@ -3,25 +3,48 @@ import pytest
 import cotengra as ctg
 
 
-def test_contraction_tree_equivalency():
+@pytest.mark.parametrize("nodeops", ["frozenset[int]", "BitSetInt", "ssa"])
+def test_contraction_tree_equivalency(nodeops):
     eq = "a,ab,bc,c->"
     shapes = [(4,), (4, 2), (2, 5), (5,)]
+    inputs, output = ctg.utils.eq_to_inputs_output(eq)
+    size_dict = ctg.utils.shapes_inputs_to_size_dict(shapes, inputs)
     # optimal contraction is like:
     #    o
     #   / \
     #  o   o
     # / \ / \
-    ct1 = ctg.einsum_tree(eq, *shapes, optimize=[(0, 1), (0, 1), (0, 1)])
-    ct2 = ctg.einsum_tree(eq, *shapes, optimize=[(2, 3), (0, 1), (0, 1)])
+    path1 = [(0, 1), (0, 1), (0, 1)]
+    path2 = [(2, 3), (0, 1), (0, 1)]
+    ct1 = ctg.ContractionTree.from_path(
+        inputs,
+        output,
+        size_dict,
+        path=path1,
+        nodeops=nodeops,
+    )
+    ct2 = ctg.ContractionTree.from_path(
+        inputs,
+        output,
+        size_dict,
+        path=path2,
+        nodeops=nodeops,
+    )
     assert ct1.total_flops() == ct2.total_flops() == 20
-    assert ct1.children == ct2.children
     assert ct1.is_complete()
     assert ct2.is_complete()
+    # for SSA nodes, children dicts have different opaque labels,
+    # but the tree structure (path) should be equivalent
+    if nodeops != "ssa":
+        assert ct1.children == ct2.children
+    else:
+        assert len(ct1.children) == len(ct2.children)
 
 
 @pytest.mark.parametrize("ssa", [False, True])
 @pytest.mark.parametrize("autocomplete", [False, True, "auto"])
-def test_contraction_tree_from_path_incomplete(ssa, autocomplete):
+@pytest.mark.parametrize("nodeops", ["frozenset[int]", "BitSetInt", "ssa"])
+def test_contraction_tree_from_path_incomplete(ssa, autocomplete, nodeops):
     inputs = ["a", "ab", "bc", "c"]
     output = ""
     size_dict = {"a": 4, "b": 2, "c": 5}
@@ -36,28 +59,36 @@ def test_contraction_tree_from_path_incomplete(ssa, autocomplete):
             size_dict,
             ssa_path=ssa_path,
             autocomplete=autocomplete,
+            nodeops=nodeops,
         )
     else:
         path = [(0, 1), (0, 1)]
         tree = ctg.ContractionTree.from_path(
-            inputs, output, size_dict, path=path, autocomplete=autocomplete
+            inputs,
+            output,
+            size_dict,
+            path=path,
+            autocomplete=autocomplete,
+            nodeops=nodeops,
         )
 
     if not autocomplete:
-        assert not tree.is_complete()
-        assert tree.get_incomplete_nodes() == {
-            frozenset([0, 1, 2, 3]): [
-                frozenset([0, 1]),
-                frozenset([2, 3]),
-            ],
-        }
+        if nodeops != "ssa":
+            assert not tree.is_complete()
+            assert tree.get_incomplete_nodes() == {
+                tree.nodeops.node_from_seq([0, 1, 2, 3]): [
+                    tree.nodeops.node_from_seq([0, 1]),
+                    tree.nodeops.node_from_seq([2, 3]),
+                ],
+            }
     else:
         assert tree.is_complete()
         assert tree.get_incomplete_nodes() == {}
 
 
-def test_tree_incomplete():
-    inputs, output, shapes, size_dict = ctg.utils.rand_equation(
+@pytest.mark.parametrize("nodeops", ["frozenset[int]", "BitSetInt", "ssa"])
+def test_tree_incomplete(nodeops):
+    c = ctg.utils.rand_equation(
         n=10,
         reg=3,
         n_out=1,
@@ -65,14 +96,11 @@ def test_tree_incomplete():
         n_hyper_out=1,
         seed=42,
     )
-    tree = ctg.ContractionTree(inputs, output, size_dict)
-    assert len(tree.info) == 11
-    tree.contract_nodes(
-        [
-            frozenset([3, 6, 8]),
-            frozenset([4, 7]),
-        ]
+    tree = ctg.ContractionTree(
+        c.inputs, c.output, c.size_dict, nodeops=nodeops
     )
+    assert len(tree.info) == 11
+    tree.contract_nodes([[3, 6, 8], [4, 7]])
     assert len(tree.info) == 14
     assert not tree.is_complete()
     groups = tree.get_incomplete_nodes()
@@ -83,16 +111,64 @@ def test_tree_incomplete():
     assert len(tree.info) == 19
 
 
+@pytest.mark.parametrize("select", ["descend", "random", "max", "min"])
+@pytest.mark.parametrize("minimize", ["flops", "combo", "size"])
+def test_reconfigure(select, minimize):
+
+    inputs, output, _, size_dict = ctg.utils.rand_equation(
+        30, reg=5, seed=42, d_max=3
+    )
+
+    path_gr = ctg.array_contract_path(
+        inputs, output, size_dict, optimize="random"
+    )
+
+    tree_gr = ctg.array_contract_tree(
+        inputs,
+        output,
+        size_dict,
+        optimize=path_gr,
+    )
+
+    if minimize == "flops":
+        initial_score = tree_gr.total_flops()
+    elif minimize == "combo":
+        initial_score = tree_gr.combo_cost()
+    elif minimize == "size":
+        initial_score = tree_gr.max_size()
+
+    tree_gr.subtree_reconfigure_(
+        subtree_size=6,
+        maxiter=100,
+        select=select,
+        minimize=minimize,
+        progbar=True,
+    )
+
+    if minimize == "flops":
+        final_score = tree_gr.total_flops()
+    elif minimize == "combo":
+        final_score = tree_gr.combo_cost()
+    elif minimize == "size":
+        final_score = tree_gr.max_size()
+
+    if minimize == "size":
+        # just check hasn't made worse
+        assert final_score <= initial_score
+    else:
+        assert final_score < initial_score
+
+
 @pytest.mark.parametrize(
-    ("forested", "parallel", "requires"),
+    ("parallel", "requires"),
     [
-        (False, False, ""),
-        (True, False, ""),
-        (True, "dask", "distributed"),
-        (True, "ray", "ray"),
+        (False, ""),
+        (True, ""),
+        ("dask", "distributed"),
+        ("ray", "ray"),
     ],
 )
-def test_reconfigure(forested, parallel, requires):
+def test_reconfigure_forested(parallel, requires):
     if requires:
         pytest.importorskip(requires)
 
@@ -112,13 +188,9 @@ def test_reconfigure(forested, parallel, requires):
     )
 
     initial_cost = tree_gr.total_flops()
-
-    if forested:
-        tree_gr.subtree_reconfigure_forest_(
-            num_trees=2, subtree_size=6, progbar=True, parallel=parallel
-        )
-    else:
-        tree_gr.subtree_reconfigure_(progbar=True)
+    tree_gr.subtree_reconfigure_forest_(
+        num_trees=2, subtree_size=6, progbar=True, parallel=parallel
+    )
 
     assert tree_gr.total_flops() < initial_cost
 
@@ -323,15 +395,16 @@ def test_tree_with_one_node():
     assert tree.contraction_width(None) == 2 * 3 * 4
 
 
+@pytest.mark.parametrize("nodeops", ["BitSetInt", "ssa"])
 @pytest.mark.parametrize("seed", range(4))
-def test_slice_and_restore_preprocessed_inds(seed):
+def test_slice_and_restore_preprocessed_inds(seed, nodeops):
     import numpy as np
 
     eq = "abc,bde,dfg,fah->"
     inputs, output = ctg.utils.eq_to_inputs_output(eq)
     size_dict = ctg.utils.make_rand_size_dict_from_inputs(inputs, seed=seed)
     arrays = ctg.utils.make_arrays_from_inputs(inputs, size_dict)
-    tree = ctg.ContractionTree(inputs, output, size_dict)
+    tree = ctg.ContractionTree(inputs, output, size_dict, nodeops=nodeops)
     tree.autocomplete()
     stats0 = tree.contract_stats()
     xe = np.einsum(eq, *arrays)
@@ -357,9 +430,10 @@ def test_slice_and_restore_preprocessed_inds(seed):
     assert tree.contract_stats() == stats0
 
 
+@pytest.mark.parametrize("nodeops", ["frozenset[int]", "ssa"])
 @pytest.mark.parametrize("n", [3, 10, 30])
 @pytest.mark.parametrize("seed", range(4))
-def test_tree_from_edge_path(n, seed):
+def test_tree_from_edge_path(n, seed, nodeops):
     import random
 
     con = ctg.utils.rand_equation(n, 3, 2, 2, 2, seed=seed)
@@ -373,6 +447,210 @@ def test_tree_from_edge_path(n, seed):
         con.size_dict,
         edge_path=indices,
         check=True,
+        nodeops=nodeops,
     )
 
     assert tree.is_complete()
+
+
+def test_tree_build_divide_labels():
+    con = ctg.utils.lattice_equation([4, 4])
+    tree = ctg.path_labels.labels_to_tree.trial_fn(
+        con.inputs,
+        con.output,
+        con.size_dict,
+    )
+    assert tree.is_complete()
+
+
+def test_tree_build_agglom_labels():
+    con = ctg.utils.lattice_equation([4, 4])
+    tree = ctg.path_labels.labels_to_tree.trial_fn_agglom(
+        con.inputs,
+        con.output,
+        con.size_dict,
+    )
+    assert tree.is_complete()
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_tree_peak_size_reorder(seed):
+    tree = ctg.utils.rand_tree(30, 3, seed=seed)
+    pa = tree.peak_size()
+    pb = tree.get_peak_size(tree.root)
+    # local peak size doesn't include inputs
+    assert pb <= pa
+    tree.reorder_for_peak_size()
+    pc = tree.peak_size()
+    pd = tree.get_peak_size(tree.root)
+    assert pd <= pc
+    assert pd <= pb
+
+
+@pytest.mark.parametrize("nodeops", ["frozenset[int]", "BitSetInt", "ssa"])
+def test_contraction_tree_from_ssa_path_complete(nodeops):
+    import numpy as np
+
+    eq = "ab,bc,cd,da->"
+    inputs, output = ctg.utils.eq_to_inputs_output(eq)
+    size_dict = {"a": 2, "b": 3, "c": 4, "d": 5}
+    arrays = ctg.utils.make_arrays_from_inputs(inputs, size_dict)
+
+    ssa_path = [(0, 1), (2, 3), (4, 5)]
+    tree = ctg.ContractionTree.from_path(
+        inputs,
+        output,
+        size_dict,
+        ssa_path=ssa_path,
+        nodeops=nodeops,
+    )
+    assert tree.is_complete()
+    assert tree.total_flops() > 0
+    expected = np.einsum(eq, *arrays)
+    assert tree.contract(arrays) == pytest.approx(expected)
+
+
+def test_ssa_subgraph_tracking():
+    eq = "ab,bc,cd,da->"
+    inputs, output = ctg.utils.eq_to_inputs_output(eq)
+    size_dict = {"a": 2, "b": 3, "c": 4, "d": 5}
+
+    ssa_path = [(0, 1), (2, 3), (4, 5)]
+    tree = ctg.ContractionTree.from_path(
+        inputs,
+        output,
+        size_dict,
+        ssa_path=ssa_path,
+        nodeops="ssa",
+    )
+    # check subgraphs of intermediate nodes
+    for node, (left, right) in tree.children.items():
+        sg = set(tree.get_subgraph(node))
+        sg_l = set(tree.get_subgraph(left))
+        sg_r = set(tree.get_subgraph(right))
+        # parent subgraph should be union of children
+        assert sg == sg_l | sg_r
+    # root should contain all inputs
+    assert set(tree.get_subgraph(tree.root)) == set(range(tree.N))
+
+
+def test_ssa_surface_order():
+    inputs, output, _, size_dict = ctg.utils.lattice_equation([6, 6])
+    tree = ctg.array_contract_tree(
+        inputs,
+        output,
+        size_dict,
+        optimize="greedy-compressed",
+    )
+    assert isinstance(tree, ctg.ContractionTreeCompressed)
+    path_surface = tree.get_path_surface()
+    # should be a valid path
+    assert len(path_surface) == tree.N - 1
+    # each entry should be a pair of ints
+    for pair in path_surface:
+        assert len(pair) == 2
+
+
+def test_simulated_anneal_tree():
+    tree = ctg.utils.rand_tree(10, 3, seed=42)
+    arrays = ctg.utils.make_arrays_from_inputs(tree.inputs, tree.size_dict)
+    expected = tree.contract(arrays)
+    initial_flops = tree.total_flops()
+
+    # low temperature -> only accept improvements
+    tree_sa = tree.simulated_anneal(
+        tstart=0.001, tfinal=0.001, tsteps=3, numiter=5, seed=42
+    )
+
+    assert tree_sa.is_complete()
+    assert tree_sa.total_flops() <= initial_flops
+    assert tree_sa.contract(arrays) == pytest.approx(expected)
+
+
+def test_simulated_anneal_tree_with_slicing():
+    tree = ctg.utils.rand_tree(10, 3, seed=42)
+    arrays = ctg.utils.make_arrays_from_inputs(tree.inputs, tree.size_dict)
+    expected = tree.contract(arrays)
+    target_size = tree.max_size() // 4
+
+    tree_sa = tree.simulated_anneal(
+        tsteps=3,
+        numiter=5,
+        target_size=target_size,
+        seed=42,
+    )
+
+    assert tree_sa.is_complete()
+    assert tree_sa.max_size() <= target_size
+    assert tree_sa.contract(arrays) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("path", [None, [], [(0,)]])
+@pytest.mark.parametrize("slice", [False, "a"])
+def test_tree_single_input_nosimp(path, slice):
+    inputs = [("a",)]
+    output = ("a",)
+    size_dict = {"a": 4, "b": 2}
+
+    if path is None:
+        tree = ctg.ContractionTree(inputs, output, size_dict)
+    else:
+        tree = ctg.ContractionTree.from_path(
+            inputs, output, size_dict, path=path
+        )
+    if slice:
+        tree.remove_ind_(slice)
+    assert not tree.has_preprocessing()
+    assert tree.is_complete()
+    assert tree.get_path() == ()
+    arrays = ctg.utils.make_arrays_from_inputs(tree.inputs, tree.size_dict)
+    assert tree.contract(arrays) == pytest.approx(arrays[0])
+
+
+@pytest.mark.parametrize("path", [None, [], [(0,)]])
+@pytest.mark.parametrize("slice", [False, "a", "b"])
+def test_tree_single_input_simp(path, slice):
+    import numpy as np
+
+    inputs = [("a", "b")]
+    output = ("a",)
+    size_dict = {"a": 4, "b": 2}
+
+    if path is None:
+        tree = ctg.ContractionTree(inputs, output, size_dict)
+    else:
+        tree = ctg.ContractionTree.from_path(
+            inputs, output, size_dict, path=path
+        )
+    if slice:
+        tree.remove_ind_(slice)
+    assert tree.is_complete()
+    assert tree.get_path() == ()
+    arrays = ctg.utils.make_arrays_from_inputs(tree.inputs, tree.size_dict)
+    assert tree.contract(arrays) == pytest.approx(np.sum(arrays[0], axis=1))
+
+
+@pytest.mark.parametrize("path", [None, [], [(0,)]])
+@pytest.mark.parametrize("slice", [False, "a", "b"])
+def test_tree_single_input_transpose(path, slice):
+    import numpy as np
+
+    inputs = [("a", "b")]
+    output = (
+        "b",
+        "a",
+    )
+    size_dict = {"a": 4, "b": 2}
+    if path is None:
+        tree = ctg.ContractionTree(inputs, output, size_dict)
+    else:
+        tree = ctg.ContractionTree.from_path(
+            inputs, output, size_dict, path=path
+        )
+    if slice:
+        tree.remove_ind_(slice)
+    assert not tree.has_preprocessing()
+    assert tree.is_complete()
+    assert tree.get_path() == ()
+    arrays = ctg.utils.make_arrays_from_inputs(tree.inputs, tree.size_dict)
+    assert tree.contract(arrays) == pytest.approx(np.transpose(arrays[0]))

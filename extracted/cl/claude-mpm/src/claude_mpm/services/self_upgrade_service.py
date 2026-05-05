@@ -25,6 +25,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from packaging import version
 
@@ -251,7 +252,7 @@ class SelfUpgradeService:
 
         return None
 
-    def check_claude_code_compatibility(self) -> dict[str, any]:
+    def check_claude_code_compatibility(self) -> dict[str, Any]:
         """
         Check Claude Code version compatibility.
 
@@ -325,13 +326,10 @@ class SelfUpgradeService:
             }
 
     async def check_for_update(
-        self, cache_ttl: int | None = None
-    ) -> dict[str, any] | None:
+        self,
+    ) -> dict[str, Any] | None:
         """
         Check if an update is available.
-
-        Args:
-            cache_ttl: Cache time-to-live in seconds (default: 24 hours)
 
         Returns:
             Dict with update info or None:
@@ -354,7 +352,7 @@ class SelfUpgradeService:
             InstallationMethod.UV_TOOL,
             InstallationMethod.HOMEBREW,
         ]:
-            result = await self._check_pypi_for_update(cache_ttl)
+            result = await self._check_pypi_for_update()
             if result and result.get("update_available"):
                 result["installation_method"] = self.installation_method
                 result["upgrade_command"] = self._get_upgrade_command()
@@ -379,12 +377,9 @@ class SelfUpgradeService:
         return None
 
     async def _check_pypi_for_update(
-        self, cache_ttl: int | None = None
-    ) -> dict[str, any] | None:
+        self,
+    ) -> dict[str, Any] | None:
         """Check PyPI for the latest version of claude-mpm.
-
-        Args:
-            cache_ttl: Unused, kept for interface compatibility.
 
         Returns:
             Dict with update info or None.
@@ -456,7 +451,7 @@ class SelfUpgradeService:
             self.installation_method, "pip install --upgrade claude-mpm"
         )
 
-    def prompt_for_upgrade(self, update_info: dict[str, any]) -> bool:
+    def prompt_for_upgrade(self, update_info: dict[str, Any]) -> bool:
         """
         Prompt user to upgrade with enhanced formatting.
 
@@ -491,7 +486,7 @@ class SelfUpgradeService:
             print("\n")
             return False
 
-    def display_update_notification(self, update_info: dict[str, any]) -> None:
+    def display_update_notification(self, update_info: dict[str, Any]) -> None:
         """
         Display a non-interactive update notification.
 
@@ -500,7 +495,7 @@ class SelfUpgradeService:
         """
         current = update_info["current"]
         latest = update_info["latest"]
-        command = update_info.get("upgrade_command", "pip install --upgrade claude-mpm")
+        command = update_info.get("upgrade_command", "uv tool upgrade claude-mpm")
 
         print(f"\nℹ️  Update available: v{current} → v{latest}")
         print(f"   Run: {command}")
@@ -509,7 +504,7 @@ class SelfUpgradeService:
         )
         print()
 
-    def perform_upgrade(self, update_info: dict[str, any]) -> tuple[bool, str]:
+    def perform_upgrade(self, update_info: dict[str, Any]) -> tuple[bool, str]:
         """
         Perform the upgrade.
 
@@ -588,7 +583,7 @@ class SelfUpgradeService:
 
     async def check_and_prompt_on_startup(
         self, auto_upgrade: bool = False, check_claude_code: bool = True
-    ) -> dict[str, any] | None:
+    ) -> dict[str, Any] | None:
         """
         Check for updates on startup and optionally prompt user.
         Also checks Claude Code version compatibility.

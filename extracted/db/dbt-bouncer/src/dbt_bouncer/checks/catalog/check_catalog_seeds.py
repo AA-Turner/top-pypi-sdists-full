@@ -1,4 +1,4 @@
-from dbt_bouncer.check_decorator import check, fail
+from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import get_clean_model_name
 
 
@@ -9,6 +9,10 @@ def check_seed_columns_are_all_documented(catalog_node, ctx):
     !!! warning
 
         This check is only supported for dbt 1.9.0 and above.
+
+    !!! info "Rationale"
+
+        Seed CSV files often serve as reference data (e.g. country codes, product categories) that are queried directly by downstream models. When a column exists in the CSV but not in the properties file, it is invisible to documentation tools, data catalogues, and column-level tests. This check ensures that every column in a seed is explicitly declared, making it easier for consumers to understand the seed's schema and for teams to apply descriptions and tests uniformly.
 
     Receives:
         catalog_node (CatalogNodeEntry): The CatalogNodeEntry object to check.

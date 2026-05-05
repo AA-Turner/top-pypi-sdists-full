@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo4j
-Version: 6.1.0
+Version: 6.2.0
 Summary: Neo4j Bolt driver for Python
 Author-email: "Neo4j, Inc." <drivers@neo4j.com>
 License-Expression: Apache-2.0 AND Python-2.0
@@ -35,10 +35,10 @@ Requires-Dist: pytz
 Provides-Extra: numpy
 Requires-Dist: numpy<3.0.0,>=1.21.2; extra == "numpy"
 Provides-Extra: pandas
-Requires-Dist: pandas<3.0.0,>=1.1.0; extra == "pandas"
+Requires-Dist: pandas[timezone]<4.0.0,>=1.1.0; extra == "pandas"
 Requires-Dist: numpy<3.0.0,>=1.21.2; extra == "pandas"
 Provides-Extra: pyarrow
-Requires-Dist: pyarrow<23.0.0,>=6.0.0; extra == "pyarrow"
+Requires-Dist: pyarrow<25.0.0,>=6.0.0; extra == "pyarrow"
 Dynamic: license-file
 
 ****************************

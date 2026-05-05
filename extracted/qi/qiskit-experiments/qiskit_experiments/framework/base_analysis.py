@@ -12,11 +12,13 @@
 """
 Base analysis class.
 """
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 import copy
 from collections import OrderedDict
 from datetime import datetime
-from typing import List, Tuple, Union, Dict
+from typing import Any, TYPE_CHECKING
 import warnings
 
 from dateutil import tz
@@ -29,6 +31,9 @@ from qiskit_experiments.framework.experiment_data import ExperimentData
 from qiskit_experiments.framework.containers import FigureData, FigureType
 from qiskit_experiments.framework.configs import AnalysisConfig
 from qiskit_experiments.framework.analysis_result_data import AnalysisResultData
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 class BaseAnalysis(ABC, StoreInitArgs):
@@ -71,7 +76,7 @@ class BaseAnalysis(ABC, StoreInitArgs):
         )
 
     @classmethod
-    def from_config(cls, config: Union[AnalysisConfig, Dict]) -> "BaseAnalysis":
+    def from_config(cls, config: AnalysisConfig | dict) -> "BaseAnalysis":
         """Initialize an analysis class from analysis config"""
         if isinstance(config, dict):
             config = AnalysisConfig(**config)
@@ -248,7 +253,7 @@ class BaseAnalysis(ABC, StoreInitArgs):
     def _run_analysis(
         self,
         experiment_data: ExperimentData,
-    ) -> Tuple[List[Union[AnalysisResultData, ArtifactData]], List[FigureType]]:
+    ) -> tuple[list[AnalysisResultData | ArtifactData], list[FigureType]]:
         """Run analysis on circuit data.
 
         Args:
@@ -265,11 +270,11 @@ class BaseAnalysis(ABC, StoreInitArgs):
         # NOTE: passing kwarg options to _run_analysis should be removed once
         pass
 
-    def __json_encode__(self):
+    def __json_encode__(self) -> AnalysisConfig:
         return self.config()
 
     @classmethod
-    def __json_decode__(cls, value):
+    def __json_decode__(cls, value: AnalysisConfig | dict[str, Any]) -> Self:
         return cls.from_config(value)
 
 

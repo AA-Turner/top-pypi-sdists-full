@@ -6,16 +6,15 @@ should be of type :class:`GroupParameter`
 
 from __future__ import annotations
 
-import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
-from qcodes.utils import QCoDeSDeprecationWarning
-
-from .parameter import Parameter
+from .parameter import Parameter, ParameterKWArgs
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
+
+    from typing_extensions import Unpack
 
     from qcodes.instrument import InstrumentBase
 
@@ -40,83 +39,28 @@ class GroupParameter(Parameter):
 
     Args:
         name: Name of the parameter.
-        instrument: Instrument that this parameter belongs to; this instrument
-            is used by the group to call its get and set commands.
-        initial_value: Initial value of the parameter. Note that either none or
-            all of the parameters in a :class:`.Group` should have an initial
-            value.
-
-        **kwargs: All kwargs used by the :class:`.Parameter` class, except
-             ``set_cmd`` and ``get_cmd``.
+        **kwargs: Forwarded to the ``Parameter`` base class.
+            See :class:`ParameterKWArgs` for details.
+            Note that ``set_cmd`` and ``get_cmd`` are not allowed.
+            ``initial_value``, if provided, is deferred until the
+            parameter is added to a :class:`.Group`.
 
     """
-
-    _DEPRECATED_POSITIONAL_ARGS: ClassVar[tuple[str, ...]] = (
-        "instrument",
-        "initial_value",
-    )
 
     def __init__(
         self,
         name: str,
-        *args: Any,
-        instrument: InstrumentBase | None = None,
-        initial_value: float | str | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[ParameterKWArgs],
     ) -> None:
-        if args:
-            # TODO: After QCoDeS 0.57 remove the args argument and delete this code block.
-            # we hardcode the class since mypy does not support __class__ and
-            # self / self.__class__ / type(self) in class bodies does not give
-            # exactly this class but the type of a subclass
-            positional_names = GroupParameter._DEPRECATED_POSITIONAL_ARGS
-            if len(args) > len(positional_names):
-                raise TypeError(
-                    f"{type(self).__name__}.__init__() takes at most "
-                    f"{len(positional_names) + 2} positional arguments "
-                    f"({len(args) + 2} given)"
-                )
-
-            _defaults: dict[str, Any] = {
-                "instrument": None,
-                "initial_value": None,
-            }
-
-            _kwarg_vals: dict[str, Any] = {
-                "instrument": instrument,
-                "initial_value": initial_value,
-            }
-
-            for i in range(len(args)):
-                arg_name = positional_names[i]
-                if _kwarg_vals[arg_name] is not _defaults[arg_name]:
-                    raise TypeError(
-                        f"{type(self).__name__}.__init__() got multiple "
-                        f"values for argument '{arg_name}'"
-                    )
-
-            positional_arg_names = positional_names[: len(args)]
-            names_str = ", ".join(f"'{n}'" for n in positional_arg_names)
-            warnings.warn(
-                f"Passing {names_str} as positional argument(s) to "
-                f"{type(self).__name__} is deprecated. "
-                f"Please pass them as keyword arguments.",
-                QCoDeSDeprecationWarning,
-                stacklevel=2,
-            )
-
-            _pos = dict(zip(positional_names, args))
-            instrument = _pos.get("instrument", instrument)
-            initial_value = _pos.get("initial_value", initial_value)
-
         if "set_cmd" in kwargs or "get_cmd" in kwargs:
             raise ValueError(
                 "A GroupParameter does not use 'set_cmd' or 'get_cmd' kwarg"
             )
 
         self._group: Group | None = None
-        self._initial_value = initial_value
-        super().__init__(name, instrument=instrument, **kwargs)
+        self._initial_value = kwargs.get("initial_value")
+        kwargs["initial_value"] = None
+        super().__init__(name, **kwargs)
 
     @property
     def group(self) -> Group | None:

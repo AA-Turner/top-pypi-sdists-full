@@ -2,6 +2,7 @@ use super::{
     CollectionUuid, Metadata, MetadataValueConversionError, SegmentScope,
     SegmentScopeConversionError,
 };
+use crate::collection_schema::Schema;
 use crate::{chroma_proto, DatabaseUuid};
 use chroma_error::{ChromaError, ErrorCodes};
 use std::{collections::HashMap, str::FromStr};
@@ -23,6 +24,7 @@ pub const U32_METADATA: &str = "u32_metadata";
 
 pub const SPARSE_MAX: &str = "sparse_max";
 pub const SPARSE_OFFSET_VALUE: &str = "sparse_offset_value";
+pub const SPARSE_POSTING: &str = "sparse_posting";
 
 pub const HNSW_PATH: &str = "hnsw_path";
 pub const VERSION_MAP_PATH: &str = "version_map_path";
@@ -126,32 +128,7 @@ pub struct Segment {
 impl Segment {
     // INVARIANT: THIS ALWAYS RETURNS AT LEAST ONE SHARD
     pub fn get_shards(&self) -> Result<Vec<SegmentShard>, SegmentShardError> {
-        // If there are no file paths, return empty vector
-        if self.file_path.is_empty() {
-            let vec = vec![self.new_shard()];
-            return Ok(vec);
-        }
-
-        // Check that all file-path keys have the same number of shards
-        let counts: std::collections::HashSet<usize> =
-            self.file_path.values().map(|v| v.len()).collect();
-        if counts.len() > 1 {
-            let first_key = self.file_path.keys().next().unwrap();
-            let expected = self.file_path[first_key].len();
-            return Err(SegmentShardError::MismatchedShardCounts {
-                key: format!("segment {}", self.id),
-                actual: counts.into_iter().next().unwrap(),
-                expected,
-            });
-        }
-
-        // All paths should have the same number of shards
-        let num_shards = self
-            .file_path
-            .values()
-            .next()
-            .map(|paths| paths.len())
-            .unwrap_or(0);
+        let num_shards = self.num_shards()?;
 
         // Create a SegmentShard for each shard index, propagating any errors
         let shards: Result<Vec<SegmentShard>, SegmentShardError> = (0..num_shards)
@@ -242,6 +219,155 @@ impl Segment {
         Ok(num_shards)
     }
 
+    /// Clears file paths for a specific shard index.
+    /// This is useful during shard-specific rebuilds where we want to regenerate
+    /// only one shard's files while preserving others.
+    pub fn clear_shard_file_paths(&mut self, shard_index: u32) {
+        let shard_idx = shard_index as usize;
+        for (_, paths) in self.file_path.iter_mut() {
+            if paths.len() > shard_idx {
+                paths[shard_idx].clear();
+            }
+        }
+        if self
+            .file_path
+            .values()
+            .all(|paths| paths.iter().all(|p| p.is_empty()))
+        {
+            self.file_path.clear();
+        }
+    }
+
+    /// Check that the on-disk file_path shape matches what the collection schema
+    /// implies. Returns `Ok(())` when they agree or the segment is uninitialized
+    /// (empty file_path). Returns `Err(SchemaMismatchError)` on the first
+    /// mismatch detected.
+    ///
+    /// Validates that all file_path keys have the same shard count and that the
+    /// set of keys present is consistent with the schema.
+    pub fn matches_schema(&self, schema: &Schema) -> Result<(), SchemaMismatchError> {
+        if self.file_path.is_empty() {
+            return Ok(());
+        }
+        // Validate all keys have the same number of shards.
+        self.num_shards().map_err(SchemaMismatchError::ShardError)?;
+
+        match self.scope {
+            SegmentScope::VECTOR => self.check_vector_consistency(schema),
+            SegmentScope::METADATA => self.check_metadata_consistency(schema),
+            SegmentScope::RECORD => self.check_record_consistency(),
+            SegmentScope::SQLITE => Ok(()),
+        }
+    }
+
+    fn mismatch(&self, detail: String) -> SchemaMismatchError {
+        SchemaMismatchError::Mismatch {
+            segment_id: self.id,
+            scope: self.scope.clone(),
+            detail,
+        }
+    }
+
+    /// Verify that all `required` keys exist in file_path and no `denied` keys
+    /// exist. Uninitialized segments (no relevant keys at all) pass.
+    fn require_keys(&self, required: &[&str], denied: &[&str]) -> Result<(), SchemaMismatchError> {
+        let has_required: Vec<&str> = required
+            .iter()
+            .filter(|k| self.file_path.contains_key(**k))
+            .copied()
+            .collect();
+        let has_denied: Vec<&str> = denied
+            .iter()
+            .filter(|k| self.file_path.contains_key(**k))
+            .copied()
+            .collect();
+
+        // No relevant keys at all — uninitialized, OK.
+        if has_required.is_empty() && has_denied.is_empty() {
+            return Ok(());
+        }
+
+        // Denied keys must not be present.
+        if !has_denied.is_empty() {
+            return Err(self.mismatch(format!(
+                "unexpected keys present: {}",
+                has_denied.join(", ")
+            )));
+        }
+
+        // All required keys must be present — no partial state.
+        if has_required.len() != required.len() {
+            let missing: Vec<&str> = required
+                .iter()
+                .filter(|k| !self.file_path.contains_key(**k))
+                .copied()
+                .collect();
+            return Err(self.mismatch(format!("missing required keys: {}", missing.join(", "))));
+        }
+
+        Ok(())
+    }
+
+    fn check_vector_consistency(&self, schema: &Schema) -> Result<(), SchemaMismatchError> {
+        if schema.get_spann_config().is_none() {
+            return Ok(());
+        }
+
+        let spann_keys: &[&str] = &[
+            HNSW_PATH,
+            VERSION_MAP_PATH,
+            POSTING_LIST_PATH,
+            MAX_HEAD_ID_BF_PATH,
+        ];
+        let qspann_keys: &[&str] = &[
+            QUANTIZED_SPANN_CLUSTER,
+            QUANTIZED_SPANN_SCALAR_METADATA,
+            QUANTIZED_SPANN_EMBEDDING_METADATA,
+            QUANTIZED_SPANN_RAW_CENTROID,
+            QUANTIZED_SPANN_QUANTIZED_CENTROID,
+        ];
+
+        if schema.is_quantization_enabled() {
+            self.require_keys(qspann_keys, spann_keys)
+        } else {
+            self.require_keys(spann_keys, qspann_keys)
+        }
+    }
+
+    fn check_metadata_consistency(&self, schema: &Schema) -> Result<(), SchemaMismatchError> {
+        let base_keys: &[&str] = &[
+            FULL_TEXT_PLS,
+            STRING_METADATA,
+            BOOL_METADATA,
+            F32_METADATA,
+            U32_METADATA,
+        ];
+        self.require_keys(base_keys, &[])?;
+
+        if schema.is_sparse_index_enabled() {
+            let wand_keys: &[&str] = &[SPARSE_MAX, SPARSE_OFFSET_VALUE];
+            let maxscore_keys: &[&str] = &[SPARSE_POSTING];
+
+            if schema.is_maxscore_enabled() {
+                self.require_keys(maxscore_keys, wand_keys)
+            } else {
+                self.require_keys(wand_keys, maxscore_keys)
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    fn check_record_consistency(&self) -> Result<(), SchemaMismatchError> {
+        let required: &[&str] = &[
+            USER_ID_TO_OFFSET_ID,
+            OFFSET_ID_TO_USER_ID,
+            OFFSET_ID_TO_DATA,
+            MAX_OFFSET_ID,
+        ];
+        self.require_keys(required, &[])
+    }
+
     pub fn extract_prefix_and_id(path: &str) -> Result<(&str, uuid::Uuid), uuid::Error> {
         let (prefix, id) = match path.rfind('/') {
             Some(pos) => (&path[..pos], &path[pos + 1..]),
@@ -310,18 +436,44 @@ impl ChromaError for SegmentShardError {
     }
 }
 
+/// Error returned by [`Segment::matches_schema`] when the on-disk file_path
+/// shape does not match what the collection schema implies.
+#[derive(Error, Debug)]
+pub enum SchemaMismatchError {
+    #[error("Schema/file_path mismatch on segment {segment_id} (scope {scope:?}): {detail}")]
+    Mismatch {
+        segment_id: SegmentUuid,
+        scope: SegmentScope,
+        detail: String,
+    },
+    #[error("Error inspecting shards: {0}")]
+    ShardError(SegmentShardError),
+}
+
+impl ChromaError for SchemaMismatchError {
+    fn code(&self) -> ErrorCodes {
+        match self {
+            Self::Mismatch { .. } => ErrorCodes::FailedPrecondition,
+            Self::ShardError(e) => e.code(),
+        }
+    }
+}
+
 impl TryFrom<(&Segment, u32)> for SegmentShard {
     type Error = SegmentShardError;
 
     fn try_from((segment, shard_index): (&Segment, u32)) -> Result<Self, Self::Error> {
         let mut file_path = HashMap::new();
+        // If there are no shards in the filepaths this for loop won't
+        // run and this function will return an empty SegmentShard.
         for (key, paths) in &segment.file_path {
             match paths.get(shard_index as usize) {
-                Some(path) if path.is_empty() => {
-                    return Err(SegmentShardError::EmptyPathString(key.clone()));
-                }
                 Some(path) => {
-                    file_path.insert(key.clone(), path.clone());
+                    // During rebuild, clear_shard_file_paths sets paths to empty strings
+                    // to signal "create new". Skip these so writers see missing keys instead.
+                    if !path.is_empty() {
+                        file_path.insert(key.clone(), path.clone());
+                    }
                 }
                 None if paths.is_empty() => {
                     return Err(SegmentShardError::EmptyPathVector(key.clone()));
@@ -625,5 +777,365 @@ mod tests {
             err,
             SegmentShardError::MismatchedShardCounts { .. }
         ));
+    }
+
+    #[test]
+    fn test_clear_shard_file_paths() {
+        // Create a segment with 3 shards
+        let mut file_path = HashMap::new();
+        file_path.insert(
+            "metadata".to_string(),
+            vec![
+                "/path/to/shard0/metadata".to_string(),
+                "/path/to/shard1/metadata".to_string(),
+                "/path/to/shard2/metadata".to_string(),
+            ],
+        );
+        file_path.insert(
+            "index".to_string(),
+            vec![
+                "/path/to/shard0/index".to_string(),
+                "/path/to/shard1/index".to_string(),
+                "/path/to/shard2/index".to_string(),
+            ],
+        );
+        file_path.insert(
+            "data".to_string(),
+            vec![
+                "/path/to/shard0/data".to_string(),
+                "/path/to/shard1/data".to_string(),
+                "/path/to/shard2/data".to_string(),
+            ],
+        );
+
+        let mut segment = Segment {
+            id: SegmentUuid(Uuid::nil()),
+            r#type: SegmentType::BlockfileRecord,
+            scope: SegmentScope::RECORD,
+            collection: CollectionUuid(Uuid::nil()),
+            metadata: None,
+            file_path,
+        };
+
+        // Clear only shard 1's file paths
+        segment.clear_shard_file_paths(1);
+
+        // Verify shard 0 and shard 2 are untouched
+        assert_eq!(
+            segment.file_path.get("metadata").unwrap()[0],
+            "/path/to/shard0/metadata"
+        );
+        assert_eq!(
+            segment.file_path.get("metadata").unwrap()[2],
+            "/path/to/shard2/metadata"
+        );
+        assert_eq!(
+            segment.file_path.get("index").unwrap()[0],
+            "/path/to/shard0/index"
+        );
+        assert_eq!(
+            segment.file_path.get("index").unwrap()[2],
+            "/path/to/shard2/index"
+        );
+        assert_eq!(
+            segment.file_path.get("data").unwrap()[0],
+            "/path/to/shard0/data"
+        );
+        assert_eq!(
+            segment.file_path.get("data").unwrap()[2],
+            "/path/to/shard2/data"
+        );
+
+        // Verify shard 1 is cleared (empty string)
+        assert_eq!(segment.file_path.get("metadata").unwrap()[1], "");
+        assert_eq!(segment.file_path.get("index").unwrap()[1], "");
+        assert_eq!(segment.file_path.get("data").unwrap()[1], "");
+
+        // Test clearing a shard index that's out of bounds (should not panic)
+        segment.clear_shard_file_paths(5);
+
+        // Verify nothing changed for the out-of-bounds case
+        assert_eq!(
+            segment.file_path.get("metadata").unwrap()[0],
+            "/path/to/shard0/metadata"
+        );
+    }
+
+    // ── matches_schema tests ────────────────────────────────────────────────
+
+    use crate::collection_configuration::KnnIndex;
+    use crate::collection_schema::{
+        Quantization, Schema, SparseIndexAlgorithm, SparseVectorIndexConfig, SparseVectorIndexType,
+        SparseVectorValueType,
+    };
+
+    /// Helper: create a Spann schema (full precision, no quantization).
+    fn spann_schema() -> Schema {
+        Schema::new_default(KnnIndex::Spann)
+    }
+
+    /// Helper: create a Spann schema with quantization enabled.
+    fn quantized_spann_schema() -> Schema {
+        let mut schema = Schema::new_default(KnnIndex::Spann);
+        if let Some(spann_config) = schema.get_spann_config_mut() {
+            spann_config.quantize = Quantization::FourBitRabitQWithUSearch;
+        }
+        schema
+    }
+
+    /// Helper: create an HNSW schema.
+    fn hnsw_schema() -> Schema {
+        Schema::new_default(KnnIndex::Hnsw)
+    }
+
+    /// Helper: create a schema with sparse index enabled (Wand).
+    fn sparse_wand_schema() -> Schema {
+        let mut schema = Schema::new_default(KnnIndex::Hnsw);
+        schema
+            .keys
+            .entry("sparse_key".to_string())
+            .or_default()
+            .sparse_vector = Some(SparseVectorValueType {
+            sparse_vector_index: Some(SparseVectorIndexType {
+                enabled: true,
+                config: SparseVectorIndexConfig {
+                    embedding_function: None,
+                    source_key: None,
+                    bm25: None,
+                    algorithm: SparseIndexAlgorithm::Wand,
+                },
+            }),
+        });
+        schema
+    }
+
+    /// Helper: create a schema with sparse index enabled (MaxScore).
+    fn sparse_maxscore_schema() -> Schema {
+        let mut schema = sparse_wand_schema();
+        schema.set_sparse_algorithm(SparseIndexAlgorithm::MaxScore);
+        schema
+    }
+
+    fn make_vector_segment(file_path: HashMap<String, Vec<String>>) -> Segment {
+        Segment {
+            id: SegmentUuid(Uuid::nil()),
+            r#type: SegmentType::Spann,
+            scope: SegmentScope::VECTOR,
+            collection: CollectionUuid(Uuid::nil()),
+            metadata: None,
+            file_path,
+        }
+    }
+
+    fn make_metadata_segment(file_path: HashMap<String, Vec<String>>) -> Segment {
+        Segment {
+            id: SegmentUuid(Uuid::nil()),
+            r#type: SegmentType::BlockfileMetadata,
+            scope: SegmentScope::METADATA,
+            collection: CollectionUuid(Uuid::nil()),
+            metadata: None,
+            file_path,
+        }
+    }
+
+    #[test]
+    fn test_matches_schema_empty_file_path() {
+        let seg = make_vector_segment(HashMap::new());
+        assert!(seg.matches_schema(&spann_schema()).is_ok());
+        assert!(seg.matches_schema(&quantized_spann_schema()).is_ok());
+        assert!(seg.matches_schema(&hnsw_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_spann_matches_spann() {
+        let mut fp = HashMap::new();
+        fp.insert(HNSW_PATH.to_string(), vec!["path/a".to_string()]);
+        fp.insert(VERSION_MAP_PATH.to_string(), vec!["path/b".to_string()]);
+        fp.insert(POSTING_LIST_PATH.to_string(), vec!["path/c".to_string()]);
+        fp.insert(MAX_HEAD_ID_BF_PATH.to_string(), vec!["path/d".to_string()]);
+        let seg = make_vector_segment(fp);
+        assert!(seg.matches_schema(&spann_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_qspann_matches_qspann() {
+        let mut fp = HashMap::new();
+        fp.insert(
+            QUANTIZED_SPANN_CLUSTER.to_string(),
+            vec!["path/a".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_SCALAR_METADATA.to_string(),
+            vec!["path/b".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_EMBEDDING_METADATA.to_string(),
+            vec!["path/c".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_RAW_CENTROID.to_string(),
+            vec!["path/d".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_QUANTIZED_CENTROID.to_string(),
+            vec!["path/e".to_string()],
+        );
+        let seg = make_vector_segment(fp);
+        assert!(seg.matches_schema(&quantized_spann_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_spann_on_disk_qspann_in_schema() {
+        let mut fp = HashMap::new();
+        fp.insert(HNSW_PATH.to_string(), vec!["path/a".to_string()]);
+        fp.insert(VERSION_MAP_PATH.to_string(), vec!["path/b".to_string()]);
+        fp.insert(POSTING_LIST_PATH.to_string(), vec!["path/c".to_string()]);
+        fp.insert(MAX_HEAD_ID_BF_PATH.to_string(), vec!["path/d".to_string()]);
+        let seg = make_vector_segment(fp);
+        let err = seg.matches_schema(&quantized_spann_schema()).unwrap_err();
+        assert!(matches!(err, SchemaMismatchError::Mismatch { .. }));
+    }
+
+    #[test]
+    fn test_matches_schema_qspann_on_disk_spann_in_schema() {
+        let mut fp = HashMap::new();
+        fp.insert(
+            QUANTIZED_SPANN_CLUSTER.to_string(),
+            vec!["path/a".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_SCALAR_METADATA.to_string(),
+            vec!["path/b".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_EMBEDDING_METADATA.to_string(),
+            vec!["path/c".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_RAW_CENTROID.to_string(),
+            vec!["path/d".to_string()],
+        );
+        fp.insert(
+            QUANTIZED_SPANN_QUANTIZED_CENTROID.to_string(),
+            vec!["path/e".to_string()],
+        );
+        let seg = make_vector_segment(fp);
+        let err = seg.matches_schema(&spann_schema()).unwrap_err();
+        assert!(matches!(err, SchemaMismatchError::Mismatch { .. }));
+    }
+
+    #[test]
+    fn test_matches_schema_hnsw_schema_always_ok() {
+        // HNSW schema does not check file_path — no migration variants.
+        let mut fp = HashMap::new();
+        fp.insert(HNSW_PATH.to_string(), vec!["path/a".to_string()]);
+        let seg = make_vector_segment(fp);
+        assert!(seg.matches_schema(&hnsw_schema()).is_ok());
+    }
+
+    fn make_record_segment(file_path: HashMap<String, Vec<String>>) -> Segment {
+        Segment {
+            id: SegmentUuid(Uuid::nil()),
+            r#type: SegmentType::BlockfileRecord,
+            scope: SegmentScope::RECORD,
+            collection: CollectionUuid(Uuid::nil()),
+            metadata: None,
+            file_path,
+        }
+    }
+
+    #[test]
+    fn test_matches_schema_record_empty() {
+        let seg = make_record_segment(HashMap::new());
+        assert!(seg.matches_schema(&spann_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_record_complete() {
+        let mut fp = HashMap::new();
+        fp.insert(USER_ID_TO_OFFSET_ID.to_string(), vec!["a".to_string()]);
+        fp.insert(OFFSET_ID_TO_USER_ID.to_string(), vec!["b".to_string()]);
+        fp.insert(OFFSET_ID_TO_DATA.to_string(), vec!["c".to_string()]);
+        fp.insert(MAX_OFFSET_ID.to_string(), vec!["d".to_string()]);
+        let seg = make_record_segment(fp);
+        assert!(seg.matches_schema(&spann_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_record_missing_key() {
+        let mut fp = HashMap::new();
+        fp.insert(USER_ID_TO_OFFSET_ID.to_string(), vec!["a".to_string()]);
+        fp.insert(OFFSET_ID_TO_USER_ID.to_string(), vec!["b".to_string()]);
+        fp.insert(OFFSET_ID_TO_DATA.to_string(), vec!["c".to_string()]);
+        // MAX_OFFSET_ID intentionally omitted
+        let seg = make_record_segment(fp);
+        let err = seg.matches_schema(&spann_schema()).unwrap_err();
+        assert!(matches!(err, SchemaMismatchError::Mismatch { .. }));
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_wand_matches_wand() {
+        let mut fp = HashMap::new();
+        fp.insert(SPARSE_MAX.to_string(), vec!["path/a".to_string()]);
+        fp.insert(SPARSE_OFFSET_VALUE.to_string(), vec!["path/b".to_string()]);
+        let seg = make_metadata_segment(fp);
+        assert!(seg.matches_schema(&sparse_wand_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_maxscore_matches_maxscore() {
+        let mut fp = HashMap::new();
+        fp.insert(SPARSE_POSTING.to_string(), vec!["path/a".to_string()]);
+        let seg = make_metadata_segment(fp);
+        assert!(seg.matches_schema(&sparse_maxscore_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_wand_on_disk_maxscore_in_schema() {
+        let mut fp = HashMap::new();
+        fp.insert(SPARSE_MAX.to_string(), vec!["path/a".to_string()]);
+        fp.insert(SPARSE_OFFSET_VALUE.to_string(), vec!["path/b".to_string()]);
+        let seg = make_metadata_segment(fp);
+        let err = seg.matches_schema(&sparse_maxscore_schema()).unwrap_err();
+        assert!(matches!(err, SchemaMismatchError::Mismatch { .. }));
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_maxscore_on_disk_wand_in_schema() {
+        let mut fp = HashMap::new();
+        fp.insert(SPARSE_POSTING.to_string(), vec!["path/a".to_string()]);
+        let seg = make_metadata_segment(fp);
+        let err = seg.matches_schema(&sparse_wand_schema()).unwrap_err();
+        assert!(matches!(err, SchemaMismatchError::Mismatch { .. }));
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_empty_file_path() {
+        let seg = make_metadata_segment(HashMap::new());
+        assert!(seg.matches_schema(&sparse_maxscore_schema()).is_ok());
+        assert!(seg.matches_schema(&sparse_wand_schema()).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_disabled_index_no_check() {
+        // Schema with no sparse index enabled — should not check.
+        let schema = hnsw_schema();
+        assert!(!schema.is_sparse_index_enabled());
+        let mut fp = HashMap::new();
+        fp.insert(SPARSE_POSTING.to_string(), vec!["path/a".to_string()]);
+        let seg = make_metadata_segment(fp);
+        assert!(seg.matches_schema(&schema).is_ok());
+    }
+
+    #[test]
+    fn test_matches_schema_sparse_both_keys_present() {
+        // Both Wand and MaxScore keys present — invalid state.
+        let mut fp = HashMap::new();
+        fp.insert(SPARSE_POSTING.to_string(), vec!["path/a".to_string()]);
+        fp.insert(SPARSE_MAX.to_string(), vec!["path/b".to_string()]);
+        fp.insert(SPARSE_OFFSET_VALUE.to_string(), vec!["path/c".to_string()]);
+        let seg = make_metadata_segment(fp);
+        let err = seg.matches_schema(&sparse_maxscore_schema()).unwrap_err();
+        assert!(matches!(err, SchemaMismatchError::Mismatch { .. }));
     }
 }

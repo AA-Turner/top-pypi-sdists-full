@@ -51,6 +51,22 @@ class ChatLayoutTests(unittest.TestCase):
         self.assertEqual(panel["height"], 520)
         self.assertTrue(panel["show_header"])
 
+    def test_column_rows_serialize(self):
+        tree = cpsl.ui.Column(
+            [
+                cpsl.ui.ChatPanel(),
+                cpsl.ui.ImageGallery(data="generated_images"),
+            ],
+            rows=[3, 1],
+            fill=True,
+            gap=12,
+        ).to_dict()
+
+        self.assertEqual(tree["type"], "column")
+        self.assertEqual(tree["rows"], [3, 1])
+        self.assertTrue(tree["fill"])
+        self.assertEqual(tree["gap"], 12)
+
     def test_chat_page_requires_one_chat_panel(self):
         app = cpsl.App(name="chat-layout-validation", image=cpsl.Image())
 
@@ -93,6 +109,39 @@ class ChatLayoutTests(unittest.TestCase):
         self.assertTrue(_wants_session(by_name))
         self.assertTrue(_wants_session(by_string))
         self.assertFalse(_wants_session(no_session))
+
+    def test_media_widgets_serialize(self):
+        image_gallery = cpsl.ui.ImageGallery(
+            data="generated_media",
+            title="Generated images",
+        ).to_dict()
+        self.assertEqual(image_gallery["type"], "image_gallery")
+        self.assertEqual(image_gallery["data"], "generated_media")
+        self.assertEqual(image_gallery["images"], [])
+
+        video = cpsl.ui.Video(
+            "https://example.com/render.mp4",
+            poster="https://example.com/poster.jpg",
+            title="Walkthrough",
+            caption="Generated walkthrough",
+            autoplay=True,
+            muted=True,
+            aspect_ratio="16 / 9",
+        ).to_dict()
+        self.assertEqual(video["type"], "video")
+        self.assertEqual(video["src"], "https://example.com/render.mp4")
+        self.assertEqual(video["poster"], "https://example.com/poster.jpg")
+        self.assertTrue(video["autoplay"])
+        self.assertTrue(video["muted"])
+
+        video_gallery = cpsl.ui.VideoGallery(
+            data="generated_videos",
+            videos=[cpsl.ui.Video("https://example.com/a.mp4", caption="A")],
+            title="Generated videos",
+        ).to_dict()
+        self.assertEqual(video_gallery["type"], "video_gallery")
+        self.assertEqual(video_gallery["data"], "generated_videos")
+        self.assertEqual(video_gallery["videos"][0]["src"], "https://example.com/a.mp4")
 
 
 if __name__ == "__main__":

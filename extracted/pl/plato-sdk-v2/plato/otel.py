@@ -36,6 +36,8 @@ import contextvars
 import json
 import logging
 import os
+import signal
+import threading
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -49,7 +51,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
 )
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import NonRecordingSpan, Span, SpanContext, TraceFlags, Tracer
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,65 @@ logging.getLogger("opentelemetry.exporter.otlp").setLevel(logging.CRITICAL)
 _tracer_provider = None
 _initialized = False
 _log_handler = None
+_signal_handler_installed = False
+
+
+def _install_otel_shutdown_signal_handler() -> None:
+    """Flush BSP on SIGTERM, chaining to any pre-existing handler.
+
+    The default ``atexit`` handler registered by ``TracerProvider`` only fires
+    on graceful interpreter shutdown. SIGTERM (the signal Chronos uses to
+    cancel a session) bypasses ``atexit``, so anything still in the
+    ``BatchSpanProcessor`` queue is dropped — losing the last spans before
+    cancel. We install a handler that drains the queue and then **delegates
+    to whatever SIGTERM handler was already in place** so callers (e.g.
+    ``worlds/runner.py`` which raises ``KeyboardInterrupt`` to unwind
+    ``asyncio.run`` and let ``world.close()`` run) keep their semantics.
+    """
+    global _signal_handler_installed
+    if _signal_handler_installed:
+        return
+    if threading.current_thread() is not threading.main_thread():
+        # signal.signal() only works from the main thread of the main
+        # interpreter; non-main-thread callers can't install handlers.
+        return
+
+    try:
+        prev_handler = signal.getsignal(signal.SIGTERM)
+    except (ValueError, OSError):
+        return
+
+    def _handler(signum: int, frame: Any) -> None:
+        # Use force_flush rather than shutdown: shutdown permanently
+        # disables the provider, which would crash the normal cleanup path
+        # (shutdown_tracing -> force_flush -> shutdown on a dead provider
+        # raises "cannot schedule new futures after shutdown"). force_flush
+        # drains the queue but leaves the provider live for downstream
+        # cleanup that runs after the chained handler unwinds the stack.
+        try:
+            if _tracer_provider is not None:
+                # Cap the flush at 5s so we don't eat the orchestrator's
+                # SIGTERM grace window (typically 30s before SIGKILL).
+                _tracer_provider.force_flush(timeout_millis=5000)
+        except Exception:
+            pass
+        # Chain to whatever was registered before us so we don't clobber
+        # a caller's graceful-shutdown logic.
+        if callable(prev_handler):
+            prev_handler(signum, frame)
+            return
+        if prev_handler == signal.SIG_IGN:
+            return
+        # SIG_DFL or anything else opaque: re-raise with default action.
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    try:
+        signal.signal(signal.SIGTERM, _handler)
+        _signal_handler_installed = True
+    except (ValueError, OSError):
+        # ValueError: not in main thread; OSError: signal not supported.
+        pass
 
 
 class OTelSpanLogHandler(logging.Handler):
@@ -160,10 +221,36 @@ def init_tracing(
 
         _tracer_provider = TracerProvider(resource=resource)
 
-        otlp_exporter = OTLPSpanExporter(endpoint=f"{otlp_endpoint.rstrip('/')}/v1/traces")
-        _tracer_provider.add_span_processor(SimpleSpanProcessor(otlp_exporter))
+        # Per-request timeout for the OTLP HTTP POST. Upstream default is 10s,
+        # which we hit under bursty server load (chronos returns 502/slow).
+        # We bump the *default* to 30s, but defer to the OTel SDK's native
+        # env-var resolution when either OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+        # (signal-specific, takes precedence per spec) or
+        # OTEL_EXPORTER_OTLP_TIMEOUT is set — passing timeout= ourselves
+        # would shadow those env vars.
+        otlp_endpoint_url = f"{otlp_endpoint.rstrip('/')}/v1/traces"
+        if "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT" in os.environ or "OTEL_EXPORTER_OTLP_TIMEOUT" in os.environ:
+            otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint_url)
+        else:
+            otlp_exporter = OTLPSpanExporter(
+                endpoint=otlp_endpoint_url,
+                timeout=30,
+            )
+        # Batch on a background thread so span.end() doesn't block the
+        # asyncio loop on the OTLP HTTP call (SimpleSpanProcessor would).
+        # schedule_delay_millis bumped 2000 -> 5000 to halve request rate
+        # against chronos when many spans are queued.
+        _tracer_provider.add_span_processor(
+            BatchSpanProcessor(
+                otlp_exporter,
+                max_queue_size=10000,
+                max_export_batch_size=512,
+                schedule_delay_millis=5000,
+            )
+        )
 
         trace.set_tracer_provider(_tracer_provider)
+        _install_otel_shutdown_signal_handler()
 
         if parent_trace_id and parent_span_id:
             parent_context = SpanContext(

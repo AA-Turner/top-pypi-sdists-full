@@ -2,16 +2,16 @@
 
 import copy
 import dataclasses
+from collections.abc import Collection
 from itertools import chain
-from typing import cast
+from typing import NamedTuple, cast
 
 import numpy as np
 
-import pytensor
 from pytensor import scalar as ps
 from pytensor import tensor as pt
 from pytensor.compile import optdb
-from pytensor.compile.function.types import deep_copy_op
+from pytensor.compile.ops import DeepCopyOp, ViewOp, deep_copy_op
 from pytensor.configdefaults import config
 from pytensor.graph.basic import (
     Apply,
@@ -23,7 +23,6 @@ from pytensor.graph.basic import (
 from pytensor.graph.destroyhandler import DestroyHandler
 from pytensor.graph.features import ReplaceValidate
 from pytensor.graph.fg import FunctionGraph, Output
-from pytensor.graph.op import compute_test_value
 from pytensor.graph.replace import clone_replace
 from pytensor.graph.rewriting.basic import (
     EquilibriumGraphRewriter,
@@ -37,7 +36,7 @@ from pytensor.graph.rewriting.utils import get_clients_at_depth
 from pytensor.graph.traversal import (
     ancestors,
     apply_depends_on,
-    graph_inputs,
+    explicit_graph_inputs,
 )
 from pytensor.graph.type import HasShape
 from pytensor.graph.utils import InconsistencyError
@@ -46,11 +45,9 @@ from pytensor.scalar import ScalarConstant
 from pytensor.scan.op import Scan, ScanInfo
 from pytensor.scan.utils import (
     ScanArgs,
-    compress_outs,
     expand_empty,
     reconstruct_graph,
     safe_new,
-    scan_can_remove_outs,
 )
 from pytensor.tensor.basic import (
     Alloc,
@@ -72,9 +69,9 @@ from pytensor.tensor.shape import shape
 from pytensor.tensor.subtensor import (
     IncSubtensor,
     Subtensor,
+    basic_subtensor,
     get_canonical_form_slice,
     get_idx_list,
-    get_slice_elements,
     set_subtensor,
 )
 from pytensor.tensor.variable import TensorConstant, TensorVariable
@@ -89,126 +86,234 @@ list_opt_slice = [
 ]
 
 
-@node_rewriter([Scan])
-def remove_constants_and_unused_inputs_scan(fgraph, node):
-    """Move constants into the inner graph, and remove unused inputs.
+def _rebuild_scan_with_new_signature(
+    op: Scan,
+    node: Apply,
+    *,
+    drop_seqs: Collection[int] = frozenset(),
+    drop_mit_mot: Collection[int] = frozenset(),
+    drop_mit_sot: Collection[int] = frozenset(),
+    drop_sit_sot: Collection[int] = frozenset(),
+    drop_nit_sot: Collection[int] = frozenset(),
+    drop_untraced_sit_sot: Collection[int] = frozenset(),
+    drop_non_seqs: Collection[int] = frozenset(),
+    inner_substitutions: dict[Variable, Variable] | None = None,
+) -> dict:
+    """Build a replacement Scan node with a trimmed signature.
 
-    Constants that are in the outer graph are represented by a free symbolic
-    variable in the inner graph. If we move them into the inner graph,
-    constant-folding can happen in the inner graph.
-    This is applied only on sequences and non-sequences,
-    not on initial states.
+    Each ``drop_*`` argument is a set of indices into its category; the
+    rebuilt op retains only the entries whose index is not listed.
+    ``inner_substitutions``, when provided, is applied via ``clone_replace``
+    on the inner outputs before the rebuild -- use it to inline constants
+    or rewire duplicate inner inputs.
 
+    Returns a ``replacements`` dict: kept outer outputs map to their
+    counterparts on the new op, dropped outputs carry no mapping (they
+    disappear along with the old node), and ``"remove"`` lists the old
+    node.
     """
-    if not isinstance(node.op, Scan):
-        return False
+    info = op.info
+
+    keep_seqs = [k for k in range(info.n_seqs) if k not in drop_seqs]
+    keep_mm = [k for k in range(info.n_mit_mot) if k not in drop_mit_mot]
+    keep_ms = [k for k in range(info.n_mit_sot) if k not in drop_mit_sot]
+    keep_ss = [k for k in range(info.n_sit_sot) if k not in drop_sit_sot]
+    keep_ns = [k for k in range(info.n_nit_sot) if k not in drop_nit_sot]
+    keep_us = [
+        k for k in range(info.n_untraced_sit_sot) if k not in drop_untraced_sit_sot
+    ]
+    keep_non_seqs = [k for k in range(info.n_non_seqs) if k not in drop_non_seqs]
+
+    new_info = dataclasses.replace(
+        info,
+        n_seqs=len(keep_seqs),
+        mit_mot_in_slices=tuple(info.mit_mot_in_slices[k] for k in keep_mm),
+        mit_mot_out_slices=tuple(info.mit_mot_out_slices[k] for k in keep_mm),
+        mit_sot_in_slices=tuple(info.mit_sot_in_slices[k] for k in keep_ms),
+        sit_sot_in_slices=tuple(info.sit_sot_in_slices[k] for k in keep_ss),
+        n_nit_sot=len(keep_ns),
+        n_untraced_sit_sot=len(keep_us),
+        n_non_seqs=len(keep_non_seqs),
+    )
+
+    inner_seqs = op.inner_seqs(op.inner_inputs)
+    inner_mm_groups = op.inner_mitmot_grouped(op.inner_inputs)
+    inner_ms_groups = op.inner_mitsot_grouped(op.inner_inputs)
+    inner_ss = op.inner_sitsot(op.inner_inputs)
+    inner_us = op.inner_untraced_sit_sot(op.inner_inputs)
+    inner_non_seqs = op.inner_non_seqs(op.inner_inputs)
+
+    new_inner_inputs = (
+        [inner_seqs[k] for k in keep_seqs]
+        + [v for k in keep_mm for v in inner_mm_groups[k]]
+        + [v for k in keep_ms for v in inner_ms_groups[k]]
+        + [inner_ss[k] for k in keep_ss]
+        + [inner_us[k] for k in keep_us]
+        + [inner_non_seqs[k] for k in keep_non_seqs]
+    )
+
+    inner_outputs = op.inner_outputs
+    if inner_substitutions:
+        inner_outputs = clone_replace(inner_outputs, replace=inner_substitutions)
+    inner_mm_out_groups = op.inner_mitmot_outs_grouped(inner_outputs)
+    inner_ms_outs = op.inner_mitsot_outs(inner_outputs)
+    inner_ss_outs = op.inner_sitsot_outs(inner_outputs)
+    inner_ns_outs = op.inner_nitsot_outs(inner_outputs)
+    inner_us_outs = op.inner_untraced_sit_sot_outs(inner_outputs)
+    # ``as_while`` appends the condition as the final inner output; preserve it.
+    while_cond_tail = [inner_outputs[-1]] if info.as_while else []
+
+    new_inner_outputs = (
+        [v for k in keep_mm for v in inner_mm_out_groups[k]]
+        + [inner_ms_outs[k] for k in keep_ms]
+        + [inner_ss_outs[k] for k in keep_ss]
+        + [inner_ns_outs[k] for k in keep_ns]
+        + [inner_us_outs[k] for k in keep_us]
+        + while_cond_tail
+    )
+
+    outer_seqs = op.outer_seqs(node.inputs)
+    outer_mm = op.outer_mitmot(node.inputs)
+    outer_ms = op.outer_mitsot(node.inputs)
+    outer_ss = op.outer_sitsot(node.inputs)
+    outer_us = op.outer_untraced_sit_sot(node.inputs)
+    outer_ns = op.outer_nitsot(node.inputs)
+    outer_non_seqs = op.outer_non_seqs(node.inputs)
+
+    new_outer_inputs = (
+        [node.inputs[0]]
+        + [outer_seqs[k] for k in keep_seqs]
+        + [outer_mm[k] for k in keep_mm]
+        + [outer_ms[k] for k in keep_ms]
+        + [outer_ss[k] for k in keep_ss]
+        + [outer_us[k] for k in keep_us]
+        + [outer_ns[k] for k in keep_ns]
+        + [outer_non_seqs[k] for k in keep_non_seqs]
+    )
+
+    new_op = Scan(
+        new_inner_inputs,
+        new_inner_outputs,
+        new_info,
+        mode=op.mode,
+        profile=op.profile,
+        truncate_gradient=op.truncate_gradient,
+        name=op.name,
+        allow_gc=op.allow_gc,
+    )
+    new_outs = cast(list[Variable], new_op(*new_outer_inputs, return_list=True))
+
+    # Outer outputs are laid out [mit_mot | mit_sot | sit_sot | nit_sot |
+    # untraced_sit_sot]; walk each category and route each kept old output
+    # to its new counterpart.
+    replacements: dict = {}
+    new_cursor = 0
+    old_offset = 0
+    for keep_list, n_old in (
+        (keep_mm, info.n_mit_mot),
+        (keep_ms, info.n_mit_sot),
+        (keep_ss, info.n_sit_sot),
+        (keep_ns, info.n_nit_sot),
+        (keep_us, info.n_untraced_sit_sot),
+    ):
+        for k in keep_list:
+            replacements[node.outputs[old_offset + k]] = new_outs[new_cursor]
+            new_cursor += 1
+        old_offset += n_old
+    replacements["remove"] = [node]
+    return replacements
+
+
+@node_rewriter([Scan])
+def scan_inline_invariant_constants(fgraph, node):
+    """Inline compile-time-constant, iteration-invariant Scan inputs.
+
+    A non-sequence whose outer input is a ``Constant`` is replaced inside
+    the inner graph by that constant. A sequence whose outer input is a
+    ``TensorConstant`` with a uniform value is collapsed to a scalar
+    constant. Once inlined, the inner graph can constant-fold through the
+    value and the corresponding inner / outer input pair is dropped.
+    """
     op = node.op
-    op_info = op.info
-    # We only need to take care of sequences and other arguments
-    st = op_info.n_seqs
-    st += int(
-        sum(len(x) for x in chain(op_info.mit_mot_in_slices, op_info.mit_sot_in_slices))
-    )
-    st += op_info.n_sit_sot
-    st += op_info.n_untraced_sit_sot
+    drop_seqs: set = set()
+    drop_non_seqs: set = set()
+    substitutions: dict = {}
 
-    op_ins = op.inner_inputs
-    op_outs = op.inner_outputs
-
-    # Corresponds to the initial states, which should stay untouched.
-    # We put those variables aside, and put them back at the end.
-    out_stuff_inner = op_ins[op_info.n_seqs : st]
-
-    non_seqs = op_ins[st:]
-    st = (
-        op_info.n_seqs
-        + op_info.n_mit_mot
-        + op_info.n_mit_sot
-        + op_info.n_sit_sot
-        + op_info.n_nit_sot
-        + op_info.n_untraced_sit_sot
-        + 1
-    )
-    outer_non_seqs = node.inputs[st:]
-    out_stuff_outer = node.inputs[1 + op_info.n_seqs : st]
-
-    # To replace constants in the outer graph by clones in the inner graph
-    givens = {}
-    # All the inputs of the inner graph of the new scan
-    nw_inner = []
-    # Same for the outer graph, initialized w/ number of steps
-    nw_outer = [node.inputs[0]]
-
-    all_ins = list(graph_inputs(op_outs))
-    for idx in range(op_info.n_seqs):
-        node_inp = node.inputs[idx + 1]
-        if isinstance(node_inp, TensorConstant) and node_inp.unique_value is not None:
+    for k, (inner, outer) in enumerate(
+        zip(op.inner_seqs(op.inner_inputs), op.outer_seqs(node.inputs), strict=True)
+    ):
+        if isinstance(outer, TensorConstant) and outer.unique_value is not None:
             try:
-                # This works if input is a constant that has all entries
-                # equal
-                givens[op_ins[idx]] = node_inp[0]
+                substitutions[inner] = outer[0]
+                drop_seqs.add(k)
             except TypeError:
                 pass
-        elif op_ins[idx] in all_ins:
-            # Check for identical other sequence
-            identical_seqs = [
-                x for x in nw_outer if equal_computations([x], [node_inp])
-            ]
-            if identical_seqs:
-                index = node.inputs.index(identical_seqs[0]) - 1
-                givens[op_ins[idx]] = op_ins[index]
-            else:
-                nw_inner.append(op_ins[idx])
-                nw_outer.append(node_inp)
 
-    nw_n_seqs = len(nw_inner)
-    # Add outputs stuff
-    nw_inner += out_stuff_inner
-    nw_outer += out_stuff_outer
-
-    # Look through non sequences
-    nw_inner_nonseq = []
-    nw_outer_nonseq = []
-    for idx, (nw_in, nw_out) in enumerate(zip(non_seqs, outer_non_seqs, strict=True)):
-        if isinstance(nw_out, Constant):
-            givens[nw_in] = nw_out
-        elif nw_in in all_ins:
-            # Indices of elements of nw_outer_nonseq that are equivalent
-            # to nw_out.
-            identical_nonseq_idx = [
-                i
-                for (i, x) in enumerate(nw_outer_nonseq)
-                if equal_computations([x], [nw_out])
-            ]
-            if identical_nonseq_idx:
-                givens[nw_in] = nw_inner_nonseq[identical_nonseq_idx[0]]
-            else:
-                nw_inner_nonseq.append(nw_in)
-                nw_outer_nonseq.append(nw_out)
-
-    nw_inner.extend(nw_inner_nonseq)
-    nw_outer.extend(nw_outer_nonseq)
-
-    if len(nw_inner) != len(op_ins):
-        op_outs = clone_replace(op_outs, replace=givens)
-        nw_info = dataclasses.replace(
-            op_info, n_seqs=nw_n_seqs, n_non_seqs=len(nw_inner_nonseq)
+    for k, (inner, outer) in enumerate(
+        zip(
+            op.inner_non_seqs(op.inner_inputs),
+            op.outer_non_seqs(node.inputs),
+            strict=True,
         )
-        nwScan = Scan(
-            nw_inner,
-            op_outs,
-            nw_info,
-            mode=op.mode,
-            profile=op.profile,
-            truncate_gradient=op.truncate_gradient,
-            # TODO: This seems questionable
-            name=op.name,
-            allow_gc=op.allow_gc,
-        )
-        nw_outs = nwScan(*nw_outer, return_list=True)
-        return dict([("remove", [node]), *zip(node.outputs, nw_outs, strict=True)])
-    else:
+    ):
+        if isinstance(outer, Constant):
+            substitutions[inner] = outer
+            drop_non_seqs.add(k)
+
+    if not substitutions:
         return False
+    return _rebuild_scan_with_new_signature(
+        op,
+        node,
+        drop_seqs=drop_seqs,
+        drop_non_seqs=drop_non_seqs,
+        inner_substitutions=substitutions,
+    )
+
+
+@node_rewriter([Scan])
+def scan_merge_duplicate_inputs(fgraph, node):
+    """Merge outer seqs / non_seqs that are ``equal_computations``.
+
+    When two outer inputs compute the same value, the later one's inner
+    variable is rewired to the earlier one's, and the duplicate inner /
+    outer input pair is dropped.
+    """
+    op = node.op
+
+    def _duplicates(inner_list, outer_list):
+        subs: dict = {}
+        drop: set = set()
+        canonical: list[tuple] = []
+        for k, (inner, outer) in enumerate(zip(inner_list, outer_list, strict=True)):
+            for canon_outer, canon_inner in canonical:
+                if equal_computations([outer], [canon_outer]):
+                    subs[inner] = canon_inner
+                    drop.add(k)
+                    break
+            else:
+                canonical.append((outer, inner))
+        return subs, drop
+
+    seq_subs, drop_seqs = _duplicates(
+        op.inner_seqs(op.inner_inputs),
+        op.outer_seqs(node.inputs),
+    )
+    non_seq_subs, drop_non_seqs = _duplicates(
+        op.inner_non_seqs(op.inner_inputs),
+        op.outer_non_seqs(node.inputs),
+    )
+    substitutions = {**seq_subs, **non_seq_subs}
+
+    if not substitutions:
+        return False
+    return _rebuild_scan_with_new_signature(
+        op,
+        node,
+        drop_seqs=drop_seqs,
+        drop_non_seqs=drop_non_seqs,
+        inner_substitutions=substitutions,
+    )
 
 
 @node_rewriter([Scan])
@@ -272,8 +377,8 @@ def scan_push_out_non_seq(fgraph, node):
             # We can (supposedly) do this because the assumption is that a
             # `ViewOp` or `DeepCopyOp` will be just at the end of the
             # function and not somewhere in the middle
-            and not isinstance(nd.op, pytensor.compile.ViewOp)
-            and not isinstance(nd.op, pytensor.compile.DeepCopyOp)
+            and not isinstance(nd.op, ViewOp)
+            and not isinstance(nd.op, DeepCopyOp)
         ):
             # We have a candidate node to remove from the inner-graph
 
@@ -303,9 +408,6 @@ def scan_push_out_non_seq(fgraph, node):
                 new_inputs.append(new_input)
 
             pushed_out_node = nd.op.make_node(*new_inputs)
-
-            if config.compute_test_value != "off":
-                compute_test_value(pushed_out_node)
 
             # Step 2. Create variables to replace the old outputs of the node
             # that we're pushing out of the inner-graph
@@ -377,7 +479,6 @@ def scan_push_out_non_seq(fgraph, node):
             allow_gc=op.allow_gc,
         )
 
-        # Do not call make_node for test_value
         nw_node = nwScan(*(node.inputs + nw_outer), return_list=True)[0].owner
 
         replacements = dict(zip(node.outputs, nw_node.outputs, strict=True))
@@ -504,11 +605,7 @@ def scan_push_out_seq(fgraph, node):
 
             to_remove_set.add(nd)
 
-            # Do not call make_node for test_value
             nw_outer_node = nd.op.make_node(*outside_ins)
-
-            if config.compute_test_value != "off":
-                compute_test_value(nw_outer_node)
 
             # Step 2. Create variables for replacements
             for idx, y in enumerate(nd.outputs):
@@ -540,12 +637,6 @@ def scan_push_out_seq(fgraph, node):
             add_to_replace(y)
             replace_with_in.append(y_place_holder)
             replace_with_out.append(new_outer)
-
-            if hasattr(new_outer.tag, "test_value"):
-                new_sh = new_outer.tag.test_value.shape
-                ref_sh = (outside_ins.tag.test_value.shape[0],)
-                ref_sh += nd.outputs[0].tag.test_value.shape
-                assert new_sh == ref_sh
 
     # We need to check all candidate replacements and choose those that
     # make sense for us
@@ -607,7 +698,6 @@ def scan_push_out_seq(fgraph, node):
             name=op.name,
             allow_gc=op.allow_gc,
         )
-        # Do not call make_node for test_value
         nw_node = nwScan(
             *(node.inputs[:1] + nw_outer + node.inputs[1:]),
             return_list=True,
@@ -618,7 +708,9 @@ def scan_push_out_seq(fgraph, node):
         return replacements
 
     elif not to_keep_set and not op.info.as_while and not op.outer_mitmot(node.inputs):
-        # Nothing in the inner graph should be kept
+        # Nothing in the inner graph should be kept.
+        n_steps = node.inputs[0]
+
         replace_with = {}
         for out, idx in to_replace_map.items():
             if out in local_fgraph_outs_set:
@@ -635,7 +727,26 @@ def scan_push_out_seq(fgraph, node):
                     inp = op.outer_sitsot(node.inputs)[odx]
                     y = set_subtensor(inp[1:], _y)
                 elif out in op.inner_nitsot_outs(ls):
-                    y = _y
+                    # The pushed-out Elemwise has length == n_steps, but the
+                    # nit_sot's outer buffer size (`outer_nitsot` input) may
+                    # be larger. When it is, folding directly would silently
+                    # drop the trailing zero-initialized slots that any
+                    # downstream consumer reading the full buffer expects --
+                    # e.g., `Scan.pullback` emits grad scans where the
+                    # nit_sot size is the forward's step count while
+                    # `n_steps == grad_steps == min(forward_steps, truncate)`
+                    # and its concat padding depends on those trailing zeros.
+                    # Fold into the direct Elemwise only when the two sizes
+                    # are the same Variable; otherwise pad with zeros via
+                    # set_subtensor.
+                    odx = op.inner_nitsot_outs(ls).index(out)
+                    nit_sot_size = op.outer_nitsot(node.inputs)[odx]
+                    if nit_sot_size is n_steps:
+                        y = _y
+                    else:
+                        extra_dims = [_y.shape[i] for i in range(1, _y.ndim)]
+                        zero_buf = pt.zeros((nit_sot_size, *extra_dims), dtype=_y.dtype)
+                        y = set_subtensor(zero_buf[:n_steps], _y)
                 else:
                     y = _y[-1]
                 replace_with[x] = y
@@ -810,7 +921,7 @@ def add_nitsot_outputs(
     # replacements = dict(zip(old_scan_node.outputs, new_node_old_outputs))
     # replacements["remove"] = [old_scan_node]
     # return new_scan_node, replacements
-    fgraph.replace_all_validate_remove(  # type: ignore
+    fgraph.replace_all_validate_remove(
         list(zip(old_scan_node.outputs, new_node_old_outputs, strict=True)),
         remove=[old_scan_node],
         reason="scan_pushout_add",
@@ -973,10 +1084,12 @@ class ScanInplaceOptimizer(GraphRewriter):
         node
             Scan node to replace by an inplace version
         output_indices
-            Indices of the outputs to attempt to compute inplace
+            Indices of the outputs to attempt to compute inplace.
         """
 
         op = node.op
+        n_tap_outs = op.info.n_mit_mot + op.info.n_mit_sot + op.info.n_sit_sot
+        untraced_out_start = n_tap_outs + op.info.n_nit_sot
 
         # inputs corresponding to sequences and n_steps
         ls_begin = node.inputs[: 1 + op.info.n_seqs]
@@ -993,19 +1106,10 @@ class ScanInplaceOptimizer(GraphRewriter):
             inp = ls[i]
             if (
                 len(fgraph.clients[inp]) > 1
-                and inp.owner
+                and inp.owner is not None
                 and isinstance(inp.owner.op, self.alloc_ops)
             ):
-                new_lsi = inp.owner.op.make_node(*inp.owner.inputs)
-
-                if config.compute_test_value != "off":
-                    compute_test_value(new_lsi)
-
-                new_lsi_out = new_lsi.outputs
-
-                if len(new_lsi_out) == 1:
-                    new_lsi_out = new_lsi_out[0]
-
+                [new_lsi_out] = inp.owner.op.make_node(*inp.owner.inputs).outputs
                 ls[i] = new_lsi_out
 
         n_outs = len(ls)
@@ -1019,68 +1123,78 @@ class ScanInplaceOptimizer(GraphRewriter):
 
         destroy_map = op.destroy_map.copy()
         for out_idx in output_indices:
-            destroy_map[out_idx] = [out_idx + 1 + op.info.n_seqs]
+            if out_idx < n_tap_outs:
+                # Recurrent output: input is at position out_idx + 1 + n_seqs
+                destroy_map[out_idx] = [out_idx + 1 + op.info.n_seqs]
+            else:
+                # Untraced sit_sot output: input is at untraced_sit_sot_arg_offset + j
+                j = out_idx - untraced_out_start
+                destroy_map[out_idx] = [op.untraced_sit_sot_arg_offset + j]
 
         new_op.destroy_map = destroy_map
 
-        # Do not call make_node for test_value
-        new_outs = new_op(*inputs, return_list=True)
+        # Remove view_map entries for outputs that are now in destroy_map
+        if hasattr(new_op, "view_map"):
+            new_op.view_map = {
+                k: v for k, v in new_op.view_map.items() if k not in destroy_map
+            }
 
-        assert isinstance(new_outs, list)
+        new_node: Apply = new_op.make_node(*inputs)
 
         try:
-            # TODO FIXME: We need to stop using this approach (i.e. attempt
-            # in-place replacements and wait for downstream failures to revert
-            # the changes).  It prevents us from making smart, clear
-            # rewrites and it adds a lot of unnecessary overhead that
-            # involves dealing with inconsistent graphs.
-            # This whole rewrite should be a simple local rewrite, but, because
-            # of this awful approach, it can't be.
-            fgraph.replace_all_validate_remove(  # type: ignore
-                list(zip(node.outputs, new_outs, strict=True)),
+            fgraph.replace_all_validate_remove(
+                list(zip(node.outputs, new_node.outputs, strict=True)),
                 remove=[node],
                 reason="scan_make_inplace",
             )
-            return cast(Apply[Scan], new_outs[0].owner)
+            return new_node
         except InconsistencyError:
             # Failed moving output to be computed inplace
             return None
 
     def apply(self, fgraph):
-        for scan_idx, original_node in enumerate(reversed(fgraph.toposort())):
+        for original_node in reversed(fgraph.toposort()):
             if not isinstance(original_node.op, Scan):
                 continue
 
-            # First attempt to make the Scan compute inplace every recurrent
-            # output that seems like it could be computed inplace. If that
-            # fails, go through these outputs individually, trying each of
-            # them.
+            # First attempt to make the Scan eagerly compute inplace every output
+            #  that seems like it could be computed inplace.
+            # If that fails, go through these outputs individually, trying each one at a time.
             op = original_node.op
-            n_outs = op.info.n_mit_mot + op.info.n_mit_sot + op.info.n_sit_sot
+            n_tap_outs = op.info.n_mit_mot + op.info.n_mit_sot + op.info.n_sit_sot
+            untraced_out_start = n_tap_outs + op.info.n_nit_sot
 
             # Generate a list of outputs on which the node could potentially
-            # operate inplace.
+            # operate inplace: recurrent outputs and untraced_sit_sot outputs.
+            candidate_out_indices = list(range(n_tap_outs)) + list(
+                range(
+                    untraced_out_start, untraced_out_start + op.info.n_untraced_sit_sot
+                )
+            )
+
             out_indices = []
-            for out_idx in range(n_outs):
-                inp_idx = 1 + op.info.n_seqs + out_idx
+            for out_idx in candidate_out_indices:
+                if out_idx < n_tap_outs:
+                    inp_idx = 1 + op.info.n_seqs + out_idx
+                else:
+                    j = out_idx - untraced_out_start
+                    inp_idx = op.untraced_sit_sot_arg_offset + j
+
                 inp = original_node.inputs[inp_idx]
 
                 # If the input is from an eligible allocation node, attempt to
-                # be inplace on it, even if other nodes are modifying it
-                # inplace.
+                # be inplace on it, even if other nodes are modifying it inplace.
                 if inp.owner and isinstance(inp.owner.op, self.alloc_ops):
                     out_indices.append(out_idx)
                     continue
 
                 # If the input is not from an eligible allocation node, only
-                # attempt to be inplace on it if nothing else is currently
-                # inplace on it.
+                # attempt to be inplace on it if nothing else is currently inplace on it.
                 input_used_inplace = False
-                for c in fgraph.clients[original_node.inputs[inp_idx]]:
+                for c in fgraph.clients[inp]:
                     client = c[0]
 
-                    # Get the indices of this client's inputs on which it
-                    # operates inplace
+                    # Get the indices of this client's inputs on which it operates inplace
                     if client.op.destroy_map:
                         # This flattens the content of destroy_map.values()
                         # which is a list of lists
@@ -1088,8 +1202,7 @@ class ScanInplaceOptimizer(GraphRewriter):
                             client.op.destroy_map.values()
                         )
 
-                        inplace_inps = [client.inputs[i] for i in inplace_inp_indices]
-                        if original_node.inputs[inp_idx] in inplace_inps:
+                        if inp in (client.inputs[i] for i in inplace_inp_indices):
                             input_used_inplace = True
                             break
 
@@ -1103,9 +1216,7 @@ class ScanInplaceOptimizer(GraphRewriter):
 
             if new_node is None:
                 # Making the scan compute all plausible recurrent outputs
-                # inplace has failed. Attempt all plausible recurrent outputs
-                # individually.
-
+                # inplace has failed. Attempt all plausible recurrent outputs individually.
                 new_node = original_node
                 for pos in out_indices:
                     new_node = (
@@ -1211,7 +1322,7 @@ def _is_default_scan_buffer(final_buffer: TensorVariable, taps: int) -> bool:
     if not (
         isinstance(op, IncSubtensor)
         and op.set_instead_of_inc
-        and op.idx_list == [slice(None, ps.int64)]
+        and op.idx_list == (slice(None, 0),)
     ):
         return False
 
@@ -1278,6 +1389,12 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
 
     The scan perform implementation takes the output sizes into consideration,
     saving the newest results over the oldest ones whenever the buffer is filled.
+
+    This rewrite must only run at compilation time, after grad() has already
+    built the backward scan. The backward scan needs all intermediate forward
+    states as sequence inputs (to evaluate f'(x[t])). If this rewrite truncates
+    buffers before grad() is called, the gradient will be silently wrong.
+    TODO: Use a subclass that raises explicitly on `L_op`
 
     Paramaters
     ----------
@@ -1350,15 +1467,9 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
     # Keeps track of the original slices that each client represent
     slices: list[None | list] = [None for o in node.outputs]
 
-    # A list for each output indicating how many intermediate values
-    # should be stored. If negative it means none of the intermediate
-    # values (i.e. the output can be removed since it is not used
-    # afterwards in the computations), if 0 it means that all
-    # intermediate values are required, otherwise is up to that number
-    # of intermediate values
-    # Note that for mit_mot outputs and shared outputs we can not change
-    # the number of intermediate steps stored without affecting the
-    # result of the op
+    # For each output: how many intermediate values to store.
+    # 0 means keep all (required for mit_mot and shared outputs);
+    # -1 is a "no decision" sentinel flipped to 0 after the trimming loop.
     store_steps = [0 for o in range(op_info.n_mit_mot)]
     store_steps += [-1 for o in node.outputs[op_info.n_mit_mot : c_outs]]
     # Flag that says if an input has changed and we need to do something
@@ -1389,12 +1500,6 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
             else:
                 # 2.3.1 extract idx list of subtensor
                 this_slice = get_idx_list(cl.inputs, cl.op.idx_list)
-                if this_slice is None:
-                    # if unable to extract idx_list
-                    # => outputs needs all its intermediate values
-                    global_nsteps = None
-                    slices[i] = None
-                    break
 
                 # 2.3.2 extract the begin/end of the first dimension
                 if i >= op_info.n_mit_mot:
@@ -1465,18 +1570,12 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
             real_steps = None
         nw_steps = select_min(select_max(sym_steps, real_steps), node.inputs[0])
 
-        # FIXME: This is not correct. Scan with 0 steps seems to be supported
-        # Make sure the ScanSaveMem optimization never makes the new
-        # number of steps to be 0 (this could happen, for instance, if
-        # the optimization detects that the outputs of the Scan go through
-        # subtensor nodes that end up taking no elements) because Scan with
-        # 0 iterations are not supported. Make sure the new number of steps
-        # is at least 1.
-        nw_steps = select_max(nw_steps, 1)
-
     # 2.4 Loop over the clients again now looking just to see how many
-    # intermediate steps to store
-    for i, out in enumerate(node.outputs[:c_outs]):
+    # intermediate steps to store. Skip mit_mot outputs as their
+    # store_steps is always 0 (all intermediate values are needed).
+    for i, out in enumerate(
+        node.outputs[op_info.n_mit_mot : c_outs], start=op_info.n_mit_mot
+    ):
         # look at all its clients
         for cl, _ in fgraph.clients[out]:
             if isinstance(cl.op, Output):
@@ -1487,9 +1586,6 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                 break
             else:
                 this_slice = get_idx_list(cl.inputs, cl.op.idx_list)
-                if this_slice is None:
-                    store_steps[i] = 0
-                    break
 
                 if isinstance(this_slice[0], slice):
                     start = this_slice[0].start
@@ -1504,36 +1600,17 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                         store_steps[i] = 0
                         break
 
-                # Special case for recurrent outputs where only the last result
-                # is requested. This is needed for this rewrite to apply to
-                # do-while Scans at all. Otherwise, `get_canonical_form_slice` in
-                # the `else` branch would reintroduce a shape dependency on the
-                # original Scan which would lead this rewrite to abort in the end.
-                if (
-                    i <= op.info.n_mit_mot
-                    and isinstance(this_slice[0], ScalarConstant)
-                    and this_slice[0].value == -1
-                ):
-                    start = nw_steps - 1
+                length = node.inputs[0] + init_l[i]
+                cf_slice = get_canonical_form_slice(this_slice[0], length)
+
+                if isinstance(cf_slice[0], slice):
+                    start = pt.get_scalar_constant_value(
+                        cf_slice[0].start, raise_not_constant=False
+                    )
                 else:
-                    if i <= op.info.n_mit_mot:
-                        try:
-                            length = shape_of[out][0]
-                        except KeyError:
-                            length = out.shape[0]
-                    else:
-                        length = node.inputs[0] + init_l[i]
-
-                    cf_slice = get_canonical_form_slice(this_slice[0], length)
-
-                    if isinstance(cf_slice[0], slice):
-                        start = pt.get_scalar_constant_value(
-                            cf_slice[0].start, raise_not_constant=False
-                        )
-                    else:
-                        start = pt.get_scalar_constant_value(
-                            cf_slice[0], raise_not_constant=False
-                        )
+                    start = pt.get_scalar_constant_value(
+                        cf_slice[0], raise_not_constant=False
+                    )
 
                 if start == 0 or store_steps[i] == 0:
                     store_steps[i] = 0
@@ -1562,7 +1639,13 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                     if prealloc_outs and preallocable_output:
                         # TODO: If there's only one output or other outputs do not depend
                         #  on the same input, we could reduce the buffer size to the minimum
-                        pval = select_max(nw_steps - start + init_l[i], init_l[i] + 1)
+                        # The extra entry to prevent aliasing between the new
+                        # state and the oldest tap is only needed when the
+                        # scan actually runs (nw_steps >= 1).
+                        pval = select_max(
+                            nw_steps - start + init_l[i],
+                            init_l[i] + minimum(nw_steps, 1),
+                        )
                     else:
                         pval = select_max(nw_steps - start + init_l[i], init_l[i])
 
@@ -1572,10 +1655,22 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                     store_steps[i] = pval
                     flag_store = True
 
-    orphane_outs = [
-        i for i, x in enumerate(store_steps) if isinstance(x, int) and (x < 0)
-    ]
-    flag_store = flag_store or (len(orphane_outs) > 0)
+    # A clientless mit_sot / sit_sot may still be read by the inner
+    # recurrence; keep the minimum its taps need (plus one slot under prealloc).
+    prealloc_outs = (
+        backend_supports_output_pre_allocation and config.scan__allow_output_prealloc
+    )
+    for i in range(
+        op_info.n_mit_mot,
+        op_info.n_mit_mot + op_info.n_mit_sot + op_info.n_sit_sot,
+    ):
+        if store_steps[i] == -1:
+            store_steps[i] = init_l[i] + (1 if prealloc_outs else 0)
+            flag_store = True
+    # Remaining -1s are unused nit_sots; leave their buffers untouched (0 =
+    # keep all) -- scan_remove_unused will drop them entirely.
+    store_steps = [0 if x == -1 else x for x in store_steps]
+
     # 3. is there anything to change ?
     if flag_store or global_nsteps is not None:
         # 3.1 initialize inputs for the new scan
@@ -1583,17 +1678,12 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
         nw_inputs = list(node.inputs)
         nw_inputs[0] = nw_steps
 
-        # 3.2 check orphane outputs to see if we can eliminate any
-        required, not_required = scan_can_remove_outs(node.op, orphane_outs)
-
-        # 3.3. compose replace pairs for those nodes that need not store everything in memory
-        # (or ar orphan but required by the inner function)
+        # 3.2. compose replace pairs for those nodes that need not store everything in memory
         replaced_outs = []
         offset = 1 + op_info.n_seqs + op_info.n_mit_mot
         for idx, val in enumerate(store_steps[op_info.n_mit_mot :]):
             i = idx + op_info.n_mit_mot
-            if not (isinstance(val, int) and val <= 0 and i not in required):
-                required_orphan = idx + op_info.n_mit_mot in required
+            if not (isinstance(val, int) and val <= 0):
                 # If the memory for this output has been pre-allocated
                 # before going into the scan op (by an alloc node)
                 if idx < op_info.n_mit_sot + op_info.n_sit_sot:
@@ -1602,12 +1692,11 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
 
                     # Recreate default buffers with new size
                     if _is_default_scan_buffer(nw_input, taps):
-                        extra_size = 1 if required_orphan else val - taps
+                        extra_size = val - taps
                         nw_input = expand_empty(nw_input.owner.inputs[1], extra_size)
                     # Otherwise, just trim with a slice
                     else:
-                        stop = taps if required_orphan else val
-                        nw_input = nw_input[:stop]
+                        nw_input = nw_input[:val]
 
                     nw_inputs[offset + idx] = nw_input
                     replaced_outs.append(op_info.n_mit_mot + idx)
@@ -1631,7 +1720,7 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                         + op_info.n_untraced_sit_sot
                     )
                     if nw_inputs[pos] == node.inputs[0]:
-                        nw_inputs[pos] = 1 if required_orphan else val
+                        nw_inputs[pos] = val
                     odx = op_info.n_mit_mot + idx
                     replaced_outs.append(odx)
                     old_outputs += [
@@ -1643,7 +1732,7 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                             ],
                         )
                     ]
-        # 3.4. Recompute inputs for everything else based on the new number of steps
+        # 3.3. Recompute inputs for everything else based on the new number of steps
         if global_nsteps is not None:
             for idx, val in enumerate(store_steps[op_info.n_mit_mot :]):
                 if val == 0:
@@ -1666,34 +1755,11 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                         if nw_inputs[in_idx] == node.inputs[0]:
                             nw_inputs[in_idx] = nw_steps
 
-        # 3.5 Remove unwanted orphane outputs
-        (inps, outs, info, node_ins, compress_map) = compress_outs(
-            op, not_required, nw_inputs
-        )
-        inv_compress_map = {v: k for k, v in compress_map.items()}
-
-        # 3.6 Compose the new scan
-        # TODO: currently we don't support scan with 0 step. So
-        # don't create one.
-        if get_scalar_constant_value(node_ins[0], raise_not_constant=False) == 0:
-            return False
-
-        # Do not call make_node for test_value
-        new_op = Scan(
-            inps,
-            outs,
-            info,
-            mode=op.mode,
-            profile=op.profile,
-            truncate_gradient=op.truncate_gradient,
-            # TODO: This seems questionable
-            name=op.name,
-            allow_gc=op.allow_gc,
-        )
-        new_outs = cast(list[TensorVariable], new_op(*node_ins, return_list=True))
+        # 3.4. Recreate the same scan with new outer inputs.
+        new_outs = cast(list[TensorVariable], op(*nw_inputs, return_list=True))
 
         old_new = []
-        # 3.7 Get replace pairs for those outputs that do not change
+        # 3.5 Get replace pairs for those outputs that do not change
         # the number of intermediate steps stored
         for idx, sl in enumerate(slices):
             if global_nsteps and sl is not None and store_steps[idx] == 0:
@@ -1711,25 +1777,16 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                         )
                     else:
                         fslice = sanitize(cnf_slice[0])
-                    nw_slice = (fslice, *old_slices[1:])
 
-                    nw_pos = inv_compress_map[idx]
-
-                    subtens = Subtensor(nw_slice)
-                    # slice inputs
-                    sl_ins = get_slice_elements(
-                        nw_slice, lambda entry: isinstance(entry, Variable)
-                    )
-                    new_o = cast(TensorVariable, subtens(new_outs[nw_pos], *sl_ins))
+                    new_o = basic_subtensor(new_outs[idx], fslice, *old_slices[1:])
                     if new_o.ndim > 0:
                         new_o = new_o[:: cnf_slice[1]]
                     replaced_outs.append(idx)
                     old_new += [(cl[0].outputs[0], new_o)]
-        # 3.8. Get replace pairs for those outputs that change
+        # 3.6. Get replace pairs for those outputs that change
         # the number of stored intermediate steps
         for pos, old_outs in old_outputs:
             if len(old_outs) > 0:
-                nw_pos = compress_map[pos]
                 for k, old in enumerate(old_outs):
                     # Get the correct slice
                     cnf_slice, old_slices = slices[pos][k]
@@ -1771,39 +1828,25 @@ def scan_save_mem_rewrite(fgraph, node, backend_supports_output_pre_allocation: 
                             )
 
                         nw_slice = (sanitize(position), *old_slices[1:])
-                    subtens = Subtensor(nw_slice)
-                    sl_ins = get_slice_elements(
-                        nw_slice, lambda entry: isinstance(entry, Variable)
-                    )
-                    new_o = cast(TensorVariable, subtens(new_outs[nw_pos], *sl_ins))
+                    new_o = basic_subtensor(new_outs[pos], *nw_slice)
                     if new_o.ndim > 0:
                         new_o = new_o[:: cnf_slice[1]]
                     old_new += [(old, new_o)]
 
-        # 3.9. Get replace pairs for all other nodes
-        if flag_store or global_nsteps is not None:
-            for idx, o in enumerate(node.outputs):
-                if idx not in replaced_outs and idx not in not_required:
-                    nw_pos = compress_map[idx]
-                    old_new += [(o, new_outs[nw_pos])]
-            # Check if the new outputs depend on the old scan node
-            old_scan_is_used = [
-                apply_depends_on(new.owner, node) for old, new in old_new
-            ]
-            if any(old_scan_is_used):
-                return False
+        # 3.7. Get replace pairs for all other nodes
+        for idx, o in enumerate(node.outputs):
+            if idx not in replaced_outs:
+                old_new += [(o, new_outs[idx])]
+        # Check if the new outputs depend on the old scan node
+        old_scan_is_used = [apply_depends_on(new.owner, node) for old, new in old_new]
+        if any(old_scan_is_used):
+            return False
 
-            replacements = dict(old_new)
+        replacements = dict(old_new)
+        replacements["remove"] = [node]
+        return replacements
 
-            # remove = [old.owner for (old, new) in old_new]
-            # As Fred suggested assert that also the old node is not in
-            # the Graph as that will make things suboptimal
-            # remove.append(node)
-            replacements["remove"] = [node]
-
-            return replacements
-
-        return False
+    return False
 
 
 @node_rewriter([Scan])
@@ -1817,6 +1860,364 @@ def scan_save_mem_prealloc(fgraph, node):
 def scan_save_mem_no_prealloc(fgraph, node):
     return scan_save_mem_rewrite(
         fgraph, node, backend_supports_output_pre_allocation=False
+    )
+
+
+@node_rewriter([Scan])
+def scan_sit_sot_to_untraced(fgraph, node):
+    """Convert sit_sot with buffer size=1 to untraced_sit_sot.
+
+    After scan_save_mem has reduced buffer sizes, sit_sot outputs that only
+    need one state stored (buffer size=1) can be converted to untraced_sit_sot,
+    which avoids the overhead of reading/writing circular buffers each iteration.
+    """
+    op = node.op
+    info = op.info
+
+    if info.n_sit_sot == 0:
+        return False
+
+    outer_sitsot = op.outer_sitsot(node.inputs)
+    convertible = [
+        idx for idx in range(info.n_sit_sot) if outer_sitsot[idx].type.shape[0] == 1
+    ]
+
+    if not convertible:
+        return False
+
+    convertible_set = set(convertible)
+
+    # Gather current inner inputs/outputs by category
+    inner_inputs = list(op.inner_inputs)
+    inner_outputs = list(op.inner_outputs)
+
+    inner_sitsot_ins = op.inner_sitsot(inner_inputs)
+    inner_sitsot_outs = op.inner_sitsot_outs(inner_outputs)
+    inner_untraced_ins = op.inner_untraced_sit_sot(inner_inputs)
+    inner_untraced_outs = op.inner_untraced_sit_sot_outs(inner_outputs)
+
+    # Split sit_sot into remaining and converted
+    new_sit_sot_in_slices = []
+    remaining_inner_sitsot_ins = []
+    remaining_inner_sitsot_outs = []
+    remaining_outer_sitsot = []
+    converted_inner_untraced_ins = []
+    converted_inner_untraced_outs = []
+    converted_outer_untraced = []
+
+    for idx in range(info.n_sit_sot):
+        if idx in convertible_set:
+            converted_inner_untraced_ins.append(inner_sitsot_ins[idx])
+            converted_inner_untraced_outs.append(inner_sitsot_outs[idx])
+            converted_outer_untraced.append(outer_sitsot[idx][0])
+        else:
+            new_sit_sot_in_slices.append(info.sit_sot_in_slices[idx])
+            remaining_inner_sitsot_ins.append(inner_sitsot_ins[idx])
+            remaining_inner_sitsot_outs.append(inner_sitsot_outs[idx])
+            remaining_outer_sitsot.append(outer_sitsot[idx])
+
+    # Rebuild inner inputs:
+    # seqs | mit_mot_taps | mit_sot_taps | sit_sot | untraced_sit_sot | non_seqs
+    n_taps_before_sitsot = sum(
+        len(x) for x in chain(info.mit_mot_in_slices, info.mit_sot_in_slices)
+    )
+    pre_sitsot_inner = inner_inputs[: info.n_seqs + n_taps_before_sitsot]
+    inner_non_seqs = op.inner_non_seqs(inner_inputs)
+
+    new_inner_inputs = (
+        pre_sitsot_inner
+        + remaining_inner_sitsot_ins
+        + list(inner_untraced_ins)
+        + converted_inner_untraced_ins
+        + inner_non_seqs
+    )
+
+    # Rebuild inner outputs:
+    # mit_mot_outs | mit_sot | sit_sot | nit_sot | untraced_sit_sot [| while_cond]
+    n_mit_mot_outs = sum(len(x) for x in info.mit_mot_out_slices)
+    pre_sitsot_inner_outs = inner_outputs[: n_mit_mot_outs + info.n_mit_sot]
+    nitsot_outs = op.inner_nitsot_outs(inner_outputs)
+
+    new_inner_outputs = (
+        pre_sitsot_inner_outs
+        + remaining_inner_sitsot_outs
+        + nitsot_outs
+        + list(inner_untraced_outs)
+        + converted_inner_untraced_outs
+    )
+    if info.as_while:
+        new_inner_outputs.append(inner_outputs[-1])
+
+    # Rebuild outer inputs:
+    # n_steps | seqs | mit_mot | mit_sot | sit_sot | untraced_sit_sot | nit_sot | non_seqs
+    pre_sitsot_outer = list(
+        node.inputs[: 1 + info.n_seqs + info.n_mit_mot + info.n_mit_sot]
+    )
+    outer_untraced = list(op.outer_untraced_sit_sot(node.inputs))
+    outer_nitsot = list(op.outer_nitsot(node.inputs))
+    outer_non_seqs = list(op.outer_non_seqs(node.inputs))
+
+    new_outer_inputs = (
+        pre_sitsot_outer
+        + remaining_outer_sitsot
+        + outer_untraced
+        + converted_outer_untraced
+        + outer_nitsot
+        + outer_non_seqs
+    )
+
+    # Build new ScanInfo
+    new_info = dataclasses.replace(
+        info,
+        sit_sot_in_slices=tuple(new_sit_sot_in_slices),
+        n_untraced_sit_sot=info.n_untraced_sit_sot + len(convertible),
+    )
+
+    new_op = Scan(
+        new_inner_inputs,
+        new_inner_outputs,
+        new_info,
+        mode=op.mode,
+        profile=op.profile,
+        truncate_gradient=op.truncate_gradient,
+        name=op.name,
+        allow_gc=op.allow_gc,
+    )
+    new_outs = cast(list[TensorVariable], new_op(*new_outer_inputs, return_list=True))
+
+    # Build replacement mapping
+    # Old outer outputs: mit_mot | mit_sot | sit_sot | nit_sot | untraced_sit_sot
+    # New outer outputs: mit_mot | mit_sot | remaining_sit_sot | nit_sot | old_untraced | converted_untraced
+    old_outputs = node.outputs
+    replacements: dict = {}
+
+    # mit_mot + mit_sot: same relative positions
+    n_pre = info.n_mit_mot + info.n_mit_sot
+    for i in range(n_pre):
+        replacements[old_outputs[i]] = new_outs[i]
+
+    # sit_sot: remaining keep position, converted become untraced
+    old_sitsot_offset = n_pre
+    new_remaining_offset = new_info.n_mit_mot + new_info.n_mit_sot
+    new_converted_offset = (
+        new_info.n_mit_mot
+        + new_info.n_mit_sot
+        + new_info.n_sit_sot
+        + new_info.n_nit_sot
+        + info.n_untraced_sit_sot
+    )
+    remaining_count = 0
+    converted_count = 0
+    for idx in range(info.n_sit_sot):
+        old_out = old_outputs[old_sitsot_offset + idx]
+        if idx in convertible_set:
+            new_untraced = new_outs[new_converted_offset + converted_count]
+            replacements[old_out] = pt.expand_dims(new_untraced, 0)
+            converted_count += 1
+        else:
+            replacements[old_out] = new_outs[new_remaining_offset + remaining_count]
+            remaining_count += 1
+
+    # nit_sot
+    old_nitsot_offset = n_pre + info.n_sit_sot
+    new_nitsot_offset = new_info.n_mit_mot + new_info.n_mit_sot + new_info.n_sit_sot
+    for i in range(info.n_nit_sot):
+        replacements[old_outputs[old_nitsot_offset + i]] = new_outs[
+            new_nitsot_offset + i
+        ]
+
+    # Original untraced_sit_sot
+    old_untraced_offset = n_pre + info.n_sit_sot + info.n_nit_sot
+    new_untraced_offset = (
+        new_info.n_mit_mot
+        + new_info.n_mit_sot
+        + new_info.n_sit_sot
+        + new_info.n_nit_sot
+    )
+    for i in range(info.n_untraced_sit_sot):
+        replacements[old_outputs[old_untraced_offset + i]] = new_outs[
+            new_untraced_offset + i
+        ]
+
+    replacements["remove"] = [node]
+    return replacements
+
+
+class _RemoveUnusedCandidate(NamedTuple):
+    category: str  # mit_mot / mit_sot / sit_sot / nit_sot / untraced_sit_sot
+    category_idx: int  # within-category position
+    taps: frozenset  # inner-input vars read by this state; empty for nit_sots
+    out_positions: list[int]  # this state's slots in ``op.inner_outputs``
+
+
+@node_rewriter([Scan])
+def scan_remove_unused(fgraph, node):
+    """Drop unused outputs and inputs from a Scan node.
+
+    Drops:
+      * State slots (mit_mot / mit_sot / sit_sot / nit_sot /
+        untraced_sit_sot) whose outer output has no clients, provided none
+        of their inner inputs is reached from any surviving inner output.
+        Cross-dependent unused states are resolved together.
+      * Sequences and non-sequences that the rebuilt inner graph no longer
+        references.
+
+    Partial-tap trimming of mit_mot / mit_sot is out of scope: a state is
+    dropped as a whole or kept as a whole.
+    """
+    op = node.op
+    info = op.info
+    inner_inputs = op.inner_inputs
+    inner_outputs = op.inner_outputs
+
+    def _clientless(outer_idx):
+        return not fgraph.clients.get(node.outputs[outer_idx])
+
+    # Inner-output and outer-output positions by category -- needed because
+    # the same Variable can occupy multiple inner-output slots, so dropping
+    # must track slots positionally rather than by variable identity.
+    mm_out_lens = [len(s) for s in info.mit_mot_out_slices]
+    ms_out_pos_start = sum(mm_out_lens)
+    ss_out_pos_start = ms_out_pos_start + info.n_mit_sot
+    ns_out_pos_start = ss_out_pos_start + info.n_sit_sot
+    us_out_pos_start = ns_out_pos_start + info.n_nit_sot
+
+    outer_mm_start = 0
+    outer_ms_start = info.n_mit_mot
+    outer_ss_start = outer_ms_start + info.n_mit_sot
+    outer_ns_start = outer_ss_start + info.n_sit_sot
+    outer_us_start = outer_ns_start + info.n_nit_sot
+
+    inner_mm_groups = op.inner_mitmot_grouped(inner_inputs)
+    inner_ms_groups = op.inner_mitsot_grouped(inner_inputs)
+    inner_ss = op.inner_sitsot(inner_inputs)
+    inner_us = op.inner_untraced_sit_sot(inner_inputs)
+
+    # Candidate state slots: those with no external outer clients.
+    candidates: list[_RemoveUnusedCandidate] = []
+    mm_group_starts = [sum(mm_out_lens[:k]) for k in range(info.n_mit_mot + 1)]
+    candidates.extend(
+        _RemoveUnusedCandidate(
+            "mit_mot",
+            k,
+            frozenset(inner_mm_groups[k]),
+            list(range(mm_group_starts[k], mm_group_starts[k + 1])),
+        )
+        for k in range(info.n_mit_mot)
+        if _clientless(outer_mm_start + k)
+    )
+    candidates.extend(
+        _RemoveUnusedCandidate(
+            "mit_sot", k, frozenset(inner_ms_groups[k]), [ms_out_pos_start + k]
+        )
+        for k in range(info.n_mit_sot)
+        if _clientless(outer_ms_start + k)
+    )
+    candidates.extend(
+        _RemoveUnusedCandidate(
+            "sit_sot", k, frozenset({inner_ss[k]}), [ss_out_pos_start + k]
+        )
+        for k in range(info.n_sit_sot)
+        if _clientless(outer_ss_start + k)
+    )
+    candidates.extend(
+        _RemoveUnusedCandidate("nit_sot", k, frozenset(), [ns_out_pos_start + k])
+        for k in range(info.n_nit_sot)
+        if _clientless(outer_ns_start + k)
+    )
+    candidates.extend(
+        _RemoveUnusedCandidate(
+            "untraced_sit_sot", k, frozenset({inner_us[k]}), [us_out_pos_start + k]
+        )
+        for k in range(info.n_untraced_sit_sot)
+        if _clientless(outer_us_start + k)
+    )
+
+    # Fast path: nothing disconnected externally, so no state is droppable.
+    # Only seq / non_seq staleness (from upstream input rewrites) could
+    # remain -- one walk of the inner outputs covers that.
+    if not candidates:
+        final_outputs = inner_outputs
+        droppable_state_idxs: set[int] = set()
+    else:
+        # A candidate is pinned (removed from ``droppable_idxs``) once any
+        # of its taps is reached from a surviving inner output. On
+        # pinning, we walk back from the candidate's own inner outputs
+        # and fold any candidate taps they reach into ``reached_taps``,
+        # so later candidates in the same pass see the update. The
+        # fixpoint stays scoped to candidate taps -- seq / non_seq inputs
+        # are handled in a single post-loop walk.
+        all_candidate_taps: frozenset = frozenset().union(
+            *(cand.taps for cand in candidates)
+        )
+        candidate_out_positions: set[int] = {
+            pos for cand in candidates for pos in cand.out_positions
+        }
+        survivor_outputs = [
+            out
+            for pos, out in enumerate(inner_outputs)
+            if pos not in candidate_out_positions
+        ]
+        reached_taps = all_candidate_taps & set(explicit_graph_inputs(survivor_outputs))
+        droppable_state_idxs = set(range(len(candidates)))
+        while True:
+            changed = False
+            for cand_idx in list(droppable_state_idxs):
+                cand = candidates[cand_idx]
+                if cand.taps & reached_taps:
+                    droppable_state_idxs.discard(cand_idx)
+                    reached_taps |= all_candidate_taps & set(
+                        explicit_graph_inputs(
+                            [inner_outputs[pos] for pos in cand.out_positions]
+                        )
+                    )
+                    changed = True
+            if not changed:
+                break
+
+        final_outputs = survivor_outputs + [
+            inner_outputs[pos]
+            for cand_idx, cand in enumerate(candidates)
+            if cand_idx not in droppable_state_idxs
+            for pos in cand.out_positions
+        ]
+
+    reached_inputs = set(explicit_graph_inputs(final_outputs))
+    drop_seqs = {
+        k
+        for k, seq in enumerate(op.inner_seqs(inner_inputs))
+        if seq not in reached_inputs
+    }
+    drop_non_seqs = {
+        k
+        for k, ns in enumerate(op.inner_non_seqs(inner_inputs))
+        if ns not in reached_inputs
+    }
+
+    if not (droppable_state_idxs or drop_seqs or drop_non_seqs):
+        return None
+
+    drops_by_cat: dict[str, set[int]] = {
+        "mit_mot": set(),
+        "mit_sot": set(),
+        "sit_sot": set(),
+        "nit_sot": set(),
+        "untraced_sit_sot": set(),
+    }
+    for cand_idx in droppable_state_idxs:
+        cand = candidates[cand_idx]
+        drops_by_cat[cand.category].add(cand.category_idx)
+
+    return _rebuild_scan_with_new_signature(
+        op,
+        node,
+        drop_seqs=drop_seqs,
+        drop_mit_mot=drops_by_cat["mit_mot"],
+        drop_mit_sot=drops_by_cat["mit_sot"],
+        drop_sit_sot=drops_by_cat["sit_sot"],
+        drop_nit_sot=drops_by_cat["nit_sot"],
+        drop_untraced_sit_sot=drops_by_cat["untraced_sit_sot"],
+        drop_non_seqs=drop_non_seqs,
     )
 
 
@@ -2578,6 +2979,22 @@ optdb.register(
     use_db_name_as_tag=False,
     position=1.61,
 )
+# After scan_save_mem (it could be merged with it, but that rewrite is already a beast as is)
+optdb.register(
+    "scan_remove_unused_top",
+    dfs_rewriter(scan_remove_unused, ignore_newtrees=True),
+    "fast_run",
+    "scan",
+    "scan_remove_unused",
+    position=1.605,
+)
+optdb.register(
+    "scan_sit_sot_to_untraced",
+    dfs_rewriter(scan_sit_sot_to_untraced, ignore_newtrees=True),
+    "fast_run",
+    "scan",
+    position=1.62,
+)
 optdb.register(
     "scan_make_inplace",
     ScanInplaceOptimizer(),
@@ -2591,9 +3008,15 @@ scan_eqopt1.register("all_pushout_opt", scan_seqopt1, "fast_run", "scan")
 
 
 scan_seqopt1.register(
-    "scan_remove_constants_and_unused_inputs0",
-    dfs_rewriter(remove_constants_and_unused_inputs_scan, ignore_newtrees=True),
-    "remove_constants_and_unused_inputs_scan",
+    "scan_input_and_output_cleanup0",
+    dfs_rewriter(
+        scan_remove_unused,
+        scan_inline_invariant_constants,
+        scan_merge_duplicate_inputs,
+    ),
+    "scan_remove_unused",
+    "scan_inline_invariant_constants",
+    "scan_merge_duplicate_inputs",
     "fast_run",
     "scan",
     position=1,
@@ -2660,9 +3083,15 @@ scan_eqopt2.register(
 
 
 scan_eqopt2.register(
-    "scan_remove_constants_and_unused_inputs1",
-    dfs_rewriter(remove_constants_and_unused_inputs_scan, ignore_newtrees=True),
-    "remove_constants_and_unused_inputs_scan",
+    "scan_input_and_output_cleanup1",
+    dfs_rewriter(
+        scan_remove_unused,
+        scan_inline_invariant_constants,
+        scan_merge_duplicate_inputs,
+    ),
+    "scan_remove_unused",
+    "scan_inline_invariant_constants",
+    "scan_merge_duplicate_inputs",
     "fast_run",
     "scan",
 )
@@ -2675,9 +3104,15 @@ scan_eqopt2.register("scan_merge", ScanMerge(), "fast_run", "scan")
 
 # After Merge optimization
 scan_eqopt2.register(
-    "scan_remove_constants_and_unused_inputs2",
-    dfs_rewriter(remove_constants_and_unused_inputs_scan, ignore_newtrees=True),
-    "remove_constants_and_unused_inputs_scan",
+    "scan_input_and_output_cleanup2",
+    dfs_rewriter(
+        scan_remove_unused,
+        scan_inline_invariant_constants,
+        scan_merge_duplicate_inputs,
+    ),
+    "scan_remove_unused",
+    "scan_inline_invariant_constants",
+    "scan_merge_duplicate_inputs",
     "fast_run",
     "scan",
 )
@@ -2691,9 +3126,15 @@ scan_eqopt2.register(
 
 # After everything else
 scan_eqopt2.register(
-    "scan_remove_constants_and_unused_inputs3",
-    dfs_rewriter(remove_constants_and_unused_inputs_scan, ignore_newtrees=True),
-    "remove_constants_and_unused_inputs_scan",
+    "scan_input_and_output_cleanup3",
+    dfs_rewriter(
+        scan_remove_unused,
+        scan_inline_invariant_constants,
+        scan_merge_duplicate_inputs,
+    ),
+    "scan_remove_unused",
+    "scan_inline_invariant_constants",
+    "scan_merge_duplicate_inputs",
     "fast_run",
     "scan",
 )

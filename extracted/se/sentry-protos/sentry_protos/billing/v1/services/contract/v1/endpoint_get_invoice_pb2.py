@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nHsentry_protos/billing/v1/services/contract/v1/endpoint_get_invoice.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"=\n\x11GetInvoiceRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12\x14\n\x0cinvoice_guid\x18\x02 \x01(\t\"]\n\x12GetInvoiceResponse\x12G\n\x07invoice\x18\x01 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.Invoiceb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nHsentry_protos/billing/v1/services/contract/v1/endpoint_get_invoice.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"V\n\x11GetInvoiceRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12\x14\n\x0cinvoice_guid\x18\x02 \x01(\t\x12\x17\n\x0forganization_id\x18\x03 \x01(\x04\"]\n\x12GetInvoiceResponse\x12G\n\x07invoice\x18\x01 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.Invoiceb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,7 +23,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_GETINVOICEREQUEST']._serialized_start=184
-  _globals['_GETINVOICEREQUEST']._serialized_end=245
-  _globals['_GETINVOICERESPONSE']._serialized_start=247
-  _globals['_GETINVOICERESPONSE']._serialized_end=340
+  _globals['_GETINVOICEREQUEST']._serialized_end=270
+  _globals['_GETINVOICERESPONSE']._serialized_start=272
+  _globals['_GETINVOICERESPONSE']._serialized_end=365
 # @@protoc_insertion_point(module_scope)

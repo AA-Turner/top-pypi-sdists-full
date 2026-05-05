@@ -90,6 +90,11 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Cleaned DataFrame with standardized columns and values.
     """
+    # Detect AgERA5 snow source BEFORE rename so we can convert m → cm later.
+    # icclim's Snow indices (SD/SD1/SD5cm/SD50cm) expect snow depth in cm
+    # (see df_to_xarray attrs); AgERA5 reports liquid-water-equivalent in m.
+    _snow_from_agera5 = "agera5_snow_thickness_lwe" in df.columns
+
     # Rename columns to unify climate variable names
     rename_dict = {
         "original_yield": "yield",
@@ -106,6 +111,7 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
         "chirts_era5_tmax": "tasmax",
         "chirts_era5_tmin": "tasmin",
         "snow": "snd",
+        "agera5_snow_thickness_lwe": "snd",
         "esi_4wk": "esi_4wk",
         "region": "adm1_name",
         "harvest_season": "Season",
@@ -156,6 +162,9 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
     if "snd" not in df.columns:
         df["snd"] = np.nan
     else:
+        # AgERA5 snow_thickness_lwe is in meters; icclim Snow indices expect cm.
+        if _snow_from_agera5:
+            df["snd"] = df["snd"] * 100.0
         df["snd"] = df["snd"].fillna(0)
 
     # Compute daily mean temperature
@@ -271,6 +280,26 @@ def get_icclim_dates(
     return start_br, end_br, start_tr, end_tr
 
 
+# icclim indices that require a minimum number of days in the target slice
+# because they apply a rolling/run-length window of that size.  When the
+# time slice has fewer days, icclim raises ``ValueError: Moving window
+# (=N) must between 1 and M, inclusive`` at materialization (xarray.compute).
+# Pre-checked here so we skip cleanly with a warning instead of crashing
+# the whole region/year task.
+#
+#   RX5day → rolling 5-day precip window
+#   WSDI / CSDI → ≥6 consecutive days above/below 90th/10th percentile
+#
+# Other run-length indices (CFD/CDD/CWD/CSU) tolerate short slices and
+# return 0/1.  Most other indices are per-day counts/extremes/percentiles
+# and have no window requirement.
+_INDEX_MIN_DAYS = {
+    "RX5day": 5,
+    "WSDI": 6,
+    "CSDI": 6,
+}
+
+
 def compute_indices(
     df_time_period: pd.DataFrame,
     df_base_period: pd.DataFrame,
@@ -298,6 +327,16 @@ def compute_indices(
     _leap = lambda d: (d["time"].dt.month == 2) & (d["time"].dt.day == 29)
     df_base_period = df_base_period[~_leap(df_base_period)]
     df_time_period = df_time_period[~_leap(df_time_period)]
+
+    # Skip windowed indices when the target slice is shorter than the
+    # rolling/spell window — icclim would otherwise raise at compute time.
+    # The caller (process_group) is responsible for logging with full
+    # file/year/region context; we just return None silently here.
+    min_days = _INDEX_MIN_DAYS.get(index_name)
+    if min_days is not None:
+        n_days = df_time_period["time"].dt.normalize().nunique()
+        if n_days < min_days:
+            return None
 
     dx, vals_ix = df_to_xarray(df_base_period)
     start_br, end_br, start_tr, end_tr = get_icclim_dates(vals_ix, df_time_period.set_index(["lat", "lon", "time"]))
@@ -1111,6 +1150,21 @@ class CIDs:
                             leave=False, disable=not self.show_progress, mininterval=5)
             for index_name, (index_type, index_details) in idx_iter:
                 idx_iter.set_description(f"{index_name} [{key[1]}]")
+
+                # Pre-check window-needing indices and log with full
+                # file/year/region/stage context if the slice is too short.
+                min_days = _INDEX_MIN_DAYS.get(index_name)
+                if min_days is not None:
+                    n_days = df_time_period["time"].dt.normalize().nunique()
+                    if n_days < min_days:
+                        logger.warning(
+                            f"Skipping {index_name} for "
+                            f"{self.file_name} | {self.harvest_year} | "
+                            f"{key[1]} | stage={extended_stage}: "
+                            f"slice has {n_days} day(s), needs >= {min_days}"
+                        )
+                        continue
+
                 try:
                     ds = compute_indices(
                         df_time_period, df_base_period, index_name,
@@ -1125,7 +1179,22 @@ class CIDs:
                 if ds is None:
                     continue
 
-                df_out = ds.to_dataframe().reset_index()
+                # ds is dask-backed — actual computation happens here.  The
+                # explicit minimum-window pre-check above covers known
+                # windowed indices; this catches any other one that raises
+                # ``ValueError: Moving window`` at compute time, so a single
+                # bad index doesn't kill the whole region/year task.
+                try:
+                    df_out = ds.to_dataframe().reset_index()
+                except ValueError as e:
+                    if "Moving window" in str(e):
+                        logger.warning(
+                            f"Skipping {index_name} for "
+                            f"{self.file_name} | {self.harvest_year} | "
+                            f"{key[1]} | stage={extended_stage}: {e}"
+                        )
+                        continue
+                    raise
                 df_processed = self.process_row(
                     df_out,
                     df_harvest_year_region,

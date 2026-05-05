@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, "..")
 import pytest
-from tibs import Tibs, Mutibs, BitIndexing
+from tibs import Tibs, Mutibs
 
 
 class TestTibsCreation:
@@ -195,10 +195,10 @@ class TestMutibsMethods:
         m[1:7:2] = [1, 1, 1]
         assert m == "0b01010100"
 
-    def test_insert_uses_logical_position_in_lsb0_mode(self):
-        m = Mutibs("0b1100", bit_indexing=BitIndexing.Lsb0)
+    def test_insert_uses_logical_position(self):
+        m = Mutibs("0b1100")
 
-        # Build the expected logical bit sequence (the order used by indexing/iteration in LSB0).
+        # Build the expected logical bit sequence (the order used by indexing/iteration).
         expected_logical_bits = list(m.to_tibs())
         expected_logical_bits.insert(1, True)
 
@@ -214,11 +214,11 @@ class TestIterators:
 
     def test_find_all_iterator(self):
         t = Tibs("0b101101")
-        assert list(t.find_all("0b101")) == [0, 3]
+        assert list(t.find_all_iter("0b101")) == [0, 3]
 
     def test_chunks_iterator(self):
         t = Tibs("0b101101")
-        chunks = list(t.chunks(3))
+        chunks = list(t.chunks_iter(3))
         assert len(chunks) == 2
         assert chunks[0] == "0b101"
         assert chunks[1] == "0b101"
@@ -286,7 +286,7 @@ class TestAdvancedFeatures:
 
     def test_find_all_byte_aligned(self):
         a = Tibs("0x00ff00ff")
-        assert list(a.find_all("0xff", byte_aligned=True)) == [8, 24]
+        assert a.find_all("0xff", byte_aligned=True) == [8, 24]
 
 
 class TestComplexInteractions:
@@ -297,7 +297,7 @@ class TestComplexInteractions:
 
     def test_find_all_overlapping(self):
         s = Tibs("0b1010101")
-        assert list(s.find_all("0b101")) == [0, 2, 4]
+        assert s.find_all("0b101") == [0, 2, 4]
 
     def test_chunks_with_remainder(self):
         s = Tibs.from_zeros(10)
@@ -464,12 +464,6 @@ class TestSliceOperations:
 
 
 class TestKnownRegressions:
-    def test_lsb0_setitem_writes_logical_index(self):
-        m = Mutibs("0b0000", bit_indexing=BitIndexing.Lsb0)
-        m[0] = 1
-        # In lsb0, logical index 0 is the rightmost bit.
-        assert m.to_bin() == "0001"
-
     def test_rotate_empty_selected_slice_is_noop(self):
         m = Mutibs("0b101010")
         m.rotate_left(3, start=2, end=2)
@@ -485,46 +479,6 @@ class TestKnownRegressions:
         m = Mutibs("0b11111111")
         m.unset(range(7, 3, -1))
         assert m.to_bin() == "11110000"
-
-    def test_lsb0_slice_assignment_writes_logical_positions(self):
-        m = Mutibs("0b000000", bit_indexing=BitIndexing.Lsb0)
-        m[0:2] = "0b11"
-        # In lsb0, [0:2] addresses the two least-significant logical bits.
-        assert m.to_bin() == "000011"
-
-    def test_lsb0_delete_index_removes_logical_position(self):
-        m = Mutibs("0b1010", bit_indexing=BitIndexing.Lsb0)
-        del m[0]
-        # In lsb0, index 0 is the rightmost logical bit.
-        assert m.to_bin() == "101"
-
-    def test_lsb0_set_updates_logical_positions(self):
-        m = Mutibs("0b00000000", bit_indexing=BitIndexing.Lsb0)
-        m.set([0, 1])
-        # In lsb0, indices 0 and 1 are the two rightmost logical bits.
-        assert m.to_bin() == "00000011"
-
-    def test_lsb0_extended_slice_assignment_negative_step_logical_order(self):
-        m = Mutibs("0b00000000", bit_indexing=BitIndexing.Lsb0)
-        m[7:3:-1] = "0b1010"
-        # Logical indices [7, 6, 5, 4] should map to the left nibble.
-        assert m.to_bin() == "10100000"
-
-    def test_lsb0_extended_slice_delete_negative_step_logical_positions(self):
-        m = Mutibs("0b11110000", bit_indexing=BitIndexing.Lsb0)
-        del m[7:3:-1]
-        # Deleting logical indices [7, 6, 5, 4] should remove the left nibble.
-        assert m.to_bin() == "0000"
-
-
-    def test_lsb0_delete_prefix_and_suffix_slices(self):
-        m = Mutibs("0b11001010", bit_indexing=BitIndexing.Lsb0)
-        del m[:3]
-        # In lsb0 this removes the 3 least-significant logical bits.
-        assert m.to_bin() == "11001"
-        del m[-2:]
-        # Then remove two most-significant logical bits from the remaining logical view.
-        assert m.to_bin() == "001"
 
 
 class TestDocsMismatchRegressions:
@@ -556,23 +510,8 @@ class TestDocsMismatchRegressions:
         with pytest.raises(ValueError):
             Tibs().to_i()
 
-    def test_tibs_find_respects_lsb0_logical_indexing_contract(self):
-        t = Tibs("0b110100", bit_indexing=BitIndexing.Lsb0)
-        assert t[0] is False
-        assert t.find("0b1") == 2
-
 
 class TestKnownLogicFaults:
-    def test_lsb0_delete_simple_slice_matches_logical_semantics(self):
-        m = Mutibs("0b101010", bit_indexing=BitIndexing.Lsb0)
-        # This currently errors due to an invalid underlying drain range in lsb0 mode.
-        del m[1:4]
-        assert m == '0b100'
-
-    def test_lsb0_negative_step_slice_matches_logical_semantics(self):
-        t = Tibs("0b110100", bit_indexing=BitIndexing.Lsb0)
-        assert t[::-1] == '0b001011'
-
     def test_set_range_descending_to_minus_one_includes_zero(self):
         m = Mutibs.from_zeros(4)
         m.set(range(3, -1, -1))
@@ -582,3 +521,220 @@ class TestKnownLogicFaults:
         m = Mutibs.from_ones(4)
         m.unset(range(3, -1, -1))
         assert m.to_bin() == "0000"
+
+def _delete_expected(bits: list[bool], key) -> list[bool]:
+    expected = bits.copy()
+    del expected[key]
+    return expected
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        slice(None, 8),
+        slice(8, None),
+        slice(4, 20),
+        slice(-16, -4),
+        slice(10, 10),
+        slice(None, None, 2),
+        slice(1, None, 3),
+        slice(None, None, -1),
+        slice(20, 2, -3),
+    ],
+)
+def test_del_slice_matches_python_list_semantics(key):
+    # Use a non-trivial pattern so direction/indexing errors are obvious.
+    m = Mutibs.from_hex("abcdef")
+    before = list(m.to_tibs())
+
+    expected = _delete_expected(before, key)
+    del m[key]
+
+    assert list(m.to_tibs()) == expected
+
+
+def _set_expected(bits: list[bool], key, value: list[bool]) -> list[bool]:
+    expected = bits.copy()
+    expected[key] = value
+    return expected
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        (slice(None, 8), [True, False, True, False]),
+        (slice(8, None), [False, True, False]),
+        (slice(4, 20), [True] * 5),
+        (slice(-16, -4), [False, False, True, True]),
+        (slice(10, 10), [True, False, True]),
+    ],
+)
+def test_set_slice_matches_python_list_semantics(key, value):
+    m = Mutibs.from_hex("abcdef")
+    before = list(m.to_tibs())
+    replacement = Tibs.from_bools(value)
+
+    expected = _set_expected(before, key, list(replacement))
+    m[key] = replacement
+
+    assert list(m.to_tibs()) == expected
+
+
+@pytest.mark.parametrize("key", [slice(None, None, 2), slice(1, None, 3), slice(20, 2, -3)])
+def test_set_extended_slice_matches_python_list_semantics(key):
+    m = Mutibs.from_hex("abcdef")
+    before = list(m.to_tibs())
+
+    target_len = len(before[key])
+    value = [(i % 2) == 0 for i in range(target_len)]
+    replacement = Tibs.from_bools(value)
+
+    expected = _set_expected(before, key, list(replacement))
+    m[key] = replacement
+
+    assert list(m.to_tibs()) == expected
+
+
+def test_set_extended_slice_length_mismatch_raises():
+    m = Mutibs.from_hex("abcdef")
+    with pytest.raises(ValueError):
+        m[::2] = [1, 0]
+
+
+def test_del_full_and_single_index_regression():
+    m = Mutibs.from_hex("1234")
+    before = list(m.to_tibs())
+
+    m2 = Mutibs.from_hex("1234")
+    del m2[:]
+    assert list(m2.to_tibs()) == []
+
+    del m[0]
+    expected = before.copy()
+    del expected[0]
+    assert list(m.to_tibs()) == expected
+
+
+
+def _find_expected(
+        bits: list[bool],
+        needle: list[bool],
+        start: int | None,
+        end: int | None,
+        reverse: bool,
+        byte_aligned: bool,
+) -> int | None:
+    n = len(bits)
+    s = 0 if start is None else start
+    e = n if end is None else end
+    if s < 0:
+        s += n
+    if e < 0:
+        e += n
+    m = len(needle)
+    if m == 0 or m > (e - s):
+        return None
+
+    if reverse:
+        i_range = range(e - m, s - 1, -1)
+    else:
+        i_range = range(s, e - m + 1)
+
+    for i in i_range:
+        if byte_aligned and (i % 8 != 0):
+            continue
+        if bits[i:i + m] == needle:
+            return i
+    return None
+
+
+@pytest.mark.parametrize(
+    "needle,start,end,byte_aligned",
+    [
+        ([1, 1], None, None, False),
+        ([1, 0, 1], 3, 28, False),
+        ([0, 1], -20, -1, False),
+        ([1, 1, 0], 0, 32, True),
+        ([0, 0, 1], 5, 31, True),
+    ],
+)
+def test_find_rfind_match_python_reference(needle, start, end, byte_aligned):
+    t = Tibs("0xd35a1c9e")
+    bits = list(t)
+    needle_bits = [bool(x) for x in needle]
+
+    expected_find = _find_expected(bits, needle_bits, start, end, False, byte_aligned)
+    expected_rfind = _find_expected(bits, needle_bits, start, end, True, byte_aligned)
+
+    assert t.find(needle, start=start, end=end, byte_aligned=byte_aligned) == expected_find
+    assert t.rfind(needle, start=start, end=end, byte_aligned=byte_aligned) == expected_rfind
+
+
+def _rotate_left_expected(bits: list[bool], start: int, end: int, n: int) -> list[bool]:
+    expected = bits.copy()
+    segment = expected[start:end]
+    if not segment:
+        return expected
+    n %= len(segment)
+    expected[start:end] = segment[n:] + segment[:n]
+    return expected
+
+
+class TestConcreteRegressionCases:
+    def test_find_byte_aligned_empty_subrange_returns_none(self):
+        t = Tibs("0x11223344")
+        assert t.find("0x11", start=1, end=1, byte_aligned=True) is None
+
+    def test_find_all_byte_aligned_empty_subrange_returns_empty_list(self):
+        t = Tibs("0x11223344")
+        assert t.find_all("0x11", start=1, end=1, byte_aligned=True) == []
+
+    def test_rfind_reverse_search_finds_prefix_match(self):
+        t = Tibs("0b0111")
+        assert t.rfind("0b011") == 0
+
+    def test_mutibs_rotate_left_partial_slice_matches_logical_rotation(self):
+        m = Mutibs("0b10110010")
+        expected = _rotate_left_expected(list(m.to_tibs()), 1, 7, 2)
+
+        m.rotate_left(2, start=1, end=7)
+
+        assert list(m.to_tibs()) == expected
+
+    def test_tibs_rotated_left_partial_slice_matches_logical_rotation(self):
+        t = Tibs("0b10110010")
+        expected = _rotate_left_expected(list(t), 1, 7, 2)
+
+        rotated = t.rotated_left(2, start=1, end=7)
+
+        assert list(rotated) == expected
+
+
+def test_decode_malformed_zstd_with_impossible_padding_raises_value_error():
+    malformed = bytes.fromhex("110d28b52ffd240001000099e9d851")
+    with pytest.raises(ValueError):
+        Mutibs.decode(malformed)
+
+
+
+def test_decode_malformed_zstd_with_impossible_padding_raises_value_error():
+    # Valid zstd frame for empty bytes, wrapped in the tibs zstd container
+    # with an impossible bit_padding of 1 for zero decompressed bits.
+    malformed = bytes.fromhex("110d28b52ffd240001000099e9d851")
+    with pytest.raises(ValueError):
+        Tibs.decode(malformed)
+
+
+def test_bit_ops_unequal_offsets():
+    a = Tibs('0b11001010_01110100_10111100')
+    b = Tibs('0b10110101_11001001_00101110')
+    left = a[3:21]
+    right = b[5:23]
+
+    expected_or = [x or y for x, y in zip(left, right)]
+    expected_and = [x and y for x, y in zip(left, right)]
+    expected_xor = [x != y for x, y in zip(left, right)]
+
+    assert list(left | right) == expected_or
+    assert list(left & right) == expected_and
+    assert list(left ^ right) == expected_xor

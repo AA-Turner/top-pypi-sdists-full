@@ -67,6 +67,18 @@ assets_dir = root / "assets"
 follow_symlinks = server_config.get("follow_symlink", False)
 
 
+def _missing_index_html_detail() -> str:
+    repo_root = marimo_package_path().parent
+    if (repo_root / "frontend").exists() and (
+        repo_root / "pyproject.toml"
+    ).exists():
+        return (
+            "index.html not found. Did you run `make fe`? "
+            "Restart marimo after building."
+        )
+    return "index.html not found and no asset_url configured"
+
+
 def _has_symlinks(directory: Path) -> bool:
     """Check if a directory is a symlink or contains symlinked files."""
     if directory.is_symlink():
@@ -316,7 +328,7 @@ async def index(request: Request) -> Response:
     else:
         raise HTTPException(
             status_code=500,
-            detail="index.html not found and no asset_url configured",
+            detail=_missing_index_html_detail(),
         )
 
     if not file_key:
@@ -537,6 +549,17 @@ def virtual_file(
 
     chunks = read_virtual_file_chunked(filename, int(byte_length))
     mimetype, _ = mimetypes.guess_type(filename)
+    headers = {
+        "Cache-Control": "max-age=86400",
+    }
+    # When ?download=1 is set, force a save dialog. This bypasses cases
+    # where <a download> is ignored (e.g., sandboxed iframes without
+    # allow-downloads, or some Permissions-Policy configurations).
+    if request.query_params.get("download") == "1":
+        from marimo._convert.common.filename import make_download_headers
+
+        download_filename = request.query_params.get("filename") or filename
+        headers.update(make_download_headers(download_filename))
     # Do NOT set Content-Length here. StreamingResponse with an explicit
     # Content-Length causes h11 LocalProtocolError ("Too little data for
     # declared Content-Length") for large files. Omitting it lets h11 use
@@ -544,9 +567,7 @@ def virtual_file(
     return StreamingResponse(
         content=chunks,
         media_type=mimetype,
-        headers={
-            "Cache-Control": "max-age=86400",
-        },
+        headers=headers,
     )
 
 

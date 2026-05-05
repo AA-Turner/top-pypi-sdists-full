@@ -1,7 +1,7 @@
 import numpy as np
 
 import pytensor.tensor as pt
-from pytensor.compile.debugmode import _lessbroken_deepcopy
+from pytensor.compile.debug.debugmode import _lessbroken_deepcopy
 from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.op import Op
 from pytensor.link.c.op import COp
@@ -46,8 +46,6 @@ class _typed_list_py_operators:
         return length(self)
 
     ttype = property(lambda self: self.type.ttype)
-    dtype = property(lambda self: self.type.ttype.dtype)
-    ndim = property(lambda self: self.type.ttype.ndim + 1)
 
 
 class TypedListVariable(_typed_list_py_operators, Variable):

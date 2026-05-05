@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.address_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -51,11 +52,14 @@ class BillingDetails(google.protobuf.message.Message):
     DISPLAY_ADDRESS_FIELD_NUMBER: builtins.int
     COMPANY_NAME_FIELD_NUMBER: builtins.int
     BILLING_EMAIL_FIELD_NUMBER: builtins.int
+    BILLING_ADDRESS_FIELD_NUMBER: builtins.int
     display_address: builtins.str
     company_name: builtins.str
     billing_email: builtins.str
     @property
     def address(self) -> global___Address: ...
+    @property
+    def billing_address(self) -> sentry_protos.billing.v1.common.v1.address_pb2.Address: ...
     def __init__(
         self,
         *,
@@ -63,9 +67,10 @@ class BillingDetails(google.protobuf.message.Message):
         display_address: builtins.str = ...,
         company_name: builtins.str | None = ...,
         billing_email: builtins.str | None = ...,
+        billing_address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_billing_email", b"_billing_email", "_company_name", b"_company_name", "address", b"address", "billing_email", b"billing_email", "company_name", b"company_name"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_billing_email", b"_billing_email", "_company_name", b"_company_name", "address", b"address", "billing_email", b"billing_email", "company_name", b"company_name", "display_address", b"display_address"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_billing_email", b"_billing_email", "_company_name", b"_company_name", "address", b"address", "billing_address", b"billing_address", "billing_email", b"billing_email", "company_name", b"company_name"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_billing_email", b"_billing_email", "_company_name", b"_company_name", "address", b"address", "billing_address", b"billing_address", "billing_email", b"billing_email", "company_name", b"company_name", "display_address", b"display_address"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_billing_email", b"_billing_email"]) -> typing.Literal["billing_email"] | None: ...
     @typing.overload

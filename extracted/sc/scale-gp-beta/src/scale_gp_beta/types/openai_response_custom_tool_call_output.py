@@ -1,19 +1,26 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import TYPE_CHECKING, Dict, Optional
-from typing_extensions import Literal
+from typing import TYPE_CHECKING, Dict, List, Union, Optional
+from typing_extensions import Literal, TypeAlias
 
 from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
+from .openai_response_input_file import OpenAIResponseInputFile
+from .openai_response_input_text import OpenAIResponseInputText
+from .openai_response_input_image import OpenAIResponseInputImage
 
-__all__ = ["OpenAIResponseCustomToolCallOutput"]
+__all__ = ["OpenAIResponseCustomToolCallOutput", "OutputOutputContentList"]
+
+OutputOutputContentList: TypeAlias = Union[OpenAIResponseInputText, OpenAIResponseInputImage, OpenAIResponseInputFile]
 
 
 class OpenAIResponseCustomToolCallOutput(BaseModel):
+    """The output of a custom tool call from your code, being sent back to the model."""
+
     call_id: str
 
-    output: str
+    output: Union[str, List[OutputOutputContentList]]
 
     type: Literal["custom_tool_call_output"]
 

@@ -9,6 +9,7 @@ import uuid
 from anyscale._private.anyscale_client.common import (
     AnyscaleClientInterface,
     APIJobRun,
+    CloudNotFoundError,
     DEFAULT_MAX_RUNS_PER_JOB,
     WORKSPACE_CLUSTER_NAME_PREFIX,
 )
@@ -585,7 +586,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             if cloud.name == cloud_name:
                 return cloud.id
 
-        raise RuntimeError(f"Cloud with name '{cloud_name}' not found.")
+        raise CloudNotFoundError(f"Cloud with name '{cloud_name}' not found.")
 
     def get_image_uri_from_build_id(self, build_id: str) -> Optional[ImageURI]:
         cluster_env_build_id = self._builds[build_id].cluster_environment_id

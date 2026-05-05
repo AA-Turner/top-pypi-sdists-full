@@ -6,22 +6,20 @@ from itertools import chain
 import numpy as np
 
 import pytensor.tensor as pt
-from pytensor.compile.function.pfunc import construct_pfunc_ins_and_outs
+from pytensor.compile.rebuild import construct_function_ins_and_outs
 from pytensor.compile.sharedvalue import SharedVariable, collect_new_shareds
 from pytensor.configdefaults import config
 from pytensor.graph.basic import Constant, Variable
-from pytensor.graph.op import get_test_value
 from pytensor.graph.replace import clone_replace
 from pytensor.graph.traversal import explicit_graph_inputs
 from pytensor.graph.type import HasShape
-from pytensor.graph.utils import MissingInputError, TestValueError
+from pytensor.graph.utils import MissingInputError
 from pytensor.scan.op import Scan, ScanInfo
 from pytensor.scan.utils import expand_empty, safe_new, until
 from pytensor.tensor.exceptions import NotScalarConstantError
 from pytensor.tensor.math import minimum
 from pytensor.tensor.shape import shape_padleft
 from pytensor.tensor.type import TensorType, integer_dtypes
-from pytensor.updates import OrderedUpdates
 
 
 if typing.TYPE_CHECKING:
@@ -585,20 +583,6 @@ def scan(
                 _seq_val_slice = _seq_val[k - mintap_proxy]
                 nw_slice = _seq_val_slice.type()
 
-                # Try to transfer test_value to the new variable
-                if config.compute_test_value != "off":
-                    try:
-                        nw_slice.tag.test_value = get_test_value(_seq_val_slice)
-                    except TestValueError:
-                        if config.compute_test_value != "ignore":
-                            # No need to print a warning or raise an error now,
-                            # it will be done when fn will be called.
-                            warnings.warn(
-                                "Cannot compute test value for "
-                                "the inner function of scan, input value "
-                                f"missing {_seq_val_slice}"
-                            )
-
                 # Add names to slices for debugging and pretty printing ..
                 # that is if the input already has a name
                 if getattr(seq["input"], "name", None) is not None:
@@ -701,17 +685,6 @@ def scan(
                 # what we need for initial states
                 arg = arg.type()
 
-            # Try to transfer test_value to the new variable
-            if config.compute_test_value != "off":
-                try:
-                    arg.tag.test_value = get_test_value(actual_arg)
-                except TestValueError:
-                    if config.compute_test_value != "ignore":
-                        warnings.warn(
-                            "Cannot compute test value for the "
-                            f"inner function of scan, test value missing: {actual_arg}"
-                        )
-
             if getattr(init_out["initial"], "name", None) is not None:
                 arg.name = init_out["initial"].name + "[t-1]"
 
@@ -770,18 +743,6 @@ def scan(
                 _init_out_var_slice = _init_out_var[k + mintap]
                 nw_slice = _init_out_var_slice.type()
 
-                # Try to transfer test_value to the new variable
-                if config.compute_test_value != "off":
-                    try:
-                        nw_slice.tag.test_value = get_test_value(_init_out_var_slice)
-                    except TestValueError:
-                        if config.compute_test_value != "ignore":
-                            warnings.warn(
-                                "Cannot compute test value for "
-                                "the inner function of scan, test value "
-                                f"missing: {_init_out_var_slice}"
-                            )
-
                 # give it a name or debugging and pretty printing
                 if getattr(init_out["initial"], "name", None) is not None:
                     if k > 0:
@@ -822,9 +783,14 @@ def scan(
             _ordered_args[sit_sot_rightOrder[idx]] = [sit_sot_inner_inputs[idx]]
 
     for idx in range(n_untraced_sit_sot):
-        _ordered_args[untraced_sit_sot_rightOrder[idx]] = [
-            untraced_sit_sot_inner_inputs[idx]
-        ]
+        if single_step_requested:
+            _ordered_args[untraced_sit_sot_rightOrder[idx]] = [
+                untraced_sit_sot_scan_inputs[idx]
+            ]
+        else:
+            _ordered_args[untraced_sit_sot_rightOrder[idx]] = [
+                untraced_sit_sot_inner_inputs[idx]
+            ]
 
     ordered_args = list(chain.from_iterable(_ordered_args))
     if single_step_requested:
@@ -897,7 +863,7 @@ def scan(
     # Perform a try-except to provide a meaningful error message to the
     # user if inputs of the inner function are missing.
     try:
-        dummy_inputs, dummy_outputs = construct_pfunc_ins_and_outs(
+        dummy_inputs, dummy_outputs = construct_function_ins_and_outs(
             dummy_args, dummy_outs, updates=updates
         )
     except MissingInputError as err:
@@ -1152,7 +1118,7 @@ def scan(
     # and so on ...
     ##
 
-    update_map = OrderedUpdates()
+    update_map = {}
 
     def remove_dimensions(outs, offsets=None):
         out_ls = []

@@ -8082,6 +8082,7 @@ components:
           description: The value previously supplied by the integration as this account's Unique ID.
           x-semantic: account-id
       description: Request payload for updating a user account
+      x-capability-level: write
     UpdatedAccounts:
       type: object
       required:

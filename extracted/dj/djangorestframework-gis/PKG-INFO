@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework-gis
-Version: 1.2.0
+Version: 1.2.1
 Summary: Geographic add-ons for Django Rest Framework
 Home-page: https://github.com/openwisp/django-rest-framework-gis
 Download-URL: https://github.com/openwisp/django-rest-framework-gis/releases
@@ -32,7 +32,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: django>=4.2
-Requires-Dist: djangorestframework<3.17,>=3.12
+Requires-Dist: djangorestframework<3.18,>=3.12
 Requires-Dist: django-filter<26.0,>=23.5
 Dynamic: author
 Dynamic: author-email
@@ -91,7 +91,7 @@ Compatibility with DRF, Django and Python
 
 ========================  ============================ ==================== ==================================
 DRF-gis version           DRF version                  Django version       Python version
-**1.2.x**                 **3.12** up to **3.16**      **4.2 to 5.2**       **3.9** to **3.13**
+**1.2.x**                 **3.12** up to **3.17**      **4.2 to 6.0**       **3.9** to **3.13**
 **1.1.x**                 **3.12** up to **3.15**      **3.2, 4.2 to 5.1**  **3.8** to **3.12**
 **1.0.x**                 **3.10** up to **3.13**      **2.2 to 4.0**       **3.6** to **3.9**
 **0.18.x**                **3.10** up to **3.13**      **2.2 to 4.0**       **3.6** to **3.9**

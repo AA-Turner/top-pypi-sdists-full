@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskiq
-Version: 0.12.2
+Version: 0.12.3
 Summary: Distributed task queue with full async support
 Project-URL: Bug Tracker, https://github.com/taskiq-python/taskiq/issues
 Project-URL: Changelog, https://github.com/taskiq-python/taskiq/releases

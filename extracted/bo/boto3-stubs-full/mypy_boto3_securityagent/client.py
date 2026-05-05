@@ -189,7 +189,7 @@ class SecurityAgentClient(BaseClient):
 
     def add_artifact(self, **kwargs: Unpack[AddArtifactInputTypeDef]) -> AddArtifactOutputTypeDef:
         """
-        Adds an Artifact for the given agent space.
+        Uploads an artifact to an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/add_artifact.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#add_artifact)
@@ -199,7 +199,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchDeletePentestsInputTypeDef]
     ) -> BatchDeletePentestsOutputTypeDef:
         """
-        Deletes multiple pentests in a single request.
+        Deletes one or more pentests from an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_pentests.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_delete_pentests)
@@ -209,7 +209,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetAgentSpacesInputTypeDef]
     ) -> BatchGetAgentSpacesOutputTypeDef:
         """
-        Retrieves multiple agent spaces in a single request.
+        Retrieves information about one or more agent spaces.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_agent_spaces.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_agent_spaces)
@@ -219,7 +219,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetArtifactMetadataInputTypeDef]
     ) -> BatchGetArtifactMetadataOutputTypeDef:
         """
-        Retrieve the list of artifact metadata for the given agent space.
+        Retrieves metadata for one or more artifacts in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_artifact_metadata.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_artifact_metadata)
@@ -229,7 +229,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetFindingsInputTypeDef]
     ) -> BatchGetFindingsOutputTypeDef:
         """
-        Retrieves multiple findings in a single request.
+        Retrieves information about one or more security findings in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_findings.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_findings)
@@ -239,7 +239,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetPentestJobTasksInputTypeDef]
     ) -> BatchGetPentestJobTasksOutputTypeDef:
         """
-        Retrieves multiple tasks for a pentest job in a single request.
+        Retrieves information about one or more tasks within a pentest job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_pentest_job_tasks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_pentest_job_tasks)
@@ -249,7 +249,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetPentestJobsInputTypeDef]
     ) -> BatchGetPentestJobsOutputTypeDef:
         """
-        Retrieves multiple pentest jobs in a single request.
+        Retrieves information about one or more pentest jobs in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_pentest_jobs.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_pentest_jobs)
@@ -259,7 +259,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetPentestsInputTypeDef]
     ) -> BatchGetPentestsOutputTypeDef:
         """
-        Retrieves multiple pentests in a single request.
+        Retrieves information about one or more pentests in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_pentests.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_pentests)
@@ -269,7 +269,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[BatchGetTargetDomainsInputTypeDef]
     ) -> BatchGetTargetDomainsOutputTypeDef:
         """
-        Retrieves multiple target domains in a single request.
+        Retrieves information about one or more target domains.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_target_domains.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_target_domains)
@@ -279,7 +279,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[CreateAgentSpaceInputTypeDef]
     ) -> CreateAgentSpaceOutputTypeDef:
         """
-        Creates an agent space record.
+        Creates a new agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_agent_space.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_agent_space)
@@ -299,7 +299,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[CreateIntegrationInputTypeDef]
     ) -> CreateIntegrationOutputTypeDef:
         """
-        Creates the Integration of the Security Agent App with an external Provider.
+        Creates a new integration with a third-party provider, such as GitHub, for code
+        review and remediation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_integration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_integration)
@@ -307,7 +308,8 @@ class SecurityAgentClient(BaseClient):
 
     def create_membership(self, **kwargs: Unpack[CreateMembershipRequestTypeDef]) -> dict[str, Any]:
         """
-        Adds a single member to an agent space with specified role.
+        Creates a new membership, granting a user access to an agent space within an
+        application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_membership.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_membership)
@@ -317,7 +319,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[CreatePentestInputTypeDef]
     ) -> CreatePentestOutputTypeDef:
         """
-        Creates a new pentest configuration.
+        Creates a new pentest configuration in an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_pentest.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_pentest)
@@ -327,7 +329,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[CreateTargetDomainInputTypeDef]
     ) -> CreateTargetDomainOutputTypeDef:
         """
-        Creates a target domain record.
+        Creates a new target domain for penetration testing.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_target_domain)
@@ -337,7 +339,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[DeleteAgentSpaceInputTypeDef]
     ) -> DeleteAgentSpaceOutputTypeDef:
         """
-        Deletes an agent space record.
+        Deletes an agent space and all of its associated resources, including pentests,
+        findings, and artifacts.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_agent_space.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_agent_space)
@@ -347,7 +350,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes an application.
+        Deletes an application and its associated configuration, including IAM Identity
+        Center settings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_application)
@@ -355,7 +359,7 @@ class SecurityAgentClient(BaseClient):
 
     def delete_artifact(self, **kwargs: Unpack[DeleteArtifactInputTypeDef]) -> dict[str, Any]:
         """
-        Delete an Artifact from the given agent space.
+        Deletes an artifact from an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_artifact.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_artifact)
@@ -363,7 +367,7 @@ class SecurityAgentClient(BaseClient):
 
     def delete_integration(self, **kwargs: Unpack[DeleteIntegrationInputTypeDef]) -> dict[str, Any]:
         """
-        Deletes the Integration of the Security Agent App with an external Provider.
+        Deletes an integration with a third-party provider.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_integration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_integration)
@@ -371,7 +375,7 @@ class SecurityAgentClient(BaseClient):
 
     def delete_membership(self, **kwargs: Unpack[DeleteMembershipRequestTypeDef]) -> dict[str, Any]:
         """
-        Removes a single member associated to an agent space.
+        Deletes a membership, revoking a user's access to an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_membership.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_membership)
@@ -381,7 +385,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[DeleteTargetDomainInputTypeDef]
     ) -> DeleteTargetDomainOutputTypeDef:
         """
-        Deletes a target domain record.
+        Deletes a target domain registration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_target_domain)
@@ -391,7 +395,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[GetApplicationRequestTypeDef]
     ) -> GetApplicationResponseTypeDef:
         """
-        Retrieves application details by application ID.
+        Retrieves information about an application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_application)
@@ -399,7 +403,7 @@ class SecurityAgentClient(BaseClient):
 
     def get_artifact(self, **kwargs: Unpack[GetArtifactInputTypeDef]) -> GetArtifactOutputTypeDef:
         """
-        Retrieve an Artifact for the given agent space.
+        Retrieves an artifact from an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_artifact.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_artifact)
@@ -409,7 +413,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[GetIntegrationInputTypeDef]
     ) -> GetIntegrationOutputTypeDef:
         """
-        Gets Integration metadata from the provided id.
+        Retrieves information about an integration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_integration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_integration)
@@ -419,7 +423,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[InitiateProviderRegistrationInputTypeDef]
     ) -> InitiateProviderRegistrationOutputTypeDef:
         """
-        Initiates the registration of Security Agent App for an external Provider.
+        Initiates the OAuth registration flow with a third-party provider.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/initiate_provider_registration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#initiate_provider_registration)
@@ -429,7 +433,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListAgentSpacesInputTypeDef]
     ) -> ListAgentSpacesOutputTypeDef:
         """
-        Lists agent spaces.
+        Returns a paginated list of agent space summaries in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_agent_spaces.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_agent_spaces)
@@ -439,7 +443,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListApplicationsRequestTypeDef]
     ) -> ListApplicationsResponseTypeDef:
         """
-        Lists all applications in the account.
+        Returns a paginated list of application summaries in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_applications.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_applications)
@@ -449,7 +453,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListArtifactsInputTypeDef]
     ) -> ListArtifactsOutputTypeDef:
         """
-        Lists the artifacts for the associated agent space.
+        Returns a paginated list of artifact summaries for the specified agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_artifacts.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_artifacts)
@@ -459,8 +463,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListDiscoveredEndpointsInputTypeDef]
     ) -> ListDiscoveredEndpointsOutputTypeDef:
         """
-        Lists discovered endpoints associated with a pentest job with optional URI
-        prefix filtering.
+        Returns a paginated list of endpoints discovered during a pentest job execution.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_discovered_endpoints.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_discovered_endpoints)
@@ -470,7 +473,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListFindingsInputTypeDef]
     ) -> ListFindingsOutputTypeDef:
         """
-        Lists findings with filtering and pagination support.
+        Lists the security findings for a pentest job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_findings.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_findings)
@@ -480,7 +483,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListIntegratedResourcesInputTypeDef]
     ) -> ListIntegratedResourcesOutputTypeDef:
         """
-        Lists the integrated resources for an agent space.
+        Lists the integrated resources for an agent space, optionally filtered by
+        integration or resource type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_integrated_resources.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_integrated_resources)
@@ -490,7 +494,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListIntegrationsInputTypeDef]
     ) -> ListIntegrationsOutputTypeDef:
         """
-        Retrieves the Integrations associated with the user's account.
+        Lists the integrations in your account, optionally filtered by provider or
+        provider type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_integrations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_integrations)
@@ -500,7 +505,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListMembershipsRequestTypeDef]
     ) -> ListMembershipsResponseTypeDef:
         """
-        Lists all members associated to an agent space with pagination support.
+        Returns a paginated list of membership summaries for the specified agent space
+        within an application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_memberships.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_memberships)
@@ -510,7 +516,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListPentestJobTasksInputTypeDef]
     ) -> ListPentestJobTasksOutputTypeDef:
         """
-        Lists tasks associated with a specific pentest job.
+        Returns a paginated list of task summaries for the specified pentest job,
+        optionally filtered by step name or category.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_pentest_job_tasks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_pentest_job_tasks)
@@ -520,7 +527,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListPentestJobsForPentestInputTypeDef]
     ) -> ListPentestJobsForPentestOutputTypeDef:
         """
-        Lists pentest jobs associated with a pentest.
+        Returns a paginated list of pentest job summaries for the specified pentest
+        configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_pentest_jobs_for_pentest.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_pentest_jobs_for_pentest)
@@ -530,7 +538,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListPentestsInputTypeDef]
     ) -> ListPentestsOutputTypeDef:
         """
-        Lists pentests with optional filtering by status.
+        Returns a paginated list of pentest summaries for the specified agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_pentests.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_pentests)
@@ -540,7 +548,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
     ) -> ListTagsForResourceOutputTypeDef:
         """
-        Lists tags for a Security Agent resource.
+        Returns the tags associated with the specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_tags_for_resource)
@@ -550,7 +558,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[ListTargetDomainsInputTypeDef]
     ) -> ListTargetDomainsOutputTypeDef:
         """
-        Lists target domains.
+        Returns a paginated list of target domain summaries in your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_target_domains.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_target_domains)
@@ -560,7 +568,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[StartCodeRemediationInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Starts code remediation for the specified findings.
+        Initiates code remediation for one or more security findings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_code_remediation.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_code_remediation)
@@ -570,7 +578,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[StartPentestJobInputTypeDef]
     ) -> StartPentestJobOutputTypeDef:
         """
-        Initiates the execution of a pentest.
+        Starts a new pentest job for a pentest configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_pentest_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_pentest_job)
@@ -578,7 +586,7 @@ class SecurityAgentClient(BaseClient):
 
     def stop_pentest_job(self, **kwargs: Unpack[StopPentestJobInputTypeDef]) -> dict[str, Any]:
         """
-        Stops the execution of a running pentest.
+        Stops a running pentest job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_pentest_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#stop_pentest_job)
@@ -586,7 +594,7 @@ class SecurityAgentClient(BaseClient):
 
     def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
-        Adds tags to a Security Agent resource.
+        Adds tags to a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/tag_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#tag_resource)
@@ -594,7 +602,7 @@ class SecurityAgentClient(BaseClient):
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
-        Removes tags from a Security Agent resource.
+        Removes tags from a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/untag_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#untag_resource)
@@ -604,7 +612,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[UpdateAgentSpaceInputTypeDef]
     ) -> UpdateAgentSpaceOutputTypeDef:
         """
-        Updates an agent space record.
+        Updates the configuration of an existing agent space, including its name,
+        description, AWS resources, target domains, and code review settings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_agent_space.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_agent_space)
@@ -614,7 +623,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
     ) -> UpdateApplicationResponseTypeDef:
         """
-        Updates application configuration.
+        Updates the configuration of an existing application, including the IAM role
+        and default KMS key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_application)
@@ -622,7 +632,7 @@ class SecurityAgentClient(BaseClient):
 
     def update_finding(self, **kwargs: Unpack[UpdateFindingInputTypeDef]) -> dict[str, Any]:
         """
-        Updates an existing security finding with new details or status.
+        Updates the status or risk level of a security finding.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_finding.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_finding)
@@ -632,7 +642,8 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[UpdateIntegratedResourcesInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Updates the integrated resources for an agent space.
+        Updates the integrated resources for an agent space, including their
+        capabilities.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_integrated_resources.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_integrated_resources)
@@ -642,7 +653,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[UpdatePentestInputTypeDef]
     ) -> UpdatePentestOutputTypeDef:
         """
-        Updates an existing pentest with new configuration or settings.
+        Updates an existing pentest configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_pentest.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_pentest)
@@ -652,7 +663,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[UpdateTargetDomainInputTypeDef]
     ) -> UpdateTargetDomainOutputTypeDef:
         """
-        Updates a target domain record.
+        Updates the verification method for a target domain.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_target_domain)
@@ -662,7 +673,7 @@ class SecurityAgentClient(BaseClient):
         self, **kwargs: Unpack[VerifyTargetDomainInputTypeDef]
     ) -> VerifyTargetDomainOutputTypeDef:
         """
-        Verifies ownership for a registered target domain.
+        Initiates verification of a target domain.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/verify_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#verify_target_domain)

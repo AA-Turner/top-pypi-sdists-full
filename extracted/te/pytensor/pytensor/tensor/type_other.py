@@ -5,7 +5,7 @@
 import numpy as np
 
 import pytensor
-from pytensor import _as_symbolic
+from pytensor.basic import _as_symbolic
 from pytensor.gradient import disconnected_type
 from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.op import Op
@@ -43,7 +43,7 @@ class MakeSlice(Op):
         (out,) = out_
         out[0] = slice(*inp)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         return [disconnected_type() for _ in range(len(inputs))]
 
 

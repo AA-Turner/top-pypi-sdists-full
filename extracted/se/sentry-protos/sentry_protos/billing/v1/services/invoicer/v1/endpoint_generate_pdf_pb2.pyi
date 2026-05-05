@@ -18,15 +18,18 @@ class GeneratePdfRequest(google.protobuf.message.Message):
 
     INVOICE_ID_FIELD_NUMBER: builtins.int
     INVOICE_GUID_FIELD_NUMBER: builtins.int
+    ORGANIZATION_ID_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     invoice_guid: builtins.str
+    organization_id: builtins.int
     def __init__(
         self,
         *,
         invoice_id: builtins.int = ...,
         invoice_guid: builtins.str = ...,
+        organization_id: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "organization_id", b"organization_id"]) -> None: ...
 
 global___GeneratePdfRequest = GeneratePdfRequest
 

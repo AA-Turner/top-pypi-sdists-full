@@ -49,12 +49,14 @@ C_CODE_PATH = Path(__file__).parent / "c_code"
 
 
 class Erf(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     nfunc_spec = ("scipy.special.erf", 1, 1)
 
     def impl(self, x):
         return special.erf(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -83,12 +85,13 @@ erf = Erf(upgrade_to_float, name="erf")
 
 
 class Erfc(UnaryScalarOp):
+    monotonic_decreasing = True
     nfunc_spec = ("scipy.special.erfc", 1, 1)
 
     def impl(self, x):
         return special.erfc(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -132,12 +135,13 @@ class Erfcx(UnaryScalarOp):
 
     """
 
+    monotonic_decreasing = True
     nfunc_spec = ("scipy.special.erfcx", 1, 1)
 
     def impl(self, x):
         return special.erfcx(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -177,6 +181,8 @@ erfcx = Erfcx(upgrade_to_float_no_complex, name="erfcx")
 
 
 class Erfinv(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     """
     Implements the inverse error function.
 
@@ -193,7 +199,7 @@ class Erfinv(UnaryScalarOp):
     def impl(self, x):
         return special.erfinv(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -223,12 +229,13 @@ erfinv = Erfinv(upgrade_to_float_no_complex, name="erfinv")
 
 
 class Erfcinv(UnaryScalarOp):
+    monotonic_decreasing = True
     nfunc_spec = ("scipy.special.erfcinv", 1, 1)
 
     def impl(self, x):
         return special.erfcinv(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -263,7 +270,7 @@ class Owens_t(BinaryScalarOp):
     def impl(self, h, a):
         return special.owens_t(h, a)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (h, a) = inputs
         (gz,) = grads
         return [
@@ -288,7 +295,7 @@ class Gamma(UnaryScalarOp):
     def impl(self, x):
         return special.gamma(x)
 
-    def L_op(self, inputs, outputs, gout):
+    def pullback(self, inputs, outputs, gout):
         (x,) = inputs
         (gz,) = gout
         if x.type in complex_types:
@@ -323,7 +330,7 @@ class GammaLn(UnaryScalarOp):
     def impl(self, x):
         return special.gammaln(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -363,7 +370,7 @@ class Psi(UnaryScalarOp):
     def impl(self, x):
         return special.psi(x)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         if x.type in complex_types:
@@ -460,7 +467,7 @@ class TriGamma(UnaryScalarOp):
     def impl(self, x):
         return special.polygamma(1, x)
 
-    def L_op(self, inputs, outputs, outputs_gradients):
+    def pullback(self, inputs, outputs, outputs_gradients):
         (x,) = inputs
         (g_out,) = outputs_gradients
         if x in complex_types:
@@ -559,7 +566,7 @@ class PolyGamma(BinaryScalarOp):
     def impl(self, n, x):
         return special.polygamma(n, x)
 
-    def L_op(self, inputs, outputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         (n, x) = inputs
         (g_out,) = output_gradients
         if x in complex_types:
@@ -586,7 +593,7 @@ class GammaInc(BinaryScalarOp):
     def impl(self, k, x):
         return special.gammainc(k, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (k, x) = inputs
         (gz,) = grads
         return [
@@ -633,7 +640,7 @@ class GammaIncC(BinaryScalarOp):
     def impl(self, k, x):
         return special.gammaincc(k, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (k, x) = inputs
         (gz,) = grads
         return [
@@ -680,7 +687,7 @@ class GammaIncInv(BinaryScalarOp):
     def impl(self, k, x):
         return special.gammaincinv(k, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (k, x) = inputs
         (gz,) = grads
         return [
@@ -705,7 +712,7 @@ class GammaIncCInv(BinaryScalarOp):
     def impl(self, k, x):
         return special.gammainccinv(k, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (k, x) = inputs
         (gz,) = grads
         return [
@@ -1004,7 +1011,7 @@ class Jv(BinaryScalarOp):
     def impl(self, v, x):
         return special.jv(v, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         v, x = inputs
         (gz,) = grads
         return [
@@ -1020,6 +1027,7 @@ jv = Jv(upgrade_to_float, name="jv")
 
 
 class J1(UnaryScalarOp):
+    preserves_zero = True
     """
     Bessel function of the first kind of order 1.
     """
@@ -1029,7 +1037,7 @@ class J1(UnaryScalarOp):
     def impl(self, x):
         return special.j1(x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
         return [gz * (j0(x) - jv(2, x)) / 2.0]
@@ -1056,7 +1064,7 @@ class J0(UnaryScalarOp):
     def impl(self, x):
         return special.j0(x)
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (x,) = inp
         (gz,) = grads
         return [gz * -1 * j1(x)]
@@ -1073,32 +1081,9 @@ class J0(UnaryScalarOp):
 j0 = J0(upgrade_to_float, name="j0")
 
 
-class Iv(BinaryScalarOp):
-    """
-    Modified Bessel function of the first kind of order v (real).
-    """
-
-    nfunc_spec = ("scipy.special.iv", 2, 1)
-
-    def impl(self, v, x):
-        return special.iv(v, x)
-
-    def grad(self, inputs, grads):
-        v, x = inputs
-        (gz,) = grads
-        return [
-            grad_not_implemented(self, 0, v),
-            gz * (iv(v - 1, x) + iv(v + 1, x)) / 2.0,
-        ]
-
-    def c_code(self, *args, **kwargs):
-        raise NotImplementedError()
-
-
-iv = Iv(upgrade_to_float, name="iv")
-
-
 class I1(UnaryScalarOp):
+    preserves_zero = True
+    monotonic_increasing = True
     """
     Modified Bessel function of the first kind of order 1.
     """
@@ -1108,10 +1093,10 @@ class I1(UnaryScalarOp):
     def impl(self, x):
         return special.i1(x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (x,) = inputs
         (gz,) = grads
-        return [gz * (i0(x) + iv(2, x)) / 2.0]
+        return [gz * (i0(x) + ive(2, x) * exp(abs(x))) / 2.0]
 
     def c_code(self, *args, **kwargs):
         raise NotImplementedError()
@@ -1130,7 +1115,7 @@ class I0(UnaryScalarOp):
     def impl(self, x):
         return special.i0(x)
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (x,) = inp
         (gz,) = grads
         return [gz * i1(x)]
@@ -1152,7 +1137,7 @@ class Ive(BinaryScalarOp):
     def impl(self, v, x):
         return special.ive(v, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         v, x = inputs
         (gz,) = grads
         return [
@@ -1177,7 +1162,7 @@ class Kve(BinaryScalarOp):
     def impl(self, v, x):
         return special.kve(v, x)
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         v, x = inputs
         [kve_vx] = outputs
         [g_out] = output_grads
@@ -1202,12 +1187,13 @@ class Sigmoid(UnaryScalarOp):
     Logistic sigmoid function (1 / (1 + exp(-x)), also known as expit or inverse logit
     """
 
+    monotonic_increasing = True
     nfunc_spec = ("scipy.special.expit", 1, 1)
 
     def impl(self, x):
         return special.expit(x)
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (x,) = inp
         (gz,) = grads
         y = sigmoid(x)
@@ -1256,6 +1242,8 @@ class Softplus(UnaryScalarOp):
         "Accurately computing `\log(1-\exp(- \mid a \mid))` Assessed by the Rmpfr package"
     """
 
+    monotonic_increasing = True
+
     def impl(self, x):
         # If x is an int8 or uint8, numpy.exp will compute the result in
         # half-precision (float16), where we want float32.
@@ -1275,7 +1263,7 @@ class Softplus(UnaryScalarOp):
         else:
             return x
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (x,) = inp
         (gz,) = grads
         return [gz * sigmoid(x)]
@@ -1337,13 +1325,15 @@ class Log1mexp(UnaryScalarOp):
         "Accurately computing `\log(1-\exp(- \mid a \mid))` Assessed by the Rmpfr package"
     """
 
+    monotonic_decreasing = True
+
     def impl(self, x):
         if x < np.log(0.5):
             return np.log1p(-np.exp(x))
         else:
             return np.log(-np.expm1(x))
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (x,) = inp
         (gz,) = grads
         res = true_div(-1.0, expm1(-x))
@@ -1378,7 +1368,7 @@ class BetaInc(ScalarOp):
     def impl(self, a, b, x):
         return special.betainc(a, b, x)
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         a, b, x = inp
         (gz,) = grads
 
@@ -1636,7 +1626,7 @@ class BetaIncInv(ScalarOp):
     def impl(self, a, b, x):
         return special.betaincinv(a, b, x)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         (a, b, x) = inputs
         (gz,) = grads
         return [
@@ -1675,7 +1665,7 @@ class Hyp2F1(ScalarOp):
     def impl(self, a, b, c, z):
         return special.hyp2f1(a, b, c, z)
 
-    def grad(self, inputs, grads):
+    def pullback(self, inputs, outputs, grads):
         a, b, c, z = inputs
         (gz,) = grads
         grad_a, grad_b, grad_c = hyp2f1_grad(a, b, c, z, wrt=[0, 1, 2])

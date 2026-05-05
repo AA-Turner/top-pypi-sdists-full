@@ -693,6 +693,25 @@ class AgentLoop:
         _ar_t1 = time.perf_counter()
         logger.warning("[TIMING] _auto_route_task: %.2fs", _ar_t1 - _ar_t0)
 
+        # === AUTO-PREFETCH RETRIEVE ===
+        # HLE Phase 1 finding (memory: project_graphrag_underused.md): Gemma 4
+        # almost never calls retrieve() on its own for general-knowledge
+        # questions — it defaults to web_search instead. So a curated
+        # GraphRAG corpus is invisible to the model unless we surface it
+        # automatically. This hook runs retrieve(query=user_msg[:300]) and,
+        # if there are real hits (above a quality threshold), prepends them
+        # as a system note BEFORE the first LLM call. Zero behavior change
+        # when the index has nothing relevant; pure lift when it does.
+        #
+        # Env-gated via DRYDOCK_AUTO_RETRIEVE so existing workflows are
+        # unaffected. Set to "1" or "true" to enable.
+        if os.environ.get("DRYDOCK_AUTO_RETRIEVE", "").strip().lower() in ("1", "true", "yes"):
+            logger.warning("[AUTO-RETRIEVE] hook entry, query=%r", (user_msg or "")[:80])
+            try:
+                self._auto_prefetch_retrieve(user_msg)
+            except Exception as _e:
+                logger.warning("auto-prefetch retrieve failed (skipped): %s", _e, exc_info=True)
+
         try:
             should_break_loop = False
             tool_turns = 0
@@ -976,7 +995,16 @@ class AgentLoop:
 
             # Empty response — try to recover inline.
             if _stall_attempt >= MAX_STALL_RETRIES:
-                _dbg(f"[STALL-DEBUG] max retries ({MAX_STALL_RETRIES}) exhausted; leaving empty")
+                _dbg(f"[STALL-DEBUG] max retries ({MAX_STALL_RETRIES}) exhausted; injecting fallback")
+                # Replace the silent empty message with visible text so the
+                # harness and the user both see a clean end-of-turn rather
+                # than a frozen TUI waiting for content that never arrives.
+                last_message.content = (
+                    "[Drydock: model returned an empty response after "
+                    f"{MAX_STALL_RETRIES} retries. Please rephrase your "
+                    "request or use /clear to reset context.]"
+                )
+                yield AssistantEvent(content=last_message.content)
                 break
             prev_role = self.messages[-2].role if len(self.messages) >= 2 else None
             if prev_role not in (Role.tool, Role.user):
@@ -1885,7 +1913,39 @@ class AgentLoop:
         if len(cleaned) != len(self.messages):
             self.messages.reset(cleaned)
 
-        # Fix 2: If last message is assistant, add a user "Continue." prompt.
+        # Fix 2: Drop empty assistant messages (no content AND no tool_calls).
+        # These violate the OpenAI schema and cause 400 errors on the next LLM
+        # call. They arise when the model returns only thinking/reasoning tokens
+        # (which get stripped) and stall-retry exhaustion leaves the empty msg
+        # in history. An assistant message that follows a tool result must have
+        # either content or tool_calls; if neither, drop it along with any
+        # orphaned tool result messages that precede it (to keep role ordering
+        # valid).
+        cleaned2: list[LLMMessage] = []
+        for msg in self.messages:
+            if (msg.role == Role.assistant
+                    and not (msg.content or "").strip()
+                    and not msg.tool_calls):
+                # Skip empty assistant — also drop any immediately preceding
+                # tool result that would be truly orphaned (no matching
+                # assistant.tool_calls entry in the preceding messages).
+                while cleaned2 and cleaned2[-1].role == Role.tool:
+                    preceding_tool = cleaned2[-1]
+                    tcid = getattr(preceding_tool, "tool_call_id", None)
+                    if tcid and any(
+                        m.role == Role.assistant
+                        and m.tool_calls
+                        and any(tc.id == tcid for tc in m.tool_calls)
+                        for m in cleaned2[:-1]
+                    ):
+                        break  # tool result has a valid match; keep it
+                    cleaned2.pop()
+            else:
+                cleaned2.append(msg)
+        if len(cleaned2) != len(self.messages):
+            self.messages.reset(cleaned2)
+
+        # Fix 3: If last message is assistant, add a user "Continue." prompt.
         # The auto-Continue exists so Gemma 4 keeps executing multi-step plans
         # without stopping prematurely at an intermediate text response. For
         # stress runs against prompts that don't need tool calls (pure
@@ -2032,22 +2092,37 @@ class AgentLoop:
             temp = active_model.temperature
             extra_sampling: dict | None = None
 
+            # Per-model `extra_params` (top_k, top_p, frequency_penalty,
+            # max_tokens, etc.) declared in config.toml flow through
+            # extra_sampling. This is the seam llama.cpp users need to
+            # pass top_k=40, top_p=0.95, frequency_penalty=1.1 per the
+            # Gemma 4 loop-fix recipe.
+            cfg_extra = getattr(active_model, "extra_params", None) or {}
+            if cfg_extra:
+                extra_sampling = dict(cfg_extra)
+
             # Token-level loop-breaker: when repetition is detected, bump
             # temperature and add frequency_penalty + a fresh seed so the
             # model's next completion is mechanically likely to diverge.
             # Mistral/OpenAI-compat backends pass these straight through
-            # to vLLM's SamplingParams.
+            # to vLLM's SamplingParams. These OVERRIDE config.extra_params
+            # for the duration of the loop-break.
             if getattr(self, "_loop_detected", False):
                 signal = getattr(self, "_loop_signal", "") or ""
                 # Heavier bump if we've already hit the FORCE_STOP signal
                 # (=8 repeats) vs a WARNING (=3-5 repeats).
                 heavy = signal == "FORCE_STOP"
                 temp = min(1.0, temp + (0.5 if heavy else 0.3))
-                extra_sampling = {
+                # Merge loop-breaker overrides on top of any cfg_extra so
+                # config-declared sampling params survive when a loop is
+                # NOT detected, and get overridden when one IS detected.
+                if extra_sampling is None:
+                    extra_sampling = {}
+                extra_sampling.update({
                     "frequency_penalty": 0.7 if heavy else 0.4,
                     "presence_penalty": 0.3,
                     "seed": int(time.time() * 1000) & 0x7FFFFFFF,
-                }
+                })
                 logger.info(
                     "[LOOP-BREAK] %s → temp %.2f, freq_pen %.2f, seed %d",
                     signal, temp, extra_sampling["frequency_penalty"],
@@ -2775,6 +2850,133 @@ class AgentLoop:
                     return f"WARNING|{last_tool}"
 
         return None
+
+    def _auto_prefetch_retrieve(self, user_msg: str) -> None:
+        """Auto-fetch relevant chunks from GraphRAG and inject as system note.
+
+        Runs synchronously (the GraphRAG retriever is a fast SQLite query).
+        Caps the query length at 300 chars and the injected context at 2000
+        chars to avoid blowing context budget on long user prompts.
+
+        Quality gate: only inject if at least one text-chunk hit has score
+        >= 8.0 (the indexer's score is roughly TF-IDF magnitude). Below
+        that, the retrieval is probably noise and would just bloat the
+        prompt.
+
+        See memory/project_graphrag_underused.md for why this exists:
+        Gemma 4 doesn't call retrieve() on its own for general-knowledge
+        questions, so a curated index is invisible without a hook like
+        this one.
+        """
+        try:
+            from drydock.graphrag import Index
+            db = os.environ.get("DRYDOCK_GRAPHRAG_DB") or str(
+                Path.home() / ".drydock" / "graphrag.sqlite"
+            )
+            if not Path(db).is_file():
+                logger.warning("[AUTO-RETRIEVE] db missing: %s", db)
+                return
+            idx = Index(db)
+        except Exception as e:
+            logger.warning("[AUTO-RETRIEVE] setup failed: %s", e, exc_info=True)
+            return
+
+        # Extract the actual question from boilerplate. HLE-style prompts
+        # are wrapped: "Answer this question. End your response with...
+        # QUESTION: <real text>". Without this strip the retrieve query
+        # matches scaffolding (CLAUDE.md learnings, etc.) instead of the
+        # actual content. Also strip "FINAL ANSWER:" trailing instructions.
+        raw = (user_msg or "")
+        q_marker = raw.find("QUESTION:")
+        if q_marker >= 0:
+            raw = raw[q_marker + len("QUESTION:"):]
+        # Drop trailing answer-format instructions
+        for stopper in ("FINAL ANSWER:", "Your answer", "Format your", "End your response"):
+            idx_ = raw.find(stopper)
+            if idx_ > 50:  # only strip if there's still meaningful content
+                raw = raw[:idx_]
+        query = raw.strip()[:400]
+        if len(query) < 10:
+            logger.warning("[AUTO-RETRIEVE] query too short (%d chars)", len(query))
+            return
+        logger.warning("[AUTO-RETRIEVE] extracted query: %r", query[:120])
+
+        try:
+            result = idx.retrieve(query, symbol_limit=0, text_limit=4)
+        except Exception as e:
+            logger.warning("[AUTO-RETRIEVE] query failed: %s", e, exc_info=True)
+            return
+
+        text_hits = getattr(result, "text", None) or getattr(result, "text_hits", []) or []
+        QUALITY_THRESHOLD = 8.0
+        good_hits = [h for h in text_hits if getattr(h, "score", 0) >= QUALITY_THRESHOLD]
+        logger.warning("[AUTO-RETRIEVE] %d total hits, %d above threshold %.1f",
+                       len(text_hits), len(good_hits), QUALITY_THRESHOLD)
+        if not good_hits:
+            return
+
+        # Build the system note. Cap at ~2000 chars total.
+        chunks = []
+        budget = 2000
+        for h in good_hits[:3]:
+            text = (getattr(h, "content", "") or "").strip()
+            score = float(getattr(h, "score", 0))
+            file_ = getattr(h, "file", "") or "?"
+            s, e = getattr(h, "start_line", 0), getattr(h, "end_line", 0)
+            piece = f"--- {file_}:{s}-{e} (score={score:.1f}) ---\n{text}"
+            if len(piece) > budget:
+                piece = piece[:budget] + "..."
+            chunks.append(piece)
+            budget -= len(piece) + 4
+            if budget <= 0:
+                break
+
+        # SYNTHETIC TOOL CALL: instead of mutating the user message
+        # (which iter6-9 proved is treated as scaffolding by Gemma 4 — it
+        # ignores inline references and trusts its training prior), spawn
+        # a fake assistant->tool message pair that LOOKS like the model
+        # called retrieve() and got results. Models trust tool outputs
+        # as authoritative input.
+        #
+        # Sequence:
+        #   user -> [our synthetic assistant with tool_call retrieve]
+        #        -> [our synthetic tool result with the chunks]
+        #        -> real LLM turn begins from there
+        from drydock.core.types import ToolCall, FunctionCall as _FC
+        import uuid
+
+        tool_call_id = f"auto-retrieve-{uuid.uuid4().hex[:16]}"
+        tool_args = json.dumps({"query": (user_msg or "")[:200]})
+        synth_assistant = LLMMessage(
+            role=Role.assistant,
+            content="",
+            tool_calls=[
+                ToolCall(
+                    id=tool_call_id,
+                    function=_FC(name="retrieve", arguments=tool_args),
+                    type="function",
+                )
+            ],
+        )
+        # Format chunks as the retrieve tool's actual output shape.
+        formatted = "=== TEXT ===\n\n" + "\n\n".join(chunks)
+        synth_tool = LLMMessage(
+            role=Role.tool,
+            content=formatted,
+            name="retrieve",
+            tool_call_id=tool_call_id,
+        )
+        self.messages.append(synth_assistant)
+        self.messages.append(synth_tool)
+
+        logger.warning(
+            "[AUTO-RETRIEVE] synthesized retrieve tool result: %d chunks "
+            "(top score %.1f, content %d chars), msgs now %d",
+            len(chunks),
+            max(float(getattr(h, "score", 0)) for h in good_hits),
+            len(formatted),
+            len(self.messages),
+        )
 
     async def _auto_route_task(self, user_msg: str) -> None:
         """Lightweight auto-context: list project files and key docs.

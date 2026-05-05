@@ -32,7 +32,6 @@ from typing import (
 from urllib.parse import urlparse
 
 import requests as requests
-from packaging.version import InvalidVersion, parse
 from typing_extensions import assert_never
 
 from chalk.client import ChalkBaseException, Dataset, DatasetRevision
@@ -51,7 +50,6 @@ from chalk.client.models import (
     QueryStatus,
 )
 from chalk.client.response import DatasetPartition
-from chalk.config.project_config import load_project_config
 from chalk.features import DataFrame, Feature, FeatureWrapper, ResolverProtocol, deserialize_dtype, ensure_feature
 from chalk.features._encoding.pyarrow import pyarrow_to_polars
 from chalk.features.feature_set import FeatureSetBase
@@ -1501,18 +1499,9 @@ This occurred during the actual execution of resolver {resolver.fqn}.
         if self._hydrated:
             return
 
-        num_partitions_to_await = self.num_partitions
-
-        # check for legacy behavior
-        config = load_project_config()
-        if config is not None and config.environments is not None:
-            env_settings = config.environments.get(self.environment)
-            if env_settings is not None and env_settings.platform_version is not None:
-                try:
-                    if parse(env_settings.platform_version) < parse("3.34.0"):
-                        num_partitions_to_await = self.num_computers
-                except InvalidVersion:
-                    pass
+        # handling legacy (bugged) chalk-private logic:
+        #   we would return the number of partitions as self.num_computers and have self.num_partitions = 0
+        num_partitions_to_await = self.num_computers if self.num_partitions == 0 else self.num_partitions
 
         # If the initial `offline_query` call has a timeout set, use that.
         timeout = timeout if timeout is not ... else self.timeout

@@ -1,13 +1,17 @@
 """Checks related to source meta configuration."""
 
-from dbt_bouncer.check_decorator import check, fail
-from dbt_bouncer.checks.common import NestedDict
+from dbt_bouncer.check_framework.decorator import check, fail
+from dbt_bouncer.check_framework.exceptions import NestedDict
 from dbt_bouncer.utils import find_missing_meta_keys
 
 
 @check
 def check_source_has_meta_keys(source, *, keys: NestedDict):
     """The `meta` config for sources must have the specified keys.
+
+    !!! info "Rationale"
+
+        The `meta` config is a free-form dictionary that teams use to attach governance information to dbt nodes — things like data owner, sensitivity classification, SLA tier, or compliance labels. Without enforcing required keys, this metadata is applied inconsistently: some sources have an owner, others do not; some are labelled PII-sensitive, others are silently omitted. This check ensures that every source carries the minimum set of metadata keys needed to support data governance, access control automation, and operational runbooks.
 
     Parameters:
         keys (NestedDict): A list (that may contain sub-lists) of required keys.

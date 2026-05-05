@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import sentry_protos.billing.v1.common.v1.address_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -49,16 +50,21 @@ class Invoice(google.protobuf.message.Message):
     PAID_FIELD_NUMBER: builtins.int
     DATE_ADDED_FIELD_NUMBER: builtins.int
     GUID_FIELD_NUMBER: builtins.int
+    NEEDS_CHARGED_FIELD_NUMBER: builtins.int
+    ADDRESS_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     amount_billed: builtins.int
     """Not just a sum of line items since there may be credit applied"""
     organization_id: builtins.int
     paid: builtins.bool
     guid: builtins.str
+    needs_charged: builtins.bool
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___InvoiceLineItem]: ...
     @property
     def date_added(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def address(self) -> sentry_protos.billing.v1.common.v1.address_pb2.Address: ...
     def __init__(
         self,
         *,
@@ -69,8 +75,10 @@ class Invoice(google.protobuf.message.Message):
         paid: builtins.bool = ...,
         date_added: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         guid: builtins.str = ...,
+        needs_charged: builtins.bool = ...,
+        address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["date_added", b"date_added"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["amount_billed", b"amount_billed", "date_added", b"date_added", "guid", b"guid", "invoice_id", b"invoice_id", "line_items", b"line_items", "organization_id", b"organization_id", "paid", b"paid"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["address", b"address", "date_added", b"date_added"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["address", b"address", "amount_billed", b"amount_billed", "date_added", b"date_added", "guid", b"guid", "invoice_id", b"invoice_id", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid"]) -> None: ...
 
 global___Invoice = Invoice

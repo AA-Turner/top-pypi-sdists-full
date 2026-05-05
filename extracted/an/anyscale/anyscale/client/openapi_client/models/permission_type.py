@@ -34,9 +34,10 @@ class PermissionType(object):
     GET = "get"
     DEPLOY = "deploy"
     LIST = "list"
+    UPDATE = "update"
     IMAGE_CREATE = "image_create"
 
-    allowable_values = [ARCHIVE, CREATE, DELETE, GET, DEPLOY, LIST, IMAGE_CREATE]  # noqa: E501
+    allowable_values = [ARCHIVE, CREATE, DELETE, GET, DEPLOY, LIST, UPDATE, IMAGE_CREATE]  # noqa: E501
 
     """
     Attributes:

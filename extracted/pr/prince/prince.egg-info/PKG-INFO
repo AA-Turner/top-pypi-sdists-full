@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prince
-Version: 0.17.2
+Version: 0.18.0
 Summary: Factor analysis in Python: PCA, CA, MCA, MFA, FAMD, GPA, PGA
 Author-email: Max Halford <maxhalford25@gmail.com>
 License-Expression: MIT

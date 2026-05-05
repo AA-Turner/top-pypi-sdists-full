@@ -205,49 +205,6 @@ def _uninstall_hook(hooks_dir: Path, name: str, marker: str, marker_end: str) ->
     return f"graphify removed from {name} at {hook_path} (other hook content preserved)"
 
 
-def _setup_merge_driver(root: Path) -> str:
-    """Configure the graphify merge driver for graph.json in the local git repo.
-
-    Writes a local .git/config entry so git uses `graphify merge-driver` to
-    resolve graph.json conflicts via union merge instead of leaving conflict markers.
-    Also writes .gitattributes in the repo root to declare the merge strategy.
-    """
-    msgs: list[str] = []
-
-    # Register the merge driver in the local git config (not global, to avoid
-    # affecting other repos on the machine)
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "config", "--local",
-             "merge.graphify-merge.driver",
-             "graphify merge-driver %O %A %B"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0:
-            msgs.append("merge driver registered in .git/config")
-        else:
-            msgs.append(f"merge driver config failed: {result.stderr.strip()}")
-    except (OSError, FileNotFoundError) as exc:
-        msgs.append(f"merge driver config skipped: {exc}")
-
-    # Add graphify-out/graph.json to .gitattributes
-    gitattributes = root / ".gitattributes"
-    marker = "graphify-out/graph.json"
-    entry = "graphify-out/graph.json merge=graphify-merge\n"
-    if gitattributes.exists():
-        content = gitattributes.read_text(encoding="utf-8")
-        if marker in content:
-            msgs.append(".gitattributes already has merge=graphify-merge")
-        else:
-            gitattributes.write_text(content.rstrip() + "\n" + entry, encoding="utf-8")
-            msgs.append(".gitattributes updated with merge=graphify-merge")
-    else:
-        gitattributes.write_text(entry, encoding="utf-8")
-        msgs.append(".gitattributes created with merge=graphify-merge")
-
-    return "; ".join(msgs)
-
-
 def install(path: Path = Path(".")) -> str:
     """Install graphify post-commit and post-checkout hooks in the nearest git repo."""
     root = _git_root(path)
@@ -258,9 +215,8 @@ def install(path: Path = Path(".")) -> str:
 
     commit_msg = _install_hook(hooks_dir, "post-commit", _HOOK_SCRIPT, _HOOK_MARKER)
     checkout_msg = _install_hook(hooks_dir, "post-checkout", _CHECKOUT_SCRIPT, _CHECKOUT_MARKER)
-    merge_msg = _setup_merge_driver(root)
 
-    return f"post-commit: {commit_msg}\npost-checkout: {checkout_msg}\nmerge driver: {merge_msg}"
+    return f"post-commit: {commit_msg}\npost-checkout: {checkout_msg}"
 
 
 def uninstall(path: Path = Path(".")) -> str:

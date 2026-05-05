@@ -7,8 +7,9 @@ from typing import Mapping, cast
 import httpx
 
 from ..types import build_list_params, build_create_params
+from .._files import deepcopy_with_paths
 from .._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
-from .._utils import extract_files, path_template, maybe_transform, deepcopy_minimal, async_maybe_transform
+from .._utils import extract_files, path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -92,14 +93,15 @@ class BuildResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal(
+        body = deepcopy_with_paths(
             {
                 "agent_name": agent_name,
                 "context_archive": context_archive,
                 "image_name": image_name,
                 "build_args": build_args,
                 "image_tag": image_tag,
-            }
+            },
+            [["context_archive"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["context_archive"]])
         # It should be noted that the actual Content-Type header that will be
@@ -365,14 +367,15 @@ class AsyncBuildResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        body = deepcopy_minimal(
+        body = deepcopy_with_paths(
             {
                 "agent_name": agent_name,
                 "context_archive": context_archive,
                 "image_name": image_name,
                 "build_args": build_args,
                 "image_tag": image_tag,
-            }
+            },
+            [["context_archive"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["context_archive"]])
         # It should be noted that the actual Content-Type header that will be

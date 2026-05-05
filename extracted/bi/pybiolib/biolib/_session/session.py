@@ -1,10 +1,12 @@
 from biolib import utils
 from biolib._internal.utils.auth import exchange_azure_oauth_token_for_biolib_refresh_token
 from biolib._internal.utils.experiment import fetch_experiment_by_uri
+from biolib._internal.utils.job_url import parse_result_id_or_url
 from biolib.api.client import ApiClient, ApiClientInitDict
 from biolib.app import BioLibApp
 from biolib.biolib_errors import BioLibError
 from biolib.experiments.experiment import Experiment
+from biolib.jobs.job import Result
 from biolib.typing_utils import Optional
 
 
@@ -75,3 +77,79 @@ class Session:
     def get_experiment(self, uri: str) -> Experiment:
         resource_dict = fetch_experiment_by_uri(uri=uri, api_client=self._api)
         return Experiment(uri=resource_dict['uri'], _resource_dict=resource_dict, _api_client=self._api)
+
+    def get_job(self, job_id: str, job_token: Optional[str] = None) -> Result:
+        r"""Get a job by its ID or full URL using this session's credentials.
+
+        Args:
+            job_id (str): The UUID of the job to retrieve, or a full URL to the job.
+                Can be either:
+                - Job UUID (e.g., 'abc123')
+                - Full URL (e.g., 'https://biolib.com/result/abc123/?token=xyz789')
+                - Full URL with token parameter (e.g., 'biolib.com/result/abc123/token=xyz789')
+            job_token (str, optional): Authentication token for accessing the job.
+                Only needed for jobs that aren't owned by the current user.
+                If the URL contains a token, this parameter is ignored.
+
+        Returns:
+            Result: The job object
+
+        Example::
+
+            >>> session = biolib.sdk.get_session(refresh_token='...')
+            >>> job = session.get_job('abc123')
+        """
+        uuid, token = parse_result_id_or_url(job_id, job_token, base_url=self._api.base_url)
+        return Result.create_from_uuid(uuid=uuid, auth_token=token, _api_client=self._api)
+
+    def get_result(self, result_id: str, result_token: Optional[str] = None) -> Result:
+        r"""Get a result by its ID or full URL using this session's credentials.
+
+        Args:
+            result_id (str): The UUID of the result to retrieve, or a full URL to the result.
+                Can be either:
+                - Result UUID (e.g., 'abc123')
+                - Full URL (e.g., 'https://biolib.com/result/abc123/?token=xyz789')
+                - Full URL with token parameter (e.g., 'biolib.com/result/abc123/token=xyz789')
+            result_token (str, optional): Authentication token for accessing the result.
+                Only needed for results that aren't owned by the current user.
+                If the URL contains a token, this parameter is ignored.
+
+        Returns:
+            Result: The result object
+
+        Example::
+
+            >>> session = biolib.sdk.get_session(refresh_token='...')
+            >>> result = session.get_result('abc123')
+        """
+        uuid, token = parse_result_id_or_url(result_id, result_token, base_url=self._api.base_url)
+        return Result.create_from_uuid(uuid=uuid, auth_token=token, _api_client=self._api)
+
+    def show_jobs(self, count: int = 25) -> None:
+        r"""Display a table of recent jobs for this session's user.
+
+        Args:
+            count (int): Maximum number of jobs to display. Defaults to 25.
+
+        Example::
+
+            >>> session = biolib.sdk.get_session(refresh_token='...')
+            >>> session.show_jobs()
+            >>> session.show_jobs(100)
+        """
+        Result.show_jobs(count=count, _api_client=self._api)
+
+    def show_results(self, count: int = 25) -> None:
+        r"""Display a table of recent results for this session's user.
+
+        Args:
+            count (int): Maximum number of results to display. Defaults to 25.
+
+        Example::
+
+            >>> session = biolib.sdk.get_session(refresh_token='...')
+            >>> session.show_results()
+            >>> session.show_results(100)
+        """
+        Result.show_jobs(count=count, _api_client=self._api)

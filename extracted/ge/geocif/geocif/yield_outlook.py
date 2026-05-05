@@ -1898,6 +1898,25 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     "Region", "Predicted Yield (tn per ha)",
                     "lower CI", "upper CI",
                 ]].rename(columns={"Predicted Yield (tn per ha)": "Predicted Yield"})
+
+                # Last observed yield + year per region (different regions can
+                # have different "last available" years).
+                df_last_obs = (
+                    df.dropna(subset=["Observed Yield (tn per ha)"])
+                    .sort_values(["Region", "Harvest Year"])
+                    .drop_duplicates(subset=["Region"], keep="last")[
+                        ["Region", "Harvest Year", "Observed Yield (tn per ha)"]
+                    ]
+                    .rename(columns={
+                        "Harvest Year": "Last Obs Year",
+                        "Observed Yield (tn per ha)": "Last Obs Yield",
+                    })
+                )
+                df_last_obs["Last Obs Year"] = df_last_obs["Last Obs Year"].apply(
+                    lambda v: str(int(v)) if pd.notna(v) else ""
+                )
+                df_table = df_table.merge(df_last_obs, on="Region", how="left")
+
                 if prod_pct:
                     order = sorted(
                         df_table["Region"].tolist(),
@@ -1908,7 +1927,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_table["Region"] = [
                         f"{r} ({prod_pct.get(r, 0):.1f}%)" for r in df_table["Region"]
                     ]
-                cols_order = ["Predicted Yield", "lower CI", "upper CI"]
+                cols_order = [
+                    "Predicted Yield", "lower CI", "upper CI",
+                    "Last Obs Yield", "Last Obs Year",
+                ]
                 diag.yield_table(
                     df_table[["Region"] + cols_order],
                     out_path=plot_dir / f"yield_table_{country_lower}_{crop}_{model}.png",

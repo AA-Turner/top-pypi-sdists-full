@@ -12,24 +12,28 @@
 """
 Base Experiment class.
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import copy
 from collections import OrderedDict
-from typing import Sequence, Optional, Tuple, List, Dict, Union
+from collections.abc import Sequence
+from typing import Any, TYPE_CHECKING
 
 from qiskit import transpile, QuantumCircuit
 from qiskit.providers import Job, Backend
 from qiskit.exceptions import QiskitError
 from qiskit.providers.options import Options
 from qiskit.primitives.base import BaseSamplerV2
-from qiskit_ibm_runtime import SamplerV2 as Sampler
 from qiskit_experiments.framework import BackendData, MeasLevel
 from qiskit_experiments.framework.store_init_args import StoreInitArgs
 from qiskit_experiments.framework.base_analysis import BaseAnalysis
 from qiskit_experiments.framework.experiment_data import ExperimentData
 from qiskit_experiments.framework.configs import ExperimentConfig
 from qiskit_experiments.database_service import Qubit
+
+if TYPE_CHECKING:
+    from typing import Self
 
 
 class BaseExperiment(ABC, StoreInitArgs):
@@ -38,9 +42,9 @@ class BaseExperiment(ABC, StoreInitArgs):
     def __init__(
         self,
         physical_qubits: Sequence[int],
-        analysis: Optional[BaseAnalysis] = None,
-        backend: Optional[Backend] = None,
-        experiment_type: Optional[str] = None,
+        analysis: BaseAnalysis | None = None,
+        backend: Backend | None = None,
+        experiment_type: str | None = None,
         backend_run: Options[bool] = False,
     ):
         """Initialize the experiment object.
@@ -102,7 +106,7 @@ class BaseExperiment(ABC, StoreInitArgs):
             self._type = exp_type
 
     @property
-    def physical_qubits(self) -> Tuple[int, ...]:
+    def physical_qubits(self) -> tuple[int, ...]:
         """Return the device qubits for the experiment."""
         return self._physical_qubits
 
@@ -112,24 +116,24 @@ class BaseExperiment(ABC, StoreInitArgs):
         return self._num_qubits
 
     @property
-    def analysis(self) -> Union[BaseAnalysis, None]:
+    def analysis(self) -> BaseAnalysis | None:
         """Return the analysis instance for the experiment"""
         return self._analysis
 
     @analysis.setter
-    def analysis(self, analysis: Union[BaseAnalysis, None]) -> None:
+    def analysis(self, analysis: BaseAnalysis | None) -> None:
         """Set the analysis instance for the experiment"""
         if analysis is not None and not isinstance(analysis, BaseAnalysis):
             raise TypeError("Input is not a None or a BaseAnalysis subclass.")
         self._analysis = analysis
 
     @property
-    def backend(self) -> Union[Backend, None]:
+    def backend(self) -> Backend | None:
         """Return the backend for the experiment"""
         return self._backend
 
     @backend.setter
-    def backend(self, backend: Union[Backend, None]) -> None:
+    def backend(self, backend: Backend | None) -> None:
         """Set the backend for the experiment"""
         if not isinstance(backend, Backend):
             raise TypeError("Input is not a backend.")
@@ -184,7 +188,7 @@ class BaseExperiment(ABC, StoreInitArgs):
         )
 
     @classmethod
-    def from_config(cls, config: Union[ExperimentConfig, Dict]) -> "BaseExperiment":
+    def from_config(cls, config: ExperimentConfig | dict) -> "BaseExperiment":
         """Initialize an experiment from experiment config"""
         if isinstance(config, dict):
             config = ExperimentConfig(**config)
@@ -199,11 +203,11 @@ class BaseExperiment(ABC, StoreInitArgs):
 
     def run(
         self,
-        backend: Optional[Backend] = None,
-        sampler: Optional[BaseSamplerV2] = None,
-        analysis: Optional[Union[BaseAnalysis, None]] = "default",
-        timeout: Optional[float] = None,
-        backend_run: Optional[bool] = None,
+        backend: Backend | None = None,
+        sampler: BaseSamplerV2 | None = None,
+        analysis: BaseAnalysis | None | None = "default",
+        timeout: float | None = None,
+        backend_run: bool | None = None,
         **run_options,
     ) -> ExperimentData:
         """Run an experiment and perform analysis.
@@ -361,8 +365,8 @@ class BaseExperiment(ABC, StoreInitArgs):
         }
 
     def _run_jobs(
-        self, circuits: List[QuantumCircuit], sampler: BaseSamplerV2 = None, **run_options
-    ) -> List[Job]:
+        self, circuits: list[QuantumCircuit], sampler: BaseSamplerV2 = None, **run_options
+    ) -> list[Job]:
         """Run circuits on backend as 1 or more jobs."""
         max_circuits = self._max_circuits(self.backend)
 
@@ -380,7 +384,9 @@ class BaseExperiment(ABC, StoreInitArgs):
         if not self._backend_run:
             if sampler is None:
                 # instantiate a sampler from the backend
-                sampler = Sampler(self.backend)
+                from qiskit_ibm_runtime import SamplerV2
+
+                sampler = SamplerV2(self.backend)
 
                 # have to hand set some of these options
                 # see https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime
@@ -418,7 +424,7 @@ class BaseExperiment(ABC, StoreInitArgs):
         return jobs
 
     @abstractmethod
-    def circuits(self) -> List[QuantumCircuit]:
+    def circuits(self) -> list[QuantumCircuit]:
         """Return a list of experiment circuits.
 
         Returns:
@@ -433,7 +439,7 @@ class BaseExperiment(ABC, StoreInitArgs):
         # values for any explicit experiment options that affect circuit
         # generation
 
-    def _transpiled_circuits(self) -> List[QuantumCircuit]:
+    def _transpiled_circuits(self) -> list[QuantumCircuit]:
         """Return a list of experiment circuits, transpiled.
 
         This function can be overridden to define custom transpilation.
@@ -534,7 +540,7 @@ class BaseExperiment(ABC, StoreInitArgs):
         self._run_options.update_options(**fields)
         self._set_run_options = self._set_run_options.union(fields)
 
-    def _metadata(self) -> Dict[str, any]:
+    def _metadata(self) -> dict[str, any]:
         """Return experiment metadata for ExperimentData.
 
         By default, this assumes the experiment is running on qubits only. Subclasses can override
@@ -546,11 +552,11 @@ class BaseExperiment(ABC, StoreInitArgs):
         }
         return metadata
 
-    def __json_encode__(self):
+    def __json_encode__(self) -> ExperimentConfig:
         """Convert to format that can be JSON serialized"""
         return self.config()
 
     @classmethod
-    def __json_decode__(cls, value):
+    def __json_decode__(cls, value: ExperimentConfig | dict[str, Any]) -> Self:
         """Load from JSON compatible format"""
         return cls.from_config(value)

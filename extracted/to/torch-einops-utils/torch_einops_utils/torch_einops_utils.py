@@ -79,6 +79,11 @@ def masked_mean(
 
     return num / den.clamp(min = eps)
 
+# cumsum
+
+def exclusive_cumsum(t, dim = -1):
+    return t.cumsum(dim = dim) - t
+
 # shapes
 
 def shape_with_replace(

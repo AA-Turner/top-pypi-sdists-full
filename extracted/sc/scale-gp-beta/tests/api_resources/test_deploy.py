@@ -13,6 +13,7 @@ from scale_gp_beta.types import (
     AgentexCloudDeploy,
     DeployLogsResponse,
 )
+from scale_gp_beta._utils import parse_datetime
 from scale_gp_beta.pagination import SyncCursorPage, AsyncCursorPage
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -35,9 +36,11 @@ class TestDeploy:
             environment_config="environment_config",
             manifest_file="manifest_file",
             build_id="build_id",
+            expires_at=parse_datetime("2019-12-27T18:11:19.117Z"),
             image_name="image_name",
             image_tag="image_tag",
             preview=True,
+            preview_label="preview_label",
         )
         assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
 
@@ -117,6 +120,7 @@ class TestDeploy:
             build_id="build_id",
             ending_before="ending_before",
             limit=1,
+            preview_label="preview_label",
             sort_by="sort_by",
             sort_order="asc",
             starting_after="starting_after",
@@ -142,6 +146,44 @@ class TestDeploy:
             assert_matches_type(SyncCursorPage[AgentexCloudDeploy], deploy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_delete(self, client: SGPClient) -> None:
+        deploy = client.deploy.delete(
+            "deployment_id",
+        )
+        assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
+
+    @parametrize
+    def test_raw_response_delete(self, client: SGPClient) -> None:
+        response = client.deploy.with_raw_response.delete(
+            "deployment_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        deploy = response.parse()
+        assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
+
+    @parametrize
+    def test_streaming_response_delete(self, client: SGPClient) -> None:
+        with client.deploy.with_streaming_response.delete(
+            "deployment_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            deploy = response.parse()
+            assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_delete(self, client: SGPClient) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `deployment_id` but received ''"):
+            client.deploy.with_raw_response.delete(
+                "",
+            )
 
     @parametrize
     def test_method_logs(self, client: SGPClient) -> None:
@@ -210,9 +252,11 @@ class TestAsyncDeploy:
             environment_config="environment_config",
             manifest_file="manifest_file",
             build_id="build_id",
+            expires_at=parse_datetime("2019-12-27T18:11:19.117Z"),
             image_name="image_name",
             image_tag="image_tag",
             preview=True,
+            preview_label="preview_label",
         )
         assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
 
@@ -292,6 +336,7 @@ class TestAsyncDeploy:
             build_id="build_id",
             ending_before="ending_before",
             limit=1,
+            preview_label="preview_label",
             sort_by="sort_by",
             sort_order="asc",
             starting_after="starting_after",
@@ -317,6 +362,44 @@ class TestAsyncDeploy:
             assert_matches_type(AsyncCursorPage[AgentexCloudDeploy], deploy, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_delete(self, async_client: AsyncSGPClient) -> None:
+        deploy = await async_client.deploy.delete(
+            "deployment_id",
+        )
+        assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
+
+    @parametrize
+    async def test_raw_response_delete(self, async_client: AsyncSGPClient) -> None:
+        response = await async_client.deploy.with_raw_response.delete(
+            "deployment_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        deploy = await response.parse()
+        assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_delete(self, async_client: AsyncSGPClient) -> None:
+        async with async_client.deploy.with_streaming_response.delete(
+            "deployment_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            deploy = await response.parse()
+            assert_matches_type(AgentexCloudDeploy, deploy, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_delete(self, async_client: AsyncSGPClient) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `deployment_id` but received ''"):
+            await async_client.deploy.with_raw_response.delete(
+                "",
+            )
 
     @parametrize
     async def test_method_logs(self, async_client: AsyncSGPClient) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traveltimepy
-Version: 4.6.2
+Version: 4.6.3
 Summary: Python Interface to Travel Time.
 Author: TravelTime
 License: MIT
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -26,7 +27,7 @@ Requires-Dist: tenacity
 Requires-Dist: requests
 Requires-Dist: requests-ratelimiter
 Provides-Extra: proto
-Requires-Dist: protobuf==4.25.8; extra == "proto"
+Requires-Dist: protobuf==5.29.6; extra == "proto"
 Requires-Dist: types-protobuf; extra == "proto"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"

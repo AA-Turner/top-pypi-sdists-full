@@ -694,14 +694,20 @@ impl SpannerBackend {
                             &[
                                 "collection_id",
                                 "region",
+                                "tenant",
+                                "database_id",
                                 "index_schema",
+                                "is_deleted",
                                 "created_at",
                                 "updated_at",
                             ],
                             &[
                                 &collection_id,
                                 &region_str,
+                                &tenant_id_str,
+                                &database_id,
                                 &index_schema_json,
+                                &false,
                                 &commit_ts,
                                 &commit_ts,
                             ],
@@ -1385,26 +1391,77 @@ impl SpannerBackend {
                     let commit_ts = "spanner.commit_timestamp()";
                     let mut mutations = Vec::new();
 
-                    // Handle soft delete operation
-                    if let Some(true) = is_deleted {
-                        // For soft delete, the new name should be provided in the request
-                        let new_name = name.as_ref().ok_or_else(|| {
-                            SysDbError::InvalidArgument("name is required for soft delete operation".to_string())
-                        })?;
-
-                        mutations.push(update(
-                            "collections",
-                            &["collection_id", "name", "is_deleted", "updated_at"],
-                            &[&collection_id, new_name, &true, &commit_ts],
-                        ));
-                    }
-
                     // Determine what needs to be updated
                     let has_collection_changes = (name.is_some() && is_deleted != Some(true)) || dimension.is_some();
                     let has_metadata_changes = metadata.is_some() || reset_metadata;
                     let has_config_changes = new_configuration.as_ref().is_some_and(|c| {
                         c.hnsw.is_some() || c.spann.is_some() || c.embedding_function.is_some()
                     });
+
+                    // Check if we need to query collection_compaction_cursors for all regions
+                    let needs_all_regions = is_deleted.is_some() || has_config_changes;
+
+                    // Fetch region data once if needed
+                    let region_data: Option<Vec<(String, Option<String>)>> = if needs_all_regions {
+                        let mut cursor_stmt = Statement::new(
+                            "SELECT region, index_schema FROM collection_compaction_cursors WHERE collection_id = @collection_id",
+                        );
+                        cursor_stmt.add_param("collection_id", &collection_id);
+
+                        let mut cursor_iter = tx.query(cursor_stmt).instrument(tracing::debug_span!("get_collection_cursors")).await?;
+                        let mut data = Vec::new();
+
+                        while let Some(row) = cursor_iter.next().await? {
+                            let region: String = row.column_by_name("region").map_err(SysDbError::FailedToReadColumn)?;
+                            let schema_json: Option<String> = if has_config_changes {
+                                Some(row.column_by_name("index_schema").map_err(SysDbError::FailedToReadColumn)?)
+                            } else {
+                                None
+                            };
+                            data.push((region, schema_json));
+                        }
+
+                        if data.is_empty() {
+                            return Err(SysDbError::Internal("collection has no cursors in any region".to_string()));
+                        }
+
+                        Some(data)
+                    } else {
+                        None
+                    };
+
+                    // Handle soft delete/restore operation
+                    if let Some(is_deleted_value) = is_deleted {
+                        if is_deleted_value {
+                            // For soft delete, the new name should be provided in the request
+                            let new_name = name.as_ref().ok_or_else(|| {
+                                SysDbError::InvalidArgument("name is required for soft delete operation".to_string())
+                            })?;
+
+                            mutations.push(update(
+                                "collections",
+                                &["collection_id", "name", "is_deleted", "updated_at"],
+                                &[&collection_id, new_name, &is_deleted_value, &commit_ts],
+                            ));
+                        } else {
+                            mutations.push(update(
+                                "collections",
+                                &["collection_id", "is_deleted", "updated_at"],
+                                &[&collection_id, &is_deleted_value, &commit_ts],
+                            ));
+                        }
+
+                        // Update is_deleted in collection_compaction_cursors for all regions
+                        if let Some(ref regions) = region_data {
+                            for (region, _) in regions {
+                                mutations.push(update(
+                                    "collection_compaction_cursors",
+                                    &["collection_id", "region", "is_deleted", "updated_at"],
+                                    &[&collection_id, region, &is_deleted_value, &commit_ts],
+                                ));
+                            }
+                        }
+                    }
 
                     // Build collection update mutation if name or dimension changed
                     if has_collection_changes {
@@ -1505,44 +1562,45 @@ impl SpannerBackend {
                     // Handle configuration updates (spann and embedding_function only)
                     // Updates schema for ALL regions
                     if has_config_changes {
-                        // Safe to unwrap: has_config_changes implies new_configuration is Some with hnsw, spann, or embedding_function
-                        let config = new_configuration.as_ref().unwrap();
+                        // has_config_changes is only true when new_configuration is Some
+                        let config = match new_configuration.as_ref() {
+                            Some(cfg) => cfg,
+                            None => {
+                                return Err(SysDbError::Internal(
+                                    "has_config_changes is true but new_configuration is None - this is a bug".to_string()
+                                ));
+                            }
+                        };
 
-                        // Read current schemas from all regions
-                        let mut schema_stmt = Statement::new(
-                            "SELECT region, index_schema FROM collection_compaction_cursors WHERE collection_id = @collection_id",
-                        );
-                        schema_stmt.add_param("collection_id", &collection_id);
+                        // Use the region data we already fetched
+                        if let Some(ref regions) = region_data {
+                            // Update schema for each region
+                            for (region, schema_json_opt) in regions {
+                                // schema_json_opt should always be Some when has_config_changes is true
+                                let current_schema_json = match schema_json_opt {
+                                    Some(schema) => schema,
+                                    None => {
+                                        return Err(SysDbError::Internal(
+                                            format!("Missing schema for region {} when config changes requested", region)
+                                        ));
+                                    }
+                                };
 
-                        let mut schema_iter = tx.query(schema_stmt).instrument(tracing::debug_span!("get_collection_schemas")).await?;
-                        let mut region_schemas: Vec<(String, String)> = Vec::new();
+                                let mut schema: chroma_types::Schema = serde_json::from_str(current_schema_json)
+                                    .map_err(|e| SysDbError::Internal(format!("failed to parse schema for region {}: {}", region, e)))?;
 
-                        while let Some(row) = schema_iter.next().await? {
-                            let region: String = row.column_by_name("region").map_err(SysDbError::FailedToReadColumn)?;
-                            let schema_json: String = row.column_by_name("index_schema").map_err(SysDbError::FailedToReadColumn)?;
-                            region_schemas.push((region, schema_json));
-                        }
+                                // Apply updates (errors if hnsw is set)
+                                schema.apply_update_configuration(config)?;
 
-                        if region_schemas.is_empty() {
-                            return Err(SysDbError::Internal("collection has no schema in any region".to_string()));
-                        }
+                                let new_schema_json = serde_json::to_string(&schema)
+                                    .map_err(|e| SysDbError::Internal(format!("failed to serialize schema for region {}: {}", region, e)))?;
 
-                        // Update schema for each region
-                        for (region, current_schema_json) in region_schemas {
-                            let mut schema: chroma_types::Schema = serde_json::from_str(&current_schema_json)
-                                .map_err(|e| SysDbError::Internal(format!("failed to parse schema for region {}: {}", region, e)))?;
-
-                            // Apply updates (errors if hnsw is set)
-                            schema.apply_update_configuration(config)?;
-
-                            let new_schema_json = serde_json::to_string(&schema)
-                                .map_err(|e| SysDbError::Internal(format!("failed to serialize schema for region {}: {}", region, e)))?;
-
-                            mutations.push(update(
-                                "collection_compaction_cursors",
-                                &["collection_id", "region", "index_schema", "updated_at"],
-                                &[&collection_id, &region, &new_schema_json, &commit_ts],
-                            ));
+                                mutations.push(update(
+                                    "collection_compaction_cursors",
+                                    &["collection_id", "region", "index_schema", "updated_at"],
+                                    &[&collection_id, region, &new_schema_json, &commit_ts],
+                                ));
+                            }
                         }
                     }
 
@@ -1714,12 +1772,11 @@ impl SpannerBackend {
     ) -> Result<ListCollectionsToGcResponse, SysDbError> {
         let region = self.local_region();
 
-        // TODO(tanujnay112): This is due to the garbage collector being unable
-        // to handle collections with no version files. Until that is fixed, we
-        // must have this filter.
+        // GC typically starts from the latest version file. Empty MCMR
+        // collections never write one, so allow soft-deleted '+' databases to
+        // flow through to the dedicated no-version-file fallback path.
         let mut where_clauses: Vec<String> = vec![
-            "ccc.version_file_name IS NOT NULL".to_string(),
-            "ccc.version_file_name != ''".to_string(),
+            "((ccc.version_file_name IS NOT NULL AND ccc.version_file_name != '') OR c.is_deleted = TRUE)".to_string(),
         ];
 
         if req.tenant_id.is_some() {
@@ -1800,7 +1857,7 @@ impl SpannerBackend {
             let name: String = row
                 .column_by_name("name")
                 .map_err(SysDbError::FailedToReadColumn)?;
-            let version_file_name: String = row
+            let version_file_name: Option<String> = row
                 .column_by_name("version_file_name")
                 .map_err(SysDbError::FailedToReadColumn)?;
             let tenant_id: String = row
@@ -1813,7 +1870,7 @@ impl SpannerBackend {
             collections.push(chroma_proto::CollectionToGcInfo {
                 id: collection_id,
                 name,
-                version_file_path: version_file_name,
+                version_file_path: version_file_name.unwrap_or_default(),
                 tenant_id,
                 lineage_file_path: None, // Not available in Spanner schema
                 database_name,
@@ -2183,6 +2240,53 @@ impl SpannerBackend {
 
         let ddl_retry =
             ddl_wait_retry_setting(self.spanner_config.channel().admin_rpc_timeout_secs);
+
+        // Step 2.5: Drop all change streams (must happen before dropping tables,
+        // since Spanner rejects DROP TABLE while an active change stream references it).
+        let get_change_streams_stmt = Statement::new(
+            "SELECT change_stream_name FROM INFORMATION_SCHEMA.CHANGE_STREAMS WHERE change_stream_catalog = '' AND change_stream_schema = ''",
+        );
+        let mut tx = self.client.single().await?;
+        let mut change_streams_result = tx
+            .query(get_change_streams_stmt)
+            .instrument(tracing::debug_span!("get_spanner_change_streams"))
+            .await?;
+        let mut change_stream_names: Vec<String> = Vec::new();
+        while let Some(row) = change_streams_result.next().await? {
+            let name: String = row
+                .column_by_name("change_stream_name")
+                .map_err(SysDbError::FailedToReadColumn)?;
+            change_stream_names.push(name);
+        }
+        tracing::info!(
+            "Found {} change streams to drop: {:?}",
+            change_stream_names.len(),
+            change_stream_names
+        );
+        for name in &change_stream_names {
+            let drop_cs_ddl = format!("DROP CHANGE STREAM {}", name);
+            let request = UpdateDatabaseDdlRequest {
+                database: database_path.clone(),
+                statements: vec![drop_cs_ddl],
+                operation_id: String::new(),
+                proto_descriptors: Vec::new(),
+                throughput_mode: false,
+            };
+            let mut operation = admin_client
+                .database()
+                .update_database_ddl(request, None)
+                .await
+                .map_err(|e| {
+                    SysDbError::Internal(format!(
+                        "Failed to submit DROP CHANGE STREAM {}: {}",
+                        name, e
+                    ))
+                })?;
+            operation.wait(Some(ddl_retry.clone())).await.map_err(|e| {
+                SysDbError::Internal(format!("Failed to DROP CHANGE STREAM {}: {}", name, e))
+            })?;
+            tracing::info!("Successfully executed DDL DROP CHANGE STREAM {}", name);
+        }
 
         // Step 3: Drop all indexes first, then tables
         // Try multiple passes to handle dependencies
@@ -9182,8 +9286,8 @@ pub mod tests {
             result.err()
         );
 
-        // Manually insert a compaction cursor to make the collection eligible for GC
-        // (list_collections_to_gc only returns collections with version_file_name set)
+        // Manually insert a compaction cursor to make this non-soft-deleted collection eligible
+        // for GC. Soft-deleted empty MCMR collections are covered separately below.
         let version_file_name = format!("test_version_{}.bin", collection_id);
         let region = backend.local_region().to_string();
         backend
@@ -9239,6 +9343,95 @@ pub mod tests {
         assert_eq!(gc_collection.version_file_path, version_file_name);
         assert_eq!(gc_collection.database_name, Some(db_name.into_string()));
         assert_eq!(gc_collection.lineage_file_path, None); // Not set in Spanner schema
+    }
+
+    #[tokio::test]
+    async fn test_k8s_mcmr_integration_list_collections_to_gc_includes_soft_deleted_empty_mcmr_collection(
+    ) {
+        let Some(backend) = setup_test_backend().await else {
+            eprintln!("Skipping test: Spanner emulator not reachable. Is Tilt running?");
+            return;
+        };
+
+        let tenant_id = Uuid::new_v4().to_string();
+        backend
+            .create_tenant(CreateTenantRequest {
+                id: tenant_id.clone(),
+            })
+            .await
+            .expect("Failed to create tenant");
+
+        let db_name = chroma_types::DatabaseName::new(format!(
+            "tilt-spanning+test_db_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+        .expect("test db name should be valid");
+        backend
+            .create_database(CreateDatabaseRequest {
+                id: Uuid::new_v4(),
+                name: db_name.clone(),
+                tenant_id: tenant_id.clone(),
+            })
+            .await
+            .expect("Failed to create database");
+
+        let collection_name = format!("test_gc_empty_collection_{}", Uuid::new_v4());
+        let collection_id = create_collection_for_update(
+            &backend,
+            &tenant_id,
+            &db_name,
+            &collection_name,
+            Some(128),
+            None,
+        )
+        .await;
+
+        backend
+            .update_collection(UpdateCollectionRequest {
+                database_name: db_name.clone(),
+                id: collection_id,
+                name: Some(format!("deleted_{}", collection_name)),
+                dimension: None,
+                metadata: None,
+                reset_metadata: false,
+                new_configuration: None,
+                cursor_updates: None,
+                is_deleted: Some(true),
+            })
+            .await
+            .expect("Failed to soft-delete collection");
+
+        let response = backend
+            .list_collections_to_gc(ListCollectionsToGcRequest {
+                cutoff_time: None,
+                limit: None,
+                tenant_id: Some(tenant_id.clone()),
+                min_versions_if_alive: None,
+            })
+            .await
+            .expect("Failed to list collections to GC");
+
+        assert_eq!(
+            response.collections.len(),
+            1,
+            "Expected exactly one collection eligible for GC"
+        );
+
+        let gc_collection = &response.collections[0];
+        assert_eq!(gc_collection.id, collection_id.to_string());
+        assert_eq!(gc_collection.name, format!("deleted_{}", collection_name));
+        assert_eq!(gc_collection.tenant_id, tenant_id);
+        assert_eq!(
+            gc_collection.version_file_path, "",
+            "Soft-deleted empty MCMR collections should surface an empty version file path"
+        );
+        assert_eq!(
+            gc_collection.database_name,
+            Some(db_name.as_ref().to_string())
+        );
     }
 
     #[tokio::test]

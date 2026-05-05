@@ -8,4 +8,4 @@ from ._interface import AbstractValueConverter
 
 class BytesConverter(AbstractValueConverter):
     def force_convert(self):
-        raise TypeConversionError("not inmplemented")
+        raise TypeConversionError("not implemented")

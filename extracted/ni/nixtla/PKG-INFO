@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nixtla
-Version: 0.7.3
+Version: 0.7.4
 Summary: Python SDK for Nixtla API (TimeGPT)
 Keywords: time-series,forecasting,gpt
 Author: Nixtla
@@ -25,7 +25,6 @@ Requires-Dist: tqdm
 Requires-Dist: utilsforecast>=0.2.15
 Requires-Dist: holidays ; extra == 'date-extras'
 Requires-Dist: pandas-market-calendars ; extra == 'date-extras'
-Requires-Dist: black ; extra == 'dev'
 Requires-Dist: datasetsforecast ; extra == 'dev'
 Requires-Dist: fire ; extra == 'dev'
 Requires-Dist: hierarchicalforecast ; extra == 'dev'
@@ -56,9 +55,9 @@ Requires-Dist: pandas-market-calendars ; extra == 'dev'
 Requires-Dist: pip-licenses ; extra == 'dev'
 Requires-Dist: pyspark<=4.0.1 ; extra == 'dev'
 Requires-Dist: fugue[dask,ray,spark]>=0.9.6 ; extra == 'distributed'
-Requires-Dist: dask<=2024.12.1 ; extra == 'distributed'
+Requires-Dist: dask ; extra == 'distributed'
 Requires-Dist: pandas<2.2 ; extra == 'distributed'
-Requires-Dist: ray<=2.52.1 ; extra == 'distributed'
+Requires-Dist: ray<=2.55.0 ; extra == 'distributed'
 Requires-Dist: utilsforecast[plotting] ; extra == 'plotting'
 Requires-Dist: snowflake-snowpark-python ; extra == 'snowflake'
 Requires-Dist: fire ; extra == 'snowflake'
@@ -113,7 +112,7 @@ from nixtla import NixtlaClient
 ### Forecast using TimeGPT in 3 easy steps
 
 ```python
-# Get your API Key at dashboard.nixtla.io
+# Get your API Key at https://nixtla.io/free-trial?utm_source=nixtla.io&utm_campaign=/docs/readme
 
 # 1. Instantiate the NixtlaClient
 nixtla_client = NixtlaClient(api_key = 'YOUR API KEY HERE')
@@ -134,7 +133,7 @@ nixtla_client.plot(df, fcst_df, level=[80, 90])
 ### Anomaly detection using TimeGPT in 3 easy steps
 
 ```python
-# Get your API Key at dashboard.nixtla.io
+# Get your API Key at https://nixtla.io/free-trial?utm_source=nixtla.io&utm_campaign=/docs/readme
 
 # 1. Instantiate the NixtlaClient
 nixtla_client = NixtlaClient(api_key = 'YOUR API KEY HERE')

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rstcheck-core
-Version: 1.2.2
+Version: 1.3.0
 Summary: Checks syntax of reStructuredText and code blocks nested within it
 Author-email: Steven Myint <git@stevenmyint.com>
 Maintainer-email: Christian Riedel <cielquan@protonmail.com>
@@ -10,7 +10,7 @@ Project-URL: Repository, https://github.com/rstcheck/rstcheck-core
 Project-URL: Changelog, https://github.com/rstcheck/rstcheck-core/blob/main/CHANGELOG.md
 Keywords: restructuredtext,rst,linter,static-analysis
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst

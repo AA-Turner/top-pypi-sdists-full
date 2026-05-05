@@ -1,10 +1,19 @@
 import base64
 import json
 import logging
+import re
 from typing import Any, Dict, List, Type, cast
 from urllib.parse import urlparse
 
-from ...prompts import Message, MessageRole, PromptLike
+from ...prompts import (
+    Message,
+    MessageRole,
+    PromptLike,
+    classify_message_list_kind,
+    is_openai_native_message_dict,
+    normalize_role,
+    validate_message_dict,
+)
 from ...registries import register_adapter, register_provider
 from ...types import BaseLLMAdapter, ObjectGenerationMethod
 from .factories import OpenAIClientWrapper, create_azure_openai_client, create_openai_client
@@ -53,6 +62,7 @@ class OpenAIAdapter(BaseLLMAdapter):
         super().__init__(client, model)
         self._validate_client()
         self._is_async = self._check_if_async_client()
+        self._preferred_method: ObjectGenerationMethod | None = None
 
     @classmethod
     def client_name(cls) -> str:
@@ -132,32 +142,45 @@ class OpenAIAdapter(BaseLLMAdapter):
             )
         self._validate_schema(schema)
 
-        supports_structured_output = self._supports_structured_output()
-        supports_tool_calls = self._supports_tool_calls()
-
         if method == ObjectGenerationMethod.STRUCTURED_OUTPUT:
-            if not supports_structured_output:
-                raise ValueError(
-                    f"OpenAI model {self.model_name} does not support structured output"
-                )
             return self._generate_with_structured_output(prompt, schema, **kwargs)
 
         elif method == ObjectGenerationMethod.TOOL_CALLING:
-            if not supports_tool_calls:
-                raise ValueError(f"OpenAI model {self.model_name} does not support tool calls")
             return self._generate_with_tool_calling(prompt, schema, **kwargs)
 
         elif method == ObjectGenerationMethod.AUTO:
-            if not supports_structured_output and not supports_tool_calls:
-                raise ValueError(
-                    f"OpenAI model {self.model_name} does not support structured "
-                    "output or tool calls"
-                )
-            # Prefer structured output when available
-            if supports_structured_output:
+            # Use cached method if we already know what works for this model
+            if self._preferred_method == ObjectGenerationMethod.STRUCTURED_OUTPUT:
                 return self._generate_with_structured_output(prompt, schema, **kwargs)
-            else:
+            if self._preferred_method == ObjectGenerationMethod.TOOL_CALLING:
                 return self._generate_with_tool_calling(prompt, schema, **kwargs)
+
+            # Discovery: try structured output first, fall back to tool calling only
+            # on a genuine capability-mismatch signal (BadRequestError). Rate-limit
+            # and transient errors propagate so the outer RateLimiter can retry and
+            # so we don't cache a downgrade to tool calling based on a transient
+            # failure (which would silently drop server-side schema enforcement).
+            from openai import BadRequestError as _OpenAIBadRequestError
+
+            try:
+                result = self._generate_with_structured_output(prompt, schema, **kwargs)
+                self._preferred_method = ObjectGenerationMethod.STRUCTURED_OUTPUT
+                return result
+            except _OpenAIBadRequestError as structured_error:
+                logger.debug(
+                    f"Structured output rejected by {self.model_name}, falling back "
+                    f"to tool calling: {structured_error}"
+                )
+                try:
+                    result = self._generate_with_tool_calling(prompt, schema, **kwargs)
+                    self._preferred_method = ObjectGenerationMethod.TOOL_CALLING
+                    return result
+                except _OpenAIBadRequestError as tool_error:
+                    raise ValueError(
+                        f"OpenAI model {self.model_name} failed with both structured "
+                        f"output and tool calling. Structured output error: "
+                        f"{structured_error}. Tool calling error: {tool_error}"
+                    ) from tool_error
 
         else:
             raise ValueError(f"Unsupported object generation method: {method}")
@@ -176,32 +199,45 @@ class OpenAIAdapter(BaseLLMAdapter):
             )
         self._validate_schema(schema)
 
-        supports_structured_output = self._supports_structured_output()
-        supports_tool_calls = self._supports_tool_calls()
-
         if method == ObjectGenerationMethod.STRUCTURED_OUTPUT:
-            if not supports_structured_output:
-                raise ValueError(
-                    f"OpenAI model {self.model_name} does not support structured output"
-                )
             return await self._async_generate_with_structured_output(prompt, schema, **kwargs)
 
         elif method == ObjectGenerationMethod.TOOL_CALLING:
-            if not supports_tool_calls:
-                raise ValueError(f"OpenAI model {self.model_name} does not support tool calls")
             return await self._async_generate_with_tool_calling(prompt, schema, **kwargs)
 
         elif method == ObjectGenerationMethod.AUTO:
-            if not supports_structured_output and not supports_tool_calls:
-                raise ValueError(
-                    f"OpenAI model {self.model_name} does not support structured "
-                    "output or tool calls"
-                )
-            # Prefer structured output when available
-            if supports_structured_output:
+            # Use cached method if we already know what works for this model
+            if self._preferred_method == ObjectGenerationMethod.STRUCTURED_OUTPUT:
                 return await self._async_generate_with_structured_output(prompt, schema, **kwargs)
-            else:
+            if self._preferred_method == ObjectGenerationMethod.TOOL_CALLING:
                 return await self._async_generate_with_tool_calling(prompt, schema, **kwargs)
+
+            # Discovery: try structured output first, fall back to tool calling only
+            # on a genuine capability-mismatch signal (BadRequestError). Rate-limit
+            # and transient errors propagate so the outer RateLimiter can retry and
+            # so we don't cache a downgrade to tool calling based on a transient
+            # failure (which would silently drop server-side schema enforcement).
+            from openai import BadRequestError as _OpenAIBadRequestError
+
+            try:
+                result = await self._async_generate_with_structured_output(prompt, schema, **kwargs)
+                self._preferred_method = ObjectGenerationMethod.STRUCTURED_OUTPUT
+                return result
+            except _OpenAIBadRequestError as structured_error:
+                logger.debug(
+                    f"Structured output rejected by {self.model_name}, falling back "
+                    f"to tool calling: {structured_error}"
+                )
+                try:
+                    result = await self._async_generate_with_tool_calling(prompt, schema, **kwargs)
+                    self._preferred_method = ObjectGenerationMethod.TOOL_CALLING
+                    return result
+                except _OpenAIBadRequestError as tool_error:
+                    raise ValueError(
+                        f"OpenAI model {self.model_name} failed with both structured "
+                        f"output and tool calling. Structured output error: "
+                        f"{structured_error}. Tool calling error: {tool_error}"
+                    ) from tool_error
 
         else:
             raise ValueError(f"Unsupported object generation method: {method}")
@@ -337,17 +373,6 @@ class OpenAIAdapter(BaseLLMAdapter):
         else:
             return "openai-model"
 
-    def _supports_structured_output(self) -> bool:
-        model_name = self.model_name.lower()
-        structured_output_models = ["gpt-4o", "gpt-4o-mini", "gpt-4o-2024", "chatgpt-4o-latest"]
-        return any(model in model_name for model in structured_output_models)
-
-    def _supports_tool_calls(self) -> bool:
-        model_name = self.model_name.lower()
-        if any(model in model_name for model in ["o1-preview", "o1-mini", "o1", "o3"]):
-            return False
-        return True
-
     def _schema_to_tool(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert a JSON schema to a tool definition for OpenAI.
@@ -374,18 +399,30 @@ class OpenAIAdapter(BaseLLMAdapter):
         return tool_definition
 
     def _system_role(self) -> str:
-        # OpenAI uses different semantics for "system" roles for different models
-        if "gpt" in self.model_name:
+        """Pick the OpenAI system-role keyword for this adapter's model.
+
+        Policy:
+        - ``gpt-*`` (Chat Completions family) → ``"system"``
+        - ``o1-mini`` / ``o1-preview`` → ``"user"``
+        - Other OpenAI reasoning models (``o1``, ``o3``, ``o4``, ...) → ``"developer"``
+        - Anything else (empty, unknown) → ``"developer"`` (safe default for
+          modern OpenAI-compatible endpoints that follow the reasoning-model
+          convention).
+        """
+        model = self.model_name or ""
+        # Strip a leading provider segment, e.g. "azure/o3-mini" -> "o3-mini".
+        if "/" in model:
+            model = model.split("/", 1)[1]
+
+        if model.lower().startswith("o1-mini"):
+            return "user"
+        if model.lower().startswith("o1-preview"):
+            return "user"
+        if re.match(r"^o\d", model, flags=re.IGNORECASE):
+            return "developer"
+        if re.match(r"^gpt[-\d]", model, flags=re.IGNORECASE):
             return "system"
-        if "o1-mini" in self.model_name:
-            return "user"  # o1-mini does not support either "system" or "developer" roles
-        if "o1-preview" in self.model_name:
-            return "user"  # o1-preview does not support "system" or "developer" roles
-        if "o1" in self.model_name:
-            return "developer"
-        if "o3" in self.model_name:
-            return "developer"
-        return "system"
+        return "developer"
 
     def _transform_messages_to_openai(self, messages: List[Message]) -> list[dict[str, Any]]:
         """Transform List[Message] TypedDict to OpenAI message format.
@@ -436,12 +473,35 @@ class OpenAIAdapter(BaseLLMAdapter):
             return [{"role": "user", "content": prompt}]
 
         if isinstance(prompt, list):
-            # Check if this is List[Message] with MessageRole enum
-            if prompt and isinstance(prompt[0].get("role"), MessageRole):
+            if not prompt:
+                raise ValueError("Prompt message list cannot be empty.")
+            # Reject mixed lists (typed Message + raw dict) up front.
+            if classify_message_list_kind(prompt) == "typed":
                 # Transform List[Message] to OpenAI format
                 return self._transform_messages_to_openai(cast(List[Message], prompt))
-            # Otherwise, already in OpenAI message format (backward compatibility)
-            return cast(list[dict[str, Any]], prompt)
+            if any(
+                is_openai_native_message_dict(msg) for msg in cast(List[Dict[str, Any]], prompt)
+            ):
+                return cast(list[dict[str, Any]], prompt)
+            # Otherwise: OpenAI-style dict messages. Validate and canonicalize
+            # roles, then route through the same typed transform.  Preserve any
+            # caller-supplied keys other than ``role``/``content`` (e.g. the
+            # documented ``name`` field used to label few-shot exemplars or
+            # multi-participant turns) so the validating dict path matches the
+            # native pass-through's compatibility guarantee.
+            typed_messages: List[Message] = []
+            extras_per_msg: List[Dict[str, Any]] = []
+            for i, msg in enumerate(cast(List[Dict[str, Any]], prompt)):
+                validate_message_dict(msg, index=i)
+                role = normalize_role(msg["role"])
+                typed_messages.append(Message(role=role, content=msg["content"]))
+                extras_per_msg.append(
+                    {k: v for k, v in msg.items() if k not in ("role", "content")}
+                )
+            transformed = self._transform_messages_to_openai(typed_messages)
+            # Canonical role/content from the transform always win over caller
+            # extras with conflicting keys.
+            return [{**extras, **out} for extras, out in zip(extras_per_msg, transformed)]
 
         # If we get here, prompt is an unexpected type
         raise ValueError(f"Expected prompt to be str or list, got {type(prompt).__name__}")

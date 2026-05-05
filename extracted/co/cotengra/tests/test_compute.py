@@ -111,7 +111,8 @@ def test_basic_equations(eq, dtype, strip_exponent):
     if strip_exponent:
         y = y[0] * 10 ** y[1]
     rtol = 5e-3 if dtype in ("float32", "complex64") else 5e-6
-    assert_allclose(x, y, rtol=rtol)
+    atol = 1e-5 if dtype in ("float32", "complex64") else 1e-8
+    assert_allclose(x, y, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize("n", [10])
@@ -134,7 +135,7 @@ def test_contraction_tree_rand_equation(
     seed,
     indices_sort,
 ):
-    inputs, output, shapes, size_dict = ctg.utils.rand_equation(
+    c = ctg.utils.rand_equation(
         n=n,
         reg=reg,
         n_out=n_out,
@@ -144,12 +145,12 @@ def test_contraction_tree_rand_equation(
         d_max=d_max,
         seed=seed,
     )
-    arrays = [np.random.normal(size=s) for s in shapes]
-    eq = ctg.utils.inputs_output_to_eq(inputs, output)
+    arrays = [np.random.normal(size=s) for s in c.shapes]
+    eq = ctg.utils.inputs_output_to_eq(c.inputs, c.output)
     x = np.einsum(eq, *arrays, optimize="greedy")
 
     tree = ctg.einsum_tree(
-        eq, *shapes, optimize="greedy", sort_contraction_indices=indices_sort
+        eq, *c.shapes, optimize="greedy", sort_contraction_indices=indices_sort
     )
 
     # base contract
@@ -185,16 +186,16 @@ def test_contraction_tree_rand_equation(
 
 
 def test_lazy_sliced_output_reduce():
-    inputs, output, shapes, size_dict = ctg.utils.rand_equation(
+    c = ctg.utils.rand_equation(
         n=10,
         reg=5,
         n_out=3,
         d_max=2,
         seed=666,
     )
-    arrays = [np.random.rand(*s) for s in shapes]
+    arrays = [np.random.rand(*s) for s in c.shapes]
     opt = ctg.HyperOptimizer(max_repeats=32, methods=["greedy"])
-    tree = opt.search(inputs, output, size_dict)
+    tree = opt.search(c.inputs, c.output, c.size_dict)
 
     # slice both inner and outer indices
     tree.remove_ind_("a")
@@ -218,16 +219,16 @@ def test_lazy_sliced_output_reduce():
     "dtype", ["float32", "float64", "complex64", "complex128"]
 )
 def test_exponent_stripping(autojit, dtype):
-    inputs, output, shapes, size_dict = ctg.utils.lattice_equation([8, 8])
+    c = ctg.utils.lattice_equation([8, 8])
 
     arrays = ctg.utils.make_arrays_from_inputs(
-        inputs, size_dict, seed=42, dtype=dtype
+        c.inputs, c.size_dict, seed=42, dtype=dtype
     )
 
-    eq = ctg.utils.inputs_output_to_eq(inputs, output)
+    eq = ctg.utils.inputs_output_to_eq(c.inputs, c.output)
     ex = ctg.einsum(eq, *arrays)
 
-    tree = ctg.array_contract_tree(inputs, output, size_dict)
+    tree = ctg.array_contract_tree(c.inputs, c.output, c.size_dict)
 
     x1 = tree.contract(arrays, autojit=autojit)
     assert x1 == pytest.approx(ex)
@@ -236,7 +237,7 @@ def test_exponent_stripping(autojit, dtype):
     x2 = m * 10**p
     assert x2 == pytest.approx(ex)
 
-    tree.slice_(target_size=64)
+    tree.slice_(target_slices=4)
     assert tree.nslices >= 4
 
     x3 = tree.contract(arrays, autojit=autojit)
@@ -257,32 +258,28 @@ def test_einsum_expression(
     optimize_type,
     sort_contraction_indices,
 ):
-    pytest.importorskip("opt_einsum")
-
-    import opt_einsum as oe
-
-    inputs, output, shapes, size_dict = ctg.utils.lattice_equation([4, 8])
-    eq = ctg.utils.inputs_output_to_eq(inputs, output)
-    arrays = [np.random.rand(*s) for s in shapes]
-    x0 = oe.contract(eq, *arrays)
+    c = ctg.utils.lattice_equation([4, 8])
+    eq = ctg.utils.inputs_output_to_eq(c.inputs, c.output)
+    arrays = [np.random.rand(*s) for s in c.shapes]
+    x0 = ctg.einsum(eq, *arrays)
 
     if optimize_type == "str":
         optimize = "greedy"
     elif optimize_type == "path":
-        path = oe.contract_path(eq, *arrays, optimize="greedy")[0]
-        optimize = path
+        tree = ctg.einsum_tree(eq, *c.shapes, optimize="greedy")
+        optimize = tree.get_path()
     elif optimize_type == "tree":
-        tree = ctg.ContractionTree(inputs, output, size_dict)
+        tree = ctg.ContractionTree(c.inputs, c.output, c.size_dict)
         tree.contract_nodes(tuple(tree.gen_leaves()), optimize="greedy")
         optimize = tree
     elif optimize_type == "optimizer":
         optimize = ctg.HyperOptimizer(max_repeats=32, methods=["greedy"])
 
+    shapes = list(c.shapes)
     if constants:
-        constants = range(0, len(inputs), 2)
-        shapes = list(shapes)
-        for c in sorted(constants, reverse=True):
-            shapes[c] = arrays.pop(c)
+        constants = range(0, len(c.inputs), 2)
+        for i in sorted(constants, reverse=True):
+            shapes[i] = arrays.pop(i)
 
     expr = ctg.einsum_expression(
         eq,

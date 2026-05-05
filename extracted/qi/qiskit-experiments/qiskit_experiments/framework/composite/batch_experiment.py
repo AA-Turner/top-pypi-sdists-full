@@ -12,16 +12,19 @@
 """
 Batch Experiment class.
 """
+from __future__ import annotations
 
-from typing import List, Optional, Dict
+from typing import TYPE_CHECKING
 from collections import OrderedDict, defaultdict
 
 from qiskit import QuantumCircuit
-from qiskit.providers import Job, Backend, Options
-from qiskit_ibm_runtime import SamplerV2 as Sampler
 
 from .composite_experiment import CompositeExperiment, BaseExperiment
 from .composite_analysis import CompositeAnalysis
+
+if TYPE_CHECKING:
+    from qiskit.primitives.base import BaseSamplerV2
+    from qiskit.providers import Job, Backend, Options
 
 
 class BatchExperiment(CompositeExperiment):
@@ -45,11 +48,11 @@ class BatchExperiment(CompositeExperiment):
 
     def __init__(
         self,
-        experiments: List[BaseExperiment],
-        backend: Optional[Backend] = None,
+        experiments: list[BaseExperiment],
+        backend: Backend | None = None,
         flatten_results: bool = True,
-        analysis: Optional[CompositeAnalysis] = None,
-        experiment_type: Optional[str] = None,
+        analysis: CompositeAnalysis | None = None,
+        experiment_type: str | None = None,
     ):
         """Initialize a batch experiment.
 
@@ -136,11 +139,11 @@ class BatchExperiment(CompositeExperiment):
 
     def _run_jobs_recursive(
         self,
-        circuits: List[QuantumCircuit],
-        truncated_metadata: List[Dict],
-        sampler: Sampler = None,
+        circuits: list[QuantumCircuit],
+        truncated_metadata: list[dict],
+        sampler: BaseSamplerV2 = None,
         **run_options,
-    ) -> List[Job]:
+    ) -> list[Job]:
         # The truncated metadata is a truncation of the original composite metadata.
         # During the recursion, the current experiment (self) will be at the head of the truncated
         # metadata.
@@ -177,8 +180,8 @@ class BatchExperiment(CompositeExperiment):
         return jobs
 
     def _run_jobs(
-        self, circuits: List[QuantumCircuit], sampler: Sampler = None, **run_options
-    ) -> List[Job]:
+        self, circuits: list[QuantumCircuit], sampler: BaseSamplerV2 = None, **run_options
+    ) -> list[Job]:
         truncated_metadata = [circ.metadata for circ in circuits]
         jobs = self._run_jobs_recursive(circuits, truncated_metadata, sampler, **run_options)
         return jobs

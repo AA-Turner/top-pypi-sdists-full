@@ -1,7 +1,5 @@
-# 
-# Generated from:
-# https://github.com/zopefoundation/meta/tree/master/config/c-code
-
+# Generated with zope.meta (https://zopemeta.readthedocs.io/) from:
+# https://github.com/zopefoundation/meta/tree/master/src/zope/meta/c-code
 [build-system]
 requires = [
     "setuptools",
@@ -11,10 +9,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zodbpickle"
-version = "4.3"
+version = "4.4"
 description = "Fork of Python 3 pickle module"
 keywords = ["zodb", "pickle"]
-readme = "README.rst"
+dynamic = ["readme"]
 requires-python = ">=3.10"
 license = "ZPL-2.1"
 authors = [
@@ -87,3 +85,10 @@ source = [
     ".tox/*/lib/python*/site-packages/",
     ".tox/pypy*/site-packages/",
 ]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "CHANGES.rst"]}
+
+[tool.zest-releaser]
+create-wheel = false
+upload-pypi = false

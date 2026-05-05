@@ -6,9 +6,6 @@ edition.workspace = true
 license.workspace = true
 readme = "README.md"
 
-[package.metadata.cargo-shear]
-ignored = ["semver"]
-
 [dependencies]
 chrono.workspace = true
 clap = { workspace = true, optional = true }
@@ -17,7 +14,6 @@ futures.workspace = true
 itertools.workspace = true
 log.workspace = true
 reqwest.workspace = true
-semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_tombi.workspace = true

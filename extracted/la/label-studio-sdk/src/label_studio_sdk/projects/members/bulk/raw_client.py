@@ -6,13 +6,15 @@ from json.decoder import JSONDecodeError
 from ....core.api_error import ApiError
 from ....core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ....core.http_response import AsyncHttpResponse, HttpResponse
-from ....core.jsonable_encoder import jsonable_encoder
+from ....core.jsonable_encoder import encode_path_param
+from ....core.parse_error import ParsingError
 from ....core.request_options import RequestOptions
 from ....core.serialization import convert_and_respect_annotation_metadata
 from ....core.unchecked_base_model import construct_type
 from ....types.project_member_bulk_assign_roles_request import ProjectMemberBulkAssignRolesRequest
 from .types.delete_bulk_response import DeleteBulkResponse
 from .types.post_bulk_response import PostBulkResponse
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -32,6 +34,7 @@ class RawBulkClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        user_type: typing.Optional[str] = None,
         excluded: typing.Optional[typing.Sequence[int]] = OMIT,
         included: typing.Optional[typing.Sequence[int]] = OMIT,
         roles: typing.Optional[typing.Sequence[ProjectMemberBulkAssignRolesRequest]] = OMIT,
@@ -68,6 +71,9 @@ class RawBulkClient:
         tags : typing.Optional[str]
             Multiple values may be separated by commas. (comma-separated values)
 
+        user_type : typing.Optional[str]
+            Multiple values may be separated by commas. (comma-separated values)
+
         excluded : typing.Optional[typing.Sequence[int]]
             Excluded user IDs
 
@@ -86,7 +92,7 @@ class RawBulkClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/members/bulk/",
+            f"api/projects/{encode_path_param(id)}/members/bulk/",
             method="POST",
             params={
                 "last_activity__gte": last_activity_gte,
@@ -94,6 +100,7 @@ class RawBulkClient:
                 "role": role,
                 "search": search,
                 "tags": tags,
+                "user_type": user_type,
             },
             json={
                 "all": all_,
@@ -122,6 +129,10 @@ class RawBulkClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def delete(
@@ -136,6 +147,7 @@ class RawBulkClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        user_type: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DeleteBulkResponse]:
         """
@@ -175,6 +187,9 @@ class RawBulkClient:
         tags : typing.Optional[str]
             Multiple values may be separated by commas. (comma-separated values)
 
+        user_type : typing.Optional[str]
+            Multiple values may be separated by commas. (comma-separated values)
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -184,7 +199,7 @@ class RawBulkClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/members/bulk/",
+            f"api/projects/{encode_path_param(id)}/members/bulk/",
             method="DELETE",
             params={
                 "all": all_,
@@ -195,6 +210,7 @@ class RawBulkClient:
                 "role": role,
                 "search": search,
                 "tags": tags,
+                "user_type": user_type,
             },
             request_options=request_options,
         )
@@ -211,6 +227,10 @@ class RawBulkClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -228,6 +248,7 @@ class AsyncRawBulkClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        user_type: typing.Optional[str] = None,
         excluded: typing.Optional[typing.Sequence[int]] = OMIT,
         included: typing.Optional[typing.Sequence[int]] = OMIT,
         roles: typing.Optional[typing.Sequence[ProjectMemberBulkAssignRolesRequest]] = OMIT,
@@ -264,6 +285,9 @@ class AsyncRawBulkClient:
         tags : typing.Optional[str]
             Multiple values may be separated by commas. (comma-separated values)
 
+        user_type : typing.Optional[str]
+            Multiple values may be separated by commas. (comma-separated values)
+
         excluded : typing.Optional[typing.Sequence[int]]
             Excluded user IDs
 
@@ -282,7 +306,7 @@ class AsyncRawBulkClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/members/bulk/",
+            f"api/projects/{encode_path_param(id)}/members/bulk/",
             method="POST",
             params={
                 "last_activity__gte": last_activity_gte,
@@ -290,6 +314,7 @@ class AsyncRawBulkClient:
                 "role": role,
                 "search": search,
                 "tags": tags,
+                "user_type": user_type,
             },
             json={
                 "all": all_,
@@ -318,6 +343,10 @@ class AsyncRawBulkClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def delete(
@@ -332,6 +361,7 @@ class AsyncRawBulkClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        user_type: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DeleteBulkResponse]:
         """
@@ -371,6 +401,9 @@ class AsyncRawBulkClient:
         tags : typing.Optional[str]
             Multiple values may be separated by commas. (comma-separated values)
 
+        user_type : typing.Optional[str]
+            Multiple values may be separated by commas. (comma-separated values)
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -380,7 +413,7 @@ class AsyncRawBulkClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(id)}/members/bulk/",
+            f"api/projects/{encode_path_param(id)}/members/bulk/",
             method="DELETE",
             params={
                 "all": all_,
@@ -391,6 +424,7 @@ class AsyncRawBulkClient:
                 "role": role,
                 "search": search,
                 "tags": tags,
+                "user_type": user_type,
             },
             request_options=request_options,
         )
@@ -407,4 +441,8 @@ class AsyncRawBulkClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

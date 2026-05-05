@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2025, Oracle and/or its affiliates.
+# Copyright (c) 2025, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -30,7 +30,6 @@ import threading
 
 import oracledb
 import pytest
-
 
 RAW_DATA = [
     b"sample raw data 1",
@@ -502,3 +501,26 @@ def test_7831(queue, test_env):
     queue.deqoptions.wait = oracledb.DEQ_NO_WAIT
     with test_env.assert_raises_full_code("ORA-25263"):
         queue.deqone()
+
+
+def test_7832(queue, test_env):
+    "7832 - test enqueue/dequeue options attributes maximum lengths"
+    with test_env.assert_raises_full_code("DPY-2075"):
+        queue.deqoptions.consumername = "A" * 129
+    with test_env.assert_raises_full_code("DPY-2075"):
+        queue.deqoptions.correlation = "A" * 129
+    with test_env.assert_raises_full_code("DPY-2075"):
+        queue.deqoptions.transformation = "A" * 129
+    with test_env.assert_raises_full_code("DPY-2075"):
+        queue.enqoptions.transformation = "A" * 129
+
+
+def test_7833(conn, test_env):
+    "7833 - test message properties attributes maximum lengths"
+    props = conn.msgproperties()
+    with test_env.assert_raises_full_code("DPY-2075"):
+        props.correlation = "A" * 129
+    with test_env.assert_raises_full_code("DPY-2075"):
+        props.exceptionq = "A" * 129
+    with test_env.assert_raises_full_code("DPY-2075"):
+        props.recipients = ["A" * 121]

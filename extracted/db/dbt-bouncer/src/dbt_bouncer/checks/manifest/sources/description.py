@@ -1,14 +1,22 @@
 """Checks related to source descriptions."""
 
-from dbt_bouncer.check_decorator import check, fail
+from typing import Annotated
+
+from pydantic import Field
+
+from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import is_description_populated
 
 
 @check
 def check_source_description_populated(
-    source, *, min_description_length: int | None = None
+    source, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
     """Sources must have a populated description.
+
+    !!! info "Rationale"
+
+        Sources represent the boundary between raw, external data and the curated dbt project. A populated description explains what the source is, where it comes from, and how it is loaded — context that is invaluable when debugging data issues or onboarding new team members. Without enforcing descriptions, sources accumulate as anonymous inputs that future maintainers cannot evaluate or trust, increasing the risk of misuse or redundant ingestion pipelines.
 
     Parameters:
         min_description_length (int | None): Minimum length required for the description to be considered populated.

@@ -24,6 +24,14 @@ from typing import Any
 import numpy as np
 import pytest
 import tvm_ffi
+import tvm_ffi.cpp
+
+try:
+    import torch
+except ImportError:
+    torch = None  # ty: ignore[invalid-assignment]
+
+_HAS_TORCH_DLPACK_API = torch is not None and hasattr(torch.Tensor, "__dlpack_c_exchange_api__")
 
 
 def test_echo() -> None:
@@ -402,3 +410,111 @@ def test_function_with_value_protocol() -> None:
 
     nested_value_protocol = ValueProtocol([ValueProtocol(1), ValueProtocol(2), ValueProtocol(3)])
     assert tuple(fecho(nested_value_protocol)) == (1, 2, 3)
+
+
+def test_convert_func_tensor_cls_missing_attribute() -> None:
+    """Passing a class without __dlpack_c_exchange_api__ raises TypeError."""
+
+    class DummyTensor:
+        pass
+
+    with pytest.raises(TypeError, match="__dlpack_c_exchange_api__"):
+        tvm_ffi.convert_func(lambda x: x, tensor_cls=DummyTensor)
+
+    with pytest.raises(TypeError, match="__dlpack_c_exchange_api__"):
+        tvm_ffi.convert_func(lambda x: x, tensor_cls=object)
+
+
+def test_convert_func_raises_propagates() -> None:
+    """An exception raised inside the callback propagates out to the caller."""
+
+    def raises(x: int) -> None:
+        raise ValueError(f"boom {x}")
+
+    f = tvm_ffi.convert_func(raises)
+    with pytest.raises(ValueError, match="boom 42"):
+        f(42)
+
+
+@pytest.mark.skipif(
+    not _HAS_TORCH_DLPACK_API,
+    reason="torch.Tensor.__dlpack_c_exchange_api__ not available",
+)
+def test_convert_func_with_torch_tensor_cls() -> None:
+    """tensor_cls=torch.Tensor delivers torch.Tensor instances to the callback.
+
+    Asserts the type *inside* the callback (which runs on the C++ -> Python
+    side of the FFI boundary) — the return value's Python type depends on
+    the outer caller's conversion path, so we verify shape survives the
+    round-trip rather than isinstance on the return.
+    """
+    calls = 0
+
+    def callback(a: Any, b: Any, c: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        assert isinstance(a, torch.Tensor)
+        assert isinstance(b, torch.Tensor)
+        assert isinstance(c, torch.Tensor)
+        assert list(a.shape) == [2]
+        assert list(b.shape) == [3]
+        assert list(c.shape) == [4]
+        return b
+
+    f = tvm_ffi.convert_func(callback, tensor_cls=torch.Tensor)
+    a = torch.zeros(2)
+    b = torch.ones(3)
+    c = torch.full((4,), 2.0)
+    out = f(a, b, c)
+    assert calls == 1
+    assert tuple(out.shape) == (3,)
+
+
+def test_callback_rawstr_and_bytearrayptr_args() -> None:
+    """Regression: C++ -> Python callback with kTVMFFIRawStr / kTVMFFIByteArrayPtr args.
+
+    When C++ invokes a Python callback with non-owning RawStr or ByteArrayPtr
+    arg shapes, the callback arg setter must materialise a Python str / bytes
+    directly rather than hitting the ``raise ValueError`` guard that formerly
+    existed in ``TVMFFICyCallbackArgSetterFactory``.
+
+    Two trampolines are compiled via cpp.load_inline:
+    - ``invoke_with_raw_str(callback)``    — calls ``callback("hello rawstr")``
+      using a C-string literal, which the TypeTraits pack as kTVMFFIRawStr.
+    - ``invoke_with_byte_array_ptr(callback)`` — calls ``callback(&byte_arr)``
+      where ``byte_arr`` is a ``TVMFFIByteArray`` on the stack, packed as
+      kTVMFFIByteArrayPtr.
+    """
+    mod = tvm_ffi.cpp.load_inline(
+        name="test_callback_rawstr_bytearrayptr",
+        cpp_sources=r"""
+            void invoke_with_raw_str(tvm::ffi::Function callback) {
+              // Passing a string literal packs as kTVMFFIRawStr (const char* TypeTraits).
+              callback("hello rawstr");
+            }
+
+            void invoke_with_byte_array_ptr(tvm::ffi::Function callback) {
+              // Passing a TVMFFIByteArray* packs as kTVMFFIByteArrayPtr.
+              static const char kData[] = "hello bytearrayptr";
+              TVMFFIByteArray byte_arr{kData, sizeof(kData) - 1};
+              callback(&byte_arr);
+            }
+        """,
+        functions=["invoke_with_raw_str", "invoke_with_byte_array_ptr"],
+    )
+
+    # --- kTVMFFIRawStr path ---
+    str_received: list[Any] = []
+    str_cb = tvm_ffi.convert(lambda x: str_received.append(x))
+    mod.invoke_with_raw_str(str_cb)
+    assert len(str_received) == 1
+    assert isinstance(str_received[0], str), f"expected str, got {type(str_received[0])}"
+    assert str_received[0] == "hello rawstr"
+
+    # --- kTVMFFIByteArrayPtr path ---
+    bytes_received: list[Any] = []
+    bytes_cb = tvm_ffi.convert(lambda x: bytes_received.append(x))
+    mod.invoke_with_byte_array_ptr(bytes_cb)
+    assert len(bytes_received) == 1
+    assert isinstance(bytes_received[0], bytes), f"expected bytes, got {type(bytes_received[0])}"
+    assert bytes_received[0] == b"hello bytearrayptr"

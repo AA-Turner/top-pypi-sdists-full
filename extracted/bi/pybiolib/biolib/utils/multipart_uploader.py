@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import biolib.api
 from biolib._internal.http_client import HttpClient
+from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger, logger_no_user_data
@@ -52,6 +53,7 @@ class MultiPartUploader:
         start_multipart_upload_request: Optional[RequestOptions] = None,
         use_process_pool: Optional[bool] = None,
         on_progress: Optional[Callable[[int, int], None]] = None,
+        api_client: Optional[ApiClient] = None,
     ):
         self._complete_upload_request = complete_upload_request
         self._get_presigned_upload_url_request = get_presigned_upload_url_request
@@ -59,6 +61,7 @@ class MultiPartUploader:
         self._bytes_uploaded: int = 0
         self._use_process_pool = use_process_pool
         self._on_progress = on_progress
+        self._api_client: ApiClient = api_client or biolib.api.client
 
     def upload(self, payload_iterator: Iterator[bytes], payload_size_in_bytes: int) -> None:
         parts: List[_PartMetadata] = []
@@ -68,7 +71,7 @@ class MultiPartUploader:
 
         if self._start_multipart_upload_request:
             try:
-                biolib.api.client.post(
+                self._api_client.post(
                     authenticate=self._start_multipart_upload_request['requires_biolib_auth'],
                     headers=self._start_multipart_upload_request['headers'],
                     path=self._start_multipart_upload_request['path'],
@@ -112,7 +115,7 @@ class MultiPartUploader:
             BiolibApiClient.refresh_auth_token()
 
         logger_no_user_data.debug(f'Uploaded {len(parts)} parts, now calling complete upload...')
-        biolib.api.client.post(
+        self._api_client.post(
             authenticate=requires_biolib_auth,
             headers=self._complete_upload_request['headers'],
             data={'parts': parts, 'size_bytes': self._bytes_uploaded},
@@ -131,7 +134,7 @@ class MultiPartUploader:
             presigned_upload_url = None
             try:
                 logger_no_user_data.debug(f'Getting upload URL for chunk {part_number}...')
-                get_url_response = biolib.api.client.get(
+                get_url_response = self._api_client.get(
                     authenticate=requires_biolib_auth,
                     headers=self._get_presigned_upload_url_request['headers'],
                     params={'part_number': part_number},

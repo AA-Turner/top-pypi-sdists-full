@@ -23,7 +23,7 @@ from ._gui import (
 
 from ._fx import (
     LightSource, LightEffect,
-    ParticleEmitter,
+    ParticleEmitter, ParticleModifier,
 )
 
 from ._layer import Layer
@@ -54,7 +54,7 @@ __all__ = [
     "Widget", "Button",
 
     "LightSource", "LightEffect",
-    "ParticleEmitter",
+    "ParticleEmitter", "ParticleModifier",
 
     "Layer",
     

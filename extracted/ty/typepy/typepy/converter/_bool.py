@@ -36,9 +36,9 @@ class BoolConverter(AbstractValueConverter):
         except AttributeError:
             raise ValueError(f"invalid value '{str(value)}'")
 
-        if lower_text in ["true"]:
+        if lower_text == "true":
             return True
-        elif lower_text in ["false"]:
+        elif lower_text == "false":
             return False
 
         raise ValueError(f"invalid value '{str(value)}'")

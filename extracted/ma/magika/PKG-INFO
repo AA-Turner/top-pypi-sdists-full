@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: magika
-Version: 1.0.2
+Version: 1.0.3
 Summary: A tool to determine the content type of a file with deep learning
 Project-URL: Homepage, https://github.com/google/magika
 Project-URL: Documentation, https://github.com/google/magika/blob/main/python/README.md

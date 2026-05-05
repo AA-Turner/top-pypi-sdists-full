@@ -126,21 +126,27 @@ def ensure_statistics_files(inputs, logger, parser):
     project_name = parser.get("DEFAULT", "project_name")
     seen = set()
     for item in inputs:
-        country, crop = item[1], item[2]
-        key = (country, crop)
-        if key in seen:
-            continue
-        seen.add(key)
+        country_field, crop = item[1], item[2]
+        # Pooled inputs (gather_pooled_inputs) put a list of countries at
+        # item[1]; per-country inputs put a single country string.  Stats
+        # files are still per-country, so flatten either case to a list.
+        countries_iter = country_field if isinstance(country_field, (list, tuple)) else [country_field]
 
-        obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
-        file_path = obj._get_statistics_file_path(country, crop)
+        for country in countries_iter:
+            key = (country, crop)
+            if key in seen:
+                continue
+            seen.add(key)
 
-        if not file_path.exists() or obj.update_input_file:
-            logger.info(f"Pre-creating statistics file: {country} {crop}")
-            try:
-                obj._create_statistics_file(country, crop, file_path)
-            except FileNotFoundError as e:
-                logger.warning(f"Skipping {country} {crop}: {e}")
+            obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
+            file_path = obj._get_statistics_file_path(country, crop)
+
+            if not file_path.exists() or obj.update_input_file:
+                logger.info(f"Pre-creating statistics file: {country} {crop}")
+                try:
+                    obj._create_statistics_file(country, crop, file_path)
+                except FileNotFoundError as e:
+                    logger.warning(f"Skipping {country} {crop}: {e}")
 
 
 def ensure_db_tables(inputs, logger, parser):

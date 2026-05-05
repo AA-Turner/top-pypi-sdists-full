@@ -1,4 +1,4 @@
-# Copyright (C) 2024 - 2025 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2024 - 2026 ANSYS, Inc. and/or its affiliates.
 # SPDX-License-Identifier: MIT
 #
 #
@@ -22,12 +22,14 @@
 """Provides the ``MeshObjectPlot`` class."""
 
 
-from typing import Any, List, Union
+from typing import TYPE_CHECKING, Any, List, Type, Union
 
 import pyvista as pv
 
 from ansys.tools.visualization_interface.types.edge_plot import EdgePlot
 
+if TYPE_CHECKING:
+    from plotly.graph_objects import Mesh3d
 
 class MeshObjectPlot:
     """Relates a custom object with a mesh, provided by the consumer library."""
@@ -35,9 +37,11 @@ class MeshObjectPlot:
     def __init__(
         self,
         custom_object: Any,
-        mesh: Union[pv.PolyData, pv.MultiBlock],
+        mesh: Union[pv.PolyData, pv.MultiBlock, "Mesh3d"],
         actor: pv.Actor = None,
         edges: List[EdgePlot] = None,
+        children: List["MeshObjectPlot"] = None,
+        parent: "MeshObjectPlot" = None,
     ) -> None:
         """Relates a custom object with a mesh provided by the consumer library.
 
@@ -49,7 +53,7 @@ class MeshObjectPlot:
         ----------
         custom_object : Any
             Any object that the consumer library wants to relate with a mesh.
-        mesh : Union[pv.PolyData, pv.MultiBlock]
+        mesh : Union[pv.PolyData, pv.MultiBlock, Mesh3d]
             PyVista mesh that represents the custom object.
         actor : pv.Actor, default: None
             Actor of the mesh in the plotter.
@@ -61,9 +65,55 @@ class MeshObjectPlot:
         self._mesh = mesh
         self._actor = actor
         self._edges = edges
+        self._children: List["MeshObjectPlot"] = children if children is not None else []
+        self._parent: "MeshObjectPlot" = parent
+        self._visible: bool = True
+
+    def add_child(self, child: "MeshObjectPlot"):
+        """Set a child MeshObjectPlot to the current object.
+
+        This method is used to set a child MeshObjectPlot to the current object.
+        It is useful when the custom object has a hierarchical structure, and
+        the consumer library wants to relate the child objects with their meshes.
+
+        Parameters
+        ----------
+        child : MeshObjectPlot
+            Child MeshObjectPlot to be set.
+
+        """
+        child.parent = self
+        self._children.append(child)
 
     @property
-    def mesh(self) -> Union[pv.PolyData, pv.MultiBlock]:
+    def parent(self) -> "MeshObjectPlot":
+        """Get the parent MeshObjectPlot of the current object.
+
+        This method is used to set a parent MeshObjectPlot to the current object.
+        It is useful when the custom object has a hierarchical structure, and
+        the consumer library wants to relate the parent objects with their meshes.
+
+        Parameters
+        ----------
+        parent : MeshObjectPlot
+            Parent MeshObjectPlot to be set.
+
+        """
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent: "MeshObjectPlot"):
+        """Set the parent MeshObjectPlot of the current object.
+
+        Parameters
+        ----------
+        parent : MeshObjectPlot
+            Parent MeshObjectPlot to be set.
+        """
+        self._parent = parent
+
+    @property
+    def mesh(self) -> Union[pv.PolyData, pv.MultiBlock, "Mesh3d"]:
         """Mesh of the object in PyVista format.
 
         Returns
@@ -75,12 +125,12 @@ class MeshObjectPlot:
         return self._mesh
 
     @mesh.setter
-    def mesh(self, mesh: Union[pv.PolyData, pv.MultiBlock]):
+    def mesh(self, mesh: Union[pv.PolyData, pv.MultiBlock, "Mesh3d"]):
         """Set the mesh of the object in PyVista format.
 
         Parameters
         ----------
-        mesh : Union[pv.PolyData, pv.MultiBlock]
+        mesh : Union[pv.PolyData, pv.MultiBlock, Mesh3d]
             Mesh of the object.
 
         """
@@ -174,3 +224,66 @@ class MeshObjectPlot:
             return self._custom_object.id
         else:
             return "Unknown"
+
+    @property
+    def mesh_type(self) -> Type:
+        """Type of the mesh.
+
+        Returns
+        -------
+        type
+            Type of the mesh.
+
+        """
+        return type(self._mesh)
+
+    @property
+    def visible(self) -> bool:
+        """Whether this object is currently visible.
+
+        This property reflects the visibility state of the object. If an actor
+        is assigned, it reads the visibility from the actor to stay synchronized.
+
+        Returns
+        -------
+        bool
+            True if the object is visible, False otherwise.
+
+        """
+        if self._actor:
+            return self._actor.GetVisibility()
+        return self._visible
+
+    @visible.setter
+    def visible(self, value: bool):
+        """Set the visibility of this object.
+
+        Parameters
+        ----------
+        value : bool
+            True to make the object visible, False to hide it.
+
+        """
+        self._visible = value
+        if self._actor:
+            self._actor.SetVisibility(value)
+            # Mark actor as modified to ensure visual update
+            self._actor.Modified()
+
+    def is_visible_in_tree(self) -> bool:
+        """Check if this object is visible considering parent visibility.
+
+        An object is only truly visible if both itself and all its ancestors
+        in the tree are visible.
+
+        Returns
+        -------
+        bool
+            True if object and all ancestors are visible, False otherwise.
+
+        """
+        if not self._visible:
+            return False
+        if self._parent:
+            return self._parent.is_visible_in_tree()
+        return True

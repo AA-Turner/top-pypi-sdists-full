@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo
-Version: 0.23.4
+Version: 0.23.5
 Summary: A library for making reactive notebooks and apps
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Dist: click>=8.0,<9
-Requires-Dist: jedi>=0.18.0
+Requires-Dist: jedi>=0.18.0,<0.20.0
 Requires-Dist: markdown>=3.6,<4
 Requires-Dist: pymdown-extensions>=10.21.2,<11
 Requires-Dist: pygments>=2.19,<3
@@ -40,6 +40,10 @@ Requires-Dist: python-lsp-server>=1.13.0 ; extra == 'lsp'
 Requires-Dist: python-lsp-ruff>=2.0.0 ; extra == 'lsp'
 Requires-Dist: mcp>=1.0.0 ; extra == 'mcp'
 Requires-Dist: pydantic>2 ; extra == 'mcp'
+Requires-Dist: opentelemetry-api~=1.28.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-sdk~=1.28.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.28.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.28.0 ; extra == 'otel'
 Requires-Dist: marimo[sql] ; extra == 'recommended'
 Requires-Dist: marimo[sandbox] ; extra == 'recommended'
 Requires-Dist: altair>=5.4.0 ; extra == 'recommended'
@@ -55,6 +59,7 @@ Requires-Python: >=3.10
 Project-URL: homepage, https://github.com/marimo-team/marimo
 Provides-Extra: lsp
 Provides-Extra: mcp
+Provides-Extra: otel
 Provides-Extra: recommended
 Provides-Extra: sandbox
 Provides-Extra: sql

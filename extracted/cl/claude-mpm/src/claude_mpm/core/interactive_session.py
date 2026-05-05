@@ -10,6 +10,8 @@ defines the interface it needs. This allows ClaudeRunner to create instances
 of InteractiveSession without circular dependency issues.
 """
 
+from __future__ import annotations
+
 import contextlib
 import os
 import subprocess  # nosec B404
@@ -21,12 +23,11 @@ from claude_mpm.core.enums import ServiceState
 from claude_mpm.core.env_defaults import apply_subprocess_env_defaults
 from claude_mpm.core.logger import get_logger
 
-# Protocol imports for type checking without circular dependencies
+# Protocol imports for type checking without circular dependencies.
+# ``from __future__ import annotations`` defers annotation evaluation, so
+# ``ClaudeRunnerProtocol`` only needs to be importable for type checkers.
 if TYPE_CHECKING:
     from claude_mpm.core.protocols import ClaudeRunnerProtocol
-else:
-    # At runtime, accept any object with matching interface
-    ClaudeRunnerProtocol = Any  # pyright: ignore[reportUnreachable]
 
 
 class InteractiveSession:
@@ -42,7 +43,7 @@ class InteractiveSession:
     and makes testing easier while preserving all original functionality.
     """
 
-    def __init__(self, runner: "ClaudeRunnerProtocol"):
+    def __init__(self, runner: ClaudeRunnerProtocol):
         """Initialize interactive session handler.
 
         Args:
@@ -226,7 +227,7 @@ class InteractiveSession:
             self._handle_launch_error("Exception", e)
             return self._attempt_fallback_launch(environment)
 
-    def process_interactive_command(self, _prompt: str) -> bool | None:  # pyright: ignore[reportUnusedParameter]
+    def process_interactive_command(self, _prompt: str) -> bool | None:
         """Process special interactive commands.
 
         NOTE: As of v4.1.2, MPM slash commands are deployed as markdown files
@@ -234,11 +235,15 @@ class InteractiveSession:
         This method is kept for potential future use with non-Claude commands.
 
         Args:
-            prompt: User input command
+            _prompt: User input command (currently unused; reserved for future
+                non-Claude command interception).
 
         Returns:
             Optional[bool]: True if handled, False if error, None if not a special command
         """
+        # Reference parameter to keep API stable while signalling intentional
+        # non-use to static analyzers.
+        del _prompt
         # Currently no commands are intercepted - all MPM commands are handled by Claude Code
         return None
 
@@ -609,9 +614,13 @@ class InteractiveSession:
                 message="Claude process started (exec mode)",
             )
 
-        # This will not return if successful
-        os.execvpe(cmd[0], cmd, env)  # nosec B606
-        return False  # type: ignore[unreachable]  # pyright: ignore[reportUnreachable]  # reached when os.execvpe is mocked in tests
+        # ``os.execvpe`` is annotated as ``NoReturn`` because it replaces the
+        # current process. However, tests monkeypatch it, so the function may
+        # actually return. Route the call through ``getattr`` so the static
+        # type checker does not treat the following ``return`` as unreachable.
+        execvpe = getattr(os, "execvpe")  # noqa: B009
+        execvpe(cmd[0], cmd, env)  # nosec B606
+        return False  # Only reached when os.execvpe is mocked in tests
 
     def _launch_subprocess_mode(self, cmd: list, env: dict) -> bool:
         """Launch Claude as subprocess with PTY."""
@@ -848,6 +857,26 @@ class InteractiveSession:
             except Exception:
                 self.logger.debug("Monitor agent failed to start", exc_info=True)
 
+            # Bridge SDK events to the monitoring dashboard (best-effort).
+            # Connects SDKEventBridge -> AsyncEventEmitter -> SocketIO, so the
+            # dashboard receives text/tool_use/result events as the PM streams.
+            # Failures (no monitor running, import errors) are no-ops.
+            sdk_bridge: Any = None
+            try:
+                from claude_mpm.services.agents.sdk_event_bridge import (
+                    SDKEventBridge,
+                    attach_bridge_to_emitter,
+                )
+
+                sdk_bridge = SDKEventBridge(agent_id="PM")
+                attach_bridge_to_emitter(sdk_bridge)
+            except Exception:
+                self.logger.debug(
+                    "SDK event bridge setup failed; dashboard streaming disabled",
+                    exc_info=True,
+                )
+                sdk_bridge = None
+
             from claude_mpm.core.sdk_command_router import SDKCommandRouter
 
             async with ClaudeSDKClient(options=options) as client:
@@ -897,6 +926,14 @@ class InteractiveSession:
                                             block.text,
                                             usage=getattr(message, "usage", None),
                                         )
+                                        if sdk_bridge is not None:
+                                            try:
+                                                await sdk_bridge.handle_text(block.text)
+                                            except Exception:
+                                                self.logger.debug(
+                                                    "SDK bridge handle_text failed",
+                                                    exc_info=True,
+                                                )
                                     elif isinstance(block, ToolUseBlock):
                                         if block.name == "Task":
                                             # Agent delegation — extract the sub-agent name
@@ -915,6 +952,21 @@ class InteractiveSession:
                                         else:
                                             print(f"  [{current_agent}:{block.name}]")
                                         tracker.record_tool_call(block.name)
+                                        if sdk_bridge is not None:
+                                            try:
+                                                tool_input = (
+                                                    block.input
+                                                    if isinstance(block.input, dict)
+                                                    else {}
+                                                )
+                                                await sdk_bridge.handle_tool_call(
+                                                    block.name, tool_input
+                                                )
+                                            except Exception:
+                                                self.logger.debug(
+                                                    "SDK bridge handle_tool_call failed",
+                                                    exc_info=True,
+                                                )
                             elif isinstance(message, ResultMessage):
                                 if message.session_id:
                                     self._sdk_session_id = message.session_id
@@ -1028,11 +1080,14 @@ class InteractiveSession:
                 {"event": "session_interrupted", "reason": "user_interrupt"}
             )
 
-    def _launch_channel_hub_mode(self, _channels_str: str) -> bool:  # pyright: ignore[reportUnusedParameter]
+    def _launch_channel_hub_mode(self, _channels_str: str) -> bool:
         """Launch the multi-channel hub instead of a single-channel session.
 
         Args:
-            channels_str: Comma-separated channel names (e.g. "terminal,telegram")
+            _channels_str: Comma-separated channel names (e.g. "terminal,telegram").
+                Currently unused because the channel set is loaded from
+                configuration; retained for forward compatibility and to keep
+                the call sites stable.
 
         Returns:
             bool: True if the hub ran and exited cleanly
@@ -1041,6 +1096,9 @@ class InteractiveSession:
 
         from claude_mpm.services.channels.channel_config import load_channels_config
         from claude_mpm.services.channels.channel_hub import ChannelHub
+
+        # Acknowledge the parameter so static analyzers do not flag it.
+        del _channels_str
 
         config = load_channels_config()
 

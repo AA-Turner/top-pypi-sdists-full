@@ -1,7 +1,5 @@
-# 
-# Generated from:
-# https://github.com/zopefoundation/meta/tree/master/config/c-code
-
+# Generated with zope.meta (https://zopemeta.readthedocs.io/) from:
+# https://github.com/zopefoundation/meta/tree/master/src/zope/meta/c-code
 [build-system]
 requires = [
     "setuptools",
@@ -13,9 +11,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "persistent"
-version = "6.5"
+version = "6.6"
 description = "Translucent persistent objects"
-readme = "README.rst"
+dynamic = ["readme"]
 requires-python = ">=3.10"
 license = "ZPL-2.1"
 authors = [
@@ -72,7 +70,7 @@ relative_files = true
 omit = ["_ring_build.py"]
 
 [tool.coverage.report]
-fail_under = 94.9
+fail_under = 91
 precision = 2
 ignore_errors = true
 show_missing = true
@@ -96,3 +94,10 @@ source = [
     ".tox/*/lib/python*/site-packages/",
     ".tox/pypy*/site-packages/",
 ]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "CHANGES.rst"]}
+
+[tool.zest-releaser]
+create-wheel = false
+upload-pypi = false

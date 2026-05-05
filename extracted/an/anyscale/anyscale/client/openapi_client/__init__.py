@@ -93,6 +93,7 @@ from openapi_client.models.azure_config import AzureConfig
 from openapi_client.models.azure_operator_audience import AzureOperatorAudience
 from openapi_client.models.azureoperatoraudience_response import AzureoperatoraudienceResponse
 from openapi_client.models.baseimagesenum import BASEIMAGESENUM
+from openapi_client.models.backend_config import BackendConfig
 from openapi_client.models.backend_server_api_product_models_catalog_client_models_table_metadata import BackendServerApiProductModelsCatalogClientModelsTableMetadata
 from openapi_client.models.backend_server_api_product_models_data_catalogs_table_metadata import BackendServerApiProductModelsDataCatalogsTableMetadata
 from openapi_client.models.base_job_status import BaseJobStatus
@@ -119,6 +120,7 @@ from openapi_client.models.cli_usage_payload import CLIUsagePayload
 from openapi_client.models.catalog_entry import CatalogEntry
 from openapi_client.models.catalog_metadata import CatalogMetadata
 from openapi_client.models.change_password_params import ChangePasswordParams
+from openapi_client.models.checkpoint_config import CheckpointConfig
 from openapi_client.models.cleanup_leaked_grafana_dashboard_response import CleanupLeakedGrafanaDashboardResponse
 from openapi_client.models.cleanupleakedgrafanadashboardresponse_response import CleanupleakedgrafanadashboardresponseResponse
 from openapi_client.models.clone_experimental_workspace import CloneExperimentalWorkspace
@@ -288,6 +290,8 @@ from openapi_client.models.data_catalog_provider import DataCatalogProvider
 from openapi_client.models.data_catalog_schema import DataCatalogSchema
 from openapi_client.models.data_catalog_table import DataCatalogTable
 from openapi_client.models.data_catalog_volume import DataCatalogVolume
+from openapi_client.models.data_config import DataConfig
+from openapi_client.models.data_execution_options import DataExecutionOptions
 from openapi_client.models.databricks_config_delete_response import DatabricksConfigDeleteResponse
 from openapi_client.models.databricks_config_response import DatabricksConfigResponse
 from openapi_client.models.databricks_connect_request import DatabricksConnectRequest
@@ -415,6 +419,7 @@ from openapi_client.models.event_level import EventLevel
 from openapi_client.models.execute_command_response import ExecuteCommandResponse
 from openapi_client.models.execute_interactive_command_options import ExecuteInteractiveCommandOptions
 from openapi_client.models.executecommandresponse_response import ExecutecommandresponseResponse
+from openapi_client.models.execution_options import ExecutionOptions
 from openapi_client.models.experimental_workspace import ExperimentalWorkspace
 from openapi_client.models.experimental_workspaces_sort_field import ExperimentalWorkspacesSortField
 from openapi_client.models.experimentalworkspace_list_response import ExperimentalworkspaceListResponse
@@ -422,6 +427,7 @@ from openapi_client.models.experimentalworkspace_response import Experimentalwor
 from openapi_client.models.extend_poc_request import ExtendPOCRequest
 from openapi_client.models.extension_telemetry_payload import ExtensionTelemetryPayload
 from openapi_client.models.external_terminal_command import ExternalTerminalCommand
+from openapi_client.models.failure_config import FailureConfig
 from openapi_client.models.feature_flag_response import FeatureFlagResponse
 from openapi_client.models.featureflagresponse_response import FeatureflagresponseResponse
 from openapi_client.models.file_credential import FileCredential
@@ -500,7 +506,6 @@ from openapi_client.models.kubernetes_manager_registration_request import Kubern
 from openapi_client.models.kubernetes_manager_registration_response import KubernetesManagerRegistrationResponse
 from openapi_client.models.kubernetesmanagerregistrationresponse_response import KubernetesmanagerregistrationresponseResponse
 from openapi_client.models.lb_resource import LBResource
-from openapi_client.models.launch_template import LaunchTemplate
 from openapi_client.models.lbresource_response import LbresourceResponse
 from openapi_client.models.lineage_artifact import LineageArtifact
 from openapi_client.models.lineage_artifact_sort_field import LineageArtifactSortField
@@ -555,6 +560,7 @@ from openapi_client.models.machine_state_info import MachineStateInfo
 from openapi_client.models.machine_type_partition_filter import MachineTypePartitionFilter
 from openapi_client.models.machinepoolsearchresult_list_response import MachinepoolsearchresultListResponse
 from openapi_client.models.machinestateinfo_list_response import MachinestateinfoListResponse
+from openapi_client.models.match_expression import MatchExpression
 from openapi_client.models.metric import Metric
 from openapi_client.models.metrics_query_response import MetricsQueryResponse
 from openapi_client.models.metricsqueryresponse_response import MetricsqueryresponseResponse
@@ -600,6 +606,7 @@ from openapi_client.models.on_violation_action import OnViolationAction
 from openapi_client.models.operation_error import OperationError
 from openapi_client.models.operation_progress import OperationProgress
 from openapi_client.models.operation_result import OperationResult
+from openapi_client.models.operator import Operator
 from openapi_client.models.operator_branch import OperatorBranch
 from openapi_client.models.operator_check_result import OperatorCheckResult
 from openapi_client.models.operator_check_status import OperatorCheckStatus
@@ -656,7 +663,9 @@ from openapi_client.models.policy_response import PolicyResponse
 from openapi_client.models.policy_sync_status import PolicySyncStatus
 from openapi_client.models.policyresponse_response import PolicyresponseResponse
 from openapi_client.models.preemption_policy import PreemptionPolicy
-from openapi_client.models.preemption_within_queue import PreemptionWithinQueue
+from openapi_client.models.preemption_policy_borrow_within_cohort import PreemptionPolicyBorrowWithinCohort
+from openapi_client.models.preemption_policy_reclaim_within_cohort import PreemptionPolicyReclaimWithinCohort
+from openapi_client.models.preemption_policy_within_resource_queue import PreemptionPolicyWithinResourceQueue
 from openapi_client.models.presigned_url_response import PresignedUrlResponse
 from openapi_client.models.priority_policy import PriorityPolicy
 from openapi_client.models.production_job import ProductionJob
@@ -688,7 +697,6 @@ from openapi_client.models.ray_runtime_env_config import RayRuntimeEnvConfig
 from openapi_client.models.ray_session import RaySession
 from openapi_client.models.read_billing_version import ReadBillingVersion
 from openapi_client.models.readbillingversion_list_response import ReadbillingversionListResponse
-from openapi_client.models.reclamation_policy import ReclamationPolicy
 from openapi_client.models.recycle_policy import RecyclePolicy
 from openapi_client.models.redaction_request import RedactionRequest
 from openapi_client.models.redaction_result import RedactionResult
@@ -729,6 +737,8 @@ from openapi_client.models.revokeapikeysresponse_response import Revokeapikeysre
 from openapi_client.models.rollback_service_model import RollbackServiceModel
 from openapi_client.models.rollout_strategy import RolloutStrategy
 from openapi_client.models.run_attempt_status import RunAttemptStatus
+from openapi_client.models.run_config import RunConfig
+from openapi_client.models.run_settings import RunSettings
 from openapi_client.models.run_status import RunStatus
 from openapi_client.models.s3_download_location import S3DownloadLocation
 from openapi_client.models.scim_migration_result import SCIMMigrationResult
@@ -738,6 +748,7 @@ from openapi_client.models.sso_connection_state import SSOConnectionState
 from openapi_client.models.sso_login_info import SSOLoginInfo
 from openapi_client.models.sso_mode import SSOMode
 from openapi_client.models.supportedbaseimagesenum import SUPPORTEDBASEIMAGESENUM
+from openapi_client.models.scaling_config import ScalingConfig
 from openapi_client.models.schedule_config import ScheduleConfig
 from openapi_client.models.schedule_sort_field import ScheduleSortField
 from openapi_client.models.scheduler_config import SchedulerConfig
@@ -849,6 +860,7 @@ from openapi_client.models.train_resources import TrainResources
 from openapi_client.models.train_run import TrainRun
 from openapi_client.models.train_run_attempt import TrainRunAttempt
 from openapi_client.models.train_worker import TrainWorker
+from openapi_client.models.training_framework import TrainingFramework
 from openapi_client.models.trainrun_list_response import TrainrunListResponse
 from openapi_client.models.try_login_email_response import TryLoginEmailResponse
 from openapi_client.models.try_login_work_os_response import TryLoginWorkOSResponse
@@ -870,6 +882,7 @@ from openapi_client.models.update_payment_info import UpdatePaymentInfo
 from openapi_client.models.update_policy_request import UpdatePolicyRequest
 from openapi_client.models.update_project_collaborator import UpdateProjectCollaborator
 from openapi_client.models.update_resource_quota import UpdateResourceQuota
+from openapi_client.models.update_user_group_name import UpdateUserGroupName
 from openapi_client.models.update_workspace_template import UpdateWorkspaceTemplate
 from openapi_client.models.updatemachinepoolresponse_response import UpdatemachinepoolresponseResponse
 from openapi_client.models.upload_session_command_logs_locations import UploadSessionCommandLogsLocations

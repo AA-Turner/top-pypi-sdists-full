@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pact-python
-Version: 3.3.1
+Version: 3.4.0
 Summary: Tool for creating and verifying consumer-driven contracts using the Pact framework.
 Project-URL: changelog, https://github.com/pact-foundation/pact-python/blob/main/CHANGELOG.md
 Project-URL: documentation, https://pact-foundation.github.io/pact-python/

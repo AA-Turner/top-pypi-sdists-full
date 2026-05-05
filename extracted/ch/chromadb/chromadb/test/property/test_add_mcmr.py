@@ -159,7 +159,10 @@ def _test_add(
     current_version2 = cast(int, coll2.get_model()["version"])
     records_since_compaction_wait = 0
     min_records_between_compaction_waits = max(
-        MIN_RECORDS_BETWEEN_COMPACTION_WAITS, len(record_set["ids"]) // 10
+        MIN_RECORDS_BETWEEN_COMPACTION_WAITS, len(normalized_record_set["ids"]) // 10
+    )
+    print(
+        f"starting min_records_between_compaction_waits={min_records_between_compaction_waits}"
     )
 
     # TODO: The type of add() is incorrect as it does not allow for metadatas
@@ -167,20 +170,31 @@ def _test_add(
     batches = list(
         create_batches(
             api=client1,
-            ids=cast(List[str], record_set["ids"]),
-            embeddings=cast(Embeddings, record_set["embeddings"]),
-            metadatas=cast(Metadatas, record_set["metadatas"]),
-            documents=cast(List[str], record_set["documents"]),
+            ids=cast(List[str], normalized_record_set["ids"]),
+            embeddings=cast(Embeddings, normalized_record_set["embeddings"]),
+            metadatas=cast(Metadatas, normalized_record_set["metadatas"]),
+            documents=cast(List[str], normalized_record_set["documents"]),
         )
     )
     for batch_index, batch in enumerate(batches):
+        print("adding", len(batch[0]))
         if batch_index % 2 == 0:
             coll1.add(*batch)
         else:
             coll2.add(*batch)
         if should_wait_for_compaction:
+            print("should wait for compaction")
             records_since_compaction_wait += len(batch[0])
             if records_since_compaction_wait >= min_records_between_compaction_waits:
+                print(
+                    f"records_since_compaction_wait = {records_since_compaction_wait}"
+                )
+                print(
+                    f"min_records_between_compaction_waits = {min_records_between_compaction_waits}"
+                )
+                print(
+                    f"waiting {records_since_compaction_wait} >= {min_records_between_compaction_waits}"
+                )
                 current_version1 = wait_for_version_increase(
                     client1, collection.name, current_version1
                 )
@@ -313,6 +327,12 @@ def test_add_large(
     for coll in (coll1, coll2):
         invariants.count(coll, cast(strategies.RecordSet, normalized_record_set))
         invariants.ids_match(coll, cast(strategies.RecordSet, normalized_record_set))
-        invariants.metadatas_match(coll, cast(strategies.RecordSet, normalized_record_set))
-        invariants.documents_match(coll, cast(strategies.RecordSet, normalized_record_set))
-        invariants.embeddings_match(coll, cast(strategies.RecordSet, normalized_record_set))
+        invariants.metadatas_match(
+            coll, cast(strategies.RecordSet, normalized_record_set)
+        )
+        invariants.documents_match(
+            coll, cast(strategies.RecordSet, normalized_record_set)
+        )
+        invariants.embeddings_match(
+            coll, cast(strategies.RecordSet, normalized_record_set)
+        )

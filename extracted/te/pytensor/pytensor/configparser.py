@@ -68,14 +68,13 @@ class PyTensorConfigParser:
     # add_basic_configvars
     floatX: str
     warn_float64: str
-    pickle_test_value: bool
     cast_policy: str
-    device: str
     print_global_stats: bool
     unpickle_function: bool
     # add_compile_configvars
     mode: str
     cxx: str
+    gcc_version_str: str
     linker: str
     allow_gc: bool
     optimizer: str
@@ -105,9 +104,6 @@ class PyTensorConfigParser:
     warn__ignore_bug_before: int
     exception_verbosity: str
     # add_testvalue_and_checking_configvars
-    print_test_value: bool
-    compute_test_value: str
-    compute_test_value_opt: str
     check_input: bool
     NanGuardMode__nan_is_error: bool
     NanGuardMode__inf_is_error: bool
@@ -149,9 +145,6 @@ class PyTensorConfigParser:
     profile_optimizer: bool
     profile_memory: bool
     vm__lazy: bool | None
-    # add_deprecated_configvars
-    unittests__rseed: str
-    warn__round: bool
     # add_scan_configvars
     scan__allow_gc: bool
     scan__allow_output_prealloc: bool
@@ -510,30 +503,6 @@ class BoolParam(TypedParam):
         raise ValueError(
             f"Invalid value ({value}) for configuration variable '{self.name}'."
         )
-
-
-class DeviceParam(ConfigParam):
-    def __init__(self, default, *options, **kwargs):
-        super().__init__(
-            default, apply=self._apply, mutable=kwargs.get("mutable", True)
-        )
-
-    def _apply(self, val):
-        if val.startswith("opencl") or val.startswith("cuda") or val.startswith("gpu"):
-            raise ValueError(
-                "You are trying to use the old GPU back-end. "
-                "It was removed from PyTensor."
-            )
-        elif val == self.default:
-            return val
-        raise ValueError(
-            f'Invalid value ("{val}") for configuration '
-            f'variable "{self.name}". Valid options start with '
-            'one of "cpu".'
-        )
-
-    def __str__(self):
-        return f"{self.name} ({self.default})"
 
 
 def parse_config_string(

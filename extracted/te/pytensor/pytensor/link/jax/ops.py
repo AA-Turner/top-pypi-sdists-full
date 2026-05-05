@@ -5,7 +5,7 @@ from functools import wraps
 
 import numpy as np
 
-from pytensor.compile.function import function
+from pytensor.compile.maker import function
 from pytensor.compile.mode import Mode
 from pytensor.gradient import DisconnectedType
 from pytensor.graph import Apply, Op, Variable
@@ -135,7 +135,7 @@ class JAXOp(Op):
             return outputs[0]
         return outputs
 
-    def grad(self, inputs, output_gradients):
+    def pullback(self, inputs, outputs, output_gradients):
         """Compute gradients using JAX's vector-Jacobian product (VJP)."""
         import jax
 

@@ -2947,6 +2947,9 @@ def test_pandera(pyi_builder):
 
 @importorskip('tkinterweb')
 def test_tkinterweb(pyi_builder):
+    if not _tkinter_fully_usable():
+        pytest.skip("tkinter is not fully usable.")
+
     # NOTE: run_from_path=True prevents `pyi_builder` from completely clearing the `PATH` environment variable. At the
     # time of writing, `tkinterweb_tkhtml` v1.1.2 raises error if `PATH` is missing from `os.environ`.
     pyi_builder.test_source("""
@@ -2967,6 +2970,9 @@ def test_tkinterweb(pyi_builder):
 
 @importorskip('tkinterweb_tkhtml')
 def test_tkinterweb_tkhtml(pyi_builder):
+    if not _tkinter_fully_usable():
+        pytest.skip("tkinter is not fully usable.")
+
     # See comment in `test_tkinterweb` as to why `run_from_path=True` is required.
     pyi_builder.test_source("""
         import tkinter
@@ -3314,4 +3320,31 @@ def test_imagingcontrol4(pyi_builder):
 
         # Will cause the library to load the dynamic libraries (and fail if they are not present)
         Library.init()
+""")
+
+
+@importorskip("tensorrt")
+def test_tensorrt(pyi_builder):
+    pyi_builder.test_source("""
+        import tensorrt as trt
+
+        # Force TensorRT to load its shared libraries (and fail if they are not present).
+        logger = trt.Logger(trt.Logger.WARNING)
+        trt.init_libnvinfer_plugins(logger, "")
+""")
+
+
+@importorskip("plum")
+def test_plum(pyi_builder):
+    pyi_builder.test_source("""
+        from datetime import timedelta
+        from plum import dispatch
+
+        class Serializer:
+            @dispatch
+            def serialize(self, value: timedelta) -> str:
+                return str(value)
+
+        s = Serializer()
+        assert s.serialize(timedelta(seconds=90)) == "0:01:30"
 """)

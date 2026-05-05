@@ -646,6 +646,7 @@ __all__ = (
     "SemanticOverrideExtractionConfigurationInputTypeDef",
     "ServerDefinitionTypeDef",
     "SessionConfigTypeDef",
+    "SessionConfigurationTypeDef",
     "SessionStorageConfigurationTypeDef",
     "SetTokenVaultCMKRequestTypeDef",
     "SetTokenVaultCMKResponseTypeDef",
@@ -663,6 +664,7 @@ __all__ = (
     "StreamDeliveryResourcesOutputTypeDef",
     "StreamDeliveryResourcesTypeDef",
     "StreamDeliveryResourcesUnionTypeDef",
+    "StreamingConfigurationTypeDef",
     "StringListValidationOutputTypeDef",
     "StringListValidationTypeDef",
     "StringListValidationUnionTypeDef",
@@ -1265,16 +1267,6 @@ FindingTypeDef = TypedDict(
 class InterceptorInputConfigurationTypeDef(TypedDict):
     passRequestHeaders: bool
 
-class MCPGatewayConfigurationOutputTypeDef(TypedDict):
-    supportedVersions: NotRequired[list[str]]
-    instructions: NotRequired[str]
-    searchType: NotRequired[Literal["SEMANTIC"]]
-
-class MCPGatewayConfigurationTypeDef(TypedDict):
-    supportedVersions: NotRequired[Sequence[str]]
-    instructions: NotRequired[str]
-    searchType: NotRequired[Literal["SEMANTIC"]]
-
 class GatewaySummaryTypeDef(TypedDict):
     gatewayId: str
     name: str
@@ -1695,6 +1687,12 @@ class ListWorkloadIdentitiesRequestTypeDef(TypedDict):
 class WorkloadIdentityTypeTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
+
+class SessionConfigurationTypeDef(TypedDict):
+    sessionTimeoutInSeconds: NotRequired[int]
+
+class StreamingConfigurationTypeDef(TypedDict):
+    enableResponseStreaming: NotRequired[bool]
 
 class ManagedVpcResourceOutputTypeDef(TypedDict):
     vpcIdentifier: str
@@ -2512,12 +2510,6 @@ FilterTypeDef = TypedDict(
     },
 )
 
-class GatewayProtocolConfigurationOutputTypeDef(TypedDict):
-    mcp: NotRequired[MCPGatewayConfigurationOutputTypeDef]
-
-class GatewayProtocolConfigurationTypeDef(TypedDict):
-    mcp: NotRequired[MCPGatewayConfigurationTypeDef]
-
 class ListGatewaysResponseTypeDef(TypedDict):
     items: list[GatewaySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2809,6 +2801,20 @@ class ListWorkloadIdentitiesResponseTypeDef(TypedDict):
     workloadIdentities: list[WorkloadIdentityTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class MCPGatewayConfigurationOutputTypeDef(TypedDict):
+    supportedVersions: NotRequired[list[str]]
+    instructions: NotRequired[str]
+    searchType: NotRequired[Literal["SEMANTIC"]]
+    sessionConfiguration: NotRequired[SessionConfigurationTypeDef]
+    streamingConfiguration: NotRequired[StreamingConfigurationTypeDef]
+
+class MCPGatewayConfigurationTypeDef(TypedDict):
+    supportedVersions: NotRequired[Sequence[str]]
+    instructions: NotRequired[str]
+    searchType: NotRequired[Literal["SEMANTIC"]]
+    sessionConfiguration: NotRequired[SessionConfigurationTypeDef]
+    streamingConfiguration: NotRequired[StreamingConfigurationTypeDef]
 
 ManagedVpcResourceUnionTypeDef = Union[ManagedVpcResourceTypeDef, ManagedVpcResourceOutputTypeDef]
 MatchPathsUnionTypeDef = Union[MatchPathsTypeDef, MatchPathsOutputTypeDef]
@@ -3104,10 +3110,6 @@ class RuleTypeDef(TypedDict):
     filters: NotRequired[Sequence[FilterTypeDef]]
     sessionConfig: NotRequired[SessionConfigTypeDef]
 
-GatewayProtocolConfigurationUnionTypeDef = Union[
-    GatewayProtocolConfigurationTypeDef, GatewayProtocolConfigurationOutputTypeDef
-]
-
 class ListPolicyGenerationsResponseTypeDef(TypedDict):
     policyGenerations: list[PolicyGenerationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3139,6 +3141,12 @@ class GatewayInterceptorConfigurationTypeDef(TypedDict):
     interceptor: InterceptorConfigurationTypeDef
     interceptionPoints: Sequence[GatewayInterceptionPointType]
     inputConfiguration: NotRequired[InterceptorInputConfigurationTypeDef]
+
+class GatewayProtocolConfigurationOutputTypeDef(TypedDict):
+    mcp: NotRequired[MCPGatewayConfigurationOutputTypeDef]
+
+class GatewayProtocolConfigurationTypeDef(TypedDict):
+    mcp: NotRequired[MCPGatewayConfigurationTypeDef]
 
 class PrivateEndpointTypeDef(TypedDict):
     selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
@@ -3479,6 +3487,9 @@ class ConditionOutputTypeDef(TypedDict):
 MatchPrincipalsUnionTypeDef = Union[MatchPrincipalsTypeDef, MatchPrincipalsOutputTypeDef]
 GatewayInterceptorConfigurationUnionTypeDef = Union[
     GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
+]
+GatewayProtocolConfigurationUnionTypeDef = Union[
+    GatewayProtocolConfigurationTypeDef, GatewayProtocolConfigurationOutputTypeDef
 ]
 PrivateEndpointUnionTypeDef = Union[PrivateEndpointTypeDef, PrivateEndpointOutputTypeDef]
 

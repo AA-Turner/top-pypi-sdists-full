@@ -519,7 +519,7 @@ class Tomography(Experiment):
 
         return patterns
  
-    def generate_patterns(self, N,angles = None):
+    def _generate_patterns(self, N,angles = None):
         
         self.DelayLaw = []
         self.theta = []

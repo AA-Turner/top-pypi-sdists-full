@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = 'selectolax'
-version = '0.4.7'
+version = '0.4.8'
 description = 'A fast HTML5 parser with CSS selectors, written in Cython, using Modest and Lexbor engines.'
 readme = 'README.md'
 requires-python = '>=3.9,<3.15'
@@ -86,3 +86,6 @@ cython = [
 [tool.cython-lint]
 max-line-length = 120
 ignore = ['E221', 'E222', ]
+
+[tool.setuptools.packages.find]
+include = ["selectolax*"]

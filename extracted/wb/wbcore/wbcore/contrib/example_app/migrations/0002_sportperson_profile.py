@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("directory", "0007_alter_bankingcontact_options"),
+        ("directory", "0001_squashed_20260501"),
         ("example_app", "0001_initial"),
     ]
 

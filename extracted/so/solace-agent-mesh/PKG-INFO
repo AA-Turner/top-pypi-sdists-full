@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: solace-agent-mesh
-Version: 1.23.0
+Version: 1.23.2
 Summary: Solace Agent Mesh is an open-source framework for building event-driven, multi-agent AI systems where specialized agents collaborate on complex tasks.
 Project-URL: Homepage, https://github.com/SolaceLabs/solace-agent-mesh
 Project-URL: Repository, https://github.com/SolaceLabs/solace-agent-mesh

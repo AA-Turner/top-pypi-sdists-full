@@ -46,6 +46,7 @@ def _source_files(src_dir):
         "errors.py",
         "generator.py",
         "helper.py",
+        "lineage.py",
         "parser.py",
         "schema.py",
         "serde.py",
@@ -67,6 +68,7 @@ def _source_files(src_dir):
                 "qualify_columns.py",
                 "simplify.py",
                 "annotate_types.py",
+                "canonicalize_internal_names.py",
             ],
         ),
         *_subpkg_files(src_dir, "parsers"),
@@ -129,6 +131,8 @@ class sdist(_sdist):
 setup(
     name="sqlglotc",
     packages=[],
-    ext_modules=mypycify(_source_paths(), opt_level=os.environ.get("MYPYC_OPT", "2")),
+    ext_modules=mypycify(
+        _source_paths(), opt_level=os.environ.get("MYPYC_OPT", "2"), separate=True, verbose=True
+    ),
     cmdclass={"build_ext": build_ext, "sdist": sdist},
 )

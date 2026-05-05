@@ -6,26 +6,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("directory", "0002_auto_20230414_1553"),
-        ("directory", "0003_remove_entry_last_event"),
-        ("directory", "0004_entry_is_draft_entry"),
-        ("directory", "0005_entry_salutation"),
-        ("directory", "0006_employeremployeerelationship_position_name"),
-        ("directory", "0007_alter_bankingcontact_options"),
-        ("directory", "0008_bankingcontact_access"),
-        ("directory", "0009_remove_entry_external_identfier_and_more"),
-        ("directory", "0010_remove_addresscontact_city"),
-        ("directory", "0011_person_description_person_i18n"),
-        ("directory", "0012_alter_person_managers"),
-        ("directory", "0013_alter_clientmanagerrelationship_options"),
-        ("directory", "0014_alter_entry_relationship_managers_and_more"),
-        ("directory", "0015_alter_emailcontact_address_and_more"),
-    ]
-
     dependencies = [
         ("agenda", "0001_squashed_20260501"),
-        ("directory", "0001_initial"),
+        ("directory", "0001_squashed_20260501"),
     ]
 
     operations = [

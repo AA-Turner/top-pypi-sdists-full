@@ -41,7 +41,7 @@ dependencies = [
   "rich>=13.0",
   "cryptography<=46.0.4",
 ]
-version = "1.0.8"
+version = "1.0.9"
 
 [tool.poetry]
 packages = [

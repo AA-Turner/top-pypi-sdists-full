@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -102,10 +102,13 @@ cdef class BaseThinConnImpl(BaseConnImpl):
         uint8_t pipeline_mode
         uint8_t _session_state_desired
         _SessionlessData _sessionless_data
+        ConnectParamsImpl _connect_params
+        EndUserSecurityContextImpl security_context
 
     def __init__(self, str dsn, ConnectParamsImpl params):
         _check_cryptography()
         BaseConnImpl.__init__(self, dsn, params)
+        self._connect_params = params
         self.thin = True
 
     cdef int _check_tpc_commit_state(self, uint32_t state,
@@ -128,6 +131,20 @@ cdef class BaseThinConnImpl(BaseConnImpl):
             cache_num = self._dbobject_type_cache_num
             self._dbobject_type_cache_num = 0
             remove_dbobject_type_cache(cache_num)
+
+    cdef int _close_socket(self) except -1:
+        """
+        Forces the socket closed for the connection. This is only used when a
+        subscription is destroyed and the connection established for that
+        subscription must be closed. Since the subscription is always waiting
+        for more messages and the server never informs the client that no
+        further messages will be coming, this approach must be used.
+        """
+        cdef object sock
+        if self._protocol._transport is not None:
+            sock = self._protocol._transport._transport
+            if sock is not None:
+                sock.shutdown(socket.SHUT_RDWR)
 
     cdef BaseThinLobImpl _create_lob_impl(self, DbType dbtype,
                                           bytes locator=None):
@@ -503,6 +520,7 @@ cdef class ThinConnImpl(BaseThinConnImpl):
         Internal method for closing the connection to the database.
         """
         cdef Protocol protocol = <Protocol> self._protocol
+        self.security_context = None
         try:
             protocol.close(self, in_del)
         except (ssl.SSLError, exceptions.DatabaseError):
@@ -528,8 +546,40 @@ cdef class ThinConnImpl(BaseThinConnImpl):
         # mode without the use of asyncio (will be removed in a future release)
         self._allow_bind_str_to_lob = True
 
+    def clear_end_user_security_context(self):
+        """
+        Internal method for clearing the EndUserSecurityContext on the
+        connection object.
+        """
+        self.security_context = None
+
     def create_queue_impl(self):
         return ThinQueueImpl.__new__(ThinQueueImpl)
+
+    def create_subscr_impl(self, object conn, object callback,
+                           uint32_t namespace, str name, uint32_t protocol,
+                           str ip_address, uint32_t port, uint32_t timeout,
+                           uint32_t operations, uint32_t qos,
+                           uint8_t grouping_class, uint32_t grouping_value,
+                           uint8_t grouping_type, bint client_initiated):
+        cdef ThinSubscrImpl impl = ThinSubscrImpl.__new__(ThinSubscrImpl)
+        impl.connection = conn
+        impl.callback = callback
+        impl.namespace = namespace
+        impl.name = name
+        impl.protocol = protocol
+        impl.ip_address = ip_address
+        impl.port = port
+        impl.timeout = timeout
+        impl.operations = operations
+        impl.qos = qos
+        impl.grouping_class = grouping_class
+        impl.grouping_value = grouping_value
+        impl.grouping_type = grouping_type
+        if not client_initiated:
+            errors._raise_not_supported("server initiated subscription")
+        impl.client_initiated = client_initiated
+        return impl
 
     def create_temp_lob_impl(self, DbType dbtype):
         cdef ThinLobImpl lob_impl = self._create_lob_impl(dbtype)
@@ -615,6 +665,23 @@ cdef class ThinConnImpl(BaseThinConnImpl):
     def set_call_timeout(self, uint32_t value):
         self._protocol._transport.set_timeout(value / 1000)
         self._call_timeout = value
+
+    def set_end_user_security_context(self, context):
+        """
+        Internal method that sets the EndUserSecurityContext on
+        the connection object which helps in determining whether
+        the security context should be sent as a piggyback.
+        """
+        if self._protocol._transport is not None \
+                and self._protocol._transport._ssl_context is None:
+            errors._raise_err(
+                errors.ERR_END_USER_SECURITY_CONTEXT_REQUIRES_TCPS
+            )
+        if not self._protocol._caps.supports_end_user_security_context:
+            errors._raise_err(
+                errors.ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE
+            )
+        self.security_context = context
 
     def suspend_sessionless_transaction(self):
         cdef:

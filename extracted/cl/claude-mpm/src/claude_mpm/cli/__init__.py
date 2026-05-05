@@ -125,6 +125,23 @@ def main(argv: list | None = None):
             logger.info("Runtime: sdk")
         elif use_cli:
             logger.info("Runtime: cli")
+        else:
+            # Auto-detection notice: log when SDK is available but not explicitly
+            # enabled, so users know they can opt in. We deliberately do NOT
+            # auto-switch to SDK (backward compat — see bug #486 / cli/__init__.py
+            # comment block below): exec mode remains the default. This single
+            # informational log lets users discover the --sdk flag without
+            # surprising them with a runtime change.
+            try:
+                from ..services.agents.runtime_config import get_runtime_type
+
+                if get_runtime_type() == "sdk":
+                    logger.debug(
+                        "Runtime: cli (default); SDK available — opt in with --sdk"
+                    )
+            except Exception:
+                # Never let runtime detection failures block startup.
+                pass
 
     # Check for --inject-port flag to start injection endpoint
     # (outside background services block — always start if requested)
@@ -198,18 +215,15 @@ def main(argv: list | None = None):
         # Check if running in headless mode
         is_headless = getattr(args, "headless", False)
 
-        # Detect if SDK mode will be used (explicit --sdk flag OR auto-detect)
-        _will_use_sdk = False
-        if os.environ.get("CLAUDE_MPM_RUNTIME") == "sdk":
-            _will_use_sdk = True
-        elif os.environ.get("CLAUDE_MPM_RUNTIME") != "cli":
-            # Auto-detect: SDK if claude_agent_sdk is importable
-            try:
-                import claude_agent_sdk as _  # type: ignore[import-untyped]
-
-                _will_use_sdk = True
-            except ImportError:
-                _will_use_sdk = False
+        # Detect if SDK mode will be used.
+        # WHY: SDK mode must be opt-in via the explicit --sdk flag (which sets
+        # CLAUDE_MPM_RUNTIME=sdk above). Previously this block auto-detected SDK
+        # availability and set _will_use_sdk=True for ALL invocations whenever
+        # claude_agent_sdk happened to be importable. That caused the SDK banner
+        # to print and the SDK code path to run even for plain `claude-mpm`
+        # interactive sessions and oneshot --prompt invocations, which then
+        # never reached run_sdk_oneshot() and exited with code 1. See bug #486.
+        _will_use_sdk = os.environ.get("CLAUDE_MPM_RUNTIME") == "sdk"
 
         if _will_use_sdk:
             print("SDK Mode -- persistent session active")

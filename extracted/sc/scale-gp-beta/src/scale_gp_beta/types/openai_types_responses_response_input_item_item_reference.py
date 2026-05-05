@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseInputItemItemReference"]
 
 
 class OpenAITypesResponsesResponseInputItemItemReference(BaseModel):
+    """An internal identifier for an item to reference."""
+
     id: str
 
     type: Optional[Literal["item_reference"]] = None

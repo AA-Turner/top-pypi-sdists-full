@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseInputItemMcpApprovalResponse"]
 
 
 class OpenAITypesResponsesResponseInputItemMcpApprovalResponse(BaseModel):
+    """A response to an MCP approval request."""
+
     approval_request_id: str
 
     approve: bool

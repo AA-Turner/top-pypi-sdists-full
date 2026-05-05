@@ -2,9 +2,9 @@ import typing
 import warnings
 from types import EllipsisType
 
-from pytensor.compile import (
+from pytensor.compile import SharedVariable
+from pytensor.compile.ops import (
     DeepCopyOp,
-    SharedVariable,
     ViewOp,
     register_deep_copy_op_c_code,
     register_view_op_c_code,
@@ -32,7 +32,8 @@ from typing import Any, Literal, TypeVar
 import numpy as np
 
 import pytensor.xtensor as px
-from pytensor import _as_symbolic, config
+from pytensor import config
+from pytensor.basic import _as_symbolic
 from pytensor.compile.sharedvalue import shared_constructor
 from pytensor.graph import Apply, Constant
 from pytensor.graph.basic import OptionalApplyType, Variable
@@ -696,8 +697,6 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
 
         Parameters
         ----------
-        x : XTensorVariable
-            The input tensor
         dim : str or None or iterable of str, optional
             The name(s) of the dimension(s) to remove. If None, all dimensions of size 1
             (known statically) will be removed. Dimensions with unknown static shape will be retained, even if they have size 1 at runtime.
@@ -757,6 +756,32 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
             axis=axis,
             **dim_kwargs,
         )
+
+    # Missing value handling
+    # https://docs.xarray.dev/en/stable/api/dataarray.html#missing-value-handling
+    def where(self, cond, other=None, drop: bool = False):
+        """Filter elements from this object according to a condition.
+
+        Parameters
+        ----------
+        cond : Variable
+            Locations at which to preserve this object's values.
+        other: Variable, optional
+            Value to use for locations in this object where cond is False.
+            By default, these locations are filled with nan (which may cause upcasting).
+        drop: bool
+            Ignored by PyTensor
+
+        Returns
+        -------
+        XTensorVariable
+            A tensor with additional dimensions inserted at the front.
+        """
+        if other is None:
+            other = np.nan
+        res = px.math.where(cond, self, other)
+        # xarray puts self dims first
+        return res.transpose(*self.dims, ...)
 
     # ndarray methods
     # https://docs.xarray.dev/en/latest/api.html#id7

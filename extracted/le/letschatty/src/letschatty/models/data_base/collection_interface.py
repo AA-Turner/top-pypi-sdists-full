@@ -88,7 +88,7 @@ class ChattyAssetCollectionInterface(Generic[T, P], ABC):
             query["deleted_at"] = None
         if company_id:
             query["company_id"] = company_id
-        docs = await self.collection.find(filter=query, projection=projection).to_list(None)
+        docs = await self.collection.find(filter=query, projection=projection).sort("created_at", -1).to_list(None)
         logger.debug(f"Found {len(docs)} preview documents in collection {self.collection.name}")
         previews: List[P] = []
         skipped = 0

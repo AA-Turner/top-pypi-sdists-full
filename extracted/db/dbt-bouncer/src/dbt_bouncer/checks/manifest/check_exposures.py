@@ -1,11 +1,22 @@
-from dbt_bouncer.check_decorator import check, fail
+from typing import Annotated
+
+from pydantic import Field
+
+from dbt_bouncer.check_framework.decorator import check, fail
 
 
 @check
 def check_exposure_based_on_model(
-    exposure, *, maximum_number_of_models: int = 100, minimum_number_of_models: int = 1
+    exposure,
+    *,
+    maximum_number_of_models: Annotated[int, Field(gt=0)] = 100,
+    minimum_number_of_models: Annotated[int, Field(gt=0)] = 1,
 ):
     """Exposures should depend on a model.
+
+    !!! info "Rationale"
+
+        Exposures document downstream consumers of dbt models — dashboards, ML models, and APIs. If an exposure references no models (or too many), it signals that the lineage metadata is incomplete or incorrect. Enforcing a model count range ensures each exposure is meaningfully connected to the data layer it represents, keeping documentation trustworthy.
 
     Parameters:
         maximum_number_of_models (int | None): The maximum number of models an exposure can depend on, defaults to 100.
@@ -56,6 +67,10 @@ def check_exposure_based_on_view(
     materializations_to_include: list[str] = ["ephemeral", "view"],  # noqa: B006
 ):
     """Exposures should not be based on views.
+
+    !!! info "Rationale"
+
+        Views and ephemeral models recompute their SQL every time they are queried. When a BI tool or downstream application queries an exposure built on a view, it triggers a full recomputation on every refresh, which can be slow and expensive at scale. Exposures should sit on top of materialised tables to ensure consistent, performant query times for end users.
 
     Parameters:
         materializations_to_include (list[str] | None): List of materializations to include in the check.
@@ -110,7 +125,28 @@ def check_exposure_based_on_view(
 
 @check
 def check_exposure_based_on_non_public_models(exposure, ctx):
-    """Exposures should be based on public models only."""
+    """Exposures should be based on public models only.
+
+    !!! info "Rationale"
+
+        Public access in dbt signals that a model is stable, well-tested, and safe to depend on externally. Exposures that reference protected or private models create implicit dependencies on implementation details that may change without warning, increasing the risk of broken dashboards or pipelines when internal models are refactored.
+
+    Receives:
+        exposure (ExposureNode): The ExposureNode object to check.
+
+    Other Parameters:
+        description (str | None): Description of what the check does and why it is implemented.
+        exclude (str | None): Regex pattern to match the exposure path (i.e the .yml file where the exposure is configured). Exposure paths that match the pattern will not be checked.
+        include (str | None): Regex pattern to match the exposure path (i.e the .yml file where the exposure is configured). Only exposure paths that match the pattern will be checked.
+        severity (Literal["error", "warn"] | None): Severity level of the check. Default: `error`.
+
+    Example(s):
+        ```yaml
+        manifest_checks:
+            - name: check_exposure_based_on_non_public_models
+        ```
+
+    """
     models_by_id = (
         ctx.models_by_unique_id
         if ctx.models_by_unique_id

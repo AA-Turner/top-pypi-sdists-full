@@ -16,6 +16,12 @@ Content: TypeAlias = Union[OpenAIResponseInputText, OpenAIResponseInputImage, Op
 
 
 class OpenAITypesResponsesResponseInputItemMessage(BaseModel):
+    """
+    A message input to the model with a role indicating instruction following
+    hierarchy. Instructions given with the `developer` or `system` role take
+    precedence over instructions given with the `user` role.
+    """
+
     content: List[Content]
 
     role: Literal["user", "system", "developer"]

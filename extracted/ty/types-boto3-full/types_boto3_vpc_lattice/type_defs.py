@@ -29,6 +29,7 @@ from .literals import (
     LambdaEventStructureVersionType,
     ListenerProtocolType,
     PrivateDnsPreferenceType,
+    ResourceConfigDnsResolutionType,
     ResourceConfigurationIpAddressTypeType,
     ResourceConfigurationStatusType,
     ResourceConfigurationTypeType,
@@ -308,6 +309,7 @@ class CreateResourceGatewayRequestTypeDef(TypedDict):
     securityGroupIds: NotRequired[Sequence[str]]
     ipAddressType: NotRequired[ResourceGatewayIpAddressTypeType]
     ipv4AddressesPerEni: NotRequired[int]
+    resourceConfigDnsResolution: NotRequired[ResourceConfigDnsResolutionType]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -634,6 +636,7 @@ ResourceGatewaySummaryTypeDef = TypedDict(
         "securityGroupIds": NotRequired[list[str]],
         "ipAddressType": NotRequired[ResourceGatewayIpAddressTypeType],
         "ipv4AddressesPerEni": NotRequired[int],
+        "resourceConfigDnsResolution": NotRequired[ResourceConfigDnsResolutionType],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
     },
@@ -849,6 +852,7 @@ CreateResourceGatewayResponseTypeDef = TypedDict(
         "securityGroupIds": list[str],
         "ipAddressType": ResourceGatewayIpAddressTypeType,
         "ipv4AddressesPerEni": int,
+        "resourceConfigDnsResolution": ResourceConfigDnsResolutionType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -963,9 +967,12 @@ GetResourceGatewayResponseTypeDef = TypedDict(
         "status": ResourceGatewayStatusType,
         "vpcId": str,
         "subnetIds": list[str],
+        "serviceManaged": bool,
+        "managedBy": str,
         "securityGroupIds": list[str],
         "ipAddressType": ResourceGatewayIpAddressTypeType,
         "ipv4AddressesPerEni": int,
+        "resourceConfigDnsResolution": ResourceConfigDnsResolutionType,
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,

@@ -8,7 +8,7 @@ from numpy.lib.array_utils import normalize_axis_tuple
 
 import pytensor.tensor.basic
 from pytensor.configdefaults import config
-from pytensor.gradient import DisconnectedType
+from pytensor.gradient import DisconnectedType, disconnected_type
 from pytensor.graph.basic import Apply
 from pytensor.graph.null_type import NullType
 from pytensor.graph.replace import _vectorize_node, _vectorize_not_needed
@@ -132,7 +132,7 @@ class DimShuffle(ExternalCOp):
             raise TypeError(f"input_ndim must be an integer, got {type(int)}")
 
         self.input_ndim = input_ndim
-        self.new_order = tuple(new_order)
+        self.new_order = new_order = tuple(new_order)
         self._new_order = [(-1 if x == "x" else x) for x in self.new_order]
 
         for i, j in enumerate(new_order):
@@ -153,28 +153,38 @@ class DimShuffle(ExternalCOp):
                         f"twice in the list of output dimensions: {new_order}"
                     )
 
-        # List of input dimensions to drop
-        drop = [i for i in range(input_ndim) if i not in new_order]
-
-        # This is the list of the original dimensions that we keep
-        self.shuffle = [x for x in new_order if x != "x"]
-        self.transposition = self.shuffle + drop
-        # List of dimensions of the output that are broadcastable and were not
-        # in the original input
-        self.augment = augment = sorted(i for i, x in enumerate(new_order) if x == "x")
-        self.drop = drop
-
-        dims_are_shuffled = sorted(self.shuffle) != self.shuffle
-
-        self.is_transpose = dims_are_shuffled and not augment and not drop
-        self.is_squeeze = drop and not dims_are_shuffled and not augment
-        self.is_expand_dims = augment and not dims_are_shuffled and not drop
-        self.is_left_expand_dims = self.is_expand_dims and (
-            input_ndim == 0 or new_order[-input_ndim:] == list(range(input_ndim))
+        # Tuple of the original dimensions that we keep
+        self.shuffle = tuple(x for x in new_order if x != "x")
+        # Tuple of input dimensions to drop
+        self.drop = drop = tuple(i for i in range(input_ndim) if i not in new_order)
+        # tuple of dimensions of the output that are broadcastable and were not in the original input
+        self.augment = augment = tuple(
+            sorted(i for i, x in enumerate(new_order) if x == "x")
         )
-        self.is_right_expand_dims = self.is_expand_dims and new_order[
-            :input_ndim
-        ] == list(range(input_ndim))
+        n_augment = len(self.augment)
+
+        # Used by perform
+        self._transposition = self.shuffle + drop
+
+        # Classify the type of dimshuffle for rewrite purposes
+        dims_are_shuffled = tuple(sorted(self.shuffle)) != self.shuffle
+        self.is_squeeze = drop and not augment and not dims_are_shuffled
+        self.is_expand_dims = is_expand_dims = (
+            not drop and augment and not dims_are_shuffled
+        )
+        self.is_left_expand_dims = is_expand_dims and new_order[n_augment:] == tuple(
+            range(input_ndim)
+        )
+        self.is_right_expand_dims = is_expand_dims and new_order[:input_ndim] == tuple(
+            range(input_ndim)
+        )
+        self.is_transpose = not drop and not augment and dims_are_shuffled
+        self.is_left_expanded_matrix_transpose = is_left_expanded_matrix_transpose = (
+            dims_are_shuffled
+            and new_order[n_augment:]
+            == (*range(input_ndim - 2), input_ndim - 1, input_ndim - 2)
+        )
+        self.is_matrix_transpose = not augment and is_left_expanded_matrix_transpose
 
     def __setstate__(self, state):
         self.__dict__.update(state)
@@ -212,6 +222,8 @@ class DimShuffle(ExternalCOp):
         return Apply(self, [input], [output])
 
     def __str__(self):
+        if self.is_matrix_transpose:
+            return "MatrixTranspose"
         if self.is_expand_dims:
             if len(self.augment) == 1:
                 return f"ExpandDims{{axis={self.augment[0]}}}"
@@ -237,7 +249,7 @@ class DimShuffle(ExternalCOp):
         # )
 
         # Put dropped axis at end
-        res = res.transpose(self.transposition)
+        res = res.transpose(self._transposition)
 
         # Define new shape without dropped axis and including new ones
         new_shape = list(res.shape[: len(self.shuffle)])
@@ -255,12 +267,12 @@ class DimShuffle(ExternalCOp):
             rval.insert(augm, 1)
         return [rval]
 
-    def R_op(self, inputs, eval_points):
-        if None in eval_points:
-            return [None]
-        return self(*eval_points, return_list=True)
+    def pushforward(self, inputs, outputs, tangents):
+        if any(isinstance(t.type, DisconnectedType) for t in tangents):
+            return [disconnected_type()]
+        return self(*tangents, return_list=True)
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         (x,) = inp
         (gz,) = grads
         grad_order = ["x"] * x.type.ndim
@@ -330,6 +342,8 @@ class Elemwise(OpenMPOp):
     """
 
     __props__ = ("scalar_op", "inplace_pattern")
+    # Allow pattern matching on scalar_op positionally
+    __match_args__ = ("scalar_op",)
 
     def __init__(
         self, scalar_op, inplace_pattern=None, name=None, nfunc_spec=None, openmp=None
@@ -467,9 +481,9 @@ class Elemwise(OpenMPOp):
             return self.name
         return str(self.scalar_op).capitalize()
 
-    def R_op(self, inputs, eval_points):
+    def pushforward(self, inputs, outputs, tangents):
         outs = self(*inputs, return_list=True)
-        rval = [None for x in outs]
+        rval = [disconnected_type() for x in outs]
         # For each output
         for idx, out in enumerate(outs):
             # make such that _bgrads computes only the gradients of the
@@ -480,9 +494,7 @@ class Elemwise(OpenMPOp):
             bgrads = self._bgrad(inputs, outs, ograds)
             rop_out = None
 
-            for jdx, (inp, eval_point) in enumerate(
-                zip(inputs, eval_points, strict=True)
-            ):
+            for jdx, (inp, eval_point) in enumerate(zip(inputs, tangents, strict=True)):
                 # if None, then we can just ignore this branch ..
                 # what we do is to assume that for any non-differentiable
                 # branch, the gradient is actually 0, which I think is not
@@ -493,13 +505,13 @@ class Elemwise(OpenMPOp):
                     bgrads[jdx].type, DisconnectedType
                 ):
                     pass
-                elif eval_point is not None:
+                elif not isinstance(eval_point.type, DisconnectedType):
                     if rop_out is None:
                         rop_out = bgrads[jdx] * eval_point
                     else:
                         rop_out = rop_out + bgrads[jdx] * eval_point
 
-            rval[idx] = rop_out
+            rval[idx] = disconnected_type() if rop_out is None else rop_out
 
         return rval
 
@@ -509,7 +521,7 @@ class Elemwise(OpenMPOp):
 
         return [[True for output in node.outputs] for ipt in node.inputs]
 
-    def L_op(self, inputs, outs, ograds):
+    def pullback(self, inputs, outs, ograds):
         from pytensor.tensor.math import sum as pt_sum
 
         # Compute grad with respect to broadcasted input
@@ -538,23 +550,21 @@ class Elemwise(OpenMPOp):
     def _bgrad(self, inputs, outputs, ograds):
         # returns grad, with respect to broadcasted versions of inputs
 
-        with config.change_flags(compute_test_value="off"):
+        def as_scalar(t):
+            if isinstance(t.type, NullType | DisconnectedType):
+                return t
+            return get_scalar_type(t.type.dtype)()
 
-            def as_scalar(t):
-                if isinstance(t.type, NullType | DisconnectedType):
-                    return t
-                return get_scalar_type(t.type.dtype)()
-
-            scalar_inputs = list(map(as_scalar, inputs))
-            scalar_ograds = list(map(as_scalar, ograds))
-            scalar_outputs = self.scalar_op.make_node(
-                *[get_scalar_type(dtype=i.type.dtype).make_variable() for i in inputs]
-            ).outputs
-            scalar_igrads = self.scalar_op.L_op(
-                scalar_inputs, scalar_outputs, scalar_ograds
-            )
-            for igrad in scalar_igrads:
-                assert igrad is not None, self.scalar_op
+        scalar_inputs = list(map(as_scalar, inputs))
+        scalar_ograds = list(map(as_scalar, ograds))
+        scalar_outputs = self.scalar_op.make_node(
+            *[get_scalar_type(dtype=i.type.dtype).make_variable() for i in inputs]
+        ).outputs
+        scalar_igrads = self.scalar_op.pullback(
+            scalar_inputs, scalar_outputs, scalar_ograds
+        )
+        for igrad in scalar_igrads:
+            assert igrad is not None, self.scalar_op
 
         if not isinstance(scalar_igrads, list | tuple):
             raise TypeError(

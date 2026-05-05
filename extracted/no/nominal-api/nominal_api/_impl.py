@@ -259,6 +259,9 @@ class api_IngestStatusV2(ConjureUnionType):
     _in_progress: Optional["api_InProgressResult"] = None
     _deletion_in_progress: Optional["api_DeletionInProgress"] = None
     _deleted: Optional["api_Deleted"] = None
+    _queued: Optional["api_Queued"] = None
+    _parsing: Optional["api_Parsing"] = None
+    _ingesting: Optional["api_Ingesting"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -267,7 +270,10 @@ class api_IngestStatusV2(ConjureUnionType):
             'error': ConjureFieldDefinition('error', api_ErrorResult),
             'in_progress': ConjureFieldDefinition('inProgress', api_InProgressResult),
             'deletion_in_progress': ConjureFieldDefinition('deletionInProgress', api_DeletionInProgress),
-            'deleted': ConjureFieldDefinition('deleted', api_Deleted)
+            'deleted': ConjureFieldDefinition('deleted', api_Deleted),
+            'queued': ConjureFieldDefinition('queued', api_Queued),
+            'parsing': ConjureFieldDefinition('parsing', api_Parsing),
+            'ingesting': ConjureFieldDefinition('ingesting', api_Ingesting)
         }
 
     def __init__(
@@ -277,10 +283,13 @@ class api_IngestStatusV2(ConjureUnionType):
             in_progress: Optional["api_InProgressResult"] = None,
             deletion_in_progress: Optional["api_DeletionInProgress"] = None,
             deleted: Optional["api_Deleted"] = None,
+            queued: Optional["api_Queued"] = None,
+            parsing: Optional["api_Parsing"] = None,
+            ingesting: Optional["api_Ingesting"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (success is not None) + (error is not None) + (in_progress is not None) + (deletion_in_progress is not None) + (deleted is not None) != 1:
+            if (success is not None) + (error is not None) + (in_progress is not None) + (deletion_in_progress is not None) + (deleted is not None) + (queued is not None) + (parsing is not None) + (ingesting is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if success is not None:
@@ -298,6 +307,15 @@ class api_IngestStatusV2(ConjureUnionType):
             if deleted is not None:
                 self._deleted = deleted
                 self._type = 'deleted'
+            if queued is not None:
+                self._queued = queued
+                self._type = 'queued'
+            if parsing is not None:
+                self._parsing = parsing
+                self._type = 'parsing'
+            if ingesting is not None:
+                self._ingesting = ingesting
+                self._type = 'ingesting'
 
         elif type_of_union == 'success':
             if success is None:
@@ -324,6 +342,21 @@ class api_IngestStatusV2(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._deleted = deleted
             self._type = 'deleted'
+        elif type_of_union == 'queued':
+            if queued is None:
+                raise ValueError('a union value must not be None')
+            self._queued = queued
+            self._type = 'queued'
+        elif type_of_union == 'parsing':
+            if parsing is None:
+                raise ValueError('a union value must not be None')
+            self._parsing = parsing
+            self._type = 'parsing'
+        elif type_of_union == 'ingesting':
+            if ingesting is None:
+                raise ValueError('a union value must not be None')
+            self._ingesting = ingesting
+            self._type = 'ingesting'
 
     @builtins.property
     def success(self) -> Optional["api_SuccessResult"]:
@@ -345,6 +378,18 @@ class api_IngestStatusV2(ConjureUnionType):
     def deleted(self) -> Optional["api_Deleted"]:
         return self._deleted
 
+    @builtins.property
+    def queued(self) -> Optional["api_Queued"]:
+        return self._queued
+
+    @builtins.property
+    def parsing(self) -> Optional["api_Parsing"]:
+        return self._parsing
+
+    @builtins.property
+    def ingesting(self) -> Optional["api_Ingesting"]:
+        return self._ingesting
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, api_IngestStatusV2Visitor):
             raise ValueError('{} is not an instance of api_IngestStatusV2Visitor'.format(visitor.__class__.__name__))
@@ -358,6 +403,12 @@ class api_IngestStatusV2(ConjureUnionType):
             return visitor._deletion_in_progress(self.deletion_in_progress)
         if self._type == 'deleted' and self.deleted is not None:
             return visitor._deleted(self.deleted)
+        if self._type == 'queued' and self.queued is not None:
+            return visitor._queued(self.queued)
+        if self._type == 'parsing' and self.parsing is not None:
+            return visitor._parsing(self.parsing)
+        if self._type == 'ingesting' and self.ingesting is not None:
+            return visitor._ingesting(self.ingesting)
 
 
 api_IngestStatusV2.__name__ = "IngestStatusV2"
@@ -387,10 +438,38 @@ class api_IngestStatusV2Visitor:
     def _deleted(self, deleted: "api_Deleted") -> Any:
         pass
 
+    @abstractmethod
+    def _queued(self, queued: "api_Queued") -> Any:
+        pass
+
+    @abstractmethod
+    def _parsing(self, parsing: "api_Parsing") -> Any:
+        pass
+
+    @abstractmethod
+    def _ingesting(self, ingesting: "api_Ingesting") -> Any:
+        pass
+
 
 api_IngestStatusV2Visitor.__name__ = "IngestStatusV2Visitor"
 api_IngestStatusV2Visitor.__qualname__ = "IngestStatusV2Visitor"
 api_IngestStatusV2Visitor.__module__ = "nominal_api.api"
+
+
+class api_Ingesting(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+api_Ingesting.__name__ = "Ingesting"
+api_Ingesting.__qualname__ = "Ingesting"
+api_Ingesting.__module__ = "nominal_api.api"
 
 
 class api_McapChannelLocator(ConjureUnionType):
@@ -473,6 +552,22 @@ api_McapChannelLocatorVisitor.__qualname__ = "McapChannelLocatorVisitor"
 api_McapChannelLocatorVisitor.__module__ = "nominal_api.api"
 
 
+class api_Parsing(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+api_Parsing.__name__ = "Parsing"
+api_Parsing.__qualname__ = "Parsing"
+api_Parsing.__module__ = "nominal_api.api"
+
+
 class api_Property(ConjureBeanType):
 
     @builtins.classmethod
@@ -500,6 +595,22 @@ class api_Property(ConjureBeanType):
 api_Property.__name__ = "Property"
 api_Property.__qualname__ = "Property"
 api_Property.__module__ = "nominal_api.api"
+
+
+class api_Queued(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+api_Queued.__name__ = "Queued"
+api_Queued.__qualname__ = "Queued"
+api_Queued.__module__ = "nominal_api.api"
 
 
 class api_Range(ConjureBeanType):
@@ -20758,6 +20869,8 @@ use polling mode instead of expecting append updates.
     '''CURVE_FITTING'''
     SIGNAL_FILTER = 'SIGNAL_FILTER'
     '''SIGNAL_FILTER'''
+    SCALAR_UDF = 'SCALAR_UDF'
+    '''SCALAR_UDF'''
     ARRAY = 'ARRAY'
     '''ARRAY'''
     STRUCT = 'STRUCT'
@@ -34773,7 +34886,7 @@ class scout_chartdefinition_api_FrequencyPlotTypeBode(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration]),
+            'alignment_configuration': ConjureFieldDefinition('alignmentConfiguration', OptionalTypeWrapper[scout_compute_api_AlignmentConfiguration]),
             'stft_options': ConjureFieldDefinition('stftOptions', OptionalTypeWrapper[scout_compute_api_StftOptions]),
             'magnitude_scaling': ConjureFieldDefinition('magnitudeScaling', OptionalTypeWrapper[scout_compute_api_MagnitudeScaling]),
             'output_frequency_type': ConjureFieldDefinition('outputFrequencyType', OptionalTypeWrapper[scout_compute_api_OutputFrequencyType]),
@@ -34781,10 +34894,10 @@ class scout_chartdefinition_api_FrequencyPlotTypeBode(ConjureBeanType):
             'display_mode': ConjureFieldDefinition('displayMode', OptionalTypeWrapper[scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode])
         }
 
-    __slots__: List[str] = ['_interpolation_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase', '_display_mode']
+    __slots__: List[str] = ['_alignment_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase', '_display_mode']
 
-    def __init__(self, display_mode: Optional["scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode"] = None, interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
-        self._interpolation_configuration = interpolation_configuration
+    def __init__(self, alignment_configuration: Optional["scout_compute_api_AlignmentConfiguration"] = None, display_mode: Optional["scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+        self._alignment_configuration = alignment_configuration
         self._stft_options = stft_options
         self._magnitude_scaling = magnitude_scaling
         self._output_frequency_type = output_frequency_type
@@ -34792,11 +34905,12 @@ class scout_chartdefinition_api_FrequencyPlotTypeBode(ConjureBeanType):
         self._display_mode = display_mode
 
     @builtins.property
-    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
-        """When present, aligns the output signal to the input signal's timestamps using the configured
-interpolation before estimating the frequency response.
+    def alignment_configuration(self) -> Optional["scout_compute_api_AlignmentConfiguration"]:
+        """When present, aligns one Bode input to the other using the configured interpolation and driver series
+before estimating the frequency response. For Bode, FIRST uses the input timestamps and SECOND uses the
+output timestamps.
         """
-        return self._interpolation_configuration
+        return self._alignment_configuration
 
     @builtins.property
     def stft_options(self) -> Optional["scout_compute_api_StftOptions"]:
@@ -43688,8 +43802,6 @@ class scout_checklistexecution_api_InvalidStreamingComputeNode(ConjureEnumType):
     '''CUMULATIVE_SUM'''
     INTEGRAL = 'INTEGRAL'
     '''INTEGRAL'''
-    SCALAR_UDF = 'SCALAR_UDF'
-    '''SCALAR_UDF'''
     STALENESS_DETECTION = 'STALENESS_DETECTION'
     '''STALENESS_DETECTION'''
     LITERAL_RANGES = 'LITERAL_RANGES'
@@ -50165,7 +50277,10 @@ scout_compute_api_AggregateEnumSeries.__module__ = "nominal_api.scout_compute_ap
 
 
 class scout_compute_api_AggregateNumericSeries(ConjureBeanType):
-    """Aggregates values with duplicate timestamps in the input series values into a single value using the specified aggregation function.
+    """DEPRECATED. Use a dedicated group-by-and-aggregate nodes instead.
+
+Aggregates values with duplicate timestamps in the input series values into a single value using the
+specified aggregation function.
     """
 
     @builtins.classmethod
@@ -50264,6 +50379,57 @@ start of the compute request range.
 scout_compute_api_AggregateUnderRangesSeries.__name__ = "AggregateUnderRangesSeries"
 scout_compute_api_AggregateUnderRangesSeries.__qualname__ = "AggregateUnderRangesSeries"
 scout_compute_api_AggregateUnderRangesSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_AlignmentConfiguration(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_api_InterpolationConfiguration),
+            'driver_series': ConjureFieldDefinition('driverSeries', scout_compute_api_AlignmentDriverSeries)
+        }
+
+    __slots__: List[str] = ['_interpolation_configuration', '_driver_series']
+
+    def __init__(self, driver_series: "scout_compute_api_AlignmentDriverSeries", interpolation_configuration: "scout_compute_api_InterpolationConfiguration") -> None:
+        self._interpolation_configuration = interpolation_configuration
+        self._driver_series = driver_series
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_api_InterpolationConfiguration":
+        """The interpolation rules to use when aligning the non-driver series.
+        """
+        return self._interpolation_configuration
+
+    @builtins.property
+    def driver_series(self) -> "scout_compute_api_AlignmentDriverSeries":
+        """The series whose timestamps drive alignment.
+        """
+        return self._driver_series
+
+
+scout_compute_api_AlignmentConfiguration.__name__ = "AlignmentConfiguration"
+scout_compute_api_AlignmentConfiguration.__qualname__ = "AlignmentConfiguration"
+scout_compute_api_AlignmentConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_AlignmentDriverSeries(ConjureEnumType):
+
+    FIRST = 'FIRST'
+    '''FIRST'''
+    SECOND = 'SECOND'
+    '''SECOND'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_AlignmentDriverSeries.__name__ = "AlignmentDriverSeries"
+scout_compute_api_AlignmentDriverSeries.__qualname__ = "AlignmentDriverSeries"
+scout_compute_api_AlignmentDriverSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_AllowNegativeValues(ConjureBeanType):
@@ -50756,6 +50922,8 @@ class scout_compute_api_AssetsSearchTarget(ConjureBeanType):
 
     @builtins.property
     def query(self) -> "scout_compute_api_ResourceSearchQuery":
+        """Predicate tree used to filter matching assets.
+        """
         return self._query
 
 
@@ -51606,19 +51774,19 @@ class scout_compute_api_Bode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
             'output': ConjureFieldDefinition('output', scout_compute_api_NumericSeries),
-            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration]),
+            'alignment_configuration': ConjureFieldDefinition('alignmentConfiguration', OptionalTypeWrapper[scout_compute_api_AlignmentConfiguration]),
             'stft_options': ConjureFieldDefinition('stftOptions', OptionalTypeWrapper[scout_compute_api_StftOptions]),
             'magnitude_scaling': ConjureFieldDefinition('magnitudeScaling', OptionalTypeWrapper[scout_compute_api_MagnitudeScaling]),
             'output_frequency_type': ConjureFieldDefinition('outputFrequencyType', OptionalTypeWrapper[scout_compute_api_OutputFrequencyType]),
             'unwrap_phase': ConjureFieldDefinition('unwrapPhase', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_input', '_output', '_interpolation_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
+    __slots__: List[str] = ['_input', '_output', '_alignment_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
 
-    def __init__(self, input: "scout_compute_api_NumericSeries", output: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+    def __init__(self, input: "scout_compute_api_NumericSeries", output: "scout_compute_api_NumericSeries", alignment_configuration: Optional["scout_compute_api_AlignmentConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
         self._input = input
         self._output = output
-        self._interpolation_configuration = interpolation_configuration
+        self._alignment_configuration = alignment_configuration
         self._stft_options = stft_options
         self._magnitude_scaling = magnitude_scaling
         self._output_frequency_type = output_frequency_type
@@ -51633,12 +51801,13 @@ class scout_compute_api_Bode(ConjureBeanType):
         return self._output
 
     @builtins.property
-    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
-        """When present, aligns the output signal to the input signal's timestamps using the configured
-interpolation before estimating the frequency response. When absent, Bode preserves the existing strict
-behavior and requires the input and output value arrays to have equal length.
+    def alignment_configuration(self) -> Optional["scout_compute_api_AlignmentConfiguration"]:
+        """When present, aligns one Bode input to the other using the configured interpolation and driver series
+before estimating the frequency response. When absent, Bode preserves the existing strict behavior and
+requires the input and output value arrays to have equal length. For Bode, FIRST uses the input
+timestamps and SECOND uses the output timestamps.
         """
-        return self._interpolation_configuration
+        return self._alignment_configuration
 
     @builtins.property
     def stft_options(self) -> Optional["scout_compute_api_StftOptions"]:
@@ -52806,6 +52975,8 @@ asset, with the same per-grouping tags as asset-target SearchFrame (assetRid, da
 
     @builtins.property
     def assets(self) -> List["scout_compute_api_Asset"]:
+        """Explicit assets to combine into a single frame.
+        """
         return self._assets
 
 
@@ -52833,6 +53004,8 @@ asset-typed sources).
 
     @builtins.property
     def runs(self) -> List["scout_compute_api_Run"]:
+        """Explicit runs to combine into a single frame.
+        """
         return self._runs
 
 
@@ -56596,6 +56769,8 @@ class scout_compute_api_DurationDays(ConjureBeanType):
 
     @builtins.property
     def days(self) -> "scout_compute_api_IntegerConstant":
+        """The number of days.
+        """
         return self._days
 
 
@@ -56664,6 +56839,8 @@ class scout_compute_api_DurationHours(ConjureBeanType):
 
     @builtins.property
     def hours(self) -> "scout_compute_api_IntegerConstant":
+        """The number of hours.
+        """
         return self._hours
 
 
@@ -56689,6 +56866,8 @@ class scout_compute_api_DurationMilliseconds(ConjureBeanType):
 
     @builtins.property
     def milliseconds(self) -> "scout_compute_api_IntegerConstant":
+        """The number of milliseconds.
+        """
         return self._milliseconds
 
 
@@ -56714,6 +56893,8 @@ class scout_compute_api_DurationMinutes(ConjureBeanType):
 
     @builtins.property
     def minutes(self) -> "scout_compute_api_IntegerConstant":
+        """The number of minutes.
+        """
         return self._minutes
 
 
@@ -56741,6 +56922,8 @@ use DurationSeconds or DurationMilliseconds.
 
     @builtins.property
     def nanoseconds(self) -> "scout_compute_api_IntegerConstant":
+        """The number of nanoseconds.
+        """
         return self._nanoseconds
 
 
@@ -56793,6 +56976,8 @@ class scout_compute_api_DurationSeconds(ConjureBeanType):
 
     @builtins.property
     def seconds(self) -> "scout_compute_api_IntegerConstant":
+        """The number of seconds.
+        """
         return self._seconds
 
 
@@ -57444,6 +57629,38 @@ scout_compute_api_EnumResampleSeries.__qualname__ = "EnumResampleSeries"
 scout_compute_api_EnumResampleSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EnumSelectTagsSeries(ConjureBeanType):
+    """Subsets the tag dimensions of the input enum series to the given tag keys. Preserves the input series'
+cardinality: points that share the selected keys but differ on dropped keys remain distinct.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_EnumSeries),
+            'tag_keys': ConjureFieldDefinition('tagKeys', List[scout_compute_api_StringConstant])
+        }
+
+    __slots__: List[str] = ['_input', '_tag_keys']
+
+    def __init__(self, input: "scout_compute_api_EnumSeries", tag_keys: List["scout_compute_api_StringConstant"]) -> None:
+        self._input = input
+        self._tag_keys = tag_keys
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_EnumSeries":
+        return self._input
+
+    @builtins.property
+    def tag_keys(self) -> List["scout_compute_api_StringConstant"]:
+        return self._tag_keys
+
+
+scout_compute_api_EnumSelectTagsSeries.__name__ = "EnumSelectTagsSeries"
+scout_compute_api_EnumSelectTagsSeries.__qualname__ = "EnumSelectTagsSeries"
+scout_compute_api_EnumSelectTagsSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_EnumSeries(ConjureUnionType):
     _aggregate: Optional["scout_compute_api_AggregateEnumSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
@@ -57460,6 +57677,7 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     _event_aggregation: Optional["scout_compute_api_EventsEnumSeries"] = None
     _select_enum: Optional["scout_compute_api_SelectSeries"] = None
     _filter_by_tag: Optional["scout_compute_api_EnumTagFilterSeries"] = None
+    _select_tags: Optional["scout_compute_api_EnumSelectTagsSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -57478,7 +57696,8 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_api_ExtractEnumFromStructSeries),
             'event_aggregation': ConjureFieldDefinition('eventAggregation', scout_compute_api_EventsEnumSeries),
             'select_enum': ConjureFieldDefinition('selectEnum', scout_compute_api_SelectSeries),
-            'filter_by_tag': ConjureFieldDefinition('filterByTag', scout_compute_api_EnumTagFilterSeries)
+            'filter_by_tag': ConjureFieldDefinition('filterByTag', scout_compute_api_EnumTagFilterSeries),
+            'select_tags': ConjureFieldDefinition('selectTags', scout_compute_api_EnumSelectTagsSeries)
         }
 
     def __init__(
@@ -57498,10 +57717,11 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             event_aggregation: Optional["scout_compute_api_EventsEnumSeries"] = None,
             select_enum: Optional["scout_compute_api_SelectSeries"] = None,
             filter_by_tag: Optional["scout_compute_api_EnumTagFilterSeries"] = None,
+            select_tags: Optional["scout_compute_api_EnumSelectTagsSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) + (extract_from_struct is not None) + (event_aggregation is not None) + (select_enum is not None) + (filter_by_tag is not None) != 1:
+            if (aggregate is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) + (extract_from_struct is not None) + (event_aggregation is not None) + (select_enum is not None) + (filter_by_tag is not None) + (select_tags is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -57549,6 +57769,9 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             if filter_by_tag is not None:
                 self._filter_by_tag = filter_by_tag
                 self._type = 'filterByTag'
+            if select_tags is not None:
+                self._select_tags = select_tags
+                self._type = 'selectTags'
 
         elif type_of_union == 'aggregate':
             if aggregate is None:
@@ -57625,6 +57848,11 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._filter_by_tag = filter_by_tag
             self._type = 'filterByTag'
+        elif type_of_union == 'selectTags':
+            if select_tags is None:
+                raise ValueError('a union value must not be None')
+            self._select_tags = select_tags
+            self._type = 'selectTags'
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateEnumSeries"]:
@@ -57686,6 +57914,10 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     def filter_by_tag(self) -> Optional["scout_compute_api_EnumTagFilterSeries"]:
         return self._filter_by_tag
 
+    @builtins.property
+    def select_tags(self) -> Optional["scout_compute_api_EnumSelectTagsSeries"]:
+        return self._select_tags
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_EnumSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_EnumSeriesVisitor'.format(visitor.__class__.__name__))
@@ -57719,6 +57951,8 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             return visitor._select_enum(self.select_enum)
         if self._type == 'filterByTag' and self.filter_by_tag is not None:
             return visitor._filter_by_tag(self.filter_by_tag)
+        if self._type == 'selectTags' and self.select_tags is not None:
+            return visitor._select_tags(self.select_tags)
 
 
 scout_compute_api_EnumSeries.__name__ = "EnumSeries"
@@ -57786,6 +58020,10 @@ class scout_compute_api_EnumSeriesVisitor:
 
     @abstractmethod
     def _filter_by_tag(self, filter_by_tag: "scout_compute_api_EnumTagFilterSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _select_tags(self, select_tags: "scout_compute_api_EnumSelectTagsSeries") -> Any:
         pass
 
 
@@ -58837,10 +59075,14 @@ filters into channel specs and folding against known tag assignments; does not a
 
     @builtins.property
     def input(self) -> "scout_compute_api_DataFrame":
+        """The underlying frame to filter.
+        """
         return self._input
 
     @builtins.property
     def predicate(self) -> "scout_compute_api_TagPredicate":
+        """Conjunctive tag predicate used to keep matching series.
+        """
         return self._predicate
 
 
@@ -58962,6 +59204,8 @@ class scout_compute_api_FrameReference(ConjureBeanType):
 
     @builtins.property
     def name(self) -> "scout_compute_api_StringConstant":
+        """Name of the frame reference to resolve from the context.
+        """
         return self._name
 
 
@@ -62117,32 +62361,140 @@ scout_compute_api_Numeric1dArraySeriesVisitor.__module__ = "nominal_api.scout_co
 
 
 class scout_compute_api_NumericAggregation(ConjureUnionType):
+    """Unified numeric aggregation used across rolling windows, plain aggregates, range aggregates, union merges,
+and per-bucket summarization.
+    """
+    _sum: Optional["scout_compute_api_Summation"] = None
+    _average: Optional["scout_compute_api_Average"] = None
+    _min: Optional["scout_compute_api_Minimum"] = None
+    _max: Optional["scout_compute_api_Maximum"] = None
+    _count: Optional["scout_compute_api_Count"] = None
+    _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
+    _root_mean_square: Optional["scout_compute_api_RootMeanSquare"] = None
     _percentile: Optional["scout_compute_api_Percentile"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'sum': ConjureFieldDefinition('sum', scout_compute_api_Summation),
+            'average': ConjureFieldDefinition('average', scout_compute_api_Average),
+            'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
+            'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
+            'count': ConjureFieldDefinition('count', scout_compute_api_Count),
+            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
+            'root_mean_square': ConjureFieldDefinition('rootMeanSquare', scout_compute_api_RootMeanSquare),
             'percentile': ConjureFieldDefinition('percentile', scout_compute_api_Percentile)
         }
 
     def __init__(
             self,
+            sum: Optional["scout_compute_api_Summation"] = None,
+            average: Optional["scout_compute_api_Average"] = None,
+            min: Optional["scout_compute_api_Minimum"] = None,
+            max: Optional["scout_compute_api_Maximum"] = None,
+            count: Optional["scout_compute_api_Count"] = None,
+            standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
+            root_mean_square: Optional["scout_compute_api_RootMeanSquare"] = None,
             percentile: Optional["scout_compute_api_Percentile"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (percentile is not None) != 1:
+            if (sum is not None) + (average is not None) + (min is not None) + (max is not None) + (count is not None) + (standard_deviation is not None) + (root_mean_square is not None) + (percentile is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if sum is not None:
+                self._sum = sum
+                self._type = 'sum'
+            if average is not None:
+                self._average = average
+                self._type = 'average'
+            if min is not None:
+                self._min = min
+                self._type = 'min'
+            if max is not None:
+                self._max = max
+                self._type = 'max'
+            if count is not None:
+                self._count = count
+                self._type = 'count'
+            if standard_deviation is not None:
+                self._standard_deviation = standard_deviation
+                self._type = 'standardDeviation'
+            if root_mean_square is not None:
+                self._root_mean_square = root_mean_square
+                self._type = 'rootMeanSquare'
             if percentile is not None:
                 self._percentile = percentile
                 self._type = 'percentile'
 
+        elif type_of_union == 'sum':
+            if sum is None:
+                raise ValueError('a union value must not be None')
+            self._sum = sum
+            self._type = 'sum'
+        elif type_of_union == 'average':
+            if average is None:
+                raise ValueError('a union value must not be None')
+            self._average = average
+            self._type = 'average'
+        elif type_of_union == 'min':
+            if min is None:
+                raise ValueError('a union value must not be None')
+            self._min = min
+            self._type = 'min'
+        elif type_of_union == 'max':
+            if max is None:
+                raise ValueError('a union value must not be None')
+            self._max = max
+            self._type = 'max'
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
+        elif type_of_union == 'standardDeviation':
+            if standard_deviation is None:
+                raise ValueError('a union value must not be None')
+            self._standard_deviation = standard_deviation
+            self._type = 'standardDeviation'
+        elif type_of_union == 'rootMeanSquare':
+            if root_mean_square is None:
+                raise ValueError('a union value must not be None')
+            self._root_mean_square = root_mean_square
+            self._type = 'rootMeanSquare'
         elif type_of_union == 'percentile':
             if percentile is None:
                 raise ValueError('a union value must not be None')
             self._percentile = percentile
             self._type = 'percentile'
+
+    @builtins.property
+    def sum(self) -> Optional["scout_compute_api_Summation"]:
+        return self._sum
+
+    @builtins.property
+    def average(self) -> Optional["scout_compute_api_Average"]:
+        return self._average
+
+    @builtins.property
+    def min(self) -> Optional["scout_compute_api_Minimum"]:
+        return self._min
+
+    @builtins.property
+    def max(self) -> Optional["scout_compute_api_Maximum"]:
+        return self._max
+
+    @builtins.property
+    def count(self) -> Optional["scout_compute_api_Count"]:
+        return self._count
+
+    @builtins.property
+    def standard_deviation(self) -> Optional["scout_compute_api_StandardDeviation"]:
+        return self._standard_deviation
+
+    @builtins.property
+    def root_mean_square(self) -> Optional["scout_compute_api_RootMeanSquare"]:
+        return self._root_mean_square
 
     @builtins.property
     def percentile(self) -> Optional["scout_compute_api_Percentile"]:
@@ -62151,6 +62503,20 @@ class scout_compute_api_NumericAggregation(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_NumericAggregationVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_NumericAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'sum' and self.sum is not None:
+            return visitor._sum(self.sum)
+        if self._type == 'average' and self.average is not None:
+            return visitor._average(self.average)
+        if self._type == 'min' and self.min is not None:
+            return visitor._min(self.min)
+        if self._type == 'max' and self.max is not None:
+            return visitor._max(self.max)
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
+        if self._type == 'standardDeviation' and self.standard_deviation is not None:
+            return visitor._standard_deviation(self.standard_deviation)
+        if self._type == 'rootMeanSquare' and self.root_mean_square is not None:
+            return visitor._root_mean_square(self.root_mean_square)
         if self._type == 'percentile' and self.percentile is not None:
             return visitor._percentile(self.percentile)
 
@@ -62163,6 +62529,34 @@ scout_compute_api_NumericAggregation.__module__ = "nominal_api.scout_compute_api
 class scout_compute_api_NumericAggregationVisitor:
 
     @abstractmethod
+    def _sum(self, sum: "scout_compute_api_Summation") -> Any:
+        pass
+
+    @abstractmethod
+    def _average(self, average: "scout_compute_api_Average") -> Any:
+        pass
+
+    @abstractmethod
+    def _min(self, min: "scout_compute_api_Minimum") -> Any:
+        pass
+
+    @abstractmethod
+    def _max(self, max: "scout_compute_api_Maximum") -> Any:
+        pass
+
+    @abstractmethod
+    def _count(self, count: "scout_compute_api_Count") -> Any:
+        pass
+
+    @abstractmethod
+    def _standard_deviation(self, standard_deviation: "scout_compute_api_StandardDeviation") -> Any:
+        pass
+
+    @abstractmethod
+    def _root_mean_square(self, root_mean_square: "scout_compute_api_RootMeanSquare") -> Any:
+        pass
+
+    @abstractmethod
     def _percentile(self, percentile: "scout_compute_api_Percentile") -> Any:
         pass
 
@@ -62173,6 +62567,8 @@ scout_compute_api_NumericAggregationVisitor.__module__ = "nominal_api.scout_comp
 
 
 class scout_compute_api_NumericAggregationFunction(ConjureEnumType):
+    """DEPRECATED. Use `NumericAggregation` instead.
+    """
 
     SUM = 'SUM'
     '''SUM'''
@@ -62886,6 +63282,38 @@ scout_compute_api_NumericResampleSeries.__qualname__ = "NumericResampleSeries"
 scout_compute_api_NumericResampleSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_NumericSelectTagsSeries(ConjureBeanType):
+    """Subsets the tag dimensions of the input numeric series to the given tag keys. Preserves the input series'
+cardinality: points that share the selected keys but differ on dropped keys remain distinct.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'tag_keys': ConjureFieldDefinition('tagKeys', List[scout_compute_api_StringConstant])
+        }
+
+    __slots__: List[str] = ['_input', '_tag_keys']
+
+    def __init__(self, input: "scout_compute_api_NumericSeries", tag_keys: List["scout_compute_api_StringConstant"]) -> None:
+        self._input = input
+        self._tag_keys = tag_keys
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_NumericSeries":
+        return self._input
+
+    @builtins.property
+    def tag_keys(self) -> List["scout_compute_api_StringConstant"]:
+        return self._tag_keys
+
+
+scout_compute_api_NumericSelectTagsSeries.__name__ = "NumericSelectTagsSeries"
+scout_compute_api_NumericSelectTagsSeries.__qualname__ = "NumericSelectTagsSeries"
+scout_compute_api_NumericSelectTagsSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_NumericSeries(ConjureUnionType):
     _abs: Optional["scout_compute_api_Abs"] = None
     _negate: Optional["scout_compute_api_Negate"] = None
@@ -62921,7 +63349,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _bit_shift_right: Optional["scout_compute_api_BitShiftRight"] = None
     _bit_shift_left: Optional["scout_compute_api_BitShiftLeft"] = None
     _bit_test: Optional["scout_compute_api_BitTest"] = None
-    _aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None
     _count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None
     _cumulative_sum: Optional["scout_compute_api_CumulativeSumSeries"] = None
     _derivative: Optional["scout_compute_api_DerivativeSeries"] = None
@@ -62951,6 +63378,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _extract_from_struct: Optional["scout_compute_api_ExtractNumericFromStructSeries"] = None
     _tag_by_intervals: Optional["scout_compute_api_TagByIntervalsSeries"] = None
     _filter_by_tag: Optional["scout_compute_api_NumericTagFilterSeries"] = None
+    _select_tags: Optional["scout_compute_api_NumericSelectTagsSeries"] = None
+    _aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None
     _bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _offset: Optional["scout_compute_api_OffsetSeries"] = None
@@ -62996,7 +63425,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'bit_shift_right': ConjureFieldDefinition('bitShiftRight', scout_compute_api_BitShiftRight),
             'bit_shift_left': ConjureFieldDefinition('bitShiftLeft', scout_compute_api_BitShiftLeft),
             'bit_test': ConjureFieldDefinition('bitTest', scout_compute_api_BitTest),
-            'aggregate': ConjureFieldDefinition('aggregate', scout_compute_api_AggregateNumericSeries),
             'count_duplicate': ConjureFieldDefinition('countDuplicate', scout_compute_api_EnumCountDuplicateSeries),
             'cumulative_sum': ConjureFieldDefinition('cumulativeSum', scout_compute_api_CumulativeSumSeries),
             'derivative': ConjureFieldDefinition('derivative', scout_compute_api_DerivativeSeries),
@@ -63026,6 +63454,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_api_ExtractNumericFromStructSeries),
             'tag_by_intervals': ConjureFieldDefinition('tagByIntervals', scout_compute_api_TagByIntervalsSeries),
             'filter_by_tag': ConjureFieldDefinition('filterByTag', scout_compute_api_NumericTagFilterSeries),
+            'select_tags': ConjureFieldDefinition('selectTags', scout_compute_api_NumericSelectTagsSeries),
+            'aggregate': ConjureFieldDefinition('aggregate', scout_compute_api_AggregateNumericSeries),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_api_BitOperationSeries),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
             'offset': ConjureFieldDefinition('offset', scout_compute_api_OffsetSeries),
@@ -63071,7 +63501,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             bit_shift_right: Optional["scout_compute_api_BitShiftRight"] = None,
             bit_shift_left: Optional["scout_compute_api_BitShiftLeft"] = None,
             bit_test: Optional["scout_compute_api_BitTest"] = None,
-            aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None,
             count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None,
             cumulative_sum: Optional["scout_compute_api_CumulativeSumSeries"] = None,
             derivative: Optional["scout_compute_api_DerivativeSeries"] = None,
@@ -63101,6 +63530,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             extract_from_struct: Optional["scout_compute_api_ExtractNumericFromStructSeries"] = None,
             tag_by_intervals: Optional["scout_compute_api_TagByIntervalsSeries"] = None,
             filter_by_tag: Optional["scout_compute_api_NumericTagFilterSeries"] = None,
+            select_tags: Optional["scout_compute_api_NumericSelectTagsSeries"] = None,
+            aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None,
             bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
             offset: Optional["scout_compute_api_OffsetSeries"] = None,
@@ -63111,7 +63542,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (max is not None) + (mean is not None) + (min is not None) + (sum is not None) + (union is not None) + (product is not None) + (constant is not None) + (select_newest_points is not None) + (select_numeric is not None) + (select_oldest_points is not None) + (bit_and is not None) + (bit_or is not None) + (bit_xor is not None) + (bit_shift_right is not None) + (bit_shift_left is not None) + (bit_test is not None) + (aggregate is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (z_score is not None) + (raw is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (drop_nan is not None) + (select1d_array_index is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (tag_by_intervals is not None) + (filter_by_tag is not None) + (bit_operation is not None) + (channel is not None) + (offset is not None) + (scale is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
+            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (max is not None) + (mean is not None) + (min is not None) + (sum is not None) + (union is not None) + (product is not None) + (constant is not None) + (select_newest_points is not None) + (select_numeric is not None) + (select_oldest_points is not None) + (bit_and is not None) + (bit_or is not None) + (bit_xor is not None) + (bit_shift_right is not None) + (bit_shift_left is not None) + (bit_test is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (z_score is not None) + (raw is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (drop_nan is not None) + (select1d_array_index is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (tag_by_intervals is not None) + (filter_by_tag is not None) + (select_tags is not None) + (aggregate is not None) + (bit_operation is not None) + (channel is not None) + (offset is not None) + (scale is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if abs is not None:
@@ -63216,9 +63647,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if bit_test is not None:
                 self._bit_test = bit_test
                 self._type = 'bitTest'
-            if aggregate is not None:
-                self._aggregate = aggregate
-                self._type = 'aggregate'
             if count_duplicate is not None:
                 self._count_duplicate = count_duplicate
                 self._type = 'countDuplicate'
@@ -63306,6 +63734,12 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if filter_by_tag is not None:
                 self._filter_by_tag = filter_by_tag
                 self._type = 'filterByTag'
+            if select_tags is not None:
+                self._select_tags = select_tags
+                self._type = 'selectTags'
+            if aggregate is not None:
+                self._aggregate = aggregate
+                self._type = 'aggregate'
             if bit_operation is not None:
                 self._bit_operation = bit_operation
                 self._type = 'bitOperation'
@@ -63498,11 +63932,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._bit_test = bit_test
             self._type = 'bitTest'
-        elif type_of_union == 'aggregate':
-            if aggregate is None:
-                raise ValueError('a union value must not be None')
-            self._aggregate = aggregate
-            self._type = 'aggregate'
         elif type_of_union == 'countDuplicate':
             if count_duplicate is None:
                 raise ValueError('a union value must not be None')
@@ -63648,6 +64077,16 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._filter_by_tag = filter_by_tag
             self._type = 'filterByTag'
+        elif type_of_union == 'selectTags':
+            if select_tags is None:
+                raise ValueError('a union value must not be None')
+            self._select_tags = select_tags
+            self._type = 'selectTags'
+        elif type_of_union == 'aggregate':
+            if aggregate is None:
+                raise ValueError('a union value must not be None')
+            self._aggregate = aggregate
+            self._type = 'aggregate'
         elif type_of_union == 'bitOperation':
             if bit_operation is None:
                 raise ValueError('a union value must not be None')
@@ -63821,10 +64260,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._bit_test
 
     @builtins.property
-    def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
-        return self._aggregate
-
-    @builtins.property
     def count_duplicate(self) -> Optional["scout_compute_api_EnumCountDuplicateSeries"]:
         return self._count_duplicate
 
@@ -63941,6 +64376,14 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._filter_by_tag
 
     @builtins.property
+    def select_tags(self) -> Optional["scout_compute_api_NumericSelectTagsSeries"]:
+        return self._select_tags
+
+    @builtins.property
+    def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
+        return self._aggregate
+
+    @builtins.property
     def bit_operation(self) -> Optional["scout_compute_api_BitOperationSeries"]:
         return self._bit_operation
 
@@ -64039,8 +64482,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._bit_shift_left(self.bit_shift_left)
         if self._type == 'bitTest' and self.bit_test is not None:
             return visitor._bit_test(self.bit_test)
-        if self._type == 'aggregate' and self.aggregate is not None:
-            return visitor._aggregate(self.aggregate)
         if self._type == 'countDuplicate' and self.count_duplicate is not None:
             return visitor._count_duplicate(self.count_duplicate)
         if self._type == 'cumulativeSum' and self.cumulative_sum is not None:
@@ -64099,6 +64540,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._tag_by_intervals(self.tag_by_intervals)
         if self._type == 'filterByTag' and self.filter_by_tag is not None:
             return visitor._filter_by_tag(self.filter_by_tag)
+        if self._type == 'selectTags' and self.select_tags is not None:
+            return visitor._select_tags(self.select_tags)
+        if self._type == 'aggregate' and self.aggregate is not None:
+            return visitor._aggregate(self.aggregate)
         if self._type == 'bitOperation' and self.bit_operation is not None:
             return visitor._bit_operation(self.bit_operation)
         if self._type == 'channel' and self.channel is not None:
@@ -64259,10 +64704,6 @@ class scout_compute_api_NumericSeriesVisitor:
         pass
 
     @abstractmethod
-    def _aggregate(self, aggregate: "scout_compute_api_AggregateNumericSeries") -> Any:
-        pass
-
-    @abstractmethod
     def _count_duplicate(self, count_duplicate: "scout_compute_api_EnumCountDuplicateSeries") -> Any:
         pass
 
@@ -64376,6 +64817,14 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _filter_by_tag(self, filter_by_tag: "scout_compute_api_NumericTagFilterSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _select_tags(self, select_tags: "scout_compute_api_NumericSelectTagsSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _aggregate(self, aggregate: "scout_compute_api_AggregateNumericSeries") -> Any:
         pass
 
     @abstractmethod
@@ -64551,7 +65000,7 @@ scout_compute_api_NumericTimeShiftSeries.__module__ = "nominal_api.scout_compute
 
 
 class scout_compute_api_NumericUnionOperation(ConjureEnumType):
-    """In the event of a duplicate timestamp, the operation is applied to the values at the duplicate timestamp.
+    """DEPRECATED: apply aggregations as a separate step over the unioned output.
     """
 
     MIN = 'MIN'
@@ -64583,21 +65032,21 @@ scout_compute_api_NumericUnionOperation.__module__ = "nominal_api.scout_compute_
 
 
 class scout_compute_api_NumericUnionSeries(ConjureBeanType):
-    """Combines multiple numeric series together and outputs a single series. If the same timestamp is duplicated in
-multiple input series, the output series will contain a single point with this timestamp. The strategy to
-merge input values with the same timestamp together is specified in the operation field.
+    """Combines multiple numeric series together and outputs a single series. By default, points from the inputs are
+concatenated (SQL {@code UNION ALL}) and duplicate timestamps across inputs are preserved. To aggregate values
+that share a timestamp, do a separate aggregation step next.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', List[scout_compute_api_NumericSeries]),
-            'operation': ConjureFieldDefinition('operation', scout_compute_api_NumericUnionOperation)
+            'operation': ConjureFieldDefinition('operation', OptionalTypeWrapper[scout_compute_api_NumericUnionOperation])
         }
 
     __slots__: List[str] = ['_input', '_operation']
 
-    def __init__(self, input: List["scout_compute_api_NumericSeries"], operation: "scout_compute_api_NumericUnionOperation") -> None:
+    def __init__(self, input: List["scout_compute_api_NumericSeries"], operation: Optional["scout_compute_api_NumericUnionOperation"] = None) -> None:
         self._input = input
         self._operation = operation
 
@@ -64608,7 +65057,7 @@ merge input values with the same timestamp together is specified in the operatio
         return self._input
 
     @builtins.property
-    def operation(self) -> "scout_compute_api_NumericUnionOperation":
+    def operation(self) -> Optional["scout_compute_api_NumericUnionOperation"]:
         """The strategy to merge points with duplicate timestamps.
         """
         return self._operation
@@ -65383,7 +65832,7 @@ scout_compute_api_PercentageThreshold.__module__ = "nominal_api.scout_compute_ap
 
 
 class scout_compute_api_Percentile(ConjureBeanType):
-    """The value at the specified percentile within the time window.
+    """The value at the specified percentile.
     """
 
     @builtins.classmethod
@@ -67046,7 +67495,7 @@ scout_compute_api_Reference.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RefpropProperty(ConjureEnumType):
-    """Supported properties for REFPROP calculations
+    """Supported properties for REFPROP calculations.
     """
 
     TEMPERATURE = 'TEMPERATURE'
@@ -67061,6 +67510,8 @@ class scout_compute_api_RefpropProperty(ConjureEnumType):
     '''MASS_SPECIFIC_INTERNAL_ENERGY'''
     MASS_SPECIFIC_ENTROPY = 'MASS_SPECIFIC_ENTROPY'
     '''MASS_SPECIFIC_ENTROPY'''
+    VISCOSITY = 'VISCOSITY'
+    '''VISCOSITY'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -67147,6 +67598,12 @@ class scout_compute_api_RefpropSubstance(ConjureEnumType):
     '''XENON'''
     AIR = 'AIR'
     '''AIR'''
+    CARBON_DIOXIDE = 'CARBON_DIOXIDE'
+    '''CARBON_DIOXIDE'''
+    ARGON = 'ARGON'
+    '''ARGON'''
+    CARBON_MONOXIDE = 'CARBON_MONOXIDE'
+    '''CARBON_MONOXIDE'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -67366,12 +67823,12 @@ class scout_compute_api_RollingOperationSeries(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
             'window': ConjureFieldDefinition('window', scout_compute_api_Window),
-            'operator': ConjureFieldDefinition('operator', scout_compute_api_RollingOperator)
+            'operator': ConjureFieldDefinition('operator', scout_compute_api_NumericAggregation)
         }
 
     __slots__: List[str] = ['_input', '_window', '_operator']
 
-    def __init__(self, input: "scout_compute_api_NumericSeries", operator: "scout_compute_api_RollingOperator", window: "scout_compute_api_Window") -> None:
+    def __init__(self, input: "scout_compute_api_NumericSeries", operator: "scout_compute_api_NumericAggregation", window: "scout_compute_api_Window") -> None:
         self._input = input
         self._window = window
         self._operator = operator
@@ -67385,195 +67842,13 @@ class scout_compute_api_RollingOperationSeries(ConjureBeanType):
         return self._window
 
     @builtins.property
-    def operator(self) -> "scout_compute_api_RollingOperator":
+    def operator(self) -> "scout_compute_api_NumericAggregation":
         return self._operator
 
 
 scout_compute_api_RollingOperationSeries.__name__ = "RollingOperationSeries"
 scout_compute_api_RollingOperationSeries.__qualname__ = "RollingOperationSeries"
 scout_compute_api_RollingOperationSeries.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_RollingOperator(ConjureUnionType):
-    _average: Optional["scout_compute_api_Average"] = None
-    _count: Optional["scout_compute_api_Count"] = None
-    _min: Optional["scout_compute_api_Minimum"] = None
-    _max: Optional["scout_compute_api_Maximum"] = None
-    _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
-    _sum: Optional["scout_compute_api_Sum"] = None
-    _percentile: Optional["scout_compute_api_Percentile"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'average': ConjureFieldDefinition('average', scout_compute_api_Average),
-            'count': ConjureFieldDefinition('count', scout_compute_api_Count),
-            'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
-            'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
-            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
-            'sum': ConjureFieldDefinition('sum', scout_compute_api_Sum),
-            'percentile': ConjureFieldDefinition('percentile', scout_compute_api_Percentile)
-        }
-
-    def __init__(
-            self,
-            average: Optional["scout_compute_api_Average"] = None,
-            count: Optional["scout_compute_api_Count"] = None,
-            min: Optional["scout_compute_api_Minimum"] = None,
-            max: Optional["scout_compute_api_Maximum"] = None,
-            standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
-            sum: Optional["scout_compute_api_Sum"] = None,
-            percentile: Optional["scout_compute_api_Percentile"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (average is not None) + (count is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (sum is not None) + (percentile is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if average is not None:
-                self._average = average
-                self._type = 'average'
-            if count is not None:
-                self._count = count
-                self._type = 'count'
-            if min is not None:
-                self._min = min
-                self._type = 'min'
-            if max is not None:
-                self._max = max
-                self._type = 'max'
-            if standard_deviation is not None:
-                self._standard_deviation = standard_deviation
-                self._type = 'standardDeviation'
-            if sum is not None:
-                self._sum = sum
-                self._type = 'sum'
-            if percentile is not None:
-                self._percentile = percentile
-                self._type = 'percentile'
-
-        elif type_of_union == 'average':
-            if average is None:
-                raise ValueError('a union value must not be None')
-            self._average = average
-            self._type = 'average'
-        elif type_of_union == 'count':
-            if count is None:
-                raise ValueError('a union value must not be None')
-            self._count = count
-            self._type = 'count'
-        elif type_of_union == 'min':
-            if min is None:
-                raise ValueError('a union value must not be None')
-            self._min = min
-            self._type = 'min'
-        elif type_of_union == 'max':
-            if max is None:
-                raise ValueError('a union value must not be None')
-            self._max = max
-            self._type = 'max'
-        elif type_of_union == 'standardDeviation':
-            if standard_deviation is None:
-                raise ValueError('a union value must not be None')
-            self._standard_deviation = standard_deviation
-            self._type = 'standardDeviation'
-        elif type_of_union == 'sum':
-            if sum is None:
-                raise ValueError('a union value must not be None')
-            self._sum = sum
-            self._type = 'sum'
-        elif type_of_union == 'percentile':
-            if percentile is None:
-                raise ValueError('a union value must not be None')
-            self._percentile = percentile
-            self._type = 'percentile'
-
-    @builtins.property
-    def average(self) -> Optional["scout_compute_api_Average"]:
-        return self._average
-
-    @builtins.property
-    def count(self) -> Optional["scout_compute_api_Count"]:
-        return self._count
-
-    @builtins.property
-    def min(self) -> Optional["scout_compute_api_Minimum"]:
-        return self._min
-
-    @builtins.property
-    def max(self) -> Optional["scout_compute_api_Maximum"]:
-        return self._max
-
-    @builtins.property
-    def standard_deviation(self) -> Optional["scout_compute_api_StandardDeviation"]:
-        return self._standard_deviation
-
-    @builtins.property
-    def sum(self) -> Optional["scout_compute_api_Sum"]:
-        return self._sum
-
-    @builtins.property
-    def percentile(self) -> Optional["scout_compute_api_Percentile"]:
-        return self._percentile
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_compute_api_RollingOperatorVisitor):
-            raise ValueError('{} is not an instance of scout_compute_api_RollingOperatorVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'average' and self.average is not None:
-            return visitor._average(self.average)
-        if self._type == 'count' and self.count is not None:
-            return visitor._count(self.count)
-        if self._type == 'min' and self.min is not None:
-            return visitor._min(self.min)
-        if self._type == 'max' and self.max is not None:
-            return visitor._max(self.max)
-        if self._type == 'standardDeviation' and self.standard_deviation is not None:
-            return visitor._standard_deviation(self.standard_deviation)
-        if self._type == 'sum' and self.sum is not None:
-            return visitor._sum(self.sum)
-        if self._type == 'percentile' and self.percentile is not None:
-            return visitor._percentile(self.percentile)
-
-
-scout_compute_api_RollingOperator.__name__ = "RollingOperator"
-scout_compute_api_RollingOperator.__qualname__ = "RollingOperator"
-scout_compute_api_RollingOperator.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_RollingOperatorVisitor:
-
-    @abstractmethod
-    def _average(self, average: "scout_compute_api_Average") -> Any:
-        pass
-
-    @abstractmethod
-    def _count(self, count: "scout_compute_api_Count") -> Any:
-        pass
-
-    @abstractmethod
-    def _min(self, min: "scout_compute_api_Minimum") -> Any:
-        pass
-
-    @abstractmethod
-    def _max(self, max: "scout_compute_api_Maximum") -> Any:
-        pass
-
-    @abstractmethod
-    def _standard_deviation(self, standard_deviation: "scout_compute_api_StandardDeviation") -> Any:
-        pass
-
-    @abstractmethod
-    def _sum(self, sum: "scout_compute_api_Sum") -> Any:
-        pass
-
-    @abstractmethod
-    def _percentile(self, percentile: "scout_compute_api_Percentile") -> Any:
-        pass
-
-
-scout_compute_api_RollingOperatorVisitor.__name__ = "RollingOperatorVisitor"
-scout_compute_api_RollingOperatorVisitor.__qualname__ = "RollingOperatorVisitor"
-scout_compute_api_RollingOperatorVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_RootMeanSquare(ConjureBeanType):
@@ -67721,6 +67996,8 @@ source ref name for dataset-typed sources); asset-typed groupings additionally c
 
     @builtins.property
     def query(self) -> "scout_compute_api_ResourceSearchQuery":
+        """Predicate tree used to filter matching runs.
+        """
         return self._query
 
 
@@ -68140,6 +68417,8 @@ class scout_compute_api_SearchFrame(ConjureBeanType):
 
     @builtins.property
     def target(self) -> "scout_compute_api_SearchTarget":
+        """Whether to search assets or runs and with which query.
+        """
         return self._target
 
     @builtins.property
@@ -68314,10 +68593,14 @@ class scout_compute_api_SelectNewestPointsSeries(ConjureBeanType):
 
     @builtins.property
     def input(self) -> "scout_compute_api_NumericSeries":
+        """The input series to select the newest points from.
+        """
         return self._input
 
     @builtins.property
     def num_points(self) -> "scout_compute_api_IntegerConstant":
+        """The number of points to select.
+        """
         return self._num_points
 
 
@@ -68345,10 +68628,14 @@ class scout_compute_api_SelectOldestPointsSeries(ConjureBeanType):
 
     @builtins.property
     def input(self) -> "scout_compute_api_NumericSeries":
+        """The input series to select the oldest points from.
+        """
         return self._input
 
     @builtins.property
     def num_points(self) -> "scout_compute_api_IntegerConstant":
+        """The number of points to select.
+        """
         return self._num_points
 
 
@@ -69769,24 +70056,6 @@ scout_compute_api_Subtract.__qualname__ = "Subtract"
 scout_compute_api_Subtract.__module__ = "nominal_api.scout_compute_api"
 
 
-class scout_compute_api_Sum(ConjureBeanType):
-    """The sum of point values inside the time window.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-        }
-
-    __slots__: List[str] = []
-
-
-
-scout_compute_api_Sum.__name__ = "Sum"
-scout_compute_api_Sum.__qualname__ = "Sum"
-scout_compute_api_Sum.__module__ = "nominal_api.scout_compute_api"
-
-
 class scout_compute_api_SumSeries(ConjureBeanType):
     """For every timestamp specified in the input series, outputs a value that is the sum for that timestamp
 across all input series.
@@ -70443,6 +70712,8 @@ class scout_compute_api_TagFilterValidationErrorType(ConjureEnumType):
     '''NESTED_AND_OPERATIONS'''
     DUPLICATE_TAG_KEY = 'DUPLICATE_TAG_KEY'
     '''DUPLICATE_TAG_KEY'''
+    FILTER_KEY_NOT_IN_SELECTED_TAGS = 'FILTER_KEY_NOT_IN_SELECTED_TAGS'
+    '''FILTER_KEY_NOT_IN_SELECTED_TAGS'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -70725,10 +70996,14 @@ class scout_compute_api_TaggedFrame(ConjureBeanType):
 
     @builtins.property
     def key(self) -> "scout_compute_api_StringConstant":
+        """Tag key to inject onto each series in the frame.
+        """
         return self._key
 
     @builtins.property
     def value(self) -> "scout_compute_api_StringConstant":
+        """Tag value to assign to the injected key.
+        """
         return self._value
 
 
@@ -73689,12 +73964,12 @@ class scout_compute_api_deprecated_RollingOperationSeriesNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_deprecated_NumericSeriesNode),
             'window': ConjureFieldDefinition('window', scout_compute_api_deprecated_Window),
-            'operator': ConjureFieldDefinition('operator', scout_compute_api_RollingOperator)
+            'operator': ConjureFieldDefinition('operator', scout_compute_api_NumericAggregation)
         }
 
     __slots__: List[str] = ['_input', '_window', '_operator']
 
-    def __init__(self, input: "scout_compute_api_deprecated_NumericSeriesNode", operator: "scout_compute_api_RollingOperator", window: "scout_compute_api_deprecated_Window") -> None:
+    def __init__(self, input: "scout_compute_api_deprecated_NumericSeriesNode", operator: "scout_compute_api_NumericAggregation", window: "scout_compute_api_deprecated_Window") -> None:
         self._input = input
         self._window = window
         self._operator = operator
@@ -73708,7 +73983,7 @@ class scout_compute_api_deprecated_RollingOperationSeriesNode(ConjureBeanType):
         return self._window
 
     @builtins.property
-    def operator(self) -> "scout_compute_api_RollingOperator":
+    def operator(self) -> "scout_compute_api_NumericAggregation":
         return self._operator
 
 
@@ -74382,16 +74657,16 @@ class scout_compute_resolved_api_AggregateNumericSeriesNode(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
-            'aggregation_function': ConjureFieldDefinition('aggregationFunction', scout_compute_api_NumericAggregationFunction),
+            'aggregation': ConjureFieldDefinition('aggregation', scout_compute_resolved_api_ResolvedNumericAggregation),
             'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[List[api_TagName]]),
             'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_resolved_api_InterpolationConfiguration])
         }
 
-    __slots__: List[str] = ['_input', '_aggregation_function', '_group_by_tags', '_interpolation_configuration']
+    __slots__: List[str] = ['_input', '_aggregation', '_group_by_tags', '_interpolation_configuration']
 
-    def __init__(self, aggregation_function: "scout_compute_api_NumericAggregationFunction", input: "scout_compute_resolved_api_NumericSeriesNode", group_by_tags: Optional[List[str]] = None, interpolation_configuration: Optional["scout_compute_resolved_api_InterpolationConfiguration"] = None) -> None:
+    def __init__(self, aggregation: "scout_compute_resolved_api_ResolvedNumericAggregation", input: "scout_compute_resolved_api_NumericSeriesNode", group_by_tags: Optional[List[str]] = None, interpolation_configuration: Optional["scout_compute_resolved_api_InterpolationConfiguration"] = None) -> None:
         self._input = input
-        self._aggregation_function = aggregation_function
+        self._aggregation = aggregation
         self._group_by_tags = group_by_tags
         self._interpolation_configuration = interpolation_configuration
 
@@ -74400,8 +74675,8 @@ class scout_compute_resolved_api_AggregateNumericSeriesNode(ConjureBeanType):
         return self._input
 
     @builtins.property
-    def aggregation_function(self) -> "scout_compute_api_NumericAggregationFunction":
-        return self._aggregation_function
+    def aggregation(self) -> "scout_compute_resolved_api_ResolvedNumericAggregation":
+        return self._aggregation
 
     @builtins.property
     def group_by_tags(self) -> Optional[List[str]]:
@@ -74418,6 +74693,35 @@ Empty optional means inherit tag groupings from input.
 scout_compute_resolved_api_AggregateNumericSeriesNode.__name__ = "AggregateNumericSeriesNode"
 scout_compute_resolved_api_AggregateNumericSeriesNode.__qualname__ = "AggregateNumericSeriesNode"
 scout_compute_resolved_api_AggregateNumericSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_AlignmentConfiguration(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration),
+            'driver_series': ConjureFieldDefinition('driverSeries', scout_compute_api_AlignmentDriverSeries)
+        }
+
+    __slots__: List[str] = ['_interpolation_configuration', '_driver_series']
+
+    def __init__(self, driver_series: "scout_compute_api_AlignmentDriverSeries", interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration") -> None:
+        self._interpolation_configuration = interpolation_configuration
+        self._driver_series = driver_series
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+    @builtins.property
+    def driver_series(self) -> "scout_compute_api_AlignmentDriverSeries":
+        return self._driver_series
+
+
+scout_compute_resolved_api_AlignmentConfiguration.__name__ = "AlignmentConfiguration"
+scout_compute_resolved_api_AlignmentConfiguration.__qualname__ = "AlignmentConfiguration"
+scout_compute_resolved_api_AlignmentConfiguration.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_AndSeriesNode(ConjureBeanType):
@@ -74661,19 +74965,19 @@ class scout_compute_resolved_api_BodeNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
             'output': ConjureFieldDefinition('output', scout_compute_resolved_api_NumericSeriesNode),
-            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_resolved_api_InterpolationConfiguration]),
+            'alignment_configuration': ConjureFieldDefinition('alignmentConfiguration', OptionalTypeWrapper[scout_compute_resolved_api_AlignmentConfiguration]),
             'stft_options': ConjureFieldDefinition('stftOptions', OptionalTypeWrapper[scout_compute_api_StftOptions]),
             'magnitude_scaling': ConjureFieldDefinition('magnitudeScaling', OptionalTypeWrapper[scout_compute_api_MagnitudeScaling]),
             'output_frequency_type': ConjureFieldDefinition('outputFrequencyType', OptionalTypeWrapper[scout_compute_api_OutputFrequencyType]),
             'unwrap_phase': ConjureFieldDefinition('unwrapPhase', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_input', '_output', '_interpolation_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
+    __slots__: List[str] = ['_input', '_output', '_alignment_configuration', '_stft_options', '_magnitude_scaling', '_output_frequency_type', '_unwrap_phase']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", output: "scout_compute_resolved_api_NumericSeriesNode", interpolation_configuration: Optional["scout_compute_resolved_api_InterpolationConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", output: "scout_compute_resolved_api_NumericSeriesNode", alignment_configuration: Optional["scout_compute_resolved_api_AlignmentConfiguration"] = None, magnitude_scaling: Optional["scout_compute_api_MagnitudeScaling"] = None, output_frequency_type: Optional["scout_compute_api_OutputFrequencyType"] = None, stft_options: Optional["scout_compute_api_StftOptions"] = None, unwrap_phase: Optional[bool] = None) -> None:
         self._input = input
         self._output = output
-        self._interpolation_configuration = interpolation_configuration
+        self._alignment_configuration = alignment_configuration
         self._stft_options = stft_options
         self._magnitude_scaling = magnitude_scaling
         self._output_frequency_type = output_frequency_type
@@ -74688,8 +74992,8 @@ class scout_compute_resolved_api_BodeNode(ConjureBeanType):
         return self._output
 
     @builtins.property
-    def interpolation_configuration(self) -> Optional["scout_compute_resolved_api_InterpolationConfiguration"]:
-        return self._interpolation_configuration
+    def alignment_configuration(self) -> Optional["scout_compute_resolved_api_AlignmentConfiguration"]:
+        return self._alignment_configuration
 
     @builtins.property
     def stft_options(self) -> Optional["scout_compute_api_StftOptions"]:
@@ -75961,6 +76265,7 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
     _value_map: Optional["scout_compute_resolved_api_ValueMapSeriesNode"] = None
     _array_select: Optional["scout_compute_resolved_api_SelectIndexFromEnumArraySeriesNode"] = None
     _extract_from_struct: Optional["scout_compute_resolved_api_ExtractEnumFromStructSeriesNode"] = None
+    _select_tags: Optional["scout_compute_resolved_api_SelectTagsSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -75976,7 +76281,8 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             'filter_transformation': ConjureFieldDefinition('filterTransformation', scout_compute_resolved_api_EnumFilterTransformationSeriesNode),
             'value_map': ConjureFieldDefinition('valueMap', scout_compute_resolved_api_ValueMapSeriesNode),
             'array_select': ConjureFieldDefinition('arraySelect', scout_compute_resolved_api_SelectIndexFromEnumArraySeriesNode),
-            'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_resolved_api_ExtractEnumFromStructSeriesNode)
+            'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_resolved_api_ExtractEnumFromStructSeriesNode),
+            'select_tags': ConjureFieldDefinition('selectTags', scout_compute_resolved_api_SelectTagsSeriesNode)
         }
 
     def __init__(
@@ -75993,10 +76299,11 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             value_map: Optional["scout_compute_resolved_api_ValueMapSeriesNode"] = None,
             array_select: Optional["scout_compute_resolved_api_SelectIndexFromEnumArraySeriesNode"] = None,
             extract_from_struct: Optional["scout_compute_resolved_api_ExtractEnumFromStructSeriesNode"] = None,
+            select_tags: Optional["scout_compute_resolved_api_SelectTagsSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (literal is not None) + (raw is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (tag_injection is not None) + (aggregate is not None) + (filter_transformation is not None) + (value_map is not None) + (array_select is not None) + (extract_from_struct is not None) != 1:
+            if (literal is not None) + (raw is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (tag_injection is not None) + (aggregate is not None) + (filter_transformation is not None) + (value_map is not None) + (array_select is not None) + (extract_from_struct is not None) + (select_tags is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if literal is not None:
@@ -76035,6 +76342,9 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             if extract_from_struct is not None:
                 self._extract_from_struct = extract_from_struct
                 self._type = 'extractFromStruct'
+            if select_tags is not None:
+                self._select_tags = select_tags
+                self._type = 'selectTags'
 
         elif type_of_union == 'literal':
             if literal is None:
@@ -76096,6 +76406,11 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._extract_from_struct = extract_from_struct
             self._type = 'extractFromStruct'
+        elif type_of_union == 'selectTags':
+            if select_tags is None:
+                raise ValueError('a union value must not be None')
+            self._select_tags = select_tags
+            self._type = 'selectTags'
 
     @builtins.property
     def literal(self) -> Optional["scout_compute_resolved_api_LiteralEnumSeriesNode"]:
@@ -76145,6 +76460,10 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
     def extract_from_struct(self) -> Optional["scout_compute_resolved_api_ExtractEnumFromStructSeriesNode"]:
         return self._extract_from_struct
 
+    @builtins.property
+    def select_tags(self) -> Optional["scout_compute_resolved_api_SelectTagsSeriesNode"]:
+        return self._select_tags
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_EnumSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_EnumSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -76172,6 +76491,8 @@ class scout_compute_resolved_api_EnumSeriesNode(ConjureUnionType):
             return visitor._array_select(self.array_select)
         if self._type == 'extractFromStruct' and self.extract_from_struct is not None:
             return visitor._extract_from_struct(self.extract_from_struct)
+        if self._type == 'selectTags' and self.select_tags is not None:
+            return visitor._select_tags(self.select_tags)
 
 
 scout_compute_resolved_api_EnumSeriesNode.__name__ = "EnumSeriesNode"
@@ -76227,6 +76548,10 @@ class scout_compute_resolved_api_EnumSeriesNodeVisitor:
 
     @abstractmethod
     def _extract_from_struct(self, extract_from_struct: "scout_compute_resolved_api_ExtractEnumFromStructSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _select_tags(self, select_tags: "scout_compute_resolved_api_SelectTagsSeriesNode") -> Any:
         pass
 
 
@@ -78272,6 +78597,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _extract_from_struct: Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"] = None
     _z_score: Optional["scout_compute_resolved_api_ZscoreSeriesNode"] = None
     _tag_by_intervals: Optional["scout_compute_resolved_api_TagByIntervalsSeriesNode"] = None
+    _select_tags: Optional["scout_compute_resolved_api_SelectTagsSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -78316,7 +78642,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'refprop': ConjureFieldDefinition('refprop', scout_compute_resolved_api_RefpropSeriesNode),
             'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_resolved_api_ExtractNumericFromStructSeriesNode),
             'z_score': ConjureFieldDefinition('zScore', scout_compute_resolved_api_ZscoreSeriesNode),
-            'tag_by_intervals': ConjureFieldDefinition('tagByIntervals', scout_compute_resolved_api_TagByIntervalsSeriesNode)
+            'tag_by_intervals': ConjureFieldDefinition('tagByIntervals', scout_compute_resolved_api_TagByIntervalsSeriesNode),
+            'select_tags': ConjureFieldDefinition('selectTags', scout_compute_resolved_api_SelectTagsSeriesNode)
         }
 
     def __init__(
@@ -78362,10 +78689,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             extract_from_struct: Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"] = None,
             z_score: Optional["scout_compute_resolved_api_ZscoreSeriesNode"] = None,
             tag_by_intervals: Optional["scout_compute_resolved_api_TagByIntervalsSeriesNode"] = None,
+            select_tags: Optional["scout_compute_resolved_api_SelectTagsSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (oldest_points is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (tag_injection is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) != 1:
+            if (constant is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (oldest_points is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (tag_injection is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (drop_nan is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (scalar_udf is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) + (tag_by_intervals is not None) + (select_tags is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if constant is not None:
@@ -78491,6 +78819,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if tag_by_intervals is not None:
                 self._tag_by_intervals = tag_by_intervals
                 self._type = 'tagByIntervals'
+            if select_tags is not None:
+                self._select_tags = select_tags
+                self._type = 'selectTags'
 
         elif type_of_union == 'constant':
             if constant is None:
@@ -78697,6 +79028,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._tag_by_intervals = tag_by_intervals
             self._type = 'tagByIntervals'
+        elif type_of_union == 'selectTags':
+            if select_tags is None:
+                raise ValueError('a union value must not be None')
+            self._select_tags = select_tags
+            self._type = 'selectTags'
 
     @builtins.property
     def constant(self) -> Optional["scout_compute_resolved_api_ConstantNumericSeriesNode"]:
@@ -78862,6 +79198,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def tag_by_intervals(self) -> Optional["scout_compute_resolved_api_TagByIntervalsSeriesNode"]:
         return self._tag_by_intervals
 
+    @builtins.property
+    def select_tags(self) -> Optional["scout_compute_resolved_api_SelectTagsSeriesNode"]:
+        return self._select_tags
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -78947,6 +79287,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._z_score(self.z_score)
         if self._type == 'tagByIntervals' and self.tag_by_intervals is not None:
             return visitor._tag_by_intervals(self.tag_by_intervals)
+        if self._type == 'selectTags' and self.select_tags is not None:
+            return visitor._select_tags(self.select_tags)
 
 
 scout_compute_resolved_api_NumericSeriesNode.__name__ = "NumericSeriesNode"
@@ -79120,6 +79462,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
     def _tag_by_intervals(self, tag_by_intervals: "scout_compute_resolved_api_TagByIntervalsSeriesNode") -> Any:
         pass
 
+    @abstractmethod
+    def _select_tags(self, select_tags: "scout_compute_resolved_api_SelectTagsSeriesNode") -> Any:
+        pass
+
 
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__name__ = "NumericSeriesNodeVisitor"
 scout_compute_resolved_api_NumericSeriesNodeVisitor.__qualname__ = "NumericSeriesNodeVisitor"
@@ -79200,22 +79546,17 @@ scout_compute_resolved_api_NumericTimeRangeFilterSeriesNode.__module__ = "nomina
 
 
 class scout_compute_resolved_api_NumericUnionSeriesNode(ConjureBeanType):
-    """Combines multiple numeric series into one. If {@code operation} is present, duplicate
-timestamps within a tag group are merged by the given operation. If {@code operation} is
-absent, the inputs are concatenated (SQL {@code UNION ALL}) and duplicate timestamps are
-preserved; callers that need aggregation should wrap the output downstream.
-    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', List[scout_compute_resolved_api_NumericSeriesNode]),
-            'operation': ConjureFieldDefinition('operation', OptionalTypeWrapper[scout_compute_api_NumericUnionOperation])
+            'operation': ConjureFieldDefinition('operation', OptionalTypeWrapper[scout_compute_resolved_api_ResolvedNumericUnionOperation])
         }
 
     __slots__: List[str] = ['_input', '_operation']
 
-    def __init__(self, input: List["scout_compute_resolved_api_NumericSeriesNode"], operation: Optional["scout_compute_api_NumericUnionOperation"] = None) -> None:
+    def __init__(self, input: List["scout_compute_resolved_api_NumericSeriesNode"], operation: Optional["scout_compute_resolved_api_ResolvedNumericUnionOperation"] = None) -> None:
         self._input = input
         self._operation = operation
 
@@ -79224,7 +79565,9 @@ preserved; callers that need aggregation should wrap the output downstream.
         return self._input
 
     @builtins.property
-    def operation(self) -> Optional["scout_compute_api_NumericUnionOperation"]:
+    def operation(self) -> Optional["scout_compute_resolved_api_ResolvedNumericUnionOperation"]:
+        """Strategy applied to points that share a timestamp across the unioned inputs.
+        """
         return self._operation
 
 
@@ -80067,21 +80410,37 @@ scout_compute_resolved_api_RangesNumericAggregationNode.__module__ = "nominal_ap
 
 
 class scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode(ConjureBeanType):
+    """Aggregates the input numeric series under each range in the provided ranges, emitting a single point per
+range (anchored at the range start). Separate from the `RangesNumericAggregationNode` multi-aggregate path
+which supports the `all` variant.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_RangesNumericAggregationNode)
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'ranges': ConjureFieldDefinition('ranges', scout_compute_resolved_api_RangesNode),
+            'aggregation': ConjureFieldDefinition('aggregation', scout_compute_resolved_api_ResolvedNumericAggregation)
         }
 
-    __slots__: List[str] = ['_input']
+    __slots__: List[str] = ['_input', '_ranges', '_aggregation']
 
-    def __init__(self, input: "scout_compute_resolved_api_RangesNumericAggregationNode") -> None:
+    def __init__(self, aggregation: "scout_compute_resolved_api_ResolvedNumericAggregation", input: "scout_compute_resolved_api_NumericSeriesNode", ranges: "scout_compute_resolved_api_RangesNode") -> None:
         self._input = input
+        self._ranges = ranges
+        self._aggregation = aggregation
 
     @builtins.property
-    def input(self) -> "scout_compute_resolved_api_RangesNumericAggregationNode":
+    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
         return self._input
+
+    @builtins.property
+    def ranges(self) -> "scout_compute_resolved_api_RangesNode":
+        return self._ranges
+
+    @builtins.property
+    def aggregation(self) -> "scout_compute_resolved_api_ResolvedNumericAggregation":
+        return self._aggregation
 
 
 scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode.__name__ = "RangesNumericAggregationToNumericSeriesNode"
@@ -80669,32 +81028,140 @@ scout_compute_resolved_api_ResolvedNodeVisitor.__module__ = "nominal_api.scout_c
 
 
 class scout_compute_resolved_api_ResolvedNumericAggregation(ConjureUnionType):
+    """Unified resolved numeric aggregation used across rolling windows, plain aggregates, range aggregates,
+union merges, and per-bucket summarization.
+    """
+    _sum: Optional["scout_compute_api_Summation"] = None
+    _average: Optional["scout_compute_api_Average"] = None
+    _min: Optional["scout_compute_api_Minimum"] = None
+    _max: Optional["scout_compute_api_Maximum"] = None
+    _count: Optional["scout_compute_api_Count"] = None
+    _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
+    _root_mean_square: Optional["scout_compute_api_RootMeanSquare"] = None
     _percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'sum': ConjureFieldDefinition('sum', scout_compute_api_Summation),
+            'average': ConjureFieldDefinition('average', scout_compute_api_Average),
+            'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
+            'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
+            'count': ConjureFieldDefinition('count', scout_compute_api_Count),
+            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
+            'root_mean_square': ConjureFieldDefinition('rootMeanSquare', scout_compute_api_RootMeanSquare),
             'percentile': ConjureFieldDefinition('percentile', scout_compute_resolved_api_ResolvedPercentile)
         }
 
     def __init__(
             self,
+            sum: Optional["scout_compute_api_Summation"] = None,
+            average: Optional["scout_compute_api_Average"] = None,
+            min: Optional["scout_compute_api_Minimum"] = None,
+            max: Optional["scout_compute_api_Maximum"] = None,
+            count: Optional["scout_compute_api_Count"] = None,
+            standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
+            root_mean_square: Optional["scout_compute_api_RootMeanSquare"] = None,
             percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (percentile is not None) != 1:
+            if (sum is not None) + (average is not None) + (min is not None) + (max is not None) + (count is not None) + (standard_deviation is not None) + (root_mean_square is not None) + (percentile is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if sum is not None:
+                self._sum = sum
+                self._type = 'sum'
+            if average is not None:
+                self._average = average
+                self._type = 'average'
+            if min is not None:
+                self._min = min
+                self._type = 'min'
+            if max is not None:
+                self._max = max
+                self._type = 'max'
+            if count is not None:
+                self._count = count
+                self._type = 'count'
+            if standard_deviation is not None:
+                self._standard_deviation = standard_deviation
+                self._type = 'standardDeviation'
+            if root_mean_square is not None:
+                self._root_mean_square = root_mean_square
+                self._type = 'rootMeanSquare'
             if percentile is not None:
                 self._percentile = percentile
                 self._type = 'percentile'
 
+        elif type_of_union == 'sum':
+            if sum is None:
+                raise ValueError('a union value must not be None')
+            self._sum = sum
+            self._type = 'sum'
+        elif type_of_union == 'average':
+            if average is None:
+                raise ValueError('a union value must not be None')
+            self._average = average
+            self._type = 'average'
+        elif type_of_union == 'min':
+            if min is None:
+                raise ValueError('a union value must not be None')
+            self._min = min
+            self._type = 'min'
+        elif type_of_union == 'max':
+            if max is None:
+                raise ValueError('a union value must not be None')
+            self._max = max
+            self._type = 'max'
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
+        elif type_of_union == 'standardDeviation':
+            if standard_deviation is None:
+                raise ValueError('a union value must not be None')
+            self._standard_deviation = standard_deviation
+            self._type = 'standardDeviation'
+        elif type_of_union == 'rootMeanSquare':
+            if root_mean_square is None:
+                raise ValueError('a union value must not be None')
+            self._root_mean_square = root_mean_square
+            self._type = 'rootMeanSquare'
         elif type_of_union == 'percentile':
             if percentile is None:
                 raise ValueError('a union value must not be None')
             self._percentile = percentile
             self._type = 'percentile'
+
+    @builtins.property
+    def sum(self) -> Optional["scout_compute_api_Summation"]:
+        return self._sum
+
+    @builtins.property
+    def average(self) -> Optional["scout_compute_api_Average"]:
+        return self._average
+
+    @builtins.property
+    def min(self) -> Optional["scout_compute_api_Minimum"]:
+        return self._min
+
+    @builtins.property
+    def max(self) -> Optional["scout_compute_api_Maximum"]:
+        return self._max
+
+    @builtins.property
+    def count(self) -> Optional["scout_compute_api_Count"]:
+        return self._count
+
+    @builtins.property
+    def standard_deviation(self) -> Optional["scout_compute_api_StandardDeviation"]:
+        return self._standard_deviation
+
+    @builtins.property
+    def root_mean_square(self) -> Optional["scout_compute_api_RootMeanSquare"]:
+        return self._root_mean_square
 
     @builtins.property
     def percentile(self) -> Optional["scout_compute_resolved_api_ResolvedPercentile"]:
@@ -80703,6 +81170,20 @@ class scout_compute_resolved_api_ResolvedNumericAggregation(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_ResolvedNumericAggregationVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_ResolvedNumericAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'sum' and self.sum is not None:
+            return visitor._sum(self.sum)
+        if self._type == 'average' and self.average is not None:
+            return visitor._average(self.average)
+        if self._type == 'min' and self.min is not None:
+            return visitor._min(self.min)
+        if self._type == 'max' and self.max is not None:
+            return visitor._max(self.max)
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
+        if self._type == 'standardDeviation' and self.standard_deviation is not None:
+            return visitor._standard_deviation(self.standard_deviation)
+        if self._type == 'rootMeanSquare' and self.root_mean_square is not None:
+            return visitor._root_mean_square(self.root_mean_square)
         if self._type == 'percentile' and self.percentile is not None:
             return visitor._percentile(self.percentile)
 
@@ -80715,6 +81196,34 @@ scout_compute_resolved_api_ResolvedNumericAggregation.__module__ = "nominal_api.
 class scout_compute_resolved_api_ResolvedNumericAggregationVisitor:
 
     @abstractmethod
+    def _sum(self, sum: "scout_compute_api_Summation") -> Any:
+        pass
+
+    @abstractmethod
+    def _average(self, average: "scout_compute_api_Average") -> Any:
+        pass
+
+    @abstractmethod
+    def _min(self, min: "scout_compute_api_Minimum") -> Any:
+        pass
+
+    @abstractmethod
+    def _max(self, max: "scout_compute_api_Maximum") -> Any:
+        pass
+
+    @abstractmethod
+    def _count(self, count: "scout_compute_api_Count") -> Any:
+        pass
+
+    @abstractmethod
+    def _standard_deviation(self, standard_deviation: "scout_compute_api_StandardDeviation") -> Any:
+        pass
+
+    @abstractmethod
+    def _root_mean_square(self, root_mean_square: "scout_compute_api_RootMeanSquare") -> Any:
+        pass
+
+    @abstractmethod
     def _percentile(self, percentile: "scout_compute_resolved_api_ResolvedPercentile") -> Any:
         pass
 
@@ -80724,8 +81233,85 @@ scout_compute_resolved_api_ResolvedNumericAggregationVisitor.__qualname__ = "Res
 scout_compute_resolved_api_ResolvedNumericAggregationVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_ResolvedNumericUnionOperation(ConjureUnionType):
+    _aggregation: Optional["scout_compute_resolved_api_ResolvedNumericAggregation"] = None
+    _throw_on_duplicate: Optional["scout_compute_resolved_api_ThrowOnDuplicateOperation"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'aggregation': ConjureFieldDefinition('aggregation', scout_compute_resolved_api_ResolvedNumericAggregation),
+            'throw_on_duplicate': ConjureFieldDefinition('throwOnDuplicate', scout_compute_resolved_api_ThrowOnDuplicateOperation)
+        }
+
+    def __init__(
+            self,
+            aggregation: Optional["scout_compute_resolved_api_ResolvedNumericAggregation"] = None,
+            throw_on_duplicate: Optional["scout_compute_resolved_api_ThrowOnDuplicateOperation"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (aggregation is not None) + (throw_on_duplicate is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if aggregation is not None:
+                self._aggregation = aggregation
+                self._type = 'aggregation'
+            if throw_on_duplicate is not None:
+                self._throw_on_duplicate = throw_on_duplicate
+                self._type = 'throwOnDuplicate'
+
+        elif type_of_union == 'aggregation':
+            if aggregation is None:
+                raise ValueError('a union value must not be None')
+            self._aggregation = aggregation
+            self._type = 'aggregation'
+        elif type_of_union == 'throwOnDuplicate':
+            if throw_on_duplicate is None:
+                raise ValueError('a union value must not be None')
+            self._throw_on_duplicate = throw_on_duplicate
+            self._type = 'throwOnDuplicate'
+
+    @builtins.property
+    def aggregation(self) -> Optional["scout_compute_resolved_api_ResolvedNumericAggregation"]:
+        return self._aggregation
+
+    @builtins.property
+    def throw_on_duplicate(self) -> Optional["scout_compute_resolved_api_ThrowOnDuplicateOperation"]:
+        return self._throw_on_duplicate
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_ResolvedNumericUnionOperationVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_ResolvedNumericUnionOperationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'aggregation' and self.aggregation is not None:
+            return visitor._aggregation(self.aggregation)
+        if self._type == 'throwOnDuplicate' and self.throw_on_duplicate is not None:
+            return visitor._throw_on_duplicate(self.throw_on_duplicate)
+
+
+scout_compute_resolved_api_ResolvedNumericUnionOperation.__name__ = "ResolvedNumericUnionOperation"
+scout_compute_resolved_api_ResolvedNumericUnionOperation.__qualname__ = "ResolvedNumericUnionOperation"
+scout_compute_resolved_api_ResolvedNumericUnionOperation.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ResolvedNumericUnionOperationVisitor:
+
+    @abstractmethod
+    def _aggregation(self, aggregation: "scout_compute_resolved_api_ResolvedNumericAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _throw_on_duplicate(self, throw_on_duplicate: "scout_compute_resolved_api_ThrowOnDuplicateOperation") -> Any:
+        pass
+
+
+scout_compute_resolved_api_ResolvedNumericUnionOperationVisitor.__name__ = "ResolvedNumericUnionOperationVisitor"
+scout_compute_resolved_api_ResolvedNumericUnionOperationVisitor.__qualname__ = "ResolvedNumericUnionOperationVisitor"
+scout_compute_resolved_api_ResolvedNumericUnionOperationVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_ResolvedPercentile(ConjureBeanType):
-    """The value at the specified percentile within the time window.
+    """The value at the specified percentile.
     """
 
     @builtins.classmethod
@@ -80785,15 +81371,15 @@ class scout_compute_resolved_api_RollingOperationSeriesNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
             'window': ConjureFieldDefinition('window', scout_compute_resolved_api_Window),
-            'operator': ConjureFieldDefinition('operator', scout_compute_resolved_api_RollingOperator)
+            'aggregation': ConjureFieldDefinition('aggregation', scout_compute_resolved_api_ResolvedNumericAggregation)
         }
 
-    __slots__: List[str] = ['_input', '_window', '_operator']
+    __slots__: List[str] = ['_input', '_window', '_aggregation']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", operator: "scout_compute_resolved_api_RollingOperator", window: "scout_compute_resolved_api_Window") -> None:
+    def __init__(self, aggregation: "scout_compute_resolved_api_ResolvedNumericAggregation", input: "scout_compute_resolved_api_NumericSeriesNode", window: "scout_compute_resolved_api_Window") -> None:
         self._input = input
         self._window = window
-        self._operator = operator
+        self._aggregation = aggregation
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
@@ -80804,195 +81390,13 @@ class scout_compute_resolved_api_RollingOperationSeriesNode(ConjureBeanType):
         return self._window
 
     @builtins.property
-    def operator(self) -> "scout_compute_resolved_api_RollingOperator":
-        return self._operator
+    def aggregation(self) -> "scout_compute_resolved_api_ResolvedNumericAggregation":
+        return self._aggregation
 
 
 scout_compute_resolved_api_RollingOperationSeriesNode.__name__ = "RollingOperationSeriesNode"
 scout_compute_resolved_api_RollingOperationSeriesNode.__qualname__ = "RollingOperationSeriesNode"
 scout_compute_resolved_api_RollingOperationSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
-class scout_compute_resolved_api_RollingOperator(ConjureUnionType):
-    _average: Optional["scout_compute_api_Average"] = None
-    _count: Optional["scout_compute_api_Count"] = None
-    _min: Optional["scout_compute_api_Minimum"] = None
-    _max: Optional["scout_compute_api_Maximum"] = None
-    _percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None
-    _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
-    _sum: Optional["scout_compute_api_Sum"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'average': ConjureFieldDefinition('average', scout_compute_api_Average),
-            'count': ConjureFieldDefinition('count', scout_compute_api_Count),
-            'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
-            'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
-            'percentile': ConjureFieldDefinition('percentile', scout_compute_resolved_api_ResolvedPercentile),
-            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
-            'sum': ConjureFieldDefinition('sum', scout_compute_api_Sum)
-        }
-
-    def __init__(
-            self,
-            average: Optional["scout_compute_api_Average"] = None,
-            count: Optional["scout_compute_api_Count"] = None,
-            min: Optional["scout_compute_api_Minimum"] = None,
-            max: Optional["scout_compute_api_Maximum"] = None,
-            percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None,
-            standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
-            sum: Optional["scout_compute_api_Sum"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (average is not None) + (count is not None) + (min is not None) + (max is not None) + (percentile is not None) + (standard_deviation is not None) + (sum is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if average is not None:
-                self._average = average
-                self._type = 'average'
-            if count is not None:
-                self._count = count
-                self._type = 'count'
-            if min is not None:
-                self._min = min
-                self._type = 'min'
-            if max is not None:
-                self._max = max
-                self._type = 'max'
-            if percentile is not None:
-                self._percentile = percentile
-                self._type = 'percentile'
-            if standard_deviation is not None:
-                self._standard_deviation = standard_deviation
-                self._type = 'standardDeviation'
-            if sum is not None:
-                self._sum = sum
-                self._type = 'sum'
-
-        elif type_of_union == 'average':
-            if average is None:
-                raise ValueError('a union value must not be None')
-            self._average = average
-            self._type = 'average'
-        elif type_of_union == 'count':
-            if count is None:
-                raise ValueError('a union value must not be None')
-            self._count = count
-            self._type = 'count'
-        elif type_of_union == 'min':
-            if min is None:
-                raise ValueError('a union value must not be None')
-            self._min = min
-            self._type = 'min'
-        elif type_of_union == 'max':
-            if max is None:
-                raise ValueError('a union value must not be None')
-            self._max = max
-            self._type = 'max'
-        elif type_of_union == 'percentile':
-            if percentile is None:
-                raise ValueError('a union value must not be None')
-            self._percentile = percentile
-            self._type = 'percentile'
-        elif type_of_union == 'standardDeviation':
-            if standard_deviation is None:
-                raise ValueError('a union value must not be None')
-            self._standard_deviation = standard_deviation
-            self._type = 'standardDeviation'
-        elif type_of_union == 'sum':
-            if sum is None:
-                raise ValueError('a union value must not be None')
-            self._sum = sum
-            self._type = 'sum'
-
-    @builtins.property
-    def average(self) -> Optional["scout_compute_api_Average"]:
-        return self._average
-
-    @builtins.property
-    def count(self) -> Optional["scout_compute_api_Count"]:
-        return self._count
-
-    @builtins.property
-    def min(self) -> Optional["scout_compute_api_Minimum"]:
-        return self._min
-
-    @builtins.property
-    def max(self) -> Optional["scout_compute_api_Maximum"]:
-        return self._max
-
-    @builtins.property
-    def percentile(self) -> Optional["scout_compute_resolved_api_ResolvedPercentile"]:
-        return self._percentile
-
-    @builtins.property
-    def standard_deviation(self) -> Optional["scout_compute_api_StandardDeviation"]:
-        return self._standard_deviation
-
-    @builtins.property
-    def sum(self) -> Optional["scout_compute_api_Sum"]:
-        return self._sum
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_compute_resolved_api_RollingOperatorVisitor):
-            raise ValueError('{} is not an instance of scout_compute_resolved_api_RollingOperatorVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'average' and self.average is not None:
-            return visitor._average(self.average)
-        if self._type == 'count' and self.count is not None:
-            return visitor._count(self.count)
-        if self._type == 'min' and self.min is not None:
-            return visitor._min(self.min)
-        if self._type == 'max' and self.max is not None:
-            return visitor._max(self.max)
-        if self._type == 'percentile' and self.percentile is not None:
-            return visitor._percentile(self.percentile)
-        if self._type == 'standardDeviation' and self.standard_deviation is not None:
-            return visitor._standard_deviation(self.standard_deviation)
-        if self._type == 'sum' and self.sum is not None:
-            return visitor._sum(self.sum)
-
-
-scout_compute_resolved_api_RollingOperator.__name__ = "RollingOperator"
-scout_compute_resolved_api_RollingOperator.__qualname__ = "RollingOperator"
-scout_compute_resolved_api_RollingOperator.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
-class scout_compute_resolved_api_RollingOperatorVisitor:
-
-    @abstractmethod
-    def _average(self, average: "scout_compute_api_Average") -> Any:
-        pass
-
-    @abstractmethod
-    def _count(self, count: "scout_compute_api_Count") -> Any:
-        pass
-
-    @abstractmethod
-    def _min(self, min: "scout_compute_api_Minimum") -> Any:
-        pass
-
-    @abstractmethod
-    def _max(self, max: "scout_compute_api_Maximum") -> Any:
-        pass
-
-    @abstractmethod
-    def _percentile(self, percentile: "scout_compute_resolved_api_ResolvedPercentile") -> Any:
-        pass
-
-    @abstractmethod
-    def _standard_deviation(self, standard_deviation: "scout_compute_api_StandardDeviation") -> Any:
-        pass
-
-    @abstractmethod
-    def _sum(self, sum: "scout_compute_api_Sum") -> Any:
-        pass
-
-
-scout_compute_resolved_api_RollingOperatorVisitor.__name__ = "RollingOperatorVisitor"
-scout_compute_resolved_api_RollingOperatorVisitor.__qualname__ = "RollingOperatorVisitor"
-scout_compute_resolved_api_RollingOperatorVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_ScalarUdfSeriesNode(ConjureBeanType):
@@ -81325,6 +81729,37 @@ class scout_compute_resolved_api_SelectOldestPointsSeriesNode(ConjureBeanType):
 scout_compute_resolved_api_SelectOldestPointsSeriesNode.__name__ = "SelectOldestPointsSeriesNode"
 scout_compute_resolved_api_SelectOldestPointsSeriesNode.__qualname__ = "SelectOldestPointsSeriesNode"
 scout_compute_resolved_api_SelectOldestPointsSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_SelectTagsSeriesNode(ConjureBeanType):
+    """Projects the tag dimensions of a series to the selected tag keys.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode),
+            'tag_keys': ConjureFieldDefinition('tagKeys', List[api_TagName])
+        }
+
+    __slots__: List[str] = ['_input', '_tag_keys']
+
+    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", tag_keys: List[str]) -> None:
+        self._input = input
+        self._tag_keys = tag_keys
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_SeriesNode":
+        return self._input
+
+    @builtins.property
+    def tag_keys(self) -> List[str]:
+        return self._tag_keys
+
+
+scout_compute_resolved_api_SelectTagsSeriesNode.__name__ = "SelectTagsSeriesNode"
+scout_compute_resolved_api_SelectTagsSeriesNode.__qualname__ = "SelectTagsSeriesNode"
+scout_compute_resolved_api_SelectTagsSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
@@ -82786,6 +83221,26 @@ class scout_compute_resolved_api_ThresholdingRangesNode(ConjureBeanType):
 scout_compute_resolved_api_ThresholdingRangesNode.__name__ = "ThresholdingRangesNode"
 scout_compute_resolved_api_ThresholdingRangesNode.__qualname__ = "ThresholdingRangesNode"
 scout_compute_resolved_api_ThresholdingRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ThrowOnDuplicateOperation(ConjureBeanType):
+    """Marker operation that causes a runtime error if duplicate timestamps are encountered
+across the unioned inputs. Preserves the legacy {@code NumericUnionOperation.THROW}
+semantic.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_compute_resolved_api_ThrowOnDuplicateOperation.__name__ = "ThrowOnDuplicateOperation"
+scout_compute_resolved_api_ThrowOnDuplicateOperation.__qualname__ = "ThrowOnDuplicateOperation"
+scout_compute_resolved_api_ThrowOnDuplicateOperation.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_TimeDifferenceSeriesNode(ConjureBeanType):
@@ -123694,6 +124149,8 @@ scout_checks_api_JobRid = str
 
 api_rids_SegmentRid = str
 
+scout_compute_api_VariableName = str
+
 scout_integrations_api_IntegrationRid = str
 
 api_Unit = str
@@ -123887,8 +124344,6 @@ api_SeriesMetadataRid = str
 scout_compute_api_ErrorCode = int
 
 scout_units_api_UnitSymbol = str
-
-scout_compute_api_VariableName = str
 
 ingest_api_ChannelPrefix = OptionalTypeWrapper[str]
 

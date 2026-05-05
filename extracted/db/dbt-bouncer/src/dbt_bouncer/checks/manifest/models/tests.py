@@ -1,8 +1,11 @@
 """Checks related to model test coverage and test configuration."""
 
 import logging
+from typing import Annotated
 
-from dbt_bouncer.check_decorator import check, fail
+from pydantic import Field
+
+from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import get_clean_model_name, get_package_version_number
 
 
@@ -18,6 +21,10 @@ def check_model_has_unique_test(
     ],
 ):
     """Models must have a test for uniqueness of a column.
+
+    !!! info "Rationale"
+
+        A uniqueness test is the most fundamental data quality check — it ensures that the primary key or identifier column of a model does not contain duplicates, which would cause incorrect counts and fan-out in downstream joins. This check enforces that no model reaches production without at least one uniqueness assertion.
 
     Parameters:
         accepted_uniqueness_tests (list[str] | None): List of tests that are accepted as uniqueness tests.
@@ -76,8 +83,14 @@ def check_model_has_unique_test(
 
 
 @check
-def check_model_has_unit_tests(model, ctx, *, min_number_of_unit_tests: int = 1):
+def check_model_has_unit_tests(
+    model, ctx, *, min_number_of_unit_tests: Annotated[int, Field(gt=0)] = 1
+):
     """Models must have more than the specified number of unit tests.
+
+    !!! info "Rationale"
+
+        Unit tests validate a model's transformation logic with controlled, mock inputs rather than real warehouse data. Requiring them on critical models (e.g. marts) ensures that complex SQL logic is verified independently of data volume or state, catching regressions before they affect downstream consumers.
 
     Parameters:
         min_number_of_unit_tests (int | None): The minimum number of unit tests that a model must have.
@@ -139,8 +152,16 @@ def check_model_has_unit_tests(model, ctx, *, min_number_of_unit_tests: int = 1)
 def check_model_test_coverage(ctx, *, min_model_test_coverage_pct: float = 100):
     """Set the minimum percentage of models that have at least one test.
 
+    !!! info "Rationale"
+
+        Rather than requiring every model to be tested immediately, this check lets teams set a realistic coverage target and enforce it progressively. It prevents test coverage from silently declining as new, untested models are added to the project, creating a ratchet towards comprehensive testing.
+
     Parameters:
         min_model_test_coverage_pct (float): The minimum percentage of models that must have at least one test.
+
+    Receives:
+        models (list[ModelNode]): List of ModelNode objects parsed from `manifest.json`.
+        tests (list[TestNode]): List of TestNode objects parsed from `manifest.json`.
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
@@ -154,6 +175,15 @@ def check_model_test_coverage(ctx, *, min_model_test_coverage_pct: float = 100):
         ```
 
     """
+    if min_model_test_coverage_pct < 0:
+        raise ValueError(
+            f"`min_model_test_coverage_pct` must be greater than or equal to 0, got {min_model_test_coverage_pct}."
+        )
+    if min_model_test_coverage_pct > 100:
+        raise ValueError(
+            f"`min_model_test_coverage_pct` must be less than or equal to 100, got {min_model_test_coverage_pct}."
+        )
+
     num_models = len(ctx.models)
     # Build set of model IDs that have at least one test
     tested_model_ids = {

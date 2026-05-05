@@ -17,7 +17,6 @@ from pytensor.graph.rewriting.basic import (
 )
 from pytensor.graph.traversal import ancestors
 from pytensor.graph.utils import InconsistencyError, get_variable_trace_string
-from pytensor.scalar import ScalarType
 from pytensor.tensor.basic import (
     MakeVector,
     as_tensor_variable,
@@ -37,7 +36,6 @@ from pytensor.tensor.rewriting.basic import (
     register_useless,
     topo_constant_folding,
 )
-from pytensor.tensor.rewriting.elemwise import apply_local_dimshuffle_lift
 from pytensor.tensor.shape import (
     Reshape,
     Shape,
@@ -45,7 +43,13 @@ from pytensor.tensor.shape import (
     SpecifyShape,
     specify_shape,
 )
-from pytensor.tensor.subtensor import Subtensor, get_idx_list
+from pytensor.tensor.subtensor import (
+    AdvancedIncSubtensor,
+    AdvancedIncSubtensor1,
+    IncSubtensor,
+    Subtensor,
+    get_idx_list,
+)
 from pytensor.tensor.type import TensorType, discrete_dtypes, integer_dtypes
 from pytensor.tensor.type_other import NoneTypeT
 from pytensor.tensor.variable import TensorVariable
@@ -211,7 +215,6 @@ class ShapeFeature(Feature):
         if hasattr(r.type, "shape") and r.type.shape[i] is not None:
             return constant(r.type.shape[i], dtype="int64")
         else:
-            # Do not call make_node for test_value
             s = Shape_i(i)(r)
             try:
                 s = get_scalar_constant_value(s)
@@ -842,13 +845,16 @@ def _is_shape_i_of_x(
     if isinstance(var.owner.op, Shape_i):
         return (var.owner.op.i == i) and (var.owner.inputs[0] == x)  # type: ignore
 
-    # Match Subtensor((ScalarType,))(Shape(input), i)
+    # Match Subtensor((int,))(Shape(input), i) - single integer index into shape
     if isinstance(var.owner.op, Subtensor):
+        idx_entry = (
+            var.owner.op.idx_list[0] if len(var.owner.op.idx_list) == 1 else None
+        )
         return (
             # Check we have integer indexing operation
             # (and not slice or multiple indexing)
             len(var.owner.op.idx_list) == 1
-            and isinstance(var.owner.op.idx_list[0], ScalarType)
+            and isinstance(idx_entry, int)
             # Check we are indexing on the shape of x
             and var.owner.inputs[0].owner is not None
             and isinstance(var.owner.inputs[0].owner.op, Shape)
@@ -958,51 +964,41 @@ def local_reshape_to_dimshuffle(fgraph, node):
         - reshape(x, (1, m, 1, n, 1, 1)) -> expand_dims(reshape(x, (m, n)), axis=(0, 2, 4, 5))
 
     """
-    inp, output_shape = node.inputs
+    inp, shape = node.inputs
     [output] = node.outputs
 
-    # Trivial case, all dimensions of input/output are known to be broadcastable:
-    # there's nothing to reshape
-    if all(inp.type.broadcastable) or all(output.type.broadcastable):
-        squeeze_axes = tuple(range(inp.type.ndim))
-        new_output_shape = []
-        expand_axes = tuple(range(output.type.ndim))
+    new_output_shape = []
+    expand_axes = []
+    # We look at both output.type.broadcastable and shape
+    # The first may encode understanding about -1, but may miss knowledge about
+    # constant 1 shape that only simplified later
+    for i, (static_one, dim_length) in enumerate(
+        zip(output.type.broadcastable, _unpack_shape_vector(shape))
+    ):
+        # -1 can be an implicit expand_dims, but it's tricky to prove
+        # Example: np.zeros((2, 2, 2)).reshape((2, -1, 4))
+        # We rely on the output static shape which will already have figured it out (sometimes)
+        if static_one or (isinstance(dim_length, Constant) and dim_length.data == 1):
+            expand_axes.append(i)
+        else:
+            new_output_shape.append(dim_length)
 
-    else:
-        squeeze_axes = [i for i, bcast in enumerate(inp.type.broadcastable) if bcast]
-        unpacked_shape = _unpack_shape_vector(output_shape)
-        new_output_shape = []
-        expand_axes = []
-        for i, dim_length in enumerate(unpacked_shape):
-            if isinstance(dim_length, Constant) and (
-                dim_length.data == 1
-                # -1 can be an implicit expand_dims, but it's tricky to prove
-                # as we would need to check whether all other dimensions
-                # already explain the full size of the array.
-                # Example: np.zeros((2, 2, 2)).reshape((8, -1))
-                # We rely on the output static shape which will already have figured
-                # it out for some (but not all) cases
-                or (dim_length.data == -1 and output.type.shape[i] == 1)
-            ):
-                expand_axes.append(i)
-            else:
-                new_output_shape.append(dim_length)
-
-    if squeeze_axes or expand_axes:
-        new_out = inp.squeeze(squeeze_axes)
-
-        if new_output_shape:
-            new_out = new_out.reshape(new_output_shape)
-            copy_stack_trace(output, new_out)
-
-        new_out = expand_dims(new_out, expand_axes)
-
-        if not new_output_shape:
-            # Eagerly merge consecutive squeeze and expand_dims
-            new_out = apply_local_dimshuffle_lift(fgraph, new_out)
-
+    if all(inp.type.broadcastable) or not new_output_shape:
+        # Trivial case we have provably size 1 as input or output, reshape can't be doing anything useful
+        new_out = inp.dimshuffle(["x"] * output.type.ndim)
         copy_stack_trace(output, new_out)
         return [new_out]
+
+    squeeze_axes = [i for i, b in enumerate(inp.type.broadcastable) if b]
+
+    if not squeeze_axes and not expand_axes:
+        return None
+
+    new_out = inp.squeeze(squeeze_axes)
+    new_out = new_out.reshape(new_output_shape)
+    new_out = expand_dims(new_out, expand_axes)
+    copy_stack_trace(output, new_out)
+    return [new_out]
 
 
 @register_specialize
@@ -1190,7 +1186,7 @@ def local_Shape_of_SpecifyShape(fgraph, node):
 @register_canonicalize
 @register_specialize
 @node_rewriter([SpecifyShape])
-def local_specify_shape_lift(fgraph, node):
+def local_lift_specify_shape_elemwise(fgraph, node):
     """Lift SpecifyShape of Elemwise towards the inputs."""
     inp, *shape = node.inputs
     if inp.owner and isinstance(inp.owner.op, Elemwise):
@@ -1233,6 +1229,26 @@ def local_specify_shape_lift(fgraph, node):
         new_out = inp.owner.op.make_node(*new_elem_inps).outputs
         copy_stack_trace(node.outputs, new_out)
         return new_out
+
+
+@register_canonicalize
+@register_specialize
+@node_rewriter([SpecifyShape])
+def local_lift_specify_shape_inc_subtensor(fgraph, node):
+    """specify_shape(x[idx].inc(y)) -> specify_shape(x)[idx].inc(y).
+
+    IncSubtensor always preserves the shape of the buffer
+    """
+    inc_x, *specified_shape = node.inputs
+    if isinstance(
+        (inc_op := inc_x.owner_op),
+        IncSubtensor | AdvancedIncSubtensor1 | AdvancedIncSubtensor,
+    ):
+        x, y, *idx_vars = inc_x.owner.inputs
+        new_x = specify_shape(x, specified_shape)
+        new_out = inc_op(new_x, y, *idx_vars)
+        copy_stack_trace(node.outputs[0], new_out)
+        return [new_out]
 
 
 @register_infer_shape

@@ -5,18 +5,24 @@ from typing_extensions import Literal, TypeAlias
 
 from pydantic import Field as FieldInfo
 
-from .part import Part
 from .._models import BaseModel
 from .openai_response import OpenAIResponse
+from .part_reasoning_text import PartReasoningText
+from .mcp_approval_request import McpApprovalRequest
+from .response_compaction_item import ResponseCompactionItem
 from .openai_response_output_text import OpenAIResponseOutputText
 from .openai_response_output_message import OpenAIResponseOutputMessage
 from .openai_response_output_refusal import OpenAIResponseOutputRefusal
 from .openai_response_reasoning_item import OpenAIResponseReasoningItem
+from .response_apply_patch_tool_call import ResponseApplyPatchToolCall
 from .openai_response_custom_tool_call import OpenAIResponseCustomToolCall
+from .response_function_shell_tool_call import ResponseFunctionShellToolCall
 from .openai_response_computer_tool_call import OpenAIResponseComputerToolCall
 from .openai_response_function_tool_call import OpenAIResponseFunctionToolCall
 from .openai_response_function_web_search import OpenAIResponseFunctionWebSearch
 from .openai_response_file_search_tool_call import OpenAIResponseFileSearchToolCall
+from .response_apply_patch_tool_call_output import ResponseApplyPatchToolCallOutput
+from .response_function_shell_tool_call_output import ResponseFunctionShellToolCallOutput
 from .openai_response_code_interpreter_tool_call import OpenAIResponseCodeInterpreterToolCall
 from .openai_types_responses_response_output_item_mcp_call import OpenAITypesResponsesResponseOutputItemMcpCall
 from .openai_types_responses_response_output_item_mcp_list_tools import (
@@ -24,9 +30,6 @@ from .openai_types_responses_response_output_item_mcp_list_tools import (
 )
 from .openai_types_responses_response_output_item_local_shell_call import (
     OpenAITypesResponsesResponseOutputItemLocalShellCall,
-)
-from .openai_types_responses_response_output_item_mcp_approval_request import (
-    OpenAITypesResponsesResponseOutputItemMcpApprovalRequest,
 )
 from .openai_types_responses_response_output_item_image_generation_call import (
     OpenAITypesResponsesResponseOutputItemImageGenerationCall,
@@ -63,7 +66,9 @@ __all__ = [
     "ResponseOutputItemDoneEvent",
     "ResponseOutputItemDoneEventItem",
     "ResponseReasoningSummaryPartAddedEvent",
+    "ResponseReasoningSummaryPartAddedEventPart",
     "ResponseReasoningSummaryPartDoneEvent",
+    "ResponseReasoningSummaryPartDoneEventPart",
     "ResponseReasoningSummaryTextDeltaEvent",
     "ResponseReasoningSummaryTextDoneEvent",
     "ResponseReasoningTextDeltaEvent",
@@ -100,6 +105,8 @@ __all__ = [
 
 
 class ResponseAudioDeltaEvent(BaseModel):
+    """Emitted when there is a partial audio response."""
+
     delta: str
 
     sequence_number: int
@@ -120,6 +127,8 @@ class ResponseAudioDeltaEvent(BaseModel):
 
 
 class ResponseAudioDoneEvent(BaseModel):
+    """Emitted when the audio response is complete."""
+
     sequence_number: int
 
     type: Literal["response.audio.done"]
@@ -138,6 +147,8 @@ class ResponseAudioDoneEvent(BaseModel):
 
 
 class ResponseAudioTranscriptDeltaEvent(BaseModel):
+    """Emitted when there is a partial transcript of audio."""
+
     delta: str
 
     sequence_number: int
@@ -158,6 +169,8 @@ class ResponseAudioTranscriptDeltaEvent(BaseModel):
 
 
 class ResponseAudioTranscriptDoneEvent(BaseModel):
+    """Emitted when the full audio transcript is completed."""
+
     sequence_number: int
 
     type: Literal["response.audio.transcript.done"]
@@ -176,6 +189,8 @@ class ResponseAudioTranscriptDoneEvent(BaseModel):
 
 
 class ResponseCodeInterpreterCallCodeDeltaEvent(BaseModel):
+    """Emitted when a partial code snippet is streamed by the code interpreter."""
+
     delta: str
 
     item_id: str
@@ -200,6 +215,8 @@ class ResponseCodeInterpreterCallCodeDeltaEvent(BaseModel):
 
 
 class ResponseCodeInterpreterCallCodeDoneEvent(BaseModel):
+    """Emitted when the code snippet is finalized by the code interpreter."""
+
     code: str
 
     item_id: str
@@ -224,6 +241,8 @@ class ResponseCodeInterpreterCallCodeDoneEvent(BaseModel):
 
 
 class ResponseCodeInterpreterCallCompletedEvent(BaseModel):
+    """Emitted when the code interpreter call is completed."""
+
     item_id: str
 
     output_index: int
@@ -246,6 +265,8 @@ class ResponseCodeInterpreterCallCompletedEvent(BaseModel):
 
 
 class ResponseCodeInterpreterCallInProgressEvent(BaseModel):
+    """Emitted when a code interpreter call is in progress."""
+
     item_id: str
 
     output_index: int
@@ -268,6 +289,8 @@ class ResponseCodeInterpreterCallInProgressEvent(BaseModel):
 
 
 class ResponseCodeInterpreterCallInterpretingEvent(BaseModel):
+    """Emitted when the code interpreter is actively interpreting the code snippet."""
+
     item_id: str
 
     output_index: int
@@ -290,6 +313,8 @@ class ResponseCodeInterpreterCallInterpretingEvent(BaseModel):
 
 
 class ResponseCompletedEvent(BaseModel):
+    """Emitted when the model response is complete."""
+
     response: OpenAIResponse
 
     sequence_number: int
@@ -309,10 +334,14 @@ class ResponseCompletedEvent(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-ResponseContentPartAddedEventPart: TypeAlias = Union[OpenAIResponseOutputText, OpenAIResponseOutputRefusal]
+ResponseContentPartAddedEventPart: TypeAlias = Union[
+    OpenAIResponseOutputText, OpenAIResponseOutputRefusal, PartReasoningText
+]
 
 
 class ResponseContentPartAddedEvent(BaseModel):
+    """Emitted when a new content part is added."""
+
     content_index: int
 
     item_id: str
@@ -320,6 +349,7 @@ class ResponseContentPartAddedEvent(BaseModel):
     output_index: int
 
     part: ResponseContentPartAddedEventPart
+    """A text output from the model."""
 
     sequence_number: int
 
@@ -338,10 +368,14 @@ class ResponseContentPartAddedEvent(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-ResponseContentPartDoneEventPart: TypeAlias = Union[OpenAIResponseOutputText, OpenAIResponseOutputRefusal]
+ResponseContentPartDoneEventPart: TypeAlias = Union[
+    OpenAIResponseOutputText, OpenAIResponseOutputRefusal, PartReasoningText
+]
 
 
 class ResponseContentPartDoneEvent(BaseModel):
+    """Emitted when a content part is done."""
+
     content_index: int
 
     item_id: str
@@ -349,6 +383,7 @@ class ResponseContentPartDoneEvent(BaseModel):
     output_index: int
 
     part: ResponseContentPartDoneEventPart
+    """A text output from the model."""
 
     sequence_number: int
 
@@ -368,6 +403,8 @@ class ResponseContentPartDoneEvent(BaseModel):
 
 
 class ResponseCreatedEvent(BaseModel):
+    """An event that is emitted when a response is created."""
+
     response: OpenAIResponse
 
     sequence_number: int
@@ -388,6 +425,8 @@ class ResponseCreatedEvent(BaseModel):
 
 
 class ResponseErrorEvent(BaseModel):
+    """Emitted when an error occurs."""
+
     message: str
 
     sequence_number: int
@@ -412,6 +451,8 @@ class ResponseErrorEvent(BaseModel):
 
 
 class ResponseFileSearchCallCompletedEvent(BaseModel):
+    """Emitted when a file search call is completed (results found)."""
+
     item_id: str
 
     output_index: int
@@ -434,6 +475,8 @@ class ResponseFileSearchCallCompletedEvent(BaseModel):
 
 
 class ResponseFileSearchCallInProgressEvent(BaseModel):
+    """Emitted when a file search call is initiated."""
+
     item_id: str
 
     output_index: int
@@ -456,6 +499,8 @@ class ResponseFileSearchCallInProgressEvent(BaseModel):
 
 
 class ResponseFileSearchCallSearchingEvent(BaseModel):
+    """Emitted when a file search is currently searching."""
+
     item_id: str
 
     output_index: int
@@ -478,6 +523,8 @@ class ResponseFileSearchCallSearchingEvent(BaseModel):
 
 
 class ResponseFunctionCallArgumentsDeltaEvent(BaseModel):
+    """Emitted when there is a partial function-call arguments delta."""
+
     delta: str
 
     item_id: str
@@ -502,9 +549,13 @@ class ResponseFunctionCallArgumentsDeltaEvent(BaseModel):
 
 
 class ResponseFunctionCallArgumentsDoneEvent(BaseModel):
+    """Emitted when function-call arguments are finalized."""
+
     arguments: str
 
     item_id: str
+
+    name: str
 
     output_index: int
 
@@ -526,6 +577,8 @@ class ResponseFunctionCallArgumentsDoneEvent(BaseModel):
 
 
 class ResponseInProgressEvent(BaseModel):
+    """Emitted when the response is in progress."""
+
     response: OpenAIResponse
 
     sequence_number: int
@@ -546,6 +599,8 @@ class ResponseInProgressEvent(BaseModel):
 
 
 class ResponseFailedEvent(BaseModel):
+    """An event that is emitted when a response fails."""
+
     response: OpenAIResponse
 
     sequence_number: int
@@ -566,6 +621,8 @@ class ResponseFailedEvent(BaseModel):
 
 
 class ResponseIncompleteEvent(BaseModel):
+    """An event that is emitted when a response finishes as incomplete."""
+
     response: OpenAIResponse
 
     sequence_number: int
@@ -592,18 +649,26 @@ ResponseOutputItemAddedEventItem: TypeAlias = Union[
     OpenAIResponseFunctionWebSearch,
     OpenAIResponseComputerToolCall,
     OpenAIResponseReasoningItem,
+    ResponseCompactionItem,
     OpenAITypesResponsesResponseOutputItemImageGenerationCall,
     OpenAIResponseCodeInterpreterToolCall,
     OpenAITypesResponsesResponseOutputItemLocalShellCall,
+    ResponseFunctionShellToolCall,
+    ResponseFunctionShellToolCallOutput,
+    ResponseApplyPatchToolCall,
+    ResponseApplyPatchToolCallOutput,
     OpenAITypesResponsesResponseOutputItemMcpCall,
     OpenAITypesResponsesResponseOutputItemMcpListTools,
-    OpenAITypesResponsesResponseOutputItemMcpApprovalRequest,
+    McpApprovalRequest,
     OpenAIResponseCustomToolCall,
 ]
 
 
 class ResponseOutputItemAddedEvent(BaseModel):
+    """Emitted when a new output item is added."""
+
     item: ResponseOutputItemAddedEventItem
+    """An output message from the model."""
 
     output_index: int
 
@@ -631,18 +696,26 @@ ResponseOutputItemDoneEventItem: TypeAlias = Union[
     OpenAIResponseFunctionWebSearch,
     OpenAIResponseComputerToolCall,
     OpenAIResponseReasoningItem,
+    ResponseCompactionItem,
     OpenAITypesResponsesResponseOutputItemImageGenerationCall,
     OpenAIResponseCodeInterpreterToolCall,
     OpenAITypesResponsesResponseOutputItemLocalShellCall,
+    ResponseFunctionShellToolCall,
+    ResponseFunctionShellToolCallOutput,
+    ResponseApplyPatchToolCall,
+    ResponseApplyPatchToolCallOutput,
     OpenAITypesResponsesResponseOutputItemMcpCall,
     OpenAITypesResponsesResponseOutputItemMcpListTools,
-    OpenAITypesResponsesResponseOutputItemMcpApprovalRequest,
+    McpApprovalRequest,
     OpenAIResponseCustomToolCall,
 ]
 
 
 class ResponseOutputItemDoneEvent(BaseModel):
+    """Emitted when an output item is marked done."""
+
     item: ResponseOutputItemDoneEventItem
+    """An output message from the model."""
 
     output_index: int
 
@@ -663,12 +736,35 @@ class ResponseOutputItemDoneEvent(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
+class ResponseReasoningSummaryPartAddedEventPart(BaseModel):
+    """The summary part that was added."""
+
+    text: str
+
+    type: Literal["summary_text"]
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
 class ResponseReasoningSummaryPartAddedEvent(BaseModel):
+    """Emitted when a new reasoning summary part is added."""
+
     item_id: str
 
     output_index: int
 
-    part: Part
+    part: ResponseReasoningSummaryPartAddedEventPart
+    """The summary part that was added."""
 
     sequence_number: int
 
@@ -689,12 +785,35 @@ class ResponseReasoningSummaryPartAddedEvent(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
+class ResponseReasoningSummaryPartDoneEventPart(BaseModel):
+    """The completed summary part."""
+
+    text: str
+
+    type: Literal["summary_text"]
+
+    if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
+        # Stub to indicate that arbitrary properties are accepted.
+        # To access properties that are not valid identifiers you can use `getattr`, e.g.
+        # `getattr(obj, '$type')`
+        def __getattr__(self, attr: str) -> object: ...
+    else:
+        __pydantic_extra__: Dict[str, object]
+
+
 class ResponseReasoningSummaryPartDoneEvent(BaseModel):
+    """Emitted when a reasoning summary part is completed."""
+
     item_id: str
 
     output_index: int
 
-    part: Part
+    part: ResponseReasoningSummaryPartDoneEventPart
+    """The completed summary part."""
 
     sequence_number: int
 
@@ -716,6 +835,8 @@ class ResponseReasoningSummaryPartDoneEvent(BaseModel):
 
 
 class ResponseReasoningSummaryTextDeltaEvent(BaseModel):
+    """Emitted when a delta is added to a reasoning summary text."""
+
     delta: str
 
     item_id: str
@@ -742,6 +863,8 @@ class ResponseReasoningSummaryTextDeltaEvent(BaseModel):
 
 
 class ResponseReasoningSummaryTextDoneEvent(BaseModel):
+    """Emitted when a reasoning summary text is completed."""
+
     item_id: str
 
     output_index: int
@@ -768,6 +891,8 @@ class ResponseReasoningSummaryTextDoneEvent(BaseModel):
 
 
 class ResponseReasoningTextDeltaEvent(BaseModel):
+    """Emitted when a delta is added to a reasoning text."""
+
     content_index: int
 
     delta: str
@@ -794,6 +919,8 @@ class ResponseReasoningTextDeltaEvent(BaseModel):
 
 
 class ResponseReasoningTextDoneEvent(BaseModel):
+    """Emitted when a reasoning text is completed."""
+
     content_index: int
 
     item_id: str
@@ -820,6 +947,8 @@ class ResponseReasoningTextDoneEvent(BaseModel):
 
 
 class ResponseRefusalDeltaEvent(BaseModel):
+    """Emitted when there is a partial refusal text."""
+
     content_index: int
 
     delta: str
@@ -846,6 +975,8 @@ class ResponseRefusalDeltaEvent(BaseModel):
 
 
 class ResponseRefusalDoneEvent(BaseModel):
+    """Emitted when refusal text is finalized."""
+
     content_index: int
 
     item_id: str
@@ -890,6 +1021,12 @@ class ResponseTextDeltaEventLogprobTopLogprob(BaseModel):
 
 
 class ResponseTextDeltaEventLogprob(BaseModel):
+    """
+    A logprob is the logarithmic probability that the model assigns to producing
+    a particular token at a given position in the sequence. Less-negative (higher)
+    logprob values indicate greater model confidence in that token choice.
+    """
+
     token: str
 
     logprob: float
@@ -910,6 +1047,8 @@ class ResponseTextDeltaEventLogprob(BaseModel):
 
 
 class ResponseTextDeltaEvent(BaseModel):
+    """Emitted when there is an additional text delta."""
+
     content_index: int
 
     delta: str
@@ -956,6 +1095,12 @@ class ResponseTextDoneEventLogprobTopLogprob(BaseModel):
 
 
 class ResponseTextDoneEventLogprob(BaseModel):
+    """
+    A logprob is the logarithmic probability that the model assigns to producing
+    a particular token at a given position in the sequence. Less-negative (higher)
+    logprob values indicate greater model confidence in that token choice.
+    """
+
     token: str
 
     logprob: float
@@ -976,6 +1121,8 @@ class ResponseTextDoneEventLogprob(BaseModel):
 
 
 class ResponseTextDoneEvent(BaseModel):
+    """Emitted when text content is finalized."""
+
     content_index: int
 
     item_id: str
@@ -1004,6 +1151,8 @@ class ResponseTextDoneEvent(BaseModel):
 
 
 class ResponseWebSearchCallCompletedEvent(BaseModel):
+    """Emitted when a web search call is completed."""
+
     item_id: str
 
     output_index: int
@@ -1026,6 +1175,8 @@ class ResponseWebSearchCallCompletedEvent(BaseModel):
 
 
 class ResponseWebSearchCallInProgressEvent(BaseModel):
+    """Emitted when a web search call is initiated."""
+
     item_id: str
 
     output_index: int
@@ -1048,6 +1199,8 @@ class ResponseWebSearchCallInProgressEvent(BaseModel):
 
 
 class ResponseWebSearchCallSearchingEvent(BaseModel):
+    """Emitted when a web search call is executing."""
+
     item_id: str
 
     output_index: int
@@ -1070,6 +1223,10 @@ class ResponseWebSearchCallSearchingEvent(BaseModel):
 
 
 class ResponseImageGenCallCompletedEvent(BaseModel):
+    """
+    Emitted when an image generation tool call has completed and the final image is available.
+    """
+
     item_id: str
 
     output_index: int
@@ -1092,6 +1249,10 @@ class ResponseImageGenCallCompletedEvent(BaseModel):
 
 
 class ResponseImageGenCallGeneratingEvent(BaseModel):
+    """
+    Emitted when an image generation tool call is actively generating an image (intermediate state).
+    """
+
     item_id: str
 
     output_index: int
@@ -1114,6 +1275,8 @@ class ResponseImageGenCallGeneratingEvent(BaseModel):
 
 
 class ResponseImageGenCallInProgressEvent(BaseModel):
+    """Emitted when an image generation tool call is in progress."""
+
     item_id: str
 
     output_index: int
@@ -1136,6 +1299,8 @@ class ResponseImageGenCallInProgressEvent(BaseModel):
 
 
 class ResponseImageGenCallPartialImageEvent(BaseModel):
+    """Emitted when a partial image is available during image generation streaming."""
+
     item_id: str
 
     output_index: int
@@ -1162,6 +1327,10 @@ class ResponseImageGenCallPartialImageEvent(BaseModel):
 
 
 class ResponseMcpCallArgumentsDeltaEvent(BaseModel):
+    """
+    Emitted when there is a delta (partial update) to the arguments of an MCP tool call.
+    """
+
     delta: str
 
     item_id: str
@@ -1186,6 +1355,8 @@ class ResponseMcpCallArgumentsDeltaEvent(BaseModel):
 
 
 class ResponseMcpCallArgumentsDoneEvent(BaseModel):
+    """Emitted when the arguments for an MCP tool call are finalized."""
+
     arguments: str
 
     item_id: str
@@ -1210,6 +1381,8 @@ class ResponseMcpCallArgumentsDoneEvent(BaseModel):
 
 
 class ResponseMcpCallCompletedEvent(BaseModel):
+    """Emitted when an MCP  tool call has completed successfully."""
+
     item_id: str
 
     output_index: int
@@ -1232,6 +1405,8 @@ class ResponseMcpCallCompletedEvent(BaseModel):
 
 
 class ResponseMcpCallFailedEvent(BaseModel):
+    """Emitted when an MCP  tool call has failed."""
+
     item_id: str
 
     output_index: int
@@ -1254,6 +1429,8 @@ class ResponseMcpCallFailedEvent(BaseModel):
 
 
 class ResponseMcpCallInProgressEvent(BaseModel):
+    """Emitted when an MCP  tool call is in progress."""
+
     item_id: str
 
     output_index: int
@@ -1276,6 +1453,8 @@ class ResponseMcpCallInProgressEvent(BaseModel):
 
 
 class ResponseMcpListToolsCompletedEvent(BaseModel):
+    """Emitted when the list of available MCP tools has been successfully retrieved."""
+
     item_id: str
 
     output_index: int
@@ -1298,6 +1477,8 @@ class ResponseMcpListToolsCompletedEvent(BaseModel):
 
 
 class ResponseMcpListToolsFailedEvent(BaseModel):
+    """Emitted when the attempt to list available MCP tools has failed."""
+
     item_id: str
 
     output_index: int
@@ -1320,6 +1501,10 @@ class ResponseMcpListToolsFailedEvent(BaseModel):
 
 
 class ResponseMcpListToolsInProgressEvent(BaseModel):
+    """
+    Emitted when the system is in the process of retrieving the list of available MCP tools.
+    """
+
     item_id: str
 
     output_index: int
@@ -1342,6 +1527,8 @@ class ResponseMcpListToolsInProgressEvent(BaseModel):
 
 
 class ResponseOutputTextAnnotationAddedEvent(BaseModel):
+    """Emitted when an annotation is added to output text content."""
+
     annotation: object
 
     annotation_index: int
@@ -1370,6 +1557,8 @@ class ResponseOutputTextAnnotationAddedEvent(BaseModel):
 
 
 class ResponseQueuedEvent(BaseModel):
+    """Emitted when a response is queued and waiting to be processed."""
+
     response: OpenAIResponse
 
     sequence_number: int
@@ -1390,6 +1579,8 @@ class ResponseQueuedEvent(BaseModel):
 
 
 class ResponseCustomToolCallInputDeltaEvent(BaseModel):
+    """Event representing a delta (partial update) to the input of a custom tool call."""
+
     delta: str
 
     item_id: str
@@ -1414,6 +1605,8 @@ class ResponseCustomToolCallInputDeltaEvent(BaseModel):
 
 
 class ResponseCustomToolCallInputDoneEvent(BaseModel):
+    """Event indicating that input for a custom tool call is complete."""
+
     input: str
 
     item_id: str

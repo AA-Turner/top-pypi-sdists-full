@@ -416,186 +416,6 @@ class BitMembers:
         return f"<BitMembers({list(self)})>"
 
 
-class BitSetInt(int):
-    """A bitset for keeping track of dense sets of integers. Subclass of
-    ``int`` that overrides ``-``,  ``&`` and  ``|`` and provides ``__len__``
-    and ``__iter__``. As of python 3.8 doesn't seem much better than using
-    frozenset[int] (slower and limited memory savings).
-
-    Parameters
-    ----------
-    it : Iterable[int] or int
-        If sequence of ``int``, treat these as the set members. If raw ``int``
-        interpret as bitset directly.
-    """
-
-    def __new__(cls, it=0):
-        if isinstance(it, int):
-            i = it
-        else:
-            i = reduce(or_, (1 << i for i in it), 0)
-        return super(cls, cls).__new__(cls, i)
-
-    def __hash__(self):
-        return self + self.bit_length()
-
-    @classmethod
-    def infimum(cls):
-        return super(cls, cls).__new__(cls, 0)
-
-    @classmethod
-    def supremum(cls, size):
-        return super(cls, cls).__new__(cls, (1 << size) - 1)
-
-    def __len__(self):
-        return f"{self:b}".count("1")
-
-    def iter_sparse(self):
-        x = self
-        while x:
-            i = x.bit_length() - 1
-            yield i
-            x ^= 1 << i
-
-    def __iter__(self):
-        return (x for x, b in enumerate(bin(self)[:1:-1]) if b == "1")
-
-    def __contains__(self, i):
-        return bool(self & (1 << i))
-
-    def __sub__(self, i):
-        return BitSetInt(int.__and__(self, ~i))
-
-    def difference(self, i):
-        return self - i
-
-    def __and__(self, i):
-        return BitSetInt(int.__and__(self, i))
-
-    def intersection(self, i):
-        return self & i
-
-    def __or__(self, i):
-        return BitSetInt(int.__or__(self, i))
-
-    def union(*it):
-        return BitSetInt(reduce(int.__or__, it))
-
-    def __repr__(self):
-        return f"<BitSetInt({list(self)})>"
-
-
-try:
-    # accelerated bitset iteration
-    from cotengra.cotengra import indexes
-
-    def fast_bitmember_iter(self):
-        return map(self.bitset.members.__getitem__, indexes(f"{self.i:b}"))
-
-    BitMembers.__iter__ = fast_bitmember_iter
-
-    def fast_bitsetint_iter(self):
-        return iter(indexes(f"{self:b}"))
-
-    BitSetInt.__iter__ = fast_bitsetint_iter
-
-except ImportError:
-    pass
-
-
-try:
-    # accelerated bitset size
-    from gmpy2 import popcount
-
-    def fast_bitmember_len(self):
-        return popcount(self.i)
-
-    BitMembers.__len__ = fast_bitmember_len
-
-    def fast_bitsetint_len(self):
-        return popcount(self)
-
-    BitSetInt.__len__ = fast_bitsetint_len
-
-except ImportError:
-    pass
-
-
-NODE_TYPE = "frozenset[int]"
-
-
-if NODE_TYPE == "frozenset[int]":
-
-    def node_from_seq(it):
-        return frozenset(it)
-
-    def node_from_single(x):
-        return frozenset((x,))
-
-    def node_supremum(size):
-        return frozenset(range(size))
-
-    def node_get_single_el(node):
-        """Assuming ``node`` has one element, return it."""
-        return next(iter(node))
-
-    def is_valid_node(node):
-        """Check ``node`` is of type ``frozenset[int]``."""
-        try:
-            if not isinstance(node, frozenset):
-                return False
-            el = next(iter(node))
-            if not isinstance(el, int):
-                return False
-            return True
-        except TypeError:
-            return False
-
-elif NODE_TYPE == "BitSetInt":
-    # the set of functions needed to use BitSetInt as contraction tree nodes
-
-    def node_from_seq(it):
-        return BitSetInt(it)
-
-    def node_from_single(x):
-        return BitSetInt(1 << x)
-
-    def node_supremum(size):
-        return BitSetInt.supremum(size)
-
-    def node_get_single_el(node):
-        return node.bit_length() - 1
-
-    def is_valid_node(node):
-        try:
-            return isinstance(node, BitSetInt)
-        except TypeError:
-            return False
-
-elif NODE_TYPE == "intbitset":
-    from intbitset import intbitset
-
-    # intbitset could be great, but hash collisions make use in dicts v v slow
-
-    def node_from_seq(it):
-        return intbitset(it)
-
-    def node_from_single(x):
-        return intbitset((x,))
-
-    def node_supremum(size):
-        return intbitset(range(size))
-
-    def node_get_single_el(node):
-        return next(iter(node))
-
-    def is_valid_node(node):
-        try:
-            return isinstance(node, intbitset)
-        except TypeError:
-            return False
-
-
 class DiskDict:
     """A simple persistent dict. The keys should be filesystem compatible
     strings, or tuples of strings, in which case it will be used as a
@@ -635,14 +455,22 @@ class DiskDict:
         self.retry_delay = float(retry_delay)
 
     def clear(self):
+        """Clear the memory cache and delete all value files, but leave
+        directory structure."""
         self._mem_cache.clear()
         if self._directory is not None:
-            for p in self._path.glob("*"):
-                p.unlink()
+            for p in self._path.glob("**/*"):
+                if p.is_file():
+                    p.unlink()
 
     def cleanup(self, delete_dir=False):
+        """Delete all files and subdirectories and optionally delete the root
+        directory."""
         self.clear()
         if delete_dir and (self._directory is not None):
+            for p in self._path.glob("**/*"):
+                if p.is_dir():
+                    p.rmdir()
             self._path.rmdir()
 
     def __contains__(self, k):
@@ -670,6 +498,25 @@ class DiskDict:
             # write file!
             with open(fname, "wb+") as f:
                 pickle.dump(v, f)
+
+    def __delitem__(self, k):
+        found = False
+
+        # delete from memory cache
+        if k in self._mem_cache:
+            del self._mem_cache[k]
+            found = True
+
+        # possibly delete from disk
+        if self._directory is not None:
+            if not isinstance(k, tuple):
+                k = (k,)
+            if self._path.joinpath(*k).exists():
+                self._path.joinpath(*k).unlink()
+                found = True
+
+        if not found:
+            raise KeyError(k)
 
     def __getitem__(self, k):
         try:
@@ -702,6 +549,35 @@ class DiskDict:
 
             # file exists but there is some other error after retrying
             raise e
+
+    def get(self, k, default=None):
+        try:
+            return self[k]
+        except KeyError:
+            return default
+
+    def keys(self):
+        if self._directory is None:
+            return self._mem_cache.keys()
+        else:
+            disk_keys = []
+            for p in self._path.rglob("*"):
+                if p.is_file():
+                    rel = p.relative_to(self._path)
+                    if len(rel.parents) == 1:
+                        # direct child of root path
+                        disk_keys.append(rel.name)
+                    else:
+                        disk_keys.append(tuple(rel.parts))
+            return disk_keys
+
+    def values(self):
+        for k in self.keys():
+            yield self[k]
+
+    def items(self):
+        for k in self.keys():
+            yield (k, self[k])
 
 
 def get_rng(seed=None):
@@ -827,9 +703,46 @@ def get_symbol_map(inputs):
     return symbol_map
 
 
-Contraction = collections.namedtuple(
-    "Contraction", ("inputs", "output", "shapes", "size_dict")
-)
+class Contraction(
+    collections.namedtuple(
+        "Contraction", ("inputs", "output", "shapes", "size_dict")
+    )
+):
+    @property
+    def eq(self):
+        """Get the einsum equation string corresponding to this contraction."""
+        return inputs_output_to_eq(self.inputs, self.output)
+
+    def make_arrays(self, seed=None, dtype="float64"):
+        """Make example arrays to match the inputs, shapes and size_dict of
+        this contraction.
+
+        Parameters
+        ----------
+        seed : None or int, optional
+            Seed for random generator for repeatibility, by default None.
+        dtype : str or np.dtype, optional
+            The dtype of the arrays to create, by default 'float64'.
+
+        Returns
+        -------
+        arrays : list[np.ndarray]
+        """
+        return make_arrays_from_inputs(
+            self.inputs, self.size_dict, seed=seed, dtype=dtype
+        )
+
+    def get_hypergraph(self):
+        """Get the hypergraph corresponding to this contraction."""
+        from .hypergraph import HyperGraph
+
+        return HyperGraph(self.inputs, self.output, self.size_dict)
+
+    def plot(self, **kwargs):
+        """Draw the hypergraph corresponding to this contraction."""
+        return self.get_hypergraph().plot(**kwargs)
+
+    draw = plot
 
 
 def rand_equation(
@@ -1371,7 +1284,14 @@ def make_arrays_from_inputs(inputs, size_dict, seed=None, dtype="float64"):
     return arrays
 
 
-def make_arrays_from_eq(eq, d_min=2, d_max=3, seed=None, dtype="float64"):
+def make_arrays_from_eq(
+    eq,
+    d_min=2,
+    d_max=3,
+    seed=None,
+    size_dict=None,
+    dtype="float64",
+):
     """Create a set of example arrays to match an einsum equation directly.
 
     Parameters
@@ -1384,6 +1304,9 @@ def make_arrays_from_eq(eq, d_min=2, d_max=3, seed=None, dtype="float64"):
         The maximum dimension, by default 3.
     seed : int, optional
         The random seed, by default None.
+    size_dict : dict[str, int], optional
+        The index size dictionary. If supplied this is used instead of
+        generating a random one.
     dtype : {'float32', 'float64', 'complex64', 'complex128'}, optional
         The dtype of the arrays, by default 'float64'.
 
@@ -1393,9 +1316,10 @@ def make_arrays_from_eq(eq, d_min=2, d_max=3, seed=None, dtype="float64"):
         The example arrays.
     """
     inputs, _ = eq_to_inputs_output(eq)
-    size_dict = make_rand_size_dict_from_inputs(
-        inputs, d_min=d_min, d_max=d_max, seed=seed
-    )
+    if size_dict is None:
+        size_dict = make_rand_size_dict_from_inputs(
+            inputs, d_min=d_min, d_max=d_max, seed=seed
+        )
     return make_arrays_from_inputs(inputs, size_dict, seed=seed, dtype=dtype)
 
 
@@ -1472,13 +1396,16 @@ def canonicalize_inputs(
 
     Returns
     -------
-    inputs : tuple[tuple[str]]
+    new_inputs : tuple[tuple[str]]
         The canonicalized input terms.
-    output : tuple[str]
+    new_output : tuple[str]
         The canonicalized output term.
-    size_dict : dict[str, int] or None
+    new_size_dict : dict[str, int] or None
         The canonicalized index size dictionary, ``None`` if ``size_dict`` or
         ``shapes`` was not provided.
+    new_optimize : None or str or Sequence[str] or Sequence[int], optional
+        The canonicalized optimize path, ``None`` if ``optimize`` was not
+        provided.
     """
 
     if isinstance(optimize, str) and optimize in ("edgesort", "ncon"):

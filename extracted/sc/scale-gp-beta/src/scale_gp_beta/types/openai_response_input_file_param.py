@@ -7,7 +7,9 @@ from typing_extensions import Literal, Required, TypedDict
 __all__ = ["OpenAIResponseInputFileParam"]
 
 
-class OpenAIResponseInputFileParam(TypedDict, total=False):
+class OpenAIResponseInputFileParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A file input to the model."""
+
     type: Required[Literal["input_file"]]
 
     file_data: str

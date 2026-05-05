@@ -25,7 +25,6 @@ class TestSpanAssessments:
     def test_method_create(self, client: SGPClient) -> None:
         span_assessment = client.span_assessments.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
         )
         assert_matches_type(SpanAssessment, span_assessment, path=["response"])
@@ -34,7 +33,6 @@ class TestSpanAssessments:
     def test_method_create_with_all_params(self, client: SGPClient) -> None:
         span_assessment = client.span_assessments.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
             approval="approved",
             comment="comment",
@@ -42,6 +40,7 @@ class TestSpanAssessments:
             overwrite={"foo": "bar"},
             rating=1,
             rubric={"foo": "string"},
+            span_id="span_id",
         )
         assert_matches_type(SpanAssessment, span_assessment, path=["response"])
 
@@ -49,7 +48,6 @@ class TestSpanAssessments:
     def test_raw_response_create(self, client: SGPClient) -> None:
         response = client.span_assessments.with_raw_response.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
         )
 
@@ -62,7 +60,6 @@ class TestSpanAssessments:
     def test_streaming_response_create(self, client: SGPClient) -> None:
         with client.span_assessments.with_streaming_response.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
         ) as response:
             assert not response.is_closed
@@ -245,7 +242,6 @@ class TestAsyncSpanAssessments:
     async def test_method_create(self, async_client: AsyncSGPClient) -> None:
         span_assessment = await async_client.span_assessments.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
         )
         assert_matches_type(SpanAssessment, span_assessment, path=["response"])
@@ -254,7 +250,6 @@ class TestAsyncSpanAssessments:
     async def test_method_create_with_all_params(self, async_client: AsyncSGPClient) -> None:
         span_assessment = await async_client.span_assessments.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
             approval="approved",
             comment="comment",
@@ -262,6 +257,7 @@ class TestAsyncSpanAssessments:
             overwrite={"foo": "bar"},
             rating=1,
             rubric={"foo": "string"},
+            span_id="span_id",
         )
         assert_matches_type(SpanAssessment, span_assessment, path=["response"])
 
@@ -269,7 +265,6 @@ class TestAsyncSpanAssessments:
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
         response = await async_client.span_assessments.with_raw_response.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
         )
 
@@ -282,7 +277,6 @@ class TestAsyncSpanAssessments:
     async def test_streaming_response_create(self, async_client: AsyncSGPClient) -> None:
         async with async_client.span_assessments.with_streaming_response.create(
             assessment_type="comment",
-            span_id="span_id",
             trace_id="trace_id",
         ) as response:
             assert not response.is_closed

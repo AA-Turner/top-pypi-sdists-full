@@ -25,13 +25,12 @@ from ..types.recency_weight import RecencyWeight
 from ..types.reranker import Reranker
 from ..types.search_filters import SearchFilters
 from ..types.success_response import SuccessResponse
-from .community.client import AsyncCommunityClient, CommunityClient
 from .edge.client import AsyncEdgeClient, EdgeClient
 from .episode.client import AsyncEpisodeClient, EpisodeClient
 from .node.client import AsyncNodeClient, NodeClient
+from .observation.client import AsyncObservationClient, ObservationClient
 from .raw_client import AsyncRawGraphClient, RawGraphClient
-from .saga.client import AsyncSagaClient, SagaClient
-from .theme.client import AsyncThemeClient, ThemeClient
+from .thread_summary.client import AsyncThreadSummaryClient, ThreadSummaryClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -40,17 +39,15 @@ OMIT = typing.cast(typing.Any, ...)
 class GraphClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawGraphClient(client_wrapper=client_wrapper)
-        self.community = CommunityClient(client_wrapper=client_wrapper)
-
         self.edge = EdgeClient(client_wrapper=client_wrapper)
 
         self.episode = EpisodeClient(client_wrapper=client_wrapper)
 
         self.node = NodeClient(client_wrapper=client_wrapper)
 
-        self.saga = SagaClient(client_wrapper=client_wrapper)
+        self.observation = ObservationClient(client_wrapper=client_wrapper)
 
-        self.theme = ThemeClient(client_wrapper=client_wrapper)
+        self.thread_summary = ThreadSummaryClient(client_wrapper=client_wrapper)
 
     @property
     def with_raw_response(self) -> RawGraphClient:
@@ -841,16 +838,20 @@ class GraphClient:
             The maximum number of facts to retrieve. Defaults to 10. Limited to 50.
 
         max_characters : typing.Optional[int]
-            Maximum total characters across all selected results when scope=auto. Defaults to 2000. Limited to 50000.
+            Maximum total characters across all selected results when scope=auto. Defaults to 2500. Limited to 50000.
 
         mmr_lambda : typing.Optional[float]
             weighting for maximal marginal relevance
 
         reranker : typing.Optional[Reranker]
-            Defaults to RRF
+            Defaults to RRF. When scope=auto, this only affects graph-service retrieval
+            shape for graph facts, observations, and thread summaries; source-episode
+            retrieval uses RRF, and auto search applies its own internal rerank after retrieval.
 
         return_raw_results : typing.Optional[bool]
             When scope=auto, include the selected raw graph results alongside the materialized context block.
+            For graph-service-backed auto mode, selected raw results may include episodes,
+            edges, nodes, observations, and thread_summaries.
 
         scope : typing.Optional[GraphSearchScope]
             Defaults to Edges.
@@ -1007,17 +1008,15 @@ class GraphClient:
 class AsyncGraphClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawGraphClient(client_wrapper=client_wrapper)
-        self.community = AsyncCommunityClient(client_wrapper=client_wrapper)
-
         self.edge = AsyncEdgeClient(client_wrapper=client_wrapper)
 
         self.episode = AsyncEpisodeClient(client_wrapper=client_wrapper)
 
         self.node = AsyncNodeClient(client_wrapper=client_wrapper)
 
-        self.saga = AsyncSagaClient(client_wrapper=client_wrapper)
+        self.observation = AsyncObservationClient(client_wrapper=client_wrapper)
 
-        self.theme = AsyncThemeClient(client_wrapper=client_wrapper)
+        self.thread_summary = AsyncThreadSummaryClient(client_wrapper=client_wrapper)
 
     @property
     def with_raw_response(self) -> AsyncRawGraphClient:
@@ -1904,16 +1903,20 @@ class AsyncGraphClient:
             The maximum number of facts to retrieve. Defaults to 10. Limited to 50.
 
         max_characters : typing.Optional[int]
-            Maximum total characters across all selected results when scope=auto. Defaults to 2000. Limited to 50000.
+            Maximum total characters across all selected results when scope=auto. Defaults to 2500. Limited to 50000.
 
         mmr_lambda : typing.Optional[float]
             weighting for maximal marginal relevance
 
         reranker : typing.Optional[Reranker]
-            Defaults to RRF
+            Defaults to RRF. When scope=auto, this only affects graph-service retrieval
+            shape for graph facts, observations, and thread summaries; source-episode
+            retrieval uses RRF, and auto search applies its own internal rerank after retrieval.
 
         return_raw_results : typing.Optional[bool]
             When scope=auto, include the selected raw graph results alongside the materialized context block.
+            For graph-service-backed auto mode, selected raw results may include episodes,
+            edges, nodes, observations, and thread_summaries.
 
         scope : typing.Optional[GraphSearchScope]
             Defaults to Edges.

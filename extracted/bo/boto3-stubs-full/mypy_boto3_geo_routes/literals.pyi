@@ -152,8 +152,10 @@ RouteFerryNoticeCodeType = Literal[
     "Other",
     "PotentialViolatedVehicleRestrictionUsage",
     "SeasonalClosure",
+    "ViolatedAvoidAreas",
     "ViolatedAvoidFerry",
     "ViolatedAvoidRailFerry",
+    "ViolatedVehicleRestriction",
 ]
 RouteFerryTravelStepTypeType = Literal["Arrive", "Continue", "Depart"]
 RouteHazardousCargoTypeType = Literal[
@@ -215,6 +217,7 @@ RouteNoticeImpactType = Literal["High", "Low"]
 RoutePedestrianNoticeCodeType = Literal[
     "AccuratePolylineUnavailable",
     "Other",
+    "ViolatedAvoidAreas",
     "ViolatedAvoidDirtRoad",
     "ViolatedAvoidTunnel",
     "ViolatedPedestrianOption",
@@ -327,6 +330,7 @@ RouteVehicleNoticeCodeType = Literal[
     "TollTransponder",
     "TollsDataTemporarilyUnavailable",
     "TollsDataUnavailable",
+    "TravelTimeExceedsDriverWorkHours",
     "ViolatedAvoidControlledAccessHighway",
     "ViolatedAvoidDifficultTurns",
     "ViolatedAvoidDirtRoad",

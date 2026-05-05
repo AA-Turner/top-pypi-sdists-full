@@ -7,7 +7,10 @@ from typing_extensions import Literal, TypeAlias
 from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
+from .inference_model_type import InferenceModelType
+from .chat.inference_model_vendor import InferenceModelVendor
 from .launch_vendor_configuration import LaunchVendorConfiguration
+from .inference_model_availability import InferenceModelAvailability
 from .llm_engine_vendor_configuration import LlmEngineVendorConfiguration
 
 __all__ = ["InferenceModel", "VendorConfiguration"]
@@ -24,30 +27,15 @@ class InferenceModel(BaseModel):
 
     created_by_user_id: str
 
-    type: Literal["generic", "completion", "chat_completion"] = FieldInfo(alias="model_type")
+    api_model_type: InferenceModelType = FieldInfo(alias="model_type")
 
-    vendor: Literal[
-        "openai",
-        "cohere",
-        "vertex_ai",
-        "anthropic",
-        "azure",
-        "gemini",
-        "launch",
-        "llmengine",
-        "model_zoo",
-        "bedrock",
-        "xai",
-        "fireworks_ai",
-    ] = FieldInfo(alias="model_vendor")
+    api_model_vendor: InferenceModelVendor = FieldInfo(alias="model_vendor")
 
     name: str
 
     status: Literal["failed", "ready", "deploying", "deployment_timeout"]
 
-    availability: Optional[Literal["unknown", "available", "unavailable"]] = FieldInfo(
-        alias="model_availability", default=None
-    )
+    api_model_availability: Optional[InferenceModelAvailability] = FieldInfo(alias="model_availability", default=None)
 
     metadata: Optional[Dict[str, object]] = FieldInfo(alias="model_metadata", default=None)
 

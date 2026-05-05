@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import TypedDict
 
 from .sort_order import SortOrder
+from .inference_model_vendor import InferenceModelVendor
 
 __all__ = ["CompletionModelsParams"]
 
@@ -14,20 +15,7 @@ class CompletionModelsParams(TypedDict, total=False):
 
     limit: int
 
-    model_vendor: Literal[
-        "openai",
-        "cohere",
-        "vertex_ai",
-        "anthropic",
-        "azure",
-        "gemini",
-        "launch",
-        "llmengine",
-        "model_zoo",
-        "bedrock",
-        "xai",
-        "fireworks_ai",
-    ]
+    model_vendor: InferenceModelVendor
 
     sort_by: str
 

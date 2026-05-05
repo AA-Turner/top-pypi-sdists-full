@@ -11,6 +11,8 @@ __all__ = ["CustomTool", "Format", "FormatText", "FormatGrammar"]
 
 
 class FormatText(BaseModel):
+    """Unconstrained free-form text."""
+
     type: Literal["text"]
 
     if TYPE_CHECKING:
@@ -27,6 +29,8 @@ class FormatText(BaseModel):
 
 
 class FormatGrammar(BaseModel):
+    """A grammar defined by the user."""
+
     definition: str
 
     syntax: Literal["lark", "regex"]
@@ -50,6 +54,11 @@ Format: TypeAlias = Union[FormatText, FormatGrammar]
 
 
 class CustomTool(BaseModel):
+    """A custom tool that processes input using a specified format.
+
+    Learn more about   [custom tools](https://platform.openai.com/docs/guides/function-calling#custom-tools)
+    """
+
     name: str
 
     type: Literal["custom"]
@@ -57,6 +66,7 @@ class CustomTool(BaseModel):
     description: Optional[str] = None
 
     format: Optional[Format] = None
+    """Unconstrained free-form text."""
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a

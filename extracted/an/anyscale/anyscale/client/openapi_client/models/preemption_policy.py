@@ -33,50 +33,76 @@ class PreemptionPolicy(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'reclaim_within_organization': 'ReclamationPolicy',
-        'within_resource_queue': 'PreemptionWithinQueue'
+        'reclaim_within_cohort': 'PreemptionPolicyReclaimWithinCohort',
+        'borrow_within_cohort': 'PreemptionPolicyBorrowWithinCohort',
+        'within_resource_queue': 'PreemptionPolicyWithinResourceQueue'
     }
 
     attribute_map = {
-        'reclaim_within_organization': 'reclaim_within_organization',
+        'reclaim_within_cohort': 'reclaim_within_cohort',
+        'borrow_within_cohort': 'borrow_within_cohort',
         'within_resource_queue': 'within_resource_queue'
     }
 
-    def __init__(self, reclaim_within_organization=None, within_resource_queue=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, reclaim_within_cohort=None, borrow_within_cohort=None, within_resource_queue=None, local_vars_configuration=None):  # noqa: E501
         """PreemptionPolicy - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._reclaim_within_organization = None
+        self._reclaim_within_cohort = None
+        self._borrow_within_cohort = None
         self._within_resource_queue = None
         self.discriminator = None
 
-        if reclaim_within_organization is not None:
-            self.reclaim_within_organization = reclaim_within_organization
+        if reclaim_within_cohort is not None:
+            self.reclaim_within_cohort = reclaim_within_cohort
+        if borrow_within_cohort is not None:
+            self.borrow_within_cohort = borrow_within_cohort
         if within_resource_queue is not None:
             self.within_resource_queue = within_resource_queue
 
     @property
-    def reclaim_within_organization(self):
-        """Gets the reclaim_within_organization of this PreemptionPolicy.  # noqa: E501
+    def reclaim_within_cohort(self):
+        """Gets the reclaim_within_cohort of this PreemptionPolicy.  # noqa: E501
 
 
-        :return: The reclaim_within_organization of this PreemptionPolicy.  # noqa: E501
-        :rtype: ReclamationPolicy
+        :return: The reclaim_within_cohort of this PreemptionPolicy.  # noqa: E501
+        :rtype: PreemptionPolicyReclaimWithinCohort
         """
-        return self._reclaim_within_organization
+        return self._reclaim_within_cohort
 
-    @reclaim_within_organization.setter
-    def reclaim_within_organization(self, reclaim_within_organization):
-        """Sets the reclaim_within_organization of this PreemptionPolicy.
+    @reclaim_within_cohort.setter
+    def reclaim_within_cohort(self, reclaim_within_cohort):
+        """Sets the reclaim_within_cohort of this PreemptionPolicy.
 
 
-        :param reclaim_within_organization: The reclaim_within_organization of this PreemptionPolicy.  # noqa: E501
-        :type: ReclamationPolicy
+        :param reclaim_within_cohort: The reclaim_within_cohort of this PreemptionPolicy.  # noqa: E501
+        :type: PreemptionPolicyReclaimWithinCohort
         """
 
-        self._reclaim_within_organization = reclaim_within_organization
+        self._reclaim_within_cohort = reclaim_within_cohort
+
+    @property
+    def borrow_within_cohort(self):
+        """Gets the borrow_within_cohort of this PreemptionPolicy.  # noqa: E501
+
+
+        :return: The borrow_within_cohort of this PreemptionPolicy.  # noqa: E501
+        :rtype: PreemptionPolicyBorrowWithinCohort
+        """
+        return self._borrow_within_cohort
+
+    @borrow_within_cohort.setter
+    def borrow_within_cohort(self, borrow_within_cohort):
+        """Sets the borrow_within_cohort of this PreemptionPolicy.
+
+
+        :param borrow_within_cohort: The borrow_within_cohort of this PreemptionPolicy.  # noqa: E501
+        :type: PreemptionPolicyBorrowWithinCohort
+        """
+
+        self._borrow_within_cohort = borrow_within_cohort
 
     @property
     def within_resource_queue(self):
@@ -84,7 +110,7 @@ class PreemptionPolicy(object):
 
 
         :return: The within_resource_queue of this PreemptionPolicy.  # noqa: E501
-        :rtype: PreemptionWithinQueue
+        :rtype: PreemptionPolicyWithinResourceQueue
         """
         return self._within_resource_queue
 
@@ -94,7 +120,7 @@ class PreemptionPolicy(object):
 
 
         :param within_resource_queue: The within_resource_queue of this PreemptionPolicy.  # noqa: E501
-        :type: PreemptionWithinQueue
+        :type: PreemptionPolicyWithinResourceQueue
         """
 
         self._within_resource_queue = within_resource_queue

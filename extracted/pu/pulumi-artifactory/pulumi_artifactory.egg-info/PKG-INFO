@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_artifactory
-Version: 8.10.4
+Version: 8.10.5
 Summary: A Pulumi package for creating and managing artifactory cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

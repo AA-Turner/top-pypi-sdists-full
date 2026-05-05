@@ -28,6 +28,7 @@ from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Characters import findProhibitedCharacters
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Document import checkDocumentEncoding
+from arelle.utils.validate.Facts import isValidNonNilFact, iterValidNonNilFactsByQname
 from arelle.utils.validate.Validation import Validation
 from arelle.utils.validate.Common import isExtensionUri
 from arelle.utils.validate.ValidationUtil import hasPresentationalConceptsWithFacts
@@ -945,6 +946,74 @@ def rule_EC8034W(
     hook=ValidationHook.COMPLETE,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_EC8036W(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC8036W: The consolidated business indicators, etc. have not been detailed tagged.
+    If WhetherConsolidatedFinancialStatementsArePreparedDEI is true, there must be children of
+    the extended link role rol_BusinessResultsOfGroup.
+    """
+    if not pluginData.hasDocumentType({DocumentType.ANNUAL_SECURITIES_REPORT, DocumentType.SEMI_ANNUAL_REPORT}):
+        return
+    statementsPrepared = pluginData.getDeiValue('WhetherConsolidatedFinancialStatementsArePreparedDEI')
+    if statementsPrepared != True:
+        return
+    roleUris = ('http://disclosure.edinet-fsa.go.jp/role/jpcrp/rol_BusinessResultsOfGroup',)
+    for modelXbrl in pluginData.loadedModelXbrls:
+        if hasPresentationalConceptsWithFacts(modelXbrl, roleUris):
+            return
+    yield Validation.warning(
+        codes='EDINET.EC8036W',
+        msg=_('The consolidated business indicators, etc. have not been tagged in detail. '
+              'Please provide detailed tagging of the consolidated business indicators, etc. '
+              'If you do not provide consolidated business indicators, please confirm that '
+              'the "Consolidated Financial Statements" field in the DEI information is correct.'),
+    )
+
+
+@validation(
+    hook=ValidationHook.COMPLETE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC8037W(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC8037W: The consolidated business indicators, etc. have not been detailed tagged.
+    If WhetherConsolidatedFinancialStatementsArePreparedDEI is false, there must be children of
+    the extended link role rol_BusinessResultsOfReportingCompany.
+    """
+    if not pluginData.hasDocumentType({DocumentType.ANNUAL_SECURITIES_REPORT, DocumentType.SEMI_ANNUAL_REPORT}):
+        return
+    statementsPrepared = pluginData.getDeiValue('WhetherConsolidatedFinancialStatementsArePreparedDEI')
+    if statementsPrepared != False:
+        return
+    roleUris = ('http://disclosure.edinet-fsa.go.jp/role/jpcrp/rol_BusinessResultsOfReportingCompany',)
+    for modelXbrl in pluginData.loadedModelXbrls:
+        if hasPresentationalConceptsWithFacts(modelXbrl, roleUris):
+            return
+    yield Validation.warning(
+        codes='EDINET.EC8037W',
+        msg=_('The consolidated business indicators, etc. have not been tagged in detail. '
+              'Please provide detailed tagging of the consolidated business indicators, etc. '
+              'If you do not provide consolidated business indicators, please confirm that '
+              'the "Consolidated Financial Statements" field in the DEI information is correct.'),
+    )
+
+
+@validation(
+    hook=ValidationHook.COMPLETE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_EC8038W(
         pluginData: ControllerPluginData,
         cntlr: Cntlr,
@@ -1688,6 +1757,60 @@ def rule_EC8050W(
     hook=ValidationHook.COMPLETE,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_EC8055W(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC8055W: The value of "WhetherConsolidatedFinancialStatementsArePreparedDEI"
+    in the DEI information and the tagging at the beginning of the accounting status section must be consistent.
+    """
+    deiLocalName = "WhetherConsolidatedFinancialStatementsArePreparedDEI"
+    consolidated = pluginData.getDeiValue(deiLocalName)
+    requiredFactLocalName = 'RegulationsInAccordanceWithWhichFinancialStatementsHaveBeenPreparedFinancialInformation'
+    if consolidated == True:
+        requiredFactLocalName = 'RegulationsInAccordanceWithWhichConsolidatedFinancialStatementsHaveBeenPreparedFinancialInformation'
+
+    for modelXbrl in pluginData.loadedModelXbrls:
+        for fact in modelXbrl.factsByLocalName.get(requiredFactLocalName, set()):
+            if isValidNonNilFact(fact):
+                # Expected fact (based on DEI value) is present.
+                return
+
+    roleUris = tuple(
+        f"http://disclosure.edinet-fsa.go.jp/role/jpcrp/{name}"
+        for name in (
+            "rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo32AnnualSecuritiesReport",
+            "rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo3AnnualSecuritiesReport",
+            "rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo4AnnualSecuritiesReport",
+            "rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo8AnnualSecuritiesReport",
+            "rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo9AnnualSecuritiesReport",
+        )
+    )
+    if not any(
+            hasPresentationalConceptsWithFacts(modelXbrl, roleUris)
+            for modelXbrl in pluginData.loadedModelXbrls
+    ):
+        # No fact with concept in relevant presention roles, rule is not applicable.
+        return
+
+    yield Validation.warning(
+        codes='EDINET.EC8055W',
+        msg=_('There is an inconsistency between the DEI "%(deiLocalName)s" information and the '
+              'tagging at the beginning of the accounting status. Please confirm that the '
+              'value of "Consolidated Financial Statements" in the DEI information and the '
+              'tagging at the beginning of the accounting status are correct.'),
+        deiLocalName=deiLocalName,
+    )
+
+
+@validation(
+    hook=ValidationHook.COMPLETE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_EC8061W(
         pluginData: ControllerPluginData,
         cntlr: Cntlr,
@@ -2279,3 +2402,89 @@ def rule_EC8076W(
                 codes='EDINET.EC8076W',
                 msg=_('"Issued Shares, Total Number of Shares, etc. [Text Block]" (IssuedSharesTotalNumberOfSharesEtcTextBlock) is not tagged.'),
             )
+
+@validation(
+    hook=ValidationHook.COMPLETE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC8077W(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC8077W: The headline accounting information does not include separate tagging of first or second interim (consolidated) financial statements to align with the
+    “Consolidated or Unconsolidated” information in the DEI.
+    Please check that the value of "Whether Consolidated" in the DEI information and the separate tagging of first or second type interim (consolidated) financial statements at the top of the
+    accounting status are correct. If both are correct, please check that the value of "Accounting Standard" in the DEI information is correct.
+    """
+    prepared = None
+    formUris = tuple(
+        f"http://disclosure.edinet-fsa.go.jp/role/jpcrp/{name}"
+        for name in (
+            'rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo43SemiAnnualSecuritiesReport',
+            'rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo5SemiannualSecuritiesReport',
+            'rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo52SemiannualSecuritiesReport',
+            'rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo93SemiAnnualSecuritiesReport',
+            'rol_CabinetOfficeOrdinanceOnDisclosureOfCorporateInformationEtcFormNo10SemiannualSecuritiesReport',
+        )
+    )
+    for modelXbrl in pluginData.loadedModelXbrls:
+        if hasPresentationalConceptsWithFacts(modelXbrl, formUris):
+            prepared = pluginData.getDeiValue('WhetherConsolidatedFinancialStatementsArePreparedDEI')
+    if prepared is None:
+        return
+    preparedUris = (
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedBalanceSheet',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualConsolidatedBalanceSheet',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedStatementOfIncome',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualConsolidatedStatementOfIncome',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedStatementOfComprehensiveIncome',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualConsolidatedStatementOfComprehensiveIncome',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedStatementOfChangesInEquity',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedStatementOfChangesInNetAssets',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedStatementOfCashFlows-direct',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualConsolidatedStatementOfCashFlows-direct',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualConsolidatedStatementOfCashFlows-indirect',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualConsolidatedStatementOfCashFlows-indirect',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualConsolidatedStatementOfFinancialPositionIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualConsolidatedStatementOfComprehensiveIncomeSingleStatementIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualConsolidatedStatementOfProfitOrLossIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualConsolidatedStatementOfComprehensiveIncomeIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualConsolidatedStatementOfChangesInEquityIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualConsolidatedStatementOfCashFlowsIFRS',
+    )
+    notPreparedUris = (
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualBalanceSheet',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualBalanceSheet',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfIncome',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfIncomeAndRetainedEarnings',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualStatementOfIncome',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfChangesInEquity',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfChangesInNetAssets',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfMembersEquity',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfUnitholdersEquity',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfCashFlows-direct',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualStatementOfCashFlows-direct',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_SemiAnnualStatementOfCashFlows-indirect',
+        'http://disclosure.edinet-fsa.go.jp/role/jppfs/rol_Type1SemiAnnualStatementOfCashFlows-indirect',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualStatementOfFinancialPositionIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualStatementOfComprehensiveIncomeSingleStatementIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualStatementOfProfitOrLossIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualStatementOfComprehensiveIncomeIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualStatementOfChangesInEquityIFRS',
+        'http://disclosure.edinet-fsa.go.jp/role/jpigp/rol_CondensedSemiAnnualStatementOfCashFlowsIFRS',
+    )
+    urisToCheck = preparedUris if prepared is True else notPreparedUris
+    for modelXbrl in pluginData.loadedModelXbrls:
+        if hasPresentationalConceptsWithFacts(modelXbrl, urisToCheck):
+            return
+    yield Validation.warning(
+        codes='EDINET.EC8077W',
+        msg=_('The headline accounting information does not include separate tagging of first or second interim (consolidated) financial statements to align with the '
+              '“Consolidated or Unconsolidated” information in the DEI. '
+              'Please check that the value of "Whether Consolidated" in the DEI information and the separate tagging of first or second type interim (consolidated) '
+              'financial statements at the top of the accounting status are correct. If both are correct, please check that the value of "Accounting Standard" in the DEI information is correct.'),
+    )

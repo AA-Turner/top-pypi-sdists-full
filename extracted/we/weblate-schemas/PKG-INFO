@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate_schemas
-Version: 2025.6
+Version: 2026.1
 Summary: A collection of JSON schemas used by Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -19,22 +19,22 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: jsonschema[format]>=4.24.0
 Provides-Extra: dev
 Requires-Dist: weblate_schemas[lint,test]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: pre-commit==4.3.0; extra == "lint"
+Requires-Dist: prek==0.3.11; extra == "lint"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

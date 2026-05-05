@@ -171,6 +171,8 @@ def simulated_anneal_tree(
 
     Parameters
     ----------
+    tree : ContractionTree
+        The tree to optimize.
     tfinal : float, optional
         The final temperature.
     tstart : float, optional
@@ -270,14 +272,14 @@ def simulated_anneal_tree(
                 l, r = tree.children[p]
 
                 # check which local moves are possible
-                if len(l) == 1:
-                    if len(r) == 1:
+                if tree.is_leaf(l) == 1:
+                    if tree.is_leaf(r) == 1:
                         # both are leaves
                         continue
                     else:
                         # left is leaf
                         rule = rng.randint(2, 3)
-                elif len(r) == 1:
+                elif tree.is_leaf(r) == 1:
                     # right is leaf
                     rule = rng.randint(0, 1)
                 else:
@@ -347,11 +349,13 @@ def simulated_anneal_tree(
                             legs=new_legs0,
                             cost=new_cost0,
                             size=new_size0,
+                            # NOTE: for ssa nodes only we could reuse `x` label
                         ),
                         new_order[2],
                         legs=new_legs1,
                         cost=new_cost1,
                         size=new_size1,
+                        parent=p,  # reuse top node label
                     )
 
                     if progbar:
@@ -362,9 +366,9 @@ def simulated_anneal_tree(
 
                 # check which children to recurse into
                 l, r = tree.children[p]
-                if len(l) > 2:
+                if tree.get_extent(l) > 2:
                     candidates.append(l)
-                if len(r) > 2:
+                if tree.get_extent(r) > 2:
                     candidates.append(r)
 
         if progbar:

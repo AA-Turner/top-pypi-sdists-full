@@ -6,6 +6,9 @@ from typing import Dict, Union, Iterable
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .._types import SequenceNotStr
+from .local_environment_param import LocalEnvironmentParam
+from .container_reference_param import ContainerReferenceParam
+from .mcp_approval_request_param import McpApprovalRequestParam
 from .openai_response_input_file_param import OpenAIResponseInputFileParam
 from .openai_response_input_text_param import OpenAIResponseInputTextParam
 from .openai_response_input_image_param import OpenAIResponseInputImageParam
@@ -21,10 +24,10 @@ __all__ = [
     "InputInputItemResponseOutputMessageParamContent",
     "InputInputItemResponseOutputMessageParamContentResponseOutputTextParam",
     "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotation",
-    "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationFileCitation",
+    "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFileCitation",
     "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationURLCitation",
-    "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationContainerFileCitation",
-    "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationFilePath",
+    "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationContainerFileCitation",
+    "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFilePath",
     "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob",
     "InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprobTopLogprob",
     "InputInputItemResponseOutputMessageParamContentResponseOutputRefusalParam",
@@ -32,16 +35,16 @@ __all__ = [
     "InputInputItemResponseFileSearchToolCallParamResult",
     "InputInputItemResponseComputerToolCallParam",
     "InputInputItemResponseComputerToolCallParamAction",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionClick",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDoubleClick",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDrag",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDragPath",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionKeypress",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionMove",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionScreenshot",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionScroll",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionType",
-    "InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionWait",
+    "InputInputItemResponseComputerToolCallParamActionActionClick",
+    "InputInputItemResponseComputerToolCallParamActionActionDoubleClick",
+    "InputInputItemResponseComputerToolCallParamActionActionDrag",
+    "InputInputItemResponseComputerToolCallParamActionActionDragPath",
+    "InputInputItemResponseComputerToolCallParamActionActionKeypress",
+    "InputInputItemResponseComputerToolCallParamActionActionMove",
+    "InputInputItemResponseComputerToolCallParamActionActionScreenshot",
+    "InputInputItemResponseComputerToolCallParamActionActionScroll",
+    "InputInputItemResponseComputerToolCallParamActionActionType",
+    "InputInputItemResponseComputerToolCallParamActionActionWait",
     "InputInputItemResponseComputerToolCallParamPendingSafetyCheck",
     "InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput",
     "InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutput",
@@ -49,27 +52,47 @@ __all__ = [
     "InputInputItemResponseFunctionWebSearchParam",
     "InputInputItemResponseFunctionWebSearchParamAction",
     "InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearch",
+    "InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearchSource",
     "InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionOpenPage",
-    "InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionFind",
+    "InputInputItemResponseFunctionWebSearchParamActionActionFind",
     "InputInputItemResponseFunctionToolCallParam",
     "InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput",
+    "InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentList",
+    "InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputTextContentParam",
+    "InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputImageContentParam",
+    "InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputFileContentParam",
     "InputInputItemResponseReasoningItemParam",
     "InputInputItemResponseReasoningItemParamSummary",
     "InputInputItemResponseReasoningItemParamContent",
+    "InputInputItemResponseCompactionItemParamParam",
     "InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall",
     "InputInputItemResponseCodeInterpreterToolCallParam",
     "InputInputItemResponseCodeInterpreterToolCallParamOutput",
-    "InputInputItemResponseCodeInterpreterToolCallParamOutputOpenAITypesResponsesResponseCodeInterpreterToolCallParamOutputLogs",
-    "InputInputItemResponseCodeInterpreterToolCallParamOutputOpenAITypesResponsesResponseCodeInterpreterToolCallParamOutputImage",
+    "InputInputItemResponseCodeInterpreterToolCallParamOutputOutputLogs",
+    "InputInputItemResponseCodeInterpreterToolCallParamOutputOutputImage",
     "InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall",
     "InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction",
     "InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCall",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallAction",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallEnvironment",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutput",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutput",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcome",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeTimeout",
+    "InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeExit",
+    "InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCall",
+    "InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperation",
+    "InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationCreateFile",
+    "InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationDeleteFile",
+    "InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationUpdateFile",
+    "InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOutput",
     "InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools",
     "InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool",
-    "InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalRequest",
     "InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse",
     "InputInputItemOpenAITypesResponsesResponseInputParamMcpCall",
     "InputInputItemResponseCustomToolCallOutputParam",
+    "InputInputItemResponseCustomToolCallOutputParamOutputOutputContentList",
     "InputInputItemResponseCustomToolCallParam",
     "InputInputItemOpenAITypesResponsesResponseInputParamItemReference",
 ]
@@ -132,10 +155,20 @@ InputInputItemEasyInputMessageParamContentInputItem: TypeAlias = Union[
 ]
 
 
-class InputInputItemEasyInputMessageParam(TypedDict, total=False):
+class InputInputItemEasyInputMessageParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """
+    A message input to the model with a role indicating instruction following
+    hierarchy. Instructions given with the `developer` or `system` role take
+    precedence over instructions given with the `user` role. Messages with the
+    `assistant` role are presumed to have been generated by the model in previous
+    interactions.
+    """
+
     content: Required[Union[str, Iterable[InputInputItemEasyInputMessageParamContentInputItem]]]
 
     role: Required[Literal["user", "assistant", "system", "developer"]]
+
+    phase: Literal["commentary", "final_answer"]
 
     type: Literal["message"]
 
@@ -145,7 +178,13 @@ InputInputItemOpenAITypesResponsesResponseInputParamMessageContent: TypeAlias = 
 ]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMessage(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamMessage(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """
+    A message input to the model with a role indicating instruction following
+    hierarchy. Instructions given with the `developer` or `system` role take
+    precedence over instructions given with the `user` role.
+    """
+
     content: Required[Iterable[InputInputItemOpenAITypesResponsesResponseInputParamMessageContent]]
 
     role: Required[Literal["user", "system", "developer"]]
@@ -155,9 +194,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMessage(TypedDict, tot
     type: Literal["message"]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationFileCitation(
-    TypedDict, total=False
-):
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFileCitation(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A citation to a file."""
+
     file_id: Required[str]
 
     filename: Required[str]
@@ -168,8 +209,10 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
 
 
 class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationURLCitation(
-    TypedDict, total=False
-):
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A citation for a web resource used to generate a model response."""
+
     end_index: Required[int]
 
     start_index: Required[int]
@@ -181,9 +224,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
     url: Required[str]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationContainerFileCitation(
-    TypedDict, total=False
-):
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationContainerFileCitation(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A citation for a container file used to generate a model response."""
+
     container_id: Required[str]
 
     end_index: Required[int]
@@ -197,9 +242,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
     type: Required[Literal["container_file_citation"]]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationFilePath(
-    TypedDict, total=False
-):
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFilePath(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A path to a file."""
+
     file_id: Required[str]
 
     index: Required[int]
@@ -208,14 +255,18 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
 
 
 InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotation: TypeAlias = Union[
-    InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationFileCitation,
+    InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFileCitation,
     InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationURLCitation,
-    InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationContainerFileCitation,
-    InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationFilePath,
+    InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationContainerFileCitation,
+    InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFilePath,
 ]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprobTopLogprob(TypedDict, total=False):
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprobTopLogprob(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """The top log probability of a token."""
+
     token: Required[str]
 
     bytes: Required[Iterable[int]]
@@ -223,7 +274,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogp
     logprob: Required[float]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob(TypedDict, total=False):
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """The log probability of a token."""
+
     token: Required[str]
 
     bytes: Required[Iterable[int]]
@@ -235,7 +290,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogp
     ]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParam(TypedDict, total=False):
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParam(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A text output from the model."""
+
     annotations: Required[Iterable[InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotation]]
 
     text: Required[str]
@@ -245,7 +304,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParam(Typ
     logprobs: Iterable[InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputRefusalParam(TypedDict, total=False):
+class InputInputItemResponseOutputMessageParamContentResponseOutputRefusalParam(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A refusal from the model."""
+
     refusal: Required[str]
 
     type: Required[Literal["refusal"]]
@@ -257,7 +320,9 @@ InputInputItemResponseOutputMessageParamContent: TypeAlias = Union[
 ]
 
 
-class InputInputItemResponseOutputMessageParam(TypedDict, total=False):
+class InputInputItemResponseOutputMessageParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """An output message from the model."""
+
     id: Required[str]
 
     content: Required[Iterable[InputInputItemResponseOutputMessageParamContent]]
@@ -268,8 +333,10 @@ class InputInputItemResponseOutputMessageParam(TypedDict, total=False):
 
     type: Required[Literal["message"]]
 
+    phase: Literal["commentary", "final_answer"]
 
-class InputInputItemResponseFileSearchToolCallParamResult(TypedDict, total=False):
+
+class InputInputItemResponseFileSearchToolCallParamResult(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
     attributes: Dict[str, Union[str, float, bool]]
 
     file_id: str
@@ -281,7 +348,13 @@ class InputInputItemResponseFileSearchToolCallParamResult(TypedDict, total=False
     text: str
 
 
-class InputInputItemResponseFileSearchToolCallParam(TypedDict, total=False):
+class InputInputItemResponseFileSearchToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The results of a file search tool call.
+
+    See the
+    [file search guide](https://platform.openai.com/docs/guides/tools-file-search) for more information.
+    """
+
     id: Required[str]
 
     queries: Required[SequenceNotStr[str]]
@@ -293,9 +366,9 @@ class InputInputItemResponseFileSearchToolCallParam(TypedDict, total=False):
     results: Iterable[InputInputItemResponseFileSearchToolCallParamResult]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionClick(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionClick(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A click action."""
+
     button: Required[Literal["left", "right", "wheel", "back", "forward"]]
 
     type: Required[Literal["click"]]
@@ -305,9 +378,9 @@ class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesRespo
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDoubleClick(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionDoubleClick(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A double click action."""
+
     type: Required[Literal["double_click"]]
 
     x: Required[int]
@@ -315,37 +388,33 @@ class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesRespo
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDragPath(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionDragPath(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """An x/y coordinate pair, e.g. `{ x: 100, y: 200 }`."""
+
     x: Required[int]
 
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDrag(
-    TypedDict, total=False
-):
-    path: Required[
-        Iterable[
-            InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDragPath
-        ]
-    ]
+class InputInputItemResponseComputerToolCallParamActionActionDrag(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A drag action."""
+
+    path: Required[Iterable[InputInputItemResponseComputerToolCallParamActionActionDragPath]]
 
     type: Required[Literal["drag"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionKeypress(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionKeypress(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A collection of keypresses the model would like to perform."""
+
     keys: Required[SequenceNotStr[str]]
 
     type: Required[Literal["keypress"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionMove(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionMove(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A mouse move action."""
+
     type: Required[Literal["move"]]
 
     x: Required[int]
@@ -353,15 +422,15 @@ class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesRespo
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionScreenshot(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionScreenshot(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A screenshot action."""
+
     type: Required[Literal["screenshot"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionScroll(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionScroll(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A scroll action."""
+
     scroll_x: Required[int]
 
     scroll_y: Required[int]
@@ -373,45 +442,54 @@ class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesRespo
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionType(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionType(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """An action to type in text."""
+
     text: Required[str]
 
     type: Required[Literal["type"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionWait(
-    TypedDict, total=False
-):
+class InputInputItemResponseComputerToolCallParamActionActionWait(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A wait action."""
+
     type: Required[Literal["wait"]]
 
 
 InputInputItemResponseComputerToolCallParamAction: TypeAlias = Union[
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionClick,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDoubleClick,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionDrag,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionKeypress,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionMove,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionScreenshot,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionScroll,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionType,
-    InputInputItemResponseComputerToolCallParamActionOpenAITypesResponsesResponseComputerToolCallParamActionWait,
+    InputInputItemResponseComputerToolCallParamActionActionClick,
+    InputInputItemResponseComputerToolCallParamActionActionDoubleClick,
+    InputInputItemResponseComputerToolCallParamActionActionDrag,
+    InputInputItemResponseComputerToolCallParamActionActionKeypress,
+    InputInputItemResponseComputerToolCallParamActionActionMove,
+    InputInputItemResponseComputerToolCallParamActionActionScreenshot,
+    InputInputItemResponseComputerToolCallParamActionActionScroll,
+    InputInputItemResponseComputerToolCallParamActionActionType,
+    InputInputItemResponseComputerToolCallParamActionActionWait,
 ]
 
 
-class InputInputItemResponseComputerToolCallParamPendingSafetyCheck(TypedDict, total=False):
+class InputInputItemResponseComputerToolCallParamPendingSafetyCheck(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A pending safety check for the computer call."""
+
     id: Required[str]
 
-    code: Required[str]
+    code: str
 
-    message: Required[str]
+    message: str
 
 
-class InputInputItemResponseComputerToolCallParam(TypedDict, total=False):
+class InputInputItemResponseComputerToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A tool call to a computer use tool.
+
+    See the
+    [computer use guide](https://platform.openai.com/docs/guides/tools-computer-use) for more information.
+    """
+
     id: Required[str]
 
     action: Required[InputInputItemResponseComputerToolCallParamAction]
+    """A click action."""
 
     call_id: Required[str]
 
@@ -422,7 +500,11 @@ class InputInputItemResponseComputerToolCallParam(TypedDict, total=False):
     type: Required[Literal["computer_call"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutput(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutput(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A computer screenshot image used with the computer use tool."""
+
     type: Required[Literal["computer_screenshot"]]
 
     file_id: str
@@ -431,8 +513,10 @@ class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutp
 
 
 class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputAcknowledgedSafetyCheck(
-    TypedDict, total=False
-):
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A pending safety check for the computer call."""
+
     id: Required[str]
 
     code: str
@@ -440,10 +524,15 @@ class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputAckn
     message: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """The output of a computer tool call."""
+
     call_id: Required[str]
 
     output: Required[InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutput]
+    """A computer screenshot image used with the computer use tool."""
 
     type: Required[Literal["computer_call_output"]]
 
@@ -456,28 +545,48 @@ class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput(Typ
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearch(
-    TypedDict, total=False
-):
-    query: Required[str]
+class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearchSource(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A source used in the search."""
 
-    type: Required[Literal["search"]]
-
-
-class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionOpenPage(
-    TypedDict, total=False
-):
-    type: Required[Literal["open_page"]]
+    type: Required[Literal["url"]]
 
     url: Required[str]
 
 
-class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionFind(
-    TypedDict, total=False
-):
+class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearch(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Action type "search" - Performs a web search query."""
+
+    query: Required[str]
+
+    type: Required[Literal["search"]]
+
+    queries: SequenceNotStr[str]
+
+    sources: Iterable[
+        InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearchSource
+    ]
+
+
+class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionOpenPage(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Action type "open_page" - Opens a specific URL from search results."""
+
+    type: Required[Literal["open_page"]]
+
+    url: str
+
+
+class InputInputItemResponseFunctionWebSearchParamActionActionFind(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """Action type "find_in_page": Searches for a pattern within a loaded page."""
+
     pattern: Required[str]
 
-    type: Required[Literal["find"]]
+    type: Required[Literal["find_in_page"]]
 
     url: Required[str]
 
@@ -485,21 +594,34 @@ class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResp
 InputInputItemResponseFunctionWebSearchParamAction: TypeAlias = Union[
     InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearch,
     InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionOpenPage,
-    InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionFind,
+    InputInputItemResponseFunctionWebSearchParamActionActionFind,
 ]
 
 
-class InputInputItemResponseFunctionWebSearchParam(TypedDict, total=False):
+class InputInputItemResponseFunctionWebSearchParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The results of a web search tool call.
+
+    See the
+    [web search guide](https://platform.openai.com/docs/guides/tools-web-search) for more information.
+    """
+
     id: Required[str]
 
     action: Required[InputInputItemResponseFunctionWebSearchParamAction]
+    """Action type "search" - Performs a web search query."""
 
     status: Required[Literal["in_progress", "searching", "completed", "failed"]]
 
     type: Required[Literal["web_search_call"]]
 
 
-class InputInputItemResponseFunctionToolCallParam(TypedDict, total=False):
+class InputInputItemResponseFunctionToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A tool call to run a function.
+
+    See the
+    [function calling guide](https://platform.openai.com/docs/guides/function-calling) for more information.
+    """
+
     arguments: Required[str]
 
     call_id: Required[str]
@@ -513,10 +635,68 @@ class InputInputItemResponseFunctionToolCallParam(TypedDict, total=False):
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputTextContentParam(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A text input to the model."""
+
+    text: Required[str]
+
+    type: Required[Literal["input_text"]]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputImageContentParam(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """An image input to the model.
+
+    Learn about [image inputs](https://platform.openai.com/docs/guides/vision)
+    """
+
+    type: Required[Literal["input_image"]]
+
+    detail: Literal["low", "high", "auto"]
+
+    file_id: str
+
+    image_url: str
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputFileContentParam(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A file input to the model."""
+
+    type: Required[Literal["input_file"]]
+
+    file_data: str
+
+    file_id: str
+
+    file_url: str
+
+    filename: str
+
+
+InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentList: TypeAlias = Union[
+    InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputTextContentParam,
+    InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputImageContentParam,
+    InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputFileContentParam,
+]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """The output of a function tool call."""
+
     call_id: Required[str]
 
-    output: Required[str]
+    output: Required[
+        Union[
+            str, Iterable[InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentList]
+        ]
+    ]
 
     type: Required[Literal["function_call_output"]]
 
@@ -525,19 +705,30 @@ class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput(Typ
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemResponseReasoningItemParamSummary(TypedDict, total=False):
+class InputInputItemResponseReasoningItemParamSummary(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A summary text from the model."""
+
     text: Required[str]
 
     type: Required[Literal["summary_text"]]
 
 
-class InputInputItemResponseReasoningItemParamContent(TypedDict, total=False):
+class InputInputItemResponseReasoningItemParamContent(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """Reasoning text from the model."""
+
     text: Required[str]
 
     type: Required[Literal["reasoning_text"]]
 
 
-class InputInputItemResponseReasoningItemParam(TypedDict, total=False):
+class InputInputItemResponseReasoningItemParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """
+    A description of the chain of thought used by a reasoning model while generating
+    a response. Be sure to include these items in your `input` to the Responses API
+    for subsequent turns of a conversation if you are manually
+    [managing context](https://platform.openai.com/docs/guides/conversation-state).
+    """
+
     id: Required[str]
 
     summary: Required[Iterable[InputInputItemResponseReasoningItemParamSummary]]
@@ -551,7 +742,23 @@ class InputInputItemResponseReasoningItemParam(TypedDict, total=False):
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(TypedDict, total=False):
+class InputInputItemResponseCompactionItemParamParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """
+    A compaction item generated by the [`v1/responses/compact` API](https://platform.openai.com/docs/api-reference/responses/compact).
+    """
+
+    encrypted_content: Required[str]
+
+    type: Required[Literal["compaction"]]
+
+    id: str
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """An image generation request made by the model."""
+
     id: Required[str]
 
     result: Required[str]
@@ -561,29 +768,31 @@ class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(Ty
     type: Required[Literal["image_generation_call"]]
 
 
-class InputInputItemResponseCodeInterpreterToolCallParamOutputOpenAITypesResponsesResponseCodeInterpreterToolCallParamOutputLogs(
-    TypedDict, total=False
-):
+class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputLogs(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The logs output from the code interpreter."""
+
     logs: Required[str]
 
     type: Required[Literal["logs"]]
 
 
-class InputInputItemResponseCodeInterpreterToolCallParamOutputOpenAITypesResponsesResponseCodeInterpreterToolCallParamOutputImage(
-    TypedDict, total=False
-):
+class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputImage(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The image output from the code interpreter."""
+
     type: Required[Literal["image"]]
 
     url: Required[str]
 
 
 InputInputItemResponseCodeInterpreterToolCallParamOutput: TypeAlias = Union[
-    InputInputItemResponseCodeInterpreterToolCallParamOutputOpenAITypesResponsesResponseCodeInterpreterToolCallParamOutputLogs,
-    InputInputItemResponseCodeInterpreterToolCallParamOutputOpenAITypesResponsesResponseCodeInterpreterToolCallParamOutputImage,
+    InputInputItemResponseCodeInterpreterToolCallParamOutputOutputLogs,
+    InputInputItemResponseCodeInterpreterToolCallParamOutputOutputImage,
 ]
 
 
-class InputInputItemResponseCodeInterpreterToolCallParam(TypedDict, total=False):
+class InputInputItemResponseCodeInterpreterToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A tool call to run code."""
+
     id: Required[str]
 
     code: Required[str]
@@ -597,7 +806,11 @@ class InputInputItemResponseCodeInterpreterToolCallParam(TypedDict, total=False)
     type: Required[Literal["code_interpreter_call"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Execute a shell command on the server."""
+
     command: Required[SequenceNotStr[str]]
 
     env: Required[Dict[str, str]]
@@ -611,10 +824,13 @@ class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction(T
     working_directory: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A tool call to run a command on the local shell."""
+
     id: Required[str]
 
     action: Required[InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction]
+    """Execute a shell command on the server."""
 
     call_id: Required[str]
 
@@ -623,7 +839,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall(TypedDi
     type: Required[Literal["local_shell_call"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """The output of a local shell tool call."""
+
     id: Required[str]
 
     output: Required[str]
@@ -633,7 +853,168 @@ class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput(T
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallAction(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The shell commands and limits that describe how to run the tool call."""
+
+    commands: Required[SequenceNotStr[str]]
+
+    max_output_length: int
+
+    timeout_ms: int
+
+
+InputInputItemOpenAITypesResponsesResponseInputParamShellCallEnvironment: TypeAlias = Union[
+    LocalEnvironmentParam, ContainerReferenceParam
+]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A tool representing a request to execute one or more shell commands."""
+
+    action: Required[InputInputItemOpenAITypesResponsesResponseInputParamShellCallAction]
+    """The shell commands and limits that describe how to run the tool call."""
+
+    call_id: Required[str]
+
+    type: Required[Literal["shell_call"]]
+
+    id: str
+
+    environment: InputInputItemOpenAITypesResponsesResponseInputParamShellCallEnvironment
+
+    status: Literal["in_progress", "completed", "incomplete"]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeTimeout(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Indicates that the shell call exceeded its configured time limit."""
+
+    type: Required[Literal["timeout"]]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeExit(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Indicates that the shell commands finished and returned an exit code."""
+
+    exit_code: Required[int]
+
+    type: Required[Literal["exit"]]
+
+
+InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcome: TypeAlias = Union[
+    InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeTimeout,
+    InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeExit,
+]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutput(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Captured stdout and stderr for a portion of a shell tool call output."""
+
+    outcome: Required[InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcome]
+    """Indicates that the shell call exceeded its configured time limit."""
+
+    stderr: Required[str]
+
+    stdout: Required[str]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutput(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The streamed output items emitted by a shell tool call."""
+
+    call_id: Required[str]
+
+    output: Required[Iterable[InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutput]]
+
+    type: Required[Literal["shell_call_output"]]
+
+    id: str
+
+    max_output_length: int
+
+    status: Literal["in_progress", "completed", "incomplete"]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationCreateFile(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Instruction for creating a new file via the apply_patch tool."""
+
+    diff: Required[str]
+
+    path: Required[str]
+
+    type: Required[Literal["create_file"]]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationDeleteFile(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Instruction for deleting an existing file via the apply_patch tool."""
+
+    path: Required[str]
+
+    type: Required[Literal["delete_file"]]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationUpdateFile(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """Instruction for updating an existing file via the apply_patch tool."""
+
+    diff: Required[str]
+
+    path: Required[str]
+
+    type: Required[Literal["update_file"]]
+
+
+InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperation: TypeAlias = Union[
+    InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationCreateFile,
+    InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationDeleteFile,
+    InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationUpdateFile,
+]
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """
+    A tool call representing a request to create, delete, or update files using diff patches.
+    """
+
+    call_id: Required[str]
+
+    operation: Required[InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperation]
+    """Instruction for creating a new file via the apply_patch tool."""
+
+    status: Required[Literal["in_progress", "completed"]]
+
+    type: Required[Literal["apply_patch_call"]]
+
+    id: str
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOutput(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """The streamed output emitted by an apply patch tool call."""
+
+    call_id: Required[str]
+
+    status: Required[Literal["completed", "failed"]]
+
+    type: Required[Literal["apply_patch_call_output"]]
+
+    id: str
+
+    output: str
+
+
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A tool available on an MCP server."""
+
     input_schema: Required[object]
 
     name: Required[str]
@@ -643,7 +1024,9 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool(Typed
     description: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A list of tools available on an MCP server."""
+
     id: Required[str]
 
     server_label: Required[str]
@@ -655,19 +1038,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools(TypedDict
     error: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalRequest(TypedDict, total=False):
-    id: Required[str]
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse(
+    TypedDict, total=False, extra_items=object
+):  # type: ignore[call-arg]
+    """A response to an MCP approval request."""
 
-    arguments: Required[str]
-
-    name: Required[str]
-
-    server_label: Required[str]
-
-    type: Required[Literal["mcp_approval_request"]]
-
-
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse(TypedDict, total=False):
     approval_request_id: Required[str]
 
     approve: Required[bool]
@@ -679,7 +1054,9 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse(Ty
     reason: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpCall(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """An invocation of a tool on an MCP server."""
+
     id: Required[str]
 
     arguments: Required[str]
@@ -690,22 +1067,35 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpCall(TypedDict, tot
 
     type: Required[Literal["mcp_call"]]
 
+    approval_request_id: str
+
     error: str
 
     output: str
 
+    status: Literal["in_progress", "completed", "incomplete", "calling", "failed"]
 
-class InputInputItemResponseCustomToolCallOutputParam(TypedDict, total=False):
+
+InputInputItemResponseCustomToolCallOutputParamOutputOutputContentList: TypeAlias = Union[
+    OpenAIResponseInputTextParam, OpenAIResponseInputImageParam, OpenAIResponseInputFileParam
+]
+
+
+class InputInputItemResponseCustomToolCallOutputParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """The output of a custom tool call from your code, being sent back to the model."""
+
     call_id: Required[str]
 
-    output: Required[str]
+    output: Required[Union[str, Iterable[InputInputItemResponseCustomToolCallOutputParamOutputOutputContentList]]]
 
     type: Required[Literal["custom_tool_call_output"]]
 
     id: str
 
 
-class InputInputItemResponseCustomToolCallParam(TypedDict, total=False):
+class InputInputItemResponseCustomToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """A call to a custom tool created by the model."""
+
     call_id: Required[str]
 
     input: Required[str]
@@ -717,7 +1107,9 @@ class InputInputItemResponseCustomToolCallParam(TypedDict, total=False):
     id: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamItemReference(TypedDict, total=False):
+class InputInputItemOpenAITypesResponsesResponseInputParamItemReference(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+    """An internal identifier for an item to reference."""
+
     id: Required[str]
 
     type: Literal["item_reference"]
@@ -734,12 +1126,17 @@ InputInputItem: TypeAlias = Union[
     InputInputItemResponseFunctionToolCallParam,
     InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput,
     InputInputItemResponseReasoningItemParam,
+    InputInputItemResponseCompactionItemParamParam,
     InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall,
     InputInputItemResponseCodeInterpreterToolCallParam,
     InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall,
     InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput,
+    InputInputItemOpenAITypesResponsesResponseInputParamShellCall,
+    InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutput,
+    InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCall,
+    InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOutput,
     InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools,
-    InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalRequest,
+    McpApprovalRequestParam,
     InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse,
     InputInputItemOpenAITypesResponsesResponseInputParamMcpCall,
     InputInputItemResponseCustomToolCallOutputParam,

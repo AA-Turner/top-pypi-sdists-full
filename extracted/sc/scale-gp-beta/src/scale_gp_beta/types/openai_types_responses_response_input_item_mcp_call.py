@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseInputItemMcpCall"]
 
 
 class OpenAITypesResponsesResponseInputItemMcpCall(BaseModel):
+    """An invocation of a tool on an MCP server."""
+
     id: str
 
     arguments: str
@@ -21,9 +23,13 @@ class OpenAITypesResponsesResponseInputItemMcpCall(BaseModel):
 
     type: Literal["mcp_call"]
 
+    approval_request_id: Optional[str] = None
+
     error: Optional[str] = None
 
     output: Optional[str] = None
+
+    status: Optional[Literal["in_progress", "completed", "incomplete", "calling", "failed"]] = None
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a

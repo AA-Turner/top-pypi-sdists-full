@@ -4,15 +4,15 @@ from enum import StrEnum, auto
 class CheckOutcome(StrEnum):
     """Possible outcomes of a dbt-bouncer check execution."""
 
-    FAILED = "failed"
-    SUCCESS = "success"
+    FAILED = auto()
+    SUCCESS = auto()
 
 
 class CheckSeverity(StrEnum):
     """Severity levels for dbt-bouncer check results."""
 
-    ERROR = "error"
-    WARN = "warn"
+    ERROR = auto()
+    WARN = auto()
 
 
 class ConfigFileName(StrEnum):
@@ -23,13 +23,20 @@ class ConfigFileName(StrEnum):
     PYPROJECT_TOML = "pyproject.toml"
 
 
+class ConfigFileSource(StrEnum):
+    """Config file names recognised by dbt-bouncer."""
+
+    COMMANDLINE = auto()
+    DEFAULT = auto()
+
+
 class Materialization(StrEnum):
     """dbt materialization strategies."""
 
-    EPHEMERAL = "ephemeral"
-    INCREMENTAL = "incremental"
-    TABLE = "table"
-    VIEW = "view"
+    EPHEMERAL = auto()
+    INCREMENTAL = auto()
+    TABLE = auto()
+    VIEW = auto()
 
 
 class OutputFormat(StrEnum):
@@ -45,6 +52,13 @@ class OutputFormat(StrEnum):
     def values(cls) -> list:
         """Return all output format values as lowercase strings."""  # noqa: DOC201
         return list(cls)
+
+
+class OutputFormatCLI(StrEnum):
+    """Supported output formats for CLI list command."""
+
+    JSON = auto()
+    TEXT = auto()
 
 
 class ResourceType(StrEnum):

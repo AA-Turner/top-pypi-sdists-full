@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import pytest
-from tibs import Tibs, Mutibs, BitIndexing, Endianness
+from tibs import Tibs, Mutibs, Endianness, Codec
 
 
 def test_creation():
@@ -220,6 +220,24 @@ def test_inplace_mul():
     assert a == '0b1010101010'
 
 
+def test_find_all():
+    a = Mutibs('0b11111')
+    assert a.find_all('0b1') == [0, 1, 2, 3, 4]
+    assert a.find_all('0b11') == [0, 1, 2, 3]
+    assert a.find_all('0b10') == []
+
+    b = Mutibs('0b1001001001001001001')
+    assert b.find_all('0b1001') == [0, 3, 6, 9, 12, 15]
+
+
+def test_chunks():
+    a = Mutibs('0x00112233445')
+    assert a.chunks(8) == ["0x00", "0x11", "0x22", "0x33", "0x44", "0x5"]
+    assert a[8:16].chunks(4) == ["0x1", "0x1"]
+    assert a[0:44].chunks(4, 4) == ["0x0", "0x0", "0x1", "0x1"]
+    assert Mutibs().chunks(10) == []
+
+
 def test_or():
     a = Mutibs('0x0f')
     b = Mutibs('0xf0')
@@ -342,6 +360,13 @@ def test_insert_from_mutable_bits():
     assert a == '0b101110'
 
 
+def test_inserted_returns_new_mutibs():
+    a = Mutibs('0b1010')
+    b = a.inserted(2, '0b11')
+    assert a == '0b1010'
+    assert b == '0b101110'
+
+
 def test_insert_chaining():
     a = Mutibs('0b10')
     a.insert(1, '0b1')
@@ -424,6 +449,21 @@ def test_set_method_chaining():
     assert a == '0b1010'
 
 
+def test_set_at_returns_new_mutibs():
+    a = Mutibs('0b0000')
+    b = a.set_at([0, 2])
+    assert a == '0b0000'
+    assert b == '0b1010'
+    assert isinstance(b, Mutibs)
+
+
+def test_unset_at_returns_new_mutibs():
+    a = Mutibs('0b1111')
+    b = a.unset_at(range(1, 4))
+    assert a == '0b1111'
+    assert b == '0b1000'
+
+
 def test_set_index_out_of_range():
     # Error cases
     with pytest.raises(IndexError):
@@ -485,6 +525,14 @@ def test_invert_chaining():
     assert result is None
     a.invert(2)
     assert a == '0b1100'
+
+
+def test_inverted_returns_new_mutibs():
+    a = Mutibs('0b1010')
+    b = a.inverted([0, -1])
+    assert a == '0b1010'
+    assert b == '0b0011'
+    assert isinstance(b, Mutibs)
 
 
 def test_invert_index_out_of_range():
@@ -569,6 +617,13 @@ def test_replace_method_chaining():
     assert result is None
     a.replace('0b11', '0b00')
     assert a == '0b00000000'
+
+
+def test_replaced_returns_new_mutibs():
+    a = Mutibs('0b10101010')
+    b = a.replaced('0b10', '0b11', count=2)
+    assert a == '0b10101010'
+    assert b == '0b11111010'
 
 
 def test_replace_different_types():
@@ -684,6 +739,14 @@ def test_rol_method_chaining():
     assert result is None
 
 
+def test_rotated_left_returns_new_mutibs():
+    a = Mutibs('0b1010')
+    b = a.rotated_left(1)
+    assert a == '0b1010'
+    assert b == '0b0101'
+    assert isinstance(b, Mutibs)
+
+
 def test_rol_negative_amount():
     # Error cases - negative rotation
     with pytest.raises(ValueError):
@@ -745,6 +808,14 @@ def test_ror_method_chaining():
     result = a.rotate_right(1)
     assert a == '0b0101'
     assert result is None
+
+
+def test_rotated_right_returns_new_mutibs():
+    a = Mutibs('0b1010')
+    b = a.rotated_right(1)
+    assert a == '0b1010'
+    assert b == '0b0101'
+    assert isinstance(b, Mutibs)
 
 
 def test_rol_ror_cancellation():
@@ -1233,7 +1304,7 @@ def test_set_bug():
 
 
 def test_convenience_properties():
-    m = Mutibs('0x123', BitIndexing.Lsb0)
+    m = Mutibs('0x123')
     assert m.to_hex() == m.hex
     assert m.to_oct() == m.oct
     assert m.to_bin() == m.bin
@@ -1246,12 +1317,11 @@ def test_byte_swapped():
     assert b == b'hello!'
 
 
-def test_bit_indexing():
+def test_from_u_bad_endianness_type():
     with pytest.raises(TypeError):
         a = Mutibs.from_u(101, 16, "asdf")
-    a = Mutibs.from_u(101, 16, Endianness.Unspecified, BitIndexing.Lsb0)
+    a = Mutibs.from_u(101, 16, Endianness.Unspecified)
     assert a.to_u() == 101
-    assert a.bit_indexing is BitIndexing.Lsb0
 
 
 def test_contains():
@@ -1280,23 +1350,8 @@ def test_special_method_creation_fails():
         m &= 'grebditch'
 
 
-def test_lsb0_set_slice():
-    m = Mutibs('0x0000', bit_indexing=BitIndexing.Lsb0)
-    m[0] = 1
-    assert m == '0x0001'
-    m[-8:] = '0xab'
-    assert m == '0xab01'
-
-
-def test_lsb0_del_slice():
-    m = Mutibs.from_hex("abcdef", bit_indexing=BitIndexing.Lsb0)
-    t = m.to_tibs()
-    del m[:8]
-    assert m == '0xabcd'
-
-
 def test_replace_negative_count():
-    m = Mutibs.from_random(1_000_000, bit_indexing=BitIndexing.Lsb0)
+    m = Mutibs.from_random(1_000_000)
     t = m.to_tibs()
     m.replace('0b1', '0b0', count=0)
     assert m == t
@@ -1310,6 +1365,27 @@ def test_float_endianness():
     m3 = Mutibs.from_f(3.5, 32, Endianness.Big)
     m4 = Mutibs.from_f(3.5, 32, Endianness.Little)
     assert m1.to_f() == m2.to_f() == 3.5
-    assert m4.to_f(Endianness.Little) == 3.5
-    assert m3.to_f(Endianness.Big) == 3.5
+    assert m4.le.f == 3.5
+    assert m3.be.to_f() == 3.5
     assert m3.byte_swapped() == m4
+
+def test_encode_decode():
+    m = Mutibs.from_zeros(1000)
+    m[56] = 1
+    b1 = m.encode()
+    t = Tibs.decode(b1)
+    assert t == m
+    m1 = Mutibs.decode(b1)
+    assert m == m1
+
+def test_empty_encode():
+    m = Mutibs()
+    a = m.encode(Codec.Auto)
+    z = m.encode(Codec.Zstd)
+    w = m.encode(Codec.Raw)
+    r = m.encode(Codec.Rice)
+
+    assert Mutibs.decode(a) == m
+    assert Mutibs.decode(z) == m
+    assert Mutibs.decode(r) == m
+    assert Mutibs.decode(w) == m

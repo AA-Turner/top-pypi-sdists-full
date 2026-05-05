@@ -11,20 +11,12 @@ import wbcore.contrib.icons.models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("workflow", "0001_initial"),
-        ("workflow", "0002_alter_step_step_type"),
-        ("workflow", "0003_alter_condition_attribute_name_and_more"),
-        ("workflow", "0004_alter_userstep_assignee_method"),
-        ("workflow", "0005_alter_userstep_assignee_method"),
-    ]
-
     initial = True
 
     dependencies = [
         ("authentication", "0002_squashed_20260501"),
         ("contenttypes", "0002_remove_content_type_name"),
-        ("directory", "0004_entry_is_draft_entry"),
+        ("directory", "0001_squashed_20260501"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

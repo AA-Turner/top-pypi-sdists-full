@@ -276,6 +276,15 @@ TBLPROPERTIES (
             "REFRESH TABLE t",
         )
 
+        self.validate_all(
+            "CONCAT_WS(' ', NULL, 'Smith')",
+            write={
+                "duckdb": "CONCAT_WS(' ', NULL, 'Smith')",
+                "spark": "CONCAT_WS(' ', NULL, 'Smith')",
+                "hive": "CONCAT_WS(' ', NULL, 'Smith')",
+            },
+        )
+
         # Spark TRUNC is date-only, should parse to DateTrunc (not numeric Trunc)
         self.validate_identity("TRUNC(date_col, 'MM')").assert_is(exp.DateTrunc)
 
@@ -866,7 +875,7 @@ TBLPROPERTIES (
             "SELECT LEFT(x, 2), RIGHT(x, 2)",
             write={
                 "duckdb": "SELECT LEFT(x, 2), RIGHT(x, 2)",
-                "presto": "SELECT SUBSTRING(x, 1, 2), SUBSTRING(x, LENGTH(x) - (2 - 1))",
+                "presto": "SELECT SUBSTR(x, 1, 2), SUBSTR(x, LENGTH(x) - (2 - 1))",
                 "hive": "SELECT SUBSTRING(x, 1, 2), SUBSTRING(x, LENGTH(x) - (2 - 1))",
                 "spark": "SELECT LEFT(x, 2), RIGHT(x, 2)",
             },
@@ -1055,6 +1064,15 @@ TBLPROPERTIES (
             },
             write={
                 "databricks": "WITH RECURSIVE t(n) AS (SELECT * FROM VALUES (1) AS _values) SELECT n FROM t",
+            },
+        )
+
+    def test_named_struct(self):
+        self.validate_all(
+            "SELECT named_struct('a', 1, 'b', 'x')",
+            write={
+                "spark": "SELECT STRUCT(1 AS a, 'x' AS b)",
+                "databricks": "SELECT STRUCT(1 AS a, 'x' AS b)",
             },
         )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alembic-git-revisions
-Version: 6
+Version: 7
 Summary: Automatic Alembic migration chaining based on git commit history
 License-Expression: Apache-2.0
 License-File: LICENSE

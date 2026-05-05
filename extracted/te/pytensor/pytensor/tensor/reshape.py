@@ -5,10 +5,8 @@ from typing import TypeAlias
 import numpy as np
 from numpy.lib._array_utils_impl import normalize_axis_index, normalize_axis_tuple
 
-from pytensor import Variable
 from pytensor.gradient import disconnected_type
-from pytensor.graph import Apply
-from pytensor.graph.op import Op
+from pytensor.graph import Apply, Op, Variable
 from pytensor.graph.replace import _vectorize_node
 from pytensor.scalar import ScalarVariable
 from pytensor.tensor import TensorLike, as_tensor_variable
@@ -86,7 +84,7 @@ class JoinDims(Op):
 
         out[0] = x.reshape(output_shape)
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         (x,) = inputs
         (g_out,) = output_grads
 
@@ -210,7 +208,7 @@ class SplitDims(Op):
     def connection_pattern(self, node):
         return [[True], [False]]
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         (x, _) = inputs
         (g_out,) = output_grads
         n_axes = g_out.ndim - x.ndim + 1

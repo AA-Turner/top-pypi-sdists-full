@@ -11,11 +11,9 @@ suppress_noisy_logs()
 import importlib
 import importlib.metadata
 import importlib.resources
-import importlib.util
 import logging
 import os
 import shutil
-import subprocess
 import sys
 import webbrowser
 from pathlib import Path
@@ -23,11 +21,9 @@ from typing import TYPE_CHECKING, Literal, Optional, cast
 
 if TYPE_CHECKING:
     import torch
-from uuid import UUID
 
 import httpx
 import typer
-import yaml  # type: ignore[import]
 from click.core import ParameterSource
 from packaging.version import Version
 from rich import box
@@ -36,34 +32,12 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-
-def _run_metadata_only_cli() -> None:
-    if __name__ != "__main__" or len(sys.argv) <= 1 or sys.argv[1] != "missions":
-        return
-
-    from cogames.cli.mission import list_missions  # noqa: PLC0415
-
-    metadata_app = typer.Typer(add_help_option=False)
-
-    @metadata_app.command("missions")
-    def _missions_cmd(
-        mission_filter: Optional[str] = typer.Argument(None, metavar="MISSION"),
-        game_name: str = typer.Option("cogsguard", "--game", help="Game whose missions to list."),
-    ) -> None:
-        list_missions(mission_filter, game_name=game_name)
-
-    metadata_app(prog_name="cogames", standalone_mode=False, args=sys.argv[1:])
-    raise SystemExit(0)
-
-
-_run_metadata_only_cli()
-
 from cogames import pickup as pickup_module
 from cogames import play as play_module
 from cogames import verbose
 from cogames.cli.assay import assay_app
 from cogames.cli.auth import auth_app
-from cogames.cli.base import console, emit_json
+from cogames.cli.base import console
 from cogames.cli.bitworld import bitworld_app
 from cogames.cli.client import PoolConfigInfo, SeasonDetail, TournamentServerClient
 from cogames.cli.episode import episode_app
@@ -74,15 +48,8 @@ from cogames.cli.leaderboard import (
 )
 from cogames.cli.matches import match_artifacts_cmd, matches_cmd
 from cogames.cli.mission import (
-    describe_mission,
     get_mission_name_and_config,
     get_mission_names_and_configs,
-    list_evals,
-    list_missions,
-    list_variants,
-    print_mission_dependencies,
-    print_variant_graph,
-    save_mission_config,
 )
 from cogames.cli.policy import (
     _translate_error,
@@ -98,7 +65,7 @@ from cogames.cli.submit import (
     DEFAULT_SUBMIT_SERVER,
     create_bundle,
     ensure_docker_daemon_access,
-    observatory_profile_url,
+    observatory_home_url,
     upload_policy,
     validate_bundle_docker,
 )
@@ -106,6 +73,7 @@ from cogames.curricula import make_rotation
 from cogames.device import resolve_training_device
 from cogames.display_detect import has_display
 from cogames.optional_deps import require_neural
+from cogames.replays import ReplayPathRequest, launch_replay_path
 from cogames.seed import seed_rollout_rng
 from softmax.auth import DEFAULT_COGAMES_SERVER, load_current_cogames_token
 
@@ -133,17 +101,13 @@ _DOC_RESOURCE_PATHS: dict[str, tuple[str, ...]] = {
 _POLICY_FREE_COMMANDS = {
     "auth",
     "bitworld",
-    "describe",
     "docs",
     "docsync",
-    "evals",
     "leaderboard",
     "match-artifacts",
     "matches",
-    "missions",
     "replay",
     "submissions",
-    "variants",
     "version",
 }
 
@@ -154,24 +118,6 @@ def _submit_browser_launch_skip_reason() -> str | None:
     if not sys.stdin.isatty():
         return "non-interactive session detected"
     return None
-
-
-def _resolve_mettascope_script() -> Path:
-    spec = importlib.util.find_spec("mettagrid")
-    if spec is None or spec.origin is None:
-        raise FileNotFoundError("mettagrid package is not available; cannot locate MettaScope.")
-
-    package_dir = Path(spec.origin).resolve().parent
-    search_roots = (package_dir, *package_dir.parents)
-
-    for root in search_roots:
-        candidate = root / "nim" / "mettascope" / "src" / "mettascope.nim"
-        if candidate.exists():
-            return candidate
-
-    raise FileNotFoundError(
-        f"MettaScope sources not found relative to installed mettagrid package (searched from {package_dir})."
-    )
 
 
 def _read_docs_readme() -> str:
@@ -218,16 +164,15 @@ def _validate_policy_name_or_exit(name: str) -> None:
 def _print_async_submission_follow_up(
     policy_name: str,
     season_name: str,
-    policy_version_id: UUID,
     login_server_url: str,
 ) -> None:
-    profile_url = observatory_profile_url(policy_version_id, login_server_url=login_server_url)
+    observatory_url = observatory_home_url(login_server_url=login_server_url)
     browser_skip_reason = _submit_browser_launch_skip_reason()
     if browser_skip_reason is None:
-        webbrowser.open(profile_url)
+        webbrowser.open(observatory_url)
     else:
         console.print(f"[dim]Browser launch skipped: {browser_skip_reason}[/dim]")
-    console.print(f"[dim]Profile:[/dim] {profile_url}")
+    console.print(f"[dim]Observatory:[/dim] {observatory_url}")
     console.print("[dim]Evaluation runs asynchronously. Check status with:[/dim]")
     console.print(f"[dim]  cogames submissions --season {season_name} --policy {policy_name}[/dim]")
     console.print(f"[dim]  cogames leaderboard {season_name} --policy {policy_name}[/dim]")
@@ -380,236 +325,6 @@ def _help_callback(ctx: typer.Context, value: bool) -> None:
     if value:
         console.print(ctx.get_help())
         raise typer.Exit()
-
-
-@app.command(
-    name="missions",
-    help="""List available missions.
-
-This command has two modes:
-
-[bold]1. List missions:[/bold] Run with no arguments to see all available missions.
-
-[bold]2. Describe a mission:[/bold] Use -m to describe a specific mission. Only in this mode do \
---cogs, --variant, --format, and --save have any effect.""",
-    rich_help_panel="Missions",
-    epilog="""[dim]Examples:[/dim]
-
-  [cyan]cogames missions[/cyan]                                    List all missions
-
-  [cyan]cogames missions -m machina_1[/cyan]                       Describe a mission
-
-  [cyan]cogames missions -m machina_1 -v talk[/cyan]               Describe talk-variant config
-
-  [cyan]cogames missions -m arena --format json[/cyan]             Output as JSON""",
-    add_help_option=False,
-)
-def missions_cmd(
-    ctx: typer.Context,
-    game_name: str = typer.Option(
-        "cogsguard",
-        "--game",
-        help="Game whose missions to list or describe.",
-        rich_help_panel="Describe",
-    ),
-    # --- List ---
-    site: Optional[str] = typer.Argument(
-        None,
-        metavar="FILTER",
-        help="Filter missions by name.",
-    ),
-    # --- Describe (requires -m) ---
-    mission: Optional[str] = typer.Option(
-        None,
-        "--mission",
-        "-m",
-        metavar="MISSION",
-        help="Mission to describe.",
-        rich_help_panel="Describe",
-    ),
-    cogs: Optional[int] = typer.Option(
-        None,
-        "--cogs",
-        "-c",
-        help="Override agent count (requires -m).",
-        rich_help_panel="Describe",
-    ),
-    variant: Optional[list[str]] = typer.Option(  # noqa: B008
-        None,
-        "--variant",
-        "-v",
-        metavar="VARIANT",
-        help="Apply variant (requires -m, repeatable).",
-        rich_help_panel="Describe",
-    ),
-    format_: Optional[Literal["yaml", "json"]] = typer.Option(
-        None,
-        "--format",
-        help="Output format (requires -m).",
-        rich_help_panel="Describe",
-    ),
-    save: Optional[Path] = typer.Option(  # noqa: B008
-        None,
-        "--save",
-        "-s",
-        metavar="PATH",
-        help="Save config to file (requires -m).",
-        rich_help_panel="Describe",
-    ),
-    # --- Dependencies ---
-    dependencies: bool = typer.Option(
-        False,
-        "--dependencies",
-        help="Show variant dependencies for each mission.",
-    ),
-    # --- Debug ---
-    print_cvc_config: bool = typer.Option(
-        False,
-        "--print-cvc-config",
-        help="Print CVC mission config (requires -m).",
-        hidden=True,
-    ),
-    print_mg_config: bool = typer.Option(
-        False,
-        "--print-mg-config",
-        help="Print MettaGrid config (requires -m).",
-        hidden=True,
-    ),
-    # --- Help ---
-    _help: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show this message and exit.",
-        is_eager=True,
-        callback=_help_callback,
-        rich_help_panel="Other",
-    ),
-) -> None:
-    if mission is None:
-        if dependencies:
-            from cogames.game import get_game  # noqa: PLC0415
-
-            print_mission_dependencies(get_game(game_name), console)
-        else:
-            list_missions(site, game_name=game_name)
-        return
-
-    try:
-        resolved_mission, env_cfg, mission_cfg = get_mission_name_and_config(
-            ctx,
-            mission,
-            game_name=game_name,
-            variants_arg=variant,
-            cogs=cogs,
-        )
-    except typer.Exit as exc:
-        if exc.exit_code != 1:
-            raise
-        return
-
-    if print_cvc_config or print_mg_config:
-        try:
-            verbose.print_configs(console, env_cfg, mission_cfg, print_cvc_config, print_mg_config)
-        except Exception as exc:
-            console.print(f"[red]Error printing config: {exc}[/red]")
-            raise typer.Exit(1) from exc
-
-    if save is not None:
-        try:
-            save_mission_config(env_cfg, save)
-            console.print(f"[green]Mission configuration saved to: {save}[/green]")
-        except ValueError as exc:  # pragma: no cover - user input
-            console.print(f"[red]Error saving configuration: {exc}[/red]")
-            raise typer.Exit(1) from exc
-        return
-
-    if format_ is not None:
-        try:
-            data = env_cfg.model_dump(mode="json")
-            if format_ == "json":
-                emit_json(data)
-            else:
-                console.print(yaml.safe_dump(data, sort_keys=False))
-        except Exception as exc:  # pragma: no cover - serialization errors
-            console.print(f"[red]Error formatting configuration: {exc}[/red]")
-            raise typer.Exit(1) from exc
-        return
-
-    try:
-        describe_mission(resolved_mission, env_cfg, mission_cfg)
-    except ValueError as exc:  # pragma: no cover - user input
-        console.print(f"[red]Error: {exc}[/red]")
-        raise typer.Exit(1) from exc
-
-
-@app.command("evals", help="List all eval missions.", rich_help_panel="Missions")
-def evals_cmd() -> None:
-    list_evals()
-
-
-@app.command("variants", help="List all available mission variants.", rich_help_panel="Missions")
-def variants_cmd(
-    dependencies: bool = typer.Option(False, "--dependencies", help="Print the variant dependency graph."),
-) -> None:
-    if dependencies:
-        from cogames.game import get_game  # noqa: PLC0415
-
-        print_variant_graph(get_game("cogsguard"), console)
-    else:
-        list_variants()
-
-
-@app.command(
-    name="describe",
-    help="Describe a mission and its configuration.",
-    rich_help_panel="Missions",
-    epilog="""[dim]Examples:[/dim]
-
-  [cyan]cogames describe arena[/cyan]                       Describe mission
-
-  [cyan]cogames describe arena -c 4 -v talk[/cyan]          With 4 cogs and talk enabled""",
-    add_help_option=False,
-)
-def describe_cmd(
-    ctx: typer.Context,
-    mission: str = typer.Argument(
-        ...,
-        metavar="MISSION",
-        help="Mission name (e.g., arena).",
-    ),
-    cogs: Optional[int] = typer.Option(
-        None,
-        "--cogs",
-        "-c",
-        help="Number of cogs (agents).",
-        rich_help_panel="Configuration",
-    ),
-    variant: Optional[list[str]] = typer.Option(  # noqa: B008
-        None,
-        "--variant",
-        "-v",
-        metavar="VARIANT",
-        help="Apply variant (repeatable).",
-        rich_help_panel="Configuration",
-    ),
-    _help: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show this message and exit.",
-        is_eager=True,
-        callback=_help_callback,
-        rich_help_panel="Other",
-    ),
-) -> None:
-    resolved_mission, env_cfg, mission_cfg = get_mission_name_and_config(
-        ctx,
-        mission,
-        variants_arg=variant,
-        cogs=cogs,
-    )
-    describe_mission(resolved_mission, env_cfg, mission_cfg)
 
 
 @app.command(
@@ -858,16 +573,18 @@ def play_cmd(
     rich_help_panel="Play",
     epilog="""[dim]Examples:[/dim]
 
-  [cyan]cogames replay ./replays/game.replay[/cyan]              Replay a saved game
+  [cyan]cogames replay ./replays/game.json.z[/cyan]              Replay Cogs vs Clips in MettaScope
 
-  [cyan]cogames replay ./train_dir/my_run/replay.bin[/cyan]      Replay from training run""",
+  [cyan]cogames replay ./train_dir/my_run/replay.bin[/cyan]      Replay a legacy MettaGrid run
+
+  [cyan]cogames replay ./among_them.bitreplay[/cyan]             Replay BitWorld in the global client""",
     add_help_option=False,
 )
 def replay_cmd(
     replay_path: Path = typer.Argument(  # noqa: B008
         ...,
         metavar="FILE",
-        help="Path to the replay file (.replay or .bin).",
+        help="Path to a MettaGrid replay (.json.z, .replay, .bin) or a BitWorld replay (.bitreplay).",
     ),
     _help: bool = typer.Option(
         False,
@@ -876,6 +593,11 @@ def replay_cmd(
         help="Show this message and exit.",
         is_eager=True,
         callback=_help_callback,
+    ),
+    duration: Optional[float] = typer.Option(
+        None,
+        "--duration",
+        help="Seconds to keep a BitWorld replay server alive. MettaScope replays ignore this option.",
     ),
 ) -> None:
     if not replay_path.exists():
@@ -886,129 +608,9 @@ def replay_cmd(
         console.print("[red]Error: This command requires a GUI display.[/red]")
         raise typer.Exit(1)
 
-    try:
-        mettascope_path = _resolve_mettascope_script()
-    except FileNotFoundError as exc:
-        console.print(f"[red]Error locating MettaScope: {exc}[/red]")
-        raise typer.Exit(1) from exc
-
-    console.print(f"[cyan]Launching MettaScope to replay: {replay_path}[/cyan]")
-
-    try:
-        # Run nim with mettascope and replay argument
-        cmd = ["nim", "r", str(mettascope_path), f"--replay:{replay_path}"]
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as exc:
-        console.print(f"[red]Error running MettaScope: {exc}[/red]")
-        raise typer.Exit(1) from exc
-    except FileNotFoundError as exc:
-        console.print("[red]Error: 'nim' command not found. Please ensure Nim is installed and in your PATH.[/red]")
-        raise typer.Exit(1) from exc
-
-
-@app.command(
-    name="make-mission",
-    help="Create a custom mission from a base template.",
-    rich_help_panel="Missions",
-    epilog="""[dim]Examples:[/dim]
-
-  [cyan]cogames make-mission -m hello_world -c 8 -o my_mission.yml[/cyan]             8 cogs
-
-  [cyan]cogames make-mission -m arena --width 64 --height 64 -o big.yml[/cyan]        64x64 map
-
-  [cyan]cogames play -m my_mission.yml[/cyan]                                         Use custom mission""",
-    add_help_option=False,
-)
-def make_mission(
-    ctx: typer.Context,
-    # --- Mission ---
-    base_mission: Optional[str] = typer.Option(
-        None,
-        "--mission",
-        "-m",
-        metavar="MISSION",
-        help="Base mission to start from.",
-        rich_help_panel="Mission",
-    ),
-    # --- Customization ---
-    cogs: Optional[int] = typer.Option(
-        None,
-        "--cogs",
-        "-c",
-        help="Number of cogs (agents).",
-        min=1,
-        rich_help_panel="Customization",
-    ),
-    width: Optional[int] = typer.Option(
-        None,
-        "--width",
-        help="Map width.",
-        min=1,
-        rich_help_panel="Customization",
-    ),
-    height: Optional[int] = typer.Option(
-        None,
-        "--height",
-        help="Map height.",
-        min=1,
-        rich_help_panel="Customization",
-    ),
-    # --- Output ---
-    output: Optional[Path] = typer.Option(  # noqa: B008
-        None,
-        "--output",
-        "-o",
-        metavar="PATH",
-        help="Output file path (.yml or .json).",
-        rich_help_panel="Output",
-    ),
-    # --- Help ---
-    _help: bool = typer.Option(
-        False,
-        "--help",
-        "-h",
-        help="Show this message and exit.",
-        is_eager=True,
-        callback=_help_callback,
-        rich_help_panel="Other",
-    ),
-) -> None:
-    try:
-        from mettagrid.simulator import Simulator  # noqa: PLC0415
-
-        resolved_mission, env_cfg, _ = get_mission_name_and_config(ctx, base_mission)
-
-        # Update map dimensions if explicitly provided and supported
-        if width is not None:
-            if not hasattr(env_cfg.game.map_builder, "width"):
-                console.print("[yellow]Warning: Map builder does not support custom width. Ignoring --width.[/yellow]")
-            else:
-                env_cfg.game.map_builder.width = width  # type: ignore[attr-defined]
-
-        if height is not None:
-            if not hasattr(env_cfg.game.map_builder, "height"):
-                console.print(
-                    "[yellow]Warning: Map builder does not support custom height. Ignoring --height.[/yellow]"
-                )
-            else:
-                env_cfg.game.map_builder.height = height  # type: ignore[attr-defined]
-
-        if cogs is not None:
-            env_cfg.game.num_agents = cogs
-
-        # Validate the environment configuration
-
-        _ = Simulator().new_simulation(env_cfg)
-
-        if output:
-            save_mission_config(env_cfg, output)
-            console.print(f"[green]Modified {resolved_mission} configuration saved to: {output}[/green]")
-        else:
-            console.print("\n[yellow]To save this configuration, use the --output option.[/yellow]")
-
-    except Exception as exc:  # pragma: no cover - user input
-        console.print(f"[red]Error: {exc}[/red]")
-        raise typer.Exit(1) from exc
+    exit_code = launch_replay_path(ReplayPathRequest(replay_path=replay_path, duration=duration))
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
 
 
 # TODO: Verify make-policy templates work with CvC game mechanics
@@ -2248,7 +1850,7 @@ def upload_cmd(
             console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
         if submission_season is None:
             raise AssertionError("submitting upload must resolve a season")
-        _print_async_submission_follow_up(result.name, submission_season, result.policy_version_id, login_server)
+        _print_async_submission_follow_up(result.name, submission_season, login_server)
 
 
 @app.command(
@@ -2344,13 +1946,13 @@ def submit_cmd(
     console.print(f"\n[bold green]Submitted to season '{season_name}'[/bold green]")
     if result.pools:
         console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
-    profile_url = observatory_profile_url(pv.id, login_server_url=login_server)
+    observatory_url = observatory_home_url(login_server_url=login_server)
     browser_skip_reason = _submit_browser_launch_skip_reason()
     if browser_skip_reason is None:
-        webbrowser.open(profile_url)
+        webbrowser.open(observatory_url)
     else:
         console.print(f"[dim]Browser launch skipped: {browser_skip_reason}[/dim]")
-    console.print(f"[dim]Profile:[/dim] {profile_url}")
+    console.print(f"[dim]Observatory:[/dim] {observatory_url}")
     console.print(f"[dim]CLI:[/dim] cogames leaderboard --season {season_name}")
 
 
@@ -2490,7 +2092,7 @@ def ship_cmd(
     if result.pools:
         console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
 
-    _print_async_submission_follow_up(result.name, season_info.name, result.policy_version_id, login_server)
+    _print_async_submission_follow_up(result.name, season_info.name, login_server)
 
 
 @app.command(

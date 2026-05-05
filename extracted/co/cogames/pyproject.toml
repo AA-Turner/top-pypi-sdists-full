@@ -9,8 +9,8 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.12"]
 dependencies = [
-  "mettagrid==0.26.13",
-  "softmax-cli==0.26.5",
+  "mettagrid==0.26.14",
+  "softmax-cli==0.26.6",
   "packaging>=24.0.0",
   "pydantic>=2.11.5",
   "pyyaml>=6.0.2",
@@ -84,7 +84,7 @@ tribalcog = { git = "https://github.com/Metta-AI/cogame-tribal.git", rev = "7aa5
 amongcogs = { git = "https://github.com/Metta-AI/cogame-amongcogs.git" }
 werecog = { git = "https://github.com/Metta-AI/cogame-werecog.git" }
 cogsguard = { git = "https://github.com/Metta-AI/cogame-cogsguard.git", rev = "e088553fdb5753404327a12ba8412412999fa558" }
-bitworld = { git = "https://github.com/Metta-AI/bitworld.git", rev = "63191512d486fa56c86e7b53893884b67e746fe7" }
+bitworld = { git = "https://github.com/Metta-AI/bitworld.git", rev = "b3deff78d92579d8c83d7df8a064a2222fd87778" }
 
 [tool.ruff]
 extend = "../../.ruff.toml"

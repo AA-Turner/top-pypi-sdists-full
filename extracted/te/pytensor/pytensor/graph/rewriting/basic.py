@@ -1495,7 +1495,7 @@ class PatternNodeRewriter(NodeRewriter):
         from pytensor.graph.rewriting.basic import PatternNodeRewriter
         from pytensor.graph.rewriting.unify import OpPattern, LiteralString
         from pytensor.tensor.blockwise import Blockwise
-        from pytensor.tensor.slinalg import Solve
+        from pytensor.tensor.linalg.solvers.general import Solve
 
         PatternNodeRewriter(
             (
@@ -1965,7 +1965,7 @@ class NodeProcessingGraphRewriter(GraphRewriter):
         if len(repl_pairs) == 0:
             return False
         try:
-            fgraph.replace_all_validate_remove(  # type: ignore
+            fgraph.replace_all_validate_remove(
                 repl_pairs, reason=node_rewriter, remove=remove
             )
             return True
@@ -2917,7 +2917,7 @@ def check_stack_trace(f_or_fgraph, ops_to_check="last", bug_print="raise"):
         otherwise.
 
     """
-    from pytensor.compile.function.types import Function
+    from pytensor.compile.executor import Function
 
     if isinstance(f_or_fgraph, FunctionGraph):
         fgraph = f_or_fgraph

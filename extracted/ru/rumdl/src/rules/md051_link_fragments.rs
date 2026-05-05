@@ -669,9 +669,9 @@ impl Rule for MD051LinkFragments {
                 continue;
             }
 
-            // Skip Quarto/Pandoc citations ([@citation], @citation)
+            // Skip Pandoc/Quarto citations ([@citation], @citation)
             // Citations are bibliography references, not link fragments
-            if ctx.flavor == crate::config::MarkdownFlavor::Quarto && ctx.is_in_citation(link.byte_offset) {
+            if ctx.flavor.is_pandoc_compatible() && ctx.is_in_citation(link.byte_offset) {
                 continue;
             }
 
@@ -691,6 +691,18 @@ impl Rule for MD051LinkFragments {
             // Skip mdbook template placeholders ({{#VARIABLE}})
             // mdbook uses {{#VARIABLE}} syntax where # is part of the template, not a fragment
             if url.contains("{{#") && url.contains("}}") {
+                continue;
+            }
+
+            // Resolve link fragments against Pandoc heading slugs. Pandoc/Quarto
+            // auto-generate slugs that diverge from GitHub style for headings that
+            // contain punctuation (e.g. `# 5. Five Things` becomes `5.-five-things`
+            // under Pandoc but `5-five-things` under GitHub). Treat such fragments
+            // as resolved when running under a Pandoc-compatible flavor.
+            if ctx.flavor.is_pandoc_compatible()
+                && let Some(frag) = url.strip_prefix('#')
+                && ctx.has_pandoc_slug(frag)
+            {
                 continue;
             }
 
@@ -1347,5 +1359,144 @@ See [link](#nonexistent) for details."#;
         );
         assert_eq!(file_index.cross_file_links[0].target_path, "other.md");
         assert_eq!(file_index.cross_file_links[0].fragment, "section");
+    }
+
+    #[test]
+    fn test_pandoc_flavor_skips_citations() {
+        // Pandoc citations ([@key]) are bibliography references, not link fragments.
+        // MD051 should skip them under Pandoc flavor, mirroring the Quarto skip behavior
+        // tested in test_quarto_cross_references.
+        let rule = MD051LinkFragments::new();
+        let content = "# Test Document\n\nSee [@smith2020] for details.\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Pandoc, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "MD051 should skip Pandoc citations under Pandoc flavor: {result:?}"
+        );
+    }
+
+    #[test]
+    fn md051_pandoc_resolves_pandoc_slug_diverging_from_github() {
+        // The Pandoc heading slug for `# 5. Five Things` is `5.-five-things` (the
+        // dot is preserved per Pandoc's rule of keeping `.`/`_`/`-`), whereas the
+        // GitHub anchor for the same heading is `5-five-things` (the dot is
+        // stripped). A link to `#5.-five-things` would be flagged under the
+        // GitHub default but must be accepted under Pandoc-compatible flavors via
+        // the `has_pandoc_slug` short-circuit.
+        use crate::config::MarkdownFlavor;
+        let rule = MD051LinkFragments::new();
+        let content = "# 5. Five Things\n\nSee [details](#5.-five-things).\n";
+
+        // Sanity check: under Standard flavor (GitHub anchor style), the
+        // divergent fragment is reported as an unknown anchor.
+        let ctx_std = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let std_result = rule.check(&ctx_std).unwrap();
+        assert_eq!(
+            std_result.len(),
+            1,
+            "Standard flavor should flag the Pandoc-style fragment: {std_result:?}"
+        );
+
+        // Under Pandoc flavor, the Pandoc slug guard should resolve it.
+        let ctx_pandoc = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+        let pandoc_result = rule.check(&ctx_pandoc).unwrap();
+        assert!(
+            pandoc_result.is_empty(),
+            "Pandoc flavor should resolve `#5.-five-things` against the heading slug: {pandoc_result:?}"
+        );
+    }
+
+    /// A link whose text contains an email address must still be checked under
+    /// Pandoc — the `@` embedded in a word is not a citation marker, so the
+    /// citation guard must not silence MD051 on a missing fragment.
+    #[test]
+    fn md051_pandoc_flags_missing_fragment_with_email_in_link_text() {
+        use crate::config::MarkdownFlavor;
+        let rule = MD051LinkFragments::new();
+        let content = "# Title\n\n[contact user@example.com](#missing)\n";
+
+        let ctx_std = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let std_result = rule.check(&ctx_std).unwrap();
+        assert_eq!(
+            std_result.len(),
+            1,
+            "Standard flavor must flag the missing fragment: {std_result:?}"
+        );
+
+        let ctx_pandoc = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+        let pandoc_result = rule.check(&ctx_pandoc).unwrap();
+        assert_eq!(
+            pandoc_result.len(),
+            1,
+            "Pandoc flavor must also flag the missing fragment — link text with embedded email is not a citation: {pandoc_result:?}"
+        );
+    }
+
+    /// `[see @smith2020](#missing)` is a Markdown link, not a citation —
+    /// Pandoc prefers the link interpretation when `[...]` is immediately
+    /// followed by `(...)`. MD051 must still flag the missing fragment.
+    #[test]
+    fn md051_pandoc_flags_missing_fragment_with_citation_in_link_text() {
+        use crate::config::MarkdownFlavor;
+        let rule = MD051LinkFragments::new();
+        let content = "# Title\n\n[see @smith2020](#missing)\n";
+
+        let ctx_std = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let std_result = rule.check(&ctx_std).unwrap();
+        assert_eq!(
+            std_result.len(),
+            1,
+            "Standard flavor must flag the missing fragment: {std_result:?}"
+        );
+
+        let ctx_pandoc = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+        let pandoc_result = rule.check(&ctx_pandoc).unwrap();
+        assert_eq!(
+            pandoc_result.len(),
+            1,
+            "Pandoc flavor must flag the missing fragment — `[label](url)` is a link, not a citation: {pandoc_result:?}"
+        );
+    }
+
+    /// Pandoc's auto_identifiers extension disambiguates duplicate headings by
+    /// appending `-1`, `-2`, etc. A link to `#a.-1` must resolve against the
+    /// second `# A.` heading.
+    #[test]
+    fn md051_pandoc_resolves_duplicate_heading_suffix_slug() {
+        use crate::config::MarkdownFlavor;
+        let rule = MD051LinkFragments::new();
+        let content = "# A.\n\nfirst\n\n# A.\n\nsecond\n\n[first](#a.) and [second](#a.-1).\n";
+
+        let ctx_pandoc = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+        let pandoc_result = rule.check(&ctx_pandoc).unwrap();
+        assert!(
+            pandoc_result.is_empty(),
+            "Pandoc flavor should resolve `#a.` and `#a.-1` against duplicate headings: {pandoc_result:?}"
+        );
+
+        let ctx_quarto = LintContext::new(content, MarkdownFlavor::Quarto, None);
+        let quarto_result = rule.check(&ctx_quarto).unwrap();
+        assert!(
+            quarto_result.is_empty(),
+            "Quarto flavor should also resolve duplicate-heading suffix slugs: {quarto_result:?}"
+        );
+    }
+
+    /// A link to `#a.-2` with only two `# A.` headings must still be flagged —
+    /// only `-1` exists when there are two duplicates.
+    #[test]
+    fn md051_pandoc_flags_overshoot_duplicate_suffix() {
+        use crate::config::MarkdownFlavor;
+        let rule = MD051LinkFragments::new();
+        let content = "# A.\n\n# A.\n\n[overshoot](#a.-2)\n";
+
+        let ctx_pandoc = LintContext::new(content, MarkdownFlavor::Pandoc, None);
+        let pandoc_result = rule.check(&ctx_pandoc).unwrap();
+        assert_eq!(
+            pandoc_result.len(),
+            1,
+            "Pandoc must flag `#a.-2` when only `-1` exists (two duplicates): {pandoc_result:?}"
+        );
     }
 }

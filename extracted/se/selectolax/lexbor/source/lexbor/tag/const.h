@@ -14,8 +14,8 @@
 #ifndef LXB_TAG_CONST_H
 #define LXB_TAG_CONST_H
 
-#define LXB_TAG_CONST_VERSION "A53A182A4948BBFD2F227CE07EF1977D"
-#define LXB_TAG_CONST_VERSION_A53A182A4948BBFD2F227CE07EF1977D
+#define LXB_TAG_CONST_VERSION "5AB3094FB370521074947DC082575715"
+#define LXB_TAG_CONST_VERSION_5AB3094FB370521074947DC082575715
 
 
 typedef uintptr_t lxb_tag_id_t;
@@ -27,6 +27,8 @@ typedef enum {
     LXB_TAG__DOCUMENT           = 0x0003,
     LXB_TAG__EM_COMMENT         = 0x0004,
     LXB_TAG__EM_DOCTYPE         = 0x0005,
+    /* Intentionally has the same value as the first tag below. Marks the beginning of real tags. */
+    LXB_TAG__BEGIN              = 0x0006,
     LXB_TAG_A                   = 0x0006,
     LXB_TAG_ABBR                = 0x0007,
     LXB_TAG_ACRONYM             = 0x0008,

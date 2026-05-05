@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Dict, Union
 from typing_extensions import Required, TypeAlias, TypedDict
 
 from .._types import SequenceNotStr
@@ -17,6 +17,9 @@ class EvaluationUpdateParams(TypedDict, total=False):
 
 class EvaluationPartialEvaluationUpdateRequest(TypedDict, total=False):
     description: str
+
+    metadata: Dict[str, object]
+    """Optional metadata key-value pairs for the evaluation"""
 
     name: str
 

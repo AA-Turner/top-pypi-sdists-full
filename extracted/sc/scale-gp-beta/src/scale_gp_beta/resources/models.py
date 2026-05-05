@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing_extensions import Literal
-
 import httpx
 
 from ..types import model_list_params, model_create_params, model_update_params
@@ -18,11 +16,12 @@ from .._response import (
     async_to_streamed_response_wrapper,
 )
 from ..pagination import SyncCursorPage, AsyncCursorPage
-from ..types.chat import SortOrder
+from ..types.chat import SortOrder, InferenceModelVendor
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.chat.sort_order import SortOrder
 from ..types.inference_model import InferenceModel
 from ..types.model_delete_response import ModelDeleteResponse
+from ..types.chat.inference_model_vendor import InferenceModelVendor
 
 __all__ = ["ModelsResource", "AsyncModelsResource"]
 
@@ -152,21 +151,7 @@ class ModelsResource(SyncAPIResource):
         *,
         ending_before: str | Omit = omit,
         limit: int | Omit = omit,
-        model_vendor: Literal[
-            "openai",
-            "cohere",
-            "vertex_ai",
-            "anthropic",
-            "azure",
-            "gemini",
-            "launch",
-            "llmengine",
-            "model_zoo",
-            "bedrock",
-            "xai",
-            "fireworks_ai",
-        ]
-        | Omit = omit,
+        model_vendor: InferenceModelVendor | Omit = omit,
         name: str | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
@@ -373,21 +358,7 @@ class AsyncModelsResource(AsyncAPIResource):
         *,
         ending_before: str | Omit = omit,
         limit: int | Omit = omit,
-        model_vendor: Literal[
-            "openai",
-            "cohere",
-            "vertex_ai",
-            "anthropic",
-            "azure",
-            "gemini",
-            "launch",
-            "llmengine",
-            "model_zoo",
-            "bedrock",
-            "xai",
-            "fireworks_ai",
-        ]
-        | Omit = omit,
+        model_vendor: InferenceModelVendor | Omit = omit,
         name: str | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,

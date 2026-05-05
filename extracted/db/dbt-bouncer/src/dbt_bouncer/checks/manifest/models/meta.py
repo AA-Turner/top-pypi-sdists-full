@@ -1,7 +1,7 @@
 """Checks related to model meta configuration."""
 
-from dbt_bouncer.check_decorator import check, fail
-from dbt_bouncer.checks.common import NestedDict
+from dbt_bouncer.check_framework.decorator import check, fail
+from dbt_bouncer.check_framework.exceptions import NestedDict
 from dbt_bouncer.utils import find_missing_meta_keys, get_clean_model_name
 
 
@@ -9,8 +9,14 @@ from dbt_bouncer.utils import find_missing_meta_keys, get_clean_model_name
 def check_model_has_meta_keys(model, *, keys: NestedDict):
     """The `meta` config for models must have the specified keys.
 
+    !!! info "Rationale"
+
+        The `meta` config is a flexible, project-defined dictionary used to track ownership, maturity levels, PII classification, and other governance attributes. Requiring specific keys ensures that these attributes are consistently populated across all models, enabling automated reporting, data cataloguing, and access-control workflows that depend on them.
+
     Parameters:
         keys (NestedDict): A list (that may contain sub-lists) of required keys.
+
+    Receives:
         model (ModelNode): The ModelNode object to check.
 
     Other Parameters:

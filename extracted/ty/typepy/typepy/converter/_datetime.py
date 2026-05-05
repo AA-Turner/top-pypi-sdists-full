@@ -148,13 +148,12 @@ class DateTimeConverter(AbstractValueConverter):
 
         from packaging.version import InvalidVersion, Version
 
-        try:
-            try:
-                Version(self._value)
-                raise TypeConversionError(
-                    f"invalid datetime string: version string found {self._value}"
-                )
-            except InvalidVersion:
-                pass
-        except TypeError:
+        if not isinstance(self._value, str):
             raise TypeConversionError(f"invalid datetime string: type={type(self._value)}")
+
+        try:
+            Version(self._value)
+        except InvalidVersion:
+            return
+
+        raise TypeConversionError(f"invalid datetime string: version string found {self._value}")

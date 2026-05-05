@@ -27,6 +27,9 @@ __all__ = (
     "CloudWatchLogsServiceName",
     "DataProtectionStatusType",
     "DeliveryDestinationTypeType",
+    "DeliverySourceConfigurationSchemaValueTypeType",
+    "DeliverySourceStatusReasonType",
+    "DeliverySourceStatusType",
     "DescribeConfigurationTemplatesPaginatorName",
     "DescribeDeliveriesPaginatorName",
     "DescribeDeliveryDestinationsPaginatorName",
@@ -92,6 +95,11 @@ AnomalyDetectorStatusType = Literal[
 ]
 DataProtectionStatusType = Literal["ACTIVATED", "ARCHIVED", "DELETED", "DISABLED"]
 DeliveryDestinationTypeType = Literal["CWL", "FH", "S3", "XRAY"]
+DeliverySourceConfigurationSchemaValueTypeType = Literal[
+    "boolean", "double", "int", "long", "string"
+]
+DeliverySourceStatusReasonType = Literal["RESOURCE_DELETED"]
+DeliverySourceStatusType = Literal["ACTIVE", "INACTIVE"]
 DescribeConfigurationTemplatesPaginatorName = Literal["describe_configuration_templates"]
 DescribeDeliveriesPaginatorName = Literal["describe_deliveries"]
 DescribeDeliveryDestinationsPaginatorName = Literal["describe_delivery_destinations"]

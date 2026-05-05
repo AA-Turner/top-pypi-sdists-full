@@ -11,6 +11,12 @@ __all__ = ["OpenAIResponseFunctionToolCall"]
 
 
 class OpenAIResponseFunctionToolCall(BaseModel):
+    """A tool call to run a function.
+
+    See the
+    [function calling guide](https://platform.openai.com/docs/guides/function-calling) for more information.
+    """
+
     arguments: str
 
     call_id: str

@@ -119,6 +119,7 @@ def plot_scatter(
     self,
     x="size",
     y="flops",
+    ylim=None,
     cumulative_time=False,
     plot_best=False,
     figsize=(5, 5),
@@ -241,6 +242,9 @@ def plot_scatter(
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
     return fig, ax
 
 
@@ -352,12 +356,16 @@ def plot_parameters_parallel(
         The axes containing the plot.
     """
     import matplotlib as mpl
+
     from cotengra.schematic import Drawing
 
     # collect only rows with the same method
     columns = {"score": []}
     for m, p, s in zip(self.method_choices, self.param_choices, self.scores):
         if m != method:
+            continue
+        if not math.isfinite(s):
+            # ignore nan and inf
             continue
         for k, v in p.items():
             try:
@@ -451,14 +459,14 @@ def tree_to_networkx(tree):
             p,
             l,
             size=math.log10(tree.get_size(l) + 1) + 1,
-            weight=len(l),
+            weight=tree.get_extent(l),
             contraction=c,
         )
         G.add_edge(
             p,
             r,
             size=math.log10(tree.get_size(r) + 1) + 1,
-            weight=len(r),
+            weight=tree.get_extent(r),
             contraction=c,
         )
         G.nodes[p]["contraction"] = min(c, G.nodes[p].get("contraction", c))
@@ -893,7 +901,7 @@ def plot_tree(
     # plot the raw connectivity of the underlying graph
     if plot_raw_graph:
         H_tn = tree.get_hypergraph()
-        G_tn = H_tn.to_networkx(as_tree_leaves=True)
+        G_tn = H_tn.to_networkx(as_tree_leaves=tree.input_to_node)
         hypergraph_compute_plot_info_G(
             H_tn,
             G_tn,
@@ -920,12 +928,12 @@ def plot_tree(
             if span is True:
                 span = tree.get_spans()[0]
             for node in G_tree.nodes:
-                if len(node) == 1:
+                if tree.is_leaf(node):
                     continue
                 raw_pos = pos[span[node]]
                 pos[node] = (
                     raw_pos[0],
-                    ymax + len(node) * (xmax - xmin) / tree.N,
+                    ymax + tree.get_extent(node) * (xmax - xmin) / tree.N,
                 )
 
         elif order is not None:
@@ -935,9 +943,9 @@ def plot_tree(
             for i, (p, _, _) in enumerate(tree.traverse(order)):
                 x_av, y_av = 0.0, 0.0
                 for ti in p:
-                    coo_i = pos[frozenset([ti])]
-                    x_av += coo_i[0] / len(p)
-                    y_av += coo_i[1] / len(p)
+                    coo_i = pos[tree.input_to_node(ti)]
+                    x_av += coo_i[0] / tree.get_extent(p)
+                    y_av += coo_i[1] / tree.get_extent(p)
                 y_av = (
                     ymax
                     + float(tree_root_height)
@@ -1743,19 +1751,19 @@ def plot_tree_flat(
     # position of each node
     pos = {}
     for i, (p, l, r) in enumerate(tree.traverse(), 1):
-        if len(l) == 1:
+        if tree.is_leaf(l):
             # left is a leaf
             xyl = pos[l] = (leaf_order[l], i - 1)
-            (tid,) = l
+            tid = tree.node_to_input(l)
             d.circle(xyl, color=node_colors[l])
             d.text(xyl, str(tid), **node_label_opts)
         else:
             xyl = pos[l]
 
-        if len(r) == 1:
+        if tree.is_leaf(r):
             # right is a leaf
             xyr = pos[r] = (leaf_order[r], i - 1)
-            (tid,) = r
+            tid = tree.node_to_input(r)
             d.circle(xyr, color=node_colors[r])
             d.text(xyr, str(tid), **node_label_opts)
         else:
@@ -1822,10 +1830,8 @@ def plot_tree_flat(
             d.text(xyo, f"{ix}\n", **edge_label_opts)
 
     if tree.has_preprocessing():
-        from .utils import node_from_single
-
         for i in tree.preprocessing:
-            node = node_from_single(i)
+            node = tree.input_to_node(i)
             x, y = pos[node]
             d.circle(
                 (x, y - 1),
@@ -1881,7 +1887,7 @@ def plot_tree_circuit(
 ):
     import matplotlib as mpl
 
-    from cotengra.schematic import Drawing
+    from .schematic import Drawing
 
     if figsize is None:
         figsize = (tree.N**0.75, tree.N**0.75)
@@ -1918,12 +1924,12 @@ def plot_tree_circuit(
 
         # we do all of right contractions first
         pos[r] = (px - 1, py - 1)
-        pos[l] = (px - len(r), py)
+        pos[l] = (px - tree.get_extent(r), py)
 
-        if len(l) > 1:
+        if not tree.is_leaf(l):
             queue.append(l)
         else:
-            (i,) = l
+            i = tree.node_to_input(l)
             d.text(
                 pos[l],
                 f"{i}",
@@ -1934,10 +1940,10 @@ def plot_tree_circuit(
                 va="center",
                 family="monospace",
             )
-        if len(r) > 1:
+        if not tree.is_leaf(r):
             queue.append(r)
         else:
-            (i,) = r
+            i = tree.node_to_input(r)
             d.text(
                 pos[r],
                 f"{i}",

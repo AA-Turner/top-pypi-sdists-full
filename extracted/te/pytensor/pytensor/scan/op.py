@@ -56,33 +56,31 @@ import numpy as np
 import pytensor
 import pytensor.link.utils as link_utils
 from pytensor import tensor as pt
+from pytensor.compile.aliasing import add_supervisor_to_fgraph
 from pytensor.compile.builders import construct_nominal_fgraph, infer_shape
-from pytensor.compile.function.pfunc import pfunc
-from pytensor.compile.function.types import add_supervisor_to_fgraph
+from pytensor.compile.debug.profiling import register_profiler_printer
 from pytensor.compile.io import In, Out
 from pytensor.compile.mode import Mode, get_mode
-from pytensor.compile.profiling import register_profiler_printer
 from pytensor.configdefaults import config
 from pytensor.gradient import (
     DisconnectedType,
     NullType,
-    Rop,
     disconnected_type,
     grad,
     grad_undefined,
+    pushforward,
 )
 from pytensor.graph.basic import (
     Apply,
     Variable,
-    equal_computations,
 )
 from pytensor.graph.features import NoOutputFromInplace
+from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.op import HasInnerGraph, Op, io_connection_pattern
 from pytensor.graph.replace import clone_replace
 from pytensor.graph.traversal import graph_inputs
 from pytensor.graph.type import HasShape
 from pytensor.graph.utils import InconsistencyError, MissingInputError
-from pytensor.link.c.basic import CLinker
 from pytensor.link.vm import VMLinker
 from pytensor.printing import op_debug_information
 from pytensor.scan.utils import ScanProfileStats, Validator, forced_replace, safe_new
@@ -336,6 +334,17 @@ class ScanMethodsMixin:
         n_taps = sum(len(x) for x in self.info.mit_mot_in_slices)
         return list_inputs[self.info.n_seqs : self.info.n_seqs + n_taps]
 
+    def inner_mitmot_grouped(self, list_inputs):
+        # Like inner_mitmot but returns a list of lists, one per mitmot state,
+        # instead of a flat list.
+        flat = self.inner_mitmot(list_inputs)
+        grouped = []
+        offset = 0
+        for taps in self.info.mit_mot_in_slices:
+            grouped.append(flat[offset : offset + len(taps)])
+            offset += len(taps)
+        return grouped
+
     def outer_mitmot(self, list_inputs):
         return list_inputs[
             1 + self.info.n_seqs : 1 + self.info.n_seqs + self.info.n_mit_mot
@@ -367,6 +376,17 @@ class ScanMethodsMixin:
         return list_inputs[
             self.info.n_seqs + n_mitmot_taps : self.info.n_seqs + ntaps_upto_sit_sot
         ]
+
+    def inner_mitsot_grouped(self, list_inputs):
+        # Like inner_mitsot but returns a list of lists, one per mitsot state,
+        # instead of a flat list.
+        flat = self.inner_mitsot(list_inputs)
+        grouped = []
+        offset = 0
+        for taps in self.info.mit_sot_in_slices:
+            grouped.append(flat[offset : offset + len(taps)])
+            offset += len(taps)
+        return grouped
 
     def oldest_inner_mitsot(self, list_inputs):
         inner_mitsot_inputs = self.inner_mitsot(list_inputs)
@@ -432,23 +452,19 @@ class ScanMethodsMixin:
         offset = self.info.n_mit_mot + self.info.n_mit_sot + self.info.n_sit_sot
         return list_outputs[offset : offset + self.info.n_nit_sot]
 
-    def inner_untraced_sit_sot(self, list_inputs):
+    def inner_untraced_sit_sot(self, list_inputs, with_idx=False):
         n_taps_upto_sit_sot = sum(
             len(x)
             for x in chain(self.info.mit_mot_in_slices, self.info.mit_sot_in_slices)
         )
         offset = self.info.n_seqs + n_taps_upto_sit_sot + self.info.n_sit_sot
-        return list_inputs[offset : offset + self.info.n_untraced_sit_sot]
+        res = list_inputs[offset : offset + self.info.n_untraced_sit_sot]
+        if with_idx:
+            return tuple(enumerate(res, start=offset))
+        else:
+            return res
 
-    def inner_shared(self, list_inputs):
-        warnings.warn(
-            "The 'inner_shared' method is deprecated. Use 'inner_untraced_sit_sot' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.inner_untraced_sit_sot(list_inputs)
-
-    def outer_untraced_sit_sot(self, list_inputs):
+    def outer_untraced_sit_sot(self, list_inputs, with_idx=False):
         offset = (
             1
             + self.info.n_seqs
@@ -456,47 +472,35 @@ class ScanMethodsMixin:
             + self.info.n_mit_sot
             + self.info.n_sit_sot
         )
-        return list_inputs[offset : offset + self.info.n_untraced_sit_sot]
+        res = list_inputs[offset : offset + self.info.n_untraced_sit_sot]
+        if with_idx:
+            return tuple(enumerate(res, start=offset))
+        else:
+            return res
 
-    def outer_shared(self, list_inputs):
-        warnings.warn(
-            "The 'outer_shared' method is deprecated. Use 'outer_untraced_sit_sot' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.outer_untraced_sit_sot(list_inputs)
-
-    def inner_untraced_sit_sot_outs(self, list_outputs):
+    def inner_untraced_sit_sot_outs(self, list_outputs, with_idx=False):
         n_taps = sum(len(x) for x in self.info.mit_mot_out_slices)
         offset = (
             self.info.n_mit_sot + n_taps + self.info.n_sit_sot + self.info.n_nit_sot
         )
-        return list_outputs[offset : offset + self.info.n_untraced_sit_sot]
+        res = list_outputs[offset : offset + self.info.n_untraced_sit_sot]
+        if with_idx:
+            return tuple(enumerate(res, start=offset))
+        else:
+            return res
 
-    def inner_shared_outs(self, list_outputs):
-        warnings.warn(
-            "The 'inner_shared_outs' method is deprecated. Use 'inner_untraced_sit_sot_outs' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.inner_untraced_sit_sot_outs(list_outputs)
-
-    def outer_untraced_sit_sot_outs(self, list_outputs):
+    def outer_untraced_sit_sot_outs(self, list_outputs, with_idx=False):
         offset = (
             self.info.n_mit_mot
             + self.info.n_mit_sot
             + self.info.n_sit_sot
             + self.info.n_nit_sot
         )
-        return list_outputs[offset : offset + self.info.n_untraced_sit_sot]
-
-    def outer_shared_outs(self, list_outputs):
-        warnings.warn(
-            "The 'outer_shared_outs' method is deprecated. Use 'outer_untraced_sit_sot_outs' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.outer_untraced_sit_sot_outs(list_outputs)
+        res = list_outputs[offset : offset + self.info.n_untraced_sit_sot]
+        if with_idx:
+            return tuple(enumerate(res, start=offset))
+        else:
+            return res
 
     def inner_non_seqs(self, list_inputs):
         n_taps_upto_sit_sot = sum(
@@ -912,10 +916,17 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         self.nit_sot_arg_offset = (
             self.untraced_sit_sot_arg_offset + info.n_untraced_sit_sot
         )
-        # Note: This doesn't include `info.n_nit_sot`s, so it's really a count
-        # of the number of outputs generated by taps with inputs
-        self.n_outs = info.n_mit_mot + info.n_mit_sot + info.n_sit_sot
-        self.n_tap_outs = info.n_mit_mot + info.n_mit_sot
+        self.n_tap_outs = info.n_mit_mot + info.n_mit_sot + info.n_sit_sot
+
+        # Untraced sit_sot outputs may alias their corresponding inputs
+        # (e.g. when n_steps==0 the input is returned directly).
+        # Declaring view_map lets the outer graph handle this correctly.
+        if info.n_untraced_sit_sot:
+            nit_sot_end = self.n_tap_outs + info.n_nit_sot
+            self.view_map = {
+                nit_sot_end + j: [self.untraced_sit_sot_arg_offset + j]
+                for j in range(info.n_untraced_sit_sot)
+            }
 
         # Python and Cython perform methods provide the array location where a mitmot output should be
         # stored to the VM as a symbolic update. This helper variable is used in the perform method for validation
@@ -939,13 +950,12 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 "Inner-graphs must not contain in-place operations."
             )
 
-        self._cmodule_key = CLinker().cmodule_key_variables(
-            self.inner_inputs, self.inner_outputs, []
-        )
-        self._hash_inner_graph = hash(self._cmodule_key)
+        self._frozen_fgraph = self.fgraph.freeze()
 
     def __setstate__(self, d):
         self.__dict__.update(d)
+        if not hasattr(self, "_frozen_fgraph"):
+            self._frozen_fgraph = self.fgraph.freeze()
         # Ensure that the graph associated with the inner function is valid.
         self.validate_inner_graph()
 
@@ -1283,7 +1293,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         self.vector_outs = [
             is_cpu_vector(arg)
             for arg in new_inputs[
-                1 + self.info.n_seqs : (1 + self.info.n_seqs + self.n_outs)
+                1 + self.info.n_seqs : (1 + self.info.n_seqs + self.n_tap_outs)
             ]
         ]
         self.vector_outs += [
@@ -1324,27 +1334,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         if self.allow_gc != other.allow_gc:
             return False
 
-        # Compare inner graphs
-        # TODO: Use `self.inner_fgraph == other.inner_fgraph`
-        if len(self.inner_inputs) != len(other.inner_inputs):
-            return False
-
-        if len(self.inner_outputs) != len(other.inner_outputs):
-            return False
-
-        # strict=False because length already compared above
-        for self_in, other_in in zip(
-            self.inner_inputs, other.inner_inputs, strict=False
-        ):
-            if self_in.type != other_in.type:
-                return False
-
-        return equal_computations(
-            self.inner_outputs,
-            other.inner_outputs,
-            self.inner_inputs,
-            other.inner_inputs,
-        )
+        return self._frozen_fgraph == other._frozen_fgraph
 
     def __str__(self):
         inplace = "none"
@@ -1364,7 +1354,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         return hash(
             (
                 type(self),
-                self._hash_inner_graph,
+                self._frozen_fgraph,
                 self.info,
                 self.profile,
                 self.truncate_gradient,
@@ -1386,8 +1376,10 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         # remove those outputs here just to compensate for an overly rigid
         # `Function` pipeline.
         update_mapping = {}
-
         preallocated_mitmot_outs = []
+        untraced_sit_sot_inner_outputs = self.inner_untraced_sit_sot_outs(
+            fgraph.outputs
+        )
 
         if config.scan__allow_output_prealloc:
             # Go through the mitmots. Whenever a mitmot has a tap both as an
@@ -1410,20 +1402,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
                         preallocated_mitmot_outs.append(output_idx)
 
-                        # Make it so that the input is automatically updated to
-                        # the output value, possibly inplace, at the end of the
-                        # function execution. Also, since an update is defined,
-                        # a default value must also be (this is verified by
-                        # DebugMode).
-                        # TODO FIXME: Why do we need a "default value" here?
-                        # This sounds like a serious design issue.
-                        default_shape = tuple(
-                            s if s is not None else 0 for s in inp.type.shape
-                        )
-                        default_val = np.empty(default_shape, dtype=inp.type.dtype)
                         wrapped_inp = In(
                             variable=inp,
-                            value=default_val,
                             update=fgraph.outputs[output_idx],
                         )
                         update_mapping[output_idx] = input_idx
@@ -1434,11 +1414,30 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                         )
                     input_idx += 1
 
-            # Wrap the inputs not associated to mitmots and wrap the remaining
-            # outputs
-            wrapped_inputs += [In(x, borrow=False) for x in fgraph.inputs[input_idx:]]
+            # Wrap the inputs not associated to mitmots and wrap the remaining outputs.
+            # Untraced sit_sot inputs that are in the destroy_map are marked mutable.
+            untraced_sit_sot_inner_inputs = set(
+                self.inner_untraced_sit_sot(fgraph.inputs)
+            )
+            untraced_out_start = self.n_tap_outs + info.n_nit_sot
+            mutable_untraced_inner_inputs = {
+                self.inner_untraced_sit_sot(fgraph.inputs)[j]
+                for j in range(info.n_untraced_sit_sot)
+                if untraced_out_start + j in self.destroy_map
+            }
+            wrapped_inputs += [
+                In(
+                    x,
+                    borrow=x in untraced_sit_sot_inner_inputs,
+                    mutable=x in mutable_untraced_inner_inputs,
+                )
+                for x in fgraph.inputs[input_idx:]
+            ]
             wrapped_outputs = [Out(x, borrow=True) for x in fgraph.outputs[:slices]]
-            wrapped_outputs += fgraph.outputs[slices:]
+            wrapped_outputs += [
+                Out(x, borrow=x in untraced_sit_sot_inner_outputs)
+                for x in fgraph.outputs[slices:]
+            ]
 
             protected_outs = tuple(
                 i
@@ -1455,7 +1454,13 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         else:
             wrapped_inputs = [In(x, borrow=True) for x in fgraph.inputs]
             wrapped_outputs = [Out(x, borrow=False) for x in fgraph.outputs[:slices]]
-            wrapped_outputs += fgraph.outputs[slices:]
+            untraced_sit_sot_inner_outputs = self.inner_untraced_sit_sot_outs(
+                fgraph.outputs
+            )
+            wrapped_outputs += [
+                Out(x, borrow=x in untraced_sit_sot_inner_outputs)
+                for x in fgraph.outputs[slices:]
+            ]
 
         fgraph.update_mapping = update_mapping
 
@@ -1506,7 +1511,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 raise NotImplementedError(
                     f"Python/Cython implementation of Scan with preallocated MIT-MOT outputs requires a VMLinker, got {mode_instance.linker}"
                 )
-        self._fn = pfunc(
+        self._fn = mode_instance.function_maker(
             wrapped_inputs,
             wrapped_outputs,
             mode=mode_instance,
@@ -1514,7 +1519,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             profile=profile,
             on_unused_input="ignore",
             fgraph=self.fgraph,
-        )
+        ).create()
 
         return self._fn
 
@@ -1528,7 +1533,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
     def clone(self) -> "Scan":
         res = copy(self)
-        res.fgraph = res.fgraph.clone(clone_inner_graphs=True)
+        res.fgraph = res.fgraph.clone(clone_inner_graphs=True)  # type: ignore[attr-defined]
         return res
 
     def make_thunk(self, node, storage_map, compute_map, no_recycling, impl=None):
@@ -1741,18 +1746,18 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
             X sequence inputs x_1, x_2, ... x_<self.info.n_seqs>
 
-            Y initial states (u_1, u_2, ... u_<self.n_outs>) for our
+            Y initial states (u_1, u_2, ... u_<self.n_tap_outs>) for our
             outputs. Each must have appropriate length (T_1, T_2, ..., T_Y).
 
             W other inputs w_1, w_2, ... w_W
 
-        There are at least ``1 + self.info.n_seqs + self.n_outs`` inputs, and the
+        There are at least ``1 + self.info.n_seqs + self.n_tap_outs`` inputs, and the
         ones above this number are passed to the scanned function as
         non-sequential inputs.
 
         The outputs are more straightforward:
 
-            Y sequence outputs y_1, y_2, ... y_<self.n_outs>
+            Y sequence outputs y_1, y_2, ... y_<self.n_tap_outs>
 
         """
         info = self.info
@@ -1788,7 +1793,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         )
 
         # 2.1 Create storage space for outputs
-        for idx in range(self.n_outs):
+        for idx in range(self.n_tap_outs):
             if idx in self.destroy_map:
                 # ^ Case 1. Outputs should be computed inplace of their
                 # initial state
@@ -1810,20 +1815,25 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 output_storage[idx][0] = inputs[self.seqs_arg_offset + idx].copy()
 
         if n_steps == 0:
-            for idx in range(self.n_outs, self.n_outs + info.n_nit_sot):
+            nit_sot_end = self.n_tap_outs + info.n_nit_sot
+            for idx in range(self.n_tap_outs, nit_sot_end):
                 out_var = node.outputs[idx]
-                if isinstance(out_var, TensorVariable):
-                    output_storage[idx][0] = np.empty(
-                        (0,) * out_var.type.ndim, dtype=out_var.type.dtype
-                    )
-                else:
-                    output_storage[idx][0] = None
+                assert isinstance(out_var, TensorVariable)
+                # This is plainly wrong, should use static shape or raise if it can't be inferred
+                output_storage[idx][0] = np.empty(
+                    (0,) * out_var.type.ndim, dtype=out_var.type.dtype
+                )
+
+            for j in range(info.n_untraced_sit_sot):
+                output_storage[nit_sot_end + j][0] = inputs[
+                    self.untraced_sit_sot_arg_offset + j
+                ]
             return
 
         # The current position of each output
         pos = [
             (-self.mintaps[idx]) % store_steps[idx]
-            for idx in range(self.n_outs + info.n_nit_sot)
+            for idx in range(self.n_tap_outs + info.n_nit_sot)
         ]
 
         offset = self.nit_sot_arg_offset + info.n_nit_sot
@@ -1890,7 +1900,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                         offset += 1
 
             a_offset = self.untraced_sit_sot_arg_offset
-            o_offset = self.n_outs + info.n_nit_sot
+            o_offset = self.n_tap_outs + info.n_nit_sot
             if i == 0:
                 for j in range(info.n_untraced_sit_sot):
                     inner_input_storage[offset].storage[0] = inputs[a_offset + j]
@@ -1913,7 +1923,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
             # 4.2. Collect slices for mitsots, sitsots and nitsots
             if i != 0:
-                for idx in range(self.n_outs + info.n_nit_sot - info.n_mit_mot):
+                for idx in range(self.n_tap_outs + info.n_nit_sot - info.n_mit_mot):
                     if (
                         store_steps[idx + info.n_mit_mot] == 1
                         or self.vector_outs[idx + info.n_mit_mot]
@@ -1925,11 +1935,11 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                             _pos0
                         ][0][pos[_pos0]]
             else:
-                for idx in range(self.n_outs + info.n_nit_sot - info.n_mit_mot):
+                for idx in range(self.n_tap_outs + info.n_nit_sot - info.n_mit_mot):
                     inner_output_storage[idx + offset].storage[0] = None
 
             # 4.3. Collect slices for untraced sitsot outputs
-            offset += self.n_outs + info.n_nit_sot - info.n_mit_mot
+            offset += self.n_tap_outs + info.n_nit_sot - info.n_mit_mot
             for idx in range(info.n_untraced_sit_sot):
                 inner_output_storage[idx + offset].storage[0] = None
 
@@ -2054,7 +2064,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
             # 5.4 Copy over the values for mit_sot/sit_sot outputs
             begin = info.n_mit_mot
-            end = self.n_outs
+            end = self.n_tap_outs
             offset_out -= info.n_mit_mot
 
             for j in range(begin, end):
@@ -2163,7 +2173,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
         # 6. Check if you need to re-order output buffers
         begin = info.n_mit_mot
-        end = self.n_outs + info.n_nit_sot
+        end = self.n_tap_outs + info.n_nit_sot
         for idx in range(begin, end):
             if store_steps[idx] < i - self.mintaps[idx] and pos[idx] < store_steps[idx]:
                 pdx = pos[idx]
@@ -2436,13 +2446,20 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         node.tag.connection_pattern = connection_pattern
         return connection_pattern
 
-    def L_op(self, inputs, outs, dC_douts):
-        # `grad_step` equals the number of steps the original scan node has
-        # done (if the original scan is a while loop than this number is the
-        # length of the output sequence)
-        # We do not know what kind of outputs the original scan has, so we
-        # try first to see if it has a nit_sot output, then a sit_sot and
-        # then a mit_sot
+    def pullback(self, inputs, outs, dC_douts):
+        # Computes the gradient of this Scan by constructing a new backward Scan
+        # that runs in reverse. The method:
+        # 1. Differentiates the inner function symbolically (compute_all_gradients)
+        # 2. Adds accumulation terms for state inputs at preserved buffer positions
+        # 3. Builds reversed sequences from the forward outputs
+        # 4. Converts all recurrent states (sit-sot, mit-sot, mit-mot) into mit-mot
+        #    form in the backward scan (initialized with output gradients, accumulate
+        #    total gradients after evaluation)
+        # 5. Constructs and runs the backward Scan, then re-orders its outputs
+
+        # Determine the number of gradient steps from the output shapes (not from
+        # inputs[0] directly, because while-loop scans may execute fewer steps than
+        # the allocated buffer size).
         info = self.info
         if info.n_nit_sot > 0:
             grad_steps = self.outer_nitsot_outs(outs)[0].shape[0]
@@ -2457,8 +2474,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         if info.as_while:
             n_steps = outs[0].shape[0]
 
-        # Restrict the number of grad steps according to
-        # self.truncate_gradient
+        # Restrict the number of grad steps according to self.truncate_gradient
         if self.truncate_gradient != -1:
             grad_steps = minimum(grad_steps, self.truncate_gradient)
 
@@ -2540,13 +2556,11 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             ]
             gmp = {}
 
-            # Required in case there is a pair of variables X and Y, with X
-            # used to compute Y, for both of which there is an external
-            # gradient signal. Without this, the total gradient signal on X
-            # will be the external gradient  signalknown_grads[X]. With this,
-            # it will be the sum of the external gradient signal and the
-            # gradient obtained by propagating Y's external gradient signal
-            # to X.
+            # The .copy() creates fresh variable nodes so that grad() treats them
+            # as new outputs "equal to" the originals, rather than matching them by
+            # identity to variables already in the graph. This forces grad() to
+            # propagate the known_grads values backward through the computation
+            # instead of short-circuiting at a wrt target.
             known_grads = {k.copy(): v for (k, v) in known_grads.items()}
 
             grads = grad(
@@ -2588,17 +2602,15 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 Xt_placeholder = safe_new(Xt)
                 Xts.append(Xt_placeholder)
 
-            # Different processing based on whether Xt is a nitsot output
-            # or not. NOTE : This cannot be done by using
-            # "if Xt not in self.inner_nitsot_outs(self_outputs)" because
-            # the exact same variable can be used as multiple outputs.
+            # Different processing based on whether Xt is a nitsot output or not.
+            # NOTE : This cannot be done by using "if Xt not in self.inner_nitsot_outs(self_outputs)"
+            # because the exact same variable can be used as multiple outputs.
             if idx < idx_nitsot_out_start or idx >= idx_nitsot_out_end:
-                # What we do here is loop through dC_douts and collect all
+                # loop through dC_douts and collect all
                 # those that are connected to the specific one and do an
                 # upcast on all of their dtypes to get the dtype for this
                 # specific output. Deciding if the gradient with this
-                # specific previous step is defined or not is done somewhere
-                # else.
+                # specific previous step is defined or not is done somewhere else.
                 dtypes = []
                 for pos, inp in enumerate(states):
                     if inp in graph_inputs([Xt]):
@@ -2637,9 +2649,9 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 continue
 
             # Just some trouble to avoid a +0
-            if diff_outputs[i] in known_grads:
+            try:
                 known_grads[diff_outputs[i]] += dC_dXts[dc_dxts_idx]
-            else:
+            except KeyError:
                 known_grads[diff_outputs[i]] = dC_dXts[dc_dxts_idx]
             dc_dxts_idx += 1
 
@@ -2655,6 +2667,9 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 )
             else:
                 disconnected_dC_dinps_t[dx] = False
+                # Replace inner output subexpressions with placeholders wired to the
+                # saved forward values, so the backward scan reuses them instead of
+                # recomputing them. See forced_replace docstring for details.
                 for Xt, Xt_placeholder in zip(
                     diff_outputs[info.n_mit_mot_outs :], Xts, strict=True
                 ):
@@ -2663,21 +2678,20 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
 
         # construct dX_dtm1
         dC_dXtm1s = []
+        n_internal_recurrent_states = sum(
+            len(t)
+            for t in chain(
+                info.mit_mot_in_slices,
+                info.mit_sot_in_slices,
+                info.sit_sot_in_slices,
+            )
+        )
         for pos, x in enumerate(dC_dinps_t[info.n_seqs :]):
-            # Get the index of the first inner input corresponding to the
-            # pos-ieth inner input state
+            # Get the index of the first inner input corresponding to the pos-ieth inner input state
             idxs = var_mappings["inner_out_from_inner_inp"][info.n_seqs + pos]
 
-            # Check if the pos-th input is associated with one of the
-            # recurrent states
-            x_is_state = pos < sum(
-                len(t)
-                for t in chain(
-                    info.mit_mot_in_slices,
-                    info.mit_sot_in_slices,
-                    info.sit_sot_in_slices,
-                )
-            )
+            # Check if the pos-th input is associated with one of the recurrent states
+            x_is_state = pos < n_internal_recurrent_states
 
             if x_is_state and len(idxs) > 0:
                 opos = idxs[0]
@@ -2687,7 +2701,26 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             else:
                 dC_dXtm1s.append(safe_new(x))
 
+        # Skip accumulation for "overlapping" mit-mot taps.
+        # A mit-mot tap "overlaps" when the same tap index appears in both the input
+        # and output slices of a single mit-mot state. This means the output *overwrites*
+        # the input at that buffer position — analogous to set_subtensor(x, y, i).
+        # The gradient of an overwrite must zero out the direct pass-through from the
+        # old value; the only gradient path is through the output expression that replaced
+        # it (already captured by compute_all_gradients via known_grads).
+        overlapping_taps = set()
+        dx_offset = 0
+        for idx in range(info.n_mit_mot):
+            in_taps = info.mit_mot_in_slices[idx]
+            out_taps = info.mit_mot_out_slices[idx]
+            for k, tap in enumerate(in_taps):
+                if tap in out_taps:
+                    overlapping_taps.add(dx_offset + k)
+            dx_offset += len(in_taps)
+
         for dx, dC_dXtm1 in enumerate(dC_dXtm1s):
+            if dx in overlapping_taps:
+                continue  # gradient truncates here
             if isinstance(dC_dinps_t[dx + info.n_seqs].type, NullType):
                 # The accumulated gradient is undefined
                 pass
@@ -2727,31 +2760,6 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 else:
                     outer_inp_seqs.append(x[::-1])
 
-        if hasattr(inputs[0].tag, "test_value"):
-            # Here we tests that the new scan input sequence all have
-            # the same shape[0]. This is a properties that the scan()
-            # fct add and we want to keep it for all Scan op.  This is
-            # used in T_Scan.test_grad_multiple_outs_taps to test
-            # that.
-            if info.as_while:
-                n = n_steps.tag.test_value
-            else:
-                n = inputs[0].tag.test_value
-            for taps, x in zip(
-                info.mit_sot_in_slices, self.outer_mitsot_outs(outs), strict=True
-            ):
-                mintap = np.min(taps)
-                if hasattr(x[::-1][:mintap], "test_value"):
-                    assert x[::-1][:mintap].tag.test_value.shape[0] == n
-            for x in self.outer_sitsot_outs(outs):
-                if hasattr(x[::-1][:-1].tag, "test_value"):
-                    assert x[::-1][:-1].tag.test_value.shape[0] == n
-            for x in self.outer_nitsot_outs(outs):
-                if hasattr(x[::-1].tag, "test_value"):
-                    if info.as_while:
-                        assert x[n_steps - 1 :: -1].tag.test_value.shape[0] == n
-                    else:
-                        assert x[::-1].tag.test_value.shape[0] == n
         outer_inp_seqs += [
             x[::-1][: np.min(taps)]
             for taps, x in zip(
@@ -2761,8 +2769,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         outer_inp_seqs += [x[::-1][:-1] for x in self.outer_sitsot_outs(outs)]
         outer_inp_seqs += [x[::-1] for x in self.outer_nitsot_outs(outs)]
 
-        # Restrict the length of the outer sequences to the number of grad
-        # steps
+        # Restrict the length of the outer sequences to the number of grad steps
         outer_inp_seqs = [s_[:grad_steps] for s_ in outer_inp_seqs]
 
         inner_inp_seqs = self.inner_seqs(self_inputs)
@@ -2771,7 +2778,14 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         inner_inp_seqs += self.inner_sitsot(self_inputs)
         inner_inp_seqs += self.inner_nitsot_outs(dC_dXts)
         inner_inp_seqs += Xts
-        # mitmot
+        # Build backward scan's mit-mot states.
+        # Every forward recurrent state (sit-sot, mit-sot, mit-mot) becomes
+        # a mit-mot in the backward scan. The conversion negates the taps:
+        #   forward output tap t  →  backward input tap -t  (gradient signal)
+        #   forward input tap t   →  backward output tap -t (gradient to propagate)
+        # Each backward output tap also needs a backward input tap at the same
+        # position to carry the accumulated gradient (the recurrence). If one
+        # already exists from the first rule, they share the buffer slot.
         outer_inp_mitmot = []
         inner_inp_mitmot = []
         inner_out_mitmot = []
@@ -2810,8 +2824,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                     inner_inp_mitmot.append(dC_dXtm1s[ins_pos - info.n_seqs])
 
                 if isinstance(dC_dinps_t[ins_pos].type, NullType):
-                    # We cannot use Null in the inner graph, so we
-                    # use a zero tensor of the appropriate shape instead.
+                    # We cannot use Null in the inner graph,
+                    # so we use a zero tensor of the appropriate shape instead.
                     inner_out_mitmot.append(
                         pt.zeros(diff_inputs[ins_pos].shape, dtype=config.floatX)
                     )
@@ -2919,9 +2933,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 outer_inp_mitmot.append(dC_douts[idx + offset][::-1])
             else:
                 if isinstance(dC_dinps_t[ins_pos].type, NullType):
-                    # Cannot use dC_dinps_t[ins_pos].dtype, so we use
-                    # floatX instead, as it is a dummy value that will not
-                    # be used anyway.
+                    # Cannot use dC_dinps_t[ins_pos].dtype, so we use floatX instead,
+                    # as it is a dummy value that will not be used anyway.
                     outer_inp_mitmot.append(
                         pt.zeros(outs[idx + offset].shape, dtype=config.floatX)
                     )
@@ -2933,8 +2946,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                     )
 
             if isinstance(dC_dinps_t[ins_pos].type, NullType):
-                # We cannot use Null in the inner graph, so we
-                # use a zero tensor of the appropriate shape instead.
+                # We cannot use Null in the inner graph,
+                # so we use a zero tensor of the appropriate shape instead.
                 inner_out_mitmot.append(
                     pt.zeros(diff_inputs[ins_pos].shape, dtype=config.floatX)
                 )
@@ -2974,8 +2987,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                     through_untraced = True
             if isinstance(vl.type, NullType):
                 type_outs.append(vl.type.why_null)
-                # Replace the inner output with a zero tensor of
-                # the right shape
+                # Replace the inner output with a zero tensor of the right shape
                 inner_out_sitsot[_p] = pt.zeros(
                     diff_inputs[ins_pos + _p].shape, dtype=config.floatX
                 )
@@ -2993,8 +3005,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                     through_untraced = True
             if isinstance(vl.type, NullType):
                 type_outs.append(vl.type.why_null)
-                # Replace the inner output with a zero tensor of
-                # the right shape
+                # Replace the inner output with a zero tensor of the right shape
                 inner_out_nitsot[_p] = pt.zeros(
                     diff_inputs[_p].shape, dtype=config.floatX
                 )
@@ -3066,7 +3077,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             as_while=False,
         )
 
-        local_op = Scan(
+        pullback_scan_op = Scan(
             inner_gfn_ins,
             inner_gfn_outs,
             out_info,
@@ -3076,7 +3087,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             name=f"grad_of_{self.name}" if self.name else None,
             allow_gc=self.allow_gc,
         )
-        outputs = local_op(*outer_inputs, return_list=True)
+        pullback_scan_node = pullback_scan_op.make_node(*outer_inputs)
+        outputs = pullback_scan_node.outputs
         # Re-order the gradients correctly
         gradients = [disconnected_type()]  # n_steps is disconnected
 
@@ -3089,9 +3101,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             )
         ):
             if t == "connected":
-                # If the forward scan is in as_while mode, we need to pad
-                # the gradients, so that they match the size of the input
-                # sequences.
+                # If the forward scan is in as_while mode, we need to pad the gradients,
+                # so that they match the size of the input sequences.
                 if info.as_while:
                     n_zeros = inputs[0] - n_steps
                     shp = (n_zeros,)
@@ -3117,9 +3128,8 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         end = info.n_mit_mot + info.n_mit_sot + info.n_sit_sot
         for p, (x, t) in enumerate(zip(outputs[:end], type_outs[:end], strict=True)):
             if t == "connected":
-                # If the forward scan is in as_while mode, we need to pad
-                # the gradients, so that they match the size of the input
-                # sequences.
+                # If the forward scan is in as_while mode, we need to pad the gradients,
+                # so that they match the size of the input sequences.
                 if info.as_while:
                     n_zeros = inputs[0] - grad_steps
                     shp = (n_zeros,)
@@ -3192,6 +3202,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         # from a computational point of view
         # The gradients of scan are computed replacing Disconnected with 0,
         # because through the recurrence they can become nonzero
+        all_output_grads_connected = True
         for idx in range(len(gradients)):
             disconnected = True
             for kdx in range(len(node.outputs)):
@@ -3200,16 +3211,34 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
                 ):
                     disconnected = False
             if disconnected:
+                all_output_grads_connected = False
                 gradients[idx] = disconnected_type()
-        return gradients
 
-    def R_op(self, inputs, eval_points):
+        if all_output_grads_connected:
+            return gradients
+
+        # The pullback scan is built fully-connected (zeros passed in for
+        # disconnected cotangents) to keep the construction simple. When some
+        # output grads are disconnected, eagerly run ``scan_remove_unused`` on
+        # the pullback node so the gradient graph handed back to the caller
+        # doesn't carry dead outputs / orphaned seqs.
+        from pytensor.scan.rewriting import scan_remove_unused  # avoid circular
+
+        fgraph = FunctionGraph(outputs=list(gradients), clone=False)
+        replacements = scan_remove_unused.fn(fgraph, pullback_scan_node)
+        if not replacements:
+            return gradients
+        replacements.pop("remove", None)
+        fgraph.replace_all(replacements.items(), reason="pullback_cleanup")
+        return list(fgraph.outputs)
+
+    def pushforward(self, inputs, outputs, eval_points):
         # Step 0. Prepare some shortcut variable
         info = self.info
         self_inputs = self.inner_inputs
         rop_of_inputs = (
-            self_inputs[: info.n_seqs + self.n_outs]
-            + self_inputs[info.n_seqs + self.n_outs + info.n_untraced_sit_sot :]
+            self_inputs[: info.n_seqs + self.n_tap_outs]
+            + self_inputs[info.n_seqs + self.n_tap_outs + info.n_untraced_sit_sot :]
         )
         self_outputs = self.inner_outputs
 
@@ -3221,11 +3250,11 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
             rop_self_outputs = self_outputs
         if info.n_untraced_sit_sot > 0:
             rop_self_outputs = rop_self_outputs[: -info.n_untraced_sit_sot]
-        rop_outs = Rop(
+        rop_outs = pushforward(
             rop_self_outputs,
             rop_of_inputs,
-            inner_eval_points,
-            use_op_rop_implementation=True,
+            tangents=inner_eval_points,
+            use_op_pushforward=True,
         )
         if not isinstance(rop_outs, list | tuple):
             rop_outs = [rop_outs]
@@ -3251,7 +3280,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         ie = info.n_seqs
         clean_eval_points = []
         for inp, evp in zip(inputs[b:e], eval_points[b:e], strict=True):
-            if evp is not None:
+            if not isinstance(evp.type, DisconnectedType):
                 clean_eval_points.append(evp)
             else:
                 clean_eval_points.append(inp.zeros_like())
@@ -3266,7 +3295,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         ie = ie + int(sum(len(x) for x in info.mit_mot_in_slices))
         clean_eval_points = []
         for inp, evp in zip(inputs[b:e], eval_points[b:e], strict=True):
-            if evp is not None:
+            if not isinstance(evp.type, DisconnectedType):
                 clean_eval_points.append(evp)
             else:
                 clean_eval_points.append(inp.zeros_like())
@@ -3281,7 +3310,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         ie = ie + int(sum(len(x) for x in info.mit_sot_in_slices))
         clean_eval_points = []
         for inp, evp in zip(inputs[b:e], eval_points[b:e], strict=True):
-            if evp is not None:
+            if not isinstance(evp.type, DisconnectedType):
                 clean_eval_points.append(evp)
             else:
                 clean_eval_points.append(inp.zeros_like())
@@ -3296,7 +3325,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         ie = ie + info.n_sit_sot
         clean_eval_points = []
         for inp, evp in zip(inputs[b:e], eval_points[b:e], strict=True):
-            if evp is not None:
+            if not isinstance(evp.type, DisconnectedType):
                 clean_eval_points.append(evp)
             else:
                 clean_eval_points.append(inp.zeros_like())
@@ -3320,7 +3349,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         # All other arguments
         clean_eval_points = []
         for inp, evp in zip(inputs[e:], eval_points[e:], strict=True):
-            if evp is not None:
+            if not isinstance(evp.type, DisconnectedType):
                 clean_eval_points.append(evp)
             else:
                 clean_eval_points.append(inp.zeros_like())
@@ -3415,7 +3444,7 @@ class Scan(Op, ScanMethodsMixin, HasInnerGraph):
         b = e + info.n_nit_sot
         e = e + info.n_nit_sot * 2
         final_outs += outputs[b:e]
-        final_outs += [None] * info.n_untraced_sit_sot
+        final_outs += [disconnected_type()] * info.n_untraced_sit_sot
 
         return final_outs
 

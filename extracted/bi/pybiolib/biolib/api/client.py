@@ -31,6 +31,10 @@ class ApiClient(HttpClient):
         self._base_url: Optional[str] = _init_dict['base_url'] if _init_dict else None
         self._client_type: Optional[str] = _init_dict['client_type'] if _init_dict else None
 
+    @property
+    def base_url(self) -> Optional[str]:
+        return self._base_url
+
     def get(
         self,
         path: str,

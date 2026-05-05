@@ -1,14 +1,11 @@
 """Functionality relating to actually contracting."""
 
+import contextlib
 import functools
 import itertools
 import operator
-import contextlib
 
-from autoray import do, shape, infer_backend_multi, get_lib_fn
-
-from .utils import node_from_single
-
+from autoray import do, get_namespace, infer_backend_multi, shape
 
 DEFAULT_IMPLEMENTATION = "auto"
 
@@ -38,7 +35,7 @@ def default_implementation(impl):
 def _sanitize_equation(eq):
     """Get the input and output indices of an equation, computing the output
     implicitly as the sorted sequence of every index that appears exactly once
-    if it is not  provided.
+    if it is not provided.
     """
     # remove spaces
     eq = eq.replace(" ", "")
@@ -188,15 +185,11 @@ def _parse_eq_to_batch_matmul(eq, shape_a, shape_b):
     if len(b_term) != len(shape_b):
         raise ValueError(f"Term '{b_term}' does not match shape {shape_b}.")
 
-    bat_inds = []  # appears on A, B, O
-    con_inds = []  # appears on A, B, .
-    a_keep = []  # appears on A, ., O
-    b_keep = []  # appears on ., B, O
     sizes = {}
     singletons = set()
 
-    # parse left term
-    seen = set()
+    # parse left term to unique indices with size > 1
+    left = {}
     for ix, d in zip(a_term, shape_a):
         if d == 1:
             # everything (including broadcasting) works nicely if simply ignore
@@ -204,47 +197,50 @@ def _parse_eq_to_batch_matmul(eq, shape_a, shape_b):
             # and thus should be reintroduced later
             singletons.add(ix)
             continue
-
-        # set or check size
         if sizes.setdefault(ix, d) != d:
+            # set and check size
             raise ValueError(
                 f"Index {ix} has mismatched sizes {sizes[ix]} and {d}."
             )
+        left[ix] = True
 
-        if ix in seen:
+    # parse right term to unique indices with size > 1
+    right = {}
+    for ix, d in zip(b_term, shape_b):
+        # broadcast indices (size 1 on one input and size != 1
+        # on the other) should not be treated as singletons
+        if d == 1:
+            if ix not in left:
+                singletons.add(ix)
             continue
-        seen.add(ix)
+        singletons.discard(ix)
 
-        if ix in b_term:
+        if sizes.setdefault(ix, d) != d:
+            # set and check size
+            raise ValueError(
+                f"Index {ix} has mismatched sizes {sizes[ix]} and {d}."
+            )
+        right[ix] = True
+
+    # now we classify the unique size > 1 indices only
+    bat_inds = []  # appears on A, B, O
+    con_inds = []  # appears on A, B, .
+    a_keep = []  # appears on A, ., O
+    b_keep = []  # appears on ., B, O
+    # other indices (appearing on A or B only) will
+    # be summed or traced out prior to the matmul
+    for ix in left:
+        if right.pop(ix, False):
             if ix in out:
                 bat_inds.append(ix)
             else:
                 con_inds.append(ix)
         elif ix in out:
             a_keep.append(ix)
-
-    # parse right term
-    seen.clear()
-    for ix, d in zip(b_term, shape_b):
-        if d == 1:
-            singletons.add(ix)
-            continue
-        # broadcast indices don't appear as singletons in output
-        singletons.discard(ix)
-
-        # set or check size
-        if sizes.setdefault(ix, d) != d:
-            raise ValueError(
-                f"Index {ix} has mismatched sizes {sizes[ix]} and {d}."
-            )
-
-        if ix in seen:
-            continue
-        seen.add(ix)
-
-        if ix not in a_term:
-            if ix in out:
-                b_keep.append(ix)
+    # now only indices unique to right remain
+    for ix in right:
+        if ix in out:
+            b_keep.append(ix)
 
     if not con_inds:
         # contraction is pure multiplication, prepare inputs differently
@@ -315,10 +311,11 @@ def _parse_eq_to_batch_matmul(eq, shape_a, shape_b):
     else:
         new_shape_ab = None
 
-    # then we want to permute the matmul produced output:
+    # then we might need to permute the matmul produced output:
     out_produced = "".join((*singletons, *bat_inds, *a_keep, *b_keep))
-    perm_ab = tuple(out_produced.index(ix) for ix in out)
-    if perm_ab == tuple(range(len(perm_ab))):
+    if out_produced != out:
+        perm_ab = tuple(out_produced.index(ix) for ix in out)
+    else:
         perm_ab = None
 
     return (
@@ -606,29 +603,47 @@ def extract_contractions(
         If both ``l`` and ``r`` are ``None``, the the operation is a single
         term simplification performed with ``einsum``.
     """
+    if tree.N == 1:
+        # trivial 'contraction', single input maps directly to output
+        # possibly with reductions/transpose, setting l but not r flags this
+        pi = 1
+        li = 0
+        ri = None
+        tdot = False
+        arg = tree.get_eq_sliced()
+        perm = None
+        return [(pi, li, ri, tdot, arg, perm)]
+
     contractions = []
 
+    # for compactness we convert nodes to ssa indices
+    ssas = {leaf: i for i, leaf in enumerate(tree.gen_leaves())}
+    ssa = len(ssas)
+
     # pairwise contractions
-    contractions.extend(
-        (p, l, r, False, tree.get_einsum_eq(p), None)
-        if (prefer_einsum or not tree.get_can_dot(p))
-        else (
-            p,
-            l,
-            r,
-            True,
-            tree.get_tensordot_axes(p),
-            tree.get_tensordot_perm(p),
-        )
-        for p, l, r in tree.traverse(order=order)
-    )
+    for p, l, r in tree.traverse(order=order):
+        li = ssas.pop(l)
+        ri = ssas.pop(r)
+        pi = ssas[p] = ssa
+        ssa += 1
+
+        if prefer_einsum or not tree.get_can_dot(p):
+            tdot = False
+            arg = tree.get_einsum_eq(p)
+            perm = None
+        else:
+            tdot = True
+            arg = tree.get_tensordot_axes(p)
+            perm = tree.get_tensordot_perm(p)
+
+        contractions.append((pi, li, ri, tdot, arg, perm))
 
     if tree.preprocessing:
         # inplace single term simplifications
         # n.b. these are populated lazily when the other information is
         # computed above, so we do it after
         pre_contractions = (
-            (node_from_single(i), None, None, False, eq, None)
+            (i, None, None, False, eq, None)
             for i, eq in tree.preprocessing.items()
         )
         return (*pre_contractions, *contractions)
@@ -728,6 +743,7 @@ class Contractor:
 
         if backend is None:
             backend = infer_backend_multi(*arrays)
+            xp = get_namespace(backend)
 
         if implementation == "auto":
             if backend == "numpy":
@@ -738,15 +754,20 @@ class Contractor:
 
         if implementation == "cotengra":
             _einsum, _tensordot = einsum, tensordot
+        elif implementation == "pytblis":
+            import pytblis
+
+            _einsum = pytblis.einsum
+            _tensordot = pytblis.tensordot
         elif implementation == "autoray":
             try:
-                _einsum = get_lib_fn(backend, "einsum")
+                _einsum = xp.einsum
             except ImportError:
                 # fallback to cotengra (matmul) implementation
                 _einsum = einsum
 
             try:
-                _tensordot = get_lib_fn(backend, "tensordot")
+                _tensordot = xp.tensordot
             except ImportError:
                 # fallback to cotengra (matmul) implementation
                 _tensordot = tensordot
@@ -756,10 +777,7 @@ class Contractor:
 
         # temporary storage for intermediates
         N = len(arrays)
-        temps = {
-            leaf: array
-            for leaf, array in zip(map(node_from_single, range(N)), arrays)
-        }
+        temps = dict(enumerate(arrays))
 
         exponent = 0.0 if (strip_exponent is not False) else None
 
@@ -770,34 +788,48 @@ class Contractor:
         else:
             contractions = self.contractions
 
-        for p, l, r, tdot, arg, perm in contractions:
-            if (l is None) and (r is None):
-                # single term simplification, perform inplace with einsum
-                temps[p] = _einsum(arg, temps[p])
-                continue
+        for pi, li, ri, tdot, arg, perm in contractions:
+            if ri is None:
+                if li is None:
+                    # single term simplification, perform inplace with einsum
+                    temps[pi] = _einsum(arg, temps[pi])
+                    continue
+                else:
+                    # trivial 'contraction', single input maps directly to
+                    # output, possibly with reductions/transpose via einsum
+                    p_array = _einsum(arg, temps[li])
+                    if strip_exponent:
+                        return p_array, 0.0
+                    return p_array
 
             # get input arrays for this contraction
-            l_array = temps.pop(l)
-            r_array = temps.pop(r)
+            l_array = temps.pop(li)
+            r_array = temps.pop(ri)
 
             if tdot:
                 p_array = _tensordot(l_array, r_array, arg)
                 if perm:
-                    p_array = do("transpose", p_array, perm, like=backend)
+                    p_array = xp.transpose(p_array, perm)
             else:
                 p_array = _einsum(arg, l_array, r_array)
 
             if exponent is not None:
-                factor = do(
-                    "max", do("abs", p_array, like=backend), like=backend
-                )
+                factor = xp.max(xp.abs(p_array))
+
                 if check_zero and float(factor) == 0.0:
                     return 0.0, float("-inf")
-                exponent = exponent + do("log10", factor, like=backend)
+                exponent = exponent + xp.log10(factor)
+
+                if backend == "tensorflow":
+                    factor = xp.astype(factor, p_array.dtype)
+                    # TODO:
+                    # currently special case tensorflow
+                    # autoray needs fix for autojit and astype to use generally
+
                 p_array = p_array / factor
 
             # insert the new intermediate array
-            temps[p] = p_array
+            temps[pi] = p_array
 
         if exponent is not None:
             return p_array, exponent

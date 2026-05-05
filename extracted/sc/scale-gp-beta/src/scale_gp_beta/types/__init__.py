@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from . import container, evaluation, paginated_list_evaluation
 from .. import _compat
-from .mcp import Mcp as Mcp
-from .part import Part as Part
 from .span import Span as Span
 from .shared import Identity as Identity
 from .dataset import Dataset as Dataset
@@ -18,10 +16,12 @@ from .span_type import SpanType as SpanType
 from .completion import Completion as Completion
 from .credential import Credential as Credential
 from .evaluation import Evaluation as Evaluation
+from .shell_call import ShellCall as ShellCall
 from .task_error import TaskError as TaskError
 from .custom_tool import CustomTool as CustomTool
-from .local_shell import LocalShell as LocalShell
 from .span_status import SpanStatus as SpanStatus
+from .cloud_secret import CloudSecret as CloudSecret
+from .conversation import Conversation as Conversation
 from .dataset_item import DatasetItem as DatasetItem
 from .item_locator import ItemLocator as ItemLocator
 from .stream_chunk import StreamChunk as StreamChunk
@@ -47,20 +47,22 @@ from .rubric_response import RubricResponse as RubricResponse
 from .span_assessment import SpanAssessment as SpanAssessment
 from .tool_choice_mcp import ToolChoiceMcp as ToolChoiceMcp
 from .web_search_tool import WebSearchTool as WebSearchTool
-from .code_interpreter import CodeInterpreter as CodeInterpreter
+from .apply_patch_call import ApplyPatchCall as ApplyPatchCall
+from .apply_patch_tool import ApplyPatchTool as ApplyPatchTool
 from .completion_usage import CompletionUsage as CompletionUsage
 from .embedding_config import EmbeddingConfig as EmbeddingConfig
 from .evaluation_group import EvaluationGroup as EvaluationGroup
 from .evaluation_views import EvaluationViews as EvaluationViews
 from .file_list_params import FileListParams as FileListParams
 from .file_search_tool import FileSearchTool as FileSearchTool
-from .image_generation import ImageGeneration as ImageGeneration
 from .build_list_params import BuildListParams as BuildListParams
-from .comparison_filter import ComparisonFilter as ComparisonFilter
 from .credential_secret import CredentialSecret as CredentialSecret
+from .local_environment import LocalEnvironment as LocalEnvironment
 from .model_list_params import ModelListParams as ModelListParams
+from .shell_call_output import ShellCallOutput as ShellCallOutput
 from .span_batch_params import SpanBatchParams as SpanBatchParams
 from .span_create_param import SpanCreateParam as SpanCreateParam
+from .tool_choice_shell import ToolChoiceShell as ToolChoiceShell
 from .tool_choice_types import ToolChoiceTypes as ToolChoiceTypes
 from .deploy_list_params import DeployListParams as DeployListParams
 from .deploy_logs_params import DeployLogsParams as DeployLogsParams
@@ -80,9 +82,12 @@ from .timestamp_question import TimestampQuestion as TimestampQuestion
 from .tool_choice_custom import ToolChoiceCustom as ToolChoiceCustom
 from .agentex_cloud_build import AgentexCloudBuild as AgentexCloudBuild
 from .build_create_params import BuildCreateParams as BuildCreateParams
+from .container_reference import ContainerReference as ContainerReference
 from .dataset_list_params import DatasetListParams as DatasetListParams
+from .function_shell_tool import FunctionShellTool as FunctionShellTool
 from .model_create_params import ModelCreateParams as ModelCreateParams
 from .model_update_params import ModelUpdateParams as ModelUpdateParams
+from .part_reasoning_text import PartReasoningText as PartReasoningText
 from .tool_choice_allowed import ToolChoiceAllowed as ToolChoiceAllowed
 from .agentex_cloud_deploy import AgentexCloudDeploy as AgentexCloudDeploy
 from .categorical_question import CategoricalQuestion as CategoricalQuestion
@@ -91,11 +96,12 @@ from .deploy_logs_response import DeployLogsResponse as DeployLogsResponse
 from .embedding_model_name import EmbeddingModelName as EmbeddingModelName
 from .evaluation_dashboard import EvaluationDashboard as EvaluationDashboard
 from .file_delete_response import FileDeleteResponse as FileDeleteResponse
+from .inference_model_type import InferenceModelType as InferenceModelType
+from .mcp_approval_request import McpApprovalRequest as McpApprovalRequest
 from .question_list_params import QuestionListParams as QuestionListParams
 from .rubric_create_params import RubricCreateParams as RubricCreateParams
 from .rubric_update_params import RubricUpdateParams as RubricUpdateParams
 from .secret_create_params import SecretCreateParams as SecretCreateParams
-from .secret_list_response import SecretListResponse as SecretListResponse
 from .secret_update_params import SecretUpdateParams as SecretUpdateParams
 from .tool_choice_function import ToolChoiceFunction as ToolChoiceFunction
 from .dataset_create_params import DatasetCreateParams as DatasetCreateParams
@@ -116,12 +122,14 @@ from .openai_response_prompt import OpenAIResponsePrompt as OpenAIResponsePrompt
 from .question_create_params import QuestionCreateParams as QuestionCreateParams
 from .question_update_params import QuestionUpdateParams as QuestionUpdateParams
 from .response_create_params import ResponseCreateParams as ResponseCreateParams
-from .secret_create_response import SecretCreateResponse as SecretCreateResponse
-from .secret_update_response import SecretUpdateResponse as SecretUpdateResponse
+from .apply_patch_call_output import ApplyPatchCallOutput as ApplyPatchCallOutput
 from .dataset_retrieve_params import DatasetRetrieveParams as DatasetRetrieveParams
 from .evaluation_group_member import EvaluationGroupMember as EvaluationGroupMember
 from .inference_create_params import InferenceCreateParams as InferenceCreateParams
+from .local_environment_param import LocalEnvironmentParam as LocalEnvironmentParam
 from .rubric_archive_response import RubricArchiveResponse as RubricArchiveResponse
+from .tool_choice_apply_patch import ToolChoiceApplyPatch as ToolChoiceApplyPatch
+from .web_search_preview_tool import WebSearchPreviewTool as WebSearchPreviewTool
 from .completion_create_params import CompletionCreateParams as CompletionCreateParams
 from .credential_create_params import CredentialCreateParams as CredentialCreateParams
 from .credential_update_params import CredentialUpdateParams as CredentialUpdateParams
@@ -131,10 +139,11 @@ from .evaluation_create_params import EvaluationCreateParams as EvaluationCreate
 from .evaluation_filter_params import EvaluationFilterParams as EvaluationFilterParams
 from .evaluation_update_params import EvaluationUpdateParams as EvaluationUpdateParams
 from .inference_response_chunk import InferenceResponseChunk as InferenceResponseChunk
+from .response_compaction_item import ResponseCompactionItem as ResponseCompactionItem
 from .response_create_response import ResponseCreateResponse as ResponseCreateResponse
-from .secret_retrieve_response import SecretRetrieveResponse as SecretRetrieveResponse
 from .span_upsert_batch_params import SpanUpsertBatchParams as SpanUpsertBatchParams
 from .vector_store_list_params import VectorStoreListParams as VectorStoreListParams
+from .container_reference_param import ContainerReferenceParam as ContainerReferenceParam
 from .inference_create_response import InferenceCreateResponse as InferenceCreateResponse
 from .paginated_list_evaluation import PaginatedListEvaluation as PaginatedListEvaluation
 from .vector_store_count_params import VectorStoreCountParams as VectorStoreCountParams
@@ -144,6 +153,7 @@ from .credential_delete_response import CredentialDeleteResponse as CredentialDe
 from .dataset_item_update_params import DatasetItemUpdateParams as DatasetItemUpdateParams
 from .evaluation_retrieve_params import EvaluationRetrieveParams as EvaluationRetrieveParams
 from .evaluation_schema_response import EvaluationSchemaResponse as EvaluationSchemaResponse
+from .mcp_approval_request_param import McpApprovalRequestParam as McpApprovalRequestParam
 from .openai_response_input_file import OpenAIResponseInputFile as OpenAIResponseInputFile
 from .openai_response_input_text import OpenAIResponseInputText as OpenAIResponseInputText
 from .vector_store_create_params import VectorStoreCreateParams as VectorStoreCreateParams
@@ -163,6 +173,7 @@ from .vector_store_count_response import VectorStoreCountResponse as VectorStore
 from .vector_store_query_response import VectorStoreQueryResponse as VectorStoreQueryResponse
 from .dataset_item_retrieve_params import DatasetItemRetrieveParams as DatasetItemRetrieveParams
 from .evaluation_group_list_params import EvaluationGroupListParams as EvaluationGroupListParams
+from .inference_model_availability import InferenceModelAvailability as InferenceModelAvailability
 from .vector_store_delete_response import VectorStoreDeleteResponse as VectorStoreDeleteResponse
 from .vector_store_upsert_response import VectorStoreUpsertResponse as VectorStoreUpsertResponse
 from .dataset_item_archive_response import DatasetItemArchiveResponse as DatasetItemArchiveResponse
@@ -180,6 +191,8 @@ from .launch_inference_configuration import LaunchInferenceConfiguration as Laun
 from .openai_response_output_message import OpenAIResponseOutputMessage as OpenAIResponseOutputMessage
 from .openai_response_output_refusal import OpenAIResponseOutputRefusal as OpenAIResponseOutputRefusal
 from .openai_response_reasoning_item import OpenAIResponseReasoningItem as OpenAIResponseReasoningItem
+from .response_apply_patch_tool_call import ResponseApplyPatchToolCall as ResponseApplyPatchToolCall
+from .response_compaction_item_param import ResponseCompactionItemParam as ResponseCompactionItemParam
 from .evaluation_group_replace_params import EvaluationGroupReplaceParams as EvaluationGroupReplaceParams
 from .evaluation_group_row_identifier import EvaluationGroupRowIdentifier as EvaluationGroupRowIdentifier
 from .evaluation_item_retrieve_params import EvaluationItemRetrieveParams as EvaluationItemRetrieveParams
@@ -195,12 +208,15 @@ from .openai_response_custom_tool_call import OpenAIResponseCustomToolCall as Op
 from .openai_response_input_file_param import OpenAIResponseInputFileParam as OpenAIResponseInputFileParam
 from .openai_response_input_text_param import OpenAIResponseInputTextParam as OpenAIResponseInputTextParam
 from .timestamp_question_configuration import TimestampQuestionConfiguration as TimestampQuestionConfiguration
+from .container_network_policy_disabled import ContainerNetworkPolicyDisabled as ContainerNetworkPolicyDisabled
 from .embedding_config_models_api_param import EmbeddingConfigModelsAPIParam as EmbeddingConfigModelsAPIParam
 from .evaluation_retrieve_schema_params import EvaluationRetrieveSchemaParams as EvaluationRetrieveSchemaParams
 from .form_question_configuration_param import FormQuestionConfigurationParam as FormQuestionConfigurationParam
 from .launch_vendor_configuration_param import LaunchVendorConfigurationParam as LaunchVendorConfigurationParam
 from .openai_response_input_image_param import OpenAIResponseInputImageParam as OpenAIResponseInputImageParam
+from .response_function_shell_tool_call import ResponseFunctionShellToolCall as ResponseFunctionShellToolCall
 from .categorical_question_configuration import CategoricalQuestionConfiguration as CategoricalQuestionConfiguration
+from .container_network_policy_allowlist import ContainerNetworkPolicyAllowlist as ContainerNetworkPolicyAllowlist
 from .dataset_item_batch_create_response import DatasetItemBatchCreateResponse as DatasetItemBatchCreateResponse
 from .evaluation_dashboard_create_params import EvaluationDashboardCreateParams as EvaluationDashboardCreateParams
 from .evaluation_dashboard_update_params import EvaluationDashboardUpdateParams as EvaluationDashboardUpdateParams
@@ -218,6 +234,7 @@ from .llm_engine_vendor_configuration_param import (
     LlmEngineVendorConfigurationParam as LlmEngineVendorConfigurationParam,
 )
 from .openai_response_file_search_tool_call import OpenAIResponseFileSearchToolCall as OpenAIResponseFileSearchToolCall
+from .response_apply_patch_tool_call_output import ResponseApplyPatchToolCallOutput as ResponseApplyPatchToolCallOutput
 from .free_text_question_configuration_param import (
     FreeTextQuestionConfigurationParam as FreeTextQuestionConfigurationParam,
 )
@@ -233,11 +250,17 @@ from .openai_response_custom_tool_call_output import (
 from .categorical_question_configuration_param import (
     CategoricalQuestionConfigurationParam as CategoricalQuestionConfigurationParam,
 )
+from .response_function_shell_tool_call_output import (
+    ResponseFunctionShellToolCallOutput as ResponseFunctionShellToolCallOutput,
+)
 from .evaluation_group_retrieve_schema_response import (
     EvaluationGroupRetrieveSchemaResponse as EvaluationGroupRetrieveSchemaResponse,
 )
 from .openai_response_code_interpreter_tool_call import (
     OpenAIResponseCodeInterpreterToolCall as OpenAIResponseCodeInterpreterToolCall,
+)
+from .response_computer_tool_call_output_screenshot import (
+    ResponseComputerToolCallOutputScreenshot as ResponseComputerToolCallOutputScreenshot,
 )
 from .openai_types_responses_response_input_item_message import (
     OpenAITypesResponsesResponseInputItemMessage as OpenAITypesResponsesResponseInputItemMessage,
@@ -275,17 +298,11 @@ from .openai_types_responses_response_input_item_computer_call_output import (
 from .openai_types_responses_response_input_item_function_call_output import (
     OpenAITypesResponsesResponseInputItemFunctionCallOutput as OpenAITypesResponsesResponseInputItemFunctionCallOutput,
 )
-from .openai_types_responses_response_input_item_mcp_approval_request import (
-    OpenAITypesResponsesResponseInputItemMcpApprovalRequest as OpenAITypesResponsesResponseInputItemMcpApprovalRequest,
-)
 from .openai_types_responses_response_input_item_image_generation_call import (
     OpenAITypesResponsesResponseInputItemImageGenerationCall as OpenAITypesResponsesResponseInputItemImageGenerationCall,
 )
 from .openai_types_responses_response_input_item_mcp_approval_response import (
     OpenAITypesResponsesResponseInputItemMcpApprovalResponse as OpenAITypesResponsesResponseInputItemMcpApprovalResponse,
-)
-from .openai_types_responses_response_output_item_mcp_approval_request import (
-    OpenAITypesResponsesResponseOutputItemMcpApprovalRequest as OpenAITypesResponsesResponseOutputItemMcpApprovalRequest,
 )
 from .openai_types_responses_response_output_item_image_generation_call import (
     OpenAITypesResponsesResponseOutputItemImageGenerationCall as OpenAITypesResponsesResponseOutputItemImageGenerationCall,

@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Dict, List, Union, Optional
 from typing_extensions import Literal, TypeAlias
 
 from pydantic import Field as FieldInfo
@@ -15,6 +15,8 @@ Content: TypeAlias = Union[OpenAIResponseOutputText, OpenAIResponseOutputRefusal
 
 
 class OpenAIResponseOutputMessage(BaseModel):
+    """An output message from the model."""
+
     id: str
 
     content: List[Content]
@@ -24,6 +26,8 @@ class OpenAIResponseOutputMessage(BaseModel):
     status: Literal["in_progress", "completed", "incomplete"]
 
     type: Literal["message"]
+
+    phase: Optional[Literal["commentary", "final_answer"]] = None
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a

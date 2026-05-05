@@ -35,7 +35,9 @@ EXAMPLES_RETRY_MESSAGE = "Try re-running outside of examples if it happened afte
 SIGNUP_ON_HF_TXT = "Create a free account"
 SIGNUP_ON_HF_URL = "https://huggingface.co/join"
 SUBSCRIBE_TO_PRO_TXT = "Subscribe to Pro"
-SUBSCRIBE_TO_PRO_URL = "https://huggingface.co/settings/billing/subscription"
+SUBSCRIBE_TO_PRO_URL = "https://huggingface.co/subscribe/pro?from=ZeroGPU"
+TOKENS_SETTINGS_URL = "https://huggingface.co/settings/tokens"
+ADD_CREDITS_URL = "https://huggingface.co/settings/billing?add-credits=true"
 
 
 def api_client():
@@ -60,6 +62,11 @@ def html_string(html_contents: str, text_contents: str): # pragma: no cover
         def __str__(self):
             return text_contents
     return HTMLString(html_contents)
+
+
+def _is_api_call(request: gr.Request | None) -> bool: # pragma: no cover
+    headers = _get_headers(request)
+    return headers.get('x-gradio-user') != 'app'
 
 
 def _toast_action(
@@ -143,32 +150,32 @@ def schedule(
             raise error("ZeroGPU quota exceeded", message)
         else:
             if res.wait == 0:
-                message = "You have exceeded your runs limit."
+                message = "You have exceeded your ZeroGPU runs limit. "
             else:
-                gpu = "Pro GPU" if auth == 'pro' else ("free GPU" if auth == 'regular' else "GPU")
-                message_gui = (
+                gpu = "Pro ZeroGPU" if auth == 'pro' else ("free ZeroGPU" if auth == 'regular' else "ZeroGPU")
+                message = (
                     f"You have exceeded your {gpu} quota "
                     f"({requested}s requested vs. {res.left}s left). "
-                    f"Try again in {res.wait}"
+                    f"Try again in {res.wait}. "
                 )
+            if _is_api_call(request):
                 if auth is None:
-                    message_mcp = (
-                        "Unlogged user is runnning out of daily ZeroGPU quotas. "
-                        "Signup for free on https://huggingface.co/join "
-                        "or login on https://huggingface.co/login "
-                        "to get more ZeroGPU quota now."
+                    message += (
+                        f"Authenticate with a Hugging Face token for more quota - "
+                        f"{TOKENS_SETTINGS_URL}"
                     )
                 elif auth == 'regular':
-                    message_mcp = (
-                        "User is runnning out of daily ZeroGPU quotas. "
-                        "Visit https://huggingface.co/subscribe/pro "
-                        "to get more ZeroGPU quota now."
+                    message += (
+                        f"Subscribe to Hugging Face PRO to get 25 min of ZeroGPU quota a day - "
+                        f"{SUBSCRIBE_TO_PRO_URL}"
                     )
-                else:
-                    message_mcp = message_gui
-                mcp_user = headers.get('x-gradio-user') == 'mcp'
-                message = message_mcp if mcp_user else html_string(message_gui, message_mcp)
-            raise error("ZeroGPU quota exceeded", message, html=True)
+                elif auth == 'pro':
+                    message += (
+                        f"Add credits to keep using ZeroGPU. "
+                        f"$1 for 10 minutes of ZeroGPU inference - "
+                        f"{ADD_CREDITS_URL}"
+                    )
+            raise error("ZeroGPU quota exceeded", message)
 
     if not isinstance(res, httpx.codes): # pragma: no cover
         if meta.queuing_reason in ('node', None):

@@ -11,6 +11,7 @@ from ..types.batch_predictions import BatchPredictions
 from ..types.model_interface import ModelInterface
 from ..types.model_interface_serializer_get import ModelInterfaceSerializerGet
 from ..types.paginated_all_roles_project_list_list import PaginatedAllRolesProjectListList
+from ..types.paginated_model_interface_serializer_get_list import PaginatedModelInterfaceSerializerGetList
 from ..types.paginated_project_subset_tasks_response_list import PaginatedProjectSubsetTasksResponseList
 from ..types.project_subset_item import ProjectSubsetItem
 from ..types.skill_name_enum import SkillNameEnum
@@ -290,8 +291,14 @@ class PromptsClient:
         return _response.data
 
     def list(
-        self, *, ordering: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[ModelInterfaceSerializerGet]:
+        self,
+        *,
+        ordering: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PaginatedModelInterfaceSerializerGetList:
         """
         List all prompts.
 
@@ -300,12 +307,21 @@ class PromptsClient:
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
+        page : typing.Optional[int]
+            A page number within the paginated result set.
+
+        page_size : typing.Optional[int]
+            Number of results to return per page.
+
+        search : typing.Optional[str]
+            A search term.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[ModelInterfaceSerializerGet]
+        PaginatedModelInterfaceSerializerGetList
 
 
         Examples
@@ -317,7 +333,9 @@ class PromptsClient:
         )
         client.prompts.list()
         """
-        _response = self._raw_client.list(ordering=ordering, request_options=request_options)
+        _response = self._raw_client.list(
+            ordering=ordering, page=page, page_size=page_size, search=search, request_options=request_options
+        )
         return _response.data
 
     def create(
@@ -918,8 +936,14 @@ class AsyncPromptsClient:
         return _response.data
 
     async def list(
-        self, *, ordering: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[ModelInterfaceSerializerGet]:
+        self,
+        *,
+        ordering: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PaginatedModelInterfaceSerializerGetList:
         """
         List all prompts.
 
@@ -928,12 +952,21 @@ class AsyncPromptsClient:
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
+        page : typing.Optional[int]
+            A page number within the paginated result set.
+
+        page_size : typing.Optional[int]
+            Number of results to return per page.
+
+        search : typing.Optional[str]
+            A search term.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[ModelInterfaceSerializerGet]
+        PaginatedModelInterfaceSerializerGetList
 
 
         Examples
@@ -953,7 +986,9 @@ class AsyncPromptsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(ordering=ordering, request_options=request_options)
+        _response = await self._raw_client.list(
+            ordering=ordering, page=page, page_size=page_size, search=search, request_options=request_options
+        )
         return _response.data
 
     async def create(

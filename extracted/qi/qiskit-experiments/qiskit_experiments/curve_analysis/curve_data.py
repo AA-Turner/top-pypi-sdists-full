@@ -13,10 +13,13 @@
 """
 Curve data classes.
 """
+from __future__ import annotations
+
 import dataclasses
 import itertools
 import warnings
-from typing import Any, Dict, Union, List, Tuple, Optional, Iterable
+from typing import Any, TYPE_CHECKING
+from collections.abc import Iterable
 
 import numpy as np
 import uncertainties
@@ -24,30 +27,33 @@ from uncertainties.unumpy import uarray
 
 from qiskit_experiments.exceptions import AnalysisError
 
+if TYPE_CHECKING:
+    from typing import Self
+
 
 class CurveFitResult:
     """Result of Qiskit Experiment curve analysis."""
 
     def __init__(
         self,
-        method: Optional[str] = None,
-        model_repr: Optional[Dict[str, str]] = None,
-        success: Optional[bool] = True,
-        nfev: Optional[int] = None,
-        message: Optional[str] = "",
-        dof: Optional[float] = None,
-        init_params: Optional[Dict[str, float]] = None,
-        chisq: Optional[float] = None,
-        reduced_chisq: Optional[float] = None,
-        aic: Optional[float] = None,
-        bic: Optional[float] = None,
-        params: Optional[Dict[str, float]] = None,
-        var_names: Optional[List[str]] = None,
-        x_data: Optional[np.ndarray] = None,
-        y_data: Optional[np.ndarray] = None,
-        weighted_residuals: Optional[np.ndarray] = None,
-        residuals: Optional[np.ndarray] = None,
-        covar: Optional[np.ndarray] = None,
+        method: str | None = None,
+        model_repr: dict[str, str] | None = None,
+        success: bool | None = True,
+        nfev: int | None = None,
+        message: str | None = "",
+        dof: float | None = None,
+        init_params: dict[str, float] | None = None,
+        chisq: float | None = None,
+        reduced_chisq: float | None = None,
+        aic: float | None = None,
+        bic: float | None = None,
+        params: dict[str, float] | None = None,
+        var_names: list[str] | None = None,
+        x_data: np.ndarray | None = None,
+        y_data: np.ndarray | None = None,
+        weighted_residuals: np.ndarray | None = None,
+        residuals: np.ndarray | None = None,
+        covar: np.ndarray | None = None,
     ):
         """Create new Qiskit curve analysis result object.
 
@@ -91,17 +97,17 @@ class CurveFitResult:
         self.covar = covar
 
     @property
-    def x_range(self) -> Tuple[float, float]:
+    def x_range(self) -> tuple[float, float]:
         """Range of x_data values."""
         return min(self.x_data), max(self.x_data)
 
     @property
-    def y_range(self) -> Tuple[float, float]:
+    def y_range(self) -> tuple[float, float]:
         """Range of y_data values."""
         return min(self.y_data), max(self.y_data)
 
     @property
-    def ufloat_params(self) -> Dict[str, uncertainties.UFloat]:
+    def ufloat_params(self) -> dict[str, uncertainties.UFloat]:
         """UFloat representation of fit parameters."""
         if hasattr(self, "_ufloat_params"):
             # Return cache
@@ -221,7 +227,7 @@ class CurveFitResult:
     def __deepcopy__(self, memo):
         return self.__copy__()
 
-    def __json_encode__(self):
+    def __json_encode__(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "model_repr": self.model_repr,
@@ -242,7 +248,7 @@ class CurveFitResult:
         }
 
     @classmethod
-    def __json_decode__(cls, value):
+    def __json_decode__(cls, value: dict[str, Any]) -> Self:
         return cls(**value)
 
 
@@ -260,10 +266,17 @@ class ParameterRepr:
     name: str
 
     # Unicode representation
-    repr: Optional[str] = None
+    repr: str | None = None
 
     # Unit
-    unit: Optional[str] = None
+    unit: str | None = None
+
+    def __json_encode__(self) -> dict[str, Any]:
+        return self.__dict__
+
+    @classmethod
+    def __json_decode__(cls, value: dict[str, Any]) -> Self:
+        return cls(**value)
 
 
 class OptionsDict(dict):
@@ -277,8 +290,8 @@ class OptionsDict(dict):
 
     def __init__(
         self,
-        parameters: List[str],
-        defaults: Optional[Union[Iterable[Any], Dict[str, Any]]] = None,
+        parameters: list[str],
+        defaults: Iterable[Any] | dict[str, Any] | None = None,
     ):
         """Create new dictionary.
 
@@ -348,7 +361,7 @@ class InitialGuesses(OptionsDict):
     """Dictionary providing a float validation for initial guesses."""
 
     @staticmethod
-    def format(value: Any) -> Optional[float]:
+    def format(value: Any) -> float | None:
         """Validate that value is float a float or None.
 
         Args:
@@ -373,7 +386,7 @@ class Boundaries(OptionsDict):
     """Dictionary providing a validation for boundaries."""
 
     @staticmethod
-    def format(value: Any) -> Optional[Tuple[float, float]]:
+    def format(value: Any) -> tuple[float, float] | None:
         """Validate if value is a min-max value tuple.
 
         Args:
@@ -411,9 +424,9 @@ class FitOptions:
 
     def __init__(
         self,
-        parameters: List[str],
-        default_p0: Optional[Union[Iterable[float], Dict[str, float]]] = None,
-        default_bounds: Optional[Union[Iterable[Tuple], Dict[str, Tuple]]] = None,
+        parameters: list[str],
+        default_p0: Iterable[float] | dict[str, float] | None = None,
+        default_bounds: Iterable[tuple] | dict[str, tuple] | None = None,
         **extra,
     ):
         # These are private members so that user cannot directly override values

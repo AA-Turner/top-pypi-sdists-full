@@ -864,7 +864,23 @@ class PrivateServiceSDK(WorkloadSDK):
                 existing_service=existing_service,
                 versions=versions,  # type: ignore
             )
-            service = self.client.rollout_service_multi_version(model)
+            try:
+                service = self.client.rollout_service_multi_version(model)
+            except ValueError as e:
+                # handle_api_exceptions has already translated the 403 body's
+                # detail into a ValueError. Re-raise with --versions context so
+                # the CLI user knows which flag triggered the gate.
+                #
+                # The substring below mirrors the server-side detail in
+                # backend/server/services/api/services_resource.py (MV gate).
+                # Keep both phrases in sync if either is reworded.
+                if "multi-version services are not enabled" in str(e).lower():
+                    raise ValueError(
+                        "Multi-version services (--versions) are not enabled "
+                        "for your organization. Please contact Anyscale "
+                        "support to request access."
+                    ) from e
+                raise
         else:
             if len(configs) == 0:
                 # --versions with no configs during a single-version rollout:

@@ -11,20 +11,6 @@ import wbcore.contrib.io.models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("io", "0001_initial_squashed"),
-        ("io", "0002_importsource_creator"),
-        ("io", "0003_auto_20240103_1000"),
-        ("io", "0004_alter_importsource_status_exportsource"),
-        ("io", "0005_exportsource_data_alter_exportsource_query_str_and_more"),
-        ("io", "0006_alter_exportsource_query_params"),
-        ("io", "0007_alter_exportsource_query_params"),
-        ("io", "0008_importsource_resource_kwargs"),
-        ("io", "0009_alter_importedobjectproviderrelationship_unique_together_and_more"),
-        ("io", "0010_source_ignore_warning"),
-        ("io", "0011_databackend_unique_databackend_path"),
-    ]
-
     initial = True
 
     dependencies = [

@@ -11,6 +11,8 @@ __all__ = ["OpenAIResponseError"]
 
 
 class OpenAIResponseError(BaseModel):
+    """An error object returned when the model fails to generate a Response."""
+
     code: Literal[
         "server_error",
         "rate_limit_exceeded",

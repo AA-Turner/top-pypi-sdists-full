@@ -580,6 +580,9 @@ FROM JSON_TABLE(res, '$.info[*]' COLUMNS(
 )) src""",
             pretty=True,
         )
+        self.validate_identity(
+            "SELECT * FROM JSON_TABLE(my_doc, '$.data[*]' COLUMNS(NAME VARCHAR2(200) PATH '$.name', DATA CLOB FORMAT JSON PATH '$.data')) j"
+        )
         self.validate_identity("CONVERT('foo', 'dst')")
         self.validate_identity("CONVERT('foo', 'dst', 'src')")
 
@@ -744,7 +747,7 @@ CONNECT BY PRIOR employee_id = manager_id AND LEVEL <= 4"""
         self.validate_all(
             "TRUNC(SYSDATE, 'YEAR')",
             write={
-                "clickhouse": "DATE_TRUNC('YEAR', CURRENT_TIMESTAMP())",
+                "clickhouse": "dateTrunc('YEAR', CURRENT_TIMESTAMP())",
                 "oracle": "TRUNC(SYSDATE, 'YEAR')",
             },
         )
@@ -880,6 +883,16 @@ CONNECT BY PRIOR employee_id = manager_id AND LEVEL <= 4"""
         self.validate_identity("UTC_TIME(6)").assert_is(exp.UtcTime)
         self.validate_identity("UTC_TIMESTAMP()").assert_is(exp.UtcTimestamp)
         self.validate_identity("UTC_TIMESTAMP(6)").assert_is(exp.UtcTimestamp)
+
+    def test_listagg(self):
+        self.validate_identity(
+            "SELECT LISTAGG(last_name, '; ' ON OVERFLOW TRUNCATE '...' WITH COUNT) "
+            "WITHIN GROUP (ORDER BY hire_date) FROM employees"
+        )
+        self.validate_identity(
+            "SELECT LISTAGG(last_name, '; ' ON OVERFLOW ERROR) "
+            "WITHIN GROUP (ORDER BY hire_date) FROM employees"
+        )
 
     def test_merge(self):
         self.validate_all(

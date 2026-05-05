@@ -43,6 +43,11 @@ class ReloadOperationUI(BaseModel):
     updated: bool
 
 
+class ReloadOperationFile(BaseModel):
+    kind: Literal['file']
+    created: bool
+
+
 class ApiCreateReloadRequest(BaseModel):
     filepath: str
     contents: str
@@ -72,6 +77,7 @@ class ApiGetReloadEventSourceData(BaseModel):
         | ReloadOperationObject \
         | ReloadOperationRun \
         | ReloadOperationUI \
+        | ReloadOperationFile \
 
 
 class ApiGetStatusRequest(BaseModel):

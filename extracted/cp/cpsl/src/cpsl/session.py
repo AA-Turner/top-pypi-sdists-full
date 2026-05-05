@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 from .constants import (
     KV_KEY_FIELD,
@@ -20,6 +22,125 @@ from .integration import (
     integration_type as normalize_integration_type,
 )
 from .msg import Message
+
+
+def _now_ms() -> int:
+    import time
+
+    return int(time.time() * 1000)
+
+
+def _is_remote_url(value: str) -> bool:
+    return value.startswith(("http://", "https://", "data:"))
+
+
+class _TrackedList(list):
+    def __init__(self, values=(), notify: Callable[[], None] | None = None):
+        self._notify = notify
+        super().__init__(_track_data_value(v, notify) for v in values)
+
+    def _changed(self) -> None:
+        if self._notify:
+            self._notify()
+
+    def append(self, item):
+        super().append(_track_data_value(item, self._notify))
+        self._changed()
+
+    def extend(self, values):
+        super().extend(_track_data_value(v, self._notify) for v in values)
+        self._changed()
+
+    def insert(self, index, item):
+        super().insert(index, _track_data_value(item, self._notify))
+        self._changed()
+
+    def __setitem__(self, key, value):
+        if isinstance(key, slice):
+            value = [_track_data_value(v, self._notify) for v in value]
+        else:
+            value = _track_data_value(value, self._notify)
+        super().__setitem__(key, value)
+        self._changed()
+
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        self._changed()
+
+    def clear(self):
+        super().clear()
+        self._changed()
+
+    def pop(self, *args):
+        value = super().pop(*args)
+        self._changed()
+        return value
+
+    def remove(self, value):
+        super().remove(value)
+        self._changed()
+
+    def sort(self, *args, **kwargs):
+        super().sort(*args, **kwargs)
+        self._changed()
+
+    def reverse(self):
+        super().reverse()
+        self._changed()
+
+
+class _TrackedDict(dict):
+    def __init__(self, values=(), notify: Callable[[], None] | None = None, **kwargs):
+        self._notify = notify
+        initial = dict(values, **kwargs)
+        super().__init__((k, _track_data_value(v, notify)) for k, v in initial.items())
+
+    def _changed(self) -> None:
+        if self._notify:
+            self._notify()
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, _track_data_value(value, self._notify))
+        self._changed()
+
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        self._changed()
+
+    def clear(self):
+        super().clear()
+        self._changed()
+
+    def pop(self, *args):
+        value = super().pop(*args)
+        self._changed()
+        return value
+
+    def popitem(self):
+        value = super().popitem()
+        self._changed()
+        return value
+
+    def setdefault(self, key, default=None):
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def update(self, *args, **kwargs):
+        for key, value in dict(*args, **kwargs).items():
+            super().__setitem__(key, _track_data_value(value, self._notify))
+        self._changed()
+
+
+def _track_data_value(value: Any, notify: Callable[[], None] | None) -> Any:
+    if isinstance(value, _TrackedDict) or isinstance(value, _TrackedList):
+        value._notify = notify
+        return value
+    if isinstance(value, dict):
+        return _TrackedDict(value, notify)
+    if isinstance(value, list):
+        return _TrackedList(value, notify)
+    return value
 
 
 @dataclass
@@ -203,6 +324,429 @@ class RequestContext:
         self.request = request
 
 
+class SessionMedia:
+    """Helpers for turning generated media into persistent gallery items."""
+
+    __slots__ = ("_session",)
+
+    def __init__(self, session: "Session") -> None:
+        self._session = session
+
+    async def image(
+        self,
+        source: str | bytes | bytearray,
+        *,
+        caption: str = "",
+        alt: str = "",
+        filename: str | None = None,
+        mime_type: str | None = None,
+        copy_remote: bool = False,
+    ) -> dict[str, Any]:
+        return await self._item(
+            "image",
+            source,
+            caption=caption,
+            alt=alt,
+            filename=filename,
+            mime_type=mime_type,
+            copy_remote=copy_remote,
+        )
+
+    async def video(
+        self,
+        source: str | bytes | bytearray,
+        *,
+        poster: str | bytes | bytearray | None = None,
+        caption: str = "",
+        alt: str = "",
+        filename: str | None = None,
+        mime_type: str | None = None,
+        copy_remote: bool = False,
+    ) -> dict[str, Any]:
+        item = await self._item(
+            "video",
+            source,
+            caption=caption,
+            alt=alt,
+            filename=filename,
+            mime_type=mime_type,
+            copy_remote=copy_remote,
+        )
+        if poster is not None:
+            poster_item = await self.image(
+                poster,
+                filename=_derive_media_filename(poster, "poster"),
+                copy_remote=copy_remote,
+            )
+            item["poster"] = poster_item["src"]
+        return item
+
+    async def _item(
+        self,
+        media_type: str,
+        source: str | bytes | bytearray,
+        *,
+        caption: str,
+        alt: str,
+        filename: str | None,
+        mime_type: str | None,
+        copy_remote: bool,
+    ) -> dict[str, Any]:
+        src, content_type = await self._persist_source(
+            source,
+            filename=filename,
+            mime_type=mime_type,
+            copy_remote=copy_remote,
+        )
+        item: dict[str, Any] = {
+            "type": media_type,
+            "src": src,
+            "download_url": src,
+        }
+        if caption:
+            item["caption"] = caption
+        if alt:
+            item["alt"] = alt
+        if content_type:
+            item["mime_type"] = content_type
+        return item
+
+    async def _persist_source(
+        self,
+        source: str | bytes | bytearray,
+        *,
+        filename: str | None,
+        mime_type: str | None,
+        copy_remote: bool,
+    ) -> tuple[str, str]:
+        import mimetypes
+        import os
+        import tempfile
+
+        if isinstance(source, (bytes, bytearray)):
+            content_type = mime_type or "application/octet-stream"
+            suffix = mimetypes.guess_extension(content_type) or ""
+            name = filename or f"media-{uuid.uuid4().hex[:10]}{suffix}"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+                f.write(bytes(source))
+                temp_path = f.name
+            try:
+                return await self._session._upload_local_file(temp_path, filename=name, content_type=content_type), content_type
+            finally:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+
+        if _is_remote_url(source) and not copy_remote:
+            return source, mime_type or ""
+
+        if _is_remote_url(source) and copy_remote:
+            import aiohttp
+
+            async with aiohttp.ClientSession() as http:
+                async with http.get(source) as resp:
+                    resp.raise_for_status()
+                    content_type = mime_type or resp.headers.get("content-type", "").split(";")[0] or "application/octet-stream"
+                    suffix = mimetypes.guess_extension(content_type) or ""
+                    name = filename or _derive_media_filename(source, f"media-{uuid.uuid4().hex[:10]}{suffix}")
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+                        async for chunk in resp.content.iter_chunked(8192):
+                            f.write(chunk)
+                        temp_path = f.name
+            try:
+                return await self._session._upload_local_file(temp_path, filename=name, content_type=content_type), content_type
+            finally:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+
+        path = os.fspath(source)
+        content_type = mime_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
+        name = filename or os.path.basename(path)
+        return await self._session._upload_local_file(path, filename=name, content_type=content_type), content_type
+
+
+@dataclass(slots=True)
+class TerminalResult:
+    """Completed command result returned by ``Terminal.shell`` and ``exec``."""
+
+    exit_code: int
+    stdout: str
+    stderr: str
+    status: str
+    command: str
+    argv: list[str] | None = None
+    timed_out: bool = False
+
+    @property
+    def ok(self) -> bool:
+        return self.exit_code == 0 and not self.timed_out
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+    def __int__(self) -> int:
+        return self.exit_code
+
+    def __str__(self) -> str:
+        return self.stdout or self.stderr or f"exit {self.exit_code}"
+
+
+class Terminal:
+    """Durable terminal transcript attached to a session.
+
+    Create or reopen handles with ``session.terminal("name")``. The name is
+    stable across message handlers and tasks; the SDK derives the underlying
+    chat block id from it.
+    """
+
+    __slots__ = (
+        "_session",
+        "name",
+        "title",
+        "cwd",
+        "env",
+        "block_id",
+        "_runs",
+        "_revision",
+        "_shown",
+    )
+
+    def __init__(
+        self,
+        session: "Session",
+        name: str,
+        *,
+        title: str = "",
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        clean_name = (name or "").strip()
+        if not clean_name:
+            raise ValueError("terminal name must not be empty")
+        self._session = session
+        self.name = clean_name
+        self.title = title or clean_name
+        self.cwd = cwd
+        self.env = dict(env or {})
+        self.block_id = _terminal_block_id(session.id, clean_name)
+        self._runs: list[dict[str, Any]] = self._load_runs_from_history()
+        self._revision = self._load_revision_from_history()
+        self._shown = self._revision > 0 or bool(self._runs)
+
+    def _load_runs_from_history(self) -> list[dict[str, Any]]:
+        for msg in reversed(self._session.history):
+            if msg.sender != "block" or not msg.text:
+                continue
+            try:
+                envelope = json.loads(msg.text)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if envelope.get("id") != self.block_id or envelope.get("type") != "terminal":
+                continue
+            payload = envelope.get("payload") or {}
+            runs = payload.get("runs")
+            if isinstance(runs, list):
+                restored = [r for r in runs if isinstance(r, dict)]
+                for run in restored:
+                    if run.get("status") == "running":
+                        run["status"] = "disconnected"
+                        run["ended_at"] = run.get("ended_at") or _now_ms()
+                return restored
+        return []
+
+    def _load_revision_from_history(self) -> int:
+        for msg in reversed(self._session.history):
+            if msg.sender != "block" or not msg.text:
+                continue
+            try:
+                envelope = json.loads(msg.text)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if envelope.get("id") != self.block_id or envelope.get("type") != "terminal":
+                continue
+            payload = envelope.get("payload") or {}
+            revision = payload.get("revision")
+            return int(revision) if isinstance(revision, (int, float)) else 0
+        return 0
+
+    async def _emit(self) -> None:
+        if not self._shown:
+            return
+        self._revision += 1
+        await self._session.show(
+            Block(
+                id=self.block_id,
+                type="terminal",
+                payload={
+                    "name": self.name,
+                    "title": self.title,
+                    "cwd": self.cwd or "",
+                    "revision": self._revision,
+                    "runs": self._runs,
+                },
+            )
+        )
+
+    async def show(self, *, title: str | None = None) -> "Terminal":
+        """Render the terminal block without starting a command."""
+        if title is not None:
+            self.title = title
+        self._shown = True
+        await self._emit()
+        return self
+
+    async def shell(
+        self,
+        command: str,
+        *,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> TerminalResult:
+        """Run a shell command string and append output to this terminal."""
+        if not command.strip():
+            raise ValueError("shell command must not be empty")
+        return await self._run(
+            mode="shell",
+            command=command,
+            argv=None,
+            cwd=cwd,
+            env=env,
+            timeout=timeout,
+        )
+
+    async def exec(
+        self,
+        cmd: str,
+        *args: str,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> TerminalResult:
+        """Run a structured argv command and append output to this terminal."""
+        if not cmd.strip():
+            raise ValueError("exec command must not be empty")
+        return await self._run(
+            mode="exec",
+            command=" ".join([cmd, *args]),
+            argv=[cmd, *args],
+            cwd=cwd,
+            env=env,
+            timeout=timeout,
+        )
+
+    async def _run(
+        self,
+        *,
+        mode: str,
+        command: str,
+        argv: list[str] | None,
+        cwd: str | None,
+        env: dict[str, str] | None,
+        timeout: float | None,
+    ) -> TerminalResult:
+        import os
+
+        run_env = os.environ.copy()
+        run_env.update(self.env)
+        if env:
+            run_env.update(env)
+        run_cwd = cwd or self.cwd or None
+        run: dict[str, Any] = {
+            "id": f"run_{uuid.uuid4().hex[:12]}",
+            "mode": mode,
+            "command": command,
+            "cwd": run_cwd or "",
+            "status": "running",
+            "started_at": _now_ms(),
+            "chunks": [],
+        }
+        if argv is not None:
+            run["argv"] = list(argv)
+        self._runs.append(run)
+        await self._emit()
+
+        if mode == "shell":
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                cwd=run_cwd,
+                env=run_env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        else:
+            assert argv is not None
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
+                cwd=run_cwd,
+                env=run_env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+        seq = 0
+        stdout_parts: list[str] = []
+        stderr_parts: list[str] = []
+
+        async def read_stream(stream_name: str, stream: asyncio.StreamReader | None) -> None:
+            nonlocal seq
+            if stream is None:
+                return
+            while True:
+                chunk = await stream.read(4096)
+                if not chunk:
+                    return
+                text = chunk.decode(errors="replace")
+                if stream_name == "stderr":
+                    stderr_parts.append(text)
+                else:
+                    stdout_parts.append(text)
+                run["chunks"].append({
+                    "stream": stream_name,
+                    "text": text,
+                    "timestamp": _now_ms(),
+                    "seq": seq,
+                })
+                seq += 1
+                await self._emit()
+
+        readers = [
+            asyncio.create_task(read_stream("stdout", proc.stdout)),
+            asyncio.create_task(read_stream("stderr", proc.stderr)),
+        ]
+        timed_out = False
+        try:
+            if timeout is None:
+                exit_code = await proc.wait()
+            else:
+                exit_code = await asyncio.wait_for(proc.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            timed_out = True
+            proc.kill()
+            exit_code = await proc.wait()
+        await asyncio.gather(*readers, return_exceptions=True)
+
+        run["exit_code"] = int(exit_code)
+        run["ended_at"] = _now_ms()
+        run["status"] = "timeout" if timed_out else ("completed" if exit_code == 0 else "failed")
+        await self._emit()
+        return TerminalResult(
+            exit_code=int(exit_code),
+            stdout="".join(stdout_parts),
+            stderr="".join(stderr_parts),
+            status=str(run["status"]),
+            command=command,
+            argv=list(argv) if argv is not None else None,
+            timed_out=timed_out,
+        )
+
+
+TerminalBlock = Terminal
+
+
 class Session:
     """Per-user conversation context, persisted across messages.
 
@@ -226,12 +770,14 @@ class Session:
         "history",
         "data",
         "integrations",
+        "media",
         "_reply_callback",
         "_stream_callback",
         "_stream_write_callback",
         "_stream_reply_factory",
         "_notify_callback",
         "_block_callback",
+        "_data_change_callback",
         "_db_proxy",
         "_runner",
         "_runner_stub",
@@ -253,20 +799,37 @@ class Session:
         self.user = user
         self.channel = channel
         self.history: list[Message] = history or []
-        self.data: dict[str, Any] = data or {}
+        self.data: dict[str, Any] = _track_data_value(data or {}, self._notify_data_changed)
         self.integrations: dict[str, IntegrationCredentials] = integrations or {}
+        self.media = SessionMedia(self)
         self._reply_callback: Any = None
         self._stream_callback: Any = None
         self._stream_write_callback: Any = None
         self._stream_reply_factory: Any = None
         self._notify_callback: Any = None
         self._block_callback: Any = None
+        self._data_change_callback: Any = None
         self._db_proxy: ScopedDatabaseProxy | None = None
         self._runner: Any = None
         self._runner_stub: Any = None
         self._session_stub: Any = None
         self._app_id: str = ""
         self._kv: Collection | None = None
+
+    def _notify_data_changed(self) -> None:
+        cb = self._data_change_callback
+        if cb is None:
+            return
+        try:
+            result = cb()
+            if asyncio.iscoroutine(result):
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(result)
+                except RuntimeError:
+                    pass
+        except Exception:
+            pass
 
     @property
     def db(self) -> ScopedDatabaseProxy:
@@ -466,6 +1029,44 @@ class Session:
             return
         envelope = block.to_envelope()
         await self._block_callback(json.dumps(envelope))
+
+    def terminal(
+        self,
+        name: str,
+        *,
+        title: str = "",
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> Terminal:
+        """Create or reopen a durable terminal transcript for this session."""
+        return Terminal(self, name, title=title, cwd=cwd, env=env)
+
+    async def show_terminal(
+        self,
+        *,
+        title: str | None = None,
+        name: str | None = None,
+        terminal: Terminal | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> Terminal:
+        """Render a terminal transcript and return its handle.
+
+        Pass ``terminal=`` to show an existing named handle created with
+        ``session.terminal("name")``. Without ``terminal=``, this creates a
+        fresh one-off terminal unless ``name=`` is provided.
+        """
+        if terminal is not None:
+            if terminal._session is not self:
+                raise ValueError("terminal belongs to a different session")
+            return await terminal.show(title=title)
+        term = self.terminal(
+            name or f"terminal_{uuid.uuid4().hex[:8]}",
+            title=title or "Terminal",
+            cwd=cwd,
+            env=env,
+        )
+        return await term.show()
 
     async def show_task(
         self, handle_or_id: Any, *, message: str | None = None
@@ -698,7 +1299,13 @@ class Session:
         )
         return approved
 
-    async def _upload_local_file(self, path: str) -> str:
+    async def _upload_local_file(
+        self,
+        path: str,
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+    ) -> str:
         """Read a local file and upload it via the runner's UploadFile gRPC."""
         import mimetypes
         import os
@@ -713,8 +1320,8 @@ class Session:
         if stub is None:
             raise RuntimeError("no gateway connection available for file upload")
 
-        filename = os.path.basename(path)
-        content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+        filename = filename or os.path.basename(path)
+        content_type = content_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
 
         with open(path, "rb") as f:
             data = f.read()
@@ -1006,6 +1613,8 @@ def _external_block_fallback(block: Block) -> str:
     if typ == "task_card":
         message = payload.get("message") or "Task started."
         return str(message)
+    if typ == "terminal":
+        return str(payload.get("title") or "Terminal output is available in the web app.")
 
     return ""
 
@@ -1108,6 +1717,20 @@ def _slugify_step_label(label: str) -> str:
             out.append("_")
     slug = "".join(out).strip("_")
     return slug or uuid.uuid4().hex[:10]
+
+
+def _terminal_block_id(session_id: str, name: str) -> str:
+    raw = f"{session_id}:{name}".encode()
+    return "term_" + hashlib.sha1(raw).hexdigest()[:16]
+
+
+def _derive_media_filename(source: Any, fallback: str) -> str:
+    if isinstance(source, str):
+        path = urlparse(source).path if _is_remote_url(source) else source
+        name = path.rsplit("/", 1)[-1]
+        if name:
+            return name
+    return fallback
 
 
 def current_session() -> Session | None:

@@ -613,6 +613,63 @@ class Route:
 
         self._middleware_stack_built = True
 
+    async def call_async(
+        self,
+        router_middlewares: list[Callable],
+        app: ApiGatewayResolver,
+        route_arguments: dict[str, str],
+    ) -> dict | tuple | Response:
+        from aws_lambda_powertools.event_handler.middlewares.async_utils import (
+            AsyncMiddlewareFrame,
+            _registered_api_adapter_async,
+        )
+
+        all_middlewares: list[Callable[..., Any]] = []
+
+        route_validation_enabled = (
+            self.enable_validation if self.enable_validation is not None else app._enable_validation
+        )
+
+        if route_validation_enabled and not hasattr(app, "_request_validation_middleware"):
+            from aws_lambda_powertools.event_handler.middlewares.openapi_validation import (
+                OpenAPIRequestValidationMiddleware,
+                OpenAPIResponseValidationMiddleware,
+            )
+
+            app._request_validation_middleware = OpenAPIRequestValidationMiddleware()
+            app._response_validation_middleware = OpenAPIResponseValidationMiddleware(
+                validation_serializer=app._serializer,
+                has_response_validation_error=app._has_response_validation_error,
+            )
+
+        if route_validation_enabled and hasattr(app, "_request_validation_middleware"):
+            all_middlewares.append(app._request_validation_middleware)
+
+        all_middlewares.extend(router_middlewares + self.middlewares)
+
+        if route_validation_enabled and hasattr(app, "_response_validation_middleware"):
+            all_middlewares.append(app._response_validation_middleware)
+
+        all_middlewares.append(_registered_api_adapter_async)
+
+        logger.debug(f"Building async middleware stack: {all_middlewares}")
+
+        if app._debug:
+            print(f"\nProcessing Route (async):::{self.func.__name__} ({app.context['_path']})")
+            print("\nAsync Middleware Stack:")
+            print("=================")
+            print("\n".join(getattr(item, "__name__", "Unknown") for item in all_middlewares))
+            print("=================")
+
+        app.append_context(_route_args=route_arguments)
+
+        # Build async chain from inside-out (not cached, avoids state conflicts with sync cache)
+        next_handler: Callable = self.func
+        for handler in reversed(all_middlewares):
+            next_handler = AsyncMiddlewareFrame(current_middleware=handler, next_middleware=next_handler)
+
+        return await next_handler(app)
+
     @property
     def dependant(self) -> Dependant:
         if self._dependant is None:
@@ -2509,6 +2566,154 @@ class ApiGatewayResolver(BaseRouter):
 
         return response
 
+    async def resolve_async(self, event: Mapping[str, Any], context: LambdaContext) -> dict[str, Any]:
+        """Async version of resolve() for native async handler support.
+
+        Use this method when your route handlers use async/await. The resolution
+        pipeline supports both sync and async handlers transparently.
+
+        Parameters
+        ----------
+        event: dict[str, Any]
+            Event
+        context: LambdaContext
+            Lambda context
+        Returns
+        -------
+        dict
+            Returns the dict response
+
+        Example
+        -------
+
+        ```python
+        import asyncio
+        from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
+
+        app = APIGatewayHttpResolver()
+
+        @app.get("/async")
+        async def async_handler():
+            return {"message": "async works"}
+
+        def lambda_handler(event, context):
+            return asyncio.run(app.resolve_async(event, context))
+        ```
+        """
+        if isinstance(event, BaseProxyEvent):
+            warnings.warn(
+                "You don't need to serialize event to Event Source Data Class when using Event Handler; "
+                "see issue #1152",
+                stacklevel=2,
+            )
+            event = event.raw_event
+
+        if self._debug:
+            print(self._serializer(cast(dict, event)))
+
+        BaseRouter.current_event = self._to_proxy_event(cast(dict, event))
+        BaseRouter.lambda_context = context
+
+        response = (await self._resolve_async()).build(self.current_event, self._cors)
+
+        if self._debug:
+            print("\nProcessed Middlewares:")
+            print("======================")
+            print("\n".join(self.processed_stack_frames))
+            print("======================")
+
+        self.clear_context()
+
+        return response
+
+    async def _resolve_async(self) -> ResponseBuilder:
+        method = self.current_event.http_method.upper()
+        path = self._remove_prefix(self.current_event.path)
+
+        registered_routes = self._static_routes + self._dynamic_routes
+
+        for route in registered_routes:
+            if method != route.method:
+                continue
+            match_results: Match | None = route.rule.match(path)
+            if match_results:
+                logger.debug("Found a registered route. Calling async function")
+                self.append_context(_route=route, _path=path)
+
+                route_keys = self._convert_matches_into_route_keys(match_results)
+                return await self._call_route_async(route, route_keys)
+
+        return await self._handle_not_found_async(method=method, path=path)
+
+    async def _call_route_async(self, route: Route, route_arguments: dict[str, str]) -> ResponseBuilder:
+        try:
+            self._reset_processed_stack()
+
+            response = await route.call_async(
+                router_middlewares=self._router_middlewares,
+                app=self,
+                route_arguments=route_arguments,
+            )
+
+            return self._response_builder_class(
+                response=self._to_response(response),  # type: ignore[arg-type]
+                serializer=self._serializer,
+                route=route,
+            )
+        except Exception as exc:
+            response_builder = self._call_exception_handler(exc, route)
+            if response_builder:
+                return response_builder
+
+            logger.exception(exc)
+            if self._debug:
+                return self._response_builder_class(
+                    response=Response(
+                        status_code=500,
+                        content_type=content_types.TEXT_PLAIN,
+                        body="".join(traceback.format_exc()),
+                    ),
+                    serializer=self._serializer,
+                    route=route,
+                )
+
+            raise
+
+    async def _handle_not_found_async(self, method: str, path: str) -> ResponseBuilder:
+        logger.debug(f"No match found for path {path} and method {method}")
+
+        def not_found_handler():
+            _headers: dict[str, Any] = {}
+
+            if self._cors and method == "OPTIONS":
+                logger.debug("Pre-flight request detected. Returning CORS with empty response")
+                _headers["Access-Control-Allow-Methods"] = CORSConfig.build_allow_methods(self._cors_methods)
+                return Response(status_code=204, content_type=None, headers=_headers, body="")
+
+            custom_not_found_handler = self.exception_handler_manager.lookup_exception_handler(NotFoundError)
+            if custom_not_found_handler:
+                return custom_not_found_handler(NotFoundError())
+
+            return Response(
+                status_code=HTTPStatus.NOT_FOUND.value,
+                content_type=content_types.APPLICATION_JSON,
+                headers=_headers,
+                body={"statusCode": HTTPStatus.NOT_FOUND.value, "message": "Not found"},
+            )
+
+        route = Route(
+            rule=self._compile_regex(r".*"),
+            method=method,
+            path=path,
+            func=not_found_handler,
+            cors=self._cors_enabled,
+            compress=False,
+        )
+
+        self.append_context(_route=route, _path=path)
+
+        return await self._call_route_async(route=route, route_arguments={})
+
     def __call__(self, event, context) -> Any:
         return self.resolve(event, context)
 
@@ -3138,22 +3343,13 @@ class ALBResolver(ApiGatewayResolver):
         # ALB doesn't have a stage variable, so we just return an empty string
         return ""
 
-    # BedrockResponse is not used here but adding the same signature to keep strong typing
     @override
     def _to_response(self, result: dict | tuple | Response | BedrockResponse) -> Response | BedrockResponse:
         """Convert the route's result to a Response
 
         ALB requires a non-null body otherwise it converts as HTTP 5xx
-
-         3 main result types are supported:
-
-        - Dict[str, Any]: Rest api response with just the Dict to json stringify and content-type is set to
-          application/json
-        - Tuple[dict, int]: Same dict handling as above but with the option of including a status code
-        - Response: returned as is, and allows for more flexibility
         """
-
-        # NOTE: Minor override for early return on Response with null body for ALB
+        # ALB doesn't support null body - convert before building the final response
         if isinstance(result, Response) and result.body is None:
             logger.debug("ALB doesn't allow None responses; converting to empty string")
             result.body = ""

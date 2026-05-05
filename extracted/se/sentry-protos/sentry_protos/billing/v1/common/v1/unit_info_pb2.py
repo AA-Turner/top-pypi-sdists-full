@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2sentry_protos/billing/v1/common/v1/unit_info.proto\x12\"sentry_protos.billing.v1.common.v1\"\x80\x01\n\x08UnitInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\tfull_name\x18\x02 \x01(\t\x12?\n\tbase_unit\x18\x03 \x01(\x0e\x32,.sentry_protos.billing.v1.common.v1.BaseUnit\x12\x12\n\nmultiplier\x18\x04 \x01(\x01*d\n\x08\x42\x61seUnit\x12\x19\n\x15\x42\x41SE_UNIT_UNSPECIFIED\x10\x00\x12\x12\n\x0e\x42\x41SE_UNIT_BYTE\x10\x01\x12\x13\n\x0f\x42\x41SE_UNIT_COUNT\x10\x02\x12\x14\n\x10\x42\x41SE_UNIT_SECOND\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n2sentry_protos/billing/v1/common/v1/unit_info.proto\x12\"sentry_protos.billing.v1.common.v1\"\x80\x01\n\x08UnitInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\tfull_name\x18\x02 \x01(\t\x12?\n\tbase_unit\x18\x03 \x01(\x0e\x32,.sentry_protos.billing.v1.common.v1.BaseUnit\x12\x12\n\nmultiplier\x18\x04 \x01(\x01*\x7f\n\x08\x42\x61seUnit\x12\x19\n\x15\x42\x41SE_UNIT_UNSPECIFIED\x10\x00\x12\x12\n\x0e\x42\x41SE_UNIT_BYTE\x10\x01\x12\x13\n\x0f\x42\x41SE_UNIT_COUNT\x10\x02\x12\x14\n\x10\x42\x41SE_UNIT_SECOND\x10\x03\x12\x19\n\x15\x42\x41SE_UNIT_MILLISECOND\x10\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -22,7 +22,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.co
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_BASEUNIT']._serialized_start=221
-  _globals['_BASEUNIT']._serialized_end=321
+  _globals['_BASEUNIT']._serialized_end=348
   _globals['_UNITINFO']._serialized_start=91
   _globals['_UNITINFO']._serialized_end=219
 # @@protoc_insertion_point(module_scope)

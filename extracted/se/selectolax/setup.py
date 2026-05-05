@@ -61,6 +61,8 @@ COMPILER_DIRECTIVES = {
     "emit_code_comments": True,
     "boundscheck": False,
     "wraparound": False,
+    "freethreading_compatible": "True",
+    "subinterpreters_compatible": "own_gil",
 }
 
 
@@ -143,8 +145,8 @@ def make_extensions():
             "-Wno-unused-variable",
             "-Wno-unused-function",
             "-std=c99",
-            "-O2",
-            "-g0",
+            "-O0",
+            "-g",
         ]
         compile_arguments.extend(args)
         compile_arguments_lxb.extend(args)
@@ -191,7 +193,7 @@ def make_extensions():
 
 setup(
     name="selectolax",
-    version="0.4.7",
+    version="0.4.8",
     description="A fast HTML5 parser with CSS selectors, written in Cython, using Modest and Lexbor engines.",
     long_description=readme,
     author="Artem Golubin",

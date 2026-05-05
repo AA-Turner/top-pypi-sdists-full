@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseInputItemMcpListTools", "Tool"]
 
 
 class Tool(BaseModel):
+    """A tool available on an MCP server."""
+
     input_schema: object
 
     name: str
@@ -33,6 +35,8 @@ class Tool(BaseModel):
 
 
 class OpenAITypesResponsesResponseInputItemMcpListTools(BaseModel):
+    """A list of tools available on an MCP server."""
+
     id: str
 
     server_label: str

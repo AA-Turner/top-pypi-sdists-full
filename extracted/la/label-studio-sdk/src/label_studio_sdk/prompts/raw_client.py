@@ -6,7 +6,8 @@ from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import jsonable_encoder
+from ..core.jsonable_encoder import encode_path_param
+from ..core.parse_error import ParsingError
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.unchecked_base_model import construct_type
@@ -16,11 +17,13 @@ from ..types.batch_predictions import BatchPredictions
 from ..types.model_interface import ModelInterface
 from ..types.model_interface_serializer_get import ModelInterfaceSerializerGet
 from ..types.paginated_all_roles_project_list_list import PaginatedAllRolesProjectListList
+from ..types.paginated_model_interface_serializer_get_list import PaginatedModelInterfaceSerializerGetList
 from ..types.paginated_project_subset_tasks_response_list import PaginatedProjectSubsetTasksResponseList
 from ..types.project_subset_item import ProjectSubsetItem
 from ..types.skill_name_enum import SkillNameEnum
 from ..types.user_simple_request import UserSimpleRequest
 from .types.compatible_projects_prompts_request_project_type import CompatibleProjectsPromptsRequestProjectType
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -97,6 +100,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def batch_predictions(
@@ -166,6 +173,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def subset_tasks(
@@ -226,7 +237,7 @@ class RawPromptsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(project_pk)}/subset-tasks",
+            f"api/projects/{encode_path_param(project_pk)}/subset-tasks",
             method="GET",
             params={
                 "include_total": include_total,
@@ -263,6 +274,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def subsets(
@@ -299,7 +314,7 @@ class RawPromptsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(project_pk)}/subsets",
+            f"api/projects/{encode_path_param(project_pk)}/subsets",
             method="GET",
             params={
                 "ordering": ordering,
@@ -319,11 +334,21 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def list(
-        self, *, ordering: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.List[ModelInterfaceSerializerGet]]:
+        self,
+        *,
+        ordering: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[PaginatedModelInterfaceSerializerGetList]:
         """
         List all prompts.
 
@@ -332,12 +357,21 @@ class RawPromptsClient:
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
+        page : typing.Optional[int]
+            A page number within the paginated result set.
+
+        page_size : typing.Optional[int]
+            Number of results to return per page.
+
+        search : typing.Optional[str]
+            A search term.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[typing.List[ModelInterfaceSerializerGet]]
+        HttpResponse[PaginatedModelInterfaceSerializerGetList]
 
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -345,15 +379,18 @@ class RawPromptsClient:
             method="GET",
             params={
                 "ordering": ordering,
+                "page": page,
+                "page_size": page_size,
+                "search": search,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.List[ModelInterfaceSerializerGet],
+                    PaginatedModelInterfaceSerializerGetList,
                     construct_type(
-                        type_=typing.List[ModelInterfaceSerializerGet],  # type: ignore
+                        type_=PaginatedModelInterfaceSerializerGetList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -361,6 +398,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
@@ -448,6 +489,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def compatible_projects(
@@ -508,6 +553,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get(
@@ -535,7 +584,7 @@ class RawPromptsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/",
+            f"api/prompts/{encode_path_param(id)}/",
             method="GET",
             request_options=request_options,
         )
@@ -552,6 +601,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[None]:
@@ -576,7 +629,7 @@ class RawPromptsClient:
         HttpResponse[None]
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/",
+            f"api/prompts/{encode_path_param(id)}/",
             method="DELETE",
             request_options=request_options,
         )
@@ -586,6 +639,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def update(
@@ -643,7 +700,7 @@ class RawPromptsClient:
 
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/",
+            f"api/prompts/{encode_path_param(id)}/",
             method="PATCH",
             json={
                 "associated_projects": associated_projects,
@@ -676,6 +733,10 @@ class RawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
 
@@ -750,6 +811,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def batch_predictions(
@@ -819,6 +884,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def subset_tasks(
@@ -879,7 +948,7 @@ class AsyncRawPromptsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(project_pk)}/subset-tasks",
+            f"api/projects/{encode_path_param(project_pk)}/subset-tasks",
             method="GET",
             params={
                 "include_total": include_total,
@@ -916,6 +985,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def subsets(
@@ -952,7 +1025,7 @@ class AsyncRawPromptsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/projects/{jsonable_encoder(project_pk)}/subsets",
+            f"api/projects/{encode_path_param(project_pk)}/subsets",
             method="GET",
             params={
                 "ordering": ordering,
@@ -972,11 +1045,21 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def list(
-        self, *, ordering: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.List[ModelInterfaceSerializerGet]]:
+        self,
+        *,
+        ordering: typing.Optional[str] = None,
+        page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[PaginatedModelInterfaceSerializerGetList]:
         """
         List all prompts.
 
@@ -985,12 +1068,21 @@ class AsyncRawPromptsClient:
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
 
+        page : typing.Optional[int]
+            A page number within the paginated result set.
+
+        page_size : typing.Optional[int]
+            Number of results to return per page.
+
+        search : typing.Optional[str]
+            A search term.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[typing.List[ModelInterfaceSerializerGet]]
+        AsyncHttpResponse[PaginatedModelInterfaceSerializerGetList]
 
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -998,15 +1090,18 @@ class AsyncRawPromptsClient:
             method="GET",
             params={
                 "ordering": ordering,
+                "page": page,
+                "page_size": page_size,
+                "search": search,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.List[ModelInterfaceSerializerGet],
+                    PaginatedModelInterfaceSerializerGetList,
                     construct_type(
-                        type_=typing.List[ModelInterfaceSerializerGet],  # type: ignore
+                        type_=PaginatedModelInterfaceSerializerGetList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1014,6 +1109,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
@@ -1101,6 +1200,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def compatible_projects(
@@ -1161,6 +1264,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get(
@@ -1188,7 +1295,7 @@ class AsyncRawPromptsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/",
+            f"api/prompts/{encode_path_param(id)}/",
             method="GET",
             request_options=request_options,
         )
@@ -1205,6 +1312,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def delete(
@@ -1231,7 +1342,7 @@ class AsyncRawPromptsClient:
         AsyncHttpResponse[None]
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/",
+            f"api/prompts/{encode_path_param(id)}/",
             method="DELETE",
             request_options=request_options,
         )
@@ -1241,6 +1352,10 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def update(
@@ -1298,7 +1413,7 @@ class AsyncRawPromptsClient:
 
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/prompts/{jsonable_encoder(id)}/",
+            f"api/prompts/{encode_path_param(id)}/",
             method="PATCH",
             json={
                 "associated_projects": associated_projects,
@@ -1331,4 +1446,8 @@ class AsyncRawPromptsClient:
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)

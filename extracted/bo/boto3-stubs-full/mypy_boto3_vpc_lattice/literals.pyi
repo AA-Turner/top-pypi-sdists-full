@@ -47,6 +47,7 @@ __all__ = (
     "PrivateDnsPreferenceType",
     "ProtocolTypeType",
     "RegionName",
+    "ResourceConfigDnsResolutionType",
     "ResourceConfigurationIpAddressTypeType",
     "ResourceConfigurationStatusType",
     "ResourceConfigurationTypeType",
@@ -102,6 +103,7 @@ PrivateDnsPreferenceType = Literal[
     "VERIFIED_DOMAINS_ONLY",
 ]
 ProtocolTypeType = Literal["TCP"]
+ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 ResourceConfigurationIpAddressTypeType = Literal["DUALSTACK", "IPV4", "IPV6"]
 ResourceConfigurationStatusType = Literal[
     "ACTIVE",

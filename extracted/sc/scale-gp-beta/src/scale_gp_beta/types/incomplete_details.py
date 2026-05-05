@@ -11,6 +11,8 @@ __all__ = ["IncompleteDetails"]
 
 
 class IncompleteDetails(BaseModel):
+    """Details about why the response is incomplete."""
+
     reason: Optional[Literal["max_output_tokens", "content_filter"]] = None
 
     if TYPE_CHECKING:

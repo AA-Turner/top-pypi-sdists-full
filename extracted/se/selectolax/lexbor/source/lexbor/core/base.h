@@ -26,8 +26,8 @@ extern "C" {
 #include "lexbor/core/types.h"
 #include "lexbor/core/lexbor.h"
 
-#define LEXBOR_VERSION_MAJOR 2
-#define LEXBOR_VERSION_MINOR 7
+#define LEXBOR_VERSION_MAJOR 3
+#define LEXBOR_VERSION_MINOR 0
 #define LEXBOR_VERSION_PATCH 0
 
 #define LEXBOR_VERSION_STRING LEXBOR_STRINGIZE(LEXBOR_VERSION_MAJOR) "."       \
@@ -70,7 +70,8 @@ typedef enum {
     LXB_STATUS_STOPPED,
     LXB_STATUS_NEXT,
     LXB_STATUS_STOP,
-    LXB_STATUS_WARNING
+    LXB_STATUS_WARNING,
+    LXB_STATUS_SKIPPED
 }
 lexbor_status_t;
 

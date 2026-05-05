@@ -11,9 +11,9 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("directory", "0006_employeremployeerelationship_position_name"),
+        ("directory", "0001_squashed_20260501"),
         ("geography", "0001_initial"),
-        ("agenda", "0008_alter_calendaritem_item_type"),
+        ("agenda", "0001_squashed_20260501"),
     ]
 
     operations = [

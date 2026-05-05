@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 from collections import defaultdict
 import re
@@ -8,18 +9,44 @@ from pathlib import Path
 import io
 import uuid
 from PIL import Image
-from google import genai
-from google.genai.types import (
-    GenerateContentConfig,
-    HttpOptions,
-    Part,
-    ModelContent,
-    UserContent,
-    ThinkingConfig
-)
-from google.oauth2 import service_account
-from google.genai import types
 from navconfig import config
+
+# Lazy SDK guard: importing this module must not fail when google-genai is
+# absent. Names resolve to ``None`` and ``_require_google_sdk()`` raises an
+# actionable error the first time the client is instantiated.
+try:
+    from google import genai
+    from google.genai.types import (
+        GenerateContentConfig,
+        HttpOptions,
+        Part,
+        ModelContent,
+        UserContent,
+        ThinkingConfig,
+    )
+    from google.oauth2 import service_account
+    from google.genai import types
+    _GOOGLE_SDK_AVAILABLE = True
+except ImportError:  # pragma: no cover - exercised when extra is missing
+    genai = None  # type: ignore[assignment]
+    GenerateContentConfig = None  # type: ignore[assignment]
+    HttpOptions = None  # type: ignore[assignment]
+    Part = None  # type: ignore[assignment]
+    ModelContent = None  # type: ignore[assignment]
+    UserContent = None  # type: ignore[assignment]
+    ThinkingConfig = None  # type: ignore[assignment]
+    service_account = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
+    _GOOGLE_SDK_AVAILABLE = False
+
+
+def _require_google_sdk() -> None:
+    """Raise an actionable ImportError when google-genai is not installed."""
+    if not _GOOGLE_SDK_AVAILABLE:
+        raise ImportError(
+            "GoogleGenAIClient requires the 'google-genai' SDK. "
+            "Install with: pip install ai-parrot[google]"
+        )
 import pandas as pd
 from ..base import (
     AbstractClient,
@@ -70,6 +97,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
     _lightweight_model: str = "gemini-3.1-flash-lite-preview"
 
     def __init__(self, vertexai: bool = False, model_garden: bool = False, **kwargs):
+        _require_google_sdk()
         self.model_garden = model_garden
         self.vertexai: bool = True if model_garden else vertexai
         self.vertex_location = kwargs.get('location', config.get('VERTEX_REGION'))
@@ -1042,26 +1070,27 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                 self.logger.notice(f"🎯 Final Response from Gemini: {final_text[:200]}...")
                 if not final_text and all_tool_calls:
                     self.logger.warning(
-                        "Final response is empty after tool execution, generating summary..."
+                        "Final response is empty after tool execution. "
+                        "Skipping forced synthesis to avoid unnecessary delays."
                     )
-                    try:
-                        synthesis_prompt = """
-Please now generate the complete response based on all the information gathered from the tools.
-Provide a comprehensive answer to the original request.
-Synthesize the data and provide insights, analysis, and conclusions as appropriate.
-                        """
-                        current_response = await chat.send_message(
-                            synthesis_prompt,
-                            config=current_config
-                        )
-                        # Check if this worked
-                        synthesis_text = self._safe_extract_text(current_response)
-                        if synthesis_text:
-                            self.logger.info("Successfully generated synthesis response")
-                        else:
-                            self.logger.warning("Synthesis attempt also returned empty response")
-                    except Exception as e:
-                        self.logger.error(f"Synthesis attempt failed: {e}")
+                    # try:
+                    #     synthesis_prompt = """
+                    # Please now generate the complete response based on all the information gathered from the tools.
+                    # Provide a comprehensive answer to the original request.
+                    # Synthesize the data and provide insights, analysis, and conclusions as appropriate.
+                    #     """
+                    #     current_response = await chat.send_message(
+                    #         synthesis_prompt,
+                    #         config=current_config
+                    #     )
+                    #     # Check if this worked
+                    #     synthesis_text = self._safe_extract_text(current_response)
+                    #     if synthesis_text:
+                    #         self.logger.info("Successfully generated synthesis response")
+                    #     else:
+                    #         self.logger.warning("Synthesis attempt also returned empty response")
+                    # except Exception as e:
+                    #     self.logger.error(f"Synthesis attempt failed: {e}")
 
                 self.logger.info(
                     f"No function calls found - completed after {iteration-1} iterations"
@@ -1376,8 +1405,10 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
         handling special cases like thought_signature parts from reasoning models.
         """
 
-        # Pre-check for function calls to avoid library warnings when accessing .text
+        # Pre-check for function calls and thoughts to avoid library warnings when accessing .text
+        # and to prevent reasoning parts from leaking into the final output.
         has_function_call = False
+        has_thought = False
         try:
             if (hasattr(response, 'candidates') and response.candidates and
                 len(response.candidates) > 0 and hasattr(response.candidates[0], 'content') and
@@ -1386,13 +1417,15 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, 'function_call') and part.function_call:
                         has_function_call = True
-                        break
+                    if (hasattr(part, 'thought') and part.thought) or \
+                       (hasattr(part, 'thought_signature') and part.thought_signature):
+                        has_thought = True
         except Exception:
             pass
 
         # Method 1: Try response.text first (fastest path)
-        # Skip if we found a function call, as accessing .text triggers a warning in the library
-        if not has_function_call:
+        # Skip if we found a function call or a thought
+        if not has_function_call and not has_thought:
             try:
                 if hasattr(response, 'text') and response.text:
                     if (text := response.text.strip()):

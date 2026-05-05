@@ -2,8 +2,10 @@
 
 from inspect import cleandoc
 
+import pytest
 
-from selectolax.lexbor import LexborHTMLParser, parse_fragment, SelectolaxError
+
+from selectolax.lexbor import LexborHTMLParser, SelectolaxError, parse_fragment
 
 
 def clean_doc(text: str) -> str:
@@ -25,6 +27,86 @@ def test_sets_inner_html():
     parser.css_first("#main").inner_html = "<span>Test</span>"
     actual = parser.css_first("#main").inner_html
     assert actual == expected
+
+
+def test_html_pretty_document():
+    parser = LexborHTMLParser("<div><span>Hello</span><!-- note --></div>")
+    assert parser.html_pretty() == clean_doc(
+        """
+        <html>
+          <head>
+          </head>
+          <body>
+            <div>
+              <span>
+                "Hello"
+              </span>
+              <!--  note  -->
+            </div>
+          </body>
+        </html>
+        """
+    )
+
+
+def test_html_pretty_node_with_options():
+    parser = LexborHTMLParser("<div><span>Hello</span><!-- note --></div>")
+    node = parser.css_first("div")
+    assert node.html_pretty(skip_comment=True) == clean_doc(
+        """
+        <div>
+          <span>
+            "Hello"
+          </span>
+        </div>
+        """
+    )
+
+
+def test_html_pretty_skip_ws_nodes_option():
+    parser = LexborHTMLParser("<div>\n</div><span></span>", is_fragment=True)
+    assert parser.html_pretty(skip_ws_nodes=True) == clean_doc(
+        """
+        <div>
+        </div>
+        <span>
+        </span>
+        """
+    )
+
+
+def test_inner_html_pretty_node_with_options():
+    parser = LexborHTMLParser("<div><span>Hello</span><!-- note --></div>")
+    node = parser.css_first("div")
+    assert node.inner_html_pretty(skip_comment=True) == clean_doc(
+        """
+        <span>
+          "Hello"
+        </span>
+        """
+    )
+
+
+def test_inner_html_pretty_parser():
+    parser = LexborHTMLParser("<div><span>Hello</span></div>", is_fragment=True)
+    assert parser.inner_html_pretty(skip_ws_nodes=True) == clean_doc(
+        """
+        <span>
+        </span>
+        """
+    )
+
+
+def test_html_pretty_rejects_negative_indent():
+    parser = LexborHTMLParser("<div>Hello</div>")
+    with pytest.raises(ValueError):
+        parser.html_pretty(indent=-1)
+
+
+def test_inner_html_pretty_rejects_negative_indent():
+    parser = LexborHTMLParser("<div>Hello</div>")
+    with pytest.raises(ValueError):
+        parser.inner_html_pretty(indent=-1)
 
 
 def test_checking_attributes_does_not_segfault():
@@ -759,3 +841,19 @@ def test_create_node_empty_tag_name():
         assert False, "Should have raised an exception"
     except SelectolaxError:
         pass
+
+
+def test_unwrap_tags_segfault_prevention():
+    # This scenario used to cause a segmentation fault because the 'span' tag
+    # matches the node itself, causing it to be detached. The subsequent
+    # search for 'p' would then happen on a detached node.
+    html = "<div><span id='repro'><span><p>Text</p></span></span></div>"
+    tree = LexborHTMLParser(html)
+    node = tree.css_first("#repro")
+    assert node is not None
+
+    # Should not segfault
+    node.unwrap_tags(["span", "p"])
+
+    assert "Text" in tree.html
+    assert '<span id="repro">' not in tree.html

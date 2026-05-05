@@ -1,8 +1,10 @@
 import pytest
+from unittest.mock import MagicMock
 
 import transformers
 
 from outlines.models.transformers import (
+    SPIECE_UNDERLINE,
     get_llama_tokenizer_types,
     TransformerTokenizer,
 )
@@ -140,3 +142,12 @@ def test_transformer_tokenizer_getstate_setstate(
 
     another_transformer_tokenizer.__setstate__(state)
     assert another_transformer_tokenizer == transformer_tokenizer
+
+
+def test_spiece_underline_constant():
+    token = f"{SPIECE_UNDERLINE}hello"
+    tokenizer = TransformerTokenizer.__new__(TransformerTokenizer)
+    tokenizer.tokenizer = MagicMock()
+    tokenizer.tokenizer.convert_tokens_to_string.return_value = "hello"
+
+    assert tokenizer.convert_token_to_string(token) == " hello"

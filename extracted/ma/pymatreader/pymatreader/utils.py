@@ -280,7 +280,14 @@ def _handle_ndarray(values: np.ndarray) -> np.ndarray | int | float | complex:
     """Handle conversion of ndarrays."""
     values = np.squeeze(values).T
     if values.dtype.names == ('real', 'imag'):
-        values = np.array(values.view(complex))
+        dtype: type[np.complexfloating]
+
+        if values.dtype['real'].name == 'float32':
+            dtype = np.complex64
+        else:
+            dtype = np.complex128
+
+        values = np.array(values.view(dtype))
 
     if values.size == 1:
         return values.item()

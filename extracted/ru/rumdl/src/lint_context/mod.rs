@@ -40,7 +40,7 @@ macro_rules! profile_section {
 pub(super) struct SkipByteRanges<'a> {
     pub(super) html_comment_ranges: &'a [crate::utils::skip_context::ByteRange],
     pub(super) autodoc_ranges: &'a [crate::utils::skip_context::ByteRange],
-    pub(super) quarto_div_ranges: &'a [crate::utils::skip_context::ByteRange],
+    pub(super) pandoc_div_ranges: &'a [crate::utils::skip_context::ByteRange],
     pub(super) pymdown_block_ranges: &'a [crate::utils::skip_context::ByteRange],
 }
 
@@ -85,7 +85,20 @@ pub struct LintContext<'a> {
     pub source_file: Option<PathBuf>,     // Source file path (for rules that need file context)
     jsx_expression_ranges: Vec<(usize, usize)>, // Pre-computed JSX expression ranges (MDX: {expression})
     mdx_comment_ranges: Vec<(usize, usize)>, // Pre-computed MDX comment ranges ({/* ... */})
-    citation_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc/Quarto citation ranges (Quarto: @key, [@key])
+    citation_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc/Quarto citation ranges (@key, [@key])
+    pandoc_div_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc/Quarto div block ranges (::: ... :::)
+    inline_footnote_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc inline footnote ranges (^[...])
+    pandoc_header_slugs: std::collections::HashSet<String>, // Pre-computed Pandoc implicit header reference slugs
+    example_list_marker_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc example-list marker ranges (@) / (@label)
+    example_reference_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc example reference ranges (@label) inline
+    sub_super_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc subscript (~x~) and superscript (^x^) ranges
+    inline_code_attr_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc inline code attribute ranges (`code`{.lang})
+    bracketed_span_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc bracketed span ranges ([text]{attrs})
+    line_block_ranges: Vec<crate::utils::skip_context::ByteRange>,     // Pre-computed Pandoc line block ranges (| text)
+    pipe_table_caption_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc pipe-table caption ranges (: caption)
+    pandoc_metadata_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc YAML metadata block ranges (--- ... --- or ...)
+    grid_table_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc grid-table ranges (+---+---+)
+    multi_line_table_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc multi-line table ranges
     shortcode_ranges: Vec<(usize, usize)>, // Pre-computed Hugo/Quarto shortcode ranges ({{< ... >}} and {{% ... %}})
     link_title_ranges: Vec<(usize, usize)>, // Pre-computed sorted link title byte ranges
     code_span_byte_ranges: Vec<(usize, usize)>, // Pre-computed code span byte ranges from pulldown-cmark
@@ -144,10 +157,10 @@ impl<'a> LintContext<'a> {
             crate::utils::mkdocstrings_refs::detect_autodoc_block_ranges(content)
         );
 
-        // Pre-compute Quarto div block ranges for Quarto flavor
-        let quarto_div_ranges = profile_section!("Quarto div ranges", profile, {
-            if flavor == MarkdownFlavor::Quarto {
-                crate::utils::quarto_divs::detect_div_block_ranges(content)
+        // Pre-compute Pandoc/Quarto div block ranges for Pandoc-compatible flavors
+        let pandoc_div_ranges = profile_section!("Pandoc div ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_div_block_ranges(content)
             } else {
                 Vec::new()
             }
@@ -167,7 +180,7 @@ impl<'a> LintContext<'a> {
         let skip_ranges = SkipByteRanges {
             html_comment_ranges: &html_comment_ranges,
             autodoc_ranges: &autodoc_ranges,
-            quarto_div_ranges: &quarto_div_ranges,
+            pandoc_div_ranges: &pandoc_div_ranges,
             pymdown_block_ranges: &pymdown_block_ranges,
         };
         let (mut lines, emphasis_spans) = profile_section!(
@@ -577,10 +590,118 @@ impl<'a> LintContext<'a> {
             crate::utils::jinja_utils::find_jinja_ranges(content)
         );
 
-        // Pre-compute Pandoc/Quarto citation ranges for Quarto flavor
+        // Pre-compute Pandoc/Quarto citation ranges for Pandoc-compatible flavors
         let citation_ranges = profile_section!("Citation ranges", profile, {
-            if flavor == MarkdownFlavor::Quarto {
-                crate::utils::quarto_divs::find_citation_ranges(content)
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::find_citation_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc inline footnote ranges for Pandoc-compatible flavors
+        let inline_footnote_ranges = profile_section!("Inline footnote ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_inline_footnote_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc implicit header reference slugs for Pandoc-compatible flavors
+        let pandoc_header_slugs = profile_section!("Pandoc header slugs", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::collect_pandoc_header_slugs(content)
+            } else {
+                std::collections::HashSet::new()
+            }
+        });
+
+        // Pre-compute Pandoc example-list marker ranges for Pandoc-compatible flavors
+        let example_list_marker_ranges = profile_section!("Example list markers", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_example_list_marker_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc example reference ranges for Pandoc-compatible flavors
+        let example_reference_ranges = profile_section!("Example references", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_example_reference_ranges(content, &example_list_marker_ranges)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc subscript (~x~) and superscript (^x^) ranges
+        let sub_super_ranges = profile_section!("Subscript/superscript ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_subscript_superscript_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc inline code attribute ranges (`code`{.lang}) for Pandoc-compatible flavors
+        let inline_code_attr_ranges = profile_section!("Inline code attribute ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_inline_code_attr_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc bracketed span ranges ([text]{attrs}) for Pandoc-compatible flavors
+        let bracketed_span_ranges = profile_section!("Bracketed span ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_bracketed_span_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc line block ranges (| text) for Pandoc-compatible flavors
+        let line_block_ranges = profile_section!("Line block ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_line_block_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc pipe-table caption ranges (: caption) for Pandoc-compatible flavors
+        let pipe_table_caption_ranges = profile_section!("Pipe-table caption ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_pipe_table_caption_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc YAML metadata block ranges (--- ... --- or ...) for Pandoc-compatible flavors
+        let pandoc_metadata_ranges = profile_section!("Pandoc metadata ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_yaml_metadata_block_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc grid-table ranges (+---+---+) for Pandoc-compatible flavors
+        let grid_table_ranges = profile_section!("Grid table ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_grid_table_ranges(content)
+            } else {
+                Vec::new()
+            }
+        });
+
+        // Pre-compute Pandoc multi-line table ranges for Pandoc-compatible flavors
+        let multi_line_table_ranges = profile_section!("Multi-line table ranges", profile, {
+            if flavor.is_pandoc_compatible() {
+                crate::utils::pandoc::detect_multi_line_table_ranges(content)
             } else {
                 Vec::new()
             }
@@ -632,6 +753,19 @@ impl<'a> LintContext<'a> {
             jsx_expression_ranges,
             mdx_comment_ranges,
             citation_ranges,
+            pandoc_div_ranges,
+            inline_footnote_ranges,
+            pandoc_header_slugs,
+            example_list_marker_ranges,
+            example_reference_ranges,
+            sub_super_ranges,
+            inline_code_attr_ranges,
+            bracketed_span_ranges,
+            line_block_ranges,
+            pipe_table_caption_ranges,
+            pandoc_metadata_ranges,
+            grid_table_ranges,
+            multi_line_table_ranges,
             shortcode_ranges,
             link_title_ranges,
             code_span_byte_ranges: code_span_ranges,
@@ -1023,7 +1157,7 @@ impl<'a> LintContext<'a> {
     }
 
     /// Check if a byte position is within a Pandoc/Quarto citation (`@key` or `[@key]`).
-    /// Only active in Quarto flavor. O(log n).
+    /// Active for Pandoc-compatible flavors. O(log n).
     #[inline]
     pub fn is_in_citation(&self, byte_pos: usize) -> bool {
         let idx = self.citation_ranges.partition_point(|r| r.start <= byte_pos);
@@ -1034,6 +1168,123 @@ impl<'a> LintContext<'a> {
     #[inline]
     pub fn citation_ranges(&self) -> &[crate::utils::skip_context::ByteRange] {
         &self.citation_ranges
+    }
+
+    /// Check if a byte position is within a Pandoc/Quarto div block (`::: ... :::`).
+    /// Active for Pandoc-compatible flavors. O(log n) via binary search over sorted ranges.
+    #[inline]
+    pub fn is_in_div_block(&self, byte_pos: usize) -> bool {
+        let idx = self.pandoc_div_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.pandoc_div_ranges[idx - 1].end
+    }
+
+    /// Check if a byte position is within a Pandoc inline footnote (`^[note text]`).
+    /// Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_inline_footnote(&self, byte_pos: usize) -> bool {
+        let idx = self.inline_footnote_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.inline_footnote_ranges[idx - 1].end
+    }
+
+    /// Check if a byte position is within a Pandoc example-list marker (`(@)` /
+    /// `(@label)` at line start). Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_example_list_marker(&self, byte_pos: usize) -> bool {
+        let idx = self.example_list_marker_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.example_list_marker_ranges[idx - 1].end
+    }
+
+    /// Check if a byte position is within a Pandoc example reference (`(@label)`
+    /// inline). Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_example_reference(&self, byte_pos: usize) -> bool {
+        let idx = self.example_reference_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.example_reference_ranges[idx - 1].end
+    }
+
+    /// Check if a byte position is within a Pandoc subscript (`~x~`) or
+    /// superscript (`^x^`) span. Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_subscript_or_superscript(&self, byte_pos: usize) -> bool {
+        let idx = self.sub_super_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.sub_super_ranges[idx - 1].end
+    }
+
+    /// Check if a byte position is within a Pandoc inline-code attribute block
+    /// (`{.lang}` immediately following `` `code` ``). Active for Pandoc-compatible
+    /// flavors. O(log n).
+    #[inline]
+    pub fn is_in_inline_code_attr(&self, byte_pos: usize) -> bool {
+        let idx = self.inline_code_attr_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.inline_code_attr_ranges[idx - 1].end
+    }
+
+    /// Check if a byte position is within a Pandoc bracketed span (`[text]{attrs}`).
+    /// Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_bracketed_span(&self, byte_pos: usize) -> bool {
+        let idx = self.bracketed_span_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.bracketed_span_ranges[idx - 1].end
+    }
+
+    /// Returns true if `byte_pos` falls inside a Pandoc line block (`| text`).
+    /// Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_line_block(&self, byte_pos: usize) -> bool {
+        let idx = self.line_block_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.line_block_ranges[idx - 1].end
+    }
+
+    /// Returns true if `byte_pos` falls inside a Pandoc pipe-table caption
+    /// (`: caption` adjacent to a pipe table). Active for Pandoc-compatible
+    /// flavors. O(log n).
+    #[inline]
+    pub fn is_in_pipe_table_caption(&self, byte_pos: usize) -> bool {
+        let idx = self.pipe_table_caption_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.pipe_table_caption_ranges[idx - 1].end
+    }
+
+    /// Returns true if `byte_pos` falls inside a Pandoc YAML metadata block.
+    /// Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_pandoc_metadata(&self, byte_pos: usize) -> bool {
+        let idx = self.pandoc_metadata_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.pandoc_metadata_ranges[idx - 1].end
+    }
+
+    /// Returns true if `byte_pos` falls inside a Pandoc grid table.
+    /// Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_grid_table(&self, byte_pos: usize) -> bool {
+        let idx = self.grid_table_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.grid_table_ranges[idx - 1].end
+    }
+
+    /// Returns true if `byte_pos` falls inside a Pandoc multi-line table.
+    /// Active for Pandoc-compatible flavors. O(log n).
+    #[inline]
+    pub fn is_in_multi_line_table(&self, byte_pos: usize) -> bool {
+        let idx = self.multi_line_table_ranges.partition_point(|r| r.start <= byte_pos);
+        idx > 0 && byte_pos < self.multi_line_table_ranges[idx - 1].end
+    }
+
+    /// Returns true if `link_text`, after Pandoc slugification, matches a heading
+    /// in the document. Returns false for non-Pandoc-compatible flavors because
+    /// the `pandoc_header_slugs` set is empty when the pre-pass detector is gated
+    /// off. Use this when the caller has raw bracketed text (`[Section name]`).
+    pub fn matches_implicit_header_reference(&self, link_text: &str) -> bool {
+        let slug = crate::utils::pandoc::pandoc_header_slug(link_text);
+        self.pandoc_header_slugs.contains(&slug)
+    }
+
+    /// Returns true if `slug` (already in Pandoc-slug form) matches a heading
+    /// in the document. Returns false for non-Pandoc-compatible flavors because
+    /// the `pandoc_header_slugs` set is empty when the pre-pass detector is gated
+    /// off. Use this when the caller already has a slug (e.g. the fragment of a
+    /// URL after `#`). O(1).
+    #[inline]
+    pub fn has_pandoc_slug(&self, slug: &str) -> bool {
+        self.pandoc_header_slugs.contains(slug)
     }
 
     /// Check if a byte position is within a Hugo/Quarto shortcode ({{< ... >}} or {{% ... %}}). O(log n).

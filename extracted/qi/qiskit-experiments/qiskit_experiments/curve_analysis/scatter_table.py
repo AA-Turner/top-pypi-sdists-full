@@ -11,6 +11,7 @@
 # that they have been altered from the originals.
 
 """Table representation of the x, y data for curve fitting."""
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 
+NAType = type(pd.NA)
 LOG = logging.getLogger(__name__)
 
 
@@ -79,7 +81,7 @@ class ScatterTable:
     def from_dataframe(
         cls,
         data: pd.DataFrame,
-    ) -> "ScatterTable":
+    ) -> ScatterTable:
         """Create new dataset with existing dataframe.
 
         Args:
@@ -97,7 +99,7 @@ class ScatterTable:
     def _create_new_instance(
         cls,
         data: pd.DataFrame,
-    ) -> "ScatterTable":
+    ) -> ScatterTable:
         # A shortcut for creating instance.
         # This bypasses data formatting and column compatibility check.
         # User who calls this method must guarantee the quality of the input data.
@@ -310,7 +312,7 @@ class ScatterTable:
             filt_data = filt_data.loc[index, :]
         return ScatterTable._create_new_instance(filt_data)
 
-    def iter_by_series_id(self) -> Iterator[tuple[int, "ScatterTable"]]:
+    def iter_by_series_id(self) -> Iterator[tuple[int, ScatterTable]]:
         """Iterate over subset of data sorted by the data series index.
 
         Yields:
@@ -323,7 +325,7 @@ class ScatterTable:
     def iter_groups(
         self,
         *group_by: str,
-    ) -> Iterator[tuple[tuple[Any, ...], "ScatterTable"]]:
+    ) -> Iterator[tuple[tuple[Any, ...], ScatterTable]]:
         """Iterate over the subset sorted by multiple column values.
 
         Args:
@@ -349,14 +351,14 @@ class ScatterTable:
 
     def add_row(
         self,
-        xval: float | pd.NA = pd.NA,
-        yval: float | pd.NA = pd.NA,
-        yerr: float | pd.NA = pd.NA,
-        series_name: str | pd.NA = pd.NA,
-        series_id: int | pd.NA = pd.NA,
-        category: str | pd.NA = pd.NA,
-        shots: float | pd.NA = pd.NA,
-        analysis: str | pd.NA = pd.NA,
+        xval: float | NAType = pd.NA,
+        yval: float | NAType = pd.NA,
+        yerr: float | NAType = pd.NA,
+        series_name: str | NAType = pd.NA,
+        series_id: int | NAType = pd.NA,
+        category: str | NAType = pd.NA,
+        shots: float | NAType = pd.NA,
+        analysis: str | NAType = pd.NA,
     ):
         """Add new data point to the table.
 
@@ -418,7 +420,7 @@ class ScatterTable:
         }
 
     @classmethod
-    def __json_decode__(cls, value: dict[str, Any]) -> "ScatterTable":
+    def __json_decode__(cls, value: dict[str, Any]) -> ScatterTable:
         if not value.get("class", None) == "ScatterTable":
             raise ValueError("JSON decoded value for ScatterTable is not valid class type.")
         tmp_df = pd.DataFrame.from_dict(value.get("data", {}), orient="index")

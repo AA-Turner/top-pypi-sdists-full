@@ -34,37 +34,32 @@ class ResourceFlavor(object):
     """
     openapi_types = {
         'name': 'str',
-        'launch_template': 'str',
-        'cloud_resources': 'list[str]',
-        'labels': 'dict(str, str)'
+        'requirements': 'list[MatchExpression]',
+        'advanced_instance_config': 'object'
     }
 
     attribute_map = {
         'name': 'name',
-        'launch_template': 'launch_template',
-        'cloud_resources': 'cloud_resources',
-        'labels': 'labels'
+        'requirements': 'requirements',
+        'advanced_instance_config': 'advanced_instance_config'
     }
 
-    def __init__(self, name=None, launch_template=None, cloud_resources=None, labels=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, requirements=None, advanced_instance_config=None, local_vars_configuration=None):  # noqa: E501
         """ResourceFlavor - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._name = None
-        self._launch_template = None
-        self._cloud_resources = None
-        self._labels = None
+        self._requirements = None
+        self._advanced_instance_config = None
         self.discriminator = None
 
         self.name = name
-        if launch_template is not None:
-            self.launch_template = launch_template
-        if cloud_resources is not None:
-            self.cloud_resources = cloud_resources
-        if labels is not None:
-            self.labels = labels
+        if requirements is not None:
+            self.requirements = requirements
+        if advanced_instance_config is not None:
+            self.advanced_instance_config = advanced_instance_config
 
     @property
     def name(self):
@@ -90,67 +85,46 @@ class ResourceFlavor(object):
         self._name = name
 
     @property
-    def launch_template(self):
-        """Gets the launch_template of this ResourceFlavor.  # noqa: E501
+    def requirements(self):
+        """Gets the requirements of this ResourceFlavor.  # noqa: E501
 
 
-        :return: The launch_template of this ResourceFlavor.  # noqa: E501
-        :rtype: str
+        :return: The requirements of this ResourceFlavor.  # noqa: E501
+        :rtype: list[MatchExpression]
         """
-        return self._launch_template
+        return self._requirements
 
-    @launch_template.setter
-    def launch_template(self, launch_template):
-        """Sets the launch_template of this ResourceFlavor.
+    @requirements.setter
+    def requirements(self, requirements):
+        """Sets the requirements of this ResourceFlavor.
 
 
-        :param launch_template: The launch_template of this ResourceFlavor.  # noqa: E501
-        :type: str
+        :param requirements: The requirements of this ResourceFlavor.  # noqa: E501
+        :type: list[MatchExpression]
         """
 
-        self._launch_template = launch_template
+        self._requirements = requirements
 
     @property
-    def cloud_resources(self):
-        """Gets the cloud_resources of this ResourceFlavor.  # noqa: E501
+    def advanced_instance_config(self):
+        """Gets the advanced_instance_config of this ResourceFlavor.  # noqa: E501
 
 
-        :return: The cloud_resources of this ResourceFlavor.  # noqa: E501
-        :rtype: list[str]
+        :return: The advanced_instance_config of this ResourceFlavor.  # noqa: E501
+        :rtype: object
         """
-        return self._cloud_resources
+        return self._advanced_instance_config
 
-    @cloud_resources.setter
-    def cloud_resources(self, cloud_resources):
-        """Sets the cloud_resources of this ResourceFlavor.
-
-
-        :param cloud_resources: The cloud_resources of this ResourceFlavor.  # noqa: E501
-        :type: list[str]
-        """
-
-        self._cloud_resources = cloud_resources
-
-    @property
-    def labels(self):
-        """Gets the labels of this ResourceFlavor.  # noqa: E501
+    @advanced_instance_config.setter
+    def advanced_instance_config(self, advanced_instance_config):
+        """Sets the advanced_instance_config of this ResourceFlavor.
 
 
-        :return: The labels of this ResourceFlavor.  # noqa: E501
-        :rtype: dict(str, str)
-        """
-        return self._labels
-
-    @labels.setter
-    def labels(self, labels):
-        """Sets the labels of this ResourceFlavor.
-
-
-        :param labels: The labels of this ResourceFlavor.  # noqa: E501
-        :type: dict(str, str)
+        :param advanced_instance_config: The advanced_instance_config of this ResourceFlavor.  # noqa: E501
+        :type: object
         """
 
-        self._labels = labels
+        self._advanced_instance_config = advanced_instance_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

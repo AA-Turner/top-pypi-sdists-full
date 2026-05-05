@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2024, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -577,6 +577,7 @@ cdef extern from "impl/thick/odpi/embed/dpi.c":
         uint32_t numDimensions
         uint8_t dimensionSize
         dpiVectorDimensionBuffer dimensions
+        bint isSparse
         uint32_t numSparseValues;
         uint32_t *sparseIndices;
 
@@ -753,6 +754,9 @@ cdef extern from "impl/thick/odpi/embed/dpi.c":
     int dpiConn_setStmtCacheSize(dpiConn *conn, uint32_t cacheSize) nogil
 
     int dpiConn_shutdownDatabase(dpiConn *conn, uint32_t mode) nogil
+
+    int dpiConn_stmtFromHandle(dpiConn *conn, void *externalHandle,
+            dpiStmt **stmt) nogil
 
     int dpiConn_startupDatabaseWithPfile(dpiConn *conn, const char *pfile,
             uint32_t pfileLength, uint32_t mode) nogil
@@ -1261,6 +1265,8 @@ cdef extern from "impl/thick/odpi/embed/dpi.c":
 
     int dpiStmt_getImplicitResult(dpiStmt *stmt,
             dpiStmt **implicitResult) nogil
+
+    int dpiStmt_getHandle(dpiStmt *stmt, void **handle) nogil
 
     int dpiStmt_getNumQueryColumns(dpiStmt *stmt,
             uint32_t *numQueryColumns) nogil

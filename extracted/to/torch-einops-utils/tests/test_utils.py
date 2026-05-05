@@ -25,6 +25,7 @@ from torch_einops_utils.torch_einops_utils import (
     tree_map_tensor,
     pack_with_inverse,
     masked_mean,
+    exclusive_cumsum,
     slice_at_dim,
     slice_left_at_dim,
     slice_right_at_dim,
@@ -189,6 +190,14 @@ def test_masked_mean():
     assert res.shape == (2,)
     assert torch.allclose(res[0], t[0].mean())
     assert torch.allclose(res[1], tensor(0.0), atol = 1e-4)
+
+def test_exclusive_cumsum():
+    t = tensor([1., 2., 3., 4.])
+    assert torch.allclose(exclusive_cumsum(t), tensor([0., 1., 3., 6.]))
+
+    t = tensor([[1., 2.], [3., 4.]])
+    assert torch.allclose(exclusive_cumsum(t, dim = 0), tensor([[0., 0.], [1., 2.]]))
+    assert torch.allclose(exclusive_cumsum(t, dim = 1), tensor([[0., 1.], [0., 3.]]))
 
 def test_slice_at_dim():
     t = torch.randn(3, 4, 5)

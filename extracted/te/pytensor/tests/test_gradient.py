@@ -11,9 +11,7 @@ from pytensor.gradient import (
     DisconnectedType,
     GradClip,
     GradScale,
-    Lop,
     NullTypeGradError,
-    Rop,
     UndefinedGrad,
     disconnected_grad,
     disconnected_grad_,
@@ -25,6 +23,8 @@ from pytensor.gradient import (
     hessian,
     hessian_vector_product,
     jacobian,
+    pullback,
+    pushforward,
     subgraph_grad,
     zero_grad,
     zero_grad_,
@@ -35,7 +35,7 @@ from pytensor.graph.op import Op
 from pytensor.graph.traversal import graph_inputs
 from pytensor.scalar import float64
 from pytensor.scan.op import Scan
-from pytensor.tensor.math import add, dot, exp, outer, sigmoid, sqr, sqrt, tanh
+from pytensor.tensor.math import add, dot, exp, outer, sigmoid, sqr, tanh
 from pytensor.tensor.math import sum as pt_sum
 from pytensor.tensor.random import RandomStream
 from pytensor.tensor.type import (
@@ -810,12 +810,12 @@ class TestZeroGrad:
 
             assert np.allclose(f(a), f2(a))
 
-    def test_rop(self):
+    def test_pushforward(self):
         x = vector()
         v = vector()
         y = zero_grad(x)
 
-        rop = Rop(y, x, v)
+        rop = pushforward(y, x, v)
         f = pytensor.function([x, v], rop, on_unused_input="ignore")
 
         a = np.asarray(self.rng.standard_normal(5), dtype=config.floatX)
@@ -922,7 +922,6 @@ def test_grad_scale():
     assert np.allclose(out, (8, 4))
 
 
-@config.change_flags(compute_test_value="off")
 def test_undefined_grad_opt():
     # Make sure that undefined grad get removed in optimized graph.
     random = RandomStream(np.random.default_rng().integers(1, 2147462579))
@@ -1137,33 +1136,6 @@ class TestJacobian:
         val = np.ones((4, 4), dtype=config.floatX)
         np.testing.assert_allclose(func_v(val, val), np.zeros((3, 2, 4, 4)))
 
-    def test_benchmark(self, vectorize, benchmark):
-        x = vector("x", shape=(3,))
-        y = outer(x, x)
-
-        jac_y = jacobian(y, x, vectorize=vectorize)
-
-        fn = function([x], jac_y, trust_input=True)
-        benchmark(fn, np.array([0, 1, 2], dtype=x.type.dtype))
-
-    def test_benchmark_partial_jacobian(self, vectorize, benchmark):
-        # Example from https://github.com/jax-ml/jax/discussions/5904#discussioncomment-422956
-        N = 1000
-        rng = np.random.default_rng(2025)
-        x_test = rng.random((N,))
-
-        f_mat = rng.random((N, N))
-        x = vector("x", dtype="float64")
-
-        def f(x):
-            return sqrt(f_mat @ x / N)
-
-        full_jacobian = jacobian(f(x), x, vectorize=vectorize)
-        partial_jacobian = full_jacobian[:5, :5]
-
-        f = pytensor.function([x], partial_jacobian, trust_input=True)
-        benchmark(f, x_test)
-
 
 def test_hessian():
     x = vector()
@@ -1211,11 +1183,11 @@ class TestHessianVectorProduct:
         np.testing.assert_allclose(hessp_y_eval, [-6, -4, -2])
 
 
-def test_scalar_Lop():
+def test_scalar_pullback():
     xtm1 = float64("xtm1")
     xt = xtm1**2
 
     dout_dxt = float64("dout_dxt")
-    dout_dxtm1 = Lop(xt, wrt=xtm1, eval_points=dout_dxt)
+    dout_dxtm1 = pullback(xt, wrt=xtm1, cotangents=dout_dxt)
     assert dout_dxtm1.type == dout_dxt.type
     assert dout_dxtm1.eval({xtm1: 3.0, dout_dxt: 1.5}) == 2 * 3.0 * 1.5

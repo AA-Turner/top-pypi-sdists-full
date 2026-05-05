@@ -1,14 +1,14 @@
-import time
-import queue
 import atexit
 import logging
+import queue
+import time
 import threading
-from typing import TYPE_CHECKING, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 
 from scale_gp_beta import SGPClient, SGPClientError
 
 from .util import configure, is_disabled
-from .trace_exporter import TraceExporter
+from .trace_exporter import SpanRequestBatch, TraceExporter
 
 if TYPE_CHECKING:
     import httpx
@@ -44,6 +44,7 @@ class TraceQueueManager:
         trigger_cadence: float = DEFAULT_TRIGGER_CADENCE,
         retries: int = DEFAULT_RETRIES,
         worker_enabled: Optional[bool] = None,
+        export_fn: Optional[Callable[[SpanRequestBatch], None]] = None,
     ):
         self._client = client
         self.register_client(client) if client else None
@@ -53,7 +54,7 @@ class TraceQueueManager:
 
         self._reset_trigger_time()
 
-        self._exporter = TraceExporter(max_batch_size, retries)
+        self._exporter = TraceExporter(max_batch_size, retries, export_fn=export_fn)
 
         self._shutdown_event = threading.Event()
         self._queue: queue.Queue[Span] = queue.Queue(maxsize=max_queue_size)
@@ -169,7 +170,11 @@ _global_tracing_queue_manager: Optional[TraceQueueManager] = None
 _queue_manager_lock = threading.Lock()
 
 
-def init(client: Optional[SGPClient] = None, disabled: Optional[bool] = None) -> None:
+def init(
+    client: Optional[SGPClient] = None,
+    disabled: Optional[bool] = None,
+    export_fn: Optional[Callable[[SpanRequestBatch], None]] = None,
+) -> None:
     """Initialize the tracing backend
 
     Good practice to always include this method call with a valid client at your program entrypoint.
@@ -178,19 +183,23 @@ def init(client: Optional[SGPClient] = None, disabled: Optional[bool] = None) ->
 
     :param client: SGPClient
     :param disabled: Set to True to disable tracing. Overrides environment variable ``DISABLE_SCALE_TRACING``
+    :param export_fn: Optional export function to be provided by the user of the SDK
     """
     if disabled is not None:
         configure(disabled=disabled)
 
     global _global_tracing_queue_manager
     if _global_tracing_queue_manager is not None:
+        log.warning("Tracing init() called after tracing was already initialized; updating provided arguments.")
         if client is not None:
             _global_tracing_queue_manager.register_client(client)
+        if export_fn is not None:
+            log.warning("export_fn cannot be updated after tracing has been initialized; ignoring.")
         return
 
     with _queue_manager_lock:
         if _global_tracing_queue_manager is None:
-            _global_tracing_queue_manager = TraceQueueManager(client)
+            _global_tracing_queue_manager = TraceQueueManager(client, export_fn=export_fn)
 
 
 def tracing_queue_manager() -> TraceQueueManager:

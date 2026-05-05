@@ -14,7 +14,7 @@ from scale_gp_beta.lib.tracing.trace_exporter import TraceExporter
 
 
 def create_test_span_request(id_str: str) -> SpanCreateRequest:
-    return SpanCreateRequest(name=id_str, id=id_str, trace_id= "trace-id", group_id="group-id", start_timestamp="start")
+    return SpanCreateRequest(name=id_str, id=id_str, trace_id="trace-id", group_id="group-id", start_timestamp="start")
 
 
 @pytest.fixture
@@ -117,7 +117,9 @@ class TestTraceExporterCreateBatches:
 
 @patch("scale_gp_beta.lib.tracing.trace_exporter.time.sleep")
 class TestTraceExporterExportBatch:
-    def test_export_batch_success_first_try(self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture):
+    def test_export_batch_success_first_try(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
         exporter = TraceExporter(max_batch_size=5, max_retries=3)
         batch_data = [create_test_span_request("span1")]
 
@@ -129,7 +131,9 @@ class TestTraceExporterExportBatch:
         assert "API error" not in caplog.text
         assert "Failed to export span batch" not in caplog.text
 
-    def test_export_batch_success_after_retries(self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture):
+    def test_export_batch_success_after_retries(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
         exporter = TraceExporter(max_batch_size=5, max_retries=3)
         batch_data = [create_test_span_request("span1")]
 
@@ -149,7 +153,9 @@ class TestTraceExporterExportBatch:
         assert caplog.text.count("API error occurred while exporting batch:") == 2
         assert "Failed to export span batch" not in caplog.text
 
-    def test_export_batch_fails_all_retries(self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture):
+    def test_export_batch_fails_all_retries(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
         max_r = 2
         exporter = TraceExporter(max_batch_size=5, max_retries=max_r)
         batch_data = [create_test_span_request("span1")]
@@ -166,7 +172,9 @@ class TestTraceExporterExportBatch:
         assert caplog.text.count("API error occurred while exporting batch:") == max_r
         assert f"Failed to export span batch after {max_r} attempts" in caplog.text
 
-    def test_export_batch_max_retries_one(self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture):
+    def test_export_batch_max_retries_one(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
         exporter = TraceExporter(max_batch_size=5, max_retries=1)
         batch_data = [create_test_span_request("span1")]
         mock_sgp_client.spans.upsert_batch.side_effect = APIError("Simulated API Error", request=Mock(), body=Mock())
@@ -183,7 +191,11 @@ class TestTraceExporterExportIntegration:
     @patch("scale_gp_beta.lib.tracing.trace_exporter.TraceExporter._export_batch")
     @patch("scale_gp_beta.lib.tracing.trace_exporter.TraceExporter._create_batches")
     def test_export_orchestration_no_batches(
-        self, mock_create_batches: Mock, mock_export_batch_method: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+        self,
+        mock_create_batches: Mock,
+        mock_export_batch_method: Mock,
+        mock_sgp_client: Mock,
+        caplog: pytest.LogCaptureFixture,
     ):
         mock_create_batches.return_value = []
         exporter = TraceExporter(max_batch_size=5, max_retries=3)
@@ -199,7 +211,11 @@ class TestTraceExporterExportIntegration:
     @patch("scale_gp_beta.lib.tracing.trace_exporter.TraceExporter._export_batch")
     @patch("scale_gp_beta.lib.tracing.trace_exporter.TraceExporter._create_batches")
     def test_export_orchestration_multiple_batches(
-        self, mock_create_batches: Mock, mock_export_batch_method: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+        self,
+        mock_create_batches: Mock,
+        mock_export_batch_method: Mock,
+        mock_sgp_client: Mock,
+        caplog: pytest.LogCaptureFixture,
     ):
         batch1_data = [create_test_span_request("s1")]
         batch2_data = [create_test_span_request("s2")]
@@ -261,6 +277,147 @@ class TestTraceExporterExportIntegration:
         assert text.count("API error occurred while exporting batch: Failure on second batch") == 1
 
 
+@patch("scale_gp_beta.lib.tracing.trace_exporter.time.sleep")
+class TestTraceExporterExportFn:
+    def test_export_fn_called_instead_of_upsert_batch(self, mock_sleep: Mock, mock_sgp_client: Mock):
+        export_fn = Mock()
+        exporter = TraceExporter(max_batch_size=5, max_retries=3, export_fn=export_fn)
+        batch_data = [create_test_span_request("span1")]
+
+        exporter._export_batch(batch_data, mock_sgp_client)
+
+        export_fn.assert_called_once_with(batch_data)
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+        mock_sleep.assert_not_called()
+
+    def test_export_fn_success_first_try(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
+        export_fn = Mock()
+        exporter = TraceExporter(max_batch_size=5, max_retries=3, export_fn=export_fn)
+        batch_data = [create_test_span_request("span1")]
+
+        with caplog.at_level(logging.INFO):
+            exporter._export_batch(batch_data, mock_sgp_client)
+
+        export_fn.assert_called_once_with(batch_data)
+        mock_sleep.assert_not_called()
+        assert "Failed to export span batch" not in caplog.text
+
+    def test_export_fn_retries_on_api_error(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
+        export_fn = Mock(
+            side_effect=[
+                APIError("transient error 1", request=Mock(), body=None),
+                APIError("transient error 2", request=Mock(), body=None),
+                None,
+            ]
+        )
+        exporter = TraceExporter(max_batch_size=5, max_retries=3, export_fn=export_fn)
+        batch_data = [create_test_span_request("span1")]
+
+        with caplog.at_level(logging.WARNING):
+            exporter._export_batch(batch_data, mock_sgp_client)
+
+        assert export_fn.call_count == 3
+        assert mock_sleep.call_count == 2
+        assert "Failed to export span batch" not in caplog.text
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+
+    def test_export_fn_fails_all_retries_drops_batch(
+        self,
+        mock_sleep: Mock,  # noqa: ARG002
+        mock_sgp_client: Mock,
+        caplog: pytest.LogCaptureFixture
+    ):
+        max_r = 2
+        export_fn = Mock(side_effect=APIError("persistent error", request=Mock(), body=Mock()))
+        exporter = TraceExporter(max_batch_size=5, max_retries=max_r, export_fn=export_fn)
+        batch_data = [create_test_span_request("span1")]
+
+        with caplog.at_level(logging.ERROR):
+            exporter._export_batch(batch_data, mock_sgp_client)
+
+        assert export_fn.call_count == max_r
+        assert f"Failed to export span batch after {max_r} attempts" in caplog.text
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+
+    def test_export_fn_retries_on_non_api_error(
+        self, mock_sleep: Mock, mock_sgp_client: Mock, caplog: pytest.LogCaptureFixture
+    ):
+        export_fn = Mock(
+            side_effect=[
+                RuntimeError("transient storage error 1"),
+                RuntimeError("transient storage error 2"),
+                None,
+            ]
+        )
+        exporter = TraceExporter(max_batch_size=5, max_retries=3, export_fn=export_fn)
+        batch_data = [create_test_span_request("span1")]
+
+        with caplog.at_level(logging.WARNING):
+            exporter._export_batch(batch_data, mock_sgp_client)
+
+        assert export_fn.call_count == 3
+        assert mock_sleep.call_count == 2
+        assert "export_fn raised an unexpected error" in caplog.text
+        assert "Failed to export span batch" not in caplog.text
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+
+    def test_export_fn_fails_all_retries_non_api_error_drops_batch(
+        self,
+        mock_sleep: Mock,  # noqa: ARG002
+        mock_sgp_client: Mock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        max_r = 2
+        export_fn = Mock(side_effect=RuntimeError("persistent storage error"))
+        exporter = TraceExporter(max_batch_size=5, max_retries=max_r, export_fn=export_fn)
+        batch_data = [create_test_span_request("span1")]
+
+        with caplog.at_level(logging.ERROR):
+            exporter._export_batch(batch_data, mock_sgp_client)
+
+        assert export_fn.call_count == max_r
+        assert f"Failed to export span batch after {max_r} attempts" in caplog.text
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+
+    def test_export_fn_receives_correct_batch_contents(
+        self,
+        mock_sleep: Mock,  # noqa: ARG002
+        mock_sgp_client: Mock
+    ):
+        received: list[list[SpanCreateRequest]] = []
+        exporter = TraceExporter(max_batch_size=5, max_retries=1, export_fn=lambda batch: received.append(batch))
+        q: Queue[Span] = Queue()
+        expected = fill_queue(q, 3)
+
+        exporter.export(mock_sgp_client, q)
+
+        assert len(received) == 1
+        assert received[0] == expected
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+
+    def test_export_fn_called_per_batch(
+        self,
+        mock_sleep: Mock,  # noqa: ARG002
+        mock_sgp_client: Mock
+    ):
+        received: list[list[SpanCreateRequest]] = []
+        exporter = TraceExporter(max_batch_size=2, max_retries=1, export_fn=lambda batch: received.append(batch))
+        q: Queue[Span] = Queue()
+        expected = fill_queue(q, 5)  # 3 batches: [0,1], [2,3], [4]
+
+        exporter.export(mock_sgp_client, q)
+
+        assert len(received) == 3
+        assert received[0] == expected[0:2]
+        assert received[1] == expected[2:4]
+        assert received[2] == [expected[4]]
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+
+
 @patch("scale_gp_beta.lib.tracing.trace_exporter.ParamsCreationError", ParamsCreationError)
 class TestTraceExporterSingleSpan:
     def test_create_one_span_batch_success(self, mock_span: Mock):
@@ -289,7 +446,7 @@ class TestTraceExporterSingleSpan:
 
     @patch("scale_gp_beta.lib.tracing.trace_exporter.TraceExporter._export_batch")
     def test_export_span_orchestration(
-            self, mock_export_batch: Mock, mock_sgp_client: Mock, mock_span: Mock, caplog: pytest.LogCaptureFixture
+        self, mock_export_batch: Mock, mock_sgp_client: Mock, mock_span: Mock, caplog: pytest.LogCaptureFixture
     ):
         exporter = TraceExporter(max_batch_size=5, max_retries=3)
         expected_request = mock_span.to_request_params()
@@ -314,3 +471,15 @@ class TestTraceExporterSingleSpan:
         mock_sgp_client.spans.upsert_batch.assert_called_once_with(items=expected_batch)
         assert f"Exporting single span with id {mock_span.span_id}" in caplog.text
         assert "Failed to export" not in caplog.text
+
+    def test_export_span_uses_export_fn(self, mock_sgp_client: Mock, mock_span: Mock, caplog: pytest.LogCaptureFixture):
+        received: list[list[SpanCreateRequest]] = []
+        exporter = TraceExporter(max_batch_size=5, max_retries=3, export_fn=lambda batch: received.append(batch))
+
+        with caplog.at_level(logging.INFO):
+            exporter.export_span(mock_sgp_client, mock_span)
+
+        assert len(received) == 1
+        assert received[0] == [mock_span.to_request_params()]
+        mock_sgp_client.spans.upsert_batch.assert_not_called()
+        assert f"Exporting single span with id {mock_span.span_id}" in caplog.text

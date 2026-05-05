@@ -96,9 +96,10 @@ except ImportError:
 
 import pytensor.scalar
 from pytensor.configdefaults import config
+from pytensor.gradient import DisconnectedType, disconnected_type
 from pytensor.graph.basic import Apply
 from pytensor.graph.op import Op
-from pytensor.graph.utils import InconsistencyError, MethodNotDefined, TestValueError
+from pytensor.graph.utils import InconsistencyError, MethodNotDefined
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
 from pytensor.printing import FunctionPrinter, pprint
@@ -1597,7 +1598,7 @@ class BatchedDot(COp):
 
         return (6, blas_header_version())
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         x, y = inp
         (gz,) = grads
 
@@ -1619,77 +1620,24 @@ class BatchedDot(COp):
 
         return xgrad, ygrad
 
-    def R_op(self, inputs, eval_points):
-        # R_op for batched_dot(a, b) evaluated at c for a and d for b is
-        # simply batched_dot(c, b) + batched_dot(a, d)
-
+    def pushforward(self, inputs, outputs, eval_points):
         assert len(inputs) == 2
         assert len(eval_points) == 2
-        if eval_points[0] is None and eval_points[1] is None:
-            return [None]
+        if isinstance(eval_points[0].type, DisconnectedType) and isinstance(
+            eval_points[1].type, DisconnectedType
+        ):
+            return [disconnected_type()]
 
-        test_values_enabled = config.compute_test_value != "off"
-
-        if test_values_enabled:
-            try:
-                iv0 = pytensor.graph.op.get_test_value(inputs[0])
-            except TestValueError:
-                pytensor.graph.op.missing_test_message(
-                    "first input passed to BatchedDot.R_op has no test value"
-                )
-                test_values_enabled = False
-
-            try:
-                iv1 = pytensor.graph.op.get_test_value(inputs[1])
-            except TestValueError:
-                pytensor.graph.op.missing_test_message(
-                    "second input passed to BatchedDot. R_op has no test value"
-                )
-                test_values_enabled = False
-
-            if eval_points[0]:
-                try:
-                    ev0 = pytensor.graph.op.get_test_value(eval_points[0])
-                except TestValueError:
-                    pytensor.graph.op.missing_test_message(
-                        "first eval point passed to BatchedDot. R_op has no test value"
-                    )
-                    test_values_enabled = False
-            if eval_points[1]:
-                try:
-                    ev1 = pytensor.graph.op.get_test_value(eval_points[1])
-                except TestValueError:
-                    pytensor.graph.op.missing_test_message(
-                        "second eval point passed to BatchedDot.R_op has no test value"
-                    )
-                    test_values_enabled = False
-
-        if test_values_enabled:
-            input_values = [iv0, iv1]
-            eval_point_values = [ev0, ev1]
-
-            for i in range(2):
-                if (
-                    eval_point_values[i] is not None
-                    and input_values[i].shape != eval_point_values[i].shape
-                ):
-                    raise ValueError(
-                        "input "
-                        + str(i)
-                        + " and eval_point "
-                        + str(i)
-                        + " to BatchedDot.R_op should have the same shape, but "
-                        f"their shapes are {input_values[i].shape} and {eval_point_values[i].shape}, respectively"
-                    )
-
-        if eval_points[0]:
+        if not isinstance(eval_points[0].type, DisconnectedType):
             t1 = self(eval_points[0], inputs[1])
-        if eval_points[1]:
+        if not isinstance(eval_points[1].type, DisconnectedType):
             t2 = self(inputs[0], eval_points[1])
 
-        if eval_points[0] and eval_points[1]:
+        if not isinstance(eval_points[0].type, DisconnectedType) and not isinstance(
+            eval_points[1].type, DisconnectedType
+        ):
             return [t1 + t2]
-        elif eval_points[0]:
+        elif not isinstance(eval_points[0].type, DisconnectedType):
             return [t1]
         else:
             return [t2]

@@ -222,7 +222,15 @@ impl MD038NoSpaceInCode {
         let next_char = ctx.content[code_span.byte_end..].chars().next();
         let prev_char = ctx.content[..code_span.byte_offset].chars().next_back();
 
-        (content.ends_with(char::is_whitespace) && next_char.is_some_and(|c| !c.is_whitespace()))
+        // A Pandoc inline code attribute (`code`{.lang}) attached to the closing
+        // backtick is structural syntax, not a nested-backtick illustration.
+        // It must not silence inner-whitespace violations on the code span.
+        let trailing_neighbor_is_pandoc_attr =
+            ctx.flavor.is_pandoc_compatible() && ctx.is_in_inline_code_attr(code_span.byte_end);
+
+        (content.ends_with(char::is_whitespace)
+            && next_char.is_some_and(|c| !c.is_whitespace())
+            && !trailing_neighbor_is_pandoc_attr)
             || (content.starts_with(char::is_whitespace) && prev_char.is_some_and(|c| !c.is_whitespace()))
     }
 }
@@ -309,7 +317,9 @@ impl Rule for MD038NoSpaceInCode {
                 }
 
                 // Skip inline R code in Quarto/RMarkdown: `r expression`
-                // This is a legitimate pattern where space is required after 'r'
+                // This is RMarkdown/Quarto-specific syntax for inline R evaluation.
+                // Pandoc itself has no concept of executing inline R expressions,
+                // so the exemption is intentionally Quarto-only.
                 if ctx.flavor == crate::config::MarkdownFlavor::Quarto
                     && trimmed.starts_with('r')
                     && trimmed.len() > 1
@@ -1413,5 +1423,92 @@ Regular code: `function test() {}`
         let ctx_cjk = crate::lint_context::LintContext::new(content_cjk, crate::config::MarkdownFlavor::Standard, None);
         let result_cjk = rule.check(&ctx_cjk);
         assert!(result_cjk.is_ok(), "Should not panic with CJK between code spans");
+    }
+
+    #[test]
+    fn test_pandoc_inline_r_code_not_exempt() {
+        // The `r expression` pattern is RMarkdown/Quarto-specific inline R evaluation syntax.
+        // A code span like `r foo ` (trailing space, starts with `r `) triggers the Quarto
+        // guard when in Quarto flavor — the trailing space violation is suppressed because the
+        // content looks like inline R code.  Under Pandoc flavor the guard must NOT fire:
+        // `r ` is not special Pandoc syntax, so the trailing space is a genuine MD038 violation.
+        let rule = MD038NoSpaceInCode::new();
+        // Trailing space only (no leading space) — CommonMark does not strip this, so it's a
+        // real MD038 violation.  The `r ` prefix makes it match the Quarto `r expression` guard.
+        let content = "See `r foo ` for details.\n";
+
+        // Under Quarto flavor, the `r expression` guard fires and suppresses the warning.
+        let ctx_quarto = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let result_quarto = rule.check(&ctx_quarto).unwrap();
+        assert!(
+            result_quarto.is_empty(),
+            "MD038 should suppress trailing-space warning for `r expression` under Quarto: {result_quarto:?}"
+        );
+
+        // Under Pandoc flavor, the guard does NOT fire — trailing space is flagged.
+        let ctx_pandoc = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Pandoc, None);
+        let result_pandoc = rule.check(&ctx_pandoc).unwrap();
+        assert!(
+            !result_pandoc.is_empty(),
+            "MD038 should flag trailing space in `r expression` under Pandoc flavor (not Quarto/RMarkdown syntax): {result_pandoc:?}"
+        );
+    }
+
+    /// Pandoc inline code attribute syntax (`` `code`{.lang} ``) does not exempt
+    /// the code span from MD038's inner-whitespace check: the attribute block lives
+    /// outside the closing backtick, so a leading space inside the backticks is a
+    /// real spacing violation regardless of any attached attribute.
+    #[test]
+    fn test_pandoc_inline_code_attr_does_not_suppress_leading_space() {
+        let rule = MD038NoSpaceInCode::new();
+        let content = "Use ` print()`{.python} for output.\n";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Pandoc, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "MD038 must flag leading space inside `code`{{.lang}} under Pandoc — the attribute is outside the span: {result:?}"
+        );
+    }
+
+    /// Trailing space inside an attributed code span is also a real violation
+    /// under Pandoc — the `{.lang}` attribute does not absorb whitespace from
+    /// inside the backticks.
+    #[test]
+    fn test_pandoc_inline_code_attr_does_not_suppress_trailing_space() {
+        let rule = MD038NoSpaceInCode::new();
+        let content = "Use `print() `{.python} for output.\n";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Pandoc, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "MD038 must flag trailing space inside `code`{{.lang}} under Pandoc — the attribute is outside the span: {result:?}"
+        );
+    }
+
+    /// Cross-flavor parity: Standard flavor still flags the same content.
+    #[test]
+    fn test_standard_still_flags_leading_space_with_attr_syntax() {
+        let rule = MD038NoSpaceInCode::new();
+        let content = "Use ` print()`{.python} for output.\n";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "MD038 should flag leading space in code span under Standard flavor: {result:?}"
+        );
+    }
+
+    /// Clean attributed code spans (no inner whitespace) must still pass under
+    /// Pandoc — the no-whitespace fast path handles them, no special guard needed.
+    #[test]
+    fn test_pandoc_inline_code_attr_clean_span_not_flagged() {
+        let rule = MD038NoSpaceInCode::new();
+        let content = "Use `print()`{.python} for output.\n";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Pandoc, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "MD038 must not flag a clean attributed code span under Pandoc: {result:?}"
+        );
     }
 }

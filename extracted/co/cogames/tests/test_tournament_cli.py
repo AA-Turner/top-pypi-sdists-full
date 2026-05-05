@@ -35,7 +35,7 @@ from typer.testing import CliRunner
 
 from cogames.cli.client import TournamentServerClient
 from cogames.cli.generated_models import MatchPlayerInfo
-from cogames.cli.submit import observatory_profile_url
+from cogames.cli.submit import observatory_home_url
 from cogames.main import _submit_browser_launch_skip_reason, app
 from softmax.auth import load_token, save_token
 from softmax.token_storage import TokenKind
@@ -238,10 +238,6 @@ class TestTournamentCommands:
         assert "make-policy" not in command_names
         assert "train" not in command_names
         assert "login" not in command_names
-
-    def test_missions_command_exists(self) -> None:
-        command_names = [cmd.name for cmd in app.registered_commands]
-        assert "missions" in command_names
 
     def test_run_command_exists(self) -> None:
         command_names = [cmd.name for cmd in app.registered_commands]
@@ -1131,7 +1127,7 @@ class TestSeasonLookupAuth:
         assert "X-Auth-Token" not in season_reqs[0].headers
 
 
-class TestSubmitProfileLaunch:
+class TestSubmitBrowserLaunch:
     def test_submit_browser_launch_allows_redirected_stdout_in_gui_session(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1168,17 +1164,9 @@ class TestSubmitProfileLaunch:
             ),
         ],
     )
-    def test_observatory_profile_url_uses_browser_origin_of_selected_login_server(
+    def test_observatory_home_url_uses_browser_origin_of_selected_login_server(
         self,
         login_server_url: str,
         expected_base_url: str,
     ) -> None:
-        policy_version_id = uuid.uuid4()
-
-        assert (
-            observatory_profile_url(
-                policy_version_id,
-                login_server_url=login_server_url,
-            )
-            == f"{expected_base_url}/observatory/profile?policyVersionId={policy_version_id}"
-        )
+        assert observatory_home_url(login_server_url=login_server_url) == f"{expected_base_url}/observatory/home"

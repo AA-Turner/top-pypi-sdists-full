@@ -11,9 +11,11 @@
 # that they have been altered from the originals.
 
 """Drawer abstract class."""
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, TYPE_CHECKING
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -22,7 +24,10 @@ from qiskit_experiments.framework import Options
 from ..style import PlotStyle
 from ..utils import ExtentTuple
 
-SeriesName = Union[str, int, float]
+if TYPE_CHECKING:
+    from typing import Self
+
+SeriesName = str | int | float
 
 
 class BaseDrawer(ABC):
@@ -317,7 +322,7 @@ class BaseDrawer(ABC):
     def format_canvas(self):
         """Final cleanup for the canvas appearance."""
 
-    def label_for(self, name: Optional[SeriesName], label: Optional[SeriesName]) -> Optional[str]:
+    def label_for(self, name: SeriesName | None, label: SeriesName | None) -> str | None:
         """Get the legend label for the given series, with optional overrides.
 
         This method determines the legend label for a series, with optional overrides
@@ -350,10 +355,10 @@ class BaseDrawer(ABC):
         self,
         x_data: Sequence[float],
         y_data: Sequence[float],
-        x_err: Optional[Sequence[float]] = None,
-        y_err: Optional[Sequence[float]] = None,
-        name: Optional[SeriesName] = None,
-        label: Optional[str] = None,
+        x_err: Sequence[float] | None = None,
+        y_err: Sequence[float] | None = None,
+        name: SeriesName | None = None,
+        label: str | None = None,
         legend: bool = False,
         **options,
     ):
@@ -380,8 +385,8 @@ class BaseDrawer(ABC):
         self,
         x_data: Sequence[float],
         y_data: Sequence[float],
-        name: Optional[SeriesName] = None,
-        label: Optional[str] = None,
+        name: SeriesName | None = None,
+        label: str | None = None,
         legend: bool = False,
         **options,
     ):
@@ -405,8 +410,8 @@ class BaseDrawer(ABC):
     def hline(
         self,
         y_value: float,
-        name: Optional[SeriesName] = None,
-        label: Optional[str] = None,
+        name: SeriesName | None = None,
+        label: str | None = None,
         legend: bool = False,
         **options,
     ):
@@ -431,8 +436,8 @@ class BaseDrawer(ABC):
         x_data: Sequence[float],
         y_ub: Sequence[float],
         y_lb: Sequence[float],
-        name: Optional[SeriesName] = None,
-        label: Optional[str] = None,
+        name: SeriesName | None = None,
+        label: str | None = None,
         legend: bool = False,
         **options,
     ):
@@ -459,8 +464,8 @@ class BaseDrawer(ABC):
         x_ub: Sequence[float],
         x_lb: Sequence[float],
         y_data: Sequence[float],
-        name: Optional[SeriesName] = None,
-        label: Optional[str] = None,
+        name: SeriesName | None = None,
+        label: str | None = None,
         legend: bool = False,
         **options,
     ):
@@ -485,7 +490,7 @@ class BaseDrawer(ABC):
     def textbox(
         self,
         description: str,
-        rel_pos: Optional[Tuple[float, float]] = None,
+        rel_pos: tuple[float, float] | None = None,
         **options,
     ):
         """Draw text box.
@@ -501,10 +506,10 @@ class BaseDrawer(ABC):
     def image(
         self,
         data: np.ndarray,
-        extent: Optional[ExtentTuple] = None,
-        name: Optional[SeriesName] = None,
-        label: Optional[str] = None,
-        cmap: Optional[Union[str, Any]] = None,
+        extent: ExtentTuple | None = None,
+        name: SeriesName | None = None,
+        label: str | None = None,
+        cmap: str | Any | None = None,
         cmap_use_series_colors: bool = False,
         colorbar: bool = False,
         **options,
@@ -550,7 +555,7 @@ class BaseDrawer(ABC):
     def figure(self):
         """Return figure object handler to be saved in the database."""
 
-    def config(self) -> Dict:
+    def config(self) -> dict:
         """Return the config dictionary for this drawer."""
         options = dict((key, getattr(self._options, key)) for key in self._set_options)
         figure_options = dict(
@@ -563,11 +568,11 @@ class BaseDrawer(ABC):
             "figure_options": figure_options,
         }
 
-    def __json_encode__(self):
+    def __json_encode__(self) -> dict[str, Any]:
         return self.config()
 
     @classmethod
-    def __json_decode__(cls, value):
+    def __json_decode__(cls, value: dict[str, Any]) -> Self:
         instance = cls()
         if "options" in value:
             instance.set_options(**value["options"])

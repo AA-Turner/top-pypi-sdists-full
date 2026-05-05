@@ -29,17 +29,13 @@ def _partition(G: nx.Graph) -> dict[str, int]:
     """
     try:
         from graspologic.partition import leiden
-        # Seed Leiden for deterministic output — prevents graph.json churn in
-        # multi-dev repos where two devs rebuilding from identical code would
-        # otherwise produce different community IDs and cause merge conflicts.
-        leiden_kwargs: dict = {}
-        if "seed" in inspect.signature(leiden).parameters:
-            leiden_kwargs["seed"] = 42
+        # Suppress graspologic output to prevent ANSI escape codes from
+        # corrupting PowerShell 5.1 scroll buffer (issue #19)
         old_stderr = sys.stderr
         try:
             sys.stderr = io.StringIO()
             with _suppress_output():
-                result = leiden(G, **leiden_kwargs)
+                result = leiden(G)
         finally:
             sys.stderr = old_stderr
         return result

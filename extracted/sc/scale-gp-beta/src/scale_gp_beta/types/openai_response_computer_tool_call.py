@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Dict, List, Union, Optional
 from typing_extensions import Literal, TypeAlias
 
 from pydantic import Field as FieldInfo
@@ -10,21 +10,23 @@ from .._models import BaseModel
 __all__ = [
     "OpenAIResponseComputerToolCall",
     "Action",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionClick",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionDoubleClick",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionDrag",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionDragPath",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionKeypress",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionMove",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionScreenshot",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionScroll",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionType",
-    "ActionOpenAITypesResponsesResponseComputerToolCallActionWait",
+    "ActionActionClick",
+    "ActionActionDoubleClick",
+    "ActionActionDrag",
+    "ActionActionDragPath",
+    "ActionActionKeypress",
+    "ActionActionMove",
+    "ActionActionScreenshot",
+    "ActionActionScroll",
+    "ActionActionType",
+    "ActionActionWait",
     "PendingSafetyCheck",
 ]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionClick(BaseModel):
+class ActionActionClick(BaseModel):
+    """A click action."""
+
     button: Literal["left", "right", "wheel", "back", "forward"]
 
     type: Literal["click"]
@@ -46,7 +48,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionClick(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionDoubleClick(BaseModel):
+class ActionActionDoubleClick(BaseModel):
+    """A double click action."""
+
     type: Literal["double_click"]
 
     x: int
@@ -66,7 +70,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionDoubleClick(BaseMo
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionDragPath(BaseModel):
+class ActionActionDragPath(BaseModel):
+    """An x/y coordinate pair, e.g. `{ x: 100, y: 200 }`."""
+
     x: int
 
     y: int
@@ -84,8 +90,10 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionDragPath(BaseModel
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionDrag(BaseModel):
-    path: List[ActionOpenAITypesResponsesResponseComputerToolCallActionDragPath]
+class ActionActionDrag(BaseModel):
+    """A drag action."""
+
+    path: List[ActionActionDragPath]
 
     type: Literal["drag"]
 
@@ -102,7 +110,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionDrag(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionKeypress(BaseModel):
+class ActionActionKeypress(BaseModel):
+    """A collection of keypresses the model would like to perform."""
+
     keys: List[str]
 
     type: Literal["keypress"]
@@ -120,7 +130,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionKeypress(BaseModel
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionMove(BaseModel):
+class ActionActionMove(BaseModel):
+    """A mouse move action."""
+
     type: Literal["move"]
 
     x: int
@@ -140,7 +152,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionMove(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionScreenshot(BaseModel):
+class ActionActionScreenshot(BaseModel):
+    """A screenshot action."""
+
     type: Literal["screenshot"]
 
     if TYPE_CHECKING:
@@ -156,7 +170,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionScreenshot(BaseMod
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionScroll(BaseModel):
+class ActionActionScroll(BaseModel):
+    """A scroll action."""
+
     scroll_x: int
 
     scroll_y: int
@@ -180,7 +196,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionScroll(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionType(BaseModel):
+class ActionActionType(BaseModel):
+    """An action to type in text."""
+
     text: str
 
     type: Literal["type"]
@@ -198,7 +216,9 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionType(BaseModel):
         __pydantic_extra__: Dict[str, object]
 
 
-class ActionOpenAITypesResponsesResponseComputerToolCallActionWait(BaseModel):
+class ActionActionWait(BaseModel):
+    """A wait action."""
+
     type: Literal["wait"]
 
     if TYPE_CHECKING:
@@ -215,24 +235,26 @@ class ActionOpenAITypesResponsesResponseComputerToolCallActionWait(BaseModel):
 
 
 Action: TypeAlias = Union[
-    ActionOpenAITypesResponsesResponseComputerToolCallActionClick,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionDoubleClick,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionDrag,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionKeypress,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionMove,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionScreenshot,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionScroll,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionType,
-    ActionOpenAITypesResponsesResponseComputerToolCallActionWait,
+    ActionActionClick,
+    ActionActionDoubleClick,
+    ActionActionDrag,
+    ActionActionKeypress,
+    ActionActionMove,
+    ActionActionScreenshot,
+    ActionActionScroll,
+    ActionActionType,
+    ActionActionWait,
 ]
 
 
 class PendingSafetyCheck(BaseModel):
+    """A pending safety check for the computer call."""
+
     id: str
 
-    code: str
+    code: Optional[str] = None
 
-    message: str
+    message: Optional[str] = None
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
@@ -248,9 +270,16 @@ class PendingSafetyCheck(BaseModel):
 
 
 class OpenAIResponseComputerToolCall(BaseModel):
+    """A tool call to a computer use tool.
+
+    See the
+    [computer use guide](https://platform.openai.com/docs/guides/tools-computer-use) for more information.
+    """
+
     id: str
 
     action: Action
+    """A click action."""
 
     call_id: str
 

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cocoindex"
-version = "1.0.2"
+version = "1.0.3"
 description = "With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes."
 authors = [{ name = "CocoIndex", email = "cocoindex.io@gmail.com" }]
 readme = "README.md"
@@ -77,6 +77,7 @@ postgres = ["asyncpg>=0.31.0"]
 qdrant = ["qdrant-client>=1.6.0"]
 sqlite = ["sqlite-vec>=0.1.6"]
 surrealdb = ["surrealdb>=1.0.0"]
+turbopuffer = ["turbopuffer>=0.5.0"]
 google_drive = [
     "google-api-python-client>=2.0.0",
     "google-auth>=2.0.0",
@@ -86,6 +87,7 @@ google_drive = [
 amazon_s3 = ["aiobotocore>=2.0.0"]
 doris = ["aiohttp>=3.9.0", "pymysql>=1.1.0", "aiomysql>=0.2.0"]
 falkordb = ["falkordb>=1.1.0"]
+neo4j = ["neo4j>=5.18.0"]
 kafka = ["confluent_kafka>=2.6"]
 oci = ["oci>=2.0"]
 entity_resolution = ["faiss-cpu>=1.7"]
@@ -106,6 +108,7 @@ all = [
     "qdrant-client>=1.6.0",
     "sqlite-vec>=0.1.6",
     "surrealdb>=1.0.0",
+    "turbopuffer>=0.5.0",
     "google-api-python-client>=2.0.0",
     "google-auth>=2.0.0",
     "google-auth-httplib2>=0.2.0",
@@ -115,6 +118,7 @@ all = [
     "pymysql>=1.1.0",
     "aiomysql>=0.2.0",
     "falkordb>=1.1.0",
+    "neo4j>=5.18.0",
     "confluent_kafka>=2.6",
     "oci>=2.0",
     "faiss-cpu>=1.7",
@@ -131,11 +135,11 @@ build-test = [
     "mypy",
     "moto[s3]>=5.0.0",
     "aiomoto[s3]>=0.3.0",
-    "testcontainers[postgres]>=4.0.0; sys_platform == 'linux'",
+    "testcontainers[postgres,neo4j]>=4.0.0; sys_platform != 'win32'",
 ]
 format = ["ruff"]
 type-stubs = ["types-psutil", "asyncpg-stubs"]
-ci-enabled-optional-deps = ["pydantic>=2.11.9", "asyncpg>=0.31.0"]
+ci-enabled-optional-deps = ["pydantic>=2.11.9", "asyncpg>=0.31.0", "neo4j>=5.18.0"]
 examples = ["sentence-transformers>=3.0.0", "numpy"]
 
 ci = [
@@ -193,6 +197,8 @@ module = [
     "sqlite_vec.*",
     "surrealdb",
     "surrealdb.*",
+    "turbopuffer",
+    "turbopuffer.*",
     "googleapiclient",
     "googleapiclient.*",
     "google.oauth2",
@@ -211,10 +217,22 @@ module = [
     "pymysql.*",
     "falkordb",
     "falkordb.*",
+    "neo4j",
+    "neo4j.*",
     "faiss",
     "faiss.*",
     "instructor",
     "instructor.*",
+    "oci",
+    "oci.*",
+    "confluent_kafka",
+    "confluent_kafka.*",
+    "openai",
+    "openai.*",
+    "transformers",
+    "transformers.*",
+    "testcontainers",
+    "testcontainers.*",
 ]
 ignore_missing_imports = true
 

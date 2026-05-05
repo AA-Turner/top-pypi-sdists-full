@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-cli
-Version: 0.0.48
+Version: 0.0.50
 Summary: Terminal interface for Deep Agents - interactive AI agent with file operations, shell access, and sub-agent capabilities.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -36,6 +36,7 @@ Requires-Dist: langchain-openai<2.0.0,>=1.2.1
 Requires-Dist: langchain<2.0.0,>=1.2.15
 Requires-Dist: langgraph-checkpoint-sqlite<4.0.0,>=3.0.0
 Requires-Dist: langgraph-cli[inmem]<1.0.0,>=0.4.15
+Requires-Dist: langgraph-prebuilt<2.0.0,>=1.0.13
 Requires-Dist: langgraph-sdk<1.0.0,>=0.3.11
 Requires-Dist: langgraph<2.0.0,>=1.1.6
 Requires-Dist: langsmith[sandbox]>=0.7.32

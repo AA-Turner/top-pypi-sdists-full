@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 3.4.2
+Version: 4.0.0
 Summary: Python interface to Oracle Database
 Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
 License-Expression: UPL-1.0 OR Apache-2.0
@@ -44,6 +44,7 @@ Provides-Extra: oci-config
 Requires-Dist: oci; extra == "oci-config"
 Provides-Extra: oci-auth
 Requires-Dist: oci; extra == "oci-auth"
+Requires-Dist: requests>=2.33; extra == "oci-auth"
 Provides-Extra: azure-config
 Requires-Dist: azure-appconfiguration; extra == "azure-config"
 Requires-Dist: azure-identity; extra == "azure-config"
@@ -84,7 +85,7 @@ Run:
 python -m pip install oracledb --upgrade
 ```
 
-See [python-oracledb Installation][installation] for details.
+See [Installing python-oracledb][installation] for details.
 
 ## Samples
 
@@ -129,17 +130,18 @@ with oracledb.connect(user=un, password=pw, dsn=cs) as connection:
   available when optional Oracle Client libraries are loaded by
   python-oracledb.  Libraries are available in the free [Oracle Instant
   Client][instantclient] packages. Python-oracledb can use Oracle Client
-  libraries versions 11.2 through 23, inclusive.
+  Release 19 or later. Older python-oracledb versions supported older Client
+  versions.
 
 - Oracle Database
 
-  **Thin mode**: Oracle Database 12.1 (or later) is required.
+  **Thin mode**: Oracle Database 12.1 or later is required.
 
-  **Thick mode**: Oracle Database 9.2 (or later) is required, depending on the
-  Oracle Client library version.  Oracle Database's standard client-server
-  version interoperability allows connection to both older and newer
-  databases. For example when python-oracledb uses Oracle Client 19 libraries,
-  then it can connect to Oracle Database 11.2 or later.
+  **Thick mode**: Oracle Database 11.2 or later is required, depending on the
+  Oracle Client release.  Oracle Database's standard client-server version
+  interoperability allows connection to both older and newer databases. For
+  example when python-oracledb uses Oracle Client 19 libraries, then it can
+  connect to Oracle Database 11.2 or later.
 
 ## Documentation
 

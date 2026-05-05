@@ -11,6 +11,8 @@ __all__ = ["OpenAITypesResponsesResponseInputItemImageGenerationCall"]
 
 
 class OpenAITypesResponsesResponseInputItemImageGenerationCall(BaseModel):
+    """An image generation request made by the model."""
+
     id: str
 
     status: Literal["in_progress", "completed", "generating", "failed"]

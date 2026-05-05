@@ -2,9 +2,11 @@
 
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from dbt_bouncer.check_decorator import check, fail
+from pydantic import Field
+
+from dbt_bouncer.check_framework.decorator import check, fail
 from dbt_bouncer.utils import (
     clean_path_str,
     compile_pattern,
@@ -17,9 +19,15 @@ from dbt_bouncer.utils import (
 def check_model_description_contains_regex_pattern(model, *, regexp_pattern: str):
     """Models must have a description that matches the provided pattern.
 
+    !!! info "Rationale"
+
+        A free-text description field is easy to fill with placeholder or low-quality content. Requiring descriptions to match a pattern (e.g. a minimum sentence structure or a specific prefix) ensures that documentation meets a baseline standard of usefulness rather than just being non-empty.
+
+    Parameters:
+        regexp_pattern (str): The regexp pattern that should match the model description.
+
     Receives:
         model (ModelNode): The ModelNode object to check.
-        regexp_pattern (str): The regexp pattern that should match the model description.
 
     Other Parameters:
         description (str | None): Description of what the check does and why it is implemented.
@@ -32,7 +40,7 @@ def check_model_description_contains_regex_pattern(model, *, regexp_pattern: str
         ```yaml
         manifest_checks:
             - name: check_model_description_contains_regex_pattern
-            - regex_pattern: .*pattern_to_match.*
+              regexp_pattern: .*pattern_to_match.*
         ```
 
     """
@@ -45,9 +53,13 @@ def check_model_description_contains_regex_pattern(model, *, regexp_pattern: str
 
 @check
 def check_model_description_populated(
-    model, *, min_description_length: int | None = None
+    model, *, min_description_length: Annotated[int, Field(gt=0)] | None = None
 ):
     """Models must have a populated description.
+
+    !!! info "Rationale"
+
+        Descriptions are the primary way data consumers discover what a model represents and how to use it. Without them, analysts waste time reverse-engineering SQL logic or asking the data team. This check ensures every model is self-documenting, which is critical for onboarding, data catalogues, and self-service analytics.
 
     Parameters:
         min_description_length (int | None): Minimum length required for the description to be considered populated.
@@ -84,9 +96,15 @@ def check_model_description_populated(
 
 @check
 def check_model_documentation_coverage(
-    ctx, *, min_model_documentation_coverage_pct: int = 100
+    ctx,
+    *,
+    min_model_documentation_coverage_pct: Annotated[int, Field(ge=0, le=100)] = 100,
 ):
     """Set the minimum percentage of models that have a populated description.
+
+    !!! info "Rationale"
+
+        Rather than requiring every single model to be documented immediately, this check allows teams to set a realistic target and enforce it incrementally. It prevents documentation coverage from silently regressing as new models are added, nudging teams towards full documentation over time.
 
     Parameters:
         min_model_documentation_coverage_pct (float): The minimum percentage of models that must have a populated description.
@@ -131,6 +149,10 @@ def check_model_documentation_coverage(
 @check
 def check_model_documented_in_same_directory(model):
     """Models must be documented in the same directory where they are defined (i.e. `.yml` and `.sql` files are in the same directory).
+
+    !!! info "Rationale"
+
+        Co-locating a model's SQL file and its YAML documentation makes the project easier to navigate. When documentation lives in a different directory, contributors may miss it during code review or forget to update it when changing the model. Keeping both files together reinforces the habit of treating documentation as part of the model definition.
 
     Receives:
         model (ModelNode): The ModelNode object to check.

@@ -468,13 +468,17 @@ class WorkloadsOperations:
         # for hammerdb
         product_versions = self._product_versions if isinstance(self._product_versions, dict) else {}
         if database == 'mssql':
-            metadata.update({'db_type': 'mssql', 'db_version': product_versions.get('mssql', 2022), 'storage_type': self._storage_type})
+            metadata.update({'db_type': 'mssql', 'db_version': product_versions.get('mssql', 2025), 'storage_type': self._storage_type})
         elif database == 'postgres':
             metadata.update({'db_type': 'pg', 'db_version': product_versions.get('postgres', 13), 'storage_type': self._storage_type})
         elif database == 'mariadb':
             metadata.update({'db_type': 'mariadb', 'db_version': product_versions.get('mariadb', 10.5), 'storage_type': self._storage_type})
         if database:
             metadata.update({'hammerdb_version': self._product_versions.get('hammerdb', 4.12)})
+        if 'stressng' in self._workload:
+            metadata.update({'stressng_version': self._product_versions.get('stressng', '0.20.01')})
+        if 'uperf' in self._workload:
+            metadata.update({'uperf_version': self._product_versions.get('uperf', '1.0.8')})
         if self._test_name:
             metadata.update({'test_name': self._test_name})
         if result:
@@ -643,7 +647,7 @@ class WorkloadsOperations:
         database = workload_parts[2] if len(workload_parts) >= 3 else ''
         db_type_map = {'mariadb': 'mariadb', 'mssql': 'mssql', 'postgres': 'pg'}
         product_versions = self._product_versions if isinstance(self._product_versions, dict) else {}
-        db_version_defaults = {'mariadb': 10.5, 'mssql': 2022, 'postgres': 13}
+        db_version_defaults = {'mariadb': 10.5, 'mssql': 2025, 'postgres': 13}
         return {
             'db_type': db_type_map.get(database, database),
             'db_version': product_versions.get(database, db_version_defaults.get(database, '')),
@@ -692,7 +696,7 @@ class WorkloadsOperations:
         """Load and return the list of per-thread result dicts from a JSON file."""
         import json as _json
         try:
-            with open(json_path, encoding='utf-8') as f:
+            with open(json_path, encoding='utf-8-sig') as f:
                 data = _json.load(f)
             if isinstance(data, list):
                 return data

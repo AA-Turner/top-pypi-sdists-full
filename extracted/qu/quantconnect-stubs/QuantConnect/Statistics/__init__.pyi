@@ -402,7 +402,7 @@ class TradeStatistics(System.Object):
 
     @property
     def win_rate(self) -> float:
-        """The ratio of the number of winning trades to the total number of trades"""
+        """The ratio of the number of trades with positive profit loss to the total number of trades"""
         ...
 
     @win_rate.setter
@@ -411,7 +411,7 @@ class TradeStatistics(System.Object):
 
     @property
     def loss_rate(self) -> float:
-        """The ratio of the number of losing trades to the total number of trades"""
+        """The ratio of the number of trades with zero or negative profit loss to the total number of trades"""
         ...
 
     @loss_rate.setter
@@ -582,7 +582,7 @@ class PortfolioStatistics(System.Object):
 
     @property
     def average_win_rate(self) -> float:
-        """The average rate of return for winning trades"""
+        """The average rate of return for trades with positive profit loss"""
         ...
 
     @average_win_rate.setter
@@ -591,7 +591,7 @@ class PortfolioStatistics(System.Object):
 
     @property
     def average_loss_rate(self) -> float:
-        """The average rate of return for losing trades"""
+        """The average rate of return for trades with zero or negative profit loss"""
         ...
 
     @average_loss_rate.setter
@@ -609,7 +609,7 @@ class PortfolioStatistics(System.Object):
 
     @property
     def win_rate(self) -> float:
-        """The ratio of the number of winning trades to the total number of trades"""
+        """The ratio of the number of trades with positive profit loss to the total number of trades"""
         ...
 
     @win_rate.setter
@@ -618,7 +618,7 @@ class PortfolioStatistics(System.Object):
 
     @property
     def loss_rate(self) -> float:
-        """The ratio of the number of losing trades to the total number of trades"""
+        """The ratio of the number of trades with zero or negative profit loss to the total number of trades"""
         ...
 
     @loss_rate.setter
@@ -1308,10 +1308,10 @@ class PerformanceMetrics(System.Object):
     """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
 
     AVERAGE_LOSS: str = "Average Loss"
-    """The average rate of return for losing trades"""
+    """The average rate of return for trades with zero or negative profit loss"""
 
     AVERAGE_WIN: str = "Average Win"
-    """The average rate of return for winning trades"""
+    """The average rate of return for trades with positive profit loss"""
 
     BETA: str = "Beta"
     """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
@@ -1338,7 +1338,7 @@ class PerformanceMetrics(System.Object):
     """Information ratio - risk adjusted return"""
 
     LOSS_RATE: str = "Loss Rate"
-    """The ratio of the number of losing trades to the total number of trades"""
+    """The ratio of the number of trades with zero or negative profit loss to the total number of trades"""
 
     NET_PROFIT: str = "Net Profit"
     """Total net profit percentage"""
@@ -1371,7 +1371,7 @@ class PerformanceMetrics(System.Object):
     """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
 
     WIN_RATE: str = "Win Rate"
-    """The ratio of the number of winning trades to the total number of trades"""
+    """The ratio of the number of trades with positive profit loss to the total number of trades"""
 
     LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
     """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""

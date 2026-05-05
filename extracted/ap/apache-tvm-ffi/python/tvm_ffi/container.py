@@ -79,6 +79,40 @@ __all__ = ["Array", "Dict", "List", "Map"]
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
+
+
+def _sequence_compare_other(this: object, other: object) -> object:
+    """Normalize plain Python sequences for structural container equality."""
+    if isinstance(other, (str, bytes, Mapping)):
+        return NotImplemented
+    if isinstance(other, Sequence):
+        try:
+            return type(this)(other)
+        except (TypeError, ValueError):
+            return NotImplemented
+    return NotImplemented
+
+
+def _sequence_contains(
+    this: Sequence[Any],
+    value: object,
+    ffi_contains: Callable[[Any, object], bool],
+) -> bool:
+    """Containment with a Python-level structural fallback for nested sequences."""
+    if ffi_contains(this, value):
+        return True
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return False
+    try:
+        search_value = type(this)(value)  # ty: ignore[too-many-positional-arguments]
+    except (TypeError, ValueError):
+        return False
+    for item in this:
+        if item == search_value:
+            return True
+    return False
+
+
 _DefaultT = TypeVar("_DefaultT")
 
 from .core import MISSING
@@ -134,7 +168,7 @@ def normalize_index(length: int, idx: SupportsIndex) -> int:
 
 
 @register_object("ffi.Array")
-class Array(core.Object, Sequence[T]):
+class Array(core.CContainerBase, core.Object, Sequence[T]):
     """Array container that represents a sequence of values in the FFI.
 
     :py:func:`tvm_ffi.convert` will map python list/tuple to this class.
@@ -168,6 +202,9 @@ class Array(core.Object, Sequence[T]):
     # fmt: on
     # tvm-ffi-stubgen(end)
 
+    def __deepcopy__(self, memo: Any = None) -> Any:
+        return _ffi_api.DeepCopy(self)
+
     def __init__(self, input_list: Iterable[T]) -> None:
         """Construct an Array from a Python sequence."""
         self.__init_handle_by_constructor__(_ffi_api.Array, *input_list)
@@ -196,7 +233,27 @@ class Array(core.Object, Sequence[T]):
 
     def __contains__(self, value: object) -> bool:
         """Check if the array contains a value."""
-        return _ffi_api.ArrayContains(self, value)
+        return _sequence_contains(self, value, _ffi_api.ArrayContains)
+
+    def __eq__(self, other: object) -> bool:
+        """Structural equality."""
+        if isinstance(other, type(self)) or isinstance(self, type(other)):
+            return _ffi_api.RecursiveEq(self, other)
+        other = _sequence_compare_other(self, other)
+        if other is NotImplemented:
+            return NotImplemented
+        return _ffi_api.RecursiveEq(self, other)
+
+    def __ne__(self, other: object) -> bool:
+        """Structural inequality."""
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return NotImplemented
+        return not result
+
+    def __hash__(self) -> int:
+        """Structural hash."""
+        return _ffi_api.RecursiveHash(self)
 
     def __bool__(self) -> bool:
         """Return True if the array is non-empty."""
@@ -212,13 +269,16 @@ class Array(core.Object, Sequence[T]):
 
 
 @register_object("ffi.List")
-class List(core.Object, MutableSequence[T]):
+class List(core.CContainerBase, core.Object, MutableSequence[T]):
     """Mutable list container that represents a mutable sequence in the FFI."""
 
     # tvm-ffi-stubgen(begin): object/ffi.List
     # fmt: off
     # fmt: on
     # tvm-ffi-stubgen(end)
+
+    def __deepcopy__(self, memo: Any = None) -> Any:
+        return _ffi_api.DeepCopy(self)
 
     def __init__(self, input_list: Iterable[T] = ()) -> None:
         """Construct a List from a Python sequence."""
@@ -336,7 +396,27 @@ class List(core.Object, MutableSequence[T]):
 
     def __contains__(self, value: object) -> bool:
         """Check if the list contains a value."""
-        return _ffi_api.ListContains(self, value)
+        return _sequence_contains(self, value, _ffi_api.ListContains)
+
+    def __eq__(self, other: object) -> bool:
+        """Structural equality."""
+        if isinstance(other, type(self)) or isinstance(self, type(other)):
+            return _ffi_api.RecursiveEq(self, other)
+        other = _sequence_compare_other(self, other)
+        if other is NotImplemented:
+            return NotImplemented
+        return _ffi_api.RecursiveEq(self, other)
+
+    def __ne__(self, other: object) -> bool:
+        """Structural inequality."""
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return NotImplemented
+        return not result
+
+    def __hash__(self) -> int:
+        """Structural hash."""
+        return _ffi_api.RecursiveHash(self)
 
     def __bool__(self) -> bool:
         """Return True if the list is non-empty."""
@@ -438,7 +518,7 @@ class ItemsView(ItemsViewBase[K, V]):
 
 
 @register_object("ffi.Map")
-class Map(core.Object, Mapping[K, V]):
+class Map(core.CContainerBase, core.Object, Mapping[K, V]):
     """Map container.
 
     :py:func:`tvm_ffi.convert` will map python dict to this class.
@@ -474,6 +554,9 @@ class Map(core.Object, Mapping[K, V]):
     # fmt: on
     # tvm-ffi-stubgen(end)
 
+    def __deepcopy__(self, memo: Any = None) -> Any:
+        return _ffi_api.DeepCopy(self)
+
     def __init__(self, input_dict: Mapping[K, V]) -> None:
         """Construct a Map from a Python mapping."""
         list_kvs: list[Any] = []
@@ -489,6 +572,23 @@ class Map(core.Object, Mapping[K, V]):
     def __contains__(self, k: object) -> bool:
         """Return True if the map contains key `k`."""
         return _ffi_api.MapCount(self, k) != 0
+
+    def __eq__(self, other: object) -> bool:
+        """Structural equality."""
+        if not (isinstance(other, type(self)) or isinstance(self, type(other))):
+            return NotImplemented
+        return _ffi_api.RecursiveEq(self, other)
+
+    def __ne__(self, other: object) -> bool:
+        """Structural inequality."""
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return NotImplemented
+        return not result
+
+    def __hash__(self) -> int:
+        """Structural hash."""
+        return _ffi_api.RecursiveHash(self)
 
     def keys(self) -> KeysView[K]:
         """Return a dynamic view of the map's keys."""
@@ -544,7 +644,7 @@ class Map(core.Object, Mapping[K, V]):
 
 
 @register_object("ffi.Dict")
-class Dict(core.Object, MutableMapping[K, V]):
+class Dict(core.CContainerBase, core.Object, MutableMapping[K, V]):
     """Mutable dictionary container with shared reference semantics.
 
     Unlike :class:`Map`, ``Dict`` does NOT implement copy-on-write.
@@ -567,6 +667,9 @@ class Dict(core.Object, MutableMapping[K, V]):
         assert len(d) == 3
 
     """
+
+    def __deepcopy__(self, memo: Any = None) -> Any:
+        return _ffi_api.DeepCopy(self)
 
     def __init__(self, input_dict: Mapping[K, V] | None = None) -> None:
         """Construct a Dict from a Python mapping."""
@@ -594,6 +697,23 @@ class Dict(core.Object, MutableMapping[K, V]):
     def __contains__(self, k: object) -> bool:
         """Return True if the dict contains key `k`."""
         return _ffi_api.DictCount(self, k) != 0
+
+    def __eq__(self, other: object) -> bool:
+        """Structural equality."""
+        if not (isinstance(other, type(self)) or isinstance(self, type(other))):
+            return NotImplemented
+        return _ffi_api.RecursiveEq(self, other)
+
+    def __ne__(self, other: object) -> bool:
+        """Structural inequality."""
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return NotImplemented
+        return not result
+
+    def __hash__(self) -> int:
+        """Structural hash."""
+        return _ffi_api.RecursiveHash(self)
 
     def __len__(self) -> int:
         """Return the number of items in the dict."""

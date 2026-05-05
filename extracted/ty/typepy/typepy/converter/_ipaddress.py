@@ -25,6 +25,4 @@ class IpAddressConverter(AbstractValueConverter):
             except ValueError:
                 pass
 
-        raise TypeConversionError(
-            f"failed to force_convert to dictionary: type={type(self._value)}"
-        )
+        raise TypeConversionError(f"failed to force_convert to ipaddress: type={type(self._value)}")

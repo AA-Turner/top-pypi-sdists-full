@@ -17,6 +17,8 @@ __all__ = [
 
 
 class FormatResponseFormatText(BaseModel):
+    """Default response format. Used to generate text responses."""
+
     type: Literal["text"]
 
     if TYPE_CHECKING:
@@ -33,6 +35,12 @@ class FormatResponseFormatText(BaseModel):
 
 
 class FormatResponseFormatTextJsonSchemaConfig(BaseModel):
+    """JSON Schema response format.
+
+    Used to generate structured JSON responses.
+    Learn more about [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs).
+    """
+
     name: str
 
     schema_: Dict[str, object] = FieldInfo(alias="schema")
@@ -57,6 +65,14 @@ class FormatResponseFormatTextJsonSchemaConfig(BaseModel):
 
 
 class FormatResponseFormatJsonObject(BaseModel):
+    """JSON object response format.
+
+    An older method of generating JSON responses.
+    Using `json_schema` is recommended for models that support it. Note that the
+    model will not generate JSON without a system or user message instructing it
+    to do so.
+    """
+
     type: Literal["json_object"]
 
     if TYPE_CHECKING:
@@ -78,7 +94,16 @@ Format: TypeAlias = Union[
 
 
 class OpenAIResponseTextConfig(BaseModel):
+    """Configuration options for a text response from the model.
+
+    Can be plain
+    text or structured JSON data. Learn more:
+    - [Text inputs and outputs](https://platform.openai.com/docs/guides/text)
+    - [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs)
+    """
+
     format: Optional[Format] = None
+    """Default response format. Used to generate text responses."""
 
     verbosity: Optional[Literal["low", "medium", "high"]] = None
 

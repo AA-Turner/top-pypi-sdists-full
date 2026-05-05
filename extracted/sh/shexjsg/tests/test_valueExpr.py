@@ -20,27 +20,24 @@
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
 # IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
 # INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
 # DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import unittest
+import pytest
 
 from ShExJSG import ShExJ
 
 
-class ValueExprTestCase(unittest.TestCase):
-    def test(self):
-
-        tc = ShExJ.TripleConstraint()
-        with self.assertRaises(ValueError):
-            tc.predicate = 17
-
-        with self.assertRaises(ValueError):
-            tc.valueExpr = "This should fail"
+def test_triple_constraint_predicate_rejects_non_iri():
+    tc = ShExJ.TripleConstraint()
+    with pytest.raises(ValueError):
+        tc.predicate = 17
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_triple_constraint_value_expr_rejects_string():
+    tc = ShExJ.TripleConstraint()
+    with pytest.raises(ValueError):
+        tc.valueExpr = "This should fail"

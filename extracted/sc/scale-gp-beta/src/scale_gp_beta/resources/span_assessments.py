@@ -57,7 +57,6 @@ class SpanAssessmentsResource(SyncAPIResource):
         self,
         *,
         assessment_type: AssessmentType,
-        span_id: str,
         trace_id: str,
         approval: ApprovalStatus | Omit = omit,
         comment: str | Omit = omit,
@@ -65,6 +64,7 @@ class SpanAssessmentsResource(SyncAPIResource):
         overwrite: Dict[str, object] | Omit = omit,
         rating: int | Omit = omit,
         rubric: Dict[str, str] | Omit = omit,
+        span_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -78,8 +78,6 @@ class SpanAssessmentsResource(SyncAPIResource):
 
         Args:
           assessment_type: Type of assessment
-
-          span_id: The ID of the span this assessment is attached to
 
           trace_id: The ID of the trace this assessment is attached to
 
@@ -95,6 +93,9 @@ class SpanAssessmentsResource(SyncAPIResource):
 
           rubric: Rule key-value pairs for rubric evaluation
 
+          span_id: The ID of the span this assessment is attached to. If omitted, the assessment is
+              attached to the root span of the trace.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -108,7 +109,6 @@ class SpanAssessmentsResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "assessment_type": assessment_type,
-                    "span_id": span_id,
                     "trace_id": trace_id,
                     "approval": approval,
                     "comment": comment,
@@ -116,6 +116,7 @@ class SpanAssessmentsResource(SyncAPIResource):
                     "overwrite": overwrite,
                     "rating": rating,
                     "rubric": rubric,
+                    "span_id": span_id,
                 },
                 span_assessment_create_params.SpanAssessmentCreateParams,
             ),
@@ -336,7 +337,6 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         self,
         *,
         assessment_type: AssessmentType,
-        span_id: str,
         trace_id: str,
         approval: ApprovalStatus | Omit = omit,
         comment: str | Omit = omit,
@@ -344,6 +344,7 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         overwrite: Dict[str, object] | Omit = omit,
         rating: int | Omit = omit,
         rubric: Dict[str, str] | Omit = omit,
+        span_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -357,8 +358,6 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
 
         Args:
           assessment_type: Type of assessment
-
-          span_id: The ID of the span this assessment is attached to
 
           trace_id: The ID of the trace this assessment is attached to
 
@@ -374,6 +373,9 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
 
           rubric: Rule key-value pairs for rubric evaluation
 
+          span_id: The ID of the span this assessment is attached to. If omitted, the assessment is
+              attached to the root span of the trace.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -387,7 +389,6 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "assessment_type": assessment_type,
-                    "span_id": span_id,
                     "trace_id": trace_id,
                     "approval": approval,
                     "comment": comment,
@@ -395,6 +396,7 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
                     "overwrite": overwrite,
                     "rating": rating,
                     "rubric": rubric,
+                    "span_id": span_id,
                 },
                 span_assessment_create_params.SpanAssessmentCreateParams,
             ),

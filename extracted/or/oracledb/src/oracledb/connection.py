@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -895,7 +895,9 @@ class Connection(BaseConnection):
                 impl.connect(params_impl, pool_impl)
             self._impl = impl
 
-            # invoke callback, if applicable
+            # invoke callbacks, as applicable
+            if params_impl.on_connect_callback is not None:
+                params_impl.on_connect_callback(self)
             if (
                 impl.invoke_session_callback
                 and pool is not None
@@ -1006,6 +1008,17 @@ class Connection(BaseConnection):
         self._verify_connected()
         self._impl.change_password(old_password, new_password)
 
+    def clear_end_user_security_context(self) -> None:
+        """
+        Clears the end user security context specified on a connection.
+
+        This reverts the connection to its original state in which subsequent
+        database operations are executed on the connection without any end user
+        security context.
+        """
+        self._verify_connected()
+        self._impl.clear_end_user_security_context()
+
     def close(self) -> None:
         """
         Closes the connection now and makes it unusable for further operations.
@@ -1057,12 +1070,22 @@ class Connection(BaseConnection):
             lob.write(data)
         return lob
 
-    def cursor(self, scrollable: bool = False) -> Cursor:
+    def cursor(
+        self, scrollable: bool = False, handle: Optional[object] = None
+    ) -> Cursor:
         """
         Returns a new :ref:`cursor object <cursorobj>` using the connection.
+
+        The ``scrollable`` parameter specifies whether the cursor should be
+        scrollable. The :meth:`~Cursor.scroll()` method is only available if
+        this value is true when the cursor is created.
+
+        The ``handle`` parameter specifies the Oracle Call Interface statement
+        handle wrapped in a PyCapsule named ``oci_stmt_handle``. It is only
+        supported in python-oracledb Thick mode.
         """
         self._verify_connected()
-        return Cursor(self, scrollable)
+        return Cursor(self, scrollable, handle=handle)
 
     def direct_path_load(
         self,
@@ -1092,12 +1115,13 @@ class Connection(BaseConnection):
 
     def fetch_df_all(
         self,
-        statement: str,
+        statement: Optional[str] = None,
         parameters: Optional[Union[list, tuple, dict]] = None,
         arraysize: Optional[int] = None,
         *,
         fetch_decimals: Optional[bool] = None,
         requested_schema: Optional[Any] = None,
+        handle: Optional[object] = None,
     ) -> DataFrame:
         """
         Fetches all rows of the SQL query ``statement``, returning them in a
@@ -1124,9 +1148,20 @@ class Connection(BaseConnection):
         the Apache Arrow PyCapsule schema interface. The DataFrame returned by
         ``fetch_df_all()`` will have the data types and names of the schema.
 
+        The ``handle`` parameter specifies a PyCapsule named
+        ``oci_stmt_handle`` containing an OCIStmt handle. This is useful when
+        needing to fetch data from an existing open cursor that was created
+        externally. Note that this is only supported in python-oracledb Thick
+        mode.
+
         Any LOB fetched must be less than 1 GB.
         """
-        cursor = self.cursor()
+        if not (statement is not None) ^ (handle is not None):
+            raise ValueError(
+                "One of the parameters 'statement' or 'handle' "
+                "is required but not both"
+            )
+        cursor = self.cursor(handle=handle)
         cursor._impl.fetching_arrow = True
         if requested_schema is not None:
             cursor._impl.schema_impl = ArrowSchemaImpl.from_arrow_schema(
@@ -1135,21 +1170,25 @@ class Connection(BaseConnection):
         if arraysize is not None:
             cursor.arraysize = arraysize
         cursor.prefetchrows = cursor.arraysize
-        cursor.execute(
-            statement,
-            parameters,
-            fetch_decimals=fetch_decimals,
-        )
+        if statement is not None:
+            cursor.execute(
+                statement,
+                parameters,
+                fetch_decimals=fetch_decimals,
+            )
+        else:
+            cursor._verify_fetch()
         return cursor._impl.fetch_df_all(cursor)
 
     def fetch_df_batches(
         self,
-        statement: str,
+        statement: Optional[str] = None,
         parameters: Optional[Union[list, tuple, dict]] = None,
         size: Optional[int] = None,
         *,
         fetch_decimals: Optional[bool] = None,
         requested_schema: Optional[Any] = None,
+        handle: Optional[object] = None,
     ) -> Iterator[DataFrame]:
         """
         This returns an iterator yielding the next ``size`` rows of the SQL
@@ -1178,9 +1217,20 @@ class Connection(BaseConnection):
         the Apache Arrow PyCapsule schema interface. The DataFrame returned by
         ``fetch_df_all()`` will have the data types and names of the schema.
 
+        The ``handle`` parameter specifies a PyCapsule named
+        ``oci_stmt_handle`` containing an OCIStmt handle. This is useful when
+        needing to fetch data from an existing open cursor that was created
+        externally. Note that this is only supported in python-oracledb Thick
+        mode.
+
         Any LOB fetched must be less than 1 GB.
         """
-        cursor = self.cursor()
+        if not (statement is not None) ^ (handle is not None):
+            raise ValueError(
+                "One of the parameters 'statement' or 'handle' "
+                "is required but not both"
+            )
+        cursor = self.cursor(handle=handle)
         cursor._impl.fetching_arrow = True
         if requested_schema is not None:
             cursor._impl.schema_impl = ArrowSchemaImpl.from_arrow_schema(
@@ -1189,11 +1239,14 @@ class Connection(BaseConnection):
         if size is not None:
             cursor.arraysize = size
         cursor.prefetchrows = cursor.arraysize
-        cursor.execute(
-            statement,
-            parameters,
-            fetch_decimals=fetch_decimals,
-        )
+        if statement is not None:
+            cursor.execute(
+                statement,
+                parameters,
+                fetch_decimals=fetch_decimals,
+            )
+        else:
+            cursor._verify_fetch()
         if size is None:
             yield cursor._impl.fetch_df_all(cursor)
         else:
@@ -1272,6 +1325,20 @@ class Connection(BaseConnection):
         """
         self._verify_connected()
         self._impl.rollback()
+
+    def set_end_user_security_context(
+        self,
+        context,
+    ) -> None:
+        """
+        Sets the end user security context on a connection using the specified
+        context.
+
+        Once this method is called, the specified end user security context is
+        applicable to all database operations performed in the connection.
+        """
+        self._verify_connected()
+        self._impl.set_end_user_security_context(context)
 
     def shutdown(self, mode: int = 0) -> None:
         """
@@ -1383,10 +1450,12 @@ class Connection(BaseConnection):
         identifies the queue that will be monitored for messages. The queue
         name may include the schema, if needed.
 
-        The ``client_initiated`` parameter is used to determine if client
-        initiated connections or server initiated connections (the default)
-        will be established. Client initiated connections are only available in
-        Oracle Client 19.4 and Oracle Database 19.4 and higher.
+        The ``client_initiated`` parameter is a boolean that determines if
+        client initiated connections (the value *True*) or server initiated
+        connections (the default value *False*) will be established. Client
+        initiated connections are only available in Oracle Database 19.4 (or
+        later). For python-oracledb Thick mode, Oracle Client 19.4 (or later)
+        is additionally required.
 
         For consistency and compliance with the PEP 8 naming style, the
         parameter ``ipAddress`` was renamed to ``ip_address``, the parameter
@@ -1607,14 +1676,12 @@ class Connection(BaseConnection):
         "SELECT" privilege on that view.
         """
         with self.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                     select
                         formatid,
                         globalid,
                         branchid
-                    from dba_pending_transactions"""
-            )
+                    from dba_pending_transactions""")
             cursor.rowfactory = Xid
             return cursor.fetchall()
 
@@ -1644,7 +1711,10 @@ class Connection(BaseConnection):
         self._verify_connected()
         if not isinstance(subscr, Subscription):
             raise TypeError("expecting subscription")
-        subscr._impl.unsubscribe(self._impl)
+        if subscr._impl is None:
+            errors._raise_err(errors.ERR_NOT_SUBSCRIBED)
+        subscr._impl.unsubscribe(self, self._impl)
+        subscr._impl = None
 
 
 def _connection_factory(
@@ -1760,6 +1830,7 @@ def connect(
     thick_mode_dsn_passthrough: Optional[bool] = None,
     extra_auth_params: Optional[dict] = None,
     pool_name: Optional[str] = None,
+    on_connect_callback: Optional[Callable] = None,
     handle: Optional[int] = None,
 ) -> Connection:
     """
@@ -2054,6 +2125,13 @@ def connect(
       Oracle Database 23.4, or higher
       (default: None)
 
+    - ``on_connect_callback``: a callable that is invoked immediately after a
+      standalone connection is created or a connection is acquired from a
+      connection pool, but before it is returned to the caller. A common use of
+      this callback is for creating and setting an end user security context
+      object for DeepSec support
+      (default: None)
+
     - ``handle``: an integer representing a pointer to a valid service context
       handle. This value is only used in python-oracledb Thick mode. It should
       be used with extreme caution
@@ -2157,7 +2235,9 @@ class AsyncConnection(BaseConnection):
             await impl.connect(params_impl)
         self._impl = impl
 
-        # invoke callback, if applicable
+        # invoke callbacks, as applicable
+        if params_impl.on_connect_callback is not None:
+            await params_impl.on_connect_callback(self)
         if (
             impl.invoke_session_callback
             and pool is not None
@@ -2867,14 +2947,12 @@ class AsyncConnection(BaseConnection):
         requires ``SELECT`` privilege on that view.
         """
         with self.cursor() as cursor:
-            await cursor.execute(
-                """
+            await cursor.execute("""
                     select
                         formatid,
                         globalid,
                         branchid
-                    from dba_pending_transactions"""
-            )
+                    from dba_pending_transactions""")
             cursor.rowfactory = Xid
             return await cursor.fetchall()
 
@@ -3018,6 +3096,7 @@ def connect_async(
     thick_mode_dsn_passthrough: Optional[bool] = None,
     extra_auth_params: Optional[dict] = None,
     pool_name: Optional[str] = None,
+    on_connect_callback: Optional[Callable] = None,
     handle: Optional[int] = None,
 ) -> AsyncConnection:
     """
@@ -3310,6 +3389,13 @@ def connect_async(
 
     - ``pool_name``: the name of the DRCP pool when using multi-pool DRCP with
       Oracle Database 23.4, or higher
+      (default: None)
+
+    - ``on_connect_callback``: a callable that is invoked immediately after a
+      standalone connection is created or a connection is acquired from a
+      connection pool, but before it is returned to the caller. A common use of
+      this callback is for creating and setting an end user security context
+      object for DeepSec support
       (default: None)
 
     - ``handle``: an integer representing a pointer to a valid service context

@@ -18,11 +18,13 @@ import json
 import pickle
 import unittest
 import warnings
-from typing import Any, Callable, Optional
+from typing import Any
+from collections.abc import Callable
 
 import fixtures
 import testtools
 
+import qiskit_experiments.framework.json
 from qiskit_experiments.framework import (
     ExperimentDecoder,
     ExperimentEncoder,
@@ -108,11 +110,12 @@ def create_base_test_case(use_testtools: bool) -> unittest.TestCase:
                 message=".*Could not determine job completion time.*",
                 category=UserWarning,
             )
+            qiskit_experiments.framework.json._strict_serialization = True
 
         def assertExperimentDone(
             self,
             experiment_data: ExperimentData,
-            timeout: Optional[float] = None,
+            timeout: float | None = None,
         ):
             """Blocking execution of next line until all threads are completed then
             checks if status returns Done.
@@ -137,7 +140,7 @@ def create_base_test_case(use_testtools: bool) -> unittest.TestCase:
             first: Any,
             second: Any,
             *,
-            msg: Optional[str] = None,
+            msg: str | None = None,
             strict_type: bool = False,
         ):
             """Extended equality assertion which covers Qiskit Experiments classes.
@@ -167,7 +170,7 @@ def create_base_test_case(use_testtools: bool) -> unittest.TestCase:
             self,
             obj: Any,
             *,
-            check_func: Optional[Callable] = None,
+            check_func: Callable | None = None,
             strict_type: bool = False,
         ):
             """Assert that an object is round trip serializable.
@@ -197,7 +200,7 @@ def create_base_test_case(use_testtools: bool) -> unittest.TestCase:
             self,
             obj: Any,
             *,
-            check_func: Optional[Callable] = None,
+            check_func: Callable | None = None,
             strict_type: bool = False,
         ):
             """Assert that an object is round trip serializable using pickle module.

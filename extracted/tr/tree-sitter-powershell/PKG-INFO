@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-powershell
-Version: 0.26.3
+Version: 0.26.4
 Summary: A Powershell grammar for tree-sitter
 Author-email: Airbus CERT <cert@airbus.com>
 License: MIT

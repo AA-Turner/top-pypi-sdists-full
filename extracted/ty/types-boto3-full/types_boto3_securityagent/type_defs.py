@@ -835,6 +835,7 @@ class VerifyTargetDomainOutputTypeDef(TypedDict):
     updatedAt: datetime
     verifiedAt: datetime
     status: TargetDomainStatusType
+    verificationStatusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1180,6 +1181,7 @@ class CreateTargetDomainOutputTypeDef(TypedDict):
     targetDomainId: str
     domainName: str
     verificationStatus: TargetDomainStatusType
+    verificationStatusReason: str
     verificationDetails: VerificationDetailsTypeDef
     createdAt: datetime
     verifiedAt: datetime
@@ -1190,6 +1192,7 @@ class TargetDomainTypeDef(TypedDict):
     targetDomainId: str
     domainName: str
     verificationStatus: NotRequired[TargetDomainStatusType]
+    verificationStatusReason: NotRequired[str]
     verificationDetails: NotRequired[VerificationDetailsTypeDef]
     createdAt: NotRequired[datetime]
     verifiedAt: NotRequired[datetime]
@@ -1199,6 +1202,7 @@ class UpdateTargetDomainOutputTypeDef(TypedDict):
     targetDomainId: str
     domainName: str
     verificationStatus: TargetDomainStatusType
+    verificationStatusReason: str
     verificationDetails: VerificationDetailsTypeDef
     createdAt: datetime
     verifiedAt: datetime

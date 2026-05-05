@@ -16,5 +16,4 @@ class StringConverter(AbstractValueConverter):
 
 
 class NullStringConverter(StringConverter):
-    def force_convert(self):
-        return super().force_convert()
+    pass

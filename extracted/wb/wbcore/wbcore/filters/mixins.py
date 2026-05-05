@@ -63,8 +63,7 @@ class WBCoreFilterMixin:
             initial = callable_initial(self, request, view)
         else:
             initial = self.initial
-        if initial is not None:
-            return self._validate_initial(request, initial)
+        return initial
 
     def _validate_initial(self, request, initial):
         return initial
@@ -110,6 +109,8 @@ class WBCoreFilterMixin:
             },
         }
         initial = self._get_initial(request, view)
+        if initial is not None:
+            initial = self._validate_initial(request, initial)
         if (overridden_initial := self._validate_initial_with_request(initial, request, name)) is not None:
             initial = overridden_initial
         if initial is not None or self.allow_empty_initial:

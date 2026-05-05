@@ -11,6 +11,8 @@ __all__ = ["OpenAIResponseOutputRefusal"]
 
 
 class OpenAIResponseOutputRefusal(BaseModel):
+    """A refusal from the model."""
+
     refusal: str
 
     type: Literal["refusal"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tetgen
-Version: 0.8.3
+Version: 0.8.4
 Summary: Python interface to tetgen
 Author-Email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT

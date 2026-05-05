@@ -7,6 +7,7 @@ from .chat_completion import ChatCompletion as ChatCompletion
 from .choice_logprobs import ChoiceLogprobs as ChoiceLogprobs
 from .model_definition import ModelDefinition as ModelDefinition
 from .chat_completion_chunk import ChatCompletionChunk as ChatCompletionChunk
+from .inference_model_vendor import InferenceModelVendor as InferenceModelVendor
 from .completion_create_params import CompletionCreateParams as CompletionCreateParams
 from .completion_models_params import CompletionModelsParams as CompletionModelsParams
 from .completion_create_response import CompletionCreateResponse as CompletionCreateResponse

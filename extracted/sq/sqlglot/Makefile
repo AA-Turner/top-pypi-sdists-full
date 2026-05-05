@@ -1,4 +1,4 @@
-.PHONY: install install-dev install-devc install-devc-release install-pre-commit bench bench-parse bench-transpile bench-optimize test test-fast unit testc unitc style check docs docs-serve hidec showc clean resolve-integration-conflicts update-fixtures
+.PHONY: install install-dev install-devc install-devc-release install-pre-commit bench bench-parse bench-transpile bench-optimize test test-fast unit testc unitc leakcheck style check docs docs-serve hidec showc clean resolve-integration-conflicts update-fixtures
 
 ifdef UV
     PIP := uv pip
@@ -8,6 +8,7 @@ endif
 
 SO_BACKUP := /tmp/sqlglot_so_backup
 FIND_SO := find sqlglot -name "*.so"
+NPROC := $(shell python -c "import os; print(os.cpu_count() or 1)")
 
 hidec:
 	rm -rf $(SO_BACKUP) && $(FIND_SO) | tar cf $(SO_BACKUP) -T - 2>/dev/null && $(FIND_SO) -delete; true
@@ -37,11 +38,23 @@ install-dev:
 		fi; \
 	fi
 
+# sqlglotc requires Python 3.10+ (sqlglot-mypy 1.20+ dropped 3.9). On 3.9
+# we skip the C build; tests fall back to pure-Python sqlglot.
+PY_GE_310 := $(shell python -c "import sys; print(int(sys.version_info >= (3, 10)))")
+
 install-devc:
-	cd sqlglotc && MYPYC_OPT=0 python setup.py build_ext --inplace
+	@if [ "$(PY_GE_310)" = "1" ]; then \
+		cd sqlglotc && MYPYC_OPT=0 python setup.py build_ext --inplace -j $(NPROC); \
+	else \
+		echo "Skipping sqlglotc build: requires Python 3.10+"; \
+	fi
 
 install-devc-release: clean
-	cd sqlglotc && python setup.py build_ext --inplace
+	@if [ "$(PY_GE_310)" = "1" ]; then \
+		cd sqlglotc && python setup.py build_ext --inplace -j $(NPROC); \
+	else \
+		echo "Skipping sqlglotc build: requires Python 3.10+"; \
+	fi
 
 install-pre-commit:
 	pre-commit install
@@ -76,6 +89,9 @@ testc: install-devc
 
 unitc: install-devc
 	SKIP_INTEGRATION=1 python -m unittest
+
+leakcheck: install-devc
+	python -m tests.leakcheck
 
 style:
 	pre-commit run --all-files

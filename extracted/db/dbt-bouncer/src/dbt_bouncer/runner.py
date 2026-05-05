@@ -146,7 +146,7 @@ def runner(
         "unit_tests": ctx.unit_tests,
     }
 
-    from dbt_bouncer.check_context import CheckContext
+    from dbt_bouncer.check_framework.context import CheckContext
 
     check_ctx = CheckContext(
         catalog_nodes=ctx.catalog_nodes,
@@ -201,7 +201,7 @@ def runner(
         if len(iterate_over_value) == 1:
             iterate_value = next(iter(iterate_over_value))
             for i in resource_map[f"{iterate_value}s"]:
-                check_i = check.model_copy(deep=False)
+                check_i = check.model_copy(deep=True)
                 d = _get_resource_meta(i, iterate_value, meta_by_unique_id)
                 meta_config = get_nested_value(
                     d,

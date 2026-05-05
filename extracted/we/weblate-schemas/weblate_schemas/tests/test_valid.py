@@ -11,7 +11,7 @@ from weblate_schemas import load_schema, validate_schema
 
 
 def test_validate_manual() -> None:
-    """Test memory schema being valid."""
+    """Test manual memory schema validation using jsonschema.validate directly."""
     validate([], load_schema("weblate-memory.schema.json"))
 
 
@@ -26,7 +26,7 @@ def test_memory_newline() -> None:
         [
             {
                 "source": "Error reading config file {filename!r}:\n{error_msg}",
-                "context": "Greeting used in emails",
+                "context": "Error message shown when reading config file fails",
                 "target": "Fehler der Konfigurationsdatei {filename!r}:\n{error_msg}",
                 "source_language": "en",
                 "target_language": "de",
@@ -99,7 +99,7 @@ def test_userdata() -> None:
 
 def test_backup() -> None:
     """Test backup schema being valid."""
-    backup_without_teams = {
+    base_backup = {
         "metadata": {
             "version": "4.13",
             "server": "Weblate",
@@ -111,7 +111,6 @@ def test_backup() -> None:
             "slug": "hello",
             "web": "https://weblate.org/",
             "instructions": "",
-            "set_language_team": False,
             "use_shared_tm": False,
             "contribute_shared_tm": False,
             "access_control": 0,
@@ -135,11 +134,13 @@ def test_backup() -> None:
             }
         ],
     }
+    backup_without_teams = base_backup.copy()
+
     validate_schema(
         backup_without_teams,
         "weblate-backup.schema.json",
     )
-    backup_with_teams = backup_without_teams.copy()
+    backup_with_teams = base_backup.copy()
     backup_with_teams["teams"] = [
         {
             "name": "English Translation Team",
@@ -166,6 +167,13 @@ def test_backup() -> None:
     ]
     validate_schema(
         backup_with_teams,
+        "weblate-backup.schema.json",
+    )
+
+    backup_with_set_language_team = base_backup.copy()
+    backup_with_set_language_team["project"]["set_language_team"] = True
+    validate_schema(
+        backup_with_set_language_team,
         "weblate-backup.schema.json",
     )
 

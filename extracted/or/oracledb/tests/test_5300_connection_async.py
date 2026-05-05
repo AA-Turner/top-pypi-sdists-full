@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2023, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2023, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -450,12 +450,10 @@ async def test_5335(test_env):
     "5335 - test connection instance name"
     async with test_env.get_connection_async() as conn:
         cursor = conn.cursor()
-        await cursor.execute(
-            """
+        await cursor.execute("""
             select upper(sys_context('userenv', 'instance_name'))
             from dual
-            """
-        )
+            """)
         (instance_name,) = await cursor.fetchone()
         assert conn.instance_name.upper() == instance_name
 
@@ -682,8 +680,7 @@ async def test_5356(test_env):
     await conn.commit()
     cursor.arraysize = 1500
     with test_env.assert_raises_full_code("ORA-01476"):
-        await cursor.execute(
-            """
+        await cursor.execute("""
             select IntCol, 1 / NumberCol
             from TestTempTable
             where IntCol < 1500
@@ -691,6 +688,17 @@ async def test_5356(test_env):
             select IntCol, 1 / NumberCol
             from TestTempTable
             where IntCol = 1500
-            """
-        )
+            """)
         await cursor.fetchall()
+
+
+async def test_5357(test_env):
+    "5357 - test on_connect_callback is triggered for standalone connections"
+    counter = 0
+
+    async def callback(conn):
+        nonlocal counter
+        counter += 1
+
+    async with test_env.get_connection_async(on_connect_callback=callback):
+        assert counter == 1

@@ -10,6 +10,8 @@ __all__ = ["CompletionUsage", "CompletionTokensDetails", "PromptTokensDetails"]
 
 
 class CompletionTokensDetails(BaseModel):
+    """Breakdown of tokens used in a completion."""
+
     accepted_prediction_tokens: Optional[int] = None
 
     audio_tokens: Optional[int] = None
@@ -32,6 +34,8 @@ class CompletionTokensDetails(BaseModel):
 
 
 class PromptTokensDetails(BaseModel):
+    """Breakdown of tokens used in the prompt."""
+
     audio_tokens: Optional[int] = None
 
     cached_tokens: Optional[int] = None
@@ -50,6 +54,8 @@ class PromptTokensDetails(BaseModel):
 
 
 class CompletionUsage(BaseModel):
+    """Usage statistics for the completion request."""
+
     completion_tokens: int
 
     prompt_tokens: int
@@ -57,8 +63,10 @@ class CompletionUsage(BaseModel):
     total_tokens: int
 
     completion_tokens_details: Optional[CompletionTokensDetails] = None
+    """Breakdown of tokens used in a completion."""
 
     prompt_tokens_details: Optional[PromptTokensDetails] = None
+    """Breakdown of tokens used in the prompt."""
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a

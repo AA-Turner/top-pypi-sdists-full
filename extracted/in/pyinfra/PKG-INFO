@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyinfra
-Version: 3.7
+Version: 3.8.0
 Summary: pyinfra automates/provisions/manages/deploys infrastructure.
 Project-URL: homepage, https://pyinfra.com
 Project-URL: documentation, https://docs.pyinfra.com
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
@@ -28,10 +29,11 @@ Requires-Dist: distro<2,>=1.6
 Requires-Dist: gevent>=1.5
 Requires-Dist: jinja2<4,>3
 Requires-Dist: packaging>=16.1
-Requires-Dist: paramiko<4,>=2.7
+Requires-Dist: paramiko<5,>=2.11
 Requires-Dist: pydantic<3,>=2.11
 Requires-Dist: python-dateutil<3,>2
 Requires-Dist: typeguard<5,>=4
+Requires-Dist: types-paramiko<5,>=2.7
 Requires-Dist: typing-extensions; python_version < '3.11'
 Description-Content-Type: text/markdown
 

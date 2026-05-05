@@ -6,20 +6,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("authentication", "0002_profile"),
-        ("authentication", "0003_alter_user_profile"),
-        ("authentication", "0004_token"),
-        ("authentication", "0005_user_external_calendar_settings"),
-        ("authentication", "0006_auto_20231206_1422"),
-        ("authentication", "0007_alter_token_unique_together_token_unique_token"),
-        ("authentication", "0008_user_is_internal"),
-    ]
-
     dependencies = [
         ("authentication", "0001_initial_squashed"),
-        ("directory", "0001_initial"),
-        ("directory", "0002_auto_20230414_1553"),
+        ("directory", "0001_squashed_20260501"),
     ]
 
     operations = [

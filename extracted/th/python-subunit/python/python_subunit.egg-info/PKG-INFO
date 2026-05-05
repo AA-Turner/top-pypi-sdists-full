@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-subunit
-Version: 1.4.5
+Version: 1.4.6
 Summary: Python implementation of subunit test streaming protocol
 Author-email: Robert Collins <subunit-dev@lists.launchpad.net>
 License: Apache-2.0 or BSD
@@ -21,6 +21,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
 Requires-Dist: iso8601
+Requires-Dist: PyYAML
 Requires-Dist: testtools>=2.7
 Provides-Extra: docs
 Requires-Dist: docutils; extra == "docs"
@@ -148,6 +149,11 @@ Then there are unittest facilities similar to those for C : shell bindings
 consisting of simple functions to output protocol elements, and a patch for
 adding subunit output to the 'ShUnit' shell test runner. See 'shell/README' for
 details.
+
+### perl
+
+There is a perl module [Test::Subunit](https://metacpan.org/pod/Test::Subunit)
+that can be used to emit and consume subunit v1 streams.
 
 #### Filter recipes
 
@@ -505,10 +511,9 @@ xfail.
 
 ### Releases
 
-* Update versions in configure.ac and python/subunit/__init__.py.
-* Update NEWS.
-* Do a make distcheck, which will update Makefile etc.
-* Do a PyPI release: PYTHONPATH=python python setup.py sdist bdist_wheel; twine upload -s dist/*
-* Upload the regular one to LP.
-* Push a tagged commit.
-  git push -t origin master:master
+* Update versions in `configure.ac` and `python/subunit/__init__.py`.
+* Update `NEWS`.
+* Do a ``make distcheck``, which will update `Makefile` etc.
+* Push a tagged commit — this triggers the `publish.yml` GitHub Actions workflow,
+  which publishes to PyPI automatically via trusted publishing (OIDC), no API token needed:
+  ``git push --tags origin master:master``

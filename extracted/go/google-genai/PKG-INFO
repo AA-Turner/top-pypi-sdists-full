@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 1.74.0
+Version: 1.75.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -1324,7 +1324,7 @@ video.show()
 from google.genai import types
 
 # Read local image (uses mimetypes.guess_type to infer mime type)
-image = types.Image.from_file("local/path/file.png")
+image = types.Image.from_file(location="local/path/file.png")
 
 # Create operation
 operation = client.models.generate_videos(

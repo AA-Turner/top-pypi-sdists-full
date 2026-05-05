@@ -70,6 +70,7 @@ class Completion(BaseModel):
     system_fingerprint: Optional[str] = None
 
     usage: Optional[CompletionUsage] = None
+    """Usage statistics for the completion request."""
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a

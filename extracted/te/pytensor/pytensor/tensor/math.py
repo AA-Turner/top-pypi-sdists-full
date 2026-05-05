@@ -9,6 +9,7 @@ from numpy.lib.array_utils import normalize_axis_tuple
 
 from pytensor import config, printing
 from pytensor import scalar as ps
+from pytensor.gradient import DisconnectedType, disconnected_type
 from pytensor.graph.basic import Apply, Variable
 from pytensor.graph.op import Op
 from pytensor.graph.replace import _vectorize_node
@@ -26,6 +27,7 @@ from pytensor.tensor.basic import (
     concatenate,
     constant,
     expand_dims,
+    ones_like,
     stack,
     switch,
 )
@@ -263,11 +265,11 @@ class Argmax(COp):
         )
         return [rval]
 
-    def R_op(self, inputs, eval_points):
+    def pushforward(self, inputs, outputs, eval_points):
         raise ValueError("Argmax is non-diifferentiable")
 
-    def grad(self, inp, grads):
-        (x,) = inp
+    def pullback(self, inputs, outputs, output_grads):
+        (x,) = inputs
 
         return [x.zeros_like()]
 
@@ -408,7 +410,7 @@ class Max(NonZeroDimsCAReduce):
         axis = kwargs.get("axis", self.axis)
         return type(self)(axis=axis)
 
-    def L_op(self, inputs, outputs, grads):
+    def pullback(self, inputs, outputs, output_grads):
         # The strict sense mathematical gradient of the maximum function is
         # not calculated here for it is not defined at every point where some
         # coordinates are identical. However, since the latter set has null
@@ -424,7 +426,7 @@ class Max(NonZeroDimsCAReduce):
         # does it automatically
         [x] = inputs
         [out] = outputs
-        [g_out] = grads
+        [g_out] = output_grads
 
         axis = tuple(range(x.ndim)) if self.axis is None else self.axis
         out_pad = expand_dims(out, axis)
@@ -434,10 +436,10 @@ class Max(NonZeroDimsCAReduce):
         g_x = eq(out_pad, x) * g_out_pad
         return (g_x,)
 
-    def R_op(self, inputs, eval_points):
+    def pushforward(self, inputs, outputs, eval_points):
         [x] = inputs
-        if eval_points[0] is None:
-            return [None]
+        if isinstance(eval_points[0].type, DisconnectedType):
+            return [disconnected_type()]
         axis = tuple(range(x.ndim) if self.axis is None else self.axis)
         if isinstance(axis, int):
             axis = [axis]
@@ -879,6 +881,39 @@ def isinf(a):
             np.asarray(False, dtype="bool"), *[a.shape[i] for i in range(a.ndim)]
         )
     return isinf_(a)
+
+
+def isfinite(a):
+    """isfinite(a)
+
+    Computes element-wise detection of finite values (i.e., not NaN or infinite).
+
+    Parameters
+    ----------
+    a : TensorLike
+        Input tensor
+
+    Returns
+    -------
+    TensorVariable
+        Output tensor of type bool, with 1 (True) where elements are finite,
+        and 0 (False) elsewhere.
+
+    Examples
+    --------
+    >>> import pytensor
+    >>> import pytensor.tensor as pt
+    >>> import numpy as np
+    >>> x = pt.vector("x")
+    >>> f = pytensor.function([x], pt.isfinite(x))
+    >>> f([1, np.inf, -np.inf, np.nan, 3])
+    array([ True, False, False, False,  True])
+    """
+    a = as_tensor_variable(a)
+    if a.dtype in discrete_dtypes:
+        return ones_like(a, dtype="bool")
+
+    return ~isnan_(a) & ~isinf_(a)
 
 
 def allclose(a, b, rtol=1.0e-5, atol=1.0e-8, equal_nan=False):
@@ -1596,13 +1631,6 @@ def round(a, mode=None):
     Default to half_to_even."""
     if mode is None:
         mode = "half_to_even"
-        if config.warn__round:
-            warnings.warn(
-                "pytensor.tensor.round() changed its default from"
-                " `half_away_from_zero` to `half_to_even` to have"
-                " the same default as NumPy. Use the PyTensor flag"
-                " `warn__round=False` to disable this warning."
-            )
     if mode == "half_away_from_zero":
         return round_half_away_from_zero(a)
     elif mode == "half_to_even":
@@ -2429,9 +2457,14 @@ def i1(x):
     """Modified Bessel function of the first kind of order 1."""
 
 
-@scalar_elemwise
 def iv(v, x):
-    """Modified Bessel function of the first kind of order v (real)."""
+    """Modified Bessel function of the first kind of order v (real).
+
+    Computed as ``ive(v, x) * exp(abs(x))`` for numerical consistency with
+    ``ive``. For large ``x``, prefer working in log-space:
+    ``log(iv(v, x)) == log(ive(v, x)) + abs(x)`` to avoid overflow.
+    """
+    return ive(v, x) * exp(abs(x))
 
 
 @scalar_elemwise
@@ -3025,9 +3058,9 @@ class Dot(Op):
     def perform(self, node, inputs, output_storage):
         output_storage[0][0] = np.matmul(*inputs)
 
-    def grad(self, inp, grads):
-        x, y = inp
-        (gz,) = grads
+    def pullback(self, inputs, outputs, output_grads):
+        x, y = inputs
+        (gz,) = output_grads
 
         xgrad = self(gz, y.T)
         ygrad = self(x.T, gz)
@@ -3048,23 +3081,27 @@ class Dot(Op):
 
         return xgrad, ygrad
 
-    def R_op(self, inputs, eval_points):
+    def pushforward(self, inputs, outputs, eval_points):
         # R_op for a \dot b evaluated at c for a and d for b is
         # simply c \dot b + a \dot d
 
         assert len(inputs) == 2
         assert len(eval_points) == 2
-        if eval_points[0] is None and eval_points[1] is None:
-            return [None]
+        if isinstance(eval_points[0].type, DisconnectedType) and isinstance(
+            eval_points[1].type, DisconnectedType
+        ):
+            return [disconnected_type()]
 
-        if eval_points[0] is not None:
+        if not isinstance(eval_points[0].type, DisconnectedType):
             t1 = self(eval_points[0], inputs[1])
-        if eval_points[1] is not None:
+        if not isinstance(eval_points[1].type, DisconnectedType):
             t2 = self(inputs[0], eval_points[1])
 
-        if eval_points[0] is not None and eval_points[1] is not None:
+        if not isinstance(eval_points[0].type, DisconnectedType) and not isinstance(
+            eval_points[1].type, DisconnectedType
+        ):
             return [t1 + t2]
-        elif eval_points[0] is not None:
+        elif not isinstance(eval_points[0].type, DisconnectedType):
             return [t1]
         else:
             return [t2]
@@ -3394,8 +3431,8 @@ class All(FixedOpCAReduce):
         ret = super().make_node(input)
         return ret
 
-    def grad(self, inp, grads):
-        (x,) = inp
+    def pullback(self, inputs, outputs, output_grads):
+        (x,) = inputs
         return [x.zeros_like(config.floatX)]
 
     def clone(self, **kwargs):
@@ -3424,8 +3461,8 @@ class Any(FixedOpCAReduce):
         ret = super().make_node(input)
         return ret
 
-    def grad(self, inp, grads):
-        (x,) = inp
+    def pullback(self, inputs, outputs, output_grads):
+        (x,) = inputs
         return [x.zeros_like(config.floatX)]
 
     def clone(self, **kwargs):
@@ -3454,13 +3491,13 @@ class Sum(FixedOpCAReduce):
             upcast_discrete_output=True,
         )
 
-    def L_op(self, inp, out, grads):
-        (x,) = inp
+    def pullback(self, inputs, outputs, output_grads):
+        (x,) = inputs
 
-        if out[0].dtype not in continuous_dtypes:
+        if outputs[0].dtype not in continuous_dtypes:
             return [x.zeros_like(dtype=config.floatX)]
 
-        (gz,) = grads
+        (gz,) = output_grads
         gz = as_tensor_variable(gz)
         axis = self.axis
         if axis is None:
@@ -3478,11 +3515,11 @@ class Sum(FixedOpCAReduce):
         gx = Elemwise(ps.second)(x, gz.dimshuffle(new_dims))
         return [gx]
 
-    def R_op(self, inputs, eval_points):
+    def pushforward(self, inputs, outputs, eval_points):
         # There is just one element in inputs and eval_points, the axis are
         # part of self
-        if None in eval_points:
-            return [None]
+        if isinstance(eval_points[0].type, DisconnectedType):
+            return [disconnected_type()]
         return self(*eval_points, return_list=True)
 
     def clone(self, **kwargs):
@@ -3545,7 +3582,7 @@ class Prod(FixedOpCAReduce):
         )
         self.no_zeros_in_input = no_zeros_in_input
 
-    def L_op(self, inp, out, grads):
+    def pullback(self, inp, out, grads):
         """
         The grad of this Op could be very easy, if it is was not for the case
         where zeros are present in a given "group" (ie. elements reduced
@@ -3761,7 +3798,7 @@ class ProdWithoutZeros(FixedOpCAReduce):
             upcast_discrete_output=True,
         )
 
-    def grad(self, inp, grads):
+    def pullback(self, inp, outputs, grads):
         from pytensor.gradient import grad_not_implemented
 
         (a,) = inp
@@ -4236,6 +4273,7 @@ __all__ = [
     "invert",
     "iround",
     "isclose",
+    "isfinite",
     "isinf",
     "isnan",
     "isneginf",

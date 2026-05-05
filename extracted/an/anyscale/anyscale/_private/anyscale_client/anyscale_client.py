@@ -26,6 +26,7 @@ import smart_open
 from anyscale._private.anyscale_client.common import (
     AnyscaleClientInterface,
     APIJobRun,
+    CloudNotFoundError,
     DEFAULT_MAX_RUNS_PER_JOB,
     DEFAULT_PYTHON_VERSION,
     DEFAULT_RAY_VERSION,
@@ -181,6 +182,7 @@ OVERWRITE_EXISTING_CLOUD_STORAGE_FILES = (
 
 # internal_logger is used for logging internal errors or debug messages that we do not expect users to see.
 internal_logger = logging.getLogger(__name__)
+
 
 # A decorator to handle ApiException and raise ValueError with the error message.
 def handle_api_exceptions(func):
@@ -583,7 +585,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         if cloud_name is not None:
             cloud_id = self._get_cloud_id_by_name(cloud_name)
             if cloud_id is None:
-                raise RuntimeError(f"Cloud '{cloud_name}' not found.")
+                raise CloudNotFoundError(f"Cloud '{cloud_name}' not found.")
         elif self.inside_workspace():
             workspace_cluster = self.get_current_workspace_cluster()
             assert workspace_cluster is not None
@@ -615,7 +617,7 @@ class AnyscaleClient(AnyscaleClientInterface):
     def get_cloud_by_name(self, *, name) -> Optional[Cloud]:
         try:
             cloud_id = self.get_cloud_id(cloud_name=name)
-        except RuntimeError:
+        except CloudNotFoundError:
             return None
         return self.get_cloud(cloud_id=cloud_id)
 

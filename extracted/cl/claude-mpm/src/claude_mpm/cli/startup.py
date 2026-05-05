@@ -16,6 +16,13 @@ import time
 from pathlib import Path
 from typing import Any
 
+# Functions exported for use by tests and other modules. The underscore prefix
+# is retained for internal-use convention, but these symbols are part of the
+# module's public API for testing purposes.
+__all__ = [
+    "_cleanup_orphaned_agents",
+]
+
 # ─── Sync-state TTL helpers ──────────────────────────────────────────────────
 
 _DEFAULT_SYNC_TTL = 86400  # 24 hours — check for updates once per day
@@ -652,14 +659,39 @@ def _check_anthropic_auth(env_changes: dict | None = None) -> None:
             timeout=5,
         )
         if result.returncode == 0:
-            # Try JSON output first (modern `claude auth status`)
+            # Try JSON output first (modern `claude auth status`).
+            #
+            # The JSON shape varies by auth method:
+            #   * claude.ai consumer: {"loggedIn": true, "authMethod": "claude.ai", ...}
+            #   * Enterprise/firstParty: {"loggedIn": true, "authMethod": "firstParty",
+            #                             "apiProvider": "firstParty", ...}
+            #   * API key: {"loggedIn": true, "authMethod": "apiKey", ...}
+            #
+            # We treat the user as authenticated whenever ``loggedIn`` is
+            # truthy, regardless of ``authMethod`` / ``apiProvider``. This
+            # mirrors how ``claude auth status`` itself reports success and
+            # avoids false "Not Authenticated" warnings for enterprise and
+            # firstParty users (where the previous strict ``is True`` check
+            # could miss truthy variants like ``"true"`` strings).
             try:
                 import json as _json
 
                 auth_data = _json.loads(result.stdout)
-                if auth_data.get("loggedIn") is True:
-                    return
-            except (ValueError, KeyError, TypeError):
+                if isinstance(auth_data, dict):
+                    logged_in = auth_data.get("loggedIn")
+                    if logged_in is True or (
+                        isinstance(logged_in, str)
+                        and logged_in.strip().lower() == "true"
+                    ):
+                        return
+                    # Some enterprise variants omit ``loggedIn`` but include
+                    # an ``authMethod`` / ``apiProvider`` value indicating
+                    # an active session. Accept that as authenticated too.
+                    if logged_in is None and (
+                        auth_data.get("authMethod") or auth_data.get("apiProvider")
+                    ):
+                        return
+            except (ValueError, TypeError):
                 # Fall back to plain-text check (older CLI versions)
                 if "logged in" in result.stdout.lower():
                     return
@@ -805,6 +837,14 @@ def should_skip_background_services(args, processed_argv):
     if is_headless and has_resume:
         return True
 
+    # SDK oneshot mode (--sdk --prompt): fire-and-forget execution that does not
+    # need hook/agent/skill sync, MCP gateway, or update checks. Skipping these
+    # keeps the oneshot path fast and prevents transient background-service
+    # failures from causing exit code 1 before run_sdk_oneshot() is reached.
+    # See bug #486.
+    if getattr(args, "sdk", False) and getattr(args, "prompt", None):
+        return True
+
     skip_commands = ["--version", "-v", "--help", "-h"]
 
     # Check for fast read-only commands that should skip startup
@@ -850,6 +890,44 @@ def setup_configure_command_environment(args):
         logging.getLogger("claude_mpm").setLevel(logging.WARNING)
 
 
+def _is_claude_mpm_plugin_installed() -> bool:
+    """Return True if the claude-mpm Claude Code plugin is installed.
+
+    Reads ~/.claude/plugins/installed_plugins.json and looks for any entry
+    whose key or value mentions "claude-mpm". When detected, the deployer
+    should skip writing mpm-* skills to ~/.claude/skills/ because the plugin
+    already serves those skills (otherwise they appear twice in Claude Code:
+    once plain, once as `claude-mpm:mpm-*`).
+
+    Failure-safe: any error reading/parsing the file returns False so that
+    deployment falls through to the existing behavior. This keeps the kill
+    switch conservative: only positive plugin detection suppresses deploy.
+    """
+    plugins_file = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    if not plugins_file.exists():
+        return False
+
+    try:
+        data = json.loads(plugins_file.read_text())
+    except (OSError, ValueError):
+        return False
+
+    # Observed schema: {"version": 2, "plugins": {"<name>@<source>": [...]}}
+    # Older/alternate schemas may use a list or a flat dict; handle all three.
+    candidates: list[Any] = []
+    if isinstance(data, dict):
+        plugins = data.get("plugins", data)
+        if isinstance(plugins, dict):
+            candidates.extend(plugins.keys())
+            candidates.extend(plugins.values())
+        elif isinstance(plugins, list):
+            candidates.extend(plugins)
+    elif isinstance(data, list):
+        candidates.extend(data)
+
+    return any("claude-mpm" in str(entry) for entry in candidates)
+
+
 def deploy_bundled_skills(force_deploy: bool = False):
     """
     Deploy bundled Claude Code skills on startup.
@@ -872,19 +950,48 @@ def deploy_bundled_skills(force_deploy: bool = False):
         return
 
     try:
-        # Check if auto-deploy is disabled in config
-        from ..config.config_loader import ConfigLoader  # type: ignore
+        # Check environment variable kill-switch (Bug 2 fix: also honored here)
+        if os.environ.get("CLAUDE_MPM_DISABLE_AUTO_DEPLOY_PM_SKILLS"):
+            from ..core.logger import get_logger as _get_logger
+
+            _get_logger("cli").debug(
+                "Skipping bundled skills deploy: "
+                "CLAUDE_MPM_DISABLE_AUTO_DEPLOY_PM_SKILLS is set"
+            )
+            return
+
+        # Bug 3 fix: Skip deployment when the claude-mpm Claude Code plugin is
+        # installed - the plugin already serves the mpm-* skills, and double
+        # deployment causes every skill to appear twice in Claude Code.
+        if _is_claude_mpm_plugin_installed():
+            from ..core.logger import get_logger as _get_logger
+
+            _get_logger("cli").debug(
+                "Skipping bundled skills deploy: claude-mpm plugin detected "
+                "in ~/.claude/plugins/installed_plugins.json"
+            )
+            return
+
+        # Bug 1 fix: Use the correct ConfigLoader location. The previous
+        # `..config.config_loader` import did not exist and silently failed,
+        # making the `skills.auto_deploy: false` setting a no-op.
+        from ..core.shared.config_loader import ConfigLoader
 
         config_loader = ConfigLoader()
         try:
-            config = config_loader.load_config()
-            skills_config = config.get("skills", {})
+            config = config_loader.load_main_config()
+            skills_config = config.get("skills", {}) or {}
             if not skills_config.get("auto_deploy", True):
                 # Auto-deploy disabled, skip silently
                 return
-        except Exception:  # nosec B110
-            # If config loading fails, assume auto-deploy is enabled (default)
-            pass
+        except Exception as cfg_err:
+            # If config loading fails, log and assume auto-deploy is enabled
+            from ..core.logger import get_logger as _get_logger
+
+            _get_logger("cli").warning(
+                f"Failed to read skills.auto_deploy from config "
+                f"(falling back to default=True): {cfg_err}"
+            )
 
         # Import and run skills deployment
         from ..skills.skills_service import SkillsService
@@ -1113,7 +1220,7 @@ def _cleanup_orphaned_agents(deploy_target: Path, deployed_agents: list[str]) ->
 
 
 def _save_deployment_state_after_reconciliation(
-    agent_result,
+    _agent_result,
     project_path: Path,
 ) -> None:
     """Save deployment state after reconciliation to prevent duplicate deployment.
@@ -1145,6 +1252,10 @@ def _save_deployment_state_after_reconciliation(
     import time
 
     from ..core.logger import get_logger
+
+    # _agent_result is accepted for API compatibility with the call site but
+    # is not currently used; deployment state is computed from the filesystem.
+    del _agent_result
 
     logger = get_logger("cli")
 
@@ -1350,7 +1461,7 @@ def sync_remote_agents_on_startup(force_sync: bool = False):
 
                 # Perform reconciliation to deploy configured agents
                 project_path = Path.cwd()
-                agent_result, _skill_result = perform_startup_reconciliation(
+                agent_result, _ = perform_startup_reconciliation(
                     project_path=project_path, config=unified_config, silent=False
                 )
 
@@ -1413,7 +1524,7 @@ def sync_remote_agents_on_startup(force_sync: bool = False):
                 # Save deployment state to prevent duplicate deployment in ClaudeRunner
                 # This ensures setup_agents() skips deployment since we already reconciled
                 _save_deployment_state_after_reconciliation(
-                    agent_result=agent_result, project_path=project_path
+                    _agent_result=agent_result, project_path=project_path
                 )
 
             except Exception as e:
@@ -1989,6 +2100,18 @@ def verify_and_show_pm_skills():
     - "⚠ PM skills: 2 missing, auto-repairing..." if issues detected
     - Non-blocking but visible warning if auto-repair fails
     """
+    # Bug 2 fix: honor the documented kill-switch env var. Previously this was
+    # only checked inside optimized_startup.py (which has been deleted), so
+    # users setting CLAUDE_MPM_DISABLE_AUTO_DEPLOY_PM_SKILLS got no effect.
+    if os.environ.get("CLAUDE_MPM_DISABLE_AUTO_DEPLOY_PM_SKILLS"):
+        return
+
+    # Bug 3 fix: when the claude-mpm Claude Code plugin is installed, skip
+    # deploying mpm-* skills to ~/.claude/skills/ to avoid duplicate skill
+    # entries (one plain, one namespaced as `claude-mpm:mpm-*`).
+    if _is_claude_mpm_plugin_installed():
+        return
+
     try:
         from pathlib import Path
 

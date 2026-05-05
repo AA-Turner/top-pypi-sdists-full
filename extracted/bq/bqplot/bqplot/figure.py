@@ -27,12 +27,12 @@ Figure
 """
 
 from traitlets import (
-    Unicode, Instance, List, Dict, Enum, Float, Int, TraitError, default,
+    Bool, Unicode, Instance, List, Dict, Enum, Float, Int, TraitError, default,
     validate
 )
 from ipywidgets import DOMWidget, register, widget_serialization
 
-from .scales import Scale, LinearScale
+from bqscales import Scale, LinearScale
 from .interacts import Interaction
 from .marks import Mark
 from .axes import Axis
@@ -50,6 +50,9 @@ class Figure(DOMWidget):
 
     Besides, the Figure object has two reference scales, for positioning items
     in an absolute fashion in the figure canvas.
+
+    Style Attributes
+    ----------------
 
     Attributes
     ----------
@@ -84,45 +87,43 @@ class Figure(DOMWidget):
         CSS style to be applied to the title of the figure
     animation_duration: nonnegative int (default: 0)
         Duration of transition on change of data attributes, in milliseconds.
+
+    Layout Attributes
+    -----------------
+
+    Attributes
+    ----------
     pixel_ratio:
         Pixel ratio of the WebGL canvas (2 on retina screens). Set to 1 for better performance,
         but less crisp edges. If set to None it will use the browser's window.devicePixelRatio.
-
-    Layout Attributes
-
+    display_toolbar: boolean (default: True)
+        Show or hide the integrated toolbar.
     fig_margin: dict (default: {top=60, bottom=60, left=60, right=60})
         Dictionary containing the top, bottom, left and right margins. The user
         is responsible for making sure that the width and height are greater
         than the sum of the margins.
+    auto_layout: boolean (default: False)
+        Whether to use the auto-layout solver or not
     min_aspect_ratio: float
-         minimum width / height ratio of the figure
+        Minimum width / height ratio of the figure
     max_aspect_ratio: float
-         maximum width / height ratio of the figure
+        Maximum width / height ratio of the figure
 
-    Methods
-    -------
+    !!! Note
 
-    save_png:
-       Saves the figure as a PNG file
-    save_svg:
-       Saves the figure as an SVG file
+        The aspect ratios stand for width / height ratios.
 
-    Note
-    ----
+        - If the available space is within bounds in terms of min and max aspect
+        ratio, we use the entire available space.
+        - If the available space is too oblong horizontally, we use the client
+        height and the width that corresponds max_aspect_ratio (maximize width
+        under the constraints).
+        - If the available space is too oblong vertically, we use the client width
+        and the height that corresponds to min_aspect_ratio (maximize height
+        under the constraint).
+        This corresponds to maximizing the area under the constraints.
 
-    The aspect ratios stand for width / height ratios.
-
-     - If the available space is within bounds in terms of min and max aspect
-       ratio, we use the entire available space.
-     - If the available space is too oblong horizontally, we use the client
-       height and the width that corresponds max_aspect_ratio (maximize width
-       under the constraints).
-     - If the available space is too oblong vertically, we use the client width
-       and the height that corresponds to min_aspect_ratio (maximize height
-       under the constraint).
-       This corresponds to maximizing the area under the constraints.
-
-    Default min and max aspect ratio are both equal to 16 / 9.
+        Default min and max aspect ratio are both equal to 16 / 9.
     """
     title = Unicode().tag(sync=True, display_name='Title')
     axes = List(Instance(Axis)).tag(sync=True, **widget_serialization)
@@ -138,6 +139,7 @@ class Figure(DOMWidget):
     legend_text = Dict().tag(sync=True)
     theme = Enum(['classic', 'gg'], default_value='classic').tag(sync=True)
 
+    auto_layout = Bool(False).tag(sync=True)
     min_aspect_ratio = Float(0.01).tag(sync=True)
     max_aspect_ratio = Float(100).tag(sync=True)
     pixel_ratio = Float(None, allow_none=True).tag(sync=True)
@@ -152,6 +154,7 @@ class Figure(DOMWidget):
         .tag(sync=True, display_name='Legend position')
     animation_duration = Int().tag(sync=True,
                                    display_name='Animation duration')
+    display_toolbar = Bool(default_value=True).tag(sync=True)
 
     def __init__(self, **kwargs):
         super(Figure, self).__init__(**kwargs)
@@ -200,7 +203,6 @@ class Figure(DOMWidget):
         ----------
         callback: callable
             Called with the PNG data as the only positional argument.
-
         scale: float (default: None)
             Scale up the png resolution when scale > 1, when not given base this on the screen pixel ratio.
         '''

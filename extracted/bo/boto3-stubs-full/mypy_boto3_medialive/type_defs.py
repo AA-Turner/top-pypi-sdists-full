@@ -793,6 +793,7 @@ __all__ = (
     "MediaConnectRouterGroupSettingsOutputTypeDef",
     "MediaConnectRouterGroupSettingsTypeDef",
     "MediaConnectRouterOutputConnectionMapTypeDef",
+    "MediaConnectRouterOutputConnectionTypeDef",
     "MediaConnectRouterOutputDestinationSettingsTypeDef",
     "MediaConnectRouterOutputSettingsTypeDef",
     "MediaPackageAdditionalDestinationsTypeDef",
@@ -2405,6 +2406,10 @@ class MediaConnectRouterOutputConnectionMapTypeDef(TypedDict):
     Pipeline1: NotRequired[str]
 
 
+class MediaConnectRouterOutputConnectionTypeDef(TypedDict):
+    RouterInputArn: NotRequired[str]
+
+
 class MediaConnectRouterOutputDestinationSettingsTypeDef(TypedDict):
     EncryptionType: NotRequired[MediaConnectRouterOutputEncryptionTypeType]
     SecretArn: NotRequired[str]
@@ -3319,15 +3324,6 @@ class ListVersionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class PipelineDetailTypeDef(TypedDict):
-    ActiveInputAttachmentName: NotRequired[str]
-    ActiveInputSwitchActionName: NotRequired[str]
-    ActiveMotionGraphicsActionName: NotRequired[str]
-    ActiveMotionGraphicsUri: NotRequired[str]
-    PipelineId: NotRequired[str]
-    ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
-
-
 class ListCloudWatchAlarmTemplateGroupsResponseTypeDef(TypedDict):
     CloudWatchAlarmTemplateGroups: list[CloudWatchAlarmTemplateGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4226,6 +4222,18 @@ class ListSignalMapsResponseTypeDef(TypedDict):
 class StandardHlsSettingsTypeDef(TypedDict):
     M3u8Settings: M3u8SettingsTypeDef
     AudioRenditionSets: NotRequired[str]
+
+
+class PipelineDetailTypeDef(TypedDict):
+    ActiveInputAttachmentName: NotRequired[str]
+    ActiveInputSwitchActionName: NotRequired[str]
+    ActiveMotionGraphicsActionName: NotRequired[str]
+    ActiveMotionGraphicsUri: NotRequired[str]
+    PipelineId: NotRequired[str]
+    ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
+    MediaConnectRouterOutputConnectionMap: NotRequired[
+        dict[str, MediaConnectRouterOutputConnectionTypeDef]
+    ]
 
 
 class MediaPackageOutputSettingsTypeDef(TypedDict):

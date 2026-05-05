@@ -17,17 +17,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from aiohttp import web
+
 try:
-    import aiohttp
     import socketio
-    from aiohttp import web
 
     SOCKETIO_AVAILABLE = True
 except ImportError:
     SOCKETIO_AVAILABLE = False
     socketio = None
-    aiohttp = None
-    web = None
 
 # Import VersionService for dynamic version retrieval
 import contextlib
@@ -244,6 +242,10 @@ class SocketIOServerCore:
             # Import centralized configuration for consistency
             from ....config.socketio_config import CONNECTION_CONFIG
 
+            # Guard: socketio and web must be available (checked at import time)
+            assert socketio is not None, "socketio package is not available"
+            assert web is not None, "aiohttp.web is not available"
+
             # Create Socket.IO server with centralized configuration
             # CRITICAL: These values MUST match client settings to prevent disconnections
             self.sio = socketio.AsyncServer(
@@ -263,6 +265,8 @@ class SocketIOServerCore:
 
             # Create aiohttp application
             self.app = web.Application()
+            assert self.sio is not None
+            assert self.app is not None
             self.sio.attach(self.app)
 
             # CRITICAL: Register event handlers BEFORE starting the server
@@ -271,7 +275,7 @@ class SocketIOServerCore:
                 self.logger.info(
                     "Registering Socket.IO event handlers before server start"
                 )
-                await self.main_server._register_events_async()
+                await self.main_server._register_events_async()  # type: ignore[union-attr]
             else:
                 self.logger.warning("Main server not available for event registration")
 
@@ -352,6 +356,9 @@ class SocketIOServerCore:
         Using HTTP POST allows them to send events without managing persistent
         connections, eliminating disconnection issues.
         """
+        assert self.app is not None, (
+            "_setup_http_api called before self.app was created"
+        )
 
         async def api_events_handler(request):
             """Handle POST /api/events from hook handlers."""
@@ -889,12 +896,85 @@ class SocketIOServerCore:
         self.app.router.add_post("/api/git-history", git_history_handler)
         self.logger.info("✅ Git history API registered at /api/git-history")
 
+        # Add upgrade endpoint
+        async def upgrade_handler(request):
+            """Handle POST /api/upgrade to trigger a self-upgrade of claude-mpm.
+
+            WHY: The dashboard "Update now" button must be able to trigger the
+            upgrade without the user dropping to a terminal.  perform_upgrade()
+            calls subprocess.run with a 300-second timeout, so we offload it to
+            a thread-pool executor to avoid blocking the aiohttp event loop.
+
+            Returns JSON:
+                {"success": true,  "message": "...", "new_version": "..."}
+                {"success": false, "error":   "..."}
+            """
+            import asyncio
+
+            try:
+                from claude_mpm.services.self_upgrade_service import SelfUpgradeService
+
+                upgrade_service = SelfUpgradeService()
+
+                # check_for_update is async - await it directly
+                update_info = await upgrade_service.check_for_update()
+
+                if update_info is None:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": "Could not determine update information. "
+                            "Please check your network connection.",
+                        }
+                    )
+
+                if not update_info.get("update_available", False):
+                    return web.json_response(
+                        {
+                            "success": True,
+                            "message": f"Already on the latest version "
+                            f"({update_info.get('current', 'unknown')}).",
+                            "new_version": update_info.get("current"),
+                        }
+                    )
+
+                # perform_upgrade blocks (subprocess.run with timeout=300)
+                # - run it in a thread pool to avoid blocking the event loop
+                loop = asyncio.get_event_loop()
+                success, message = await loop.run_in_executor(
+                    None,
+                    upgrade_service.perform_upgrade,
+                    update_info,
+                )
+
+                if success:
+                    return web.json_response(
+                        {
+                            "success": True,
+                            "message": message,
+                            "new_version": update_info.get("latest"),
+                        }
+                    )
+                return web.json_response({"success": False, "error": message})
+
+            except Exception as e:
+                self.logger.error(f"Error in upgrade handler: {e}")
+                return web.json_response(
+                    {"success": False, "error": str(e)}, status=500
+                )
+
+        self.app.router.add_post("/api/upgrade", upgrade_handler)
+        self.logger.info("✅ Upgrade API registered at /api/upgrade")
+
     def _setup_directory_api(self):
         """Setup simple directory listing API.
 
         WHY: Provides a dead-simple way to list directory contents via HTTP GET
         without complex WebSocket interactions.
         """
+        assert self.app is not None, (
+            "_setup_directory_api called before self.app was created"
+        )
         try:
             from claude_mpm.dashboard.api.simple_directory import register_routes
 
@@ -907,6 +987,9 @@ class SocketIOServerCore:
 
     def _setup_static_files(self):
         """Setup static file serving for the Svelte dashboard."""
+        assert self.app is not None, (
+            "_setup_static_files called before self.app was created"
+        )
         try:
             # Add debug logging for deployment context
             try:

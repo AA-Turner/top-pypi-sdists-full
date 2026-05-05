@@ -20,7 +20,6 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from lance_namespace_urllib3_client.models.alter_columns_entry import AlterColumnsEntry
-from lance_namespace_urllib3_client.models.identity import Identity
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,11 +27,9 @@ class AlterTableAlterColumnsRequest(BaseModel):
     """
     AlterTableAlterColumnsRequest
     """ # noqa: E501
-    identity: Optional[Identity] = None
-    context: Optional[Dict[str, StrictStr]] = Field(default=None, description="Arbitrary context for a request as key-value pairs. How to use the context is custom to the specific implementation.  REST NAMESPACE ONLY Context entries are passed via HTTP headers using the naming convention `x-lance-ctx-<key>: <value>`. For example, a context entry `{\"trace_id\": \"abc123\"}` would be sent as the header `x-lance-ctx-trace_id: abc123`. ")
-    id: Optional[List[StrictStr]] = None
-    alterations: List[AlterColumnsEntry] = Field(description="List of column alterations to perform")
-    __properties: ClassVar[List[str]] = ["identity", "context", "id", "alterations"]
+    id: Optional[List[StrictStr]] = Field(default=None, description="Table identifier path (namespace + table name)")
+    alterations: List[AlterColumnsEntry] = Field(description="List of column alterations to apply to the table")
+    __properties: ClassVar[List[str]] = ["id", "alterations"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,9 +70,6 @@ class AlterTableAlterColumnsRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of identity
-        if self.identity:
-            _dict['identity'] = self.identity.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in alterations (list)
         _items = []
         if self.alterations:
@@ -95,8 +89,6 @@ class AlterTableAlterColumnsRequest(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "identity": Identity.from_dict(obj["identity"]) if obj.get("identity") is not None else None,
-            "context": obj.get("context"),
             "id": obj.get("id"),
             "alterations": [AlterColumnsEntry.from_dict(_item) for _item in obj["alterations"]] if obj.get("alterations") is not None else None
         })

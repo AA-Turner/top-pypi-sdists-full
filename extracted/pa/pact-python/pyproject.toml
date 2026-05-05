@@ -2,7 +2,7 @@
 
 [project]
 name = "pact-python"
-version = "3.3.1"
+version = "3.4.0"
 description = "Tool for creating and verifying consumer-driven contracts using the Pact framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -73,7 +73,7 @@ dependencies = [
 # Linting and formatting tools use a more narrow specification to ensure
 # developper consistency. All other dependencies are as above.
 dev = [
-  "ruff==0.15.11",
+  "ruff==0.15.12",
   { include-group = "docs" },
   { include-group = "example" },
   { include-group = "example-v2" },
@@ -95,7 +95,7 @@ docs = [
   "mkdocs-material[recommended,git,imaging]==9.7.6",
   "mkdocs-section-index==0.3.12",
   "mkdocstrings[python]==1.0.4",
-  "pathspec==1.0.4",
+  "pathspec==1.1.1",
 ]
 example = [
   "fastapi~=0.0",

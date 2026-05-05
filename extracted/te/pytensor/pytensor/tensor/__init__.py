@@ -1,15 +1,14 @@
 """Symbolic tensor types and constructor functions."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from functools import singledispatch
-from typing import TYPE_CHECKING, Any, NoReturn, Optional, Union
+from typing import TYPE_CHECKING, Union
 
-from pytensor.graph.basic import Constant, Variable
-from pytensor.graph.op import Op
+from pytensor.graph import Constant, Op, Variable
 
 
 if TYPE_CHECKING:
-    from numpy.typing import ArrayLike, NDArray
+    from numpy.typing import ArrayLike
 
 
 TensorLike = Union[Variable, Sequence[Variable], "ArrayLike"]
@@ -113,15 +112,10 @@ from pytensor.tensor import (
 
 
 # isort: off
-import pytensor.tensor._linalg
 from pytensor.tensor import linalg
 from pytensor.tensor import special
 from pytensor.tensor import signal
 from pytensor.tensor import optimize
-
-# For backward compatibility
-from pytensor.tensor import nlinalg
-from pytensor.tensor import slinalg
 
 # isort: on
 # Allow accessing numpy constants from pytensor.tensor
@@ -162,7 +156,5 @@ from pytensor.tensor.variable import TensorConstant, TensorVariable
 # isort: off
 from pytensor.tensor.einsum import einsum
 from pytensor.tensor.functional import vectorize
+from pytensor.tensor import random
 # isort: on
-
-
-__all__ = ["random"]  # noqa: F405

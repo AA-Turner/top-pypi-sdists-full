@@ -7,8 +7,6 @@ import wbcore.utils.models
 
 
 class Migration(migrations.Migration):
-    replaces = [("currency", "0001_initial"), ("currency", "0002_alter_currencyfxrates_unique_together_and_more")]
-
     initial = True
 
     dependencies = [

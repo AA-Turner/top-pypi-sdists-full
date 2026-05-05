@@ -7,7 +7,7 @@ import math
 
 
 def isstring(value):
-    return isinstance(value, (str,) + (str, bytes))
+    return isinstance(value, (str, bytes))
 
 
 def isinf(value):

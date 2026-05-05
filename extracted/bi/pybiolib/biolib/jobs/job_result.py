@@ -1,7 +1,9 @@
 import time
 from pathlib import Path
 
+import biolib.api
 from biolib._internal.utils import PathFilter, filter_lazy_loaded_files
+from biolib.api.client import ApiClient
 from biolib.biolib_binary_format import ModuleOutputV2
 from biolib.biolib_binary_format.remote_endpoints import RemoteJobStorageEndpoint
 from biolib.biolib_binary_format.remote_stream_seeker import StreamSeeker
@@ -17,9 +19,11 @@ class JobResult:
         job_uuid: str,
         job_auth_token: str,
         module_output: Optional[ModuleOutputV2] = None,
+        api_client: Optional[ApiClient] = None,
     ):
         self._job_uuid: str = job_uuid
         self._job_auth_token: str = job_auth_token
+        self._api_client: ApiClient = api_client or biolib.api.client
 
         self._module_output: Optional[ModuleOutputV2] = module_output
 
@@ -178,6 +182,7 @@ class JobResult:
                 job_auth_token=self._job_auth_token,
                 job_uuid=self._job_uuid,
                 storage_type='output',
+                api_client=self._api_client,
             )
             buffer = RemoteIndexableBuffer(endpoint=remote_job_storage_endpoint)
             self._module_output = ModuleOutputV2(buffer)

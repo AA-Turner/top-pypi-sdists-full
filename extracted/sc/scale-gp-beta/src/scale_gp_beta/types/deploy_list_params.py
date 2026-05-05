@@ -20,6 +20,13 @@ class DeployListParams(TypedDict, total=False):
 
     limit: int
 
+    preview_label: str
+    """Filter deployments by preview label (e.g.
+
+    branch name). The label is non-unique — many deployments can share it. Combine
+    with limit=1 to get the latest deploy for that label.
+    """
+
     sort_by: str
 
     sort_order: SortOrder

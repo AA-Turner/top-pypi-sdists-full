@@ -7,20 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("notifications", "0001_initial"),
-        ("notifications", "0002_notificationusertoken_unique_user_token_device"),
-        ("notifications", "0003_notificationusertoken_updated"),
-        ("notifications", "0004_alter_notification_body"),
-        ("notifications", "0005_alter_notification_endpoint"),
-        ("notifications", "0006_notification_created"),
-        ("notifications", "0007_notificationtype_resource_button_label"),
-        ("notifications", "0008_notificationtype_is_lock"),
-        ("notifications", "0009_alter_notificationtypesetting_options_and_more"),
-        ("notifications", "0010_notification_checksum_notification_checksum_unique"),
-        ("notifications", "0011_notificationtype_is_important_and_more"),
-    ]
-
     initial = True
 
     dependencies = [

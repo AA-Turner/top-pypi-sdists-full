@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scale-gp-beta
-Version: 0.1.1
+Version: 0.2.0
 Summary: The official Python library for the Scale GP API
 Project-URL: Homepage, https://github.com/scaleapi/sgp-python-beta
 Project-URL: Repository, https://github.com/scaleapi/sgp-python-beta
@@ -378,6 +378,29 @@ If you want to track an entire workflow over multiple workers, ensure you call `
 
 You will need to use the explicit controls to forward trace and parent span IDs to your workers. The automatic context detection works within the context of the original Python process only.
 
+
+### Custom Export Functions
+There are cases where you may want traces to be exported to an external service instead of SGP.
+In such cases, you can define a custom export function during the initialization of the tracing client.
+
+With this approach, you no longer have all the validation checks that happens on the SGP backend, so you
+must handle that yourself.
+
+```python
+from scale_gp_beta import SGPClient
+from scale_gp_beta.lib.tracing import init
+from scale_gp_beta.types.span_create_param import SpanCreateParam
+
+
+def send_to_other_service(batch: list[SpanCreateParam]) -> None:
+    payload = [span.model_dump() for span in batch]
+    response = httpx.put("https://some.other.service", json={"items": payload})
+    response.raise_for_status()
+
+
+client = SGPClient(api_key="...")
+init(client=client, export_fn=send_to_other_service)
+```
 
 ## Custom Function Evaluations
 

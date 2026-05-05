@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
-import math
+
+import numpy as np
 from typing import Callable
 
 # ======================================== TAG ========================================
@@ -88,19 +89,19 @@ def ease_in_out_quint(t: float) -> float:
 
 # ======================================== SINE ========================================
 @easing
-def ease_in_sine(t: float) -> float:
+def ease_in_sine(t):
     """Accélération douce basée sur un quart de sinusoïde. Plus subtil que quad."""
-    return 1 - math.cos(t * math.pi / 2)
+    return 1 - np.cos(t * np.pi / 2)
 
 @easing
-def ease_out_sine(t: float) -> float:
+def ease_out_sine(t):
     """Décélération douce basée sur un quart de sinusoïde. Arrivée très naturelle."""
-    return math.sin(t * math.pi / 2)
+    return np.sin(t * np.pi / 2)
 
 @easing
-def ease_in_out_sine(t: float) -> float:
+def ease_in_out_sine(t):
     """Demi-sinusoïde. La transition la plus douce et la plus naturelle de toutes."""
-    return -(math.cos(math.pi * t) - 1) / 2
+    return -(np.cos(np.pi * t) - 1) / 2
 
 # ======================================== EXPO ========================================
 @easing
@@ -109,7 +110,7 @@ def ease_in_expo(t: float) -> float:
     Démarrage quasi nul (2^-10 ≈ 0.001), puis explosion exponentielle en fin de course.
     Vaut exactement 0 en t=0.
     """
-    return 0.0 if t == 0 else 2 ** (10 * t - 10)
+    return np.where(t == 0, 0.0, 2 ** (10 * t - 10))
 
 @easing
 def ease_out_expo(t: float) -> float:
@@ -117,7 +118,7 @@ def ease_out_expo(t: float) -> float:
     Démarre très vite puis converge asymptotiquement vers 1.
     Vaut exactement 1 en t=1.
     """
-    return 1.0 if t == 1 else 1 - 2 ** (-10 * t)
+    return np.where(t == 1, 1.0, 1 - 2 ** (-10 * t))
 
 @easing
 def ease_in_out_expo(t: float) -> float:
@@ -125,9 +126,7 @@ def ease_in_out_expo(t: float) -> float:
     Combinaison des deux : quasi immobile au départ, vitesse maximale au milieu,
     quasi immobile à l'arrivée. Effet très dramatique.
     """
-    if t == 0: return 0.0
-    if t == 1: return 1.0
-    return 2 ** (20 * t - 10) / 2 if t < 0.5 else (2 - 2 ** (-20 * t + 10)) / 2
+    return np.where(t == 0, 0.0, np.where(t == 1, 1.0, np.where(t < 0.5, 2 ** (20 * t - 10) / 2, (2 - 2 ** (-20 * t + 10)) / 2)))
 
 # ======================================== CIRC ========================================
 @easing
@@ -136,7 +135,7 @@ def ease_in_circ(t: float) -> float:
     Accélération basée sur un arc de cercle.
     Démarre encore plus lentement qu'expo, puis accélère brusquement en fin.
     """
-    return 1 - math.sqrt(1 - t ** 2)
+    return 1 - np.sqrt(np.clip(1 - t ** 2, 0.0, None))
 
 @easing
 def ease_out_circ(t: float) -> float:
@@ -144,12 +143,15 @@ def ease_out_circ(t: float) -> float:
     Décélération basée sur un arc de cercle.
     Vitesse initiale maximale, puis arrêt abrupt formant un angle droit apparent.
     """
-    return math.sqrt(1 - (t - 1) ** 2)
+    return np.sqrt(np.clip(1 - (t - 1) ** 2, 0.0, None))
 
 @easing
 def ease_in_out_circ(t: float) -> float:
     """Deux arcs de cercle raccordés. Transitions extrêmes très anguleuses au milieu."""
-    return (1 - math.sqrt(1 - (2 * t) ** 2)) / 2 if t < 0.5 else (math.sqrt(1 - (-2 * t + 2) ** 2) + 1) / 2
+    return np.where(t < 0.5,
+        (1 - np.sqrt(np.clip(1 - (2 * t) ** 2, 0.0, None))) / 2,
+        (np.sqrt(np.clip(1 - (-2 * t + 2) ** 2, 0.0, None)) + 1) / 2
+    )
 
 # ======================================== BACK ========================================
 _BACK_C1 = 1.70158
@@ -180,8 +182,8 @@ def ease_in_out_back(t: float) -> float:
     return ((2 * t - 2) ** 2 * ((_BACK_C2 + 1) * (2 * t - 2) + _BACK_C2) + 2) / 2
 
 # ======================================== ELASTIC ========================================
-_ELASTIC_C4 = (2 * math.pi) / 3
-_ELASTIC_C5 = (2 * math.pi) / 4.5
+_ELASTIC_C4 = (2 * np.pi) / 3
+_ELASTIC_C5 = (2 * np.pi) / 4.5
 
 @easing
 def ease_in_elastic(t: float) -> float:
@@ -190,9 +192,7 @@ def ease_in_elastic(t: float) -> float:
     Comme un ressort qu'on comprime avant de lâcher.
     Dépasse en négatif plusieurs fois en début de course.
     """
-    if t == 0: return 0.0
-    if t == 1: return 1.0
-    return -(2 ** (10 * t - 10)) * math.sin((t * 10 - 10.75) * _ELASTIC_C4)
+    return np.where(t == 0, 0.0, np.where(t == 1, 1.0, -(2 ** (10 * t - 10)) * np.sin((t * 10 - 10.75) * _ELASTIC_C4)))
 
 @easing
 def ease_out_elastic(t: float) -> float:
@@ -200,9 +200,7 @@ def ease_out_elastic(t: float) -> float:
     Dépasse la cible puis oscille autour de 1 avec une amplitude décroissante.
     Comme un ressort qui se stabilise. Effet très vivant à l'arrivée.
     """
-    if t == 0: return 0.0
-    if t == 1: return 1.0
-    return 2 ** (-10 * t) * math.sin((t * 10 - 0.75) * _ELASTIC_C4) + 1
+    return np.where(t == 0, 0.0, np.where(t == 1, 1.0, 2 ** (-10 * t) * np.sin((t * 10 - 0.75) * _ELASTIC_C4) + 1))
 
 @easing
 def ease_in_out_elastic(t: float) -> float:
@@ -210,11 +208,12 @@ def ease_in_out_elastic(t: float) -> float:
     Oscillations aux deux extrémités. Effet très prononcé, réservé aux animations
     courtes et expressives (feedback UI, alertes).
     """
-    if t == 0: return 0.0
-    if t == 1: return 1.0
-    if t < 0.5:
-        return -(2 ** (20 * t - 10) * math.sin((20 * t - 11.125) * _ELASTIC_C5)) / 2
-    return (2 ** (-20 * t + 10) * math.sin((20 * t - 11.125) * _ELASTIC_C5)) / 2 + 1
+    return np.where(t == 0, 0.0, np.where(t == 1, 1.0,
+        np.where(t < 0.5,
+           -(2 ** (20 * t - 10) * np.sin((20 * t - 11.125) * _ELASTIC_C5)) / 2,
+            (2 ** (-20 * t + 10) * np.sin((20 * t - 11.125) * _ELASTIC_C5)) / 2 + 1
+        )
+    ))
 
 # ======================================== BOUNCE ========================================
 def _bounce_out(t: float) -> float:
@@ -223,17 +222,9 @@ def _bounce_out(t: float) -> float:
     décroissante. Non exposé directement car utilisé par les trois variantes.
     """
     n, d = 7.5625, 2.75
-    if t < 1 / d:
-        return n * t ** 2
-    elif t < 2 / d:
-        t -= 1.5 / d
-        return n * t ** 2 + 0.75
-    elif t < 2.5 / d:
-        t -= 2.25 / d
-        return n * t ** 2 + 0.9375
-    else:
-        t -= 2.625 / d
-        return n * t ** 2 + 0.984375
+    t1 = t - np.where(t < 1/d, 0.0, np.where(t < 2/d, 1.5/d, np.where(t < 2.5/d, 2.25/d, 2.625/d)))
+    base = n * t1 ** 2
+    return base + np.where(t < 1/d, 0.0, np.where(t < 2/d, 0.75, np.where(t < 2.5/d, 0.9375, 0.984375)))
 
 @easing
 def ease_in_bounce(t: float) -> float:
@@ -257,7 +248,10 @@ def ease_in_out_bounce(t: float) -> float:
     Rebonds au départ ET à l'arrivée. Très agité, à réserver aux animations
     humoristiques ou très dynamiques.
     """
-    return (1 - _bounce_out(1 - 2 * t)) / 2 if t < 0.5 else (1 + _bounce_out(2 * t - 1)) / 2
+    return np.where(t < 0.5,
+        (1 - _bounce_out(1 - 2 * t)) / 2,
+        (1 + _bounce_out(2 * t - 1)) / 2
+    )
 
 # ======================================== EXPORT ========================================
 __all__ = [

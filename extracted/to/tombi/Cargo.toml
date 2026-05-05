@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "0.10.2"  # We use git tags for versioning. This is just a placeholder.
+version = "0.10.4"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -45,8 +45,8 @@ reqwest = { version = "0.12.15", default-features = false, features = [
 ] }
 rstest = { version = "0.25.0" }
 rustc-hash = { version = "2.1.1" }
-schemars = { version = "1.0.2", features = ["preserve_order", "url2"] }
-semver = { version = "1.0.26" }
+schemars = { version = "1.2.1", features = ["preserve_order", "url2"] }
+semver = "1.0.17"
 serde = { version = "1.0.219", features = [
   "derive",
 ] }
@@ -115,13 +115,15 @@ xshell.version = "0.2.7"
 zed_extension_api = "0.7.0"
 zip = { version = "2.3.0" }
 
+[workspace.lints.clippy]
+explicit_counter_loop = "warn"
+
 [workspace.lints.rust]
 aarch64_softfloat_neon = "warn"
 deprecated = "warn"
 
 [workspace.metadata.cargo-shear]
 ignored = [
-  "semver",
   "wasi",
   "wasm-bindgen",
   "wasm-bindgen-futures",

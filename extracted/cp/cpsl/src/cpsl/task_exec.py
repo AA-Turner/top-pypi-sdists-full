@@ -231,7 +231,8 @@ def _subprocess_entry(
                 if resp.channel_type:
                     session.channel = SessionChannel(type=resp.channel_type)
                 if resp.data_json:
-                    session.data = json.loads(resp.data_json)
+                    from .session import _track_data_value
+                    session.data = _track_data_value(json.loads(resp.data_json), session._notify_data_changed)
 
                 raw = [
                     Message(text=e.text, sender=e.sender, channel_type=e.channel_type)
@@ -279,8 +280,31 @@ def _subprocess_entry(
                         )
                     )
 
+                def _task_data_changed() -> None:
+                    session_stub.save_session_data(
+                        SaveSessionDataRequest(
+                            session_id=session_id,
+                            data_json=json.dumps(session.data),
+                        )
+                    )
+                    rid = str(uuid.uuid4())
+                    session_stub.notify_session(
+                        NotifySessionRequest(
+                            app_id=app_id,
+                            session_id=session_id,
+                            request_id=rid,
+                            block_json=json.dumps({
+                                "id": f"widget_update_{session_id}",
+                                "type": "widget_update",
+                                "payload": {"reason": "data", "session_id": session_id},
+                            }),
+                            external_delivery=False,
+                        )
+                    )
+
                 session._reply_callback = _task_reply
                 session._block_callback = _task_block
+                session._data_change_callback = _task_data_changed
                 _bind_runtime_session(session)
                 runtime_session = session
             else:

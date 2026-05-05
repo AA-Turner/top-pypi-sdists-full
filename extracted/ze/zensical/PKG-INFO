@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zensical
-Version: 0.0.39
+Version: 0.0.40
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
@@ -12,6 +12,7 @@ Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Requires-Dist: click>=8.1.8
 Requires-Dist: deepmerge>=2.0
+Requires-Dist: jinja2>=3.1
 Requires-Dist: markdown>=3.7
 Requires-Dist: pygments>=2.20
 Requires-Dist: pymdown-extensions>=10.21.2

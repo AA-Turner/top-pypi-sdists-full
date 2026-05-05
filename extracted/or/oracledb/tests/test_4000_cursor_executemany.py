@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -27,7 +27,6 @@
 """
 
 import decimal
-import itertools
 
 import oracledb
 import pytest
@@ -335,13 +334,11 @@ def test_4021(conn, cursor, empty_tab):
         data,
     )
     conn.commit()
-    cursor.execute(
-        """
+    cursor.execute("""
         select IntCol, NumberCol
         from TestTempTable
         order by IntCol
-        """
-    )
+        """)
     assert cursor.fetchall() == data
 
 
@@ -499,11 +496,13 @@ def test_4032(conn, cursor, empty_tab):
     rows = [(i + 1, None) for i in range(10)] + [
         (i + 11, (i + 11) * 0.25) for i in range(10)
     ]
-    for chunk in itertools.batched(rows, 4):
+    pos = 0
+    while pos < len(rows):
         cursor.executemany(
             "insert into TestTempTable (IntCol, NumberCol) values (:1, :2)",
-            list(chunk),
+            rows[pos : pos + 4],
         )
+        pos += 4
     conn.commit()
     cursor.execute(
         "select IntCol, NumberCol from TestTempTable order by IntCol"

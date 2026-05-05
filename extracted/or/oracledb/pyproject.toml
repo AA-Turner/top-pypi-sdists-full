@@ -2,7 +2,7 @@
 requires = [
     "setuptools >= 77.0.0",
     "wheel",
-    "cython ~= 3.1",
+    "cython ~= 3.2",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -63,7 +63,10 @@ test = [
     "tox",
 ]
 oci_config = ["oci"]
-oci_auth = ["oci"]
+oci_auth = [
+    "oci",
+    "requests>=2.33",
+]
 azure_config = [
     "azure-appconfiguration",
     "azure-identity",
@@ -88,7 +91,7 @@ version = {attr = "oracledb.version.__version__"}
 
 [tool.black]
 line-length = 79
-required-version = 25
+required-version = 26
 
 [tool.ruff]
 line-length = 79

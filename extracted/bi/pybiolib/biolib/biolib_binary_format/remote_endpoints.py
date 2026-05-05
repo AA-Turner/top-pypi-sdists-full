@@ -1,20 +1,29 @@
 from datetime import datetime, timedelta, timezone
 
+import biolib.api
+from biolib.api.client import ApiClient
 from biolib.biolib_api_client.biolib_job_api import BiolibJobApi
 from biolib.biolib_binary_format.utils import RemoteEndpoint
 
 # from urllib.parse import urlparse, parse_qs
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Literal
+from biolib.typing_utils import Literal, Optional
 
 
 class RemoteJobStorageEndpoint(RemoteEndpoint):
-    def __init__(self, job_uuid: str, job_auth_token: str, storage_type: Literal['input', 'output']):
+    def __init__(
+        self,
+        job_uuid: str,
+        job_auth_token: str,
+        storage_type: Literal['input', 'output'],
+        api_client: Optional[ApiClient] = None,
+    ):
         self._expires_at = None
         self._job_auth_token = job_auth_token
         self._job_uuid = job_uuid
         self._presigned_url = None
         self._storage_type: Literal['input', 'output'] = storage_type
+        self._api_client: ApiClient = api_client or biolib.api.client
 
     def get_remote_url(self):
         if not self._presigned_url or not self._expires_at or datetime.now(timezone.utc) > self._expires_at:
@@ -22,6 +31,7 @@ class RemoteJobStorageEndpoint(RemoteEndpoint):
                 job_auth_token=self._job_auth_token,
                 job_uuid=self._job_uuid,
                 storage_type='results' if self._storage_type == 'output' else 'input',
+                api_client=self._api_client,
             )
             self._expires_at = datetime.now(timezone.utc) + timedelta(minutes=8)
             # TODO: Use expires at from url

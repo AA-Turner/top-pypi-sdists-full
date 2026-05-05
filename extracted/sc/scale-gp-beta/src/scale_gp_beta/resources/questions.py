@@ -7,7 +7,7 @@ from typing import Any, cast
 import httpx
 
 from ..types import question_list_params, question_create_params, question_update_params
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -161,6 +161,7 @@ class QuestionsResource(SyncAPIResource):
         self,
         *,
         ending_before: str | Omit = omit,
+        ids: SequenceNotStr[str] | Omit = omit,
         include_archived: bool | Omit = omit,
         limit: int | Omit = omit,
         sort_by: str | Omit = omit,
@@ -196,6 +197,7 @@ class QuestionsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "ending_before": ending_before,
+                        "ids": ids,
                         "include_archived": include_archived,
                         "limit": limit,
                         "sort_by": sort_by,
@@ -416,6 +418,7 @@ class AsyncQuestionsResource(AsyncAPIResource):
         self,
         *,
         ending_before: str | Omit = omit,
+        ids: SequenceNotStr[str] | Omit = omit,
         include_archived: bool | Omit = omit,
         limit: int | Omit = omit,
         sort_by: str | Omit = omit,
@@ -451,6 +454,7 @@ class AsyncQuestionsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "ending_before": ending_before,
+                        "ids": ids,
                         "include_archived": include_archived,
                         "limit": limit,
                         "sort_by": sort_by,

@@ -9,22 +9,10 @@ import wbcore.contrib.icons.models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("agenda", "0001_initial"),
-        ("agenda", "0002_initial"),
-        ("agenda", "0003_calendaritem_endpoint_basename"),
-        ("agenda", "0004_alter_calendaritem_item_type"),
-        ("agenda", "0005_building_and_more"),
-        ("agenda", "0006_calendaritem_is_deletable"),
-        ("agenda", "0007_alter_calendaritem_options"),
-        ("agenda", "0008_alter_calendaritem_item_type"),
-        ("agenda", "0009_alter_calendaritem_icon"),
-    ]
-
     initial = True
 
     dependencies = [
-        ("directory", "0001_initial"),
+        ("directory", "0001_squashed_20260501"),
     ]
 
     operations = [

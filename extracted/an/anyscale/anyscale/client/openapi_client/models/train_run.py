@@ -47,7 +47,10 @@ class TrainRun(object):
         'session_name': 'str',
         'controller_log_id': 'str',
         'train_run_panels': 'list[DashboardPanel]',
-        'train_worker_panels': 'list[DashboardPanel]'
+        'train_worker_panels': 'list[DashboardPanel]',
+        'ray_train_version': 'int',
+        'framework_versions': 'dict(str, str)',
+        'run_settings': 'RunSettings'
     }
 
     attribute_map = {
@@ -65,10 +68,13 @@ class TrainRun(object):
         'session_name': 'session_name',
         'controller_log_id': 'controller_log_id',
         'train_run_panels': 'train_run_panels',
-        'train_worker_panels': 'train_worker_panels'
+        'train_worker_panels': 'train_worker_panels',
+        'ray_train_version': 'ray_train_version',
+        'framework_versions': 'framework_versions',
+        'run_settings': 'run_settings'
     }
 
-    def __init__(self, id=None, name=None, job_id=None, controller_actor_id=None, status=None, status_detail=None, start_time_ms=None, end_time_ms=None, attempts=None, total_attempts=None, job_details=None, session_name=None, controller_log_id=None, train_run_panels=None, train_worker_panels=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, job_id=None, controller_actor_id=None, status=None, status_detail=None, start_time_ms=None, end_time_ms=None, attempts=None, total_attempts=None, job_details=None, session_name=None, controller_log_id=None, train_run_panels=None, train_worker_panels=None, ray_train_version=None, framework_versions=None, run_settings=None, local_vars_configuration=None):  # noqa: E501
         """TrainRun - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +95,9 @@ class TrainRun(object):
         self._controller_log_id = None
         self._train_run_panels = None
         self._train_worker_panels = None
+        self._ray_train_version = None
+        self._framework_versions = None
+        self._run_settings = None
         self.discriminator = None
 
         self.id = id
@@ -113,6 +122,12 @@ class TrainRun(object):
             self.train_run_panels = train_run_panels
         if train_worker_panels is not None:
             self.train_worker_panels = train_worker_panels
+        if ray_train_version is not None:
+            self.ray_train_version = ray_train_version
+        if framework_versions is not None:
+            self.framework_versions = framework_versions
+        if run_settings is not None:
+            self.run_settings = run_settings
 
     @property
     def id(self):
@@ -444,6 +459,69 @@ class TrainRun(object):
         """
 
         self._train_worker_panels = train_worker_panels
+
+    @property
+    def ray_train_version(self):
+        """Gets the ray_train_version of this TrainRun.  # noqa: E501
+
+
+        :return: The ray_train_version of this TrainRun.  # noqa: E501
+        :rtype: int
+        """
+        return self._ray_train_version
+
+    @ray_train_version.setter
+    def ray_train_version(self, ray_train_version):
+        """Sets the ray_train_version of this TrainRun.
+
+
+        :param ray_train_version: The ray_train_version of this TrainRun.  # noqa: E501
+        :type: int
+        """
+
+        self._ray_train_version = ray_train_version
+
+    @property
+    def framework_versions(self):
+        """Gets the framework_versions of this TrainRun.  # noqa: E501
+
+
+        :return: The framework_versions of this TrainRun.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._framework_versions
+
+    @framework_versions.setter
+    def framework_versions(self, framework_versions):
+        """Sets the framework_versions of this TrainRun.
+
+
+        :param framework_versions: The framework_versions of this TrainRun.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._framework_versions = framework_versions
+
+    @property
+    def run_settings(self):
+        """Gets the run_settings of this TrainRun.  # noqa: E501
+
+
+        :return: The run_settings of this TrainRun.  # noqa: E501
+        :rtype: RunSettings
+        """
+        return self._run_settings
+
+    @run_settings.setter
+    def run_settings(self, run_settings):
+        """Sets the run_settings of this TrainRun.
+
+
+        :param run_settings: The run_settings of this TrainRun.  # noqa: E501
+        :type: RunSettings
+        """
+
+        self._run_settings = run_settings
 
     def to_dict(self):
         """Returns the model properties as a dict"""

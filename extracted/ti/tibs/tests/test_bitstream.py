@@ -701,29 +701,34 @@ class TestManyDifferentThings:
     def test_find_all(self):
         a = Tibs("0b11111")
         p = a.find_all("0b1")
-        assert list(p) == [0, 1, 2, 3, 4]
+        assert p == [0, 1, 2, 3, 4]
         p = a.find_all("0b11")
-        assert list(p) == [0, 1, 2, 3]
+        assert p == [0, 1, 2, 3]
         p = a.find_all("0b10")
-        assert list(p) == []
+        assert p == []
         a = Tibs("0x4733eeff66554747335832434547")
         p = a.find_all("0x47", byte_aligned=True)
-        assert list(p) == [0, 6 * 8, 7 * 8, 13 * 8]
+        assert p == [0, 6 * 8, 7 * 8, 13 * 8]
         p = a.find_all("0x4733", byte_aligned=True)
-        assert list(p) == [0, 7 * 8]
+        assert p == [0, 7 * 8]
         a = Tibs("0b1001001001001001001")
         p = a.find_all("0b1001", byte_aligned=False)
-        assert list(p) == [0, 3, 6, 9, 12, 15]
+        assert p == [0, 3, 6, 9, 12, 15]
 
     def test_find_all_generator(self):
         a = Tibs("0xff1ff4512345ff1234ff12ff")
-        p = a.find_all("0xff", byte_aligned=True)
+        p = a.find_all_iter("0xff", byte_aligned=True)
         assert next(p) == 0
         assert next(p) == 6 * 8
         assert next(p) == 9 * 8
         assert next(p) == 11 * 8
         with pytest.raises(StopIteration):
             _ = next(p)
+
+    def test_find_all_byte_aligned_on_unaligned_slice(self):
+        a = Tibs("0b1" + "00000001" + "00000010" + "00000001")[1:]
+        assert a.find("0x02", byte_aligned=True) == 8
+        assert list(a.find_all("0x01", byte_aligned=True)) == [0, 16]
 
     def test_contains(self):
         a = Tibs("0b1") + "0x0001dead0001"
@@ -756,8 +761,7 @@ class TestManyDifferentThings:
         a += b
         assert a == "0b1111100"
         assert (a + [0]).to_bytes() == b"\xf8"
-        with pytest.raises(AttributeError):
-            _ = a.i
+        assert a.i == a.to_i()
         with pytest.raises(ValueError):
             _ = a.to_bytes()
 
@@ -1198,13 +1202,13 @@ class TestBugs:
 
         # find_all
         s = Tibs("0x1234151f")
-        li = list(s.find_all("0x1", start=-15))
+        li = s.find_all("0x1", start=-15)
         assert li == [24]
-        li = list(s.find_all("0x1", start=-16, byte_aligned=True))
+        li = s.find_all("0x1", start=-16, byte_aligned=True)
         assert li == [16, 24]
-        li = list(s.find_all("0x1", end=-5, byte_aligned=True))
+        li = s.find_all("0x1", end=-5, byte_aligned=True)
         assert li == [0, 16]
-        li = list(s.find_all("0x1", end=-4, byte_aligned=True))
+        li = s.find_all("0x1", end=-4, byte_aligned=True)
         assert li == [0, 16, 24]
 
         # rfind

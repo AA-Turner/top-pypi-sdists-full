@@ -173,6 +173,7 @@ class TestEvaluations:
             evaluation_id="evaluation_id",
             evaluation={
                 "description": "description",
+                "metadata": {"foo": "bar"},
                 "name": "name",
                 "tags": ["string"],
             },
@@ -602,6 +603,7 @@ class TestAsyncEvaluations:
             evaluation_id="evaluation_id",
             evaluation={
                 "description": "description",
+                "metadata": {"foo": "bar"},
                 "name": "name",
                 "tags": ["string"],
             },

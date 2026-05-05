@@ -11,6 +11,8 @@ __all__ = ["ChoiceLogprobs"]
 
 
 class ChoiceLogprobs(BaseModel):
+    """Log probability information for the choice."""
+
     content: Optional[List[ChatCompletionTokenLogprob]] = None
 
     refusal: Optional[List[ChatCompletionTokenLogprob]] = None

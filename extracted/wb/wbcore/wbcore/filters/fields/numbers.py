@@ -1,6 +1,5 @@
 import django_filters
 
-from wbcore.filters.fields.mixins import RangeMixin
 from wbcore.filters.mixins import WBCoreFilterMixin
 from wbcore.serializers import WBCoreType
 
@@ -35,7 +34,7 @@ class YearFilter(NumberFilter):
         self.disable_formatting = True
 
 
-class RangeSelectFilter(RangeMixin, NumberFilter):
+class RangeSelectFilter(NumberFilter):
     filter_type = "rangeselect"
 
     def __init__(self, precision=2, *args, **kwargs):
@@ -47,3 +46,8 @@ class RangeSelectFilter(RangeMixin, NumberFilter):
         representation, lookup_expr = super().get_representation(request, name, view)
         lookup_expr["input_properties"]["color"] = self.color
         return representation, lookup_expr
+
+    def _validate_initial(self, request, initial):
+        if isinstance(initial, (list, tuple, set)):
+            initial = ",".join(map(lambda o: "" if o is None else str(o), initial))
+        return initial

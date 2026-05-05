@@ -11,6 +11,8 @@ __all__ = ["OpenAIResponseInputFile"]
 
 
 class OpenAIResponseInputFile(BaseModel):
+    """A file input to the model."""
+
     type: Literal["input_file"]
 
     file_data: Optional[str] = None

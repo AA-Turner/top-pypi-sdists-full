@@ -1,11 +1,13 @@
 import os
 import sys
 import unittest
+import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cpsl.app import App
 from cpsl.clients.capsule import (
+    UploadFileResponse,
     WaitForApprovalResponse,
     WaitForIntegrationResponse,
 )
@@ -99,6 +101,194 @@ class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
             history=[],
             data={},
         )
+
+    async def test_terminal_shell_and_exec_emit_stable_terminal_block(self):
+        session = self.new_session()
+        blocks: list[str] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(block_json)
+
+        session._block_callback = block_cb
+        term = await session.show_terminal(name="checks", title="Checks")
+
+        shell_result = await term.shell("printf hello")
+        exec_result = await term.exec(sys.executable, "-c", "print('ok')")
+
+        self.assertEqual(shell_result.exit_code, 0)
+        self.assertEqual(int(shell_result), 0)
+        self.assertTrue(shell_result.ok)
+        self.assertTrue(shell_result)
+        self.assertEqual(shell_result.stdout, "hello")
+        self.assertEqual(shell_result.stderr, "")
+        self.assertEqual(exec_result.exit_code, 0)
+        self.assertIn("ok", exec_result.stdout)
+        self.assertGreaterEqual(len(blocks), 4)
+        latest = json.loads(blocks[-1])
+        self.assertEqual(latest["type"], "terminal")
+        self.assertEqual(latest["id"], term.block_id)
+        self.assertEqual(latest["payload"]["title"], "Checks")
+        self.assertGreater(latest["payload"]["revision"], 0)
+        self.assertEqual(len(latest["payload"]["runs"]), 2)
+        self.assertEqual(latest["payload"]["runs"][0]["mode"], "shell")
+        self.assertEqual(latest["payload"]["runs"][1]["mode"], "exec")
+        output = "".join(
+            chunk["text"]
+            for run in latest["payload"]["runs"]
+            for chunk in run["chunks"]
+        )
+        self.assertIn("hello", output)
+        self.assertIn("ok", output)
+
+    async def test_session_data_nested_append_emits_change_callback(self):
+        session = self.new_session()
+        calls = 0
+
+        def changed():
+            nonlocal calls
+            calls += 1
+
+        session._data_change_callback = changed
+        session.data.setdefault("generated_media", [])
+        session.data["generated_media"].append({"src": "https://example.com/a.png"})
+
+        self.assertEqual(calls, 2)
+        self.assertEqual(session.data["generated_media"][0]["src"], "https://example.com/a.png")
+
+    async def test_session_media_helpers_return_gallery_items(self):
+        session = self.new_session()
+        uploads: list[tuple[str, str]] = []
+
+        class StubRunnerService:
+            def upload_file(self, req):
+                uploads.append((req.filename, req.content_type))
+                return UploadFileResponse(url=f"https://files.example/{req.filename}")
+
+        session._runner_stub = StubRunnerService()
+        session._app_id = "app-1"
+
+        image = await session.media.image(
+            b"fake-image",
+            filename="image.png",
+            mime_type="image/png",
+            caption="A",
+        )
+        video = await session.media.video(
+            "https://cdn.example/video.mp4",
+            poster=b"poster",
+            caption="V",
+        )
+
+        self.assertEqual(image["type"], "image")
+        self.assertEqual(image["src"], "https://files.example/image.png")
+        self.assertEqual(image["download_url"], image["src"])
+        self.assertEqual(image["caption"], "A")
+        self.assertEqual(video["type"], "video")
+        self.assertEqual(video["src"], "https://cdn.example/video.mp4")
+        self.assertEqual(video["poster"], "https://files.example/poster")
+        self.assertIn(("image.png", "image/png"), uploads)
+
+    async def test_terminal_handle_does_not_render_until_shown(self):
+        session = self.new_session()
+        blocks: list[str] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(block_json)
+
+        session._block_callback = block_cb
+        term = session.terminal("checks")
+
+        result = await term.shell("printf hidden")
+
+        self.assertEqual(result.stdout, "hidden")
+        self.assertEqual(blocks, [])
+
+        await session.show_terminal(terminal=term, title="Checks")
+
+        latest = json.loads(blocks[-1])
+        self.assertEqual(latest["payload"]["title"], "Checks")
+        self.assertEqual(len(latest["payload"]["runs"]), 1)
+
+    async def test_terminal_result_captures_stderr_and_nonzero_exit(self):
+        session = self.new_session()
+
+        async def block_cb(_block_json: str):
+            return None
+
+        session._block_callback = block_cb
+        term = session.terminal("checks", title="Checks")
+
+        result = await term.exec(
+            sys.executable,
+            "-c",
+            "import sys; print('bad', file=sys.stderr); raise SystemExit(7)",
+        )
+
+        self.assertEqual(result.exit_code, 7)
+        self.assertFalse(result.ok)
+        self.assertFalse(result)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("bad", result.stderr)
+
+    async def test_terminal_handle_reopens_from_history(self):
+        session = self.new_session()
+        block_id = "term_" + __import__("hashlib").sha1(b"sess-1:checks").hexdigest()[:16]
+        session.history.append(Message(
+            text=json.dumps({
+                "id": block_id,
+                "type": "terminal",
+                "payload": {
+                    "title": "Checks",
+                    "revision": 12,
+                    "runs": [
+                        {
+                            "id": "run_existing",
+                            "mode": "shell",
+                            "command": "echo old",
+                            "status": "completed",
+                            "chunks": [{"stream": "stdout", "text": "old\n", "seq": 0}],
+                        }
+                    ],
+                },
+            }),
+            sender="block",
+            channel_type="chat",
+        ))
+        blocks: list[str] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(block_json)
+
+        session._block_callback = block_cb
+        term = session.terminal("checks", title="Checks")
+        await term.shell("printf new")
+
+        latest = json.loads(blocks[-1])
+        self.assertEqual(latest["id"], block_id)
+        self.assertGreater(latest["payload"]["revision"], 12)
+        self.assertEqual(len(latest["payload"]["runs"]), 2)
+        self.assertEqual(latest["payload"]["runs"][0]["id"], "run_existing")
+
+    async def test_show_terminal_can_render_existing_handle(self):
+        session = self.new_session()
+        blocks: list[str] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(block_json)
+
+        session._block_callback = block_cb
+        term = session.terminal("diagnostics")
+        await term.shell("printf ok")
+
+        self.assertEqual(blocks, [])
+
+        shown = await session.show_terminal(terminal=term, title="Diagnostics")
+
+        self.assertIs(shown, term)
+        latest = json.loads(blocks[-1])
+        self.assertEqual(latest["id"], term.block_id)
+        self.assertEqual(latest["payload"]["title"], "Diagnostics")
+        self.assertEqual(len(latest["payload"]["runs"]), 1)
 
     async def test_prompt_approval_returns_true_and_marks_completed(self):
         session = self.new_session()

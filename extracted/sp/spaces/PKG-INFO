@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: spaces
-Version: 0.48.3
+Version: 0.49.0
 Summary: Utilities for Hugging Face Spaces
 Author: Charles Bensimon
 Author-email: Charles Bensimon <charles@huggingface.co>
 License-Expression: Apache-2.0
 Requires-Dist: packaging
-Requires-Dist: psutil>=2,<6
 Requires-Dist: typing-extensions>=4,<5
 Requires-Dist: requests>=2.19,<3
 Requires-Dist: gradio

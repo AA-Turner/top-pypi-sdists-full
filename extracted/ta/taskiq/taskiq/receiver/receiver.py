@@ -2,9 +2,10 @@ import asyncio
 import contextvars
 import functools
 import inspect
+import random
 import sys
 from collections.abc import Callable
-from concurrent.futures import Executor
+from concurrent.futures import Executor, ProcessPoolExecutor
 from logging import getLogger
 from time import time
 from typing import Any, get_type_hints
@@ -28,6 +29,24 @@ PY_VERSION = sys.version_info
 QUEUE_DONE = b"-1"
 
 
+def _execute_sync_task_in_executor(
+    target: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> Any:
+    """Execute a sync task.
+
+    This is a wrapper to ensure we pass the target function directly
+    to the executor, avoiding issues with pickling bound methods like ctx.run.
+
+    :param target: function to execute
+    :param args: positional arguments
+    :param kwargs: keyword arguments
+    :return: result of the function call
+    """
+    return target(*args, **kwargs)
+
+
 class Receiver:
     """Class that uses as a callback handler."""
 
@@ -37,6 +56,7 @@ class Receiver:
         executor: Executor | None = None,
         validate_params: bool = True,
         max_async_tasks: "int | None" = None,
+        max_async_tasks_jitter: int = 0,
         max_prefetch: int = 0,
         propagate_exceptions: bool = True,
         run_startup: bool = True,
@@ -62,13 +82,22 @@ class Receiver:
             self._prepare_task(task.task_name, task.original_func)
         self.sem: asyncio.Semaphore | None = None
         if max_async_tasks is not None and max_async_tasks > 0:
-            self.sem = asyncio.Semaphore(max_async_tasks)
+            # Apply jitter to prevent all workers from hitting the limit simultaneously
+            actual_limit = max_async_tasks
+            if max_async_tasks_jitter > 0:
+                # Using standard random for load distribution, not cryptography
+                actual_limit = max_async_tasks + random.randint(  # noqa: S311
+                    0,
+                    max_async_tasks_jitter,
+                )
+            self.sem = asyncio.Semaphore(actual_limit)
         else:
             logger.warning(
                 "Setting unlimited number of async tasks "
                 "can result in undefined behavior",
             )
         self.sem_prefetch = asyncio.Semaphore(max_prefetch)
+        self.is_process_pool = isinstance(executor, ProcessPoolExecutor)
 
     async def callback(  # noqa: C901, PLR0912
         self,
@@ -245,15 +274,28 @@ class Receiver:
                 target_future = target(*message.args, **kwargs)
             else:
                 is_coroutine = False
-                # If this is a synchronous function, we
-                # run it in executor and preserve the context.
-                ctx = contextvars.copy_context()
-                func = functools.partial(target, *message.args, **kwargs)
-                target_future = loop.run_in_executor(
-                    self.executor,
-                    ctx.run,
-                    func,
-                )
+                if self.is_process_pool:
+                    # For ProcessPoolExecutor, we can't use ctx.run because it contains
+                    # a reference to contextvars.Context which cannot be pickled.
+                    # Instead, we call the target function directly in the executor.
+                    # Each worker process starts with its own context, so we don't need
+                    # to preserve the parent context.
+                    target_future = loop.run_in_executor(
+                        self.executor,
+                        _execute_sync_task_in_executor,
+                        target,
+                        tuple(message.args),
+                        kwargs,
+                    )
+                else:
+                    # For ThreadPoolExecutor, we can use ctx.run with functools.partial
+                    ctx = contextvars.copy_context()
+                    func = functools.partial(target, *message.args, **kwargs)
+                    target_future = loop.run_in_executor(
+                        self.executor,
+                        ctx.run,
+                        func,
+                    )
             timeout = message.labels.get("timeout")
             if timeout is not None:
                 if not is_coroutine:
@@ -383,6 +425,12 @@ class Receiver:
                 current_message = asyncio.create_task(iterator.__anext__())  # type: ignore
                 fetched_tasks += 1
                 await queue.put(message)
+                # Custom hooks for OTel and any future instrumentations
+                for middleware in reversed(self.broker.middlewares):
+                    if hasattr(middleware, "on_prefetch_queue_add"):
+                        await maybe_awaitable(
+                            middleware.on_prefetch_queue_add(),  # type: ignore
+                        )
             except (asyncio.CancelledError, StopAsyncIteration):
                 break
         # We don't want to fetch new messages if we are shutting down.
@@ -433,6 +481,13 @@ class Receiver:
                         await asyncio.wait(tasks, timeout=self.wait_tasks_timeout)
                         logger.info("No more tasks to wait for. Shutting down.")
                     break
+
+                # Custom hooks for OTel and any future instrumentations
+                for middleware in reversed(self.broker.middlewares):
+                    if hasattr(middleware, "on_prefetch_queue_remove"):
+                        await maybe_awaitable(
+                            middleware.on_prefetch_queue_remove(),  # type: ignore
+                        )
 
                 task = asyncio.create_task(
                     self.callback(message=message, raise_err=False),

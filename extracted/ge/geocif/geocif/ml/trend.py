@@ -121,8 +121,12 @@ def _detrend_gaussian(df, column_name, sigma=5):
     pct_anomaly[nan_mask] = np.nan
 
     # Fit a linear model on the Gaussian-filtered expected yields so we can
-    # extrapolate Yei for future (unseen) years
-    X = add_constant(years)
+    # extrapolate Yei for future (unseen) years.  Force ``has_constant='add'``
+    # so ``X`` always has 2 columns even when ``years`` has a single unique
+    # value (statsmodels' default would skip the constant column, producing
+    # a 1-param model that mismatches the 2-column predict-time X built at
+    # geocif.py _retrend_predictions).
+    X = add_constant(years, has_constant="add")
     extrap_model = OLS(expected, X).fit()
 
     model = {

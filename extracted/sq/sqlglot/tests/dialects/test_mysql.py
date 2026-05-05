@@ -35,7 +35,21 @@ class TestMySQL(Validator):
         self.validate_identity("ALTER TABLE t1 ADD COLUMN x INT, ALGORITHM=INPLACE, LOCK=EXCLUSIVE")
         self.validate_identity("ALTER TABLE t ADD INDEX `i` (`c`)")
         self.validate_identity("ALTER TABLE t ADD UNIQUE `i` (`c`)")
+        self.validate_identity("ALTER TABLE t DROP PRIMARY KEY")
+        self.validate_identity("ALTER TABLE t DROP COLUMN c, DROP PRIMARY KEY, DROP INDEX `i`")
         self.validate_identity("ALTER TABLE test_table MODIFY COLUMN test_column LONGTEXT")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT NOT NULL")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT DEFAULT 5")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT NOT NULL DEFAULT 5")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c VARCHAR(50) NOT NULL DEFAULT 'foo'")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT COMMENT 'hi'")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT FIRST")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT AFTER d")
+        self.validate_identity("ALTER TABLE t MODIFY COLUMN c INT NOT NULL AFTER d")
+        self.validate_identity(
+            "ALTER TABLE t MODIFY c INT NOT NULL",
+            "ALTER TABLE t MODIFY COLUMN c INT NOT NULL",
+        )
         self.validate_identity("ALTER TABLE t AUTO_INCREMENT=3000000000")
         self.validate_identity("ALTER VIEW v AS SELECT a, b, c, d FROM foo")
         self.validate_identity("ALTER VIEW v AS SELECT * FROM foo WHERE c > 100")
@@ -633,6 +647,30 @@ class TestMySQL(Validator):
         )
         self.validate_identity(
             "CONVERT('a' USING binary)", "CAST('a' AS CHAR CHARACTER SET binary)"
+        )
+        self.validate_identity(
+            "SELECT CONVERT(`col` USING `utf8mb4`)",
+            "SELECT CAST(`col` AS CHAR CHARACTER SET utf8mb4)",
+        )
+        self.validate_identity(
+            "SELECT CHAR(0xC3A9 USING `utf8mb4`)",
+            "SELECT CHAR(x'C3A9' USING utf8mb4)",
+        )
+        self.validate_identity("SELECT CHAR(65 USING BINARY)")
+        self.validate_identity(
+            "SELECT CHAR(65 USING `binary`)",
+            "SELECT CHAR(65 USING binary)",
+        )
+        self.validate_identity(
+            "SELECT CONVERT(x USING `binary`)",
+            "SELECT CAST(x AS CHAR CHARACTER SET binary)",
+        )
+        self.validate_identity(
+            "SELECT CONVERT(x USING `my charset`)",
+            "SELECT CAST(x AS CHAR CHARACTER SET `my charset`)",
+        )
+        self.validate_identity(
+            "SELECT CHAR(65 USING `my charset`)",
         )
 
     def test_match_against(self):
@@ -1384,6 +1422,14 @@ COMMENT='客户账户表'"""
         self.assertEqual(show.text("db"), "db_name")
         self.assertIsInstance(show.args["like"], exp.Literal)
         self.assertEqual(show.text("like"), "%foo%")
+
+        show = self.validate_identity("SHOW TABLES IN test", "SHOW TABLES FROM test")
+        self.assertEqual(show.name, "TABLES")
+        self.assertEqual(show.text("db"), "test")
+
+        show = self.validate_identity("SHOW FULL TABLES IN test", "SHOW FULL TABLES FROM test")
+        self.assertTrue(show.args["full"])
+        self.assertEqual(show.text("db"), "test")
 
     def test_set_variable(self):
         cmd = self.parse_one("SET SESSION x = 1")

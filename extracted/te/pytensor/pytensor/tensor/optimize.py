@@ -5,7 +5,7 @@ from copy import copy
 import numpy as np
 
 import pytensor.scalar as ps
-from pytensor.compile.function import function
+from pytensor.compile.maker import function
 from pytensor.gradient import DisconnectedType, grad, jacobian
 from pytensor.graph.basic import Apply, Constant
 from pytensor.graph.fg import FunctionGraph
@@ -20,6 +20,7 @@ from pytensor.graph.op import (
 from pytensor.graph.replace import graph_replace
 from pytensor.graph.traversal import (
     ancestors,
+    graph_inputs,
     truncated_graph_inputs,
 )
 from pytensor.scalar import ScalarType, ScalarVariable
@@ -31,9 +32,9 @@ from pytensor.tensor.basic import (
     tensor_from_scalar,
     zeros_like,
 )
+from pytensor.tensor.linalg.solvers.general import solve
 from pytensor.tensor.math import tensordot
 from pytensor.tensor.reshape import pack, unpack
-from pytensor.tensor.slinalg import solve
 from pytensor.tensor.variable import TensorVariable, Variable
 
 
@@ -146,10 +147,18 @@ def _find_optimization_parameters(
 
     This is used to determine the additional arguments that need to be passed to the objective function.
     """
+
+    def _depends_only_on_constants(var: Variable) -> bool:
+        if isinstance(var, Constant):
+            return True
+        if var.owner is None:
+            return False
+        return all(isinstance(v, Constant) for v in graph_inputs([var]))
+
     return [
         arg
         for arg in truncated_graph_inputs([objective], [x])
-        if (arg is not x and not isinstance(arg, Constant))
+        if (arg is not x and not _depends_only_on_constants(arg))
     ]
 
 
@@ -189,10 +198,16 @@ class ScipyWrapperOp(Op, HasInnerGraph):
     def inner_outputs(self):
         return self.fgraph.outputs
 
+    def clone_with_new_fgraph(self, fgraph):
+        clone_op = copy(self)
+        clone_op._fn = None
+        clone_op._fn_wrapped = None
+        clone_op.fgraph = fgraph
+        return clone_op
+
     def clone(self):
-        copy_op = copy(self)
-        copy_op.fgraph = self.fgraph.clone(clone_inner_graphs=True)
-        return copy_op
+        clone_fgraph = self.fgraph.clone(clone_inner_graphs=True)
+        return self.clone_with_new_fgraph(clone_fgraph)
 
     def prepare_node(
         self,
@@ -534,7 +549,7 @@ class MinimizeScalarOp(ScipyScalarWrapperOp):
         outputs[0][0] = np.array(res.x, dtype=x0.dtype)
         outputs[1][0] = np.bool_(res.success)
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         # TODO: Handle disconnected inputs
         x, *args = inputs
         x_star, _ = outputs
@@ -680,7 +695,7 @@ class MinimizeOp(ScipyVectorWrapperOp):
         outputs[0][0] = res.x.reshape(x0.shape).astype(x0.dtype)
         outputs[1][0] = np.bool_(res.success)
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         x, *args = inputs
         x_star, _success = outputs
         output_grad, _ = output_grads
@@ -876,7 +891,7 @@ class RootScalarOp(ScipyScalarWrapperOp):
         outputs[0][0] = np.array(res.root)
         outputs[1][0] = np.bool_(res.converged)
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         x, *args = inputs
         x_star, _ = outputs
         output_grad, _ = output_grads
@@ -1052,7 +1067,7 @@ class RootOp(ScipyVectorWrapperOp):
         outputs[0][0] = res.x.reshape(variables.shape).astype(variables.dtype)
         outputs[1][0] = np.bool_(res.success)
 
-    def L_op(self, inputs, outputs, output_grads):
+    def pullback(self, inputs, outputs, output_grads):
         x, *args = inputs
         x_star, _ = outputs
         output_grad, _ = output_grads

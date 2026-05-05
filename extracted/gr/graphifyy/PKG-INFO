@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.7.0
+Version: 0.7.5
 Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License: MIT License
         
@@ -32,6 +32,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: networkx
+Requires-Dist: datasketch
+Requires-Dist: rapidfuzz
 Requires-Dist: tree-sitter>=0.23.0
 Requires-Dist: tree-sitter-python
 Requires-Dist: tree-sitter-javascript
@@ -54,6 +56,7 @@ Requires-Dist: tree-sitter-elixir
 Requires-Dist: tree-sitter-objc
 Requires-Dist: tree-sitter-julia
 Requires-Dist: tree-sitter-verilog
+Requires-Dist: tree-sitter-fortran
 Provides-Extra: mcp
 Requires-Dist: mcp; extra == "mcp"
 Provides-Extra: neo4j
@@ -221,7 +224,7 @@ Uninstall with the matching command (e.g. `graphify claude uninstall`).
 
 | Type | Extensions |
 |------|-----------|
-| Code (25 languages) | `.py .ts .js .jsx .tsx .go .rs .java .c .cpp .rb .cs .kt .scala .php .swift .lua .zig .ps1 .ex .exs .m .jl .vue .svelte .sql` |
+| Code (26 languages) | `.py .ts .js .jsx .tsx .go .rs .java .c .cpp .rb .cs .kt .scala .php .swift .lua .zig .ps1 .ex .exs .m .jl .vue .svelte .sql .f .F .f90 .F90 .f95 .F95 .f03 .F03 .f08 .F08` |
 | Docs | `.md .mdx .html .txt .rst .yaml .yml` |
 | Office | `.docx .xlsx` (requires `pip install graphifyy[office]`) |
 | PDFs | `.pdf` |
@@ -318,7 +321,7 @@ The MCP server gives your assistant structured access: `query_graph`, `get_node`
 
 - **Code files** — processed locally via tree-sitter. Nothing leaves your machine.
 - **Video / audio** — transcribed locally with faster-whisper. Nothing leaves your machine.
-- **Docs, PDFs, images** — sent to your AI assistant's model API (Anthropic, OpenAI, etc.) using your own API key.
+- **Docs, PDFs, images** — sent to your AI assistant for semantic extraction (via the `/graphify` skill, using whatever model your IDE session runs). Headless `graphify extract` requires `ANTHROPIC_API_KEY` or `MOONSHOT_API_KEY`.
 - No telemetry, no usage tracking, no analytics.
 
 ---

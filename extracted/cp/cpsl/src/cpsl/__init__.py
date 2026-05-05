@@ -45,6 +45,10 @@ from .session import (
     RequestContext,
     Session,
     SessionChannel,
+    SessionMedia,
+    Terminal,
+    TerminalBlock,
+    TerminalResult,
     UserInfo,
     current_session,
 )

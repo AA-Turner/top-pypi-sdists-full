@@ -35,16 +35,18 @@ class ResourceQueue(object):
     openapi_types = {
         'name': 'str',
         'preemption': 'PreemptionPolicy',
-        'resource_groups': 'list[ResourceGroup]'
+        'resource_groups': 'list[ResourceGroup]',
+        'cohort_name': 'str'
     }
 
     attribute_map = {
         'name': 'name',
         'preemption': 'preemption',
-        'resource_groups': 'resource_groups'
+        'resource_groups': 'resource_groups',
+        'cohort_name': 'cohort_name'
     }
 
-    def __init__(self, name=None, preemption=None, resource_groups=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, preemption=None, resource_groups=None, cohort_name=None, local_vars_configuration=None):  # noqa: E501
         """ResourceQueue - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,6 +55,7 @@ class ResourceQueue(object):
         self._name = None
         self._preemption = None
         self._resource_groups = None
+        self._cohort_name = None
         self.discriminator = None
 
         self.name = name
@@ -60,6 +63,8 @@ class ResourceQueue(object):
             self.preemption = preemption
         if resource_groups is not None:
             self.resource_groups = resource_groups
+        if cohort_name is not None:
+            self.cohort_name = cohort_name
 
     @property
     def name(self):
@@ -125,6 +130,27 @@ class ResourceQueue(object):
         """
 
         self._resource_groups = resource_groups
+
+    @property
+    def cohort_name(self):
+        """Gets the cohort_name of this ResourceQueue.  # noqa: E501
+
+
+        :return: The cohort_name of this ResourceQueue.  # noqa: E501
+        :rtype: str
+        """
+        return self._cohort_name
+
+    @cohort_name.setter
+    def cohort_name(self, cohort_name):
+        """Sets the cohort_name of this ResourceQueue.
+
+
+        :param cohort_name: The cohort_name of this ResourceQueue.  # noqa: E501
+        :type: str
+        """
+
+        self._cohort_name = cohort_name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

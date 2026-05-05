@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union, TYPE_CHECKING
+from typing import Optional, Union, TYPE_CHECKING
 from collections import defaultdict
 import re
 import uuid
@@ -242,7 +242,7 @@ class ChatHandler(BaseView):
         {
             "query": "Explica el concepto de RAG",
             "llm": "openai",
-            "model": "gpt-4-turbo",
+            "model": "gpt-5-mini",
             "temperature": 0.3,
             "search_type": "mmr",
             "return_sources": true
@@ -291,7 +291,7 @@ class ChatHandler(BaseView):
                     return_sources: true
                     return_context: false
                     llm: "openai"
-                    model: "gpt-4-turbo"
+                    model: "gpt-5-mini"
                     temperature: 0.5
                     max_tokens: 1000
                     session_id: "session_abc123"
@@ -354,7 +354,7 @@ class ChatHandler(BaseView):
                         score: 0.87
                     session_id: "session_abc123"
                     metadata:
-                        model: "gpt-4-turbo"
+                        model: "gpt-5-mini"
                         temperature: 0.7
                         tokens_used: 245
                         response_time: 1.23
@@ -413,19 +413,27 @@ class ChatHandler(BaseView):
                 },
                 status=404
             )
+        # Resolve user-defined bots first (session cache → DB), then system bots.
+        chatbot: Optional[AbstractBot] = None
+        is_user_bot = False
         try:
-            chatbot: AbstractBot = await manager.get_bot(name)
-            if not chatbot:
-                raise KeyError(
-                    f"Chatbot {name} not found."
-                )
-        except (TypeError, KeyError):
-            return self.json_response(
-                {
-                "message": f"Chatbot {name} not found."
-                },
-                status=404
+            chatbot = await manager.get_user_bot(self.request, name)
+            if chatbot is not None:
+                is_user_bot = True
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                "get_user_bot failed for %s, falling back to system: %s", name, exc,
             )
+        if chatbot is None:
+            try:
+                chatbot = await manager.get_bot(name)
+                if not chatbot:
+                    raise KeyError(f"Chatbot {name} not found.")
+            except (TypeError, KeyError):
+                return self.json_response(
+                    {"message": f"Chatbot {name} not found."},
+                    status=404,
+                )
         # getting the question:
         question = data.pop('query', None)
         search_type = data.pop('search_type', 'similarity')

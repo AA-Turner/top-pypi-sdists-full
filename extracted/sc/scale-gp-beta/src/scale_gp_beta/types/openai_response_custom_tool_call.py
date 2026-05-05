@@ -11,6 +11,8 @@ __all__ = ["OpenAIResponseCustomToolCall"]
 
 
 class OpenAIResponseCustomToolCall(BaseModel):
+    """A call to a custom tool created by the model."""
+
     call_id: str
 
     input: str

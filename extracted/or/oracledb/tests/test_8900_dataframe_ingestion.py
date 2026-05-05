@@ -29,6 +29,7 @@ Module for testing DataFrame ingestion
 import datetime
 import decimal
 
+import pandas
 import pyarrow
 import pytest
 
@@ -82,8 +83,7 @@ def test_8900(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName",
@@ -91,8 +91,7 @@ def test_8900(conn, cursor, empty_tab):
             DateOfBirth as "DateOfBirth"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -123,8 +122,7 @@ def test_8901(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName",
@@ -132,8 +130,7 @@ def test_8901(conn, cursor, empty_tab):
             DateOfBirth as "DateOfBirth"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -145,13 +142,11 @@ def test_8902(conn, cursor, empty_tab):
     df = pyarrow.table(arrays, names)
     cursor.executemany("insert into TestDataFrame (Id) values (:1)", df)
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select Id as "Id"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -175,16 +170,14 @@ def test_8903(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             LongData as "LongData",
             LongRawData as "LongRawData"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -253,16 +246,14 @@ def test_8905(skip_unless_native_boolean_supported, conn, cursor):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             IntCol as "IntCol",
             BooleanCol1 as "BooleanCol1",
             BooleanCol2 as "BooleanCol2"
         from TestBooleans
         order by IntCol
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -291,15 +282,13 @@ def test_8906(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             LastUpdated as "LastUpdated"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -380,16 +369,14 @@ def test_8910(conn, cursor):
             df,
         )
         conn.commit()
-        odf = conn.fetch_df_all(
-            """
+        odf = conn.fetch_df_all("""
             select
                 Id as "Id",
                 FirstName as "FirstName",
                 Salary as "Salary"
             from TestDataFrame
             order by Id
-            """
-        )
+            """)
         fetched_df = pyarrow.table(odf)
         assert fetched_df.equals(df)
 
@@ -424,13 +411,11 @@ def test_8911(conn, cursor, empty_tab):
     )
     conn.commit()
     query_values = ",".join(f'{name} as "{name}"' for name in names)
-    odf = conn.fetch_df_all(
-        f"""
+    odf = conn.fetch_df_all(f"""
         select {query_values}
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -453,16 +438,14 @@ def test_8912(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             LongData as "LongData",
             LongRawData as "LongRawData"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -495,15 +478,13 @@ def test_8913(conn, cursor, empty_tab, test_env):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -583,15 +564,13 @@ def test_8915(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             LastUpdated as "LastUpdated"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -617,16 +596,14 @@ def test_8916(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    odf = conn.fetch_df_all(
-        """
+    odf = conn.fetch_df_all("""
         select
             Id as "Id",
             FirstName as "FirstName",
             Salary as "Salary"
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -679,13 +656,11 @@ def test_8917(skip_unless_sparse_vectors_supported, conn, cursor):
     )
     conn.commit()
     query_names = ",".join(f'{name} as "{name}"' for name in names)
-    odf = conn.fetch_df_all(
-        f"""
+    odf = conn.fetch_df_all(f"""
         select {query_names}
         from TestSparseVectors
         order by IntCol
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -840,13 +815,11 @@ def test_8918(skip_unless_vectors_supported, conn, cursor):
     )
     conn.commit()
     query_names = ",".join(f'{name} as "{name}"' for name in names)
-    odf = conn.fetch_df_all(
-        f"""
+    odf = conn.fetch_df_all(f"""
         select {query_names}
         from TestVectors
         order by IntCol
-        """
-    )
+        """)
     fetched_df = pyarrow.table(odf)
     assert fetched_df.equals(df)
 
@@ -880,13 +853,11 @@ def test_8919(values, dtype, conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    cursor.execute(
-        """
+    cursor.execute("""
         select to_char(LongIntegerData)
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_values = [int(s) for s, in cursor]
     assert fetched_values == values
 
@@ -928,13 +899,11 @@ def test_8920(values, dtype, conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    cursor.execute(
-        """
+    cursor.execute("""
         select DateOfBirth
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_values = [d for d, in cursor]
     assert fetched_values == values
 
@@ -1020,12 +989,61 @@ def test_8923(conn, cursor, empty_tab):
         df,
     )
     conn.commit()
-    cursor.execute(
-        """
+    cursor.execute("""
         select DateOfBirth
         from TestDataFrame
         order by Id
-        """
-    )
+        """)
     fetched_values = [d for d, in cursor]
     assert fetched_values == values
+
+
+def test_8924(conn, cursor, empty_tab):
+    "8924 - test ingestion with data frame view"
+    input_df = pandas.DataFrame({"Id": [1, 2, 3]}).convert_dtypes(
+        dtype_backend="pyarrow"
+    )
+    df = input_df.iloc[1:2]
+    cursor.executemany("insert into TestDataFrame (Id) values (:1)", df)
+    conn.commit()
+    odf = conn.fetch_df_all("""
+        select Id as "Id"
+        from TestDataFrame
+        order by Id
+        """)
+    fetched_df = pyarrow.table(odf)
+    assert fetched_df.equals(pyarrow.table(df))
+
+
+def test_8925(test_env, conn, cursor, empty_tab):
+    "8925 - test ingestion with string and binary views"
+    short_str = "Short"
+    short_raw = bytes.fromhex("1F3D527A9BC4")
+    long_str = "Long " * 200
+    long_raw = bytes.fromhex("9ACB413FD257") * 200
+    arrays = [
+        pyarrow.array([1, 2], pyarrow.int64()),
+        pyarrow.array([short_str, long_str], pyarrow.string_view()),
+        pyarrow.array([long_raw, short_raw], pyarrow.binary_view()),
+    ]
+    names = ["Id", "LongData", "LongRawData"]
+    df = pyarrow.table(arrays, names)
+    cursor.executemany(
+        """
+        insert into TestDataFrame (Id, LongData, LongRawData)
+        values (:1, :2, :3)
+        """,
+        df,
+    )
+    conn.commit()
+    odf = conn.fetch_df_all("""
+        select
+            Id as "Id",
+            LongData as "LongData",
+            LongRawData as "LongRawData"
+        from TestDataFrame
+        order by Id
+        """)
+    expected_data = test_env.get_data_from_df(df.to_pandas())
+    fetched_data = test_env.get_data_from_df(pyarrow.table(odf).to_pandas())
+    assert fetched_data == expected_data
