@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -35,7 +35,7 @@ class CustomerEstimatedCostPolicy:
         affected_resources_count (int):
         limit_cost (int):
         period_name (str):
-        customer_credit (int):
+        customer_credit (Union[None, str]):
         billing_price_estimate (NestedPriceEstimate):
         options (Union[Unset, Any]): Fields for saving actions extra data. Keys are name of actions.
         period (Union[Unset, PolicyPeriodEnum]):
@@ -55,7 +55,7 @@ class CustomerEstimatedCostPolicy:
     affected_resources_count: int
     limit_cost: int
     period_name: str
-    customer_credit: int
+    customer_credit: Union[None, str]
     billing_price_estimate: "NestedPriceEstimate"
     options: Union[Unset, Any] = UNSET
     period: Union[Unset, PolicyPeriodEnum] = UNSET
@@ -90,6 +90,7 @@ class CustomerEstimatedCostPolicy:
 
         period_name = self.period_name
 
+        customer_credit: Union[None, str]
         customer_credit = self.customer_credit
 
         billing_price_estimate = self.billing_price_estimate.to_dict()
@@ -162,7 +163,12 @@ class CustomerEstimatedCostPolicy:
 
         period_name = d.pop("period_name")
 
-        customer_credit = d.pop("customer_credit")
+        def _parse_customer_credit(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        customer_credit = _parse_customer_credit(d.pop("customer_credit"))
 
         billing_price_estimate = NestedPriceEstimate.from_dict(d.pop("billing_price_estimate"))
 

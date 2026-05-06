@@ -37,11 +37,20 @@ from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaTagEnum,
 )
 from worker_automate_hub.utils.util import worker_sleep
+import locale
 
 console = Console()
 
 DOWNLOADS_PATH = os.path.join(os.path.expanduser("~"), "Downloads")
 console.print(f"[INIT] Downloads dir: {DOWNLOADS_PATH}")
+
+try:
+    # fallback comum no Windows
+    locale.setlocale(locale.LC_TIME, "Portuguese_Brazil")
+except locale.Error:
+    # fallback final: não usa locale
+    pass
+
 
 now = datetime.now()
 date_now = now.strftime("%Y%m%d%H%M%S")

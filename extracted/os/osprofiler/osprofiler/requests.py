@@ -12,7 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from collections.abc import Callable
 import logging as log
+from typing import Any
 from urllib import parse as parser
 
 from osprofiler import profiler
@@ -24,50 +26,59 @@ from osprofiler import web
 
 LOG = log.getLogger(__name__)
 
-_FUNC = None
+_FUNC: Callable[..., Any] | None = None
 
 try:
     from requests.adapters import HTTPAdapter
 except ImportError:
     pass
 else:
-    def send(self, request, *args, **kwargs):
+
+    def send(self: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
         parsed_url = parser.urlparse(request.url)
 
         # Best effort guessing port if needed
-        port = parsed_url.port or ""
+        port: int | str = parsed_url.port or ""
         if not port and parsed_url.scheme == "http":
             port = 80
         elif not port and parsed_url.scheme == "https":
             port = 443
 
-        profiler.start(parsed_url.scheme, info={"requests": {
-            "method": request.method,
-            "query": parsed_url.query,
-            "path": parsed_url.path,
-            "hostname": parsed_url.hostname,
-            "port": port,
-            "scheme": parsed_url.scheme}})
+        profiler.start(
+            parsed_url.scheme,
+            info={
+                "requests": {
+                    "method": request.method,
+                    "query": parsed_url.query,
+                    "path": parsed_url.path,
+                    "hostname": parsed_url.hostname,
+                    "port": port,
+                    "scheme": parsed_url.scheme,
+                }
+            },
+        )
 
         # Profiling headers are overrident to take in account this new
         # context/span.
-        request.headers.update(
-            web.get_trace_id_headers())
+        request.headers.update(web.get_trace_id_headers())
 
+        if _FUNC is None:
+            raise RuntimeError("osprofiler requests adapter not initialized")
         response = _FUNC(self, request, *args, **kwargs)
 
-        profiler.stop(info={"requests": {
-            "status_code": response.status_code}})
+        profiler.stop(info={"requests": {"status_code": response.status_code}})
 
         return response
 
     _FUNC = HTTPAdapter.send
 
 
-def enable():
+def enable() -> None:
     if _FUNC:
-        HTTPAdapter.send = send
+        HTTPAdapter.send = send  # type: ignore[method-assign]
         LOG.debug("profiling requests enabled")
     else:
-        LOG.warning("unable to activate profiling for requests, "
-                    "please ensure that python requests is installed.")
+        LOG.warning(
+            "unable to activate profiling for requests, "
+            "please ensure that python requests is installed."
+        )

@@ -11,6 +11,7 @@ suppress_noisy_logs()
 import importlib
 import importlib.metadata
 import importlib.resources
+import keyword
 import logging
 import os
 import shutil
@@ -121,15 +122,8 @@ def _submit_browser_launch_skip_reason() -> str | None:
 
 
 def _read_docs_readme() -> str:
-    try:
-        metadata = importlib.metadata.metadata("cogames")
-    except importlib.metadata.PackageNotFoundError:
-        metadata = None
-    if metadata is not None:
-        description = metadata.get("Description")
-        if description:
-            return description
-    return (_REPO_COGAMES_ROOT / "README.md").read_text()
+    readme_path = _REPO_COGAMES_ROOT / "README.md"
+    return readme_path.read_text() if readme_path.exists() else importlib.metadata.metadata("cogames")["Description"]
 
 
 def _read_packaged_doc(doc_name: str) -> str:
@@ -158,6 +152,16 @@ def _validate_policy_name_or_exit(name: str) -> None:
         raise typer.Exit(1)
     if len(name) > POLICY_NAME_MAX_LENGTH:
         console.print(f"[red]Policy name must be at most {POLICY_NAME_MAX_LENGTH} characters[/red]")
+        raise typer.Exit(1)
+
+
+def _validate_policy_module_name_or_exit(path: Path) -> None:
+    module_name = path.stem
+    if not module_name.isidentifier() or keyword.iskeyword(module_name):
+        console.print(
+            f"[red]Output filename stem '{module_name}' is not importable as a Python module. "
+            "Use letters, numbers, and underscores, and do not start with a number.[/red]"
+        )
         raise typer.Exit(1)
 
 
@@ -335,7 +339,7 @@ def _help_callback(ctx: typer.Context, value: bool) -> None:
 This runs a single episode of the game using one or more policies.
 
 By default, the policy is 'noop', so agents won't move unless manually controlled.
-To see agents move by themselves, use `--policy class=random` or `--policy class=baseline`.
+To see agents move by themselves, use `--policy starter` or `--policy class=random`.
 
 Multiple -p flags assign one policy per team (in team order).
 
@@ -349,9 +353,9 @@ Log mode is non-interactive and doesn't support manual control.
 
 [cyan]cogames play -m arena -p class=random[/cyan]                  Random policy
 
-[cyan]cogames play -m arena -c 4 -p class=baseline[/cyan]           Baseline, 4 cogs
+[cyan]cogames play -m arena -c 4 -p starter[/cyan]                  Starter policy, 4 cogs
 
-[cyan]cogames play -m four_score -p nlanky -p baseline -p random -p noop[/cyan]
+[cyan]cogames play -m four_score -p nlanky -p starter -p random -p noop[/cyan]
                                                                  One policy per team
 
 [cyan]cogames play -m four_score -p nlanky:1 -p random:2[/cyan]     Mixed teams (cycling pattern)
@@ -378,7 +382,7 @@ def play_cmd(
         "--mission",
         "-m",
         metavar="MISSION",
-        help="Mission to play (run [bold]cogames missions[/bold] to list).",
+        help="Mission to play, or a path to a mission config file.",
         rich_help_panel="Game Setup",
     ),
     variant: Optional[list[str]] = typer.Option(  # noqa: B008
@@ -620,9 +624,9 @@ def replay_cmd(
     rich_help_panel="Tutorial",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames tutorial make-policy -t -o my_nn_policy.py[/cyan]        Trainable (neural network)
+[cyan]cogames tutorial make-policy --trainable -o my_nn_policy.py[/cyan]        Trainable (neural network)
 
-[cyan]cogames tutorial make-policy -s -o my_scripted_policy.py[/cyan]  Scripted (rule-based)
+[cyan]cogames tutorial make-policy --scripted -o my_scripted_policy.py[/cyan]  Scripted (rule-based)
 
 [cyan]cogames tutorial make-policy --amongthem -o amongthem_policy.py[/cyan]
                                                                   AmongThem scripted practice""",
@@ -703,6 +707,7 @@ def make_policy(
             raise typer.Exit(1)
 
         dest_path = Path.cwd() / output
+        _validate_policy_module_name_or_exit(dest_path)
 
         if dest_path.exists():
             console.print(f"[yellow]Warning: {dest_path} already exists. Overwriting...[/yellow]")
@@ -745,7 +750,7 @@ def make_policy(
     help="""Train a policy on one or more missions.
 
 Requires the ``neural`` extra (PyTorch + PufferLib).
-Install with: ``pip install cogames[neural]``.
+Install with: ``pip install cogames\\[neural]``.
 
 By default, our 'lstm' policy architecture is used. You can select a different architecture
 (like 'stateless' or 'baseline'), or define your own implementing the MultiAgentPolicy
@@ -1359,7 +1364,7 @@ def version_cmd() -> None:
 
   [cyan]cogames play -m arena -p class=random[/cyan]     Use random policy
 
-  [cyan]cogames play -m arena -p class=baseline[/cyan]   Use baseline policy""",
+  [cyan]cogames play -m arena -p starter[/cyan]          Use starter policy""",
 )
 def policies_cmd() -> None:
     from mettagrid.policy.policy_registry import get_policy_registry  # noqa: PLC0415
@@ -2112,7 +2117,7 @@ def docs_cmd(
     doc_name: Optional[str] = typer.Argument(
         None,
         metavar="DOC",
-        help="Document name (readme, mission, technical_manual, scripted_agent, evals, mapgen).",
+        help=f"Document name ({', '.join(sorted(_DOC_DESCRIPTIONS))}).",
     ),
     _help: bool = typer.Option(
         False,
@@ -2148,7 +2153,7 @@ def docs_cmd(
 
     try:
         content = _read_doc_text(doc_name)
-        console.print(content)
+        console.print(content, markup=False)
     except Exception as exc:
         console.print(f"[red]Error reading document: {exc}[/red]")
         raise typer.Exit(1) from exc

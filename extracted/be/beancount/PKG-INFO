@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: beancount
-Version: 3.2.2
+Version: 3.2.3
 Summary: Command-line Double-Entry Accounting
 Author-Email: Martin Blais <blais@furius.ca>
 License: GPL-2.0-only

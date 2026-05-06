@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..models.open_stack_load_balancer_marketplace_offering_plugin_options_type_0 import (
         OpenStackLoadBalancerMarketplaceOfferingPluginOptionsType0,
     )
+    from ..models.open_stack_load_balancer_vip_security_groups_item import OpenStackLoadBalancerVipSecurityGroupsItem
 
 
 T = TypeVar("T", bound="OpenStackLoadBalancer")
@@ -47,7 +48,7 @@ class OpenStackLoadBalancer:
         created (Union[Unset, datetime.datetime]):
         modified (Union[Unset, datetime.datetime]):
         backend_id (Union[None, Unset, str]): Load balancer ID in Octavia
-        access_url (Union[None, Unset, str]):
+        access_url (Union[None, Unset, list[str], str]):
         tenant (Union[Unset, str]): OpenStack tenant this load balancer belongs to
         tenant_name (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
@@ -58,6 +59,8 @@ class OpenStackLoadBalancer:
         provider (Union[Unset, str]):
         provisioning_status (Union[Unset, str]):
         operating_status (Union[Unset, str]):
+        vip_security_groups (Union[Unset, list['OpenStackLoadBalancerVipSecurityGroupsItem']]): Security groups assigned
+            to the VIP port.
         marketplace_offering_uuid (Union[None, Unset, str]):
         marketplace_offering_name (Union[None, Unset, str]):
         marketplace_offering_type (Union[None, Unset, str]):
@@ -96,7 +99,7 @@ class OpenStackLoadBalancer:
     created: Union[Unset, datetime.datetime] = UNSET
     modified: Union[Unset, datetime.datetime] = UNSET
     backend_id: Union[None, Unset, str] = UNSET
-    access_url: Union[None, Unset, str] = UNSET
+    access_url: Union[None, Unset, list[str], str] = UNSET
     tenant: Union[Unset, str] = UNSET
     tenant_name: Union[Unset, str] = UNSET
     tenant_uuid: Union[Unset, UUID] = UNSET
@@ -107,6 +110,7 @@ class OpenStackLoadBalancer:
     provider: Union[Unset, str] = UNSET
     provisioning_status: Union[Unset, str] = UNSET
     operating_status: Union[Unset, str] = UNSET
+    vip_security_groups: Union[Unset, list["OpenStackLoadBalancerVipSecurityGroupsItem"]] = UNSET
     marketplace_offering_uuid: Union[None, Unset, str] = UNSET
     marketplace_offering_name: Union[None, Unset, str] = UNSET
     marketplace_offering_type: Union[None, Unset, str] = UNSET
@@ -193,9 +197,12 @@ class OpenStackLoadBalancer:
         else:
             backend_id = self.backend_id
 
-        access_url: Union[None, Unset, str]
+        access_url: Union[None, Unset, list[str], str]
         if isinstance(self.access_url, Unset):
             access_url = UNSET
+        elif isinstance(self.access_url, list):
+            access_url = self.access_url
+
         else:
             access_url = self.access_url
 
@@ -236,6 +243,13 @@ class OpenStackLoadBalancer:
         provisioning_status = self.provisioning_status
 
         operating_status = self.operating_status
+
+        vip_security_groups: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.vip_security_groups, Unset):
+            vip_security_groups = []
+            for vip_security_groups_item_data in self.vip_security_groups:
+                vip_security_groups_item = vip_security_groups_item_data.to_dict()
+                vip_security_groups.append(vip_security_groups_item)
 
         marketplace_offering_uuid: Union[None, Unset, str]
         if isinstance(self.marketplace_offering_uuid, Unset):
@@ -380,6 +394,8 @@ class OpenStackLoadBalancer:
             field_dict["provisioning_status"] = provisioning_status
         if operating_status is not UNSET:
             field_dict["operating_status"] = operating_status
+        if vip_security_groups is not UNSET:
+            field_dict["vip_security_groups"] = vip_security_groups
         if marketplace_offering_uuid is not UNSET:
             field_dict["marketplace_offering_uuid"] = marketplace_offering_uuid
         if marketplace_offering_name is not UNSET:
@@ -409,6 +425,9 @@ class OpenStackLoadBalancer:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.open_stack_load_balancer_marketplace_offering_plugin_options_type_0 import (
             OpenStackLoadBalancerMarketplaceOfferingPluginOptionsType0,
+        )
+        from ..models.open_stack_load_balancer_vip_security_groups_item import (
+            OpenStackLoadBalancerVipSecurityGroupsItem,
         )
 
         d = dict(src_dict)
@@ -502,12 +521,20 @@ class OpenStackLoadBalancer:
 
         backend_id = _parse_backend_id(d.pop("backend_id", UNSET))
 
-        def _parse_access_url(data: object) -> Union[None, Unset, str]:
+        def _parse_access_url(data: object) -> Union[None, Unset, list[str], str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                access_url_type_0 = cast(list[str], data)
+
+                return access_url_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url", UNSET))
 
@@ -561,6 +588,15 @@ class OpenStackLoadBalancer:
         provisioning_status = d.pop("provisioning_status", UNSET)
 
         operating_status = d.pop("operating_status", UNSET)
+
+        vip_security_groups = []
+        _vip_security_groups = d.pop("vip_security_groups", UNSET)
+        for vip_security_groups_item_data in _vip_security_groups or []:
+            vip_security_groups_item = OpenStackLoadBalancerVipSecurityGroupsItem.from_dict(
+                vip_security_groups_item_data
+            )
+
+            vip_security_groups.append(vip_security_groups_item)
 
         def _parse_marketplace_offering_uuid(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -711,6 +747,7 @@ class OpenStackLoadBalancer:
             provider=provider,
             provisioning_status=provisioning_status,
             operating_status=operating_status,
+            vip_security_groups=vip_security_groups,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,
             marketplace_offering_type=marketplace_offering_type,

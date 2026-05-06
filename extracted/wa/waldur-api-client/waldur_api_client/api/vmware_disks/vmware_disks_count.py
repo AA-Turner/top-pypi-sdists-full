@@ -31,7 +31,6 @@ def _get_kwargs(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
     vm: Union[Unset, str] = UNSET,
     vm_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
@@ -96,11 +95,6 @@ def _get_kwargs(
             json_state.append(state_item)
 
     params["state"] = json_state
-
-    json_uuid: Union[Unset, str] = UNSET
-    if not isinstance(uuid, Unset):
-        json_uuid = str(uuid)
-    params["uuid"] = json_uuid
 
     params["vm"] = vm
 
@@ -168,7 +162,6 @@ def sync_detailed(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
     vm: Union[Unset, str] = UNSET,
     vm_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
@@ -194,7 +187,6 @@ def sync_detailed(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
         vm (Union[Unset, str]):
         vm_uuid (Union[Unset, UUID]):
 
@@ -226,7 +218,6 @@ def sync_detailed(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
         vm=vm,
         vm_uuid=vm_uuid,
     )
@@ -260,7 +251,6 @@ def sync(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
     vm: Union[Unset, str] = UNSET,
     vm_uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
@@ -286,7 +276,6 @@ def sync(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
         vm (Union[Unset, str]):
         vm_uuid (Union[Unset, UUID]):
 
@@ -319,7 +308,6 @@ def sync(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
         vm=vm,
         vm_uuid=vm_uuid,
     ).parsed
@@ -347,7 +335,6 @@ async def asyncio_detailed(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
     vm: Union[Unset, str] = UNSET,
     vm_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
@@ -373,7 +360,6 @@ async def asyncio_detailed(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
         vm (Union[Unset, str]):
         vm_uuid (Union[Unset, UUID]):
 
@@ -405,7 +391,6 @@ async def asyncio_detailed(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
         vm=vm,
         vm_uuid=vm_uuid,
     )
@@ -437,7 +422,6 @@ async def asyncio(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
     vm: Union[Unset, str] = UNSET,
     vm_uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
@@ -463,7 +447,6 @@ async def asyncio(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
         vm (Union[Unset, str]):
         vm_uuid (Union[Unset, UUID]):
 
@@ -497,7 +480,6 @@ async def asyncio(
             service_settings_name=service_settings_name,
             service_settings_uuid=service_settings_uuid,
             state=state,
-            uuid=uuid,
             vm=vm,
             vm_uuid=vm_uuid,
         )

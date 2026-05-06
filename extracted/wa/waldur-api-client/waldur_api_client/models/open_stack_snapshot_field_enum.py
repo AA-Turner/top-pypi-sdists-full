@@ -6,6 +6,7 @@ class OpenStackSnapshotFieldEnum(str, Enum):
     ACTION = "action"
     ACTION_DETAILS = "action_details"
     BACKEND_ID = "backend_id"
+    BACKUPS = "backups"
     CREATED = "created"
     CUSTOMER = "customer"
     CUSTOMER_ABBREVIATION = "customer_abbreviation"

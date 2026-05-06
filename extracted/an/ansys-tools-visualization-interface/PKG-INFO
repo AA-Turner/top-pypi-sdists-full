@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-tools-visualization-interface
-Version: 0.13.0
+Version: 0.13.1
 Summary: A Python visualization interface for PyAnsys libraries
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -49,6 +49,7 @@ Requires-Dist: pyvista==0.47.3 ; extra == "tests"
 Requires-Dist: pytest-pyvista==0.3.3 ; extra == "tests"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "tests"
 Requires-Dist: pyside6==6.11.0 ; extra == "tests"
+Requires-Dist: ansys-tools-usdviewer >= 0.1.0,< 1 ; extra == "usd"
 Project-URL: Discussions, https://github.com/ansys/ansys-tools-visualization-interface/discussions
 Project-URL: Documentation, https://visualization-interface.tools.docs.pyansys.com/
 Project-URL: Issues, https://github.com/ansys/ansys-tools-visualization-interface/issues
@@ -60,6 +61,7 @@ Provides-Extra: doc
 Provides-Extra: plotly
 Provides-Extra: pyvistaqt
 Provides-Extra: tests
+Provides-Extra: usd
 
 Visualization Interface Tool
 ============================

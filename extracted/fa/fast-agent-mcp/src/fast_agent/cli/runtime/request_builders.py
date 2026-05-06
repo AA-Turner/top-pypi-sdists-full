@@ -5,7 +5,7 @@ from __future__ import annotations
 import shlex
 import sys
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import typer
 
@@ -26,6 +26,9 @@ from .run_request import (
     UrlServerConfig,
     resolve_execution_mode,
 )
+
+if TYPE_CHECKING:
+    from fast_agent.llm.request_params import StructuredToolPolicy
 
 CARD_EXTENSIONS: Final[frozenset[str]] = frozenset({".md", ".markdown", ".yaml", ".yml"})
 
@@ -126,6 +129,12 @@ def validate_noenv_conflicts(
         raise typer.BadParameter("Cannot combine --noenv with --resume.")
 
 
+def validate_shell_conflicts(*, shell_enabled: bool, no_shell: bool) -> None:
+    """Validate unsupported shell option combinations."""
+    if shell_enabled and no_shell:
+        raise typer.BadParameter("Cannot combine --shell with --no-shell.")
+
+
 def validate_execution_mode_inputs(
     *,
     message: str | None,
@@ -146,21 +155,50 @@ def validate_execution_mode_inputs(
 def validate_json_schema_inputs(
     *,
     json_schema: str | None,
+    schema_model: str | None = None,
+    structured_tool_policy: str | None = None,
     execution_mode: ExecutionMode,
     model: str | None,
-) -> None:
-    if json_schema is None:
-        return
-    if execution_mode == "repl":
+) -> StructuredToolPolicy | None:
+    if json_schema is not None and schema_model is not None:
         raise typer.BadParameter(
-            "--json-schema requires --message or --prompt-file",
-            param_hint="--json-schema",
+            "Cannot combine --json-schema with --schema-model.",
+            param_hint="--schema-model",
+        )
+    if structured_tool_policy is not None:
+        if structured_tool_policy not in {"auto", "always", "defer", "no_tools"}:
+            raise typer.BadParameter(
+                "structured tool policy must be 'auto', 'always', 'defer', or 'no_tools'",
+                param_hint="--structured-tool-policy",
+            )
+        if schema_model is not None:
+            raise typer.BadParameter(
+                "--structured-tool-policy cannot be combined with --schema-model.",
+                param_hint="--structured-tool-policy",
+            )
+        if json_schema is None:
+            raise typer.BadParameter(
+                "--structured-tool-policy requires --json-schema.",
+                param_hint="--structured-tool-policy",
+            )
+        resolved_policy = cast("StructuredToolPolicy", structured_tool_policy)
+    else:
+        resolved_policy = None
+    if json_schema is None and schema_model is None:
+        return resolved_policy
+    if execution_mode == "repl":
+        option = "--schema-model" if schema_model is not None else "--json-schema"
+        raise typer.BadParameter(
+            f"{option} requires --message or --prompt-file",
+            param_hint=option,
         )
     if is_multi_model(model):
+        option = "--schema-model" if schema_model is not None else "--json-schema"
         raise typer.BadParameter(
-            "Cannot combine --json-schema with multiple models.",
-            param_hint="--json-schema",
+            f"Cannot combine {option} with multiple models.",
+            param_hint=option,
         )
+    return resolved_policy
 
 
 def validate_multi_model_card_conflicts(
@@ -383,8 +421,12 @@ def build_agent_run_request(
     reload: bool,
     watch: bool,
     quiet: bool = False,
+    prefer_local_shell: bool = False,
+    no_shell: bool = False,
     missing_shell_cwd_policy: Literal["ask", "create", "warn", "error"] | None = None,
     json_schema: str | None = None,
+    schema_model: str | None = None,
+    structured_tool_policy: str | None = None,
     force_smart: bool = False,
     noenv: bool = False,
 ) -> AgentRunRequest:
@@ -394,12 +436,15 @@ def build_agent_run_request(
         environment_dir=environment_dir,
         resume=resume,
     )
+    validate_shell_conflicts(shell_enabled=shell_enabled, no_shell=no_shell)
     execution_mode = validate_execution_mode_inputs(
         message=message,
         prompt_file=prompt_file,
     )
-    validate_json_schema_inputs(
+    resolved_structured_tool_policy = validate_json_schema_inputs(
         json_schema=json_schema,
+        schema_model=schema_model,
+        structured_tool_policy=structured_tool_policy,
         execution_mode=execution_mode,
         model=model,
     )
@@ -456,6 +501,8 @@ def build_agent_run_request(
         message=message,
         prompt_file=prompt_file,
         json_schema=json_schema,
+        schema_model=schema_model,
+        structured_tool_policy=resolved_structured_tool_policy,
         result_file=result_file,
         resume=resume,
         url_servers=url_servers,
@@ -467,6 +514,8 @@ def build_agent_run_request(
         noenv=noenv,
         force_smart=force_smart,
         shell_runtime=shell_enabled,
+        no_shell=no_shell,
+        prefer_local_shell=prefer_local_shell,
         mode=mode,
         transport=transport,
         host=host,
@@ -530,10 +579,14 @@ def build_command_run_request(
     reload: bool = False,
     watch: bool = False,
     quiet: bool = False,
+    prefer_local_shell: bool = False,
+    no_shell: bool = False,
     missing_shell_cwd_policy: Literal["ask", "create", "warn", "error"] | None = None,
     force_smart: bool = False,
     noenv: bool = False,
     json_schema: str | None = None,
+    schema_model: str | None = None,
+    structured_tool_policy: str | None = None,
 ) -> AgentRunRequest:
     """Build a normalized request directly from command option values."""
     validate_noenv_conflicts(
@@ -541,6 +594,7 @@ def build_command_run_request(
         environment_dir=environment_dir,
         resume=resume,
     )
+    validate_shell_conflicts(shell_enabled=shell_enabled, no_shell=no_shell)
 
     stdio_commands = collect_stdio_commands(npx, uvx, stdio)
     resolved_instruction, inferred_agent_name = resolve_instruction_option(
@@ -564,6 +618,8 @@ def build_command_run_request(
         message=message,
         prompt_file=prompt_file,
         json_schema=json_schema,
+        schema_model=schema_model,
+        structured_tool_policy=structured_tool_policy,
         result_file=result_file,
         resume=resume,
         stdio_commands=stdio_commands,
@@ -574,6 +630,8 @@ def build_command_run_request(
         noenv=noenv,
         force_smart=force_smart,
         shell_enabled=shell_enabled,
+        prefer_local_shell=prefer_local_shell,
+        no_shell=no_shell,
         mode=mode,
         transport=transport,
         host=host,

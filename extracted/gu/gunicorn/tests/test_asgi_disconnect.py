@@ -204,3 +204,113 @@ class TestASGIDisconnectGracePeriod:
         from gunicorn.config import Config
         cfg = Config()
         assert cfg.asgi_disconnect_grace_period == 3
+
+
+class TestBodyReceiverIncompleteBody:
+    """Cover the receive() path when the request body never finishes framing."""
+
+    @pytest.fixture
+    def mock_worker(self):
+        worker = mock.Mock()
+        worker.nr_conns = 0
+        worker.loop = asyncio.new_event_loop()
+        worker.cfg = mock.Mock()
+        worker.cfg.asgi_disconnect_grace_period = 3
+        worker.cfg.timeout = 0.05  # tight bound for the test
+        worker.log = mock.Mock()
+        return worker
+
+    @pytest.mark.asyncio
+    async def test_receive_yields_disconnect_on_timeout(self, mock_worker):
+        """When _wait_for_data times out and the body is not complete, the
+        receiver MUST yield http.disconnect rather than synthesize a terminal
+        http.request with more_body=False — that would desync the next
+        pipelined request.
+
+        Body-wait expiry sets _body_wait_expired, NOT _closed: the transport
+        may still be alive; the body just never finished framing."""
+        from gunicorn.asgi.protocol import ASGIProtocol, BodyReceiver
+
+        protocol = ASGIProtocol(mock_worker)
+        protocol.reader = mock.Mock()
+
+        request = mock.Mock()
+        request.content_length = 100
+        request.chunked = False
+
+        receiver = BodyReceiver(request, protocol)
+        protocol._body_receiver = receiver
+
+        msg = await receiver.receive()
+        assert msg == {"type": "http.disconnect"}
+        assert receiver._body_wait_expired is True
+        assert receiver._closed is False
+        assert receiver._disconnected is True
+
+    @pytest.mark.asyncio
+    async def test_receive_yields_terminal_request_when_complete(self, mock_worker):
+        """If the body is framed complete, the existing terminal http.request
+        with more_body=False must still be returned."""
+        from gunicorn.asgi.protocol import ASGIProtocol, BodyReceiver
+
+        protocol = ASGIProtocol(mock_worker)
+        protocol.reader = mock.Mock()
+
+        request = mock.Mock()
+        request.content_length = 5
+        request.chunked = False
+
+        receiver = BodyReceiver(request, protocol)
+        protocol._body_receiver = receiver
+
+        receiver.feed(b"hello")
+        receiver.set_complete()
+
+        msg = await receiver.receive()
+        assert msg["type"] == "http.request"
+        assert msg["body"] == b"hello"
+        # more_body may be False since the body is complete
+        assert msg["more_body"] is False
+
+    def test_signal_disconnect_sets_closed_only(self, mock_worker):
+        """signal_disconnect is the transport-disconnect path; it must set
+        _closed without touching _body_wait_expired so the two conditions
+        remain distinguishable for any code that needs to differentiate."""
+        from gunicorn.asgi.protocol import ASGIProtocol, BodyReceiver
+
+        protocol = ASGIProtocol(mock_worker)
+        protocol.reader = mock.Mock()
+
+        request = mock.Mock()
+        request.content_length = 0
+        request.chunked = False
+
+        receiver = BodyReceiver(request, protocol)
+        receiver.signal_disconnect()
+        assert receiver._closed is True
+        assert receiver._body_wait_expired is False
+        assert receiver._disconnected is True
+
+    def test_keepalive_gate_refuses_after_receive_timeout(self, mock_worker):
+        """The keepalive completion check must NOT treat a receive-timeout
+        as a framed-complete message: residual body bytes on the wire would
+        be misparsed as the next pipelined request (smuggling).  The gate
+        keys on _complete only.
+        """
+        from gunicorn.asgi.protocol import ASGIProtocol, BodyReceiver
+
+        protocol = ASGIProtocol(mock_worker)
+        protocol.reader = mock.Mock()
+
+        request = mock.Mock()
+        request.content_length = 100
+        request.chunked = False
+
+        receiver = BodyReceiver(request, protocol)
+        receiver._body_wait_expired = True  # simulate _wait_for_data timeout
+        receiver._complete = False  # body never finished framing
+
+        # The gate inlined in _handle_connection: refuse keepalive when
+        # the receiver exists and the message wasn't framed complete.
+        message_complete = receiver is None or receiver._complete
+        assert message_complete is False

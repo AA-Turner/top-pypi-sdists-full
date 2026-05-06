@@ -17,7 +17,6 @@ from typing import (
     List,
     Literal,
     Optional,
-    Sequence,
     Tuple,
     TypedDict,
     TypeVar,
@@ -66,7 +65,34 @@ from ._serialization import (
 )
 
 if TYPE_CHECKING:
+    from ._queue import Queue, QueueRateLimit
+
+
+def queue_from_db_row(
+    row: sa.Row[Any],
+    client_system_database: Optional["SystemDatabase"] = None,
+) -> "Queue":
+    """Build a database-backed Queue from a queues-table row."""
     from ._queue import Queue
+
+    m = row._mapping
+    limiter: Optional["QueueRateLimit"] = None
+    if m["rate_limit_max"] is not None:
+        limiter = {
+            "limit": m["rate_limit_max"],
+            "period": m["rate_limit_period_sec"],
+        }
+    return Queue(
+        m["name"],
+        m["concurrency"],
+        limiter,
+        worker_concurrency=m["worker_concurrency"],
+        priority_enabled=bool(m["priority_enabled"]),
+        partition_queue=bool(m["partition_queue"]),
+        polling_interval_sec=m["polling_interval_sec"],
+        database_backed_queue=True,
+        client_system_database=client_system_database,
+    )
 
 
 class WorkflowStatusString(Enum):
@@ -2937,21 +2963,24 @@ class SystemDatabase(ABC):
         local_running_count: int = 0,
     ) -> List[str]:
         start_time_ms = int(time.time() * 1000)
-        if queue.limiter is not None:
-            limiter_period_ms = int(queue.limiter["period"] * 1000)
+        # Use the queue's locally cached private state to avoid recursive DB
+        # reads via the @property getters within this transaction.
+        if queue._limiter is not None:
+            limiter_period_ms = int(queue._limiter["period"] * 1000)
         with self.engine.begin() as c:
             # Default to READ COMMITTED except with global concurrency limits or rate limits
             if self.engine.dialect.name == "postgresql" and (
-                queue.concurrency is not None or queue.limiter is not None
+                queue._concurrency is not None or queue._limiter is not None
             ):
                 c.execute(sa.text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
 
             # If there is a limiter, compute how many functions have started in its period.
-            if queue.limiter is not None:
+            if queue._limiter is not None:
                 query = (
                     sa.select(sa.func.count())
                     .select_from(SystemSchema.workflow_status)
                     .where(SystemSchema.workflow_status.c.queue_name == queue.name)
+                    .where(SystemSchema.workflow_status.c.rate_limited.is_(True))
                     .where(
                         SystemSchema.workflow_status.c.status.notin_(
                             [
@@ -2971,17 +3000,17 @@ class SystemDatabase(ABC):
                         == queue_partition_key
                     )
                 num_recent_queries = c.execute(query).fetchone()[0]  # type: ignore
-                if num_recent_queries >= queue.limiter["limit"]:
+                if num_recent_queries >= queue._limiter["limit"]:
                     return []
 
             # Compute max_tasks, the number of workflows that can be dequeued given local and global concurrency limits,
             max_tasks = sys.maxsize
 
-            if queue.worker_concurrency is not None:
+            if queue._worker_concurrency is not None:
                 # Use the in-memory registry for this worker's running count — avoids a DB round trip.
-                max_tasks = max(0, queue.worker_concurrency - local_running_count)
+                max_tasks = max(0, queue._worker_concurrency - local_running_count)
 
-            if queue.concurrency is not None:
+            if queue._concurrency is not None:
                 # Global concurrency still requires a DB query since other workers may be running workflows too.
                 global_pending_query = (
                     sa.select(sa.func.count())
@@ -2998,16 +3027,16 @@ class SystemDatabase(ABC):
                         == queue_partition_key
                     )
                 global_pending_workflows = c.execute(global_pending_query).scalar() or 0
-                if global_pending_workflows > queue.concurrency:
+                if global_pending_workflows > queue._concurrency:
                     dbos_logger.warning(
-                        f"The total number of pending workflows ({global_pending_workflows}) on queue {queue.name} exceeds the global concurrency limit ({queue.concurrency})"
+                        f"The total number of pending workflows ({global_pending_workflows}) on queue {queue.name} exceeds the global concurrency limit ({queue._concurrency})"
                     )
-                available_tasks = max(0, queue.concurrency - global_pending_workflows)
+                available_tasks = max(0, queue._concurrency - global_pending_workflows)
                 max_tasks = min(max_tasks, available_tasks)
 
             # Retrieve the first max_tasks workflows in the queue.
             # Only retrieve workflows of the local version (or without version set)
-            skip_locks = queue.concurrency is None
+            skip_locks = queue._concurrency is None
             query = (
                 sa.select(
                     SystemSchema.workflow_status.c.workflow_uuid,
@@ -3035,13 +3064,10 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.queue_partition_key
                     == queue_partition_key
                 )
-            if queue.priority_enabled:
-                query = query.order_by(
-                    SystemSchema.workflow_status.c.priority.asc(),
-                    SystemSchema.workflow_status.c.created_at.asc(),
-                )
-            else:
-                query = query.order_by(SystemSchema.workflow_status.c.created_at.asc())
+            query = query.order_by(
+                SystemSchema.workflow_status.c.priority.asc(),
+                SystemSchema.workflow_status.c.created_at.asc(),
+            )
             if max_tasks != sys.maxsize:
                 query = query.limit(int(max_tasks))
 
@@ -3058,8 +3084,8 @@ class SystemDatabase(ABC):
             for id in dequeued_ids:
                 # If we have a limiter, stop dequeueing workflows when the number
                 # of workflows started this period exceeds the limit.
-                if queue.limiter is not None:
-                    if len(ret_ids) + num_recent_queries >= queue.limiter["limit"]:
+                if queue._limiter is not None:
+                    if len(ret_ids) + num_recent_queries >= queue._limiter["limit"]:
                         break
 
                 # Start the workflow by marking it as PENDING and updating its executor ID.
@@ -3075,6 +3101,7 @@ class SystemDatabase(ABC):
                         application_version=app_version,
                         executor_id=executor_id,
                         started_at_epoch_ms=start_time_ms,
+                        rate_limited=queue._limiter is not None,
                         # If a timeout is set, set the deadline on dequeue
                         workflow_deadline_epoch_ms=sa.case(
                             (
@@ -4156,6 +4183,102 @@ class SystemDatabase(ABC):
                 )
                 for row in rows
             ]
+
+    # ── Queue Registration ──────────────────────────────────────
+
+    def get_queue(
+        self,
+        name: str,
+        *,
+        client_system_database: Optional["SystemDatabase"] = None,
+    ) -> Optional["Queue"]:
+        with self.engine.begin() as c:
+            row = c.execute(
+                sa.select(SystemSchema.queues).where(SystemSchema.queues.c.name == name)
+            ).fetchone()
+            if row is None:
+                return None
+            return queue_from_db_row(row, client_system_database=client_system_database)
+
+    def list_queues(
+        self,
+        *,
+        client_system_database: Optional["SystemDatabase"] = None,
+    ) -> List["Queue"]:
+        with self.engine.begin() as c:
+            rows = c.execute(sa.select(SystemSchema.queues)).fetchall()
+            return [
+                queue_from_db_row(row, client_system_database=client_system_database)
+                for row in rows
+            ]
+
+    def delete_queue(self, name: str) -> None:
+        """Delete a database-backed queue's row, if it exists."""
+        with self.engine.begin() as c:
+            c.execute(
+                sa.delete(SystemSchema.queues).where(SystemSchema.queues.c.name == name)
+            )
+
+    def update_queue(self, name: str, fields: Dict[str, Any]) -> None:
+        """Apply a partial update to a database-backed queue's row."""
+        if not fields:
+            return
+        values = dict(fields)
+        values["updated_at"] = int(time.time() * 1000)
+        with self.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.queues)
+                .where(SystemSchema.queues.c.name == name)
+                .values(**values)
+            )
+
+    def upsert_queue(
+        self,
+        *,
+        name: str,
+        concurrency: Optional[int],
+        worker_concurrency: Optional[int],
+        rate_limit_max: Optional[int],
+        rate_limit_period_sec: Optional[float],
+        priority_enabled: bool,
+        partition_queue: bool,
+        polling_interval_sec: float,
+        update_existing: bool,
+    ) -> bool:
+        """Upsert a queue row. Returns True iff a new row was inserted (i.e.
+        the queue did not previously exist). False if the row already existed,
+        regardless of whether it was updated."""
+        values = {
+            "name": name,
+            "concurrency": concurrency,
+            "worker_concurrency": worker_concurrency,
+            "rate_limit_max": rate_limit_max,
+            "rate_limit_period_sec": rate_limit_period_sec,
+            "priority_enabled": priority_enabled,
+            "partition_queue": partition_queue,
+            "polling_interval_sec": polling_interval_sec,
+            "updated_at": int(time.time() * 1000),
+        }
+        with self.engine.begin() as c:
+            existed = (
+                c.execute(
+                    sa.select(SystemSchema.queues.c.name).where(
+                        SystemSchema.queues.c.name == name
+                    )
+                ).fetchone()
+                is not None
+            )
+            stmt = self.dialect.insert(SystemSchema.queues).values(**values)
+            if update_existing:
+                update_set = {k: v for k, v in values.items() if k != "name"}
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["name"],
+                    set_=update_set,
+                )
+            else:
+                stmt = stmt.on_conflict_do_nothing(index_elements=["name"])
+            c.execute(stmt)
+            return not existed
 
     def get_latest_application_version(self) -> VersionInfo:
         with self.engine.begin() as c:

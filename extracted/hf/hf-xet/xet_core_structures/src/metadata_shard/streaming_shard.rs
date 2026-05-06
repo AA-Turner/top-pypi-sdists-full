@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::io::{Cursor, Read, Write, copy};
 use std::mem::size_of;
+use std::time::SystemTime;
 
 use bytes::Bytes;
 use futures::AsyncRead;
@@ -8,12 +9,12 @@ use futures_util::io::AsyncReadExt;
 use itertools::Itertools;
 use more_asserts::debug_assert_lt;
 
-use super::error::{MDBShardError, Result};
 use super::file_structs::{FileDataSequenceHeader, MDBFileInfoView};
 use super::shard_file::{MDB_FILE_INFO_ENTRY_SIZE, current_timestamp};
 use super::xorb_structs::{MDBXorbInfoView, XorbChunkSequenceEntry, XorbChunkSequenceHeader};
 use super::{MDBShardFileFooter, MDBShardFileHeader};
 use crate::MerkleHashMap;
+use crate::error::{CoreError, Result};
 use crate::merklehash::MerkleHash;
 
 /// Runs through a shard file info section, calling the specified callback function for each entry.
@@ -243,7 +244,7 @@ impl MDBMinimalShard {
         // if only some files have verification, then we consider this shard invalid
         // either all files have verification or no files have verification
         if !file_info_views.is_empty() && !file_info_views.iter().map(|fiv| fiv.contains_verification()).all_equal() {
-            return Err(MDBShardError::invalid_shard("only some files contain verification"));
+            return Err(CoreError::invalid_shard("only some files contain verification"));
         }
 
         // XORB stuff
@@ -337,6 +338,7 @@ impl MDBMinimalShard {
         writer: &mut W,
         with_file_section: bool,
         with_verification: bool,
+        expiry: Option<SystemTime>,
         xorb_filter_fn: impl Fn(&MDBXorbInfoView) -> bool,
     ) -> Result<usize> {
         let mut bytes = 0;
@@ -408,7 +410,8 @@ impl MDBMinimalShard {
             chunk_lookup_offset: footer_start,
             chunk_lookup_num_entry: 0,
             shard_creation_timestamp: current_timestamp(),
-            shard_key_expiry: 0,
+            shard_key_expiry: expiry
+                .map_or(0, |t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()),
             stored_bytes_on_disk,
             materialized_bytes,
             stored_bytes,
@@ -427,13 +430,24 @@ impl MDBMinimalShard {
         writer: &mut W,
         xorb_filter_fn: impl Fn(&MDBXorbInfoView) -> bool,
     ) -> Result<usize> {
-        self.serialize_impl(writer, false, false, xorb_filter_fn)
+        self.serialize_impl(writer, false, false, None, xorb_filter_fn)
+    }
+
+    /// Serialize out a shard without file information, with the given expiration time set in the footer.
+    /// Pass `None` for no expiration.
+    pub fn serialize_xorb_subset_with_expiry<W: Write>(
+        &self,
+        writer: &mut W,
+        expiry: Option<SystemTime>,
+        xorb_filter_fn: impl Fn(&MDBXorbInfoView) -> bool,
+    ) -> Result<usize> {
+        self.serialize_impl(writer, false, false, expiry, xorb_filter_fn)
     }
 
     /// Serialize out the given shard, sanitizing and updating the global dedup chunk flags and optionally
     /// dropping the file verification section.
     pub fn serialize<W: Write>(&self, writer: &mut W, with_verification: bool) -> Result<usize> {
-        self.serialize_impl(writer, true, with_verification, |_| true)
+        self.serialize_impl(writer, true, with_verification, None, |_| true)
     }
 
     /// Returns a list of all the global dedup eligible chunks, as given either by the hash value, file starts, or
@@ -488,10 +502,10 @@ impl MDBMinimalShard {
 mod tests {
     use std::collections::{HashMap, HashSet};
     use std::io::Cursor;
+    use std::time::{Duration, SystemTime};
 
-    use anyhow::Result;
     use rand::rngs::SmallRng;
-    use rand::{Rng, SeedableRng};
+    use rand::{RngExt, SeedableRng};
 
     use super::super::MDBShardInfo;
     use super::super::file_structs::MDBFileInfo;
@@ -501,6 +515,7 @@ mod tests {
     use super::super::shard_in_memory::MDBInMemoryShard;
     use super::super::xorb_structs::MDBXorbInfo;
     use super::MDBMinimalShard;
+    use crate::error::Result;
     use crate::merklehash::MerkleHash;
 
     fn verify_serialization(min_shard: &MDBMinimalShard, mem_shard: &MDBInMemoryShard) -> Result<()> {
@@ -783,5 +798,30 @@ mod tests {
 
         let shard = gen_random_shard_with_xorb_references(1, &[1, 5, 10, 8], &[4, 3, 5, 9, 4, 6], true, true).unwrap();
         verify_minimal_shard_dedup_processing(&shard).await;
+    }
+
+    #[test]
+    fn test_serialize_xorb_subset_with_expiry_footer() {
+        let shard = gen_random_shard_with_xorb_references(1, &[1, 2], &[3, 2], true, true).unwrap();
+        let buffer = convert_to_file(&shard).unwrap();
+        let min_shard = MDBMinimalShard::from_reader(&mut Cursor::new(&buffer), true, true).unwrap();
+
+        let mut no_expiry_buffer = Vec::new();
+        min_shard
+            .serialize_xorb_subset_with_expiry(&mut no_expiry_buffer, None, |_| true)
+            .unwrap();
+        let no_expiry_info = MDBShardInfo::load_from_reader(&mut Cursor::new(&no_expiry_buffer)).unwrap();
+        assert_eq!(no_expiry_info.metadata.shard_key_expiry, 0);
+
+        let expiry_secs = super::current_timestamp().saturating_add(12345);
+        let expiry = SystemTime::UNIX_EPOCH + Duration::from_secs(expiry_secs);
+        let mut expiry_buffer = Vec::new();
+        min_shard
+            .serialize_xorb_subset_with_expiry(&mut expiry_buffer, Some(expiry), |_| true)
+            .unwrap();
+
+        let expiry_info = MDBShardInfo::load_from_reader(&mut Cursor::new(&expiry_buffer)).unwrap();
+        assert_eq!(expiry_info.metadata.shard_key_expiry, expiry_secs);
+        assert!(expiry_info.metadata.shard_key_expiry > super::current_timestamp());
     }
 }

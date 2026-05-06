@@ -1,4 +1,5 @@
 import concurrent
+from AOT_biomaps.Config import config
 
 from ._mainRecon import Recon
 from .ReconEnums import ReconType, OptimizerType, ProcessType, SMatrixType
@@ -33,7 +34,7 @@ class AlgebraicRecon(Recon):
         self.maxSaves = maxSaves
         self.denominatorThreshold = denominatorThreshold
         self.isComplexeRecon = isComplexeRecon
-        self.device = device
+        self.device = device if device is not None else config.select_best_gpu()
         self.SMatrix = None  # system matrix
         self.smatrixType = smatrixType # SMatrixType.DENSE if no sparsing, else SMatrixType.SELL or SMatrixType.CSR or SMatrixType.COO
         # Sparse matrix attributes
@@ -779,7 +780,7 @@ class AlgebraicRecon(Recon):
         Construit une matrice sparse CSR par morceaux sans concaténation intermédiaire.
         Libère toute la mémoire temporaire à chaque étape.
         """
-        sparse_matrix = SparseSMatrix_CSR(self.experiment,relative_threshold=self.sparseThreshold)
+        sparse_matrix = SparseSMatrix_CSR(self.experiment,relative_threshold=self.sparseThreshold,device=self.device)
         sparse_matrix.allocate()
         if isShowLogs:
             print(f" Sparse matrix size: {sparse_matrix.getMatrixSize()} GB")
@@ -791,7 +792,7 @@ class AlgebraicRecon(Recon):
         Construit une matrice sparse SELL par morceaux sans concaténation intermédiaire.
         Libère toute la mémoire temporaire à chaque étape.
         """
-        sparse_matrix = SparseSMatrix_SELL(self.experiment,relative_threshold=self.sparseThreshold)
+        sparse_matrix = SparseSMatrix_SELL(self.experiment,relative_threshold=self.sparseThreshold,device=self.device)
         sparse_matrix.allocate()
         # fenetre_gpu = get_apodization_vector_gpu(sparse_matrix)
         # sparse_matrix.apply_apodization_gpu(fenetre_gpu)

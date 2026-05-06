@@ -18,7 +18,8 @@ This modules provides several generic views for
 serializing models into human-readable text.
 """
 
-from collections import abc
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 
 class MultiView:
@@ -32,7 +33,7 @@ class MultiView:
     (as array-like dicts).
     """
 
-    def __call__(self, model):
+    def __call__(self, model: Mapping[str, Any]) -> str:
         res = sorted([str(model[key]) for key in model])
         return "\n".join(res)
 
@@ -45,7 +46,7 @@ class BasicKeyValueView:
     key-value pair is rendered as "key = str(value)"
     """
 
-    def __call__(self, model):
+    def __call__(self, model: Mapping[str, Any]) -> str:
         res = ""
         for key in sorted(model):
             res += f"{key} = {model[key]}\n"
@@ -88,14 +89,16 @@ class KeyValueView:
     :type before_list: str or None
     """
 
-    def __init__(self,
-                 indent_str='  ',
-                 key_sep=' = ',
-                 dict_sep=' = ',
-                 list_sep=' = ',
-                 anon_dict='[dict]',
-                 before_dict=None,
-                 before_list=None):
+    def __init__(
+        self,
+        indent_str: str = '  ',
+        key_sep: str = ' = ',
+        dict_sep: str = ' = ',
+        list_sep: str = ' = ',
+        anon_dict: str = '[dict]',
+        before_dict: str | None = None,
+        before_list: str | None = None,
+    ) -> None:
         self.indent_str = indent_str
         self.key_sep = key_sep
         self.dict_sep = dict_sep
@@ -104,13 +107,13 @@ class KeyValueView:
         self.before_dict = before_dict
         self.before_list = before_list
 
-    def __call__(self, model):
-        def serialize(root, rootkey, indent):
+    def __call__(self, model: Mapping[str, Any]) -> str:
+        def serialize(root: Any, rootkey: Any, indent: int) -> list[str]:
             res = []
             if rootkey is not None:
                 res.append((self.indent_str * indent) + str(rootkey))
 
-            if isinstance(root, abc.Mapping):
+            if isinstance(root, Mapping):
                 if rootkey is None and indent > 0:
                     res.append((self.indent_str * indent) + self.anon_dict)
                 elif rootkey is not None:
@@ -120,8 +123,7 @@ class KeyValueView:
 
                 for key in sorted(root, key=str):
                     res.extend(serialize(root[key], key, indent + 1))
-            elif (isinstance(root, abc.Sequence) and
-                    not isinstance(root, str)):
+            elif isinstance(root, Sequence) and not isinstance(root, str):
                 if rootkey is not None:
                     res[0] += self.list_sep
                     if self.before_list is not None:
@@ -136,8 +138,10 @@ class KeyValueView:
                     if rootkey is not None:
                         res[0] += self.dict_sep
 
-                    list_root = [(self.indent_str * (indent + 1)) + line
-                                 for line in str_root.split('\n')]
+                    list_root = [
+                        (self.indent_str * (indent + 1)) + line
+                        for line in str_root.split('\n')
+                    ]
                     res.extend(list_root)
                 else:
                     # just a normal key or list entry
@@ -166,7 +170,12 @@ class TableView:
                                 containing the row models
     """
 
-    def __init__(self, column_names, column_values, table_prop_name):
+    def __init__(
+        self,
+        column_names: list[str],
+        column_values: list[str],
+        table_prop_name: str,
+    ) -> None:
         self.table_prop_name = table_prop_name
         self.column_names = column_names
         self.column_values = column_values
@@ -190,11 +199,10 @@ class TableView:
             for n in range(len(column_values))
         )
 
-    def __call__(self, model):
+    def __call__(self, model: Mapping[str, Any]) -> str:
         res = self.header_fmt_str.format(ch=self.column_names)
         for raw_row in model[self.table_prop_name]:
-            row = [str(raw_row[prop_name])
-                   for prop_name in self.column_values]
+            row = [str(raw_row[prop_name]) for prop_name in self.column_values]
             # double format is in case we have roundoff error
             res += f'{self.row_fmt_str.format(cv=row): <72}\n'
 

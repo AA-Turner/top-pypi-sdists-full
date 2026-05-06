@@ -60,6 +60,11 @@ class GroupServiceStub(object):
                 request_serializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.SearchGroupsRequest.SerializeToString,
                 response_deserializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.SearchGroupsResponse.FromString,
                 _registered_method=True)
+        self.CreateOrUpdateGroup = channel.unary_unary(
+                '/nominal.authentication.groups.v1.GroupService/CreateOrUpdateGroup',
+                request_serializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.CreateOrUpdateGroupRequest.SerializeToString,
+                response_deserializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.CreateOrUpdateGroupResponse.FromString,
+                _registered_method=True)
 
 
 class GroupServiceServicer(object):
@@ -102,6 +107,18 @@ class GroupServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateOrUpdateGroup(self, request, context):
+        """Org-scoped upsert: creates a new group if Group.rid is absent (server assigns the rid),
+        or fully replaces an existing group if Group.rid is present (identified by org_rid + rid).
+        group_id must be unique within the organization — it cannot conflict with any other group's group_id,
+        including groups not targeted by this upsert.
+        Throws HTTP 409 / gRPC 6 if the operation would result in duplicate group_ids within the organization.
+        Throws HTTP 403 / gRPC 7 if the caller is not authorized.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_GroupServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -129,6 +146,11 @@ def add_GroupServiceServicer_to_server(servicer, server):
                     servicer.SearchGroups,
                     request_deserializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.SearchGroupsRequest.FromString,
                     response_serializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.SearchGroupsResponse.SerializeToString,
+            ),
+            'CreateOrUpdateGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateOrUpdateGroup,
+                    request_deserializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.CreateOrUpdateGroupRequest.FromString,
+                    response_serializer=nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.CreateOrUpdateGroupResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -267,6 +289,33 @@ class GroupService(object):
             '/nominal.authentication.groups.v1.GroupService/SearchGroups',
             nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.SearchGroupsRequest.SerializeToString,
             nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.SearchGroupsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateOrUpdateGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.authentication.groups.v1.GroupService/CreateOrUpdateGroup',
+            nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.CreateOrUpdateGroupRequest.SerializeToString,
+            nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2.CreateOrUpdateGroupResponse.FromString,
             options,
             channel_credentials,
             insecure,

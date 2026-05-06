@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-labs-dqx
-Version: 0.13.0
+Version: 0.14.0
 Summary: Data Quality eXtended (DQX) is a Python library for data quality checks and data quality monitoring
 Project-URL: Issues, https://github.com/databrickslabs/dqx/issues
 Project-URL: Source, https://github.com/databrickslabs/dqx
@@ -25,18 +25,24 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
-Requires-Dist: databricks-labs-blueprint<0.10,>=0.9.1
+Requires-Dist: databricks-labs-blueprint<=0.12,>=0.9.1
 Requires-Dist: databricks-sdk~=0.73
 Requires-Dist: pyyaml~=6.0.3
 Requires-Dist: sqlalchemy<3.0,>=2.0
+Provides-Extra: anomaly
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == 'anomaly'
+Requires-Dist: mlflow[databricks]<3.0,>=2.19.1; extra == 'anomaly'
+Requires-Dist: scikit-learn<2.0,>=1.0; extra == 'anomaly'
+Requires-Dist: shap<0.50,>=0.42.0; extra == 'anomaly'
 Provides-Extra: cli
-Requires-Dist: databricks-connect~=15.4; extra == 'cli'
+Requires-Dist: databricks-connect<18,>=15.4; extra == 'cli'
 Provides-Extra: datacontract
-Requires-Dist: datacontract-cli>=0.11.1; extra == 'datacontract'
+Requires-Dist: datacontract-cli<1.0,>=0.11.1; extra == 'datacontract'
 Provides-Extra: llm
-Requires-Dist: databricks-langchain>=0.1.0; extra == 'llm'
-Requires-Dist: dspy~=3.0.3; extra == 'llm'
-Requires-Dist: langchain-core>=0.1.0; extra == 'llm'
+Requires-Dist: databricks-langchain<1.0,>=0.1.0; extra == 'llm'
+Requires-Dist: dspy~=3.1.3; extra == 'llm'
+Requires-Dist: langchain-core<1.0,>=0.1.0; extra == 'llm'
+Requires-Dist: litellm<=1.82.6,>=1.64.0; extra == 'llm'
 Provides-Extra: pii
 Requires-Dist: numpy<2.0,>=1.20; extra == 'pii'
 Requires-Dist: presidio-analyzer~=2.2.359; extra == 'pii'

@@ -18,6 +18,8 @@ This module defines a class representing a process,
 potentially with subprocesses.
 """
 
+import psutil
+
 import oslo_reports.models.with_default_views as mwdv
 import oslo_reports.views.text.process as text_views
 
@@ -31,9 +33,8 @@ class ProcessModel(mwdv.ModelWithDefaultViews):
     :param process: a :class:`psutil.Process` object
     """
 
-    def __init__(self, process):
-        super().__init__(
-            text_view=text_views.ProcessView())
+    def __init__(self, process: psutil.Process) -> None:
+        super().__init__(text_view=text_views.ProcessView())
 
         self['pid'] = process.pid
         self['parent_pid'] = process.ppid()
@@ -41,23 +42,19 @@ class ProcessModel(mwdv.ModelWithDefaultViews):
             self['uids'] = {
                 'real': process.uids().real,
                 'effective': process.uids().effective,
-                'saved': process.uids().saved
+                'saved': process.uids().saved,
             }
         else:
-            self['uids'] = {'real': None,
-                            'effective': None,
-                            'saved': None}
+            self['uids'] = {'real': None, 'effective': None, 'saved': None}
 
         if hasattr(process, 'gids'):
             self['gids'] = {
                 'real': process.gids().real,
                 'effective': process.gids().effective,
-                'saved': process.gids().saved
+                'saved': process.gids().saved,
             }
         else:
-            self['gids'] = {'real': None,
-                            'effective': None,
-                            'saved': None}
+            self['gids'] = {'real': None, 'effective': None, 'saved': None}
 
         self['username'] = process.username()
         self['command'] = process.cmdline()

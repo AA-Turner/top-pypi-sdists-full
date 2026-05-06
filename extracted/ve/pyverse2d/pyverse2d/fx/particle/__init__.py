@@ -9,6 +9,7 @@ from ._cone_emitter import ConeEmitter
 from ._gravity import Gravity
 from ._wind import Wind
 from ._drag import Drag
+from ._attractor import Attractor
 
 from ._renderer import ParticleRenderer
 
@@ -24,6 +25,7 @@ __all__ = [
     "Gravity",
     "Wind",
     "Drag",
+    "Attractor",
 
     "ParticleRenderer",
 ]

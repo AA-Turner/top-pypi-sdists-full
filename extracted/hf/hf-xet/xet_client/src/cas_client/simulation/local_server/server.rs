@@ -12,17 +12,20 @@
 //! # Example
 //!
 //! ```no_run
+//! use anyhow::Result;
 //! use xet_client::cas_client::{LocalServer, LocalServerConfig};
+//! use xet_runtime::core::XetContext;
 //!
 //! #[tokio::main]
-//! async fn main() -> anyhow::Result<()> {
+//! async fn main() -> Result<()> {
+//!     let ctx = XetContext::default().unwrap();
 //!     let config = LocalServerConfig {
 //!         data_directory: "./data".into(),
 //!         host: "127.0.0.1".to_string(),
 //!         port: 8080,
 //!         in_memory: false,
 //!     };
-//!     let server: LocalServer = LocalServer::new(config).await?;
+//!     let server: LocalServer = LocalServer::new(ctx, config).await?;
 //!     server.run().await?;
 //!     Ok(())
 //! }
@@ -46,10 +49,10 @@ use tokio::net::TcpListener;
 #[cfg(test)]
 use tokio::sync::oneshot;
 use tower_http::cors::CorsLayer;
+use xet_runtime::core::XetContext;
 
 #[cfg(test)]
 use super::super::super::RemoteClient;
-use super::super::super::error::{CasClientError, Result};
 #[cfg(test)]
 use super::super::super::interface::Client;
 #[cfg(test)]
@@ -58,6 +61,7 @@ use super::super::socket_proxy::UnixSocketProxy;
 use super::super::{DeletionControlableClient, DirectAccessClient, LocalClient, MemoryClient};
 use super::handlers;
 use super::latency_simulation::LatencySimulation;
+use crate::error::{ClientError, Result};
 
 /// Configuration for the local CAS server.
 #[derive(Debug, Clone)]
@@ -104,12 +108,14 @@ impl LocalServer {
     ///
     /// If `in_memory` is false, creates a new `LocalClient` pointing to the configured data directory.
     /// If `in_memory` is true, creates a new `MemoryClient` (data directory is ignored).
-    pub async fn new(config: LocalServerConfig) -> Result<Self> {
+    pub async fn new(ctx: XetContext, config: LocalServerConfig) -> Result<Self> {
         let (client, deletion_client): (Arc<dyn DirectAccessClient>, Option<Arc<dyn DeletionControlableClient>>) =
             if config.in_memory {
-                (MemoryClient::new(), None)
+                let client = MemoryClient::new(ctx.clone());
+                let deletion_client = client.clone() as Arc<dyn DeletionControlableClient>;
+                (client, Some(deletion_client))
             } else {
-                let client = LocalClient::new(&config.data_directory).await?;
+                let client = LocalClient::new(ctx, &config.data_directory).await?;
                 let deletion_client = client.clone() as Arc<dyn DeletionControlableClient>;
                 (client, Some(deletion_client))
             };
@@ -177,6 +183,7 @@ impl LocalServer {
                     .route("/get_xorb/{prefix}/{hash}/", get(handlers::get_file_term_data))
                     .route("/fetch_term", get(handlers::fetch_term)),
             )
+            .nest("/v2", Router::new().route("/reconstructions/{file_id}", get(handlers::get_reconstruction_v2)))
             .nest(
                 "/simulation",
                 super::simulation_handlers::simulation_routes()
@@ -203,11 +210,11 @@ impl LocalServer {
         let addr: SocketAddr = self
             .addr()
             .parse()
-            .map_err(|e| CasClientError::Other(format!("Failed to parse address: {e}")))?;
+            .map_err(|e| ClientError::Other(format!("Failed to parse address: {e}")))?;
 
         let listener = TcpListener::bind(addr)
             .await
-            .map_err(|e| CasClientError::Other(format!("Failed to bind to {addr}: {e}")))?;
+            .map_err(|e| ClientError::Other(format!("Failed to bind to {addr}: {e}")))?;
 
         tracing::info!("Local CAS server listening on {}", addr);
 
@@ -216,7 +223,7 @@ impl LocalServer {
         axum::serve(listener, router.into_make_service())
             .with_graceful_shutdown(shutdown_signal())
             .await
-            .map_err(|e| CasClientError::Other(format!("Server error: {e}")))
+            .map_err(|e| ClientError::Other(format!("Server error: {e}")))
     }
 
     /// Runs the server until a shutdown signal is received on the provided channel.
@@ -226,11 +233,11 @@ impl LocalServer {
         let addr: SocketAddr = self
             .addr()
             .parse()
-            .map_err(|e| CasClientError::Other(format!("Failed to parse address: {e}")))?;
+            .map_err(|e| ClientError::Other(format!("Failed to parse address: {e}")))?;
 
         let listener = TcpListener::bind(addr)
             .await
-            .map_err(|e| CasClientError::Other(format!("Failed to bind to {addr}: {e}")))?;
+            .map_err(|e| ClientError::Other(format!("Failed to bind to {addr}: {e}")))?;
 
         tracing::info!("Local CAS server listening on {}", addr);
 
@@ -241,7 +248,7 @@ impl LocalServer {
                 let _ = shutdown_rx.await;
             })
             .await
-            .map_err(|e| CasClientError::Other(format!("Server error: {e}")))
+            .map_err(|e| ClientError::Other(format!("Server error: {e}")))
     }
 }
 
@@ -283,34 +290,38 @@ impl LocalTestServer {
     ///
     /// The server listens on a randomly assigned available port on localhost.
     pub async fn start_with_socket_proxy(in_memory: bool, socket_path: Option<PathBuf>) -> Self {
+        let ctx = XetContext::default().expect("XetContext::new");
         if in_memory {
-            let client = MemoryClient::new();
-            Self::start_with_client_and_socket(client, None, socket_path).await
-        } else {
-            let client = LocalClient::temporary().await.unwrap();
+            let client = MemoryClient::new(ctx.clone());
             let deletion_client: Arc<dyn DeletionControlableClient> = client.clone();
-            Self::start_with_client_and_socket(client, Some(deletion_client), socket_path).await
+            Self::start_with_client_and_socket(ctx, client, Some(deletion_client), socket_path).await
+        } else {
+            let client = LocalClient::temporary(ctx.clone()).await.unwrap();
+            let deletion_client: Arc<dyn DeletionControlableClient> = client.clone();
+            Self::start_with_client_and_socket(ctx, client, Some(deletion_client), socket_path).await
         }
     }
 
     /// Starts a new test server using an existing `DirectAccessClient`.
     ///
     /// Useful when you need to pre-populate the client with data before starting the server.
-    pub async fn start_with_client(client: Arc<dyn DirectAccessClient>) -> Self {
-        Self::start_with_client_and_socket(client, None, None).await
+    pub async fn start_with_client(ctx: XetContext, client: Arc<dyn DirectAccessClient>) -> Self {
+        Self::start_with_client_and_socket(ctx, client, None, None).await
     }
 
     /// Starts a new test server using an existing `DirectAccessClient` and optional
-    /// deletion-capable client, with an optional socket proxy.
+    /// deletion-capable client.
     pub async fn start_with_client_and_deletion(
+        ctx: XetContext,
         client: Arc<dyn DirectAccessClient>,
         deletion_client: Option<Arc<dyn DeletionControlableClient>>,
     ) -> Self {
-        Self::start_with_client_and_socket(client, deletion_client, None).await
+        Self::start_with_client_and_socket(ctx, client, deletion_client, None).await
     }
 
     /// Starts a new test server using an existing `DirectAccessClient` with an optional socket proxy.
     async fn start_with_client_and_socket(
+        ctx: XetContext,
         client: Arc<dyn DirectAccessClient>,
         deletion_client: Option<Arc<dyn DeletionControlableClient>>,
         _socket_path: Option<PathBuf>,
@@ -334,7 +345,6 @@ impl LocalTestServer {
             #[cfg(unix)]
             {
                 if let Some(socket_path) = _socket_path {
-                    // Extract host:port from http://host:port
                     let tcp_addr = tcp_endpoint.strip_prefix("http://").unwrap_or(&tcp_endpoint).to_string();
 
                     let proxy = UnixSocketProxy::new(socket_path.clone(), tcp_addr)
@@ -343,9 +353,9 @@ impl LocalTestServer {
 
                     tokio::time::sleep(Duration::from_millis(500)).await;
 
-                    // Create RemoteClient with socket path
                     let socket_path_str = socket_path.to_string_lossy().to_string();
                     let client = RemoteClient::new_with_socket(
+                        ctx.clone(),
                         &tcp_endpoint,
                         &None,
                         "test-session",
@@ -357,14 +367,14 @@ impl LocalTestServer {
                     (client, Some(proxy))
                 } else {
                     let client =
-                        RemoteClient::new(&tcp_endpoint, &None, "test-session", false, Some(Arc::new(headers)));
+                        RemoteClient::new(ctx, &tcp_endpoint, &None, "test-session", false, Some(Arc::new(headers)));
                     (client, None)
                 }
             }
 
             #[cfg(not(unix))]
             {
-                let client = RemoteClient::new(&tcp_endpoint, &None, "test-session", false, None);
+                let client = RemoteClient::new(ctx, &tcp_endpoint, &None, "test-session", false, None);
                 (client, Option::<()>::None)
             }
         };
@@ -425,7 +435,7 @@ impl Client for LocalTestServer {
         &self,
         file_id: &xet_core_structures::merklehash::MerkleHash,
         bytes_range: Option<crate::cas_types::FileRange>,
-    ) -> Result<Option<crate::cas_types::QueryReconstructionResponse>> {
+    ) -> Result<Option<crate::cas_types::QueryReconstructionResponseV2>> {
         self.remote_client.get_reconstruction(file_id, bytes_range).await
     }
 
@@ -492,6 +502,38 @@ impl DirectAccessClient for LocalTestServer {
         self.client.set_fetch_term_url_expiration(expiration);
     }
 
+    fn set_global_dedup_shard_expiration(&self, expiration: Option<std::time::Duration>) {
+        self.client.set_global_dedup_shard_expiration(expiration);
+    }
+
+    fn set_max_ranges_per_fetch(&self, max_ranges: usize) {
+        self.client.set_max_ranges_per_fetch(max_ranges);
+    }
+
+    fn disable_v2_reconstruction(&self, status_code: u16) {
+        self.client.disable_v2_reconstruction(status_code);
+    }
+
+    fn v2_disabled_status_code(&self) -> u16 {
+        self.client.v2_disabled_status_code()
+    }
+
+    async fn get_reconstruction_v1(
+        &self,
+        file_id: &xet_core_structures::merklehash::MerkleHash,
+        bytes_range: Option<crate::cas_types::FileRange>,
+    ) -> Result<Option<crate::cas_types::QueryReconstructionResponse>> {
+        self.remote_client.get_reconstruction_v1(file_id, bytes_range).await
+    }
+
+    async fn get_reconstruction_v2(
+        &self,
+        file_id: &xet_core_structures::merklehash::MerkleHash,
+        bytes_range: Option<crate::cas_types::FileRange>,
+    ) -> Result<Option<crate::cas_types::QueryReconstructionResponseV2>> {
+        self.remote_client.get_reconstruction_v2(file_id, bytes_range).await
+    }
+
     fn set_api_delay_range(&self, delay_range: Option<std::ops::Range<std::time::Duration>>) {
         self.client.set_api_delay_range(delay_range);
     }
@@ -502,10 +544,6 @@ impl DirectAccessClient for LocalTestServer {
 
     async fn list_xorbs(&self) -> Result<Vec<xet_core_structures::merklehash::MerkleHash>> {
         self.client.list_xorbs().await
-    }
-
-    async fn delete_xorb(&self, hash: &xet_core_structures::merklehash::MerkleHash) {
-        self.client.delete_xorb(hash).await;
     }
 
     async fn get_full_xorb(&self, hash: &xet_core_structures::merklehash::MerkleHash) -> Result<bytes::Bytes> {
@@ -588,7 +626,7 @@ mod tests {
     use crate::cas_client::simulation::client_testing_utils::ClientTestingUtils;
     use crate::cas_client::simulation::local_server::SimulationControlClient;
     use crate::cas_client::simulation::{DeletionControlableClient, DirectAccessClient};
-    use crate::cas_types::FileRange;
+    use crate::cas_types::{FileRange, QueryReconstructionResponseV2};
 
     const CHUNK_SIZE: usize = 123;
 
@@ -604,16 +642,16 @@ mod tests {
         let local_data = server.client().get_file_data(&file.file_hash, None).await.unwrap();
         assert_eq!(file.data, local_data);
 
-        // Full file reconstruction - compare remote and local
+        // Full file reconstruction - compare remote and local (V1)
         let remote_recon = server
             .remote_client()
-            .get_reconstruction(&file.file_hash, None)
+            .get_reconstruction_v1(&file.file_hash, None)
             .await
             .unwrap()
             .unwrap();
         let local_recon = server
             .client()
-            .get_reconstruction(&file.file_hash, None)
+            .get_reconstruction_v1(&file.file_hash, None)
             .await
             .unwrap()
             .unwrap();
@@ -629,7 +667,7 @@ mod tests {
         let range = FileRange::new(file_size / 4, file_size * 3 / 4);
         let range_recon = server
             .remote_client()
-            .get_reconstruction(&file.file_hash, Some(range))
+            .get_reconstruction_v1(&file.file_hash, Some(range))
             .await
             .unwrap();
         assert!(range_recon.is_some());
@@ -639,7 +677,7 @@ mod tests {
         let multi_file = server.client().upload_random_file(term_spec, CHUNK_SIZE).await.unwrap();
         let multi_recon = server
             .remote_client()
-            .get_reconstruction(&multi_file.file_hash, None)
+            .get_reconstruction_v1(&multi_file.file_hash, None)
             .await
             .unwrap()
             .unwrap();
@@ -750,7 +788,7 @@ mod tests {
         // Verify single XORB URLs are HTTP
         let recon1 = server
             .remote_client()
-            .get_reconstruction(&file1.file_hash, None)
+            .get_reconstruction_v1(&file1.file_hash, None)
             .await
             .unwrap()
             .unwrap();
@@ -770,7 +808,7 @@ mod tests {
         // Verify multi-XORB file has HTTP URLs for all XORBs
         let multi_recon = server
             .remote_client()
-            .get_reconstruction(&multi_file.file_hash, None)
+            .get_reconstruction_v1(&multi_file.file_hash, None)
             .await
             .unwrap()
             .unwrap();
@@ -786,7 +824,7 @@ mod tests {
         let range = FileRange::new(file_size / 4, file_size * 3 / 4);
         let range_recon = server
             .remote_client()
-            .get_reconstruction(&multi_file.file_hash, Some(range))
+            .get_reconstruction_v1(&multi_file.file_hash, Some(range))
             .await
             .unwrap()
             .unwrap();
@@ -817,7 +855,7 @@ mod tests {
         // Get reconstruction via remote client
         let recon = server
             .remote_client()
-            .get_reconstruction(&file.file_hash, None)
+            .get_reconstruction_v1(&file.file_hash, None)
             .await
             .unwrap()
             .unwrap();
@@ -841,7 +879,7 @@ mod tests {
         // Get reconstruction
         let recon = server
             .remote_client()
-            .get_reconstruction(&file.file_hash, None)
+            .get_reconstruction_v1(&file.file_hash, None)
             .await
             .unwrap()
             .unwrap();
@@ -906,6 +944,241 @@ mod tests {
         }
     }
 
+    /// Tests V2 reconstruction endpoint returns valid responses through the server.
+    async fn check_v2_reconstruction(server: &LocalTestServer) {
+        let file = server.client().upload_random_file(&[(1, (0, 5))], CHUNK_SIZE).await.unwrap();
+
+        // Query V2 endpoint via remote client
+        let v2 = server
+            .remote_client()
+            .get_reconstruction_v2(&file.file_hash, None)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(!v2.terms.is_empty());
+        assert!(!v2.xorbs.is_empty());
+        assert_eq!(v2.offset_into_first_range, 0);
+
+        // V2 URLs should be HTTP URLs pointing to /v1/fetch_term
+        for fetch_entries in v2.xorbs.values() {
+            for fetch in fetch_entries {
+                assert!(fetch.url.starts_with("http://"), "V2 URL should be HTTP, got: {}", fetch.url);
+                assert!(
+                    fetch.url.contains("/v1/fetch_term?term="),
+                    "V2 URL should point to fetch_term endpoint, got: {}",
+                    fetch.url
+                );
+            }
+        }
+
+        // V2 terms should match V1 terms
+        let v1 = server
+            .remote_client()
+            .get_reconstruction_v1(&file.file_hash, None)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(v1.terms.len(), v2.terms.len());
+        assert_eq!(v1.offset_into_first_range, v2.offset_into_first_range);
+        for (t1, t2) in v1.terms.iter().zip(v2.terms.iter()) {
+            assert_eq!(t1.hash, t2.hash);
+            assert_eq!(t1.range, t2.range);
+        }
+    }
+
+    /// Tests V2 fetch URLs are fetchable via the /v1/fetch_term endpoint.
+    async fn check_v2_url_transformation(server: &LocalTestServer) {
+        let http_client = reqwest::Client::new();
+
+        let file = server
+            .client()
+            .upload_random_file(&[(1, (0, 3)), (2, (0, 2))], CHUNK_SIZE)
+            .await
+            .unwrap();
+
+        let v2 = server
+            .remote_client()
+            .get_reconstruction_v2(&file.file_hash, None)
+            .await
+            .unwrap()
+            .unwrap();
+
+        for fetch_entries in v2.xorbs.values() {
+            for fetch in fetch_entries {
+                let response = http_client.get(&fetch.url).send().await.unwrap();
+                assert!(
+                    response.status().is_success(),
+                    "V2 fetch URL should be fetchable: {} (status: {})",
+                    fetch.url,
+                    response.status()
+                );
+                let data = response.bytes().await.unwrap();
+                assert!(!data.is_empty(), "Fetched data should not be empty");
+            }
+        }
+    }
+
+    /// Tests V2 with range requests through the server.
+    async fn check_v2_range_reconstruction(server: &LocalTestServer) {
+        let term_spec = &[(1, (0, 3)), (2, (0, 2)), (1, (3, 5))];
+        let file = server.client().upload_random_file(term_spec, CHUNK_SIZE).await.unwrap();
+        let file_size = file.data.len() as u64;
+
+        let range = FileRange::new(file_size / 4, file_size * 3 / 4);
+        let v2 = server
+            .remote_client()
+            .get_reconstruction_v2(&file.file_hash, Some(range))
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(!v2.terms.is_empty());
+        for fetch_entries in v2.xorbs.values() {
+            for fetch in fetch_entries {
+                assert!(fetch.url.starts_with("http://"));
+            }
+        }
+
+        // Validate open-ended and suffix range variants through the V2 HTTP endpoint.
+        let v2_url = format!("{}/v2/reconstructions/{}", server.endpoint(), file.file_hash.hex());
+        let http_client = reqwest::Client::new();
+
+        let open_rhs: QueryReconstructionResponseV2 = http_client
+            .get(&v2_url)
+            .header(reqwest::header::RANGE, "bytes=100-")
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(!open_rhs.terms.is_empty());
+
+        let suffix: QueryReconstructionResponseV2 = http_client
+            .get(&v2_url)
+            .header(reqwest::header::RANGE, "bytes=-128")
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(!suffix.terms.is_empty());
+    }
+
+    /// Tests V2 max_ranges_per_fetch through the server.
+    async fn check_v2_max_ranges(server: &LocalTestServer) {
+        let term_spec = &[(1, (0, 2)), (2, (0, 1)), (1, (2, 4)), (2, (1, 2)), (1, (4, 6))];
+        let file = server.client().upload_random_file(term_spec, 512).await.unwrap();
+
+        // Set max_ranges_per_fetch to 1
+        server.set_max_ranges_per_fetch(1);
+
+        let v2 = server
+            .client()
+            .get_reconstruction_v2(&file.file_hash, None)
+            .await
+            .unwrap()
+            .unwrap();
+
+        let xorb1_hash: crate::cas_types::HexMerkleHash = file.terms[0].xorb_hash.into();
+        if let Some(desc) = v2.xorbs.get(&xorb1_hash) {
+            for fetch in desc {
+                assert!(fetch.ranges.len() <= 1, "Each fetch should have at most 1 range, got {}", fetch.ranges.len());
+            }
+        }
+
+        // Reset
+        server.set_max_ranges_per_fetch(usize::MAX);
+    }
+
+    /// Verifies that disabling V2 with various status codes causes the V2 endpoint
+    /// to return that code, and that get_reconstruction falls back to V1.
+    async fn check_v2_disabled_fallback(server: &LocalTestServer) {
+        let file = server
+            .remote_client()
+            .upload_random_file(&[(1, (0, 3)), (2, (0, 2))], CHUNK_SIZE)
+            .await
+            .unwrap();
+
+        // V2 should work before disabling.
+        let v2_result = server.remote_client().get_reconstruction_v2(&file.file_hash, None).await;
+        assert!(v2_result.is_ok());
+
+        // Test 501 (Not Implemented) fallback first, before the RemoteClient
+        // caches a V1 preference from a 404 fallback.
+        server.disable_v2_reconstruction(501);
+
+        let v2_result = server.remote_client().get_reconstruction_v2(&file.file_hash, None).await;
+        assert!(v2_result.is_err(), "V2 should return error when disabled with 501");
+
+        // Forced V2 should surface the endpoint error directly with no fallback.
+        let forced_v2 = server
+            .remote_client()
+            .get_reconstruction_with_version_override(&file.file_hash, None, Some(2))
+            .await;
+        assert!(forced_v2.is_err());
+        assert_eq!(forced_v2.unwrap_err().status(), Some(reqwest::StatusCode::NOT_IMPLEMENTED));
+
+        // Forced V1 should continue to succeed when V2 is disabled.
+        let forced_v1 = server
+            .remote_client()
+            .get_reconstruction_with_version_override(&file.file_hash, None, Some(1))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(forced_v1.terms.len(), 2);
+
+        let result = server
+            .remote_client()
+            .get_reconstruction(&file.file_hash, None)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.terms.len(), 2);
+
+        // Re-enable V2, then test 404 fallback.
+        server.disable_v2_reconstruction(0);
+
+        // Reset the RemoteClient's cached version by making a successful V2 call.
+        let v2_result = server.remote_client().get_reconstruction_v2(&file.file_hash, None).await;
+        assert!(v2_result.is_ok(), "V2 should work again after re-enabling");
+
+        server.disable_v2_reconstruction(404);
+
+        let v2_result = server.remote_client().get_reconstruction_v2(&file.file_hash, None).await;
+        assert!(v2_result.is_err(), "V2 should return error when disabled with 404");
+
+        let forced_v2 = server
+            .remote_client()
+            .get_reconstruction_with_version_override(&file.file_hash, None, Some(2))
+            .await;
+        assert!(forced_v2.is_err());
+        assert_eq!(forced_v2.unwrap_err().status(), Some(reqwest::StatusCode::NOT_FOUND));
+
+        let forced_v1 = server
+            .remote_client()
+            .get_reconstruction_with_version_override(&file.file_hash, None, Some(1))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(forced_v1.terms.len(), 2);
+
+        let result = server
+            .remote_client()
+            .get_reconstruction(&file.file_hash, None)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.terms.len(), 2);
+    }
+
     /// Runs all server checks for a given test server instance.
     async fn run_all_server_checks(server: &LocalTestServer) {
         check_basic_correctness(server).await;
@@ -915,6 +1188,11 @@ mod tests {
         check_downloaded_terms_match_expected_data(server).await;
         check_complete_file_reconstruction(server).await;
         check_chunk_hashes_correctness(server).await;
+        check_v2_reconstruction(server).await;
+        check_v2_url_transformation(server).await;
+        check_v2_range_reconstruction(server).await;
+        check_v2_max_ranges(server).await;
+        check_v2_disabled_fallback(server).await;
     }
 
     async fn all_file_hashes(client: &LocalClient) -> HashSet<MerkleHash> {
@@ -933,6 +1211,7 @@ mod tests {
 
     /// Main test that runs all server checks with both in-memory and disk-backed storage.
     #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
     async fn test_local_server() {
         // Test with in-memory storage
         {
@@ -955,9 +1234,11 @@ mod tests {
     /// uploads via remote client, then uses the held LocalClient reference for
     /// deletion controls.
     #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
     async fn test_deletion_lifecycle_via_server() {
-        let lc = LocalClient::temporary().await.unwrap();
-        let server = LocalTestServer::start_with_client(lc.clone()).await;
+        let ctx = XetContext::default().expect("XetContext::new");
+        let lc = LocalClient::temporary(ctx.clone()).await.unwrap();
+        let server = LocalTestServer::start_with_client(ctx, lc.clone()).await;
 
         // Upload files via remote client (goes through HTTP server)
         let file1 = server
@@ -1015,71 +1296,148 @@ mod tests {
         assert!(lc.list_xorbs().await.unwrap().is_empty());
     }
 
-    /// Keeps a LocalTestServer alive for the duration of the tokio runtime by
-    /// moving it into a spawned task. Returns the endpoint URL.
-    fn detach_server(server: LocalTestServer) -> String {
-        let endpoint = server.endpoint().to_string();
-        tokio::spawn(async move {
-            let _server = server;
-            futures::future::pending::<()>().await;
-        });
-        endpoint
-    }
-
     /// Runs the common DirectAccessClient test suite via SimulationControlClient.
     #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
     async fn test_simulation_control_client_common_suite() {
         crate::cas_client::simulation::client_unit_testing::test_client_functionality(|| async {
-            let lc = LocalClient::temporary().await.unwrap();
+            let ctx = XetContext::default().expect("XetContext::new");
+            let lc = LocalClient::temporary(ctx.clone()).await.unwrap();
             let dc: Arc<dyn DeletionControlableClient> = lc.clone();
-            let server = LocalTestServer::start_with_client_and_deletion(lc, Some(dc)).await;
-            let endpoint = detach_server(server);
-            Arc::new(SimulationControlClient::new(&endpoint)) as Arc<dyn DirectAccessClient>
+            let server = LocalTestServer::start_with_client_and_deletion(ctx.clone(), lc, Some(dc)).await;
+            let endpoint = server.endpoint().to_string();
+            Arc::new(SimulationControlClient::new(ctx, &endpoint).with_keep_alive(server))
+                as Arc<dyn DirectAccessClient>
         })
         .await;
+    }
+
+    #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
+    async fn test_simulation_control_client_config_eventual_apply() {
+        let server = crate::cas_client::simulation::LocalTestServerBuilder::new()
+            .with_ephemeral_disk()
+            .start()
+            .await;
+        let ctx = XetContext::default().expect("XetContext::new");
+        let sc = SimulationControlClient::new(ctx, server.http_endpoint());
+
+        let file = sc.upload_random_file(&[(1, (0, 4))], CHUNK_SIZE).await.unwrap();
+        let first_chunk = file.terms[0].chunk_hashes[0];
+
+        sc.set_global_dedup_shard_expiration(Some(Duration::from_millis(1)));
+
+        let mut expiration_enabled = false;
+        for _ in 0..40 {
+            let shard_bytes = Client::query_for_global_dedup_shard(&sc, "default", &first_chunk)
+                .await
+                .unwrap()
+                .unwrap();
+
+            let minimal_shard = xet_core_structures::metadata_shard::streaming_shard::MDBMinimalShard::from_reader(
+                &mut std::io::Cursor::new(&shard_bytes),
+                true,
+                true,
+            )
+            .unwrap();
+            let shard_info = xet_core_structures::metadata_shard::MDBShardInfo::load_from_reader(
+                &mut std::io::Cursor::new(&shard_bytes),
+            )
+            .unwrap();
+
+            if minimal_shard.num_files() == 0 && shard_info.metadata.shard_key_expiry > 0 {
+                expiration_enabled = true;
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        assert!(expiration_enabled);
     }
 
     /// Runs the common DeletionControlableClient test suite via SimulationControlClient.
     #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
     async fn test_simulation_control_client_deletion_suite() {
         crate::cas_client::simulation::deletion_unit_testing::test_deletion_functionality(|| async {
-            let lc = LocalClient::temporary().await.unwrap();
+            let ctx = XetContext::default().expect("XetContext::new");
+            let lc = LocalClient::temporary(ctx.clone()).await.unwrap();
             let dc: Arc<dyn DeletionControlableClient> = lc.clone();
-            let server = LocalTestServer::start_with_client_and_deletion(lc, Some(dc)).await;
-            let endpoint = detach_server(server);
-            Arc::new(SimulationControlClient::new(&endpoint))
+            let server = LocalTestServer::start_with_client_and_deletion(ctx.clone(), lc, Some(dc)).await;
+            let endpoint = server.endpoint().to_string();
+            Arc::new(SimulationControlClient::new(ctx, &endpoint).with_keep_alive(server))
         })
         .await;
     }
 
-    /// Tests that deletion routes return 501 when the backend is MemoryClient.
+    /// Tests that deletion routes are available when the backend is MemoryClient.
     #[tokio::test]
-    async fn test_simulation_control_client_501_on_memory_backend() {
+    async fn test_simulation_control_client_deletion_on_memory_backend() {
         let server = LocalTestServer::start(true).await;
-        let sc = SimulationControlClient::new(server.endpoint());
+        let ctx = XetContext::default().expect("XetContext::new");
+        let sc = SimulationControlClient::new(ctx, server.endpoint());
 
-        // DirectAccessClient methods should still work
+        // DirectAccessClient methods should work.
         let xorbs = DirectAccessClient::list_xorbs(&sc).await.unwrap();
         assert!(xorbs.is_empty());
 
-        // DeletionControlableClient methods should return errors (501)
-        assert!(DeletionControlableClient::list_shard_entries(&sc).await.is_err());
-        assert!(DeletionControlableClient::list_file_shard_entries(&sc).await.is_err());
-        assert!(DeletionControlableClient::verify_integrity(&sc).await.is_err());
+        // DeletionControlableClient methods should be wired and functional.
+        let file = sc.upload_random_file(&[(1, (0, 2))], 1024).await.unwrap();
+        let shard_entries = DeletionControlableClient::list_shard_entries(&sc).await.unwrap();
+        assert_eq!(shard_entries.len(), 1);
+
+        let file_entries = DeletionControlableClient::list_file_shard_entries(&sc).await.unwrap();
+        assert_eq!(file_entries.len(), 1);
+        assert_eq!(file_entries[0].0, file.file_hash);
+
+        sc.verify_integrity().await.unwrap();
+    }
+
+    /// Tests that LocalTestServerBuilder with ephemeral disk correctly wires the deletion client,
+    /// so deletion-control routes work through the HTTP layer (not 501).
+    #[tokio::test]
+    async fn test_builder_ephemeral_disk_deletion_wired() {
+        use crate::cas_client::simulation::LocalTestServerBuilder;
+
+        let server = LocalTestServerBuilder::new().with_ephemeral_disk().start().await;
+        let ctx = XetContext::default().expect("XetContext::new");
+        let sc = SimulationControlClient::new(ctx, server.http_endpoint());
+
+        let file = sc.upload_random_file(&[(1, (0, 3))], 2048).await.unwrap();
+
+        let shards = DeletionControlableClient::list_shard_entries(&sc).await.unwrap();
+        assert!(!shards.is_empty(), "list_shard_entries should work, not return 501");
+
+        let file_entries = DeletionControlableClient::list_file_shard_entries(&sc).await.unwrap();
+        assert_eq!(file_entries.len(), 1);
+        assert_eq!(file_entries[0].0, file.file_hash);
+        let shard_hash = file_entries[0].1;
+
+        sc.verify_integrity().await.unwrap();
+
+        let first_chunk = file.terms[0].chunk_hashes[0];
         assert!(
-            DeletionControlableClient::delete_shard_entry(&sc, &xet_core_structures::merklehash::MerkleHash::default())
+            Client::query_for_global_dedup_shard(&sc, "default", &first_chunk)
                 .await
-                .is_err()
+                .unwrap()
+                .is_some()
         );
+
+        DeletionControlableClient::remove_shard_dedup_entries(&sc, &shard_hash)
+            .await
+            .unwrap();
         assert!(
-            DeletionControlableClient::delete_file_entry(&sc, &xet_core_structures::merklehash::MerkleHash::default())
+            Client::query_for_global_dedup_shard(&sc, "default", &first_chunk)
                 .await
-                .is_err()
+                .unwrap()
+                .is_none(),
+            "dedup entries for the shard should be removable through builder-wired HTTP routes"
         );
-        assert!(
-            DeletionControlableClient::get_shard_bytes(&sc, &xet_core_structures::merklehash::MerkleHash::default())
-                .await
-                .is_err()
-        );
+
+        DeletionControlableClient::delete_file_entry(&sc, &file.file_hash)
+            .await
+            .unwrap();
+        let file_entries_after = DeletionControlableClient::list_file_shard_entries(&sc).await.unwrap();
+        assert!(file_entries_after.is_empty(), "Deleted file should be hidden");
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xonsh
-Version: 0.23.4
+Version: 0.23.5
 Summary: Python-powered shell. Full-featured, cross-platform and AI-friendly. 
 Author-email: Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>
 Maintainer-email: Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>, Gil Forsyth <xonsh@gil.forsyth.dev>

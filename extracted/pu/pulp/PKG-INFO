@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PuLP
-Version: 3.3.0
+Version: 3.3.1
 Summary: PuLP is an LP modeler written in python. PuLP can generate MPS or LP files and call GLPK, COIN CLP/CBC, CPLEX, and GUROBI to solve linear problems.
 Author: J.S. Roy
 Author-email: "S.A. Mitchell" <pulp@stuartmitchell.com>, Franco Peschiera <pchtsp@gmail.com>
@@ -19,8 +19,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: open-py
-Requires-Dist: cylp; extra == "open-py"
-Requires-Dist: highspy; extra == "open-py"
+Requires-Dist: highspy==1.13; extra == "open-py"
 Requires-Dist: pyscipopt; extra == "open-py"
 Provides-Extra: public-py
 Requires-Dist: gurobipy; extra == "public-py"
@@ -28,7 +27,7 @@ Requires-Dist: coptpy; extra == "public-py"
 Requires-Dist: xpress; extra == "public-py"
 Requires-Dist: cplex; (sys_platform != "darwin" or python_full_version < "3.12") and extra == "public-py"
 Provides-Extra: highs
-Requires-Dist: highspy; extra == "highs"
+Requires-Dist: highspy==1.13; extra == "highs"
 Provides-Extra: scip
 Requires-Dist: pyscipopt; extra == "scip"
 Provides-Extra: gurobi
@@ -84,7 +83,6 @@ PuLP can use a variety of solvers. The default solver is the COIN-OR CBC solver,
     python -m pip install pulp[highs]
     python -m pip install pulp[copt]
     python -m pip install pulp[mosek]
-    python -m pip install pulp[cylp]
 
 
 If you want to install all open source solvers (scip, highs, cylp), you can use the shortcut::
@@ -95,18 +93,12 @@ For more information on how to install solvers, see the `guide on configuring so
 Quickstart 
 ===============
 
-Use ``LpVariable`` to create new variables. To create a variable x with 0  ≤  x  ≤  3::
+Create a problem first, then add variables with ``add_variable`` (variables are owned by the model). To create a variable ``x`` with 0  ≤  x  ≤  3 and a binary variable ``y``::
 
      from pulp import *
-     x = LpVariable("x", 0, 3)
-
-To create a binary variable, y, with values either 0 or 1::
-
-     y = LpVariable("y", cat="Binary")
-
-Use ``LpProblem`` to create new problems. Create a problem called "myProblem" like so::
-
      prob = LpProblem("myProblem", LpMinimize)
+     x = prob.add_variable("x", 0, 3)
+     y = prob.add_variable("y", cat="Binary")
 
 Combine variables in order to create expressions and constraints, and then add them to the problem.::
 

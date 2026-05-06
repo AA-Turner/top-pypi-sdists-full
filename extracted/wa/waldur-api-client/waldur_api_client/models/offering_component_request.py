@@ -6,7 +6,6 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.billing_type_enum import BillingTypeEnum
-from ..models.blank_enum import BlankEnum
 from ..models.limit_period_enum import LimitPeriodEnum
 from ..types import UNSET, Unset
 
@@ -23,7 +22,7 @@ class OfferingComponentRequest:
         description (Union[Unset, str]):
         measured_unit (Union[Unset, str]): Unit of measurement, for example, GB.
         unit_factor (Union[Unset, int]): The conversion factor from backend units to measured_unit
-        limit_period (Union[BlankEnum, LimitPeriodEnum, None, Unset]):
+        limit_period (Union[LimitPeriodEnum, None, Unset]):
         limit_amount (Union[None, Unset, int]):
         article_code (Union[Unset, str]):
         max_value (Union[None, Unset, int]):
@@ -50,7 +49,7 @@ class OfferingComponentRequest:
     description: Union[Unset, str] = UNSET
     measured_unit: Union[Unset, str] = UNSET
     unit_factor: Union[Unset, int] = UNSET
-    limit_period: Union[BlankEnum, LimitPeriodEnum, None, Unset] = UNSET
+    limit_period: Union[LimitPeriodEnum, None, Unset] = UNSET
     limit_amount: Union[None, Unset, int] = UNSET
     article_code: Union[Unset, str] = UNSET
     max_value: Union[None, Unset, int] = UNSET
@@ -85,8 +84,6 @@ class OfferingComponentRequest:
         if isinstance(self.limit_period, Unset):
             limit_period = UNSET
         elif isinstance(self.limit_period, LimitPeriodEnum):
-            limit_period = self.limit_period.value
-        elif isinstance(self.limit_period, BlankEnum):
             limit_period = self.limit_period.value
         else:
             limit_period = self.limit_period
@@ -236,7 +233,7 @@ class OfferingComponentRequest:
 
         unit_factor = d.pop("unit_factor", UNSET)
 
-        def _parse_limit_period(data: object) -> Union[BlankEnum, LimitPeriodEnum, None, Unset]:
+        def _parse_limit_period(data: object) -> Union[LimitPeriodEnum, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -249,15 +246,7 @@ class OfferingComponentRequest:
                 return limit_period_type_0
             except:  # noqa: E722
                 pass
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                limit_period_type_1 = BlankEnum(data)
-
-                return limit_period_type_1
-            except:  # noqa: E722
-                pass
-            return cast(Union[BlankEnum, LimitPeriodEnum, None, Unset], data)
+            return cast(Union[LimitPeriodEnum, None, Unset], data)
 
         limit_period = _parse_limit_period(d.pop("limit_period", UNSET))
 

@@ -1,1 +1,1 @@
-__version__ = '3.15.0'  # DON'T TOUCH. Placeholder. Will be filled automatically on poetry build from Git Tag
+__version__ = '3.15.1'  # DON'T TOUCH. Placeholder. Will be filled automatically on poetry build from Git Tag

@@ -31,6 +31,7 @@ For example, in a nova command module (under nova/cmd):
    CONF = cfg.CONF
    # maybe import some options here...
 
+
    def main():
        oslo_logging.register_options(CONF)
        gmr_opts.set_defaults(CONF)
@@ -38,12 +39,14 @@ For example, in a nova command module (under nova/cmd):
        CONF(sys.argv[1:], default_config_files=['myapp.conf'])
        oslo_logging.setup(CONF, 'myapp')
 
-       gmr.TextGuruMeditation.register_section('Some Special Section',
-                                           special_section_generator)
+       gmr.TextGuruMeditation.register_section(
+           'Some Special Section', special_section_generator
+       )
        gmr.TextGuruMeditation.setup_autorun(version_object, conf=CONF)
 
-       server = service.Service.create(binary='some-service',
-                                       topic=CONF.some_service_topic)
+       server = service.Service.create(
+           binary='some-service', topic=CONF.some_service_topic
+       )
        service.serve(server)
        service.wait()
 
@@ -57,6 +60,7 @@ and get a Guru Meditation Report in the file or terminal
 where stderr is logged for that given service.
 """
 
+from collections.abc import Callable
 import inspect
 import logging
 import os
@@ -66,6 +70,8 @@ import sys
 import threading
 import time
 import traceback
+from types import FrameType
+from typing import Any, ClassVar
 
 from oslo_utils import timeutils
 
@@ -74,6 +80,7 @@ from oslo_reports.generators import process as prgen
 from oslo_reports.generators import threading as tgen
 from oslo_reports.generators import version as pgen
 from oslo_reports import report
+from oslo_reports.report import BasicReport
 
 try:
     import greenlet
@@ -84,7 +91,7 @@ except ImportError:
 LOG = logging.getLogger(__name__)
 
 
-class GuruMeditation:
+class GuruMeditation(BasicReport):
     """A Guru Meditation Report Mixin/Base Class
 
     This class is a base class for Guru Meditation Reports.
@@ -98,9 +105,20 @@ class GuruMeditation:
     MRO is correct.
     """
 
-    timestamp_fmt = "%Y%m%d%H%M%S"
+    timestamp_fmt: ClassVar[str] = "%Y%m%d%H%M%S"
+    persistent_sections: ClassVar[list[tuple[str, Callable[[], Any]]]]
 
-    def __init__(self, version_obj, sig_handler_tb=None, *args, **kwargs):
+    version_obj: Any
+    traceback: FrameType | None
+    start_section_index: int
+
+    def __init__(
+        self,
+        version_obj: Any,
+        sig_handler_tb: FrameType | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         self.version_obj = version_obj
         self.traceback = sig_handler_tb
 
@@ -108,7 +126,9 @@ class GuruMeditation:
         self.start_section_index = len(self.sections)
 
     @classmethod
-    def register_section(cls, section_title, generator):
+    def register_section(
+        cls, section_title: str, generator: Callable[[], Any]
+    ) -> None:
         """Register a New Section
 
         This method registers a persistent section for the current
@@ -119,14 +139,20 @@ class GuruMeditation:
         """
 
         try:
-            cls.persistent_sections.append([section_title, generator])
+            cls.persistent_sections.append((section_title, generator))
         except AttributeError:
-            cls.persistent_sections = [[section_title, generator]]
+            cls.persistent_sections = [(section_title, generator)]
 
     @classmethod
-    def setup_autorun(cls, version, service_name=None,
-                      log_dir=None, signum=None, conf=None,
-                      setup_signal=True):
+    def setup_autorun(
+        cls,
+        version: Any,
+        service_name: str | None = None,
+        log_dir: str | None = None,
+        signum: int | None = None,
+        conf: Any | None = None,
+        setup_signal: bool = True,
+    ) -> None:
         """Set Up Auto-Run
 
         This method sets up the Guru Meditation Report to automatically
@@ -154,22 +180,34 @@ class GuruMeditation:
             cls._setup_file_watcher(
                 conf.oslo_reports.file_event_handler,
                 conf.oslo_reports.file_event_handler_interval,
-                version, service_name, log_dir)
+                version,
+                service_name,
+                log_dir,
+            )
         else:
             if setup_signal and hasattr(signal, 'SIGUSR2'):
-                cls._setup_signal(signal.SIGUSR2,
-                                  version, service_name, log_dir)
+                cls._setup_signal(
+                    signal.SIGUSR2, version, service_name, log_dir
+                )
 
     @classmethod
-    def _setup_file_watcher(cls, filepath, interval, version, service_name,
-                            log_dir):
-
+    def _setup_file_watcher(
+        cls,
+        filepath: str,
+        interval: int,
+        version: Any,
+        service_name: str | None,
+        log_dir: str | None,
+    ) -> None:
         st = os.stat(filepath)
         if not bool(st.st_mode & stat.S_IRGRP):
-            LOG.error("Guru Meditation Report does not have read "
-                      "permissions to '%s' file.", filepath)
+            LOG.error(
+                "Guru Meditation Report does not have read "
+                "permissions to '%s' file.",
+                filepath,
+            )
 
-        def _handler():
+        def _handler() -> None:
             mtime = time.time()
             while True:
                 try:
@@ -178,8 +216,10 @@ class GuruMeditation:
                         cls.handle_signal(version, service_name, log_dir, None)
                         mtime = stat.st_mtime
                 except OSError:
-                    msg = ("Guru Meditation Report cannot read " +
-                           f"'{filepath}' file")
+                    msg = (
+                        "Guru Meditation Report cannot read "
+                        + f"'{filepath}' file"
+                    )
                     raise OSError(msg)
                 finally:
                     time.sleep(interval)
@@ -189,13 +229,26 @@ class GuruMeditation:
         th.start()
 
     @classmethod
-    def _setup_signal(cls, signum, version, service_name, log_dir):
-        signal.signal(signum,
-                      lambda sn, f: cls.handle_signal(
-                          version, service_name, log_dir, f))
+    def _setup_signal(
+        cls,
+        signum: int,
+        version: Any,
+        service_name: str | None,
+        log_dir: str | None,
+    ) -> None:
+        signal.signal(
+            signum,
+            lambda sn, f: cls.handle_signal(version, service_name, log_dir, f),
+        )
 
     @classmethod
-    def handle_signal(cls, version, service_name, log_dir, frame):
+    def handle_signal(
+        cls,
+        version: Any,
+        service_name: str | None,
+        log_dir: str | None,
+        frame: FrameType | None,
+    ) -> None:
         """The Signal Handler
 
         This method (indirectly) handles receiving a registered signal and
@@ -217,43 +270,44 @@ class GuruMeditation:
             res = cls(version, frame).run()
         except Exception:
             traceback.print_exc(file=sys.stderr)
-            print("Unable to run Guru Meditation Report!",
-                  file=sys.stderr)
+            print("Unable to run Guru Meditation Report!", file=sys.stderr)
         else:
             if log_dir:
                 service_name = service_name or os.path.basename(
-                    inspect.stack()[-1][1])
-                filename = "{}_gurumeditation_{}".format(
-                    service_name, timeutils.utcnow().strftime(
-                        cls.timestamp_fmt))
+                    inspect.stack()[-1][1]
+                )
+                timestamp = timeutils.utcnow().strftime(cls.timestamp_fmt)
+                filename = f"{service_name}_gurumeditation_{timestamp}"
                 filepath = os.path.join(log_dir, filename)
                 try:
                     with open(filepath, "w") as dumpfile:
                         dumpfile.write(res)
                 except Exception:
-                    print("Unable to dump Guru Meditation Report to file %s" %
-                          (filepath,), file=sys.stderr)
+                    print(
+                        f"Unable to dump Guru Meditation Report to file "
+                        f"{filepath}",
+                        file=sys.stderr,
+                    )
             else:
                 print(res, file=sys.stderr)
 
-    def _readd_sections(self):
-        del self.sections[self.start_section_index:]
+    def _readd_sections(self) -> None:
+        del self.sections[self.start_section_index :]
 
-        self.add_section('Package',
-                         pgen.PackageReportGenerator(self.version_obj))
+        self.add_section(
+            'Package', pgen.PackageReportGenerator(self.version_obj)
+        )
 
-        self.add_section('Threads',
-                         tgen.ThreadReportGenerator(self.traceback))
+        self.add_section('Threads', tgen.ThreadReportGenerator(self.traceback))
 
         if greenlet:
-            self.add_section('Green Threads',
-                             tgen.GreenThreadReportGenerator())
+            self.add_section(
+                'Green Threads', tgen.GreenThreadReportGenerator()
+            )
 
-        self.add_section('Processes',
-                         prgen.ProcessReportGenerator())
+        self.add_section('Processes', prgen.ProcessReportGenerator())
 
-        self.add_section('Configuration',
-                         cgen.ConfigReportGenerator())
+        self.add_section('Configuration', cgen.ConfigReportGenerator())
 
         try:
             for section_title, generator in self.persistent_sections:
@@ -261,7 +315,7 @@ class GuruMeditation:
         except AttributeError:
             pass
 
-    def run(self):
+    def run(self) -> str:
         self._readd_sections()
         return super().run()
 
@@ -290,5 +344,7 @@ class TextGuruMeditation(GuruMeditation, report.TextReport):
                       traceback for the current thread
     """
 
-    def __init__(self, version_obj, traceback=None):
+    def __init__(
+        self, version_obj: Any, traceback: FrameType | None = None
+    ) -> None:
         super().__init__(version_obj, traceback, 'Guru Meditation')

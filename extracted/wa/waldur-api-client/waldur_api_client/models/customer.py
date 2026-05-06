@@ -78,6 +78,8 @@ class Customer:
         house_nr (Union[Unset, str]):
         apartment_nr (Union[Unset, str]):
         household (Union[Unset, str]):
+        project_slug_template (Union[None, Unset, str]): Template for project slugs. Supports: {customer_slug},
+            {project_name}, {year}, {month}, {counter}, {counter_padded}. Default: slugified project name
         payment_profiles (Union[Unset, list['PaymentProfile']]):
         customer_credit (Union[None, Unset, float]):
         customer_unallocated_credit (Union[None, Unset, float]):
@@ -139,6 +141,7 @@ class Customer:
     house_nr: Union[Unset, str] = UNSET
     apartment_nr: Union[Unset, str] = UNSET
     household: Union[Unset, str] = UNSET
+    project_slug_template: Union[None, Unset, str] = UNSET
     payment_profiles: Union[Unset, list["PaymentProfile"]] = UNSET
     customer_credit: Union[None, Unset, float] = UNSET
     customer_unallocated_credit: Union[None, Unset, float] = UNSET
@@ -299,6 +302,12 @@ class Customer:
 
         household = self.household
 
+        project_slug_template: Union[None, Unset, str]
+        if isinstance(self.project_slug_template, Unset):
+            project_slug_template = UNSET
+        else:
+            project_slug_template = self.project_slug_template
+
         payment_profiles: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.payment_profiles, Unset):
             payment_profiles = []
@@ -449,6 +458,8 @@ class Customer:
             field_dict["apartment_nr"] = apartment_nr
         if household is not UNSET:
             field_dict["household"] = household
+        if project_slug_template is not UNSET:
+            field_dict["project_slug_template"] = project_slug_template
         if payment_profiles is not UNSET:
             field_dict["payment_profiles"] = payment_profiles
         if customer_credit is not UNSET:
@@ -671,6 +682,15 @@ class Customer:
 
         household = d.pop("household", UNSET)
 
+        def _parse_project_slug_template(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        project_slug_template = _parse_project_slug_template(d.pop("project_slug_template", UNSET))
+
         payment_profiles = []
         _payment_profiles = d.pop("payment_profiles", UNSET)
         for payment_profiles_item_data in _payment_profiles or []:
@@ -794,6 +814,7 @@ class Customer:
             house_nr=house_nr,
             apartment_nr=apartment_nr,
             household=household,
+            project_slug_template=project_slug_template,
             payment_profiles=payment_profiles,
             customer_credit=customer_credit,
             customer_unallocated_credit=customer_unallocated_credit,

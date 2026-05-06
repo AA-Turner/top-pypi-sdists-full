@@ -32,6 +32,7 @@ class ModelProvider(str, Enum):
     BEDROCK = 'bedrock'
     VERTEX_AI = 'vertex_ai'
     HOSTED_VLLM = 'hosted_vllm'
+    AZURE = 'azure'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

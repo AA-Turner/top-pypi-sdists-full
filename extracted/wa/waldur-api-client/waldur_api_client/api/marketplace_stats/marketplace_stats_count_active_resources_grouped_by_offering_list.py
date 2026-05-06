@@ -12,13 +12,10 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
-    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
-
-    params["limit"] = limit
 
     params["page"] = page
 
@@ -64,14 +61,12 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> Response[list["OfferingStats"]]:
     """Count active resources grouped by offering.
 
     Args:
-        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -84,7 +79,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        limit=limit,
         page=page,
         page_size=page_size,
     )
@@ -99,14 +93,12 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> list["OfferingStats"]:
     """Count active resources grouped by offering.
 
     Args:
-        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -120,7 +112,6 @@ def sync(
 
     return sync_detailed(
         client=client,
-        limit=limit,
         page=page,
         page_size=page_size,
     ).parsed
@@ -129,14 +120,12 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> Response[list["OfferingStats"]]:
     """Count active resources grouped by offering.
 
     Args:
-        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -149,7 +138,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        limit=limit,
         page=page,
         page_size=page_size,
     )
@@ -162,14 +150,12 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> list["OfferingStats"]:
     """Count active resources grouped by offering.
 
     Args:
-        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -184,7 +170,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            limit=limit,
             page=page,
             page_size=page_size,
         )
@@ -194,7 +179,6 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
-    limit: Union[Unset, int] = UNSET,
 ) -> list["OfferingStats"]:
     """Get All Pages
 
@@ -204,7 +188,6 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
-        limit (Union[Unset, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -218,9 +201,7 @@ def sync_all(
     all_results: list[OfferingStats] = []
 
     # Get initial request kwargs
-    kwargs = _get_kwargs(
-        limit=limit,
-    )
+    kwargs = _get_kwargs()
 
     # Set page_size to maximum
     if "params" not in kwargs:
@@ -267,7 +248,6 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
-    limit: Union[Unset, int] = UNSET,
 ) -> list["OfferingStats"]:
     """Get All Pages (Async)
 
@@ -277,7 +257,6 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
-        limit (Union[Unset, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -291,9 +270,7 @@ async def asyncio_all(
     all_results: list[OfferingStats] = []
 
     # Get initial request kwargs
-    kwargs = _get_kwargs(
-        limit=limit,
-    )
+    kwargs = _get_kwargs()
 
     # Set page_size to maximum
     if "params" not in kwargs:

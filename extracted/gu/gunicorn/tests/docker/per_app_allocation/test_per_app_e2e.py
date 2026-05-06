@@ -39,7 +39,7 @@ class DockerContainer:
         self.name = name
         self.build = build
         self.container_id = None
-        self.base_url = "http://127.0.0.1:8001"
+        self.base_url = "http://127.0.0.1:28001"
 
     def __enter__(self):
         # Build if requested
@@ -64,7 +64,7 @@ class DockerContainer:
             [
                 "docker", "run", "-d",
                 "--name", self.name,
-                "-p", "8001:8000",
+                "-p", "28001:8000",
                 "per_app_allocation-gunicorn",
                 "sh", "-c",
                 "gunicorn app:application -c gunicorn_conf.py & "

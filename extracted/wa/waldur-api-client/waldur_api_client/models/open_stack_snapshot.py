@@ -11,6 +11,7 @@ from ..models.core_states import CoreStates
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.open_stack_snapshot_backup import OpenStackSnapshotBackup
     from ..models.open_stack_snapshot_marketplace_offering_plugin_options_type_0 import (
         OpenStackSnapshotMarketplaceOfferingPluginOptionsType0,
     )
@@ -48,7 +49,7 @@ class OpenStackSnapshot:
         created (Union[Unset, datetime.datetime]):
         modified (Union[Unset, datetime.datetime]):
         backend_id (Union[None, Unset, str]): Snapshot ID in the OpenStack backend
-        access_url (Union[None, Unset, str]):
+        access_url (Union[None, Unset, list[str], str]):
         source_volume (Union[None, Unset, str]): Volume from which this snapshot was created
         size (Union[Unset, int]): Size in MiB
         metadata (Union[Unset, Any]):
@@ -58,6 +59,7 @@ class OpenStackSnapshot:
         action (Union[Unset, str]):
         action_details (Union[Unset, Any]):
         restorations (Union[Unset, list['OpenStackSnapshotRestoration']]):
+        backups (Union[Unset, list['OpenStackSnapshotBackup']]):
         kept_until (Union[None, Unset, datetime.datetime]): Guaranteed time of snapshot retention. If null - keep
             forever.
         marketplace_offering_uuid (Union[None, Unset, str]):
@@ -98,7 +100,7 @@ class OpenStackSnapshot:
     created: Union[Unset, datetime.datetime] = UNSET
     modified: Union[Unset, datetime.datetime] = UNSET
     backend_id: Union[None, Unset, str] = UNSET
-    access_url: Union[None, Unset, str] = UNSET
+    access_url: Union[None, Unset, list[str], str] = UNSET
     source_volume: Union[None, Unset, str] = UNSET
     size: Union[Unset, int] = UNSET
     metadata: Union[Unset, Any] = UNSET
@@ -108,6 +110,7 @@ class OpenStackSnapshot:
     action: Union[Unset, str] = UNSET
     action_details: Union[Unset, Any] = UNSET
     restorations: Union[Unset, list["OpenStackSnapshotRestoration"]] = UNSET
+    backups: Union[Unset, list["OpenStackSnapshotBackup"]] = UNSET
     kept_until: Union[None, Unset, datetime.datetime] = UNSET
     marketplace_offering_uuid: Union[None, Unset, str] = UNSET
     marketplace_offering_name: Union[None, Unset, str] = UNSET
@@ -195,9 +198,12 @@ class OpenStackSnapshot:
         else:
             backend_id = self.backend_id
 
-        access_url: Union[None, Unset, str]
+        access_url: Union[None, Unset, list[str], str]
         if isinstance(self.access_url, Unset):
             access_url = UNSET
+        elif isinstance(self.access_url, list):
+            access_url = self.access_url
+
         else:
             access_url = self.access_url
 
@@ -229,6 +235,13 @@ class OpenStackSnapshot:
             for restorations_item_data in self.restorations:
                 restorations_item = restorations_item_data.to_dict()
                 restorations.append(restorations_item)
+
+        backups: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.backups, Unset):
+            backups = []
+            for backups_item_data in self.backups:
+                backups_item = backups_item_data.to_dict()
+                backups.append(backups_item)
 
         kept_until: Union[None, Unset, str]
         if isinstance(self.kept_until, Unset):
@@ -379,6 +392,8 @@ class OpenStackSnapshot:
             field_dict["action_details"] = action_details
         if restorations is not UNSET:
             field_dict["restorations"] = restorations
+        if backups is not UNSET:
+            field_dict["backups"] = backups
         if kept_until is not UNSET:
             field_dict["kept_until"] = kept_until
         if marketplace_offering_uuid is not UNSET:
@@ -408,6 +423,7 @@ class OpenStackSnapshot:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.open_stack_snapshot_backup import OpenStackSnapshotBackup
         from ..models.open_stack_snapshot_marketplace_offering_plugin_options_type_0 import (
             OpenStackSnapshotMarketplaceOfferingPluginOptionsType0,
         )
@@ -504,12 +520,20 @@ class OpenStackSnapshot:
 
         backend_id = _parse_backend_id(d.pop("backend_id", UNSET))
 
-        def _parse_access_url(data: object) -> Union[None, Unset, str]:
+        def _parse_access_url(data: object) -> Union[None, Unset, list[str], str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                access_url_type_0 = cast(list[str], data)
+
+                return access_url_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url", UNSET))
 
@@ -547,6 +571,13 @@ class OpenStackSnapshot:
             restorations_item = OpenStackSnapshotRestoration.from_dict(restorations_item_data)
 
             restorations.append(restorations_item)
+
+        backups = []
+        _backups = d.pop("backups", UNSET)
+        for backups_item_data in _backups or []:
+            backups_item = OpenStackSnapshotBackup.from_dict(backups_item_data)
+
+            backups.append(backups_item)
 
         def _parse_kept_until(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
@@ -713,6 +744,7 @@ class OpenStackSnapshot:
             action=action,
             action_details=action_details,
             restorations=restorations,
+            backups=backups,
             kept_until=kept_until,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,

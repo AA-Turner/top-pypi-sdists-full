@@ -24,35 +24,17 @@ Guidelines for writing new hacking checks
 
 """
 
-import functools
+from collections.abc import Generator
 import re
 import tokenize
+from typing import Any
 
-from hacking import core
+from hacking import core  # type: ignore[import-not-found]
 
-re_assert_true_instance = re.compile(
-    r"(.)*assertTrue\(isinstance\((\w|\.|\'|\"|\[|\])+, "
-    r"(\w|\.|\'|\"|\[|\])+\)\)")
-re_assert_equal_type = re.compile(
-    r"(.)*assertEqual\(type\((\w|\.|\'|\"|\[|\])+\), "
-    r"(\w|\.|\'|\"|\[|\])+\)")
-re_assert_equal_end_with_none = re.compile(r"assertEqual\(.*?,\s+None\)$")
-re_assert_equal_start_with_none = re.compile(r"assertEqual\(None,")
-re_assert_true_false_with_in_or_not_in = re.compile(
-    r"assert(True|False)\("
-    r"(\w|[][.'\"])+( not)? in (\w|[][.'\",])+(, .*)?\)")
-re_assert_true_false_with_in_or_not_in_spaces = re.compile(
-    r"assert(True|False)\((\w|[][.'\"])+( not)? in [\[|'|\"](\w|[][.'\", ])+"
-    r"[\[|'|\"](, .*)?\)")
-re_assert_equal_in_end_with_true_or_false = re.compile(
-    r"assertEqual\((\w|[][.'\"])+( not)? in (\w|[][.'\", ])+, (True|False)\)")
-re_assert_equal_in_start_with_true_or_false = re.compile(
-    r"assertEqual\((True|False), (\w|[][.'\"])+( not)? in (\w|[][.'\", ])+\)")
-re_no_construct_dict = re.compile(
-    r"\sdict\(\)")
-re_no_construct_list = re.compile(
-    r"\slist\(\)")
-re_str_format = re.compile(r"""
+re_no_construct_dict = re.compile(r"\sdict\(\)")
+re_no_construct_list = re.compile(r"\slist\(\)")
+re_str_format = re.compile(
+    r"""
 %            # start of specifier
 \(([^)]+)\)  # mapping key, in group 1
 [#0 +\-]?    # optional conversion flag
@@ -60,180 +42,33 @@ re_str_format = re.compile(r"""
 (?:\.\d*)?   # optional precision
 [hLl]?       # optional length modifier
 [A-z%]       # conversion modifier
-""", re.X)
-re_raises = re.compile(
-    r"\s:raise[^s] *.*$|\s:raises *:.*$|\s:raises *[^:]+$")
+""",
+    re.X,
+)
+re_raises = re.compile(r"\s:raise[^s] *.*$|\s:raises *:.*$|\s:raises *[^:]+$")
 
 
-@core.flake8ext
-def skip_ignored_lines(func):
-
-    @functools.wraps(func)
-    def wrapper(logical_line, filename):
-        line = logical_line.strip()
-        if not line or line.startswith("#") or line.endswith("# noqa"):
-            return
-        try:
-            yield next(func(logical_line, filename))
-        except StopIteration:
-            return
-
-    return wrapper
+def _check_triple(line: str, i: int, char: str) -> bool:
+    return i + 2 < len(line) and (
+        char == line[i] == line[i + 1] == line[i + 2]
+    )
 
 
-def _parse_assert_mock_str(line):
-    point = line.find(".assert_")
-
-    if point != -1:
-        end_pos = line[point:].find("(") + point
-        return point, line[point + 1: end_pos], line[: point]
-    else:
-        return None, None, None
-
-
-@skip_ignored_lines
-@core.flake8ext
-def check_assert_methods_from_mock(logical_line, filename):
-    """Ensure that ``assert_*`` methods from ``mock`` library is used correctly
-
-    N301 - base error number
-    N302 - related to nonexistent "assert_called"
-    N303 - related to nonexistent "assert_called_once"
-    """
-
-    correct_names = ["assert_any_call", "assert_called_once_with",
-                     "assert_called_with", "assert_has_calls"]
-    ignored_files = ["./tests/unit/test_hacking.py"]
-
-    if filename.startswith("./tests") and filename not in ignored_files:
-        pos, method_name, obj_name = _parse_assert_mock_str(logical_line)
-
-        if pos:
-            if method_name not in correct_names:
-                error_number = "N301"
-                msg = ("%(error_number)s:'%(method)s' is not present in `mock`"
-                       " library. %(custom_msg)s For more details, visit "
-                       "http://www.voidspace.org.uk/python/mock/ .")
-
-                if method_name == "assert_called":
-                    error_number = "N302"
-                    custom_msg = ("Maybe, you should try to use "
-                                  "'assertTrue(%s.called)' instead." %
-                                  obj_name)
-                elif method_name == "assert_called_once":
-                    # For more details, see a bug in Rally:
-                    #    https://bugs.launchpad.net/rally/+bug/1305991
-                    error_number = "N303"
-                    custom_msg = ("Maybe, you should try to use "
-                                  "'assertEqual(1, %s.call_count)' "
-                                  "or '%s.assert_called_once_with()'"
-                                  " instead." % (obj_name, obj_name))
-                else:
-                    custom_msg = ("Correct 'assert_*' methods: '%s'."
-                                  % "', '".join(correct_names))
-
-                yield (pos, msg % {
-                    "error_number": error_number,
-                    "method": method_name,
-                    "custom_msg": custom_msg})
-
-
-@skip_ignored_lines
-@core.flake8ext
-def assert_true_instance(logical_line, filename):
-    """Check for assertTrue(isinstance(a, b)) sentences
-
-    N320
-    """
-    if re_assert_true_instance.match(logical_line):
-        yield (0, "N320 assertTrue(isinstance(a, b)) sentences not allowed, "
-                  "you should use assertIsInstance(a, b) instead.")
-
-
-@skip_ignored_lines
-@core.flake8ext
-def assert_equal_type(logical_line, filename):
-    """Check for assertEqual(type(A), B) sentences
-
-    N321
-    """
-    if re_assert_equal_type.match(logical_line):
-        yield (0, "N321 assertEqual(type(A), B) sentences not allowed, "
-                  "you should use assertIsInstance(a, b) instead.")
-
-
-@skip_ignored_lines
-@core.flake8ext
-def assert_equal_none(logical_line, filename):
-    """Check for assertEqual(A, None) or assertEqual(None, A) sentences
-
-    N322
-    """
-    res = (re_assert_equal_start_with_none.search(logical_line)
-           or re_assert_equal_end_with_none.search(logical_line))
-    if res:
-        yield (0, "N322 assertEqual(A, None) or assertEqual(None, A) "
-                  "sentences not allowed, you should use assertIsNone(A) "
-                  "instead.")
-
-
-@skip_ignored_lines
-@core.flake8ext
-def assert_true_or_false_with_in(logical_line, filename):
-    """Check assertTrue/False(A in/not in B) with collection contents
-
-    Check for assertTrue/False(A in B), assertTrue/False(A not in B),
-    assertTrue/False(A in B, message) or assertTrue/False(A not in B, message)
-    sentences.
-
-    N323
-    """
-    res = (re_assert_true_false_with_in_or_not_in.search(logical_line)
-           or re_assert_true_false_with_in_or_not_in_spaces.search(
-               logical_line))
-    if res:
-        yield (0, "N323 assertTrue/assertFalse(A in/not in B)sentences not "
-                  "allowed, you should use assertIn(A, B) or assertNotIn(A, B)"
-                  " instead.")
-
-
-@skip_ignored_lines
-@core.flake8ext
-def assert_equal_in(logical_line, filename):
-    """Check assertEqual(A in/not in B, True/False) with collection contents
-
-    Check for assertEqual(A in B, True/False), assertEqual(True/False, A in B),
-    assertEqual(A not in B, True/False) or assertEqual(True/False, A not in B)
-    sentences.
-
-    N324
-    """
-    res = (re_assert_equal_in_end_with_true_or_false.search(logical_line)
-           or re_assert_equal_in_start_with_true_or_false.search(logical_line))
-    if res:
-        yield (0, "N324: Use assertIn/NotIn(A, B) rather than "
-                  "assertEqual(A in/not in B, True/False) when checking "
-                  "collection contents.")
-
-
-@skip_ignored_lines
-@core.flake8ext
-def check_quotes(logical_line, filename):
+@core.flake8ext  # type: ignore[untyped-decorator]
+def check_quotes(
+    logical_line: str, filename: str, noqa: bool = False
+) -> Generator[tuple[int, str], None, None]:
     """Check that single quotation marks are not used
 
     N350
     """
 
+    if noqa:
+        return
+
     in_string = False
     in_multiline_string = False
     single_quotas_are_used = False
-
-    check_tripple = (
-        lambda line, i, char: (
-            i + 2 < len(line)
-            and (char == line[i] == line[i + 1] == line[i + 2])
-        )
-    )
 
     i = 0
     while i < len(logical_line):
@@ -246,7 +81,7 @@ def check_quotes(logical_line, filename):
                 i += 1  # ignore next char
 
         elif in_multiline_string:
-            if check_tripple(logical_line, i, "\""):
+            if _check_triple(logical_line, i, "\""):
                 i += 2  # skip next 2 chars
                 in_multiline_string = False
 
@@ -258,7 +93,7 @@ def check_quotes(logical_line, filename):
             break
 
         elif char == "\"":
-            if check_tripple(logical_line, i, "\""):
+            if _check_triple(logical_line, i, "\""):
                 in_multiline_string = True
                 i += 3
                 continue
@@ -270,13 +105,16 @@ def check_quotes(logical_line, filename):
         yield (i, "N350 Remove Single quotes")
 
 
-@skip_ignored_lines
-@core.flake8ext
-def check_no_constructor_data_struct(logical_line, filename):
+@core.flake8ext  # type: ignore[untyped-decorator]
+def check_no_constructor_data_struct(
+    logical_line: str, filename: str, noqa: bool = False
+) -> Generator[tuple[int, str], None, None]:
     """Check that data structs (lists, dicts) are declared using literals
 
     N351
     """
+    if noqa:
+        return
 
     match = re_no_construct_dict.search(logical_line)
     if match:
@@ -286,18 +124,15 @@ def check_no_constructor_data_struct(logical_line, filename):
         yield (0, "N351 Remove list() construct and use literal []")
 
 
-@core.flake8ext
-def check_dict_formatting_in_string(logical_line, tokens):
+@core.flake8ext  # type: ignore[untyped-decorator]
+def check_dict_formatting_in_string(
+    logical_line: str, tokens: Any, noqa: bool = False
+) -> Generator[tuple[int, str], None, None]:
     """Check that strings do not use dict-formatting with a single replacement
 
     N352
     """
-    # NOTE(stpierre): Can't use @skip_ignored_lines here because it's
-    # a stupid decorator that only works on functions that take
-    # (logical_line, filename) as arguments.
-    if (not logical_line
-        or logical_line.startswith("#")
-        or logical_line.endswith("# noqa")):
+    if noqa:
         return
 
     current_string = ""
@@ -337,9 +172,11 @@ def check_dict_formatting_in_string(logical_line, tokens):
                 for match in re_str_format.finditer(current_string):
                     format_keys.add(match.group(1))
                 if len(format_keys) == 1:
-                    yield (0,
-                           "N352 Do not use mapping key string formatting "
-                           "with a single key")
+                    yield (
+                        0,
+                        "N352 Do not use mapping key string formatting "
+                        "with a single key",
+                    )
             if text != ")":
                 # NOTE(stpierre): You can have a parenthesized string
                 # followed by %, so a closing paren doesn't obviate
@@ -354,29 +191,22 @@ def check_dict_formatting_in_string(logical_line, tokens):
                 current_string = ""
 
 
-@skip_ignored_lines
-@core.flake8ext
-def check_using_unicode(logical_line, filename):
-    """Check crosspython unicode usage
-
-    N353
-    """
-
-    if re.search(r"\bunicode\(", logical_line):
-        yield (0, "N353 'unicode' function is absent in python3. Please "
-                  "use 'str' instead.")
-
-
-@core.flake8ext
-def check_raises(physical_line, filename):
+@core.flake8ext  # type: ignore[untyped-decorator]
+def check_raises(physical_line: str, filename: str) -> tuple[int, str] | None:
     """Check raises usage
 
     N354
     """
 
-    ignored_files = ["./tests/unit/test_hacking.py",
-                     "./tests/hacking/checks.py"]
+    ignored_files = [
+        "./tests/unit/test_hacking.py",
+        "./tests/hacking/checks.py",
+    ]
     if filename not in ignored_files:
         if re_raises.search(physical_line):
-            return (0, "N354 ':Please use ':raises Exception: conditions' "
-                       "in docstrings.")
+            return (
+                0,
+                "N354 ':Please use ':raises Exception: conditions' "
+                "in docstrings.",
+            )
+    return None

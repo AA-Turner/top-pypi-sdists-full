@@ -11,7 +11,9 @@ from tests.utils import assert_matches_type
 from composio_client import Composio, AsyncComposio
 from composio_client.types.tool_router import (
     SessionLinkResponse,
+    SessionPatchResponse,
     SessionToolsResponse,
+    SessionAttachResponse,
     SessionCreateResponse,
     SessionSearchResponse,
     SessionExecuteResponse,
@@ -19,6 +21,7 @@ from composio_client.types.tool_router import (
     SessionToolkitsResponse,
     SessionExecuteMetaResponse,
     SessionProxyExecuteResponse,
+    SessionConfigHistoryResponse,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -43,6 +46,7 @@ class TestSession:
                 "slack": "ac_7g8h9i0j1k2l",
             },
             connected_accounts={"github": "ca_3m4n5o6p7q8r"},
+            execute={"enable_multi_execute": True},
             experimental={
                 "assistive_prompt_config": {"user_timezone": "America/New_York"},
                 "custom_toolkits": [
@@ -94,7 +98,8 @@ class TestSession:
                 "max_accounts_per_toolkit": 5,
                 "require_explicit_selection": False,
             },
-            preload={"tools": ["GMAIL_FETCH_EMAILS", "SLACK_SEND_MESSAGE"]},
+            preload={"tools": "all"},
+            search={"enable": True},
             tags={
                 "disable": ["destructiveHint"],
                 "enable": ["openWorldHint"],
@@ -182,6 +187,133 @@ class TestSession:
             )
 
     @parametrize
+    def test_method_attach(self, client: Composio) -> None:
+        session = client.tool_router.session.attach(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+        assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_attach_with_all_params(self, client: Composio) -> None:
+        session = client.tool_router.session.attach(
+            session_id="trs_1a2b3c4d5e6f",
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
+            },
+        )
+        assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_attach(self, client: Composio) -> None:
+        response = client.tool_router.session.with_raw_response.attach(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_attach(self, client: Composio) -> None:
+        with client.tool_router.session.with_streaming_response.attach(
+            session_id="trs_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_attach(self, client: Composio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.tool_router.session.with_raw_response.attach(
+                session_id="",
+            )
+
+    @parametrize
+    def test_method_config_history(self, client: Composio) -> None:
+        session = client.tool_router.session.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+        assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_config_history_with_all_params(self, client: Composio) -> None:
+        session = client.tool_router.session.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+            cursor="cursor",
+            limit=1,
+        )
+        assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_config_history(self, client: Composio) -> None:
+        response = client.tool_router.session.with_raw_response.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_config_history(self, client: Composio) -> None:
+        with client.tool_router.session.with_streaming_response.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_config_history(self, client: Composio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.tool_router.session.with_raw_response.config_history(
+                session_id="",
+            )
+
+    @parametrize
     def test_method_execute(self, client: Composio) -> None:
         session = client.tool_router.session.execute(
             session_id="trs_LX9uJKBinWWr",
@@ -202,6 +334,41 @@ class TestSession:
                 "inputs": "bar",
             },
             enable_auto_workbench_offload=True,
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
+            },
         )
         assert_matches_type(SessionExecuteResponse, session, path=["response"])
 
@@ -255,6 +422,41 @@ class TestSession:
             arguments={
                 "toolkits": "bar",
                 "reinitiate_all": "bar",
+            },
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
             },
         )
         assert_matches_type(SessionExecuteMetaResponse, session, path=["response"])
@@ -343,6 +545,97 @@ class TestSession:
             client.tool_router.session.with_raw_response.link(
                 session_id="",
                 toolkit="github",
+            )
+
+    @parametrize
+    def test_method_patch(self, client: Composio) -> None:
+        session = client.tool_router.session.patch(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+        assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_patch_with_all_params(self, client: Composio) -> None:
+        session = client.tool_router.session.patch(
+            session_id="trs_1a2b3c4d5e6f",
+            auth_configs={
+                "gmail": "ac_1a2b3c4d5e6f",
+                "slack": "ac_7g8h9i0j1k2l",
+            },
+            connected_accounts={"github": "ca_3m4n5o6p7q8r"},
+            execute={"enable_multi_execute": True},
+            experimental={
+                "permissions": {
+                    "default": "allow_all",
+                    "overrides": {"foo": "always_allow"},
+                }
+            },
+            manage_connections={
+                "callback_url": "https://your-app.com/auth/callback",
+                "enable": True,
+                "enable_connection_removal": True,
+                "enable_wait_for_connections": False,
+            },
+            multi_account={
+                "enable": True,
+                "max_accounts_per_toolkit": 5,
+                "require_explicit_selection": False,
+            },
+            preload={"tools": "all"},
+            search={"enable": True},
+            tags={
+                "disable": ["destructiveHint"],
+                "enable": ["openWorldHint"],
+            },
+            toolkits={"enable": ["gmail", "slack", "github"]},
+            tools={
+                "gmail": {"enable": ["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]},
+                "slack": {"disable": ["SLACK_ADD_EMOJI"]},
+                "slackbot": {
+                    "tags": {
+                        "disable": ["openWorldHint"],
+                        "enable": ["destructiveHint"],
+                    }
+                },
+            },
+            workbench={
+                "auto_offload_threshold": 20000,
+                "enable": True,
+                "enable_proxy_execution": True,
+                "sandbox_size": "large",
+            },
+        )
+        assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_patch(self, client: Composio) -> None:
+        response = client.tool_router.session.with_raw_response.patch(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_patch(self, client: Composio) -> None:
+        with client.tool_router.session.with_streaming_response.patch(
+            session_id="trs_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_patch(self, client: Composio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.tool_router.session.with_raw_response.patch(
+                session_id="",
             )
 
     @parametrize
@@ -484,6 +777,41 @@ class TestSession:
                     "known_fields": "channel_name:general",
                 }
             ],
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
+            },
             model="gpt-4o",
         )
         assert_matches_type(SessionSearchResponse, session, path=["response"])
@@ -575,14 +903,23 @@ class TestSession:
     @parametrize
     def test_method_tools(self, client: Composio) -> None:
         session = client.tool_router.session.tools(
-            "session_id",
+            session_id="session_id",
+        )
+        assert_matches_type(SessionToolsResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_tools_with_all_params(self, client: Composio) -> None:
+        session = client.tool_router.session.tools(
+            session_id="session_id",
+            cursor="cursor",
+            limit=1,
         )
         assert_matches_type(SessionToolsResponse, session, path=["response"])
 
     @parametrize
     def test_raw_response_tools(self, client: Composio) -> None:
         response = client.tool_router.session.with_raw_response.tools(
-            "session_id",
+            session_id="session_id",
         )
 
         assert response.is_closed is True
@@ -593,7 +930,7 @@ class TestSession:
     @parametrize
     def test_streaming_response_tools(self, client: Composio) -> None:
         with client.tool_router.session.with_streaming_response.tools(
-            "session_id",
+            session_id="session_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -607,7 +944,7 @@ class TestSession:
     def test_path_params_tools(self, client: Composio) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
             client.tool_router.session.with_raw_response.tools(
-                "",
+                session_id="",
             )
 
 
@@ -632,6 +969,7 @@ class TestAsyncSession:
                 "slack": "ac_7g8h9i0j1k2l",
             },
             connected_accounts={"github": "ca_3m4n5o6p7q8r"},
+            execute={"enable_multi_execute": True},
             experimental={
                 "assistive_prompt_config": {"user_timezone": "America/New_York"},
                 "custom_toolkits": [
@@ -683,7 +1021,8 @@ class TestAsyncSession:
                 "max_accounts_per_toolkit": 5,
                 "require_explicit_selection": False,
             },
-            preload={"tools": ["GMAIL_FETCH_EMAILS", "SLACK_SEND_MESSAGE"]},
+            preload={"tools": "all"},
+            search={"enable": True},
             tags={
                 "disable": ["destructiveHint"],
                 "enable": ["openWorldHint"],
@@ -771,6 +1110,133 @@ class TestAsyncSession:
             )
 
     @parametrize
+    async def test_method_attach(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.attach(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+        assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_attach_with_all_params(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.attach(
+            session_id="trs_1a2b3c4d5e6f",
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
+            },
+        )
+        assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_attach(self, async_client: AsyncComposio) -> None:
+        response = await async_client.tool_router.session.with_raw_response.attach(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_attach(self, async_client: AsyncComposio) -> None:
+        async with async_client.tool_router.session.with_streaming_response.attach(
+            session_id="trs_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionAttachResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_attach(self, async_client: AsyncComposio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.tool_router.session.with_raw_response.attach(
+                session_id="",
+            )
+
+    @parametrize
+    async def test_method_config_history(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+        assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_config_history_with_all_params(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+            cursor="cursor",
+            limit=1,
+        )
+        assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_config_history(self, async_client: AsyncComposio) -> None:
+        response = await async_client.tool_router.session.with_raw_response.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_config_history(self, async_client: AsyncComposio) -> None:
+        async with async_client.tool_router.session.with_streaming_response.config_history(
+            session_id="trs_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionConfigHistoryResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_config_history(self, async_client: AsyncComposio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.tool_router.session.with_raw_response.config_history(
+                session_id="",
+            )
+
+    @parametrize
     async def test_method_execute(self, async_client: AsyncComposio) -> None:
         session = await async_client.tool_router.session.execute(
             session_id="trs_LX9uJKBinWWr",
@@ -791,6 +1257,41 @@ class TestAsyncSession:
                 "inputs": "bar",
             },
             enable_auto_workbench_offload=True,
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
+            },
         )
         assert_matches_type(SessionExecuteResponse, session, path=["response"])
 
@@ -844,6 +1345,41 @@ class TestAsyncSession:
             arguments={
                 "toolkits": "bar",
                 "reinitiate_all": "bar",
+            },
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
             },
         )
         assert_matches_type(SessionExecuteMetaResponse, session, path=["response"])
@@ -932,6 +1468,97 @@ class TestAsyncSession:
             await async_client.tool_router.session.with_raw_response.link(
                 session_id="",
                 toolkit="github",
+            )
+
+    @parametrize
+    async def test_method_patch(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.patch(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+        assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_patch_with_all_params(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.patch(
+            session_id="trs_1a2b3c4d5e6f",
+            auth_configs={
+                "gmail": "ac_1a2b3c4d5e6f",
+                "slack": "ac_7g8h9i0j1k2l",
+            },
+            connected_accounts={"github": "ca_3m4n5o6p7q8r"},
+            execute={"enable_multi_execute": True},
+            experimental={
+                "permissions": {
+                    "default": "allow_all",
+                    "overrides": {"foo": "always_allow"},
+                }
+            },
+            manage_connections={
+                "callback_url": "https://your-app.com/auth/callback",
+                "enable": True,
+                "enable_connection_removal": True,
+                "enable_wait_for_connections": False,
+            },
+            multi_account={
+                "enable": True,
+                "max_accounts_per_toolkit": 5,
+                "require_explicit_selection": False,
+            },
+            preload={"tools": "all"},
+            search={"enable": True},
+            tags={
+                "disable": ["destructiveHint"],
+                "enable": ["openWorldHint"],
+            },
+            toolkits={"enable": ["gmail", "slack", "github"]},
+            tools={
+                "gmail": {"enable": ["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]},
+                "slack": {"disable": ["SLACK_ADD_EMOJI"]},
+                "slackbot": {
+                    "tags": {
+                        "disable": ["openWorldHint"],
+                        "enable": ["destructiveHint"],
+                    }
+                },
+            },
+            workbench={
+                "auto_offload_threshold": 20000,
+                "enable": True,
+                "enable_proxy_execution": True,
+                "sandbox_size": "large",
+            },
+        )
+        assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_patch(self, async_client: AsyncComposio) -> None:
+        response = await async_client.tool_router.session.with_raw_response.patch(
+            session_id="trs_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_patch(self, async_client: AsyncComposio) -> None:
+        async with async_client.tool_router.session.with_streaming_response.patch(
+            session_id="trs_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionPatchResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_patch(self, async_client: AsyncComposio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.tool_router.session.with_raw_response.patch(
+                session_id="",
             )
 
     @parametrize
@@ -1073,6 +1700,41 @@ class TestAsyncSession:
                     "known_fields": "channel_name:general",
                 }
             ],
+            experimental={
+                "custom_toolkits": [
+                    {
+                        "description": "Internal e-commerce API for order management and fulfillment",
+                        "name": "E-Commerce API",
+                        "slug": "ecommerce",
+                        "tools": [
+                            {
+                                "description": "Fetch recent orders for a customer by their email address",
+                                "input_schema": {
+                                    "type": "bar",
+                                    "properties": "bar",
+                                    "required": "bar",
+                                },
+                                "name": "Get Customer Orders",
+                                "slug": "GET_CUSTOMER_ORDERS",
+                                "output_schema": {"foo": "bar"},
+                            }
+                        ],
+                    }
+                ],
+                "custom_tools": [
+                    {
+                        "description": "Fetch emails marked as important from the last 24 hours",
+                        "input_schema": {
+                            "type": "bar",
+                            "properties": "bar",
+                        },
+                        "name": "Get Important Emails",
+                        "slug": "GET_IMPORTANT_EMAILS",
+                        "extends_toolkit": "gmail",
+                        "output_schema": {"foo": "bar"},
+                    }
+                ],
+            },
             model="gpt-4o",
         )
         assert_matches_type(SessionSearchResponse, session, path=["response"])
@@ -1164,14 +1826,23 @@ class TestAsyncSession:
     @parametrize
     async def test_method_tools(self, async_client: AsyncComposio) -> None:
         session = await async_client.tool_router.session.tools(
-            "session_id",
+            session_id="session_id",
+        )
+        assert_matches_type(SessionToolsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_tools_with_all_params(self, async_client: AsyncComposio) -> None:
+        session = await async_client.tool_router.session.tools(
+            session_id="session_id",
+            cursor="cursor",
+            limit=1,
         )
         assert_matches_type(SessionToolsResponse, session, path=["response"])
 
     @parametrize
     async def test_raw_response_tools(self, async_client: AsyncComposio) -> None:
         response = await async_client.tool_router.session.with_raw_response.tools(
-            "session_id",
+            session_id="session_id",
         )
 
         assert response.is_closed is True
@@ -1182,7 +1853,7 @@ class TestAsyncSession:
     @parametrize
     async def test_streaming_response_tools(self, async_client: AsyncComposio) -> None:
         async with async_client.tool_router.session.with_streaming_response.tools(
-            "session_id",
+            session_id="session_id",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1196,5 +1867,5 @@ class TestAsyncSession:
     async def test_path_params_tools(self, async_client: AsyncComposio) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
             await async_client.tool_router.session.with_raw_response.tools(
-                "",
+                session_id="",
             )

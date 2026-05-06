@@ -296,9 +296,9 @@ class ScreeningStatistics:
                 pass
         
         # Log results
-        new_sells = df["Sell"].sum() - original_sell_count
-        if new_sells > 0 and self.default_logger:
-            self.default_logger.debug(f"Added {new_sells} bearish sell signals")
+        # new_sells = df["Sell"].sum() - original_sell_count
+        # if new_sells > 0 and self.default_logger:
+        #     self.default_logger.debug(f"Added {new_sells} bearish sell signals")
         
         return df
 
@@ -2313,7 +2313,7 @@ class ScreeningStatistics:
         signal_strength = recent["Signal_Strength"].iloc[0] if "Signal_Strength" in recent.columns else 0
         buy_confidence = recent["Buy_Confidence"].iloc[0] if "Buy_Confidence" in recent.columns else 0
         sell_confidence = recent["Sell_Confidence"].iloc[0] if "Sell_Confidence" in recent.columns else 0
-        self.default_logger.debug(f"computeBuySellSignals for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Strength:{signal_strength}, Buy_Conf:{buy_confidence}, Sell_Conf:{sell_confidence}")
+        # self.default_logger.debug(f"computeBuySellSignals for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Strength:{signal_strength}, Buy_Conf:{buy_confidence}, Sell_Conf:{sell_confidence}")
         # =========================================================================
         # LEVEL 4: USE SCORING FOR CANDIDATE STOCKS (Optional)
         # =========================================================================
@@ -2328,7 +2328,7 @@ class ScreeningStatistics:
                     recent_scored = scored_data.tail(1)
                     if "Signal_Score" in recent_scored.columns:
                         signal_score = recent_scored["Signal_Score"].iloc[0]
-                        self.default_logger.debug(f"computeBuySellSignalsWithScores for {stock_name}: Signal_Score {signal_score}")
+                        # self.default_logger.debug(f"computeBuySellSignalsWithScores for {stock_name}: Signal_Score {signal_score}")
                         if buy_signal and signal_score < min_confidence:
                             buy_signal = False
                         elif buy_signal:
@@ -2338,7 +2338,7 @@ class ScreeningStatistics:
                             sell_signal = False
                         elif sell_signal:
                             sell_confidence = signal_score
-                self.default_logger.debug(f"computeBuySellSignalsWithScores for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}")
+                # self.default_logger.debug(f"computeBuySellSignalsWithScores for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}")
             except Exception as e:
                 if self.default_logger:
                     self.default_logger.debug(f"Scoring error: {e}")
@@ -2371,7 +2371,7 @@ class ScreeningStatistics:
                         if "Sell_Signal" in recent_balanced.columns:
                             sell_signal = sell_signal and recent_balanced["Sell_Signal"].iloc[0]
                     # For buySellAll == 3, skip balanced filtering entirely
-                    self.default_logger.debug(f"computeBalancedSignals for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}")
+                    # self.default_logger.debug(f"computeBalancedSignals for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}")
             except Exception as e:
                 if self.default_logger:
                     self.default_logger.debug(f"Balanced filter error: {e}")
@@ -2384,7 +2384,7 @@ class ScreeningStatistics:
         
         if sell_signal and sell_confidence < min_confidence:
             sell_signal = False
-        self.default_logger.debug(f"Level 6 for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Buy_Conf:{buy_confidence}, Sell_Conf:{sell_confidence}")
+        # self.default_logger.debug(f"Level 6 for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Buy_Conf:{buy_confidence}, Sell_Conf:{sell_confidence}")
         # =========================================================================
         # LEVEL 7: DETERMINE RETURN VALUE
         # =========================================================================
@@ -2412,7 +2412,7 @@ class ScreeningStatistics:
                     signal_type = "Sell"
                     buy_signal = False
                     sell_signal = True
-        self.default_logger.debug(f"Level 7 for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Buy_Conf:{buy_confidence}, signal_type:{signal_type}, Sell_Conf:{sell_confidence}")
+        # self.default_logger.debug(f"Level 7 for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Buy_Conf:{buy_confidence}, signal_type:{signal_type}, Sell_Conf:{sell_confidence}")
         # =========================================================================
         # LEVEL 8: STORE RESULTS (if dictionaries provided)
         # =========================================================================
@@ -2429,7 +2429,7 @@ class ScreeningStatistics:
             else:
                 screenDict["B/S[%]"] = colorText.WARN + "NA" + colorText.END
         
-        self.default_logger.debug(f"DEBUG: Returning result={result}, signal_type={signal_type}, buy_signal={buy_signal}, sell_signal={sell_signal}")
+        # self.default_logger.debug(f"DEBUG: Returning result={result}, signal_type={signal_type}, buy_signal={buy_signal}, sell_signal={sell_signal}")
         return result, {}
 
     def findATRTrailingStopsBatch(self, stocks_df_dict, sensitivity=1, atr_period=10, 
@@ -5002,8 +5002,25 @@ class ScreeningStatistics:
     
     # Preprocess the acquired data
     def preprocessData(self, df, daysToLookback=None):
+        """
+        Preprocess the acquired data by calculating technical indicators and adding them as new columns to the dataframe.
+        The indicators calculated include:
+        - SMA (Simple Moving Average) for 50, 200, 9, and 20 periods
+        - EMA (Exponential Moving Average) for 50, 200, 9, and 20 periods (if useEMA is True in config)
+        - Volatility (20-day rolling standard deviation of close price)
+        - VolMA (20-day rolling mean of volume)
+        - RSI (Relative Strength Index) for 14 periods
+        - CCI (Commodity Channel Index) for 14 periods
+        - STOCHRSI (Stochastic RSI) for 14 periods with fastk_period of 5 and fastd_period of 3
+        The function returns a tuple of (fullData, trimmedData) where fullData is the dataframe with all calculated indicators and trimmedData is the dataframe limited to the specified number of days to look back.
+
+        Args:
+            df (pd.DataFrame): The input dataframe in descending order containing stock data with columns like 'close', 'high', 'low', 'volume', etc.
+            daysToLookback (int, optional): The number of recent days to include in the trimmedData. If None, it defaults to the value specified in the configuration manager.
+        """
         assert isinstance(df, pd.DataFrame)
         data = df.copy()
+        data = data[::-1]  # Reverse the dataframe so that its the oldest date first for technical indicator calculations
         try:
             data = data.replace(np.inf, np.nan).replace(-np.inf, np.nan).dropna(how="all")
             if data.empty:
@@ -6609,10 +6626,10 @@ class ScreeningStatistics:
                     
                     # Check if RVM exceeds maximum allowed
                     if rvm_value > max_rvm_allowed and max_rvm_allowed > 0:
-                        if stockName and self.default_logger:
-                            self.default_logger.debug(
-                                f"{stockName}: VCP failed - RVM(15)={rvm_value:.1f} exceeds maximum allowed ({max_rvm_allowed})"
-                            )
+                        # if stockName and self.default_logger:
+                        #     self.default_logger.debug(
+                        #         f"{stockName}: VCP failed - RVM(15)={rvm_value:.1f} exceeds maximum allowed ({max_rvm_allowed})"
+                        #     )
                         return False
                     
                     # Calculate RVM score for quality rating
@@ -6626,8 +6643,8 @@ class ScreeningStatistics:
                         rvm_score = 0
                         
                 except Exception as rvm_e:
-                    if stockName and self.default_logger:
-                        self.default_logger.debug(f"RVM calculation failed for {stockName}: {rvm_e}")
+                    # if stockName and self.default_logger:
+                    #     self.default_logger.debug(f"RVM calculation failed for {stockName}: {rvm_e}")
                     # Don't fail VCP due to RVM calculation errors - just set to 0
                     rvm_value = 0
                     rvm_score = 0
@@ -6737,12 +6754,12 @@ class ScreeningStatistics:
             # saveDict["VCP_Tightening_Leg2"] = round(tightening_leg2, 1)
             # saveDict["VCP_Tightening_Leg3"] = round(tightening_leg3, 1)
             
-            if stockName and self.default_logger and enable_filters:
-                self.default_logger.debug(
-                    f"{stockName}: ✓ VALID 3-LEG VCP - Pullbacks: {leg1_pullback:.1f}% → {leg2_pullback:.1f}% → {leg3_pullback:.1f}%, "
-                    f"Lows: {trough1_val:.2f} → {trough2_val:.2f} → {trough3_val:.2f}, "
-                    f"RVM: {rvm_value:.1f}, Quality: {quality_rating} ({quality_score})"
-                )
+            # if stockName and self.default_logger and enable_filters:
+            #     self.default_logger.debug(
+            #         f"{stockName}: ✓ VALID 3-LEG VCP - Pullbacks: {leg1_pullback:.1f}% → {leg2_pullback:.1f}% → {leg3_pullback:.1f}%, "
+            #         f"Lows: {trough1_val:.2f} → {trough2_val:.2f} → {trough3_val:.2f}, "
+            #         f"RVM: {rvm_value:.1f}, Quality: {quality_rating} ({quality_score})"
+            #     )
             
             return True
             

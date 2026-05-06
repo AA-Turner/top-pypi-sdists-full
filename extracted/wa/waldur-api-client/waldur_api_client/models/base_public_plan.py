@@ -44,7 +44,7 @@ class BasePublicPlan:
         quotas (Union[Unset, BasePublicPlanQuotas]):
         resources_count (Union[Unset, int]):
         plan_type (Union[Unset, str]):
-        minimal_price (Union[Unset, float]):
+        minimal_price (Union[Unset, str]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -67,7 +67,7 @@ class BasePublicPlan:
     quotas: Union[Unset, "BasePublicPlanQuotas"] = UNSET
     resources_count: Union[Unset, int] = UNSET
     plan_type: Union[Unset, str] = UNSET
-    minimal_price: Union[Unset, float] = UNSET
+    minimal_price: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

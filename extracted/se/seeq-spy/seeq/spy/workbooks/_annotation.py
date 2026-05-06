@@ -252,7 +252,7 @@ class Annotation(Item):
         else:
             relevant_annotation = relevant_annotations[0]
 
-        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP or self.id != relevant_annotation.id:
+        if context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP or self.id != relevant_annotation.id:
             item_map[self.id] = relevant_annotation.id
 
         html = self._push_specific(context, item_map, datasource_output, label, new_annotation, relevant_annotation,
@@ -352,7 +352,7 @@ class Annotation(Item):
 
         new_annotation.created_by_id = relevant_annotation.created_by.id
 
-        if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and html == self.html:
+        if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and html == self.html:
             status.log(f'No HTML changes for {self} -- skipping')
         else:
             safely(lambda: annotations_api.update_annotation(id=relevant_annotation.id, body=new_annotation),

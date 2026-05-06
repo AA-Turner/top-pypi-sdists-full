@@ -22,6 +22,10 @@ def _create_yaml_instance() -> ruamel.yaml.YAML:
     return create_yaml_instance()
 
 
+def _default_thread_pool_workers() -> int:
+    return min(32, (os.cpu_count() or 1) + 4)
+
+
 __all__ = [
     "EMPTY_STRING",
     "YamlRefactorContext",
@@ -60,10 +64,14 @@ class YamlRefactorSettings:
     """Include character length in the data type."""
     force_inherit_descriptions: bool = False
     """Force inheritance of descriptions from upstream models, even if node has a valid description."""
+    skip_inherit_descriptions: bool = False
+    """Skip inheriting descriptions from upstream models, even if force inheritance is enabled."""
     use_unrendered_descriptions: bool = False
     """Use unrendered descriptions preserving things like {{ doc(...) }} which are otherwise pre-rendered in the manifest object"""
     prefer_yaml_values: bool = False
     """Prefer YAML values as-is for all fields, preserving unrendered jinja templates like {{ var(...) }} and {{ env_var(...) }}"""
+    skip_inheritance_for_meta_keys: list[str] = field(default_factory=list)
+    """Skip inheriting selected upstream meta keys while preserving other meta keys."""
     add_inheritance_for_specified_keys: list[str] = field(default_factory=list)
     """Include additional keys in the inheritance process."""
     output_to_lower: bool = False
@@ -84,7 +92,8 @@ class YamlRefactorSettings:
     fusion_compat: bool | None = None
     """When True, output Fusion-compatible YAML with meta/tags nested inside config blocks.
     When False, output classic format with meta/tags at top level.
-    When None (default), auto-detect from installed dbt version: True if dbt >= 1.9.6."""
+    When None (default), auto-detect from known Fusion manifest evidence or installed dbt version:
+    True if the project has a known Fusion manifest or dbt >= 1.9.6."""
 
 
 @dataclass
@@ -112,9 +121,7 @@ class YamlRefactorContext:
 
     project: DbtProjectContext  # Forward reference to avoid circular import
     settings: YamlRefactorSettings = field(default_factory=YamlRefactorSettings)
-    pool: ThreadPoolExecutor = field(
-        default_factory=lambda: ThreadPoolExecutor(max_workers=min(32, (os.cpu_count() or 1) + 4)),
-    )
+    pool: ThreadPoolExecutor | None = None
     yaml_handler: ruamel.yaml.YAML = field(
         init=False,
         default_factory=_create_yaml_instance,
@@ -133,6 +140,8 @@ class YamlRefactorContext:
     _mutation_count: int = field(default=0, init=False)
     _written_files: set[Path] = field(default_factory=set, init=False, repr=False)
     """Tracks which YAML files were actually written to disk (for external formatter integration)."""
+    _disk_mutation_count: int = field(default=0, init=False, repr=False)
+    """Counts actual on-disk mutations so callers can distinguish dry-run from real writes."""
     _catalog: CatalogResults | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False, repr=False)
     """Track whether the context has been closed to prevent double-cleanup."""
@@ -193,6 +202,10 @@ class YamlRefactorContext:
         )
         self._mutation_count += count
 
+    def register_disk_mutation(self, count: int = 1) -> None:
+        """Record actual on-disk changes so callers can react truthfully after dry-run flows."""
+        self._disk_mutation_count += count
+
     @property
     def mutation_count(self) -> int:
         """Read only property to access the mutation count."""
@@ -205,6 +218,11 @@ class YamlRefactorContext:
         logger.debug(":white_check_mark: Has the context mutated anything? => %s", has_mutated)
         return has_mutated
 
+    @property
+    def disk_mutation_count(self) -> int:
+        """Read-only count of actual on-disk mutations in this session."""
+        return self._disk_mutation_count
+
     def register_written_file(self, path: Path) -> None:
         """Register a file path that was successfully written to disk.
 
@@ -212,6 +230,7 @@ class YamlRefactorContext:
         can find them regardless of its working directory.
         """
         self._written_files.add(path.resolve())
+        self.register_disk_mutation()
 
     @property
     def written_files(self) -> frozenset[Path]:
@@ -282,7 +301,7 @@ class YamlRefactorContext:
 
         Resolution order:
         1. Explicit setting from YamlRefactorSettings.fusion_compat (True/False)
-        2. Fusion manifest detected in target directory (schema version > v12)
+        2. Known Fusion manifest detected in target directory
         3. Auto-detect from dbt version: True if dbt >= 1.9.6
 
         The 1.9.6 threshold is used because column-level config support was
@@ -291,7 +310,8 @@ class YamlRefactorContext:
 
         Fusion manifest detection (step 2) handles teams running both dbt Fusion
         and dbt-core side by side: even if the installed dbt-core is older than
-        1.9.6, a Fusion manifest signals that Fusion-compatible output is needed.
+        1.9.6, known Fusion manifest evidence signals that Fusion-compatible
+        output is needed.
         """
         if self.settings.fusion_compat is not None:
             return self.settings.fusion_compat
@@ -365,15 +385,28 @@ class YamlRefactorContext:
             self.placeholders = (EMPTY_STRING, *self.placeholders)
         for setting, val in self.yaml_settings.items():
             setattr(self.yaml_handler, setting, val)
-        # Override max_workers with dbt's thread count when available.
-        if hasattr(self.project.runtime_cfg, "threads") and self.project.runtime_cfg.threads:
-            self.pool._max_workers = self.project.runtime_cfg.threads
+
+        dbt_threads = self._dbt_thread_count()
+        if self.pool is None:
+            max_workers = dbt_threads or _default_thread_pool_workers()
+            self.pool = ThreadPoolExecutor(max_workers=max_workers)
+        else:
+            logger.info(":notebook: Osmosis ThreadPoolExecutor using caller-supplied pool")
+            return
+
+        if dbt_threads:
             logger.info(
                 ":notebook: Osmosis ThreadPoolExecutor max_workers using dbt threads => %s",
-                self.pool._max_workers,
+                max_workers,
             )
         else:
             logger.info(
                 ":notebook: Osmosis ThreadPoolExecutor max_workers using default => %s",
-                self.pool._max_workers,
+                max_workers,
             )
+
+    def _dbt_thread_count(self) -> int | None:
+        threads = getattr(self.project.runtime_cfg, "threads", None)
+        if isinstance(threads, int) and not isinstance(threads, bool) and threads > 0:
+            return threads
+        return None

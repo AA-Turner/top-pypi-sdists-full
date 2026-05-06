@@ -3,6 +3,7 @@ from enum import Enum
 
 class UserFieldEnum(str, Enum):
     ACTIVE_ISDS = "active_isds"
+    ADDRESS = "address"
     AFFILIATIONS = "affiliations"
     AGREEMENT_DATE = "agreement_date"
     AGREE_WITH_POLICY = "agree_with_policy"

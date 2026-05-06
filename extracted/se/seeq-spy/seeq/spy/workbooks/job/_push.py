@@ -5,7 +5,7 @@ import os
 import pickle
 import types
 from pathlib import Path
-from typing import List, Optional, Union, Tuple
+from typing import Callable, List, Optional, Union, Tuple
 
 import pandas as pd
 
@@ -24,27 +24,27 @@ from seeq.spy.workbooks.job import _pull
 
 @Status.top_level_spy_function()
 def push(
-    job_folder: Union[str, Path],
-    *,
-    resume: bool = True,
-    path: Optional[str] = None,
-    owner: Optional[str] = None,
-    label: Optional[str] = None,
-    datasource: Optional[str] = None,
-    datasource_map_folder: Optional[Union[str, Path]] = None,
-    mode: str = WorkbookPushMode.NORMAL,
-    use_full_path: bool = False,
-    access_control: Optional[str] = None,
-    override_max_interp: bool = False,
-    global_inventory: Optional[str] = None,
-    create_dummy_items: bool = False,
-    dry_run: bool = False,
-    verbose: bool = False,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None,
-    scope_globals_to_workbook: Optional[bool] = None
+        job_folder: Union[str, Path],
+        *,
+        resume: bool = True,
+        path: Optional[Union[str, Callable]] = None,
+        owner: Optional[str] = None,
+        label: Optional[str] = None,
+        datasource: Optional[str] = None,
+        datasource_map_folder: Optional[Union[str, Path]] = None,
+        mode: str = WorkbookPushMode.NORMAL,
+        use_full_path: bool = False,
+        access_control: Optional[str] = None,
+        override_max_interp: bool = False,
+        global_inventory: Optional[str] = None,
+        create_dummy_items: bool = False,
+        dry_run: bool = False,
+        verbose: bool = False,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None,
+        scope_globals_to_workbook: Optional[bool] = None
 ) -> pd.DataFrame:
     """
     Pushes the definitions for each workbook that was pulled by the
@@ -60,7 +60,7 @@ def push(
         True if the push should resume from where it left off, False if it
         should push everything again.
 
-    path : {str, Path}, default None
+    path : {str, callable}, default None
         A '>>'-delimited folder path to create to contain the workbooks. Note
         that a further subfolder hierarchy will be created to preserve the
         relative paths that the folders were in when they were searched for
@@ -77,6 +77,11 @@ def push(
         will be recreated on the target server if it doesn't already exist.
         (You must be an admin to use this to ensure you have permissions to
         put things where they need to go.)
+
+        If you specify a callable, it will be called once per workbook with the
+        Workbook instance as its sole argument and must return the desired path
+        string (or None) for that workbook. This allows you to route different
+        workbooks to different folders in a single push call.
 
     owner : str, default None
         Determines the ownership of pushed workbooks and folders.
@@ -186,7 +191,7 @@ def push(
         proceeds.
 
     verbose : bool
-        If True, outputs verbose logs to "pull_log.txt" within the job folder.
+        If True, outputs verbose logs to "push_log.txt" within the job folder.
         Note that when status is provided, the verbose setting of the Status
         object that is passed in takes precedence.
 
@@ -223,6 +228,7 @@ def push(
     # Jobs always write the log file, even if the user doesn't want verbose
     default_log_file = os.path.join(job_folder, 'push_log.txt')
     status.validate_verbose(verbose, default_log_file)
+    status.add_log_section_marker('] Pushing')
 
     function_name = 'spy.workbooks.job.push'
 
@@ -239,7 +245,11 @@ def push(
         completely_pushed_filename = os.path.join(job_workbooks_folder, workbook_folder, 'Completely Pushed')
         if not resume and util.safe_exists(completely_pushed_filename):
             util.safe_remove(completely_pushed_filename)
-        workbook_list.append(WorkbookFolderRef(os.path.join(job_workbooks_folder, workbook_folder), job_folder))
+        workbook_list.append(
+            WorkbookFolderRef(
+                os.path.join(job_workbooks_folder, workbook_folder), job_folder
+            )
+        )
 
     job_datasource_map_folder = datasource_map_folder
 
@@ -346,6 +356,11 @@ class WorkbookFolderRef(Workbook):
     def already_pushed(self):
         return util.safe_exists(self._already_pushed_filename())
 
+    @property
+    def real(self):
+        self._ensure_loaded()
+        return self._real_workbook
+
     def _ensure_loaded(self):
         if self._real_workbook is not None:
             return
@@ -354,10 +369,9 @@ class WorkbookFolderRef(Workbook):
 
     @property
     def datasource_maps(self):
-        self._ensure_loaded()
-        return self._real_workbook.datasource_maps
+        return self.real.datasource_maps
 
-    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
+    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, use_full_path,
                                 parent_folder_id, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
         if self.already_pushed:
             with util.safe_open(self._already_pushed_filename(), 'r') as f:
@@ -369,9 +383,8 @@ class WorkbookFolderRef(Workbook):
             self._parent_folder_id = d.get('Parent Folder ID')
             return self._search_folder_id, self._parent_folder_id
 
-        self._ensure_loaded()
-        self._search_folder_id, self._parent_folder_id = self._real_workbook.push_containing_folders(
-            context, item_map, datasource_output, use_full_path, parent_folder_id, owner, label, access_control)
+        self._search_folder_id, self._parent_folder_id = self.real.push_containing_folders(
+            context, item_map, use_full_path, parent_folder_id, owner, label, access_control)
 
         return self._search_folder_id, self._parent_folder_id
 

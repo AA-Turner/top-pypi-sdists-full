@@ -2,6 +2,8 @@ import unittest
 from unittest.mock import patch
 
 import pynetbox
+from pynetbox.models.dcim import Devices
+from pynetbox.models.virtualization import VirtualMachineTypes
 
 from .util import Response
 
@@ -88,6 +90,28 @@ class ClustersTestCase(Generic.Tests):
 
 class VirtualMachinesTestCase(Generic.Tests):
     name = "virtual_machines"
+
+    @patch(
+        "requests.sessions.Session.get",
+        return_value=Response(fixture="virtualization/virtual_machine.json"),
+    )
+    def test_device_attr(self, _):
+        vm = nb.virtual_machines.get(1)
+        self.assertIsInstance(vm.device, Devices)
+        self.assertEqual(vm.device.name, "test-device")
+
+    @patch(
+        "requests.sessions.Session.get",
+        return_value=Response(fixture="virtualization/virtual_machine.json"),
+    )
+    def test_virtual_machine_type_attr(self, _):
+        vm = nb.virtual_machines.get(1)
+        self.assertIsInstance(vm.virtual_machine_type, VirtualMachineTypes)
+        self.assertEqual(vm.virtual_machine_type.name, "Standard")
+
+
+class VirtualMachineTypesTestCase(Generic.Tests):
+    name = "virtual_machine_types"
 
 
 class InterfacesTestCase(Generic.Tests):

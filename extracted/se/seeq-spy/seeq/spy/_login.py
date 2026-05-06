@@ -317,14 +317,8 @@ def _client_login(
     else:
         _client.set_default_header('x-sq-origin', SeeqNames.Origins.spy_standalone)
 
-    auth_api = AuthApi(_client)
-    directories = dict()
     try:
-        try:
-            auth_providers_output = auth_api.get_auth_providers(include_auth_provider_ids=['Seeq Saas Admin'])
-        except TypeError:
-            # Older versions of Seeq SDK don't have the "include_auth_provider_ids" parameter
-            auth_providers_output = auth_api.get_auth_providers()
+        session.populate_directories(_client)
     except MaxRetryError as e:
         if isinstance(e.reason, SSLError):
             raise SPyRuntimeError(f'SSL certificate error. If you trust your network, you can add '
@@ -333,10 +327,6 @@ def _client_login(
         raise SPyRuntimeError(
             '"%s" could not be reached. Is the server or network down?\n%s' % (api_client_url, e))
 
-    session.auth_providers = auth_providers_output.auth_providers
-    for datasource_output in session.auth_providers:  # type: DatasourceOutputV1
-        directories[datasource_output.name] = datasource_output
-
     if auth_token:
         if username or password or credentials_file:
             raise SPyValueError('username, password and/or credentials_file cannot be provided along with auth_token')
@@ -344,6 +334,7 @@ def _client_login(
         _client.auth_token = auth_token
         _client.csrf_token = csrf_token
     else:
+        auth_api = AuthApi(_client)
         auth_input = AuthInputV1()
 
         if access_key:
@@ -392,11 +383,11 @@ def _client_login(
             api_client_url, username), Status.RUNNING)
 
         if not access_key:
-            if directory not in directories:
+            if directory not in session.directories:
                 raise SPyRuntimeError('directory "%s" not recognized. Possible directory(s) for this server: %s' %
-                                      (directory, ', '.join(directories.keys())))
+                                      (directory, ', '.join(session.directories.keys())))
 
-            datasource_output = directories[directory]
+            datasource_output = session.directories[directory]
             auth_input.auth_provider_class = datasource_output.datasource_class
             auth_input.auth_provider_id = datasource_output.datasource_id
 

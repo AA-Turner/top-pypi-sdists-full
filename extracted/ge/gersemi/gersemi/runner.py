@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from ignore import WalkBuilder  # pylint: disable=no-name-in-module
+from gersemi.builtin_commands import _builtin_commands
 from gersemi.cache import create_cache
 from gersemi.configuration import (
     Configuration,
@@ -31,10 +32,10 @@ from gersemi.formatted_file import FormattedFile
 from gersemi.formatter import Formatter, NullFormatter, create_formatter
 from gersemi.keywords import Keywords
 from gersemi.mode import Mode, get_mode
+from gersemi.parser import Parser
 from gersemi.print_config_kind import PrintConfigKind
 from gersemi.result import Error, Result, apply, get_error_message
 from gersemi.return_codes import FAIL, INTERNAL_ERROR, SUCCESS
-from gersemi.rust_parser import RustParser
 from gersemi.task_result import TaskResult
 from gersemi.tasks.check_and_show_diff import check_and_show_diff
 from gersemi.tasks.check_formatting import check_formatting
@@ -134,7 +135,7 @@ def find_custom_command_definitions_in_file_impl(filepath: Path) -> Dict[str, Ke
     if not has_custom_command_definition(code):
         return {}
 
-    parse_tree = RustParser().parse(code)
+    parse_tree = Parser(_builtin_commands).parse(code)
     return find_custom_command_definitions(parse_tree, filepath)
 
 

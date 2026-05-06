@@ -423,13 +423,14 @@ class AgenticPlatformPipelineType(sgqlc.types.Enum):
 
     Enumeration Choices:
 
+    * `ALERT_ASSESSMENT`None
     * `MONITORING`None
     * `MONITOR_TUNING`None
     * `TRIAGE`None
     """
 
     __schema__ = schema
-    __choices__ = ("MONITORING", "MONITOR_TUNING", "TRIAGE")
+    __choices__ = ("ALERT_ASSESSMENT", "MONITORING", "MONITOR_TUNING", "TRIAGE")
 
 
 class AgenticPlatformScope(sgqlc.types.Enum):
@@ -963,6 +964,24 @@ class AssignedAssetStatusEnum(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ADDED", "REMOVED")
+
+
+class AuditLogActorRole(sgqlc.types.Enum):
+    """Actor type for audit-log entries.  The audit log is keyed on actor
+    email; this enum scopes the result set to entries whose actor
+    (resolved by email) is a regular user (``USER``) or an internal
+    agent user (``AGENT``). Service/system actors are not included
+    here; if needed in the future, additional values can be added
+    without breaking existing callers.
+
+    Enumeration Choices:
+
+    * `AGENT`None
+    * `USER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT", "USER")
 
 
 class AuthType(sgqlc.types.Enum):
@@ -1984,6 +2003,7 @@ class DataCollectorScheduleModelDeleteReason(sgqlc.types.Enum):
     * `AGENT_TRACE_TABLE_DELETED`: agent_trace_table_deleted
     * `CONNECTION_DELETED`: connection_deleted
     * `DEPRECATED_JOB_TYPE`: deprecated_job_type
+    * `DUPLICATE_POLLER`: duplicate_poller
     * `MONITOR_DELETED`: monitor_deleted
     * `NO_AGENT`: no_agent
     * `NO_COLLECTOR`: no_collector
@@ -1997,6 +2017,7 @@ class DataCollectorScheduleModelDeleteReason(sgqlc.types.Enum):
         "AGENT_TRACE_TABLE_DELETED",
         "CONNECTION_DELETED",
         "DEPRECATED_JOB_TYPE",
+        "DUPLICATE_POLLER",
         "MONITOR_DELETED",
         "NO_AGENT",
         "NO_COLLECTOR",
@@ -7045,6 +7066,37 @@ class TraceTimeSeriesMetric(sgqlc.types.Enum):
     )
 
 
+class TriageAgentRunStatus(sgqlc.types.Enum):
+    """Lifecycle of a single triage row.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "PENDING")
+
+
+class TriageScore(sgqlc.types.Enum):
+    """Closed value space for triage score axes (confidence, impact).
+    Mirrors the LLM boundary's ``Literal["HIGH", "MEDIUM", "LOW"]``
+    returned by     the alert_assessment agent's ``score_incident``
+    node.
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM")
+
+
 class TsaAnalysisStatus(sgqlc.types.Enum):
     """Status of TSA analysis for an alert.
 
@@ -7609,6 +7661,43 @@ class AIMessageInput(sgqlc.types.Input):
     """The mcons for the tables added in this message"""
 
 
+class AgentCapabilitiesInput(sgqlc.types.Input):
+    """Atomic patch over the three agent-assistance capabilities.
+    Capabilities omitted from the input are left untouched.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("monitoring", "triage", "monitor_tuning")
+    monitoring = sgqlc.types.Field("AgentCapabilityInput", graphql_name="monitoring")
+    """Monitoring-capability patch. Omit to leave monitoring unchanged."""
+
+    triage = sgqlc.types.Field("AgentCapabilityInput", graphql_name="triage")
+    """Triage-capability patch. Omit to leave triage unchanged."""
+
+    monitor_tuning = sgqlc.types.Field("AgentCapabilityInput", graphql_name="monitorTuning")
+    """Monitor-tuning-capability patch. Omit to leave monitor tuning
+    unchanged.
+    """
+
+
+class AgentCapabilityInput(sgqlc.types.Input):
+    """Patch shape for a single capability passed to
+    ``configureAgentAssistance``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("enabled", "rate_seconds")
+    enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
+    """Pause (false) or resume (true) the capability. Omit to leave
+    unchanged.
+    """
+
+    rate_seconds = sgqlc.types.Field(Int, graphql_name="rateSeconds")
+    """New cadence in seconds. Must be positive when provided. Omit to
+    leave unchanged.
+    """
+
+
 class AgentFilterInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("agent_name", "trace_table_mcon")
@@ -7752,6 +7841,7 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
         "domain_ids",
         "data_product_ids",
         "slo_statuses",
+        "from_agent_monitor",
     )
     types = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AlertType)), graphql_name="types"
@@ -7866,6 +7956,14 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     slo_statuses = sgqlc.types.Field(sgqlc.types.list_of(SloStatus), graphql_name="sloStatuses")
     """Return alerts with the specified SLO statuses. Use null to include
     alerts with no SLO.
+    """
+
+    from_agent_monitor = sgqlc.types.Field(Boolean, graphql_name="fromAgentMonitor")
+    """Filter alerts by whether their underlying monitor was authored by
+    an agent user. When true, returns only alerts whose monitor was
+    created by an agent user. When false, returns only alerts whose
+    monitor was created by a non-agent user. When null or omitted, no
+    agent-monitor filter is applied.
     """
 
 
@@ -10776,7 +10874,7 @@ class LookerConnectionDetails(sgqlc.types.Input):
 
 class LookerGitAuthConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("repo_url", "username", "token", "ssh_key")
+    __field_names__ = ("repo_url", "username", "token", "ssh_key", "ssl_options")
     repo_url = sgqlc.types.Field(String, graphql_name="repoUrl")
     """For HTTPS the repository URL as https://server/project.gitFor SSH
     the repository URL as ssh://[user@]server/project.gitor the
@@ -10792,10 +10890,17 @@ class LookerGitAuthConnectionDetails(sgqlc.types.Input):
     ssh_key = sgqlc.types.Field(String, graphql_name="sshKey")
     """SSH key, base64-encoded"""
 
+    ssl_options = sgqlc.types.Field("SslOptions", graphql_name="sslOptions")
+    """Optional SSL options for HTTPS git clones against self-managed Git
+    providers. Only ca_data (inline PEM CA bundle) and
+    skip_cert_verification are honored by the git subprocess; other
+    fields are ignored. No-op for SSH integrations.
+    """
+
 
 class LookerGitAuthUpdateConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("ssh_key", "repo_url", "username", "token")
+    __field_names__ = ("ssh_key", "repo_url", "username", "token", "ssl_options")
     ssh_key = sgqlc.types.Field(String, graphql_name="sshKey")
     """SSH key, base64-encoded"""
 
@@ -10810,10 +10915,17 @@ class LookerGitAuthUpdateConnectionDetails(sgqlc.types.Input):
     token = sgqlc.types.Field(String, graphql_name="token")
     """Token for Git authentication"""
 
+    ssl_options = sgqlc.types.Field("SslOptions", graphql_name="sslOptions")
+    """Optional SSL options for HTTPS git clones against self-managed Git
+    providers. Only ca_data (inline PEM CA bundle) and
+    skip_cert_verification are honored by the git subprocess; other
+    fields are ignored. No-op for SSH integrations.
+    """
+
 
 class LookerGitCloneConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("repo_url", "username", "token")
+    __field_names__ = ("repo_url", "username", "token", "ssl_options")
     repo_url = sgqlc.types.Field(String, graphql_name="repoUrl")
     """Repository URL as https://server/project.git"""
 
@@ -10822,6 +10934,13 @@ class LookerGitCloneConnectionDetails(sgqlc.types.Input):
 
     token = sgqlc.types.Field(String, graphql_name="token")
     """The access token for git HTTPS integrations"""
+
+    ssl_options = sgqlc.types.Field("SslOptions", graphql_name="sslOptions")
+    """Optional SSL options for HTTPS git clones against self-managed Git
+    providers. Only ca_data (inline PEM CA bundle) and
+    skip_cert_verification are honored by the git subprocess; other
+    fields are ignored. No-op for SSH integrations.
+    """
 
 
 class LookerUpdateConnectionDetails(sgqlc.types.Input):
@@ -13569,6 +13688,16 @@ class TransformInput(sgqlc.types.Input):
     field = sgqlc.types.Field(String, graphql_name="field")
 
     id = sgqlc.types.Field(String, graphql_name="id")
+
+
+class TriageAlertsInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("incident_ids",)
+    incident_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="incidentIds",
+    )
+    """UUIDs of incidents to triage. Maximum 50 per call."""
 
 
 class UCSAutomatedAlertConditionInput(sgqlc.types.Input):
@@ -16500,6 +16629,63 @@ class Agent(sgqlc.types.Type):
     """
 
 
+class AgentAssistant(sgqlc.types.Type):
+    """Agent assistance attached to a domain. A domain is agent-assisted
+    iff this object resolves non-null.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("agent_user", "capabilities")
+    agent_user = sgqlc.types.Field(sgqlc.types.non_null("User"), graphql_name="agentUser")
+    """The user representing the agent. Use ``displayName`` to render the
+    agent identity (defaults to ``Agent on <domain>``); ``creatorId``
+    on monitors created by the agent matches this user.
+    """
+
+    capabilities = sgqlc.types.Field(
+        sgqlc.types.non_null("AgentCapabilities"), graphql_name="capabilities"
+    )
+    """Per-capability enabled-flag and cadence."""
+
+
+class AgentCapabilities(sgqlc.types.Type):
+    """Per-capability state for the agent attached to a domain. Each
+    field reports the current enabled-flag and cadence.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("monitoring", "triage", "monitor_tuning")
+    monitoring = sgqlc.types.Field(
+        sgqlc.types.non_null("AgentCapability"), graphql_name="monitoring"
+    )
+    """Monitoring runs (proactive monitor proposals)."""
+
+    triage = sgqlc.types.Field(sgqlc.types.non_null("AgentCapability"), graphql_name="triage")
+    """Triage runs (incident investigation + summarization)."""
+
+    monitor_tuning = sgqlc.types.Field(
+        sgqlc.types.non_null("AgentCapability"), graphql_name="monitorTuning"
+    )
+    """Monitor-tuning runs (threshold sensitivity adjustments)."""
+
+
+class AgentCapability(sgqlc.types.Type):
+    """Resolved enabled-flag and cadence for one agent-assistance
+    capability (monitoring, triage, monitor tuning).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("enabled", "rate_seconds")
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """True when the capability is currently active for the domain."""
+
+    rate_seconds = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="rateSeconds")
+    """How often the capability runs, in seconds. The service seeds this
+    from a per-capability default when assistance is first enabled and
+    preserves customer overrides on subsequent re-enables.
+    """
+
+
 class AgentCustomConnectors(sgqlc.types.Type):
     """Custom connectors grouped under a single agent."""
 
@@ -18314,6 +18500,7 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
         "roles",
         "version",
         "is_managed",
+        "is_internal",
         "label",
         "description",
         "users",
@@ -18344,6 +18531,12 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     """Indicates if this group is managed by Monte Carlo or through an
     authorization provider, such as SCIM. If so, changes to the group
     are restricted. See the source for details.
+    """
+
+    is_internal = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isInternal")
+    """True for internal-only groups that are not exposed on customer-
+    facing surfaces. Defaults to false for all customer-visible
+    groups.
     """
 
     label = sgqlc.types.Field(String, graphql_name="label")
@@ -20163,7 +20356,7 @@ class CiGateConfig(sgqlc.types.Type):
     """CI gate policy configuration for a GitHub app installation."""
 
     __schema__ = schema
-    __field_names__ = ("block_on", "fail_on")
+    __field_names__ = ("block_on", "fail_on", "repo_overrides")
     block_on = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="blockOn")
     """Which risk tiers cause the CI step to fail: low+, medium+, high+,
     or none
@@ -20171,6 +20364,26 @@ class CiGateConfig(sgqlc.types.Type):
 
     fail_on = sgqlc.types.Field(String, graphql_name="failOn")
     """Deprecated alias for blockOn"""
+
+    repo_overrides = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CiGateRepoOverride"))),
+        graphql_name="repoOverrides",
+    )
+    """Per-repo block_on overrides. Empty when no overrides are
+    configured.
+    """
+
+
+class CiGateRepoOverride(sgqlc.types.Type):
+    """Per-repo CI gate block_on override."""
+
+    __schema__ = schema
+    __field_names__ = ("repo", "block_on")
+    repo = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repo")
+    """Repository name"""
+
+    block_on = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="blockOn")
+    """Which risk tiers cause the CI step to fail for this repo"""
 
 
 class CircuitBreakerState(sgqlc.types.Type):
@@ -20717,6 +20930,21 @@ class ConditionMatches(sgqlc.types.Type):
     rows = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(Int)), graphql_name="rows")
 
     sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
+
+
+class ConfigureAgentAssistance(sgqlc.types.Type):
+    """Atomic patch over the three agent-assistance capabilities.
+    Capabilities omitted from the input are left unchanged. Within
+    each capability, ``enabled`` and ``rateSeconds`` are independently
+    optional — pass only the field you want to update. Rejected when
+    assistance is not enabled for the domain (call
+    ``enableAgentAssistance`` first).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("domain",)
+    domain = sgqlc.types.Field(sgqlc.types.non_null("DomainOutput"), graphql_name="domain")
+    """The domain after the configuration patch has been applied."""
 
 
 class ConfigureAgenticPlatform(sgqlc.types.Type):
@@ -22075,7 +22303,7 @@ class CreateOrUpdateAccountRoleFromDefinition(sgqlc.types.Type):
 
 class CreateOrUpdateAgent(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("agent_id", "validation_result")
+    __field_names__ = ("agent_id", "validation_result", "auto_enabled")
     agent_id = sgqlc.types.Field(UUID, graphql_name="agentId")
     """The UUID of the agent that was created or updated."""
 
@@ -22083,6 +22311,14 @@ class CreateOrUpdateAgent(sgqlc.types.Type):
         "TestCredentialsV2Response", graphql_name="validationResult"
     )
     """Result validating the provided parameters."""
+
+    auto_enabled = sgqlc.types.Field(Boolean, graphql_name="autoEnabled")
+    """True when the update completed an AWS assume-role stub
+    registration (supplying the role and endpoint after the ExternalId
+    was minted) and the agent was enabled in the same call. Always
+    false on initial registration and on updates that do not
+    transition a stub agent into a fully configured one.
+    """
 
 
 class CreateOrUpdateAgentEvaluationMonitor(sgqlc.types.Type):
@@ -25920,6 +26156,16 @@ class DeleteCatalogObjectMetadata(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class DeleteCiGateRepoOverride(sgqlc.types.Type):
+    """Delete a per-repo CI gate block_on override, reverting to the
+    installation default.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class DeleteCollibraIntegration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
@@ -26498,6 +26744,23 @@ class DirectedGraph(sgqlc.types.Type):
     edges = sgqlc.types.Field(String, graphql_name="edges")
 
 
+class DisableAgentAssistance(sgqlc.types.Type):
+    """Pause agent-created monitors and disable agent pipelines for the
+    domain.  Retry-safe — calling on a never-enabled or non-metadata
+    domain is a no-op. The internal agent user row is kept (preserving
+    ``creator_id`` history on its monitors) but its pipelines are
+    flipped to ``disabled=True``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("domain",)
+    domain = sgqlc.types.Field(sgqlc.types.non_null("DomainOutput"), graphql_name="domain")
+    """The domain after disable. ``agentAssistant`` may still be non-null
+    with all capabilities reporting ``enabled: false`` — the agent
+    user and internal group remain so re-enabling later is cheap.
+    """
+
+
 class DisableFreshnessTableMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("uuid",)
@@ -26621,6 +26884,7 @@ class DomainOutput(sgqlc.types.Type):
         "description",
         "created_by_email",
         "domain_tag",
+        "agent_assistant",
         "assignments",
         "excluded_assignments",
         "tags",
@@ -26648,6 +26912,17 @@ class DomainOutput(sgqlc.types.Type):
 
     domain_tag = sgqlc.types.Field(String, graphql_name="domainTag")
     """The domain's tag representation"""
+
+    agent_assistant = sgqlc.types.Field(AgentAssistant, graphql_name="agentAssistant")
+    """Agent assistance attached to this domain. Non-null for any
+    metadata domain that has had ``enableAgentAssistance`` called at
+    least once — the agent user is retained across
+    ``disableAgentAssistance`` to preserve ``creator_id`` history on
+    its monitors. A non-null value with all capabilities reporting
+    ``enabled: false`` indicates assistance is currently disabled. Use
+    the per-capability ``enabled`` flags to determine current
+    activity, not the nullness of this field.
+    """
 
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
     """Objects assigned to domain (as MCONs)"""
@@ -27006,6 +27281,20 @@ class EmptyDataCollector(sgqlc.types.Type):
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
     customer_aws_region = sgqlc.types.Field(String, graphql_name="customerAwsRegion")
+
+
+class EnableAgentAssistance(sgqlc.types.Type):
+    """Provision the per-domain agent user + internal group + default
+    pipelines.  Idempotent — re-calling on an already-enabled domain
+    returns the existing agent without creating duplicates. Defaults
+    for the three capabilities live in the service module; pass
+    ``configureAgentAssistance`` afterwards to flip them on.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("domain",)
+    domain = sgqlc.types.Field(sgqlc.types.non_null(DomainOutput), graphql_name="domain")
+    """The domain after the agent has been provisioned."""
 
 
 class EnableAutomatedFreshnessTableMonitor(sgqlc.types.Type):
@@ -30649,12 +30938,18 @@ class InternalStepGroupV2(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("span_id", "span_name", "messages")
+    __field_names__ = ("span_id", "span_name", "is_tool_call", "messages")
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
     """Span ID (hex-encoded)"""
 
     span_name = sgqlc.types.Field(String, graphql_name="spanName")
     """Span name"""
+
+    is_tool_call = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isToolCall")
+    """True when the underlying span is a tool execution. Lets the UI
+    render tool steps (e.g. a Cortex CortexAnalystTool_* call or a
+    langgraph tool span) distinctly from internal LLM steps.
+    """
 
     messages = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationMessageV2))),
@@ -31214,6 +31509,74 @@ class JobInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("dbt_job_info",)
     dbt_job_info = sgqlc.types.Field(DbtJobInfo, graphql_name="dbtJobInfo")
+
+
+class JobLineageEdge(sgqlc.types.Type):
+    """A single ``IS_DOWNSTREAM`` edge in a job/task lineage graph
+    response.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("upstream_mcon", "downstream_mcon")
+    upstream_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="upstreamMcon")
+    """MCON of the upstream end of the edge."""
+
+    downstream_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="downstreamMcon")
+    """MCON of the downstream end of the edge."""
+
+
+class JobLineageGraph(sgqlc.types.Type):
+    """A node/edge graph used by the job/task lineage queries.  Returned
+    by both ``getTaskGraph`` (intra-job task graph) and
+    ``getJobDependencies`` (job -> job and external asset edges).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("nodes", "edges")
+    nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("JobLineageNode"))),
+        graphql_name="nodes",
+    )
+    """All nodes in the result subgraph."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(JobLineageEdge))),
+        graphql_name="edges",
+    )
+    """All IS_DOWNSTREAM edges between nodes in the result subgraph."""
+
+
+class JobLineageNode(sgqlc.types.Type):
+    """A single node in a job/task lineage graph response.  Identity
+    fields are nullable because each applies only to a subset of
+    object types — job and task nodes carry ``jobId``; only task nodes
+    carry ``taskId``; only external asset nodes (e.g. airflow-dataset)
+    carry ``uri``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "object_type", "job_id", "task_id", "uri")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """MCON identifying this node"""
+
+    object_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="objectType")
+    """Object type, e.g. "job", "task", or an external asset type like
+    "airflow-dataset".
+    """
+
+    job_id = sgqlc.types.Field(String, graphql_name="jobId")
+    """Orchestrator-level job identifier (e.g. Airflow dag_id, Databricks
+    workflow id). Populated for job and task nodes; null for external
+    asset nodes.
+    """
+
+    task_id = sgqlc.types.Field(String, graphql_name="taskId")
+    """Task identifier within a job (populated for task nodes only)."""
+
+    uri = sgqlc.types.Field(String, graphql_name="uri")
+    """External asset URI (populated for external asset nodes only, e.g.
+    airflow-dataset).
+    """
 
 
 class JobPerformanceData(sgqlc.types.Type):
@@ -33473,6 +33836,10 @@ class MonitorLabelObject(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -33542,6 +33909,11 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -34227,6 +34599,7 @@ class Mutation(sgqlc.types.Type):
         "update_github_installation",
         "update_pr_agent_config",
         "update_ci_gate_config",
+        "delete_ci_gate_repo_override",
         "delete_github_installation",
         "register_gitlab_app",
         "link_gitlab_app",
@@ -34356,6 +34729,7 @@ class Mutation(sgqlc.types.Type):
         "delete_monte_carlo_config_template",
         "convert_ui_monitors_to_config_template",
         "convert_config_template_to_ui_monitors",
+        "triage_alerts",
         "set_sensitivity",
         "add_to_collection_block_list",
         "remove_from_collection_block_list",
@@ -34434,6 +34808,9 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agentic_notification_route",
         "delete_agentic_notification_route",
         "submit_finding_feedback",
+        "enable_agent_assistance",
+        "disable_agent_assistance",
+        "configure_agent_assistance",
         "set_event_detector_feedback",
         "set_event_detector_feedback_by_alert",
         "set_incident_feedback",
@@ -39748,6 +40125,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
                     ),
                 ),
+                ("repo", sgqlc.types.Arg(String, graphql_name="repo", default=None)),
             )
         ),
     )
@@ -39761,6 +40139,36 @@ class Mutation(sgqlc.types.Type):
       instead.
     * `installation_uuid` (`UUID!`): UUID of the installation to
       configure
+    * `repo` (`String`): Repository name for a per-repo override. Omit
+      for installation default.
+    """
+
+    delete_ci_gate_repo_override = sgqlc.types.Field(
+        DeleteCiGateRepoOverride,
+        graphql_name="deleteCiGateRepoOverride",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+                (
+                    "repo",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="repo", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a per-repo CI gate block_on override
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): UUID of the installation
+    * `repo` (`String!`): Repository name to remove the override for
     """
 
     delete_github_installation = sgqlc.types.Field(
@@ -44339,6 +44747,27 @@ class Mutation(sgqlc.types.Type):
 
     * `dry_run` (`Boolean`): Dry run? (default: `false`)
     * `namespace` (`String!`): Namespace of config template
+    """
+
+    triage_alerts = sgqlc.types.Field(
+        "TriageAlertsOutput",
+        graphql_name="triageAlerts",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TriageAlertsInput), graphql_name="input", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Triage up to 50 alerts in a single call.
+
+    Arguments:
+
+    * `input` (`TriageAlertsInput!`)None
     """
 
     set_sensitivity = sgqlc.types.Field(
@@ -49032,6 +49461,91 @@ class Mutation(sgqlc.types.Type):
     * `note` (`String`)None
     """
 
+    enable_agent_assistance = sgqlc.types.Field(
+        EnableAgentAssistance,
+        graphql_name="enableAgentAssistance",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Provision a per-domain agent user with default
+    capability cadences. Returns the parent domain — chain
+    ``agentAssistant`` to read the resulting agent state. Idempotent
+    on repeat calls.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain to enable
+      agent assistance for.
+    """
+
+    disable_agent_assistance = sgqlc.types.Field(
+        DisableAgentAssistance,
+        graphql_name="disableAgentAssistance",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Disable agent assistance on a domain — pauses
+    agent-created monitors and disables the agent's pipelines. The
+    agent user row is preserved so creator history on its monitors
+    stays intact. No-op if assistance was never enabled for the
+    domain.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the domain to disable agent
+      assistance for.
+    """
+
+    configure_agent_assistance = sgqlc.types.Field(
+        ConfigureAgentAssistance,
+        graphql_name="configureAgentAssistance",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "capabilities",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AgentCapabilitiesInput),
+                        graphql_name="capabilities",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update per-capability enabled-flag and cadence for
+    an agent-assisted domain. Capabilities omitted from the input are
+    left unchanged. Rejected when assistance has not been enabled.
+
+    Arguments:
+
+    * `capabilities` (`AgentCapabilitiesInput!`): Per-capability
+      patch. Capabilities omitted are left untouched.
+    * `domain_uuid` (`UUID!`): UUID of the agent-assisted metadata
+      domain to configure.
+    """
+
     set_event_detector_feedback = sgqlc.types.Field(
         "SetEventDetectorFeedback",
         graphql_name="setEventDetectorFeedback",
@@ -51864,6 +52378,10 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("repo_url", sgqlc.types.Arg(String, graphql_name="repoUrl", default=None)),
                 ("ssh_key", sgqlc.types.Arg(String, graphql_name="sshKey", default=None)),
+                (
+                    "ssl_options",
+                    sgqlc.types.Arg(SslInputOptions, graphql_name="sslOptions", default=None),
+                ),
                 ("token", sgqlc.types.Arg(String, graphql_name="token", default=None)),
                 ("username", sgqlc.types.Arg(String, graphql_name="username", default=None)),
             )
@@ -51881,6 +52399,11 @@ class Mutation(sgqlc.types.Type):
       [user@]server:project.git SSH integrations and
       htts://server/project.git for HTTPS integrations
     * `ssh_key` (`String`): SSH key, base64-encoded
+    * `ssl_options` (`SslInputOptions`): Optional SSL options for
+      HTTPS git clones against self-managed Git providers. Only
+      ca_data (inline PEM CA bundle) and skip_verification are honored
+      by the git subprocess; mechanism=dc-s3 and mechanism=url are
+      rejected. No-op for SSH integrations.
     * `token` (`String`): The access token for git HTTPS integrations
     * `username` (`String`): The git username for BitBucket
       integrations
@@ -58343,6 +58866,8 @@ class Query(sgqlc.types.Type):
         "get_airflow_tasks_for_source_and_destination_tables",
         "get_airflow_dag_runs",
         "get_airflow_capabilities",
+        "get_task_graph",
+        "get_job_dependencies",
         "get_tsa_analysis_result",
         "get_trace_rx_reports",
         "get_agent_memories",
@@ -67037,6 +67562,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -67106,6 +67635,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -67303,6 +67837,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -67372,6 +67910,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -67569,6 +68112,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -67638,6 +68185,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -67835,6 +68387,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -67904,6 +68460,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -68101,6 +68662,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -68170,6 +68735,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -68367,6 +68937,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -68436,6 +69010,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -68633,6 +69212,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -68702,6 +69285,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -68899,6 +69487,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -68968,6 +69560,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -69165,6 +69762,10 @@ class Query(sgqlc.types.Type):
                     "is_auto_created",
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
+                (
+                    "created_by_agent",
+                    sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -69234,6 +69835,11 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `created_by_agent` (`Boolean`): Filter monitors by whether their
+      creator is an agent user. When true, returns only monitors
+      created by an agent user. When false, returns only monitors
+      created by non-agent users. When null or omitted, no agent-
+      creator filter is applied.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -73012,6 +73618,10 @@ class Query(sgqlc.types.Type):
             (
                 ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
+                (
+                    "agent_assisted",
+                    sgqlc.types.Arg(Boolean, graphql_name="agentAssisted", default=None),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
@@ -73028,6 +73638,12 @@ class Query(sgqlc.types.Type):
 
     * `search` (`String`): Search domains by name
     * `domain_uuid` (`UUID`): Filter to a specific domain by UUID.
+    * `agent_assisted` (`Boolean`): Filter domains by whether they are
+      agent-assisted. A domain is agent-assisted when an agent user is
+      provisioned to it via an internal authorization group. When
+      true, returns only agent-assisted domains. When false, returns
+      only domains without a provisioned agent user. When null or
+      omitted, no agent-assistance filter is applied.
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
@@ -77735,6 +78351,10 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("user_email", sgqlc.types.Arg(String, graphql_name="userEmail", default=None)),
+                (
+                    "actor_role",
+                    sgqlc.types.Arg(AuditLogActorRole, graphql_name="actorRole", default=None),
+                ),
             )
         ),
     )
@@ -77761,6 +78381,12 @@ class Query(sgqlc.types.Type):
     * `api_call_references` (`[ApiCallReference]`): References (For
       instance UUIDs) that were passed as input to GraphQL API calls
     * `user_email` (`String`): Filter activity of a specific user
+    * `actor_role` (`AuditLogActorRole`): Filter activity by actor
+      role. When ``USER``, returns only entries whose actor is not a
+      known agent user for the account (entries for service or system
+      actors are included). When ``AGENT``, returns only entries whose
+      actor is an internal agent user. When omitted, no actor-role
+      filter is applied.
     """
 
     get_monitor_audit_logs = sgqlc.types.Field(
@@ -78431,6 +79057,67 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `etl_container_uuid` (`UUID`): UUID of ETL Container
+    """
+
+    get_task_graph = sgqlc.types.Field(
+        JobLineageGraph,
+        graphql_name="getTaskGraph",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return the intra-job task graph for the given job:
+    task nodes connected by IS_DOWNSTREAM edges. Edges that leave the
+    job (to tables, other jobs, or external assets) are filtered out.
+
+    Arguments:
+
+    * `job_mcon` (`String!`): MCON of the job whose intra-job task
+      graph should be returned.
+    """
+
+    get_job_dependencies = sgqlc.types.Field(
+        JobLineageGraph,
+        graphql_name="getJobDependencies",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
+                    ),
+                ),
+                (
+                    "direction",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(LineageGraphTraversalDirection),
+                        graphql_name="direction",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return the job- and external-asset-level dependency
+    graph for the given job. Result contains job nodes (jobs this one
+    triggers or that trigger it) and external asset nodes (e.g.
+    Airflow Datasets this job reads or writes).
+
+    Arguments:
+
+    * `job_mcon` (`String!`): MCON of the job whose dependency graph
+      should be returned.
+    * `direction` (`LineageGraphTraversalDirection!`): Direction to
+      traverse from the job: 'upstream' (jobs/external assets that
+      lead into this job) or 'downstream' (jobs this job triggers and
+      external assets this job produces).
     """
 
     get_tsa_analysis_result = sgqlc.types.Field(
@@ -86089,6 +86776,74 @@ class TransformScoringAnchor(sgqlc.types.Type):
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
 
 
+class TriageAgentRunResult(sgqlc.types.Type):
+    """Latest triage outcome for an incident produced by the alert
+    assessment agent.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "alert_confidence",
+        "alert_impact",
+        "alert_description",
+        "triage_summary",
+        "error_message",
+        "triaged_at",
+        "triaged_by_user",
+        "triaged_by_execution_id",
+    )
+    status = sgqlc.types.Field(sgqlc.types.non_null(TriageAgentRunStatus), graphql_name="status")
+
+    alert_confidence = sgqlc.types.Field(TriageScore, graphql_name="alertConfidence")
+    """Populated when status is COMPLETED."""
+
+    alert_impact = sgqlc.types.Field(TriageScore, graphql_name="alertImpact")
+    """Populated when status is COMPLETED."""
+
+    alert_description = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="alertDescription"
+    )
+
+    triage_summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="triageSummary")
+
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
+    """Populated when status is ERROR."""
+
+    triaged_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="triagedAt")
+    """When the triage run was started."""
+
+    triaged_by_user = sgqlc.types.Field(
+        sgqlc.types.non_null("UserOutput"), graphql_name="triagedByUser"
+    )
+    """User that initiated this triage run."""
+
+    triaged_by_execution_id = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="triagedByExecutionId"
+    )
+    """UUID of the AgenticPlatformPipelineExecution that produced this
+    row.
+    """
+
+
+class TriageAlertsOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("triggered_runs", "skipped_already_triaged_count")
+    triggered_runs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TriageAgentRunResult))),
+        graphql_name="triggeredRuns",
+    )
+    """Newly-created PENDING triage runs, one per dispatched execution."""
+
+    skipped_already_triaged_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="skippedAlreadyTriagedCount"
+    )
+    """Number of input incidents the caller had already triaged (any non-
+    ERROR row exists). ERROR rows do not count as already triaged —
+    they re-triage.
+    """
+
+
 class TriggerAgenticPlatformPipeline(sgqlc.types.Type):
     """Manually trigger a run of an agentic platform pipeline.  Execution
     rows are created synchronously and returned; the agents run
@@ -86655,7 +87410,10 @@ class UpdateBigQueryCredentialsV2Mutation(sgqlc.types.Type):
 
 
 class UpdateCiGateConfig(sgqlc.types.Type):
-    """Update CI gate policy configuration for a GitHub app installation."""
+    """Update CI gate policy configuration for a GitHub app installation.
+    When ``repo`` is provided, writes a per-repo override. When
+    omitted, writes the installation-wide default.
+    """
 
     __schema__ = schema
     __field_names__ = ("success",)
@@ -94597,6 +95355,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "excluded_tags",
         "assignments_with_properties",
         "excluded_assignments_with_properties",
+        "agent_assistant",
         "table_counts",
         "monitor_counts",
         "alert_counts",
@@ -94648,6 +95407,17 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         graphql_name="excludedAssignmentsWithProperties",
     )
     """Objects excluded from domains and their properties"""
+
+    agent_assistant = sgqlc.types.Field(AgentAssistant, graphql_name="agentAssistant")
+    """Agent assistance attached to this domain. Non-null for any
+    metadata domain that has had ``enableAgentAssistance`` called at
+    least once — the agent user is retained across
+    ``disableAgentAssistance`` to preserve ``creator_id`` history on
+    its monitors. A non-null value with all capabilities reporting
+    ``enabled: false`` indicates assistance is currently disabled. Use
+    the per-capability ``enabled`` flags to determine current
+    activity, not the nullness of this field.
+    """
 
     table_counts = sgqlc.types.Field(DomainTableCounts, graphql_name="tableCounts")
     """Table counts grouped by monitoring status"""
@@ -95685,6 +96455,7 @@ class Incident(sgqlc.types.Type, Node):
         "owner_full_name",
         "topology",
         "table_mcons",
+        "triage_result",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Effective ID of an incident"""
@@ -95957,6 +96728,11 @@ class Incident(sgqlc.types.Type, Node):
 
     table_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="tableMcons")
     """MCONs of tables directly impacted by the incident"""
+
+    triage_result = sgqlc.types.Field(TriageAgentRunResult, graphql_name="triageResult")
+    """Latest triage outcome for this incident, or null if it has never
+    been triaged. Status PENDING means a run is in flight.
+    """
 
 
 class JiraTicket(sgqlc.types.Type, NodeWithUUID):
@@ -98927,8 +99703,8 @@ class User(sgqlc.types.Type, Node):
     account = sgqlc.types.Field(Account, graphql_name="account")
 
     role = sgqlc.types.Field(String, graphql_name="role")
-    """User internal role. One of:  user, service, system. Check the
-    user's groups for their authorization roles
+    """User internal role. One of:  user, service, system, agent. Check
+    the user's groups for their authorization roles
     """
 
     auth = sgqlc.types.Field(UserAuthorizationOutput, graphql_name="auth")

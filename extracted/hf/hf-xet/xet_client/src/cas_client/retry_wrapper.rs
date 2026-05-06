@@ -4,21 +4,20 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use reqwest::{Error as ReqwestError, Response, StatusCode};
-use reqwest_retry::{Retryable, default_on_request_success};
 use tokio::sync::Mutex;
 use tokio_retry::RetryIf;
 use tokio_retry::strategy::{ExponentialBackoff, jitter};
 use tracing::{error, info};
-use xet_runtime::core::xet_config;
+use xet_runtime::core::XetContext;
 
 use super::adaptive_concurrency::ConnectionPermit;
-use super::error::CasClientError;
-use super::http_client::request_id_from_response;
+use crate::common::http_client::request_id_from_response;
+use crate::error::{ClientError, Result};
 
 #[derive(Debug)]
 pub enum RetryableReqwestError {
-    FatalError(CasClientError),
-    RetryableError(CasClientError),
+    FatalError(ClientError),
+    RetryableError(ClientError),
 }
 
 struct ConnectionPermitInfo {
@@ -31,18 +30,22 @@ pub struct RetryWrapper {
     base_delay: Duration,
     no_retry_on_429: bool,
     retry_on_403: bool,
+    expected_416: bool,
     log_errors_as_info: bool,
     api_tag: &'static str,
     connection_permit: Option<Mutex<ConnectionPermitInfo>>,
 }
 
 impl RetryWrapper {
-    pub fn new(api_tag: &'static str) -> Self {
+    pub fn new(ctx: XetContext, api_tag: &'static str) -> Self {
+        let max_attempts = ctx.config.client.retry_max_attempts;
+        let base_delay = ctx.config.client.retry_base_delay;
         Self {
-            max_attempts: xet_config().client.retry_max_attempts,
-            base_delay: xet_config().client.retry_base_delay,
+            max_attempts,
+            base_delay,
             no_retry_on_429: false,
             retry_on_403: false,
+            expected_416: false,
             log_errors_as_info: false,
             api_tag,
             connection_permit: None,
@@ -66,6 +69,11 @@ impl RetryWrapper {
 
     pub fn with_retry_on_403(mut self) -> Self {
         self.retry_on_403 = true;
+        self
+    }
+
+    pub fn with_expected_416(mut self) -> Self {
+        self.expected_416 = true;
         self
     }
 
@@ -102,7 +110,7 @@ impl RetryWrapper {
                 error!("{msg}");
             }
 
-            CasClientError::from(err)
+            ClientError::from(err)
         };
 
         // Here's the retry logic.
@@ -122,7 +130,11 @@ impl RetryWrapper {
         }
     }
 
-    fn process_ok_response(&self, try_idx: usize, resp: Response) -> Result<Response, RetryableReqwestError> {
+    fn process_ok_response(
+        &self,
+        try_idx: usize,
+        resp: Response,
+    ) -> std::result::Result<Response, RetryableReqwestError> {
         let request_id = request_id_from_response(&resp).to_owned();
 
         let retry_str = if try_idx == 0 {
@@ -140,7 +152,7 @@ impl RetryWrapper {
             } else {
                 error!("{context}: {api:?} api call failed (request id {request_id}{retry_str}): {err}");
             }
-            CasClientError::from(err)
+            ClientError::from(err)
         };
 
         let retriability = default_on_request_success(&resp);
@@ -151,15 +163,21 @@ impl RetryWrapper {
                 if e.status() == Some(StatusCode::FORBIDDEN) && self.retry_on_403 {
                     let cas_err = process_error("Retry on 403 (Forbidden) enabled)", e, true);
                     Err(RetryableReqwestError::RetryableError(cas_err))
+                } else if e.status() == Some(StatusCode::RANGE_NOT_SATISFIABLE) && self.expected_416 {
+                    let cas_err = process_error("Reached end of reconstruction 416 (Range Not Satisfiable)", e, true);
+                    Err(RetryableReqwestError::FatalError(cas_err))
                 } else {
                     let cas_err = process_error("Fatal Error", e, false);
                     Err(RetryableReqwestError::FatalError(cas_err))
                 }
             },
             (Err(e), Some(Retryable::Transient)) => {
-                // Intercept the too many requests condition in the case of no retrying on 429.
                 if e.status() == Some(StatusCode::TOO_MANY_REQUESTS) && self.no_retry_on_429 {
                     let cas_err = process_error("Too Many Requests (retry on 429 disabled)", e, false);
+                    Err(RetryableReqwestError::FatalError(cas_err))
+                } else if e.status() == Some(StatusCode::NOT_IMPLEMENTED) {
+                    // 501 is permanent -- the server won't implement this on retry.
+                    let cas_err = process_error("Not Implemented", e, true);
                     Err(RetryableReqwestError::FatalError(cas_err))
                 } else {
                     let cas_err = process_error("Retryable Error", e, true);
@@ -203,12 +221,12 @@ impl RetryWrapper {
         self,
         make_request: ReqFn,
         process_fn: ProcFn,
-    ) -> Result<T, CasClientError>
+    ) -> Result<T>
     where
         ReqFn: Fn() -> ReqFut + Send + Sync + 'static,
-        ReqFut: std::future::Future<Output = Result<Response, reqwest_middleware::Error>> + 'static,
+        ReqFut: std::future::Future<Output = std::result::Result<Response, reqwest_middleware::Error>> + 'static,
         ProcFn: Fn(Response) -> ProcFut + Send + 'static,
-        ProcFut: Future<Output = Result<T, RetryableReqwestError>> + 'static,
+        ProcFut: Future<Output = std::result::Result<T, RetryableReqwestError>> + 'static,
     {
         let strategy = ExponentialBackoff::from_millis(self.base_delay.as_millis().min(u64::MAX as u128) as u64)
             .map(jitter)
@@ -335,19 +353,16 @@ impl RetryWrapper {
     ///
     /// This functions acts just like the json() function on a client response, but retries the entire connection on
     /// transient errors.
-    pub async fn run_and_extract_json<JsonDest, ReqFn, ReqFut>(
-        self,
-        make_request: ReqFn,
-    ) -> Result<JsonDest, CasClientError>
+    pub async fn run_and_extract_json<JsonDest, ReqFn, ReqFut>(self, make_request: ReqFn) -> Result<JsonDest>
     where
         JsonDest: for<'de> serde::Deserialize<'de>,
         ReqFn: Fn() -> ReqFut + Send + Sync + 'static,
-        ReqFut: std::future::Future<Output = Result<Response, reqwest_middleware::Error>> + 'static,
+        ReqFut: std::future::Future<Output = std::result::Result<Response, reqwest_middleware::Error>> + 'static,
     {
         self.run_and_process(make_request, |resp: Response| {
             async move {
                 // Extract the json from the final result.
-                let r: Result<JsonDest, reqwest::Error> = resp.json().await;
+                let r: std::result::Result<JsonDest, reqwest::Error> = resp.json().await;
 
                 match r {
                     Ok(v) => Ok(v),
@@ -376,19 +391,19 @@ impl RetryWrapper {
     ///
     /// The `make_request` function returns a future that resolves to a Result<Response> object as is returned by the
     /// client middleware.  For example, `|| client.clone().get(url).send()` returns a future (as `send()` is async)
-    /// that will then be evaluatated to get the response.
+    /// that will then be evaluated to get the response.
     ///
     /// This functions acts just like the bytes() function on a client response, but retries the entire connection on
     /// transient errors.
-    pub async fn run_and_extract_bytes<ReqFut, ReqFn>(self, make_request: ReqFn) -> Result<Bytes, CasClientError>
+    pub async fn run_and_extract_bytes<ReqFut, ReqFn>(self, make_request: ReqFn) -> Result<Bytes>
     where
         ReqFn: Fn() -> ReqFut + Send + Sync + 'static,
-        ReqFut: std::future::Future<Output = Result<Response, reqwest_middleware::Error>> + 'static,
+        ReqFut: std::future::Future<Output = std::result::Result<Response, reqwest_middleware::Error>> + 'static,
     {
         self.run_and_process(make_request, |resp: Response| {
             async move {
                 // Extract the bytes from the final result.
-                let r: Result<Bytes, reqwest::Error> = resp.bytes().await;
+                let r: std::result::Result<Bytes, reqwest::Error> = resp.bytes().await;
 
                 match r {
                     Ok(v) => Ok(v),
@@ -429,12 +444,12 @@ impl RetryWrapper {
         self,
         make_request: ReqFn,
         parse: Parse,
-    ) -> Result<Dest, CasClientError>
+    ) -> Result<Dest>
     where
         ReqFn: Fn() -> ReqFut + Send + Sync + 'static,
-        ReqFut: std::future::Future<Output = Result<Response, reqwest_middleware::Error>> + 'static,
+        ReqFut: std::future::Future<Output = std::result::Result<Response, reqwest_middleware::Error>> + 'static,
         Parse: Fn(Response) -> ParseFut + Send + Sync + 'static,
-        ParseFut: std::future::Future<Output = Result<Dest, RetryableReqwestError>> + 'static,
+        ParseFut: std::future::Future<Output = std::result::Result<Dest, RetryableReqwestError>> + 'static,
     {
         self.run_and_process(make_request, parse).await
     }
@@ -444,13 +459,38 @@ impl RetryWrapper {
     /// The `make_request` function returns a future that resolves to a Result<Response> object as is returned by the
     /// client middleware.  For example, `|| client.clone().get(url).send()` returns a future (as `send()` is async)
     /// that will then be evaluated to get the response.
-    pub async fn run<ReqFut, ReqFn>(self, make_request: ReqFn) -> Result<Response, CasClientError>
+    pub async fn run<ReqFut, ReqFn>(self, make_request: ReqFn) -> Result<Response>
     where
         ReqFn: Fn() -> ReqFut + Send + Sync + 'static,
-        ReqFut: std::future::Future<Output = Result<Response, reqwest_middleware::Error>> + 'static,
+        ReqFut: std::future::Future<Output = std::result::Result<Response, reqwest_middleware::Error>> + 'static,
     {
         // Just have the process_fn pass through the response.
         self.run_and_process(make_request, |resp| async move { Ok(resp) }).await
+    }
+}
+
+/// Classifies a response status as retryable.
+///
+/// Equivalent to `reqwest_retry::default_on_request_success`:
+/// * 5XX (server error) -> Transient
+/// * 408 / 429 -> Transient
+/// * Other 4XX -> Fatal
+/// * 2XX -> None
+/// * Everything else -> Fatal
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Retryable {
+    Fatal,
+    Transient,
+}
+
+pub fn default_on_request_success(success: &Response) -> Option<Retryable> {
+    let status = success.status();
+    if status.is_server_error() || status == StatusCode::REQUEST_TIMEOUT || status == StatusCode::TOO_MANY_REQUESTS {
+        Some(Retryable::Transient)
+    } else if status.is_success() {
+        None
+    } else {
+        Some(Retryable::Fatal)
     }
 }
 
@@ -531,11 +571,18 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
+    use xet_runtime::config::XetConfig;
+    use xet_runtime::core::XetContext;
 
     use super::*;
 
+    fn test_context() -> XetContext {
+        let config = XetConfig::new();
+        XetContext::from_external(tokio::runtime::Handle::current(), config)
+    }
+
     fn connection_wrapper(api: &'static str) -> RetryWrapper {
-        RetryWrapper::new(api)
+        RetryWrapper::new(test_context(), api)
             .with_base_delay(Duration::from_millis(5))
             .with_max_attempts(3)
     }

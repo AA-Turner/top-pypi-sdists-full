@@ -140,6 +140,11 @@ REPOSITORIES: Dict[str, Repository] = {
         commit="d12af44559cd7e46f7afd513237f159f82f8402e",
         cache_path="fanuc_m710ic_description",
     ),
+    "flexiv_description": Repository(
+        url="https://github.com/flexivrobotics/flexiv_description.git",
+        commit="edb01274caf7eaf2ba722bbfdf2f23d717fee38e",
+        cache_path="flexiv_description",
+    ),
     "franka_description": Repository(
         url="https://github.com/frankarobotics/franka_description.git",
         commit="1aa4fd30e6e274cbf5e986a5af8004df32bad284",
@@ -220,7 +225,7 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "mujoco_menagerie": Repository(
         url="https://github.com/deepmind/mujoco_menagerie.git",
-        commit="bf756430b615819654b640f321c71ba5c3ebeef8",
+        commit="feadf76d42f8a2162426f7d226a3b539556b3bf5",
         cache_path="mujoco_menagerie",
     ),
     "nao_robot": Repository(
@@ -293,6 +298,11 @@ REPOSITORIES: Dict[str, Repository] = {
         commit="a65190bdbb0666609fe7e8c3bb17341e09e81625",
         cache_path="robotiq_arg85_description",
     ),
+    "robotiq_2f_85": Repository(
+        url="https://github.com/nickswalker/robotiq-2f-85.git",
+        commit="319f7b94587c97f09e732a7b2ed7babbe0250b9e",
+        cache_path="robotiq-2f-85",
+    ),
     "romeo_robot": Repository(
         url="https://github.com/ros-aldebaran/romeo_robot.git",
         commit="0.1.5",
@@ -322,6 +332,11 @@ REPOSITORIES: Dict[str, Repository] = {
         url="https://github.com/TheRobotStudio/SO-ARM100.git",
         commit="63eede5a636e548eb8f2854e558bd343c21db9f7",
         cache_path="SO-ARM100",
+    ),
+    "SO-ARM100-101-Parallel-Gripper": Repository(
+        url="https://github.com/roboninecom/SO-ARM100-101-Parallel-Gripper.git",
+        commit="ed44013818de822369d0f0c9461ae0c20a3e6bb8",
+        cache_path="SO-ARM100-101-Parallel-Gripper",
     ),
     "spryped": Repository(
         url="https://github.com/bbokser/spryped.git",

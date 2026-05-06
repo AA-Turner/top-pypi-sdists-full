@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class ProjectFieldEnum(str, Enum):
+    AFFILIATED_ORGANIZATIONS = "affiliated_organizations"
     BACKEND_ID = "backend_id"
     BILLING_PRICE_ESTIMATE = "billing_price_estimate"
     CREATED = "created"
@@ -31,6 +32,12 @@ class ProjectFieldEnum(str, Enum):
     OECD_FOS_2007_LABEL = "oecd_fos_2007_label"
     PROJECT_CREDIT = "project_credit"
     RESOURCES_COUNT = "resources_count"
+    SCIENCE_DOMAIN_CODE = "science_domain_code"
+    SCIENCE_DOMAIN_NAME = "science_domain_name"
+    SCIENCE_DOMAIN_UUID = "science_domain_uuid"
+    SCIENCE_SUB_DOMAIN = "science_sub_domain"
+    SCIENCE_SUB_DOMAIN_CODE = "science_sub_domain_code"
+    SCIENCE_SUB_DOMAIN_NAME = "science_sub_domain_name"
     SLUG = "slug"
     STAFF_NOTES = "staff_notes"
     START_DATE = "start_date"

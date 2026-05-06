@@ -9,6 +9,7 @@ import pytest
 import ruamel.yaml
 from dbt.contracts.results import CatalogResults
 
+from dbt_osmosis.core.introspection import SettingsResolver
 from dbt_osmosis.core.settings import (
     EMPTY_STRING,
     YamlRefactorContext,
@@ -36,7 +37,9 @@ class TestYamlRefactorSettings:
         assert settings.numeric_precision_and_scale is False
         assert settings.string_length is False
         assert settings.force_inherit_descriptions is False
+        assert settings.skip_inherit_descriptions is False
         assert settings.use_unrendered_descriptions is False
+        assert settings.skip_inheritance_for_meta_keys == []
         assert settings.add_inheritance_for_specified_keys == []
         assert settings.output_to_lower is False
         assert settings.catalog_path is None
@@ -59,7 +62,9 @@ class TestYamlRefactorSettings:
             numeric_precision_and_scale=True,
             string_length=True,
             force_inherit_descriptions=True,
+            skip_inherit_descriptions=True,
             use_unrendered_descriptions=True,
+            skip_inheritance_for_meta_keys=["expression", "doc_blocks"],
             add_inheritance_for_specified_keys=["custom_field", "another_field"],
             output_to_lower=True,
             catalog_path="/path/to/catalog.json",
@@ -78,7 +83,9 @@ class TestYamlRefactorSettings:
         assert settings.numeric_precision_and_scale is True
         assert settings.string_length is True
         assert settings.force_inherit_descriptions is True
+        assert settings.skip_inherit_descriptions is True
         assert settings.use_unrendered_descriptions is True
+        assert settings.skip_inheritance_for_meta_keys == ["expression", "doc_blocks"]
         assert settings.add_inheritance_for_specified_keys == ["custom_field", "another_field"]
         assert settings.output_to_lower is True
         assert settings.catalog_path == "/path/to/catalog.json"
@@ -94,9 +101,34 @@ class TestYamlRefactorSettings:
         # Should not have _catalog as it's init=False
         assert not hasattr(settings, "_catalog")
 
+    def test_skip_inherit_descriptions_resolves_from_context_settings(self):
+        """Runtime skip-inherit-descriptions participates in SettingsResolver."""
+        context = mock.Mock()
+        context.settings = YamlRefactorSettings(skip_inherit_descriptions=True)
+        context.project.runtime_cfg.vars = {}
+
+        resolver = SettingsResolver()
+
+        assert (
+            resolver.resolve(
+                "skip-inherit-descriptions",
+                context=context,
+                fallback=context.settings.skip_inherit_descriptions,
+            )
+            is True
+        )
+
 
 class TestYamlRefactorContext:
     """Test suite for YamlRefactorContext dataclass."""
+
+    class RecordingThreadPoolExecutor:
+        """Small test double that records construction-time worker count."""
+
+        def __init__(self, *, max_workers):
+            self.constructed_max_workers = max_workers
+            self._max_workers = max_workers
+            self.shutdown = Mock()
 
     @pytest.fixture(scope="function")
     def mock_project_context(self):
@@ -156,6 +188,48 @@ class TestYamlRefactorContext:
 
         # Check catalog
         assert context._catalog is None
+
+    def test_context_constructs_default_pool_with_dbt_threads(
+        self,
+        mock_project_context,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Default pool should be constructed with dbt threads, not mutated after creation."""
+        monkeypatch.setattr(
+            "dbt_osmosis.core.settings.ThreadPoolExecutor",
+            self.RecordingThreadPoolExecutor,
+        )
+
+        context = YamlRefactorContext(project=mock_project_context)
+
+        assert context.pool.constructed_max_workers == 4
+        assert context.pool._max_workers == 4
+
+    def test_context_preserves_custom_pool_worker_count(self, mock_project_context):
+        """A caller-supplied pool should not be resized by YamlRefactorContext."""
+        custom_pool = self.RecordingThreadPoolExecutor(max_workers=2)
+
+        context = YamlRefactorContext(project=mock_project_context, pool=custom_pool)
+
+        assert context.pool is custom_pool
+        assert custom_pool._max_workers == 2
+
+    def test_context_constructs_default_pool_with_cpu_formula_without_dbt_threads(
+        self,
+        mock_project_context,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """When dbt threads are unavailable, use ThreadPoolExecutor's old default formula."""
+        mock_project_context.runtime_cfg.threads = 0
+        monkeypatch.setattr("dbt_osmosis.core.settings.os.cpu_count", lambda: 2)
+        monkeypatch.setattr(
+            "dbt_osmosis.core.settings.ThreadPoolExecutor",
+            self.RecordingThreadPoolExecutor,
+        )
+
+        context = YamlRefactorContext(project=mock_project_context)
+
+        assert context.pool.constructed_max_workers == 6
 
     def test_context_with_custom_settings(self, mock_project_context):
         """Test YamlRefactorContext with custom settings."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: telegramify-markdown
-Version: 1.1.3
+Version: 1.1.4
 Summary: Convert Markdown to Telegram plain text + MessageEntity pairs
 Author-Email: sudoskys <coldlando@hotmail.com>
 License: MIT

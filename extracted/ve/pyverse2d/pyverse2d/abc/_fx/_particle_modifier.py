@@ -1,9 +1,6 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-# ======================================== ABSTRACT CLASS ========================================
-from __future__ import annotations
-
 import numpy as np
 from abc import abstractmethod
 from numbers import Real

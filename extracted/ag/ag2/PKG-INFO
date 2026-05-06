@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.12.2
+Version: 0.12.3
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -42,7 +42,7 @@ Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'a2a'
+Requires-Dist: a2a-sdk[http-server]<2,>=1.0.2; extra == 'a2a'
 Provides-Extra: a2ui
 Requires-Dist: jsonschema<5,>=4.0.0; extra == 'a2ui'
 Provides-Extra: ag-ui
@@ -58,7 +58,7 @@ Requires-Dist: boto3>=1.34.149; extra == 'bedrock'
 Provides-Extra: blendsearch
 Requires-Dist: flaml[blendsearch]; extra == 'blendsearch'
 Provides-Extra: browser-use
-Requires-Dist: browser-use<1.0,>=0.3.1; extra == 'browser-use'
+Requires-Dist: browser-use<1.0,>=0.3.1; (python_version >= '3.11') and extra == 'browser-use'
 Requires-Dist: langchain-google-vertexai<3.0,>=2.0; extra == 'browser-use'
 Provides-Extra: captainagent
 Requires-Dist: chromadb<1.4,>=1.3.0; extra == 'captainagent'
@@ -82,24 +82,25 @@ Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'crawl4ai'
 Provides-Extra: dashscope
 Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
 Provides-Extra: daytona
-Requires-Dist: daytona>=0.1.0; extra == 'daytona'
+Requires-Dist: daytona<1,>=0.171.0; extra == 'daytona'
 Provides-Extra: ddgs
 Requires-Dist: ddgs<10,>=9.0.0; extra == 'ddgs'
 Provides-Extra: deepseek
 Requires-Dist: openai<2.34,>=1.99.3; extra == 'deepseek'
 Provides-Extra: dev
-Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'dev'
+Requires-Dist: a2a-sdk[http-server]<2,>=1.0.2; extra == 'dev'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'dev'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'dev'
 Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'dev'
 Requires-Dist: cairosvg; extra == 'dev'
 Requires-Dist: codespell==2.4.1; extra == 'dev'
 Requires-Dist: dashscope>=1.25.13; extra == 'dev'
+Requires-Dist: daytona<1,>=0.171.0; extra == 'dev'
 Requires-Dist: ddgs<10,>=9.0.0; extra == 'dev'
 Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'dev'
-Requires-Dist: docker>=6.0.0; extra == 'dev'
-Requires-Dist: exa-py<3,>=2.0.0; extra == 'dev'
+Requires-Dist: docker<8,>=6.0.0; extra == 'dev'
+Requires-Dist: exa-py<3,>=2.12.1; extra == 'dev'
 Requires-Dist: fastapi==0.116.1; extra == 'dev'
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'dev'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'dev'
@@ -140,6 +141,7 @@ Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'dev'
 Requires-Dist: pytest==9.0.3; extra == 'dev'
 Requires-Dist: pyyaml==6.0.2; extra == 'dev'
 Requires-Dist: redis<7,>=5.0; extra == 'dev'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'dev'
 Requires-Dist: ruff==0.14.14; extra == 'dev'
 Requires-Dist: tavily-python<0.8,>=0.7.4; extra == 'dev'
 Requires-Dist: termcolor==3.1.0; extra == 'dev'
@@ -158,16 +160,17 @@ Requires-Dist: zizmor==1.11.0; extra == 'dev'
 Provides-Extra: diskcache
 Requires-Dist: diskcache; extra == 'diskcache'
 Provides-Extra: docker
-Requires-Dist: docker>=6.0.0; extra == 'docker'
+Requires-Dist: docker<8,>=6.0.0; extra == 'docker'
 Provides-Extra: docs
-Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'docs'
+Requires-Dist: a2a-sdk[http-server]<2,>=1.0.2; extra == 'docs'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
 Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'docs'
 Requires-Dist: cairosvg; extra == 'docs'
 Requires-Dist: dashscope>=1.25.13; extra == 'docs'
+Requires-Dist: daytona<1,>=0.171.0; extra == 'docs'
 Requires-Dist: ddgs<10,>=9.0.0; extra == 'docs'
-Requires-Dist: docker>=6.0.0; extra == 'docs'
-Requires-Dist: exa-py<3,>=2.0.0; extra == 'docs'
+Requires-Dist: docker<8,>=6.0.0; extra == 'docs'
+Requires-Dist: exa-py<3,>=2.12.1; extra == 'docs'
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'docs'
 Requires-Dist: google-api-core; extra == 'docs'
 Requires-Dist: google-auth; extra == 'docs'
@@ -203,7 +206,7 @@ Requires-Dist: watchdog<7,>=4.0; extra == 'docs'
 Provides-Extra: duckduckgo
 Requires-Dist: duckduckgo-search>=8.0.2; extra == 'duckduckgo'
 Provides-Extra: exa
-Requires-Dist: exa-py<3,>=2.0.0; extra == 'exa'
+Requires-Dist: exa-py<3,>=2.12.1; extra == 'exa'
 Provides-Extra: flaml
 Requires-Dist: flaml; extra == 'flaml'
 Requires-Dist: numpy<2.0.0,>=1.24.0; (python_version < '3.13') and extra == 'flaml'
@@ -256,7 +259,7 @@ Provides-Extra: interop-pydantic-ai
 Requires-Dist: fasta2a; extra == 'interop-pydantic-ai'
 Requires-Dist: pydantic-ai<1.79,>=1.0.12; extra == 'interop-pydantic-ai'
 Provides-Extra: jupyter-executor
-Requires-Dist: docker>=6.0.0; extra == 'jupyter-executor'
+Requires-Dist: docker<8,>=6.0.0; extra == 'jupyter-executor'
 Requires-Dist: ipykernel>=6.29.0; extra == 'jupyter-executor'
 Requires-Dist: jupyter-client>=8.6.0; extra == 'jupyter-executor'
 Requires-Dist: jupyter-kernel-gateway; extra == 'jupyter-executor'
@@ -326,7 +329,7 @@ Requires-Dist: webdriver-manager==4.0.2; extra == 'rag'
 Provides-Extra: redis
 Requires-Dist: redis<7,>=5.0; extra == 'redis'
 Provides-Extra: remyx
-Requires-Dist: docker>=6.0.0; extra == 'remyx'
+Requires-Dist: docker<8,>=6.0.0; extra == 'remyx'
 Requires-Dist: remyxai>=0.2.0; extra == 'remyx'
 Provides-Extra: retrievechat
 Requires-Dist: beautifulsoup4; extra == 'retrievechat'
@@ -384,7 +387,7 @@ Requires-Dist: chromadb; extra == 'teachable'
 Provides-Extra: test
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'test'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test'
-Requires-Dist: docker>=6.0.0; extra == 'test'
+Requires-Dist: docker<8,>=6.0.0; extra == 'test'
 Requires-Dist: fastapi==0.116.1; extra == 'test'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'test'
 Requires-Dist: ipykernel==7.1.0; extra == 'test'
@@ -396,6 +399,7 @@ Requires-Dist: pytest-asyncio==1.3.0; extra == 'test'
 Requires-Dist: pytest-cov==6.3.0; extra == 'test'
 Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test'
 Requires-Dist: pytest==9.0.3; extra == 'test'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'test'
 Provides-Extra: test-core
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test-core'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'test-core'
@@ -403,8 +407,9 @@ Requires-Dist: pytest-asyncio==1.3.0; extra == 'test-core'
 Requires-Dist: pytest-cov==6.3.0; extra == 'test-core'
 Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test-core'
 Requires-Dist: pytest==9.0.3; extra == 'test-core'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'test-core'
 Provides-Extra: tinyfish
-Requires-Dist: tinyfish>=0.2.3; extra == 'tinyfish'
+Requires-Dist: tinyfish>=0.2.3; (python_version >= '3.11') and extra == 'tinyfish'
 Provides-Extra: together
 Requires-Dist: together>=1.2; extra == 'together'
 Provides-Extra: tracing
@@ -415,11 +420,11 @@ Requires-Dist: fastapi<1,>=0.115.0; extra == 'twilio'
 Requires-Dist: twilio>=9.3.2; extra == 'twilio'
 Requires-Dist: uvicorn<1,>=0.30.6; extra == 'twilio'
 Provides-Extra: types
-Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'types'
+Requires-Dist: a2a-sdk[http-server]<2,>=1.0.2; extra == 'types'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'types'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'types'
 Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'types'
-Requires-Dist: docker>=6.0.0; extra == 'types'
+Requires-Dist: docker<8,>=6.0.0; extra == 'types'
 Requires-Dist: fastapi==0.116.1; extra == 'types'
 Requires-Dist: freezegun<2,>=1.5.5; extra == 'types'
 Requires-Dist: ipykernel==7.1.0; extra == 'types'
@@ -433,6 +438,7 @@ Requires-Dist: pytest-asyncio==1.3.0; extra == 'types'
 Requires-Dist: pytest-cov==6.3.0; extra == 'types'
 Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'types'
 Requires-Dist: pytest==9.0.3; extra == 'types'
+Requires-Dist: respx<0.24.0,>=0.23.0; extra == 'types'
 Requires-Dist: types-aiofiles; extra == 'types'
 Requires-Dist: types-decorator; extra == 'types'
 Requires-Dist: types-pycurl; extra == 'types'
@@ -453,7 +459,7 @@ Provides-Extra: wikipedia
 Requires-Dist: wikipedia-api<1.0,>=0.8.1; extra == 'wikipedia'
 Provides-Extra: yepcode
 Requires-Dist: python-dotenv; extra == 'yepcode'
-Requires-Dist: yepcode-run>=1.6.1; extra == 'yepcode'
+Requires-Dist: yepcode-run>=1.6.1; (python_version >= '3.11') and extra == 'yepcode'
 Description-Content-Type: text/markdown
 
 <a name="readme-top"></a>
@@ -540,7 +546,7 @@ For a step-by-step walk through of AG2 concepts and code, see [Basic Concepts](h
 
 ### Installation
 
-AG2 requires **Python version >= 3.10, < 3.14**. AG2 is available via `ag2` (or its alias `autogen`) on PyPI.
+AG2 requires **Python version >= 3.10**. AG2 is available via `ag2` (or its alias `autogen`) on PyPI.
 
 **Windows/Linux:**
 ```bash

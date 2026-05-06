@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: magic-wormhole
-Version: 0.23.0
+Version: 0.24.0
 Summary: Securely transfer data between computers
 Home-page: https://github.com/warner/magic-wormhole
 Author: Brian Warner

@@ -6,6 +6,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.identity_bridge_request_gender_enum import IdentityBridgeRequestGenderEnum
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="IdentityBridgeRequestRequest")
@@ -25,10 +26,11 @@ class IdentityBridgeRequestRequest:
         civil_number (Union[Unset, str]):
         phone_number (Union[Unset, str]):
         identity_source (Union[Unset, str]):
-        gender (Union[None, Unset, int]):
+        gender (Union[IdentityBridgeRequestGenderEnum, None, Unset]):
         personal_title (Union[Unset, str]):
         birth_date (Union[None, Unset, datetime.date]):
         place_of_birth (Union[Unset, str]):
+        address (Union[Unset, str]):
         country_of_residence (Union[Unset, str]):
         nationality (Union[Unset, str]):
         nationalities (Union[Unset, list[str]]):
@@ -47,10 +49,11 @@ class IdentityBridgeRequestRequest:
     civil_number: Union[Unset, str] = UNSET
     phone_number: Union[Unset, str] = UNSET
     identity_source: Union[Unset, str] = UNSET
-    gender: Union[None, Unset, int] = UNSET
+    gender: Union[IdentityBridgeRequestGenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
     birth_date: Union[None, Unset, datetime.date] = UNSET
     place_of_birth: Union[Unset, str] = UNSET
+    address: Union[Unset, str] = UNSET
     country_of_residence: Union[Unset, str] = UNSET
     nationality: Union[Unset, str] = UNSET
     nationalities: Union[Unset, list[str]] = UNSET
@@ -82,9 +85,11 @@ class IdentityBridgeRequestRequest:
 
         identity_source = self.identity_source
 
-        gender: Union[None, Unset, int]
+        gender: Union[None, Unset, str]
         if isinstance(self.gender, Unset):
             gender = UNSET
+        elif isinstance(self.gender, IdentityBridgeRequestGenderEnum):
+            gender = self.gender.value
         else:
             gender = self.gender
 
@@ -99,6 +104,8 @@ class IdentityBridgeRequestRequest:
             birth_date = self.birth_date
 
         place_of_birth = self.place_of_birth
+
+        address = self.address
 
         country_of_residence = self.country_of_residence
 
@@ -148,6 +155,8 @@ class IdentityBridgeRequestRequest:
             field_dict["birth_date"] = birth_date
         if place_of_birth is not UNSET:
             field_dict["place_of_birth"] = place_of_birth
+        if address is not UNSET:
+            field_dict["address"] = address
         if country_of_residence is not UNSET:
             field_dict["country_of_residence"] = country_of_residence
         if nationality is not UNSET:
@@ -186,12 +195,20 @@ class IdentityBridgeRequestRequest:
 
         identity_source = d.pop("identity_source", UNSET)
 
-        def _parse_gender(data: object) -> Union[None, Unset, int]:
+        def _parse_gender(data: object) -> Union[IdentityBridgeRequestGenderEnum, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                gender_type_0 = IdentityBridgeRequestGenderEnum(data)
+
+                return gender_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[IdentityBridgeRequestGenderEnum, None, Unset], data)
 
         gender = _parse_gender(d.pop("gender", UNSET))
 
@@ -215,6 +232,8 @@ class IdentityBridgeRequestRequest:
         birth_date = _parse_birth_date(d.pop("birth_date", UNSET))
 
         place_of_birth = d.pop("place_of_birth", UNSET)
+
+        address = d.pop("address", UNSET)
 
         country_of_residence = d.pop("country_of_residence", UNSET)
 
@@ -243,6 +262,7 @@ class IdentityBridgeRequestRequest:
             personal_title=personal_title,
             birth_date=birth_date,
             place_of_birth=place_of_birth,
+            address=address,
             country_of_residence=country_of_residence,
             nationality=nationality,
             nationalities=nationalities,

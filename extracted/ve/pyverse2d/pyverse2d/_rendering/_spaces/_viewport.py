@@ -50,8 +50,7 @@ class Viewport(Space):
         if __debug__:
             positive(width, arg="width")
             positive(height, arg="height")
-            if x_direction.is_collinear(y_direction):
-                raise ValueError("A basis cannot have collinear direction vectors")
+            if x_direction.is_collinear(y_direction): raise ValueError("A basis cannot have collinear direction vectors")
 
         # Attributs publiques
         self._position: Point = position
@@ -109,7 +108,8 @@ class Viewport(Space):
     @width.setter
     def width(self, value: Real):
         value = float(value)
-        assert value >= 0.0, f"width ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._width = value
 
     @property
@@ -123,7 +123,8 @@ class Viewport(Space):
     @height.setter
     def height(self, value: Real):
         value = float(value)
-        assert value >= 0.0, f"heighr ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._height = value
 
     @property
@@ -186,7 +187,7 @@ class Viewport(Space):
             fb_height: hauteur du framebuffer
         """
         x = int(self._position.x)
-        y  = int(self._position.y)
+        y = int(self._position.y)
         width = int(self._width) if self._width != 0.0 else fb_width
         height = int(self._height) if self._height != 0.0 else fb_height
         return (x, y, width, height)

@@ -91,6 +91,11 @@ class Workbook(ItemWithOwnerAndAcl):
             self._definition['Name'] = _common.DEFAULT_WORKBOOK_NAME
 
     @property
+    def real(self):
+        # This will get overridden in the WorkbookFolderRef case
+        return self
+
+    @property
     def url(self):
         # Note that 'URL' won't be filled in if a workbook/worksheet hasn't been pushed/pulled. That's because the
         # IDs may change from the placeholders that get generated.
@@ -206,7 +211,7 @@ class Workbook(ItemWithOwnerAndAcl):
             if specific_worksheet_ids is not None and worksheet.id not in specific_worksheet_ids:
                 continue
 
-            if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
                 new_worksheet_id = worksheet.id
             else:
                 new_worksheet_id = item_map[worksheet.id]
@@ -496,14 +501,13 @@ class Workbook(ItemWithOwnerAndAcl):
                 item_map = ItemMap()
 
             if len(self.worksheets) == 0:
-                raise SPyValueError('Workbook %s must have at least one worksheet before pushing' % self)
+                raise SPyValueError(f'{self} must have at least one worksheet before pushing')
 
             # Handle in-place datasource swap mode
-            if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
                 return self._push_in_place_datasource_swap(context, item_map)
 
-            datasource_output = _metadata.create_datasource(session, self._push_context.datasource,
-                                                            status=status, dry_run=context.dry_run)
+            datasource_output = context.datasource_output
 
             # When Workbook Templates were originally created, the Data ID was set to the ID of the workbook which has
             # the label appended to it. This made Template pushes incompatible with plain workbooks pushed with a label,
@@ -547,7 +551,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 workbook_input.name = self.definition['Name']
                 workbook_input.description = _common.get(self.definition, 'Description')
                 workbook_input.folder_id = folder_id if folder_id != _common.PATH_ROOT else None
-                workbook_input.owner_id = self.decide_owner(context, item_map, owner=context.owner)
+                workbook_input.owner_id = self.decide_owner(context, item_map, owner=context.current_params.owner)
                 workbook_input.type = self['Workbook Type']
                 workbook_input.branch_from = _common.get(self.definition, 'Branch From')
 
@@ -582,11 +586,11 @@ class Workbook(ItemWithOwnerAndAcl):
                     else:
                         status.log(f'[Dry Run] Would un-archive existing workbook {workbook_output.id}')
 
-                if (self._push_context.specific_worksheet_ids is None or
-                        len(self._push_context.specific_worksheet_ids) > 0):
+                if (self._push_context.current_params.specific_worksheet_ids is None or
+                        len(self._push_context.current_params.specific_worksheet_ids) > 0):
                     existing_worksheet_identifiers = self._get_existing_worksheet_identifiers(workbook_output)
 
-                owner_id = self.decide_owner(context, item_map, owner=context.owner,
+                owner_id = self.decide_owner(context, item_map, owner=context.current_params.owner,
                                              current_owner_id=workbook_output.owner.id)
 
                 self._push_owner_and_location(session, workbook_output, owner_id, folder_id, status,
@@ -597,7 +601,7 @@ class Workbook(ItemWithOwnerAndAcl):
 
                 item_map[self.id] = workbook_output.id
 
-                if context.access_control:
+                if context.current_params.access_control:
                     self._push_acl(context, workbook_output.id, item_map)
 
             if include_inventory:
@@ -624,8 +628,8 @@ class Workbook(ItemWithOwnerAndAcl):
 
             first_worksheet_id = None
             for worksheet in self.worksheets:  # type: Worksheet
-                if (self._push_context.specific_worksheet_ids is not None and
-                        worksheet.id not in self._push_context.specific_worksheet_ids):
+                if (self._push_context.current_params.specific_worksheet_ids is not None and
+                        worksheet.id not in self._push_context.current_params.specific_worksheet_ids):
                     continue
 
                 if context.dry_run and workbook_output is None:
@@ -644,7 +648,7 @@ class Workbook(ItemWithOwnerAndAcl):
                     first_worksheet_id = worksheet_output.id
 
             dependencies_not_found = set()
-            if self._push_context.specific_worksheet_ids is None:
+            if self._push_context.current_params.specific_worksheet_ids is None:
                 if context.dry_run and workbook_output is None:
                     status.log(f'[Dry Run] Would reorder and archive worksheets but workbook was not created')
                 else:
@@ -652,15 +656,16 @@ class Workbook(ItemWithOwnerAndAcl):
 
             # Now go back through all the worksheets to see if any worksteps weren't resolved
             for worksheet in self.worksheets:
-                if (self._push_context.specific_worksheet_ids is not None and
-                        worksheet.id not in self._push_context.specific_worksheet_ids):
+                if (self._push_context.current_params.specific_worksheet_ids is not None and
+                        worksheet.id not in self._push_context.current_params.specific_worksheet_ids):
                     continue
 
                 dependencies_not_found.update(worksheet.find_unresolved_worksteps(item_map))
 
-            if context.include_annotations and self._annotation is not None:
+            if context.current_params.include_annotations and self._annotation is not None:
                 self._annotation.push(context, workbook_output.id, workbook_output.id, item_map,
-                                      datasource_output, context.access_control, push_images=True, label=label)
+                                      datasource_output, context.current_params.access_control, push_images=True,
+                                      label=label)
 
             if workbook_output is not None:
                 link_url = Workbook.construct_url(
@@ -830,6 +835,8 @@ class Workbook(ItemWithOwnerAndAcl):
             except SPyDependencyNotFound as e:
                 if not e.intentional_no_mapping:
                     self._push_context.status.on_error(e)
+                else:
+                    self._push_context.status.log(str(e), level=logging.INFO)
             except Exception:
                 # Note: This universal catch is more permissive than the newer CRAB-30955 error handling so this
                 #  is kept for backwards compatibility
@@ -859,7 +866,7 @@ class Workbook(ItemWithOwnerAndAcl):
         self._push_context.status.log(f'Attempting to find {len(raw_references)} existing items by ID')
         references = Workbook._fill_in_item_search_preview_on_references(self._push_context.status, raw_references)
         items_api = ItemsApi(self._push_context.session.client)
-        item_exists: Dict[str, (ItemExists, Optional[ItemSearchPreviewV1])] = dict()
+        item_exists: Dict[str, Tuple[ItemExists, Optional[ItemSearchPreviewV1]]] = dict()
         for reference in references:
             if reference.item_search_preview is not None:
                 item_exists[reference.id] = (ItemExists.YES, reference.item_search_preview)
@@ -983,7 +990,8 @@ class Workbook(ItemWithOwnerAndAcl):
 
         inner_status = self._push_context.status.create_inner('Push accumulated metadata', errors='catalog')
         return _metadata.push(self._push_context.session, metadata_df, workbook_context, datasource_output,
-                              inner_status, cleanse_data_ids=self._push_context.reconcile_inventory_by == 'name',
+                              inner_status,
+                              cleanse_data_ids=self._push_context.current_params.reconcile_inventory_by == 'name',
                               default_to_local=False, validate_ui_configs=False)
 
     def _push_in_place_datasource_swap(self, context: WorkbookPushContext, item_map: ItemMap):
@@ -1024,10 +1032,11 @@ class Workbook(ItemWithOwnerAndAcl):
             self._push_in_place_datasource_swap_worksheet(context, self, worksheet, item_map)
 
         # Push annotations if they have changed (handled in worksheet/workstep push)
-        if context.include_annotations and self._annotation is not None:
+        if context.current_params.include_annotations and self._annotation is not None:
             status.log(f'Pushing workbook-level annotation for {self}')
             self._annotation.push(context, self.id, self.id, item_map,
-                                  datasource_output, context.access_control, push_images=False, label=None)
+                                  datasource_output, context.current_params.access_control, push_images=False,
+                                  label=None)
 
         # Construct URL for the workbook
         link_url = Workbook.construct_url(session, None, self.id, None)
@@ -1082,10 +1091,10 @@ class Workbook(ItemWithOwnerAndAcl):
                 )
 
         # Push worksheet-level annotations if they exist
-        if context.include_annotations and worksheet.annotation is not None:
+        if context.current_params.include_annotations and worksheet.annotation is not None:
             status.log(f'Processing worksheet-level annotation for {worksheet}')
             worksheet.annotation.push(context, workbook.id, worksheet.id, item_map,
-                                      None, context.access_control, push_images=False, label=None)
+                                      None, context.current_params.access_control, push_images=False, label=None)
 
     def _push_in_place_datasource_swap_calculated_items(self, context: WorkbookPushContext, item_map: ItemMap):
         """
@@ -1109,7 +1118,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 status.log(f'Skipping {item} - already explicitly mapped')
                 continue
 
-            if context.global_inventory == 'do not touch' and _common.get(item, 'Scoped To') is None:
+            if context.current_params.global_inventory == 'do not touch' and _common.get(item, 'Scoped To') is None:
                 status.log(f'Skipping global {item} -- global_inventory set to "do not touch"')
                 continue
 
@@ -1199,7 +1208,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 status.log(message, level=logging.ERROR)
                 self._push_errors.add(message)
 
-    def _create_folder_path_if_necessary(self, context: WorkbookPushContext, path: str, owner: str, item_map: ItemMap):
+    def _create_folder_path_if_necessary(self, context: WorkbookPushContext, path: str, owner_id: str):
         session = context.session
         status = context.status
 
@@ -1229,9 +1238,6 @@ class Workbook(ItemWithOwnerAndAcl):
 
         status.log(f'Creating folder path "{path}" if it does not already exist')
 
-        owner_id = session.user.id
-        if owner is not None:
-            owner_id = self.decide_owner(context, item_map, owner=owner)
         parent_id = None
         folder_id = None
         folder_filter = 'owner'
@@ -1260,7 +1266,12 @@ class Workbook(ItemWithOwnerAndAcl):
                 if owner_id == session.user.id:
                     parent_id = session.my_folder.id
                 else:
-                    parent_id = session.get_user_folder(owner_id).id
+                    user_folder = _folder.create_user_folder_if_necessary(context, owner_id)
+                    if user_folder is None:
+                        # This can happen in a dry run where the user folder needs to be created
+                        return None
+
+                    parent_id = user_folder.id
 
                 folder_id = parent_id
                 continue
@@ -1323,12 +1334,16 @@ class Workbook(ItemWithOwnerAndAcl):
 
         return folder_id
 
-    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
+    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, use_full_path,
                                 path, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
         session = context.session
         status = context.status
 
-        parent_folder_id = self._create_folder_path_if_necessary(context, path, owner, item_map)
+        owner_id = session.user.id
+        if owner is not None:
+            owner_id = self.decide_owner(context, item_map, owner=owner)
+
+        parent_folder_id = self._create_folder_path_if_necessary(context, path, owner_id)
         search_folder_id = parent_folder_id
 
         if 'Ancestors' not in self:
@@ -1343,12 +1358,17 @@ class Workbook(ItemWithOwnerAndAcl):
 
         keep_skipping = parent_folder_id in self['Ancestors']
         create_folders_now = False
+        skip_next = False
         if parent_folder_id == _folder.ORIGINAL_FOLDER:
             parent_folder_id = None
             keep_skipping = False
             create_folders_now = True
 
         for ancestor_id in self['Ancestors']:
+            if skip_next:
+                skip_next = False
+                continue
+
             if keep_skipping and parent_folder_id == ancestor_id:
                 keep_skipping = False
                 status.log(f'Skipping creation of ancestor folder {ancestor_id}; it is the existing parent folder.')
@@ -1360,24 +1380,59 @@ class Workbook(ItemWithOwnerAndAcl):
 
             if create_folders_now:
                 if ancestor_id == _folder.CORPORATE:
+                    if parent_folder_id is not None:
+                        status.log(f'Skipping {ancestor_id} folder level; parent path has been specified')
+                        continue
+
                     if not session.corporate_folder:
                         raise SPyRuntimeError(f'Attempting to push to Corporate folder but user does not have access')
                     status.log(f'Mapping {ancestor_id} to Corporate folder')
                     parent_folder_id = session.corporate_folder.id
                 elif ancestor_id in (_folder.ALL, _folder.SHARED_OR_PUBLIC, _folder.SHARED,
                                      _folder.PUBLIC, _folder.MY_FOLDER):
-                    status.log(f'Root folder is {ancestor_id}; mapping to user home folder')
+                    if parent_folder_id is not None:
+                        status.log(f'Skipping {ancestor_id} folder level; parent path has been specified')
+                    else:
+                        status.log(f'Root folder is {ancestor_id}; mapping to user home folder')
                     continue
                 elif ancestor_id == _folder.USERS:
+                    if parent_folder_id is not None:
+                        status.log(f'Skipping {ancestor_id} folder level; parent path has been specified')
+
+                        # The next ancestor is the user's home folder, which we shouldn't look at if the user
+                        # specified a path argument
+                        skip_next = True
+                        continue
+
                     # We'll fall through to the next clause to map to an actual User home folder
-                    status.log(f"Skipping {ancestor_id} folder level; mapping to user's home folder")
+                    status.log(f"Skipping {ancestor_id} folder level; mapping to owner's home folder")
+                    parent_folder_id = _folder.USERS
                     continue
                 elif ancestor_id in self.item_inventory:
                     folder = self.item_inventory[ancestor_id]  # type: Folder
 
+                    if parent_folder_id == _folder.USERS:
+                        # In this case, we are pushing to the owner's home folder (as specified by the owner argument)
+                        # We ignore the ancestor_id and just retrieve the home folder directly.
+                        if owner_id == session.user.id:
+                            parent_folder = session.my_folder
+                        else:
+                            parent_folder = _folder.create_user_folder_if_necessary(context, owner_id)
+
+                        if not context.dry_run and parent_folder is None:
+                            owner_reference = f'{owner} ({owner_id})' if owner is not None else owner_id
+                            raise SPyRuntimeError(
+                                f'Home folder for owner "{owner_reference}" '
+                                'does not exist on the target server. Cannot push.'
+                            )
+
+                        status.log(f'Mapped owner\'s {folder} to "{parent_folder.name}" ({parent_folder.id})')
+                        parent_folder_id = parent_folder.id
+                        continue
+
                     status.log(
-                        f'Creating ancestor folder "{folder}" under parent folder ID {parent_folder_id}')
-                    parent_folder = folder.push(context, parent_folder_id, datasource_output,
+                        f'Creating ancestor {folder} under parent folder ID {parent_folder_id}')
+                    parent_folder = folder.push(context, parent_folder_id, context.datasource_output,
                                                 item_map, owner=owner, label=label)
 
                     if parent_folder is None:
@@ -1593,7 +1648,11 @@ class Workbook(ItemWithOwnerAndAcl):
         datasource_maps = DatasourceMapList()
         for datasource_map_file in datasource_map_files:
             with util.safe_open(datasource_map_file, 'r', encoding='utf-8') as f:
-                datasource_map = json.load(f)
+                try:
+                    datasource_map = json.load(f)
+                except json.JSONDecodeError as e:
+                    raise SPyRuntimeError(f'Error reading datasource map JSON file {datasource_map_file}:\n{e}')
+
                 datasource_map['File'] = datasource_map_file
 
                 # Specifying Override = True causes the StoredItem push code to try to look up an item based on the map

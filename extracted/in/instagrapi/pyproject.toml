@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagrapi"
-version = "2.5.11"
+version = "2.5.13"
 authors = [
     {name = "Mark Subzeroid", email = "143403577+subzeroid@users.noreply.github.com"}
 ]
@@ -51,7 +51,7 @@ keywords = [
     "instagram-note",
 ]
 dependencies = [
-    "requests==2.33.0",
+    "requests==2.33.1",
     "PySocks==1.7.1",
     "pydantic==2.13.3",
     "moviepy==1.0.3",
@@ -59,15 +59,18 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/subzeroid/instagrapi"
+Homepage = "https://instagrapi.com"
 Repository = "https://github.com/subzeroid/instagrapi"
+Documentation = "https://subzeroid.github.io/instagrapi/"
+Issues = "https://github.com/subzeroid/instagrapi/issues"
+Guides = "https://instagrapi.com/guides/"
 
 [project.optional-dependencies]
 test = [
     "flake8==7.3.0",
     "Pillow==12.2.0",
-    "isort==7.0.0",
-    "bandit==1.8.6",
+    "isort==8.0.1",
+    "bandit==1.9.4",
     "mike==2.2.0",
     # mike implicitly imports pkg_resources from setuptools — see
     # https://github.com/jimporter/mike/issues/148

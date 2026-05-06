@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eralchemy"
-version = "1.6.0"
+version = "1.7.0"
 description = "Simple entity relation (ER) diagrams generation"
 authors = [
   { name = "Alexis Benoist", email = "Alexis-benoist@users.noreply.github.com"},
@@ -24,7 +24,7 @@ classifiers=[
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Database",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
   "sqlalchemy >= 1.4.18"
 ]
@@ -36,7 +36,7 @@ repository = "https://github.com/eralchemy/eralchemy"
 [project.optional-dependencies]
 test = [
   "flask-sqlalchemy >= 2.5.1",
-  "psycopg2 >= 2.9.3",
+  "psycopg2-binary >= 2.9.3",
   "pytest >= 7.4.3",
   "pytest-cov",
   "pygraphviz >= 1.9",
@@ -59,9 +59,7 @@ docs = [
 eralchemy = "eralchemy.main:cli"
 
 [tool.pytest]
-testpaths = "tests"
-
-[tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = ["external_db"]
 
 [tool.mypy]

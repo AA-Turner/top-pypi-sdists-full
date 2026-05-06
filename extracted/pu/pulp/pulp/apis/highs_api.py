@@ -175,9 +175,12 @@ class HiGHS_CMD(LpSolver_CMD):
         if len(model_line) > 0:
             model_status = " ".join(model_line[0][3:])  # Model status: ...
         else:
-            # ILP
-            model_line = [line for line in lines if "Status" in line][0]
-            model_status = " ".join(model_line[1:])
+            # ILP / MIP logs (format varies; time-limited runs may omit status lines)
+            mip_status_lines = [line for line in lines if "Status" in line]
+            if mip_status_lines:
+                model_status = " ".join(mip_status_lines[0][1:])
+            else:
+                model_status = ""
         sol_line = [line for line in lines if line[:2] == ["Solution", "status"]]
         sol_line = sol_line[0] if len(sol_line) > 0 else ["Not solved"]
         sol_status = sol_line[-1]
@@ -382,7 +385,7 @@ class HiGHS(LpSolver):
                         var.index, highspy.HighsVarType.kInteger
                     )
 
-            for i, constraint in enumerate(lp.constraints.values()):
+            for i, constraint in enumerate(lp._constraints.values()):
                 non_zero_constraint_items = [
                     (var.index, coefficient)
                     for var, coefficient in constraint.items()
@@ -492,7 +495,7 @@ class HiGHS(LpSolver):
                 var.varValue = col_values[var.index]
                 var.dj = col_duals[var.index]
 
-            constraints_list = list(lp.constraints.values())
+            constraints_list = list(lp._constraints.values())
             row_values = list(solution.row_value)
             row_duals = list(solution.row_dual)
             for constraint in constraints_list:
@@ -526,7 +529,7 @@ class HiGHS(LpSolver):
             for var in lp.variables():
                 var.modified = False
 
-            for constraint in lp.constraints.values():
+            for constraint in lp._constraints.values():
                 constraint.modifier = False
 
             lp.assignStatus(status, sol_status)

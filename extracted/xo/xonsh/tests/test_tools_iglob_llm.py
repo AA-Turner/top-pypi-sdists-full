@@ -147,18 +147,43 @@ def test_empty_pattern_returns_empty():
 
 
 @skip_on_windows
-def test_dotfiles_excluded_by_default(tree):
-    # '.*' matches nothing because dotfiles are filtered out before
-    # the casefold compare. (Note: this differs from glob.iglob, which
-    # includes dotfiles when explicitly anchored at '.'; the helper
-    # follows xonsh's $DOTGLOB semantics.)
-    out = sorted(_case_insensitive_iglob(".*"))
+def test_bare_wildcard_excludes_dotfiles_by_default(tree):
+    # Bare '*' (no leading '.') hides dotfiles by default — matches
+    # stdlib glob with include_hidden=False.
+    out = sorted(_case_insensitive_iglob("*"))
     assert ".hidden" not in out
+    assert "README.md" in out
+
+
+@skip_on_windows
+def test_explicit_dot_wildcard_matches_dotfiles(tree):
+    # A wildcard segment whose pattern starts with '.' is an explicit
+    # request for hidden names, so the dotfile filter is bypassed even
+    # with include_dotfiles=False. Mirrors stdlib glob, where
+    # glob.glob('.*', include_hidden=False) returns dotfile entries.
+    out = sorted(_case_insensitive_iglob(".*"))
+    assert ".hidden" in out
+
+
+@skip_on_windows
+def test_literal_hidden_segment_is_traversed(tmp_path):
+    # A literal segment that happens to start with '.' (no glob meta)
+    # must always be traversed — otherwise paths like '~/.config/<Tab>'
+    # cannot be completed without flipping a global flag.
+    hidden = tmp_path / ".foo"
+    hidden.mkdir()
+    (hidden / "a.txt").touch()
+    (hidden / "b.txt").touch()
+    pattern = str(hidden / "*")
+    out = sorted(_case_insensitive_iglob(pattern, include_dotfiles=False))
+    assert out == [str(hidden / "a.txt"), str(hidden / "b.txt")]
 
 
 @skip_on_windows
 def test_dotfiles_included_when_requested(tree):
-    out = sorted(_case_insensitive_iglob(".*", include_dotfiles=True))
+    # include_dotfiles=True shows hidden names even when the wildcard
+    # itself doesn't anchor at '.'.
+    out = sorted(_case_insensitive_iglob("*", include_dotfiles=True))
     assert ".hidden" in out
 
 
@@ -235,3 +260,95 @@ def test_non_directory_in_path_returns_empty(tree):
     # error and must return empty.
     out = list(_case_insensitive_iglob(str(tree / "README.md" / "anything")))
     assert out == []
+
+
+# ---------- '.' / '..' / trailing-slash navigation ---------------------
+#
+# os.listdir() never yields '.' or '..', so segment-by-segment walking
+# would treat them as missing entries unless they are handled as literal
+# path-walking segments. Same for the empty trailing segment after a
+# trailing slash. These tests pin the behavior against stdlib glob.
+
+
+@skip_on_windows
+def test_dot_dot_wildcard_lists_parent(tree):
+    # 'cd ../' expands to '../*' before reaching iglob. The walker must
+    # yield the parent directory's contents — this is the regression
+    # from issue #6403 where 'cd ../<Tab>' produced no completions.
+    out = sorted(_case_insensitive_iglob("../*"))
+    # ``tree`` is one of the entries the parent should list.
+    assert os.path.join("..", tree.name) in out
+
+
+@skip_on_windows
+def test_dot_dot_literal_yields_parent(tree):
+    # Bare '..' yields '..' (matches stdlib glob('..') == ['..']).
+    assert list(_case_insensitive_iglob("..")) == [".."]
+
+
+@skip_on_windows
+def test_dot_dot_trailing_slash_preserves_separator(tree):
+    # '../' should yield '../' (preserved trailing slash), not '..' —
+    # mirroring stdlib glob and what 'cd ../' visually expects.
+    assert list(_case_insensitive_iglob("../")) == [".." + os.sep]
+
+
+@skip_on_windows
+def test_dot_dot_in_middle_of_absolute_path(tree):
+    # '..' segments mid-path must be traversed literally so callers
+    # like 'cd /tmp/../etc/<Tab>' resolve through the parent.
+    target = tree / "Foo" / ".." / "README.md"
+    out = list(_case_insensitive_iglob(str(target)))
+    assert out == [str(target)]
+
+
+@skip_on_windows
+def test_dot_dot_in_middle_of_relative_path(tree):
+    # Relative variant: 'Foo/../README.md' walks Foo, climbs back, lands
+    # on README.md. Result keeps the literal '..' (no normpath collapse)
+    # to match stdlib glob.
+    out = list(_case_insensitive_iglob(os.path.join("Foo", "..", "README.md")))
+    assert out == [os.path.join("Foo", "..", "README.md")]
+
+
+@skip_on_windows
+def test_dot_dot_dot_dot_wildcard(tree):
+    # Two-level climb: '../../' must reach the grandparent. Use the
+    # fixture's parent's parent name as a known entry.
+    grandparent = tree.parent.parent
+    out = sorted(_case_insensitive_iglob("../../*"))
+    # tree.parent.name is one entry in the grandparent.
+    assert os.path.join("..", "..", tree.parent.name) in out
+    # Also confirm grandparent matches what we computed manually.
+    assert grandparent.is_dir()
+
+
+@skip_on_windows
+def test_trailing_slash_on_named_dir_preserves_separator(tree):
+    # Standalone trailing-slash test (no '..'): 'Foo/' must yield 'Foo/'
+    # rather than 'Foo'. This matches stdlib glob and avoids stripping
+    # the user-typed separator in path-completion display.
+    assert list(_case_insensitive_iglob("Foo/")) == ["Foo" + os.sep]
+
+
+@skip_on_windows
+def test_dot_dot_is_listdir_independent(tree, mocker):
+    # '..' navigation must NOT depend on os.listdir of the cur path —
+    # otherwise sandbox/EACCES setups would break parent traversal.
+    # Listing fails everywhere; we still want '../README.md' to resolve
+    # because '..' is handled literally.
+    real_listdir = os.listdir
+    target_parent = tree
+    fake = {str(target_parent), str(target_parent / "..")}
+
+    def listdir_selective(path):
+        if str(path) in fake:
+            raise PermissionError(13, "Permission denied")
+        return real_listdir(path)
+
+    mocker.patch("os.listdir", side_effect=listdir_selective)
+    # 'README.md' is in tree; stepping out and back in must still find it
+    # via the literal-path EACCES fallback for the README segment, while
+    # the '..' segment itself never touches listdir.
+    out = list(_case_insensitive_iglob(os.path.join("..", tree.name, "README.md")))
+    assert out == [os.path.join("..", tree.name, "README.md")]

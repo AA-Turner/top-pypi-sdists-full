@@ -91,8 +91,8 @@ register_form_field_override(
     override={"widget": widgets.SlugInput},
 )
 
-# Remove the following block when the minimum Django version is >= 5.0.
-if (5, 0) <= DJANGO_VERSION < (6, 0):
+# Remove the following block when the minimum Django version is >= 6.0.
+if DJANGO_VERSION < (6, 0):
     register_form_field_override(
         models.URLField,
         override={"assume_scheme": "https"},
@@ -136,12 +136,21 @@ class WagtailAdminModelForm(
         self.for_user = kwargs.get("for_user")
         self.deferred_required_fields = []
         self.deferred_formset_min_nums = {}
+        self.is_deferred_validation = False
         super().__init__(*args, **kwargs)
 
     def defer_required_fields(self):
-        if self.deferred_required_fields or self.deferred_formset_min_nums:
+        if self.is_deferred_validation:
             # defer_required_fields has already been called
             return
+        self.is_deferred_validation = True
+
+        for field in self.fields.values():
+            # Set a flag on the field to indicate a deferred validation
+            # is in effect, regardless of its required attribute and regardless
+            # of whether it was added to defer_required_on_fields, to allow
+            # custom form fields to adjust their validation behavior accordingly.
+            field.is_deferred_validation = True
 
         for field_name in self._meta.defer_required_on_fields:
             try:
@@ -159,6 +168,9 @@ class WagtailAdminModelForm(
                 formset.min_num = 0
 
     def restore_required_fields(self):
+        if not self.is_deferred_validation:
+            # Has been restored or defer_required_fields has not been called
+            return
         for name, formset in self.formsets.items():
             for form in formset:
                 form.restore_required_fields()
@@ -169,6 +181,11 @@ class WagtailAdminModelForm(
         for field_name in self.deferred_required_fields:
             self.fields[field_name].required = True
         self.deferred_required_fields = []
+
+        for field in self.fields.values():
+            del field.is_deferred_validation
+
+        self.is_deferred_validation = False
 
     def get_field_updates_for_resave(self):
         """

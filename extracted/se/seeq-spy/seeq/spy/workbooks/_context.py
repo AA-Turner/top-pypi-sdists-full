@@ -88,29 +88,52 @@ class WorkbookPushMode:
 
 
 @dataclass
-class WorkbookPushContext:
-    access_control: Optional[str]
-    datasource: Optional[str]
-    dummy_items_workbook_context: Optional[Any]
-    include_annotations: Optional[bool]
-    override_max_interp: Optional[bool]
+class WorkbookPushParameters:
+    path: Optional[str]
     owner: Optional[str]
-    reconcile_inventory_by: str
-    global_inventory: str
-    session: Session
+    label: Optional[str]
+    mode: str
+    use_full_path: bool
+    access_control: Optional[str]
+    override_max_interp: bool
+    include_inventory: Optional[bool]
+    include_annotations: bool
     specific_worksheet_ids: Optional[List[str]]
+    create_dummy_items_in_workbook: Optional[str]
+    assume_dependencies_exist: bool
+    reconcile_inventory_by: str
+    global_inventory: Optional[str]
+
+
+@dataclass
+class WorkbookPushContext:
+    dummy_items_workbook_context: Optional[Any]
+    session: Session
     pushed_inventory: Optional[Dict[str, pd.DataFrame]]
     status: Status
     dry_run: bool
-    mode: str = WorkbookPushMode.NORMAL
+    datasource_output: Optional[Any] = None
+    datasource_map_overrides: DatasourceMapList = field(default_factory=DatasourceMapList)
     datasource_maps: Optional[DatasourceMapList] = None
     datasource_id_cache: Dict[Tuple[str, str], str] = field(default_factory=dict)
-    failed_mappings: Set[str] = field(default_factory=set)
+    failed_mappings: Dict[str, SPyDependencyNotFound] = field(default_factory=dict)
     intentional_no_mappings: Set[str] = field(default_factory=set)
     errors_displayed_count: int = 0
     annotations_to_fixup: Dict[str, Any] = field(default_factory=dict)
     all_users: Optional[List[UserOutputV1]] = None
     all_groups: Optional[List[IdentityPreviewV1]] = None
+    _current_params: Optional[WorkbookPushParameters] = None
+
+    @property
+    def current_params(self) -> WorkbookPushParameters:
+        if self._current_params is None:
+            raise RuntimeError('WorkbookPushContext.current_params accessed when it is not set')
+
+        return self._current_params
+
+    @current_params.setter
+    def current_params(self, params: Optional[WorkbookPushParameters]):
+        self._current_params = params
 
     def add_server_scoped_item_level_map_files(self, datasource_map_list: DatasourceMapList):
         # These "server-scoped item-level map files" serve as a sort of cache, one that

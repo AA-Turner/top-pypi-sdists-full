@@ -1,8 +1,8 @@
 # pylint:disable=raise-missing-from
 from __future__ import annotations
 
-from typing import TypeVar, Generic, cast, TYPE_CHECKING, overload
-from collections.abc import Iterator, Generator
+from typing import TypeVar, cast, TYPE_CHECKING, overload
+from collections.abc import Generator
 from collections import OrderedDict, UserDict
 import logging
 import collections.abc
@@ -19,7 +19,7 @@ import networkx
 from archinfo.arch_soot import SootMethodDescriptor
 import cle
 from cachetools import LRUCache
-from sortedcontainers import SortedKeysView, SortedItemsView, SortedValuesView
+from sortedcontainers import SortedDict, SortedList, SortedKeysView, SortedItemsView, SortedValuesView
 
 from angr.errors import SimEngineError
 from angr.codenode import FuncNode, HookNode
@@ -36,15 +36,6 @@ if TYPE_CHECKING:
     from angr import KnowledgeBase
     from angr.knowledge_plugins.rtdb import RuntimeDb
 
-    class SortedDict(Generic[K, T], dict[K, T]):
-        def irange(self, *args, **kwargs) -> Iterator[K]: ...
-
-    class SortedList(Generic[K], list[K]):
-        def irange(self, *args, **kwargs) -> Iterator[K]: ...
-        def add(self, value: K) -> None: ...
-
-else:
-    from sortedcontainers import SortedDict, SortedList
 
 QUERY_PATTERN = re.compile(r"^(::(.+?))?::(.+)$")
 ADDR_PATTERN = re.compile(r"^(0x[\dA-Fa-f]+)|(\d+)$")
@@ -56,7 +47,7 @@ _missing = object()
 USE_SPILLING_FUNCTION_DICT = os.environ.get("USE_SPILLING_FUNCTION_DICT", "True").lower() not in ("0", "false", "no")
 
 
-class FunctionDictBase(Generic[K]):
+class FunctionDictBase[K: (int, SootMethodDescriptor)]:
     """
     Base class for FunctionDict and SpillingFunctionDict.
     """
@@ -667,7 +658,7 @@ class SpillingFunctionDict(UserDict[K, Function], FunctionDictBase[K]):
         self._evict_n(self.cached_count)
 
 
-class FunctionManager(Generic[K], KnowledgeBasePlugin, collections.abc.Mapping[K, Function]):
+class FunctionManager[K: (int, SootMethodDescriptor)](KnowledgeBasePlugin, collections.abc.Mapping[K, Function]):
     """
     When cache_limit is set, the FunctionManager uses a SpillingFunctionDict
     that implements an LRU cache keeping only the most recently accessed N functions

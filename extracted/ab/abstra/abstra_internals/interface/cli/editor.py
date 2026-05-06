@@ -3,6 +3,7 @@ import ssl
 import subprocess
 import sys
 import threading
+from typing import Optional
 
 import certifi
 from dotenv import load_dotenv
@@ -33,6 +34,8 @@ from abstra_internals.repositories.producer import (
 )
 from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
+from abstra_internals.services.requirements import RequirementsChangeNotifier
+from abstra_internals.services.web_editor_heartbeat import WebEditorHeartbeat
 from abstra_internals.settings import Settings
 from abstra_internals.signals import SignalHandlers
 from abstra_internals.stdio_patcher import StdioPatcher
@@ -198,7 +201,25 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         repositories = build_editor_repositories(local_queue)
 
     main_controller = MainController(repositories)
-    main_controller.reset_repositories()
+
+    heartbeat: Optional[WebEditorHeartbeat] = None
+    if is_web_editor:
+        heartbeat = WebEditorHeartbeat()
+        if heartbeat.is_stale():
+            AbstraLogger.info(
+                "[Editor] Heartbeat older than staleness threshold, "
+                "cleaning shared storage"
+            )
+            main_controller.reset_repositories()
+        else:
+            AbstraLogger.info(
+                "[Editor] Heartbeat is fresh, skipping reset_repositories "
+                "to preserve shared storage"
+            )
+        heartbeat.start()
+    else:
+        main_controller.reset_repositories()
+
     StdioPatcher.apply(main_controller)
 
     codebase_event_controller = CodebaseEventController(repositories)
@@ -211,6 +232,10 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         ]
     )
     watcher.start()
+
+    RequirementsChangeNotifier.register(
+        CodebaseEventController.notify_requirements_changed
+    )
 
     # Run all linters once on startup in a background thread
     def _initial_lint():
@@ -251,7 +276,7 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         shutdown_started.set()
         shutdown_editor_components(
             server=server,
-            watchers=(watcher, logs_watcher, tasks_watcher),
+            watchers=(watcher, logs_watcher, tasks_watcher, heartbeat),
             editor_consumer=editor_consumer,
             consumer_controller=consumer_controller,
             stdio_broadcast_stop_event=stdio_broadcast_stop_event,

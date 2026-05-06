@@ -2203,12 +2203,6 @@ class UpdateAnycastIpListRequestTypeDef(TypedDict):
     IpamCidrConfigs: NotRequired[Sequence[IpamCidrConfigTypeDef]]
 
 
-class CreateKeyValueStoreRequestTypeDef(TypedDict):
-    Name: str
-    Comment: NotRequired[str]
-    ImportSource: NotRequired[ImportSourceTypeDef]
-
-
 class CreateKeyValueStoreResultTypeDef(TypedDict):
     KeyValueStore: KeyValueStoreTypeDef
     ETag: str
@@ -3762,6 +3756,13 @@ class CreateDistributionTenantRequestTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
 
+class CreateKeyValueStoreRequestTypeDef(TypedDict):
+    Name: str
+    Comment: NotRequired[str]
+    ImportSource: NotRequired[ImportSourceTypeDef]
+    Tags: NotRequired[TagsUnionTypeDef]
+
+
 class CreateTrustStoreRequestTypeDef(TypedDict):
     Name: str
     CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
@@ -4018,6 +4019,7 @@ class CreateFunctionRequestTypeDef(TypedDict):
     Name: str
     FunctionConfig: FunctionConfigUnionTypeDef
     FunctionCode: BlobTypeDef
+    Tags: NotRequired[TagsUnionTypeDef]
 
 
 class UpdateConnectionFunctionRequestTypeDef(TypedDict):

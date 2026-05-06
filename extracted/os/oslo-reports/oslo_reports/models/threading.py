@@ -19,6 +19,7 @@ thread, and stack trace data models
 """
 
 import traceback
+from types import FrameType
 
 from oslo_reports.models import with_default_views as mwdv
 from oslo_reports.views.text import threading as text_views
@@ -33,11 +34,10 @@ class StackTraceModel(mwdv.ModelWithDefaultViews):
     :param stack_state: the python stack_state object
     """
 
-    def __init__(self, stack_state):
-        super().__init__(
-            text_view=text_views.StackTraceView())
+    def __init__(self, stack_state: FrameType | None) -> None:
+        super().__init__(text_view=text_views.StackTraceView())
 
-        if (stack_state is not None):
+        if stack_state is not None:
             self['lines'] = [
                 {'filename': fn, 'line': ln, 'name': nm, 'code': cd}
                 for fn, ln, nm, cd in traceback.extract_stack(stack_state)
@@ -46,8 +46,9 @@ class StackTraceModel(mwdv.ModelWithDefaultViews):
             # anymore so we lose information about exceptions
             if getattr(stack_state, 'f_exc_type', None) is not None:
                 self['root_exception'] = {
-                    'type': stack_state.f_exc_type,
-                    'value': stack_state.f_exc_value}
+                    'type': getattr(stack_state, 'f_exc_type'),
+                    'value': getattr(stack_state, 'f_exc_value'),
+                }
             else:
                 self['root_exception'] = None
         else:
@@ -71,7 +72,7 @@ class ThreadModel(mwdv.ModelWithDefaultViews):
     """
 
     # threadId, stack in sys._current_frams().items()
-    def __init__(self, thread_id, stack):
+    def __init__(self, thread_id: int, stack: FrameType) -> None:
         super().__init__(text_view=text_views.ThreadView())
 
         self['thread_id'] = thread_id
@@ -94,7 +95,8 @@ class GreenThreadModel(mwdv.ModelWithDefaultViews):
     """
 
     # gr in greenpool.coroutines_running  --> gr.gr_frame
-    def __init__(self, stack):
+    def __init__(self, stack: FrameType | None) -> None:
         super().__init__(
             {'stack_trace': StackTraceModel(stack)},
-            text_view=text_views.GreenThreadView())
+            text_view=text_views.GreenThreadView(),
+        )

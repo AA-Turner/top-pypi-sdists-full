@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyx12"
-version = "3.1.0"
+version = "4.0.0"
 description = "HIPAA X12 validator, parser and converter"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -38,8 +38,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "coverage",
-    "black>=23.0",
-    "isort>=5.12",
+    "ruff>=0.6",
     "build>=1.0",
     "twine>=4.0",
     "mypy>=1.10",
@@ -47,10 +46,14 @@ dev = [
 docs = [
     "sphinx>=7.0",
     "furo>=2024.1",
+    "myst-parser>=2.0",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autodoc-typehints>=2.0",
+    "sphinx-autoapi>=3.0",
 ]
 
 [project.urls]
-Homepage = "http://github.com/azoner/pyx12"
+Homepage = "https://github.com/azoner/pyx12"
 Repository = "https://github.com/azoner/pyx12.git"
 Documentation = "https://pyx12.readthedocs.io/"
 
@@ -62,21 +65,37 @@ x12norm = "pyx12.scripts.x12norm:main"
 x12xml = "pyx12.scripts.x12xml:main"
 xmlx12 = "pyx12.scripts.xmlx12:main"
 
-[tool.setuptools]
-packages = ["pyx12", "pyx12.scripts"]
+[tool.setuptools.packages.find]
+# Ship every pyx12 sub-package; exclude dev-only directories. Using `find`
+# (rather than an explicit list) so future sub-packages are picked up
+# automatically — the previous explicit list silently dropped pyx12.map_if
+# when it was added in PR #129, breaking `pip install` (RTD, PyPI release).
+include = ["pyx12", "pyx12.*"]
+exclude = ["pyx12.test*", "pyx12.tests*", "pyx12.examples*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.xml", "*.md"]
-pyx12 = ["map/*.xml", "map/*.xsd"]
+pyx12 = ["map/*.xml", "map/*.xsd", "map/*.dtd", "map/README*"]
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-target-version = ['py311', 'py312', 'py313', 'py314']
+target-version = "py311"
 
-[tool.isort]
-profile = "black"
-line_length = 100
-multi_line_output = 3
+[tool.ruff.lint]
+select = ["F", "I", "UP", "B904"]
+# UP031 (printf-string-formatting) is opted out: the project's `%`-format
+# strings format integers (line numbers, counts, codes) where ruff can't
+# guarantee a safe f-string conversion. Defer as a separate manual sweep.
+ignore = ["UP031"]
+
+# Test, examples, scripts, and map-generation helpers are loose with locals
+# (assignment-only stubs, *-imports, undefined names tolerated for clarity).
+# Match the mypy strict-overrides set in [[tool.mypy.overrides]] below.
+[tool.ruff.lint.per-file-ignores]
+"pyx12/test/*" = ["F401", "F403", "F405", "F821", "F841"]
+"pyx12/tests/*" = ["F401", "F403", "F405", "F821", "F841"]
+"pyx12/examples/*" = ["F401", "F403", "F405", "F821", "F841"]
+"pyx12/scripts/*" = ["F401", "F403", "F405", "F821", "F841"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -103,3 +122,21 @@ disallow_untyped_calls = false
 disallow_incomplete_defs = false
 check_untyped_defs = false
 disallow_untyped_decorators = false
+
+[tool.coverage.run]
+omit = [
+    "*/python?.?/*",
+    "*/lib-python/?.?/*.py",
+    "*/lib_pypy/_*.py",
+    "*/pyx12/test/*",
+    "*/pyx12/scripts/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "def debug_print",
+]

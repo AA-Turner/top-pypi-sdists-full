@@ -16,12 +16,14 @@ def _get_kwargs(
     *,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -29,6 +31,8 @@ def _get_kwargs(
     params["identifier"] = identifier
 
     params["local_identifier"] = local_identifier
+
+    params["o"] = o
 
     params["page"] = page
 
@@ -47,6 +51,8 @@ def _get_kwargs(
     if not isinstance(project_uuid, Unset):
         json_project_uuid = str(project_uuid)
     params["project_uuid"] = json_project_uuid
+
+    params["query"] = query
 
     json_state: Union[Unset, list[str]] = UNSET
     if not isinstance(state, Unset):
@@ -99,12 +105,14 @@ def sync_detailed(
     client: AuthenticatedClient,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> Response[list["ManagedProject"]]:
     """List all managed projects
@@ -112,12 +120,14 @@ def sync_detailed(
     Args:
         identifier (Union[Unset, str]):
         local_identifier (Union[Unset, str]):
+        o (Union[Unset, str]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         project (Union[Unset, str]):
         project_template (Union[Unset, str]):
         project_template_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
+        query (Union[Unset, str]):
         state (Union[Unset, list[RemoteProjectUpdateRequestStateEnum]]):
 
     Raises:
@@ -131,12 +141,14 @@ def sync_detailed(
     kwargs = _get_kwargs(
         identifier=identifier,
         local_identifier=local_identifier,
+        o=o,
         page=page,
         page_size=page_size,
         project=project,
         project_template=project_template,
         project_template_uuid=project_template_uuid,
         project_uuid=project_uuid,
+        query=query,
         state=state,
     )
 
@@ -152,12 +164,14 @@ def sync(
     client: AuthenticatedClient,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> list["ManagedProject"]:
     """List all managed projects
@@ -165,12 +179,14 @@ def sync(
     Args:
         identifier (Union[Unset, str]):
         local_identifier (Union[Unset, str]):
+        o (Union[Unset, str]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         project (Union[Unset, str]):
         project_template (Union[Unset, str]):
         project_template_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
+        query (Union[Unset, str]):
         state (Union[Unset, list[RemoteProjectUpdateRequestStateEnum]]):
 
     Raises:
@@ -185,12 +201,14 @@ def sync(
         client=client,
         identifier=identifier,
         local_identifier=local_identifier,
+        o=o,
         page=page,
         page_size=page_size,
         project=project,
         project_template=project_template,
         project_template_uuid=project_template_uuid,
         project_uuid=project_uuid,
+        query=query,
         state=state,
     ).parsed
 
@@ -200,12 +218,14 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> Response[list["ManagedProject"]]:
     """List all managed projects
@@ -213,12 +233,14 @@ async def asyncio_detailed(
     Args:
         identifier (Union[Unset, str]):
         local_identifier (Union[Unset, str]):
+        o (Union[Unset, str]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         project (Union[Unset, str]):
         project_template (Union[Unset, str]):
         project_template_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
+        query (Union[Unset, str]):
         state (Union[Unset, list[RemoteProjectUpdateRequestStateEnum]]):
 
     Raises:
@@ -232,12 +254,14 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         identifier=identifier,
         local_identifier=local_identifier,
+        o=o,
         page=page,
         page_size=page_size,
         project=project,
         project_template=project_template,
         project_template_uuid=project_template_uuid,
         project_uuid=project_uuid,
+        query=query,
         state=state,
     )
 
@@ -251,12 +275,14 @@ async def asyncio(
     client: AuthenticatedClient,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> list["ManagedProject"]:
     """List all managed projects
@@ -264,12 +290,14 @@ async def asyncio(
     Args:
         identifier (Union[Unset, str]):
         local_identifier (Union[Unset, str]):
+        o (Union[Unset, str]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         project (Union[Unset, str]):
         project_template (Union[Unset, str]):
         project_template_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
+        query (Union[Unset, str]):
         state (Union[Unset, list[RemoteProjectUpdateRequestStateEnum]]):
 
     Raises:
@@ -285,12 +313,14 @@ async def asyncio(
             client=client,
             identifier=identifier,
             local_identifier=local_identifier,
+            o=o,
             page=page,
             page_size=page_size,
             project=project,
             project_template=project_template,
             project_template_uuid=project_template_uuid,
             project_uuid=project_uuid,
+            query=query,
             state=state,
         )
     ).parsed
@@ -301,10 +331,12 @@ def sync_all(
     client: AuthenticatedClient,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> list["ManagedProject"]:
     """Get All Pages
@@ -317,10 +349,12 @@ def sync_all(
     Args:
         identifier (Union[Unset, str]):
         local_identifier (Union[Unset, str]):
+        o (Union[Unset, str]):
         project (Union[Unset, str]):
         project_template (Union[Unset, str]):
         project_template_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
+        query (Union[Unset, str]):
         state (Union[Unset, list[RemoteProjectUpdateRequestStateEnum]]):
 
     Raises:
@@ -338,10 +372,12 @@ def sync_all(
     kwargs = _get_kwargs(
         identifier=identifier,
         local_identifier=local_identifier,
+        o=o,
         project=project,
         project_template=project_template,
         project_template_uuid=project_template_uuid,
         project_uuid=project_uuid,
+        query=query,
         state=state,
     )
 
@@ -392,10 +428,12 @@ async def asyncio_all(
     client: AuthenticatedClient,
     identifier: Union[Unset, str] = UNSET,
     local_identifier: Union[Unset, str] = UNSET,
+    o: Union[Unset, str] = UNSET,
     project: Union[Unset, str] = UNSET,
     project_template: Union[Unset, str] = UNSET,
     project_template_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
+    query: Union[Unset, str] = UNSET,
     state: Union[Unset, list[RemoteProjectUpdateRequestStateEnum]] = UNSET,
 ) -> list["ManagedProject"]:
     """Get All Pages (Async)
@@ -408,10 +446,12 @@ async def asyncio_all(
     Args:
         identifier (Union[Unset, str]):
         local_identifier (Union[Unset, str]):
+        o (Union[Unset, str]):
         project (Union[Unset, str]):
         project_template (Union[Unset, str]):
         project_template_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
+        query (Union[Unset, str]):
         state (Union[Unset, list[RemoteProjectUpdateRequestStateEnum]]):
 
     Raises:
@@ -429,10 +469,12 @@ async def asyncio_all(
     kwargs = _get_kwargs(
         identifier=identifier,
         local_identifier=local_identifier,
+        o=o,
         project=project,
         project_template=project_template,
         project_template_uuid=project_template_uuid,
         project_uuid=project_uuid,
+        query=query,
         state=state,
     )
 

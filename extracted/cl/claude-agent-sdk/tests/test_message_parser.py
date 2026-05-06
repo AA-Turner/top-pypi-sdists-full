@@ -6,6 +6,8 @@ from claude_agent_sdk._errors import MessageParseError
 from claude_agent_sdk._internal.message_parser import parse_message
 from claude_agent_sdk.types import (
     AssistantMessage,
+    DeferredToolUse,
+    HookEventMessage,
     RateLimitEvent,
     ResultMessage,
     ServerToolResultBlock,
@@ -914,8 +916,32 @@ class TestMessageParser:
         assert isinstance(message, ResultMessage)
         assert message.model_usage is None
         assert message.permission_denials is None
+        assert message.deferred_tool_use is None
         assert message.errors is None
         assert message.uuid is None
+
+    def test_parse_result_message_with_deferred_tool_use(self):
+        """ResultMessage parses deferred_tool_use into a DeferredToolUse."""
+        data = {
+            "type": "result",
+            "subtype": "success",
+            "duration_ms": 1200,
+            "duration_api_ms": 900,
+            "is_error": False,
+            "num_turns": 1,
+            "session_id": "session_123",
+            "deferred_tool_use": {
+                "id": "toolu_01abc",
+                "name": "Bash",
+                "input": {"command": "rm -rf /tmp/scratch"},
+            },
+        }
+        message = parse_message(data)
+        assert isinstance(message, ResultMessage)
+        assert isinstance(message.deferred_tool_use, DeferredToolUse)
+        assert message.deferred_tool_use.id == "toolu_01abc"
+        assert message.deferred_tool_use.name == "Bash"
+        assert message.deferred_tool_use.input == {"command": "rm -rf /tmp/scratch"}
 
     def test_parse_result_message_with_errors(self):
         """Test that ResultMessage preserves the errors field from error results.
@@ -964,3 +990,63 @@ class TestMessageParser:
         assert isinstance(message, ResultMessage)
         assert message.errors is None
         assert message.result == "Task completed successfully"
+
+    def test_parse_hook_event_message(self):
+        """Hook started events (system/hook_started) parse into HookEventMessage."""
+        data = {
+            "type": "system",
+            "subtype": "hook_started",
+            "hook_event": "PreToolUse",
+            "hook_name": "PreToolUse",
+            "session_id": "sess-123",
+            "uuid": "uuid-456",
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+        }
+        message = parse_message(data)
+        assert isinstance(message, HookEventMessage)
+        assert message.subtype == "hook_started"
+        assert message.hook_event_name == "PreToolUse"
+        assert message.session_id == "sess-123"
+        assert message.uuid == "uuid-456"
+        assert message.data == data
+
+    def test_parse_hook_event_message_response(self):
+        """Hook response events (system/hook_response) parse into HookEventMessage."""
+        data = {
+            "type": "system",
+            "subtype": "hook_response",
+            "hook_event": "PostToolUse",
+            "hook_name": "PostToolUse",
+            "session_id": "sess-123",
+            "uuid": "uuid-789",
+            "output": "",
+            "exit_code": 0,
+            "outcome": "success",
+        }
+        message = parse_message(data)
+        assert isinstance(message, HookEventMessage)
+        assert message.subtype == "hook_response"
+        assert message.hook_event_name == "PostToolUse"
+        assert message.session_id == "sess-123"
+        assert message.uuid == "uuid-789"
+        assert message.data["output"] == ""
+        assert message.data["exit_code"] == 0
+        assert message.data["outcome"] == "success"
+
+    def test_parse_hook_event_message_isinstance_system(self):
+        """HookEventMessage is a SystemMessage subclass for backward compat."""
+        data = {"type": "system", "subtype": "hook_started", "hook_event": "PreToolUse"}
+        message = parse_message(data)
+        assert isinstance(message, HookEventMessage)
+        assert isinstance(message, SystemMessage)
+
+    def test_parse_hook_event_message_minimal(self):
+        """Hook events without session_id/uuid/hook_event still parse."""
+        data = {"type": "system", "subtype": "hook_started", "hook_name": "Stop"}
+        message = parse_message(data)
+        assert isinstance(message, HookEventMessage)
+        assert message.subtype == "hook_started"
+        assert message.hook_event_name == "Stop"
+        assert message.session_id is None
+        assert message.uuid is None

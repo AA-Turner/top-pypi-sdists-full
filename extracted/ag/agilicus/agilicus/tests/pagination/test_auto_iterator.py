@@ -49,6 +49,9 @@ class MockItem:
         self.id = index
 
 
+_SENTINEL = object()
+
+
 class MockListFunction:
     def __init__(
         self,
@@ -56,6 +59,7 @@ class MockListFunction:
         total_items,
         page_on_allowed=None,
         legacy_pagination_key=None,
+        page_sort_allowed=True,
     ):
         self._all_items = [MockItem(f"item_{i}", i) for i in range(total_items)]
         self._items_per_page = items_per_page
@@ -67,11 +71,15 @@ class MockListFunction:
         if page_on_allowed:
             self.allowed_values = {("page_on",): {k: k for k in page_on_allowed}}
             self.params_map["all"].append("page_on")
+        if page_sort_allowed:
+            self.allowed_values = self.allowed_values | {
+                ("page_sort",): {k: k for k in ["asc", "desc"]}
+            }
+            self.params_map["all"].append("page_sort")
         self.legacy_pagination_key = legacy_pagination_key
+        self.kwarg_calls = []
 
-    def __call__(
-        self, page_on=None, page_at_key=None, limit=None, page_sort=None, **kwargs
-    ):
+    def __call__(self, page_on=None, page_at_key=None, limit=None, **kwargs):
         if page_at_key is not None and not isinstance(page_at_key, list):
             raise ValueError("page_at_key must be a list")
 
@@ -106,6 +114,8 @@ class MockListFunction:
                 next_page_at_key = key
             else:
                 next_page_at_key = PageAtKey(key)
+
+        self.kwarg_calls.append(kwargs.copy())
 
         return MockResponse(
             current_items,
@@ -232,6 +242,30 @@ def test_auto_iterator_wrapper():
     assert iterator.limit == 3
     assert iterator.page_size == 2
     assert iterator.page_sort == ["name"]
+    assert iterator._page_sort_supported is True
+
+    list(iterator)
+    assert mock_list_function.call_count == 2
+    assert "page_sort" in mock_list_function.kwarg_calls[0]
+    assert "page_sort" in mock_list_function.kwarg_calls[1]
+
+
+def test_auto_iterator_no_page_sort():
+    mock_list_function = MockListFunction(
+        items_per_page=2, total_items=5, page_sort_allowed=False
+    )
+    wrapper = AutoIteratorWrapper(mock_list_function)
+    iterator = wrapper(limit=3, page_size=2, page_sort=["name"])
+
+    assert isinstance(iterator, AutoIterator)
+    assert iterator.limit == 3
+    assert iterator.page_size == 2
+    assert iterator._page_sort_supported is False
+
+    list(iterator)
+    assert mock_list_function.call_count == 2
+    assert "page_sort" not in mock_list_function.kwarg_calls[0]
+    assert "page_sort" not in mock_list_function.kwarg_calls[1]
 
 
 def test_get_page_on_with_allowed_values():

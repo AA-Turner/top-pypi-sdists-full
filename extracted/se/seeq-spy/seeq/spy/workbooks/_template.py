@@ -348,7 +348,7 @@ class WorkbookTemplate(ItemTemplate, Workbook):
 
     def push(self, *, context: WorkbookPushContext, folder_id=None, item_map: ItemMap = None, label=None,
              include_inventory=True):
-        if context.specific_worksheet_ids is None or len(context.specific_worksheet_ids) > 0:
+        if context.current_params.specific_worksheet_ids is None or len(context.current_params.specific_worksheet_ids) > 0:
             override_item_map = OverrideItemMap(item_map, template_parameters=self.parameters)
         else:
             override_item_map = item_map

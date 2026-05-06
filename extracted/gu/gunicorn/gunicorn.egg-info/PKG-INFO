@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gunicorn
-Version: 25.3.0
+Version: 26.0.0
 Summary: WSGI HTTP Server for UNIX
 Author-email: Benoit Chesneau <benoitc@gunicorn.org>
 License-Expression: MIT
@@ -36,8 +36,6 @@ License-File: LICENSE
 Requires-Dist: packaging
 Provides-Extra: gevent
 Requires-Dist: gevent>=24.10.1; extra == "gevent"
-Provides-Extra: eventlet
-Requires-Dist: eventlet>=0.40.3; extra == "eventlet"
 Provides-Extra: tornado
 Requires-Dist: tornado>=6.5.0; extra == "tornado"
 Provides-Extra: gthread
@@ -46,10 +44,9 @@ Requires-Dist: setproctitle; extra == "setproctitle"
 Provides-Extra: http2
 Requires-Dist: h2>=4.1.0; extra == "http2"
 Provides-Extra: fast
-Requires-Dist: gunicorn_h1c>=0.6.3; extra == "fast"
+Requires-Dist: gunicorn_h1c>=0.6.5; extra == "fast"
 Provides-Extra: testing
 Requires-Dist: gevent>=24.10.1; extra == "testing"
-Requires-Dist: eventlet>=0.40.3; extra == "testing"
 Requires-Dist: h2>=4.1.0; extra == "testing"
 Requires-Dist: coverage; extra == "testing"
 Requires-Dist: pytest; extra == "testing"
@@ -98,7 +95,7 @@ gunicorn myapp:app --worker-class asgi
 - **HTTP/2 support** (beta) with multiplexed streams
 - **Dirty Arbiters** (beta) for heavy workloads (ML models, long-running tasks)
 - uWSGI binary protocol for nginx integration
-- Multiple worker types: sync, gthread, gevent, eventlet, asgi
+- Multiple worker types: sync, gthread, gevent, asgi
 - Graceful worker process management
 - Compatible with Python 3.9+
 

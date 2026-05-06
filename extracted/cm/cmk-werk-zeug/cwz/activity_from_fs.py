@@ -8,22 +8,23 @@ conditions defined in the file COPYING, which is part of this source code packag
 
 # ruff: noqa: DTZ005 - `datetime.datetime.now()` called without a `tz` argument
 # ruff: noqa: DTZ006 - `datetime.datetime.fromtimestamp()` called without a `tz` argument
-# ruff: noqa: FURB163 - Prefer `math.log2(filecount)` over `math.log` with a redundant base
-# ruff: noqa: PLR0912 - Too many branches
 
 import math
 import os
 import sys
 from collections.abc import Mapping, MutableMapping, MutableSet, Set
-from contextlib import suppress
-from datetime import datetime
+from contextlib import ExitStack, suppress
+from datetime import date, datetime
 from pathlib import Path
 
 import rich
+from line_profiler import profile
+from rich import traceback
 from rich.color import Color
 from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.measure import Measurement
 from rich.segment import Segment
+from rich.status import Status
 from rich.style import Style
 
 
@@ -48,7 +49,8 @@ class Day:
                 count = sum(
                     len(self.minutes[i]) for i in range(seg_start, seg_end) if i in self.minutes
                 )
-                intensity = min(255, count and (50 + count * math.log(count, 50000)))
+                # intensity = min(255, count and (50 + count * math.log(count, 50000)))
+                intensity = count and min(255, 50 + int(count * math.log(count, 50000)))
                 color = Color.from_rgb(intensity, intensity, intensity)
                 yield Segment("█", Style(color=color))
             if not self.width:
@@ -90,50 +92,15 @@ class Day:
         return self.ColorBox(self.minutes, width)
 
 
-def activity_from_fs(start_dir: Path) -> None:  # noqa: C901 - too complex
-    """Traverse filesystem and track traces of activity"""
-    dates = {}
-    filecount = 0
-    files_max = 0
-    year_min = 2024
-    year_max = datetime.now().year
-    show_progress = True
-    ignore = {
-        Path("~/.cache/google-chrome").expanduser(),
-        Path("~/.cache/mozilla/firefox").expanduser(),
-        Path("~/.config/BraveSoftware/Brave-Browser/Default").expanduser(),
-    }
-    with suppress(KeyboardInterrupt):
-        for dirpath, _dirnames, filenames in os.walk(start_dir.expanduser()):
-            if files_max and filecount > files_max:
-                break
+def _output_bars(
+    dates: Mapping[date, Day],
+    num_days_to_show: int,
+    scrollback: int = 0,
+) -> int:
 
-            directory = Path(dirpath)
-            if any(directory.is_relative_to(path) for path in ignore):
-                continue
-
-            for filename in filenames:
-                try:
-                    mtime = datetime.fromtimestamp(
-                        (filepath := directory / filename).stat().st_mtime
-                    )
-                except (FileNotFoundError, PermissionError):
-                    continue
-
-                if not year_min <= mtime.year <= year_max:
-                    continue
-
-                if (today := mtime.date()) not in dates:
-                    dates[today] = Day()
-
-                dates[today].update(mtime, filepath.parent)
-                filecount += 1
-                if show_progress:
-                    if (loga := math.log(filecount, 2)) == int(loga):
-                        print(f"{filecount:8d} files taken into account")
-                elif filecount % 100 == 0 and today == datetime.now().date():
-                    rich.print(dates[today].activity_bar(204), end="")
-                    print(filepath)
+    if scrollback:
+        sys.stdout.write(f"\033[{scrollback}A\033[J")
+        sys.stdout.flush()
 
     hint_bar = "." * (Console().options.max_width - 30 - 1)
     for h in range(23 - 5):
@@ -141,15 +108,81 @@ def activity_from_fs(start_dir: Path) -> None:  # noqa: C901 - too complex
         i = int((len(hint_bar) - 1) / (22 - 5) * h)
         hint_bar = hint_bar[:i] + hour + hint_bar[i + len(hour) :]
 
+    lines_printed = 0
     last_weekday = 0
-    for date, borders in sorted(dates.items()):
-        if date.weekday() < last_weekday:
+    for day, borders in sorted(dates.items())[-num_days_to_show:]:
+        # print a ruler between weeks
+        if day.weekday() < last_weekday:
             print(f"                             {hint_bar}")
-        last_weekday = date.weekday()
-        rich.print(f"{date.strftime('%Y-%m-%d %a')}: {borders}  ", end="")
+            lines_printed += 1
+        last_weekday = day.weekday()
+        rich.print(f"{day.strftime('%Y-%m-%d %a')}: {borders}  ", end="")
         rich.print(borders.activity_bar())
-
+        lines_printed += 1
     print(f"                             {hint_bar}")
+    lines_printed += 1
+
+    return lines_printed
+
+
+@profile
+def investigate(start_dir: Path, status: Status) -> None:
+    """Traverse filesystem and track traces of activity"""
+    dates = {}
+    filecount = 0
+    files_max = 0
+    year_min = 2026
+    year_max = datetime.now().year
+    show_progress = True
+    ignore = {
+        Path("~/.cache/google-chrome").expanduser().as_posix(),
+        Path("~/.cache/mozilla/firefox").expanduser().as_posix(),
+        Path("~/.config/BraveSoftware/Brave-Browser/Default").expanduser().as_posix(),
+        Path("~/.config/google-chrome/PKIMetadata").expanduser().as_posix(),
+        Path("~/snap/firefox/common/.cache/mozilla").expanduser().as_posix(),
+        Path("~/snap/firefox/common/.mozilla/firefox").expanduser().as_posix(),
+        Path("~/.var/app/org.signal.Signal").expanduser().as_posix(),
+    }
+    status.update("reading filesystem traces..")
+    scrollback = 0
+    with suppress(KeyboardInterrupt):
+        for dirpath, _dirnames, filenames in os.walk(start_dir.expanduser().absolute()):
+            if files_max and filecount > files_max:
+                break
+            if any(dirpath.startswith(path) for path in ignore):
+                continue
+
+            for filename in filenames:
+                try:
+                    mtime = datetime.fromtimestamp(
+                        (filepath := Path(dirpath) / filename).stat().st_mtime
+                    )
+                except (FileNotFoundError, PermissionError, OSError):
+                    continue
+
+                if not year_min <= mtime.year <= year_max:
+                    continue
+                filecount += 1
+
+                if (today := mtime.date()) not in dates:
+                    dates[today] = Day()
+
+                dates[today].update(mtime, filepath.parent)
+                if show_progress and filecount % 1000 == 0:
+                    status.update(
+                        f"reading filesystem traces, {filecount} files taken into account.."
+                    )
+                    if filecount % 50_000 == 0:
+                        status.stop()
+                        scrollback = _output_bars(dates, 5, scrollback=scrollback)
+                        status.start()
+
+                # if (mtime.hour < 7 or mtime.hour > 20) and mtime.date() == date(2026,4,25):
+                #    print(mtime, filepath)
+
+    status.stop()
+    _output_bars(dates, 20, scrollback=scrollback)
+
     print()
     print(f"{filecount:8d} files taken into account")
     print()
@@ -158,10 +191,18 @@ def activity_from_fs(start_dir: Path) -> None:  # noqa: C901 - too complex
     )
 
 
-def main() -> None:
-    """Main entry point"""
-    activity_from_fs(Path(sys.argv[1] if len(sys.argv) > 1 else "~"))
+console = Console()
+
+
+def main() -> int:
+    """See main docstring"""
+    with ExitStack() as context:
+        status = context.enter_context(console.status("doing"))
+        investigate(Path(sys.argv[1] if len(sys.argv) > 1 else "~"), status)
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    traceback.install()
+    raise SystemExit(main())

@@ -8,27 +8,32 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 use xet_client::cas_client::Client;
 use xet_client::cas_types::FileRange;
+use xet_client::chunk_cache::ChunkCache;
 use xet_core_structures::merklehash::MerkleHash;
 use xet_runtime::config::ReconstructionConfig;
-use xet_runtime::core::{XetRuntime, xet_config};
+use xet_runtime::core::XetContext;
 use xet_runtime::utils::ClosureGuard;
 use xet_runtime::utils::adjustable_semaphore::AdjustableSemaphore;
 
-use super::data_writer::{DataWriter, DownloadStream, SequentialWriter};
+use super::data_writer::{DataWriter, DownloadStream, SequentialWriter, UnorderedDownloadStream};
 use super::error::{FileReconstructionError, Result};
 use super::reconstruction_terms::ReconstructionTermManager;
 use super::run_state::{RunError, RunState};
-use crate::progress_tracking::download_tracking::DownloadTaskUpdater;
+use crate::progress_tracking::ItemProgressUpdater;
 
 /// Reconstructs a file from its content-addressed chunks by downloading xorb blocks
 /// and writing the reassembled data to an output. Supports byte range requests and
 /// uses memory-limited buffering with adaptive prefetching.
 pub struct FileReconstructor {
+    ctx: XetContext,
     client: Arc<dyn Client>,
     file_hash: MerkleHash,
     byte_range: Option<FileRange>,
-    progress_updater: Option<Arc<DownloadTaskUpdater>>,
+    progress_updater: Option<Arc<ItemProgressUpdater>>,
     config: Arc<ReconstructionConfig>,
+
+    /// Optional on-disk chunk cache for cross-file deduplication.
+    chunk_cache: Option<Arc<dyn ChunkCache>>,
 
     /// Custom buffer semaphore for testing or specialized use cases.
     custom_buffer_semaphore: Option<Arc<AdjustableSemaphore>>,
@@ -40,13 +45,15 @@ pub struct FileReconstructor {
 }
 
 impl FileReconstructor {
-    pub fn new(client: &Arc<dyn Client>, file_hash: MerkleHash) -> Self {
+    pub fn new(ctx: &XetContext, client: &Arc<dyn Client>, file_hash: MerkleHash) -> Self {
         Self {
+            ctx: ctx.clone(),
             client: client.clone(),
             file_hash,
             byte_range: None,
             progress_updater: default_progress_updater(),
-            config: Arc::new(xet_config().reconstruction.clone()),
+            config: Arc::new(ctx.config.reconstruction.clone()),
+            chunk_cache: None,
             custom_buffer_semaphore: None,
             cancellation_token: CancellationToken::new(),
         }
@@ -59,9 +66,16 @@ impl FileReconstructor {
         }
     }
 
-    pub fn with_progress_updater(self, progress_updater: Arc<DownloadTaskUpdater>) -> Self {
+    pub fn with_progress_updater(self, progress_updater: Arc<ItemProgressUpdater>) -> Self {
         Self {
             progress_updater: Some(progress_updater),
+            ..self
+        }
+    }
+
+    pub fn with_chunk_cache(self, cache: Arc<dyn ChunkCache>) -> Self {
+        Self {
+            chunk_cache: Some(cache),
             ..self
         }
     }
@@ -125,7 +139,9 @@ impl FileReconstructor {
         }
 
         let run_state = RunState::new(self.cancellation_token.clone(), self.file_hash, self.progress_updater.clone());
-        let data_writer = SequentialWriter::new(file, self.config.use_vectored_write, run_state.clone());
+
+        let data_writer = SequentialWriter::new(&self.ctx, file, self.config.use_vectored_write, run_state.clone());
+
         self.run(data_writer, run_state, false).await
     }
 
@@ -141,20 +157,46 @@ impl FileReconstructor {
         );
 
         let run_state = RunState::new(self.cancellation_token.clone(), self.file_hash, self.progress_updater.clone());
-        let data_writer = SequentialWriter::new(writer, self.config.use_vectored_write, run_state.clone());
+        let data_writer = SequentialWriter::new(&self.ctx, writer, self.config.use_vectored_write, run_state.clone());
         self.run(data_writer, run_state, false).await
     }
 
     /// Reconstructs the file as a stream, returning a [`DownloadStream`] that
     /// yields data chunks as they become available.
     ///
-    /// The reconstruction task is **not** started immediately. It begins when
-    /// [`DownloadStream::start`] is called, or automatically on the first call
-    /// to [`DownloadStream::next`] / [`DownloadStream::blocking_next`].
+    /// The reconstruction task is spawned immediately but pauses on an
+    /// internal [`tokio::sync::Notify`] until [`DownloadStream::start`] is
+    /// called (or the first [`DownloadStream::next`] /
+    /// [`DownloadStream::blocking_next`]).
+    ///
+    /// # Panics
+    ///
+    /// Panics if called outside a tokio runtime context (the constructor
+    /// uses [`tokio::spawn`]).
     pub fn reconstruct_to_stream(self) -> DownloadStream {
         let run_state = RunState::new(self.cancellation_token.clone(), self.file_hash, self.progress_updater.clone());
 
         DownloadStream::new(self, run_state)
+    }
+
+    /// Reconstructs the file as an unordered stream, returning an
+    /// [`UnorderedDownloadStream`] that yields `(offset, Bytes)` chunks
+    /// in whatever order they complete.
+    ///
+    /// The reconstruction task is spawned immediately but pauses on an
+    /// internal [`tokio::sync::Notify`] until
+    /// [`UnorderedDownloadStream::start`] is called (or the first
+    /// [`UnorderedDownloadStream::next`] /
+    /// [`UnorderedDownloadStream::blocking_next`]).
+    ///
+    /// # Panics
+    ///
+    /// Panics if called outside a tokio runtime context (the constructor
+    /// uses [`tokio::spawn`]).
+    pub fn reconstruct_to_unordered_stream(self) -> UnorderedDownloadStream {
+        let run_state = RunState::new(self.cancellation_token.clone(), self.file_hash, self.progress_updater.clone());
+
+        UnorderedDownloadStream::new(self, run_state)
     }
 
     /// Runs the file reconstruction with error handling and cancellation support.
@@ -165,7 +207,7 @@ impl FileReconstructor {
     /// asynchronously after this method returns.
     pub(crate) async fn run(
         self,
-        data_writer: Arc<dyn DataWriter>,
+        data_writer: Box<dyn DataWriter>,
         run_state: Arc<RunState>,
         is_streaming: bool,
     ) -> Result<u64> {
@@ -184,14 +226,16 @@ impl FileReconstructor {
 
     async fn run_impl(
         self,
-        data_writer: Arc<dyn DataWriter>,
+        mut data_writer: Box<dyn DataWriter>,
         run_state: &RunState,
         _is_streaming: bool,
     ) -> std::result::Result<u64, RunError> {
         let Self {
+            ctx,
             client,
             byte_range,
             config,
+            chunk_cache,
             custom_buffer_semaphore,
             ..
         } = self;
@@ -202,6 +246,7 @@ impl FileReconstructor {
         let requested_range = byte_range.unwrap_or_else(FileRange::full);
 
         let mut term_manager = ReconstructionTermManager::new(
+            ctx.clone(),
             config.clone(),
             client.clone(),
             file_hash,
@@ -211,8 +256,8 @@ impl FileReconstructor {
         .await?;
 
         let using_global_memory_limit = custom_buffer_semaphore.is_none();
-        let download_buffer_semaphore = custom_buffer_semaphore
-            .unwrap_or_else(|| XetRuntime::current().common().reconstruction_download_buffer.clone());
+        let download_buffer_semaphore =
+            custom_buffer_semaphore.unwrap_or_else(|| ctx.common.reconstruction_download_buffer.clone());
 
         // Dynamic buffer scaling: the target buffer size grows with the number of active
         // downloads: target = (base + n * perfile).min(limit). On start we increment to
@@ -223,7 +268,7 @@ impl FileReconstructor {
         let _download_count_decrement_guard;
 
         if using_global_memory_limit {
-            let active_downloads = XetRuntime::current().common().active_downloads.clone();
+            let active_downloads = ctx.common.active_downloads.clone();
             let n = active_downloads.fetch_add(1, Ordering::Relaxed) + 1;
 
             let base = config.download_buffer_size.as_u64();
@@ -307,7 +352,12 @@ impl FileReconstructor {
                 };
 
                 let data_future = file_term
-                    .get_data_task(client.clone(), run_state.progress_updater().cloned())
+                    .get_data_task(
+                        ctx.clone(),
+                        client.clone(),
+                        run_state.progress_updater().cloned(),
+                        chunk_cache.clone(),
+                    )
                     .await?;
 
                 #[cfg(debug_assertions)]
@@ -346,7 +396,9 @@ impl FileReconstructor {
         #[cfg(debug_assertions)]
         if !_is_streaming && let Some(updater) = run_state.progress_updater() {
             updater.assert_complete();
-            if let Some(byte_range) = byte_range {
+            if let Some(byte_range) = byte_range
+                && byte_range.end < u64::MAX
+            {
                 assert_eq!(updater.total_bytes_completed(), byte_range.end - byte_range.start);
             }
         }
@@ -355,13 +407,13 @@ impl FileReconstructor {
     }
 }
 
-#[cfg(debug_assertions)]
-fn default_progress_updater() -> Option<Arc<DownloadTaskUpdater>> {
-    Some(DownloadTaskUpdater::correctness_verification_tracker())
+#[cfg(test)]
+fn default_progress_updater() -> Option<Arc<ItemProgressUpdater>> {
+    Some(ItemProgressUpdater::new_standalone("test"))
 }
 
-#[cfg(not(debug_assertions))]
-fn default_progress_updater() -> Option<Arc<DownloadTaskUpdater>> {
+#[cfg(not(test))]
+fn default_progress_updater() -> Option<Arc<ItemProgressUpdater>> {
     None
 }
 
@@ -372,14 +424,14 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
 
-    use tokio_util::sync::CancellationToken;
-    use ulid::Ulid;
+    use tokio::runtime::Handle;
     use xet_client::cas_client::{ClientTestingUtils, DirectAccessClient, LocalClient, RandomFileContents};
     use xet_client::cas_types::FileRange;
+    use xet_runtime::config::XetConfig;
+    use xet_runtime::core::XetContext;
 
     use super::*;
-    use crate::progress_tracking::NoOpProgressUpdater;
-    use crate::progress_tracking::download_tracking::DownloadProgressTracker;
+    use crate::progress_tracking::ItemProgressUpdater;
 
     const TEST_CHUNK_SIZE: usize = 101;
 
@@ -395,7 +447,7 @@ mod tests {
 
     /// Creates a test client and uploads a random file with the given term specification.
     async fn setup_test_file(term_spec: &[(u64, (u64, u64))]) -> (Arc<LocalClient>, RandomFileContents) {
-        let client = LocalClient::temporary().await.unwrap();
+        let client = LocalClient::temporary(XetContext::default().unwrap()).await.unwrap();
         let file_contents = client.upload_random_file(term_spec, TEST_CHUNK_SIZE).await.unwrap();
         (client, file_contents)
     }
@@ -406,15 +458,20 @@ mod tests {
         file_hash: MerkleHash,
         byte_range: Option<FileRange>,
         config: &ReconstructionConfig,
+        semaphore: Option<Arc<AdjustableSemaphore>>,
     ) -> Result<Vec<u8>> {
         let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
         let writer = StaticCursorWriter(buffer.clone());
 
         let mut reconstructor =
-            FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_hash).with_config(config);
+            FileReconstructor::new(&XetContext::default().unwrap(), &(client.clone() as Arc<dyn Client>), file_hash)
+                .with_config(config);
 
         if let Some(range) = byte_range {
             reconstructor = reconstructor.with_byte_range(range);
+        }
+        if let Some(sem) = semaphore {
+            reconstructor = reconstructor.with_buffer_semaphore(sem);
         }
 
         reconstructor.reconstruct_to_writer(writer).await?;
@@ -435,7 +492,8 @@ mod tests {
         let file_path = temp_dir.path().join("output.bin");
 
         let mut reconstructor =
-            FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_hash).with_config(config);
+            FileReconstructor::new(&XetContext::default().unwrap(), &(client.clone() as Arc<dyn Client>), file_hash)
+                .with_config(config);
 
         if let Some(range) = byte_range {
             reconstructor = reconstructor.with_byte_range(range);
@@ -462,7 +520,8 @@ mod tests {
         let file_path = temp_dir.path().join("output.bin");
 
         let mut reconstructor =
-            FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_hash).with_config(config);
+            FileReconstructor::new(&XetContext::default().unwrap(), &(client.clone() as Arc<dyn Client>), file_hash)
+                .with_config(config);
 
         if let Some(range) = byte_range {
             reconstructor = reconstructor.with_byte_range(range);
@@ -487,7 +546,8 @@ mod tests {
         let file_path = temp_dir.path().join("output.bin");
 
         let mut reconstructor =
-            FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_hash).with_config(config);
+            FileReconstructor::new(&XetContext::default().unwrap(), &(client.clone() as Arc<dyn Client>), file_hash)
+                .with_config(config);
 
         if let Some(range) = byte_range {
             reconstructor = reconstructor.with_byte_range(range);
@@ -529,7 +589,7 @@ mod tests {
             config.use_vectored_write = use_vectored;
 
             // Test 1: reconstruct_to_writer
-            let vec_result = reconstruct_to_vec(client, h, None, &config).await.unwrap();
+            let vec_result = reconstruct_to_vec(&client, h, None, &config, None).await.unwrap();
             assert_eq!(vec_result, *expected, "vec failed (vectored={use_vectored})");
 
             // Test 2: reconstruct_to_file
@@ -561,7 +621,7 @@ mod tests {
             config.use_vectored_write = use_vectored;
 
             // Test 1: reconstruct_to_writer
-            let vec_result = reconstruct_to_vec(client, file_contents.file_hash, Some(range), &config)
+            let vec_result = reconstruct_to_vec(&client, file_contents.file_hash, Some(range), &config, None)
                 .await
                 .expect("reconstruct_to_vec should succeed");
             assert_eq!(vec_result, expected, "vec failed (vectored={use_vectored})");
@@ -637,14 +697,17 @@ mod tests {
         let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
         let writer = StaticCursorWriter(buffer.clone());
 
-        let progress_updater =
-            DownloadProgressTracker::new(NoOpProgressUpdater::new()).new_download_task(Ulid::new(), Arc::from("file"));
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
-            .with_config(&config)
-            .with_progress_updater(progress_updater.clone())
-            .reconstruct_to_writer(writer)
-            .await
-            .unwrap();
+        let progress_updater = ItemProgressUpdater::new_standalone("file");
+        let bytes_written = FileReconstructor::new(
+            &XetContext::default().unwrap(),
+            &(client.clone() as Arc<dyn Client>),
+            file_contents.file_hash,
+        )
+        .with_config(&config)
+        .with_progress_updater(progress_updater.clone())
+        .reconstruct_to_writer(writer)
+        .await
+        .unwrap();
 
         assert_eq!(bytes_written, file_contents.data.len() as u64);
     }
@@ -660,15 +723,18 @@ mod tests {
         let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
         let writer = StaticCursorWriter(buffer.clone());
 
-        let progress_updater =
-            DownloadProgressTracker::new(NoOpProgressUpdater::new()).new_download_task(Ulid::new(), Arc::from("file"));
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
-            .with_config(&config)
-            .with_byte_range(range)
-            .with_progress_updater(progress_updater.clone())
-            .reconstruct_to_writer(writer)
-            .await
-            .unwrap();
+        let progress_updater = ItemProgressUpdater::new_standalone("file");
+        let bytes_written = FileReconstructor::new(
+            &XetContext::default().unwrap(),
+            &(client.clone() as Arc<dyn Client>),
+            file_contents.file_hash,
+        )
+        .with_config(&config)
+        .with_byte_range(range)
+        .with_progress_updater(progress_updater.clone())
+        .reconstruct_to_writer(writer)
+        .await
+        .unwrap();
 
         assert_eq!(bytes_written, expected_bytes);
     }
@@ -681,25 +747,26 @@ mod tests {
         let (client, file_contents) = setup_test_file(&term_spec).await;
         let config = test_config();
 
-        let tracker = DownloadProgressTracker::new(NoOpProgressUpdater::new());
-        let task = tracker.new_download_task(Ulid::new(), Arc::from("test_file.bin"));
+        let task = ItemProgressUpdater::new_standalone("test_file.bin");
 
         let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
         let writer = StaticCursorWriter(buffer.clone());
 
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
-            .with_config(&config)
-            .with_progress_updater(task.clone())
-            .reconstruct_to_writer(writer)
-            .await
-            .unwrap();
+        let bytes_written = FileReconstructor::new(
+            &XetContext::default().unwrap(),
+            &(client.clone() as Arc<dyn Client>),
+            file_contents.file_hash,
+        )
+        .with_config(&config)
+        .with_progress_updater(task.clone())
+        .reconstruct_to_writer(writer)
+        .await
+        .unwrap();
 
         assert_eq!(bytes_written, file_contents.data.len() as u64);
 
         task.assert_complete();
         assert_eq!(task.total_bytes_completed(), file_contents.data.len() as u64);
-
-        tracker.assert_complete();
     }
 
     /// Verifies the data_client.rs flow: file size is known upfront (is_final=true),
@@ -712,29 +779,29 @@ mod tests {
         let config = test_config();
         let file_size = file_contents.data.len() as u64;
 
-        let tracker = DownloadProgressTracker::new(NoOpProgressUpdater::new());
-        let task = tracker.new_download_task(Ulid::new(), Arc::from("test_file.bin"));
+        let task = ItemProgressUpdater::new_standalone("test_file.bin");
 
-        // Simulate data_client.rs: set final size before reconstruction.
         task.update_item_size(file_size, true);
 
         let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
         let writer = StaticCursorWriter(buffer.clone());
 
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
-            .with_config(&config)
-            .with_progress_updater(task.clone())
-            .reconstruct_to_writer(writer)
-            .await
-            .unwrap();
+        let bytes_written = FileReconstructor::new(
+            &XetContext::default().unwrap(),
+            &(client.clone() as Arc<dyn Client>),
+            file_contents.file_hash,
+        )
+        .with_config(&config)
+        .with_progress_updater(task.clone())
+        .reconstruct_to_writer(writer)
+        .await
+        .unwrap();
 
         assert_eq!(bytes_written, file_size);
 
-        // item_bytes should still be file_size (manager's update_item_size calls were ignored).
         assert_eq!(task.total_bytes_completed(), file_size);
 
         task.assert_complete();
-        tracker.assert_complete();
     }
 
     // ==================== Byte Range Reconstruction Tests ====================
@@ -912,7 +979,11 @@ mod tests {
     #[tokio::test]
     async fn test_non_contiguous_chunks() {
         let (client, file_contents) = setup_test_file(&[(1, (0, 2)), (1, (4, 6))]).await;
-        reconstruct_and_verify_full(&client, &file_contents, test_config()).await;
+        let config = test_config();
+        let result = reconstruct_to_vec(&client, file_contents.file_hash, None, &config, None)
+            .await
+            .unwrap();
+        assert_eq!(result, file_contents.data);
     }
 
     // ==================== Default Config Tests ====================
@@ -1010,8 +1081,9 @@ mod tests {
         // Create a tiny semaphore (1 permit) to force sequential processing
         // This ensures each term is fully written before the next is fetched
         let tiny_semaphore = AdjustableSemaphore::new(1, (1, 1));
+        let ctx = XetContext::from_external(Handle::current(), XetConfig::new());
 
-        FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+        FileReconstructor::new(&ctx, &(client.clone() as Arc<dyn Client>), file_contents.file_hash)
             .with_config(url_refresh_test_config())
             .with_buffer_semaphore(tiny_semaphore)
             .reconstruct_to_writer(writer)
@@ -1044,8 +1116,9 @@ mod tests {
         let writer_buffer = writer.buffer.clone();
 
         let tiny_semaphore = AdjustableSemaphore::new(1, (1, 1));
+        let ctx = XetContext::from_external(Handle::current(), XetConfig::new());
 
-        FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+        FileReconstructor::new(&ctx, &(client.clone() as Arc<dyn Client>), file_contents.file_hash)
             .with_config(url_refresh_test_config())
             .with_buffer_semaphore(tiny_semaphore)
             .reconstruct_to_writer(writer)
@@ -1070,8 +1143,9 @@ mod tests {
         let writer_buffer = writer.buffer.clone();
 
         let tiny_semaphore = AdjustableSemaphore::new(1, (1, 1));
+        let ctx = XetContext::from_external(Handle::current(), XetConfig::new());
 
-        FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+        FileReconstructor::new(&ctx, &(client.clone() as Arc<dyn Client>), file_contents.file_hash)
             .with_config(url_refresh_test_config())
             .with_buffer_semaphore(tiny_semaphore)
             .reconstruct_to_writer(writer)
@@ -1096,8 +1170,9 @@ mod tests {
         let writer_buffer = writer.buffer.clone();
 
         let tiny_semaphore = AdjustableSemaphore::new(1, (1, 1));
+        let ctx = XetContext::from_external(Handle::current(), XetConfig::new());
 
-        FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+        FileReconstructor::new(&ctx, &(client.clone() as Arc<dyn Client>), file_contents.file_hash)
             .with_config(url_refresh_test_config())
             .with_buffer_semaphore(tiny_semaphore)
             .reconstruct_to_writer(writer)
@@ -1121,10 +1196,11 @@ mod tests {
         let writer_buffer = writer.buffer.clone();
 
         let tiny_semaphore = AdjustableSemaphore::new(1, (0, 1));
+        let ctx = XetContext::from_external(Handle::current(), XetConfig::new());
 
         let range = FileRange::new(file_len / 4, file_len * 3 / 4);
 
-        FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+        FileReconstructor::new(&ctx, &(client.clone() as Arc<dyn Client>), file_contents.file_hash)
             .with_byte_range(range)
             .with_config(url_refresh_test_config())
             .with_buffer_semaphore(tiny_semaphore)
@@ -1144,29 +1220,32 @@ mod tests {
         runtime_config.reconstruction.download_buffer_limit = xet_runtime::utils::ByteSize::from("4kb");
         let expected_total = runtime_config.reconstruction.download_buffer_limit.as_u64();
 
-        let rt = XetRuntime::new_with_config(runtime_config).unwrap();
+        let ctx = XetContext::with_config(runtime_config).unwrap();
+        let runtime = ctx.runtime.clone();
 
-        rt.external_run_async_task(async move {
-            let (client, file_contents) = setup_test_file(&[(1, (0, 2)), (2, (0, 2)), (3, (0, 2))]).await;
-            let sem = XetRuntime::current().common().reconstruction_download_buffer.clone();
+        runtime
+            .bridge_sync(async move {
+                let ctx = ctx.clone();
+                let (client, file_contents) = setup_test_file(&[(1, (0, 2)), (2, (0, 2)), (3, (0, 2))]).await;
+                let sem = ctx.common.reconstruction_download_buffer.clone();
 
-            // Pre-grow to max so the run's increment request is a no-op.
-            let p = sem.increment_total_permits(u64::MAX).unwrap();
-            drop(p);
-            assert_eq!(sem.total_permits(), expected_total);
+                // Pre-grow to max so the run's increment request is a no-op.
+                let p = sem.increment_total_permits(u64::MAX).unwrap();
+                drop(p);
+                assert_eq!(sem.total_permits(), expected_total);
 
-            let mut config = test_config();
-            config.download_buffer_perfile_size = xet_runtime::utils::ByteSize::from("8kb");
+                let mut config = test_config();
+                config.download_buffer_perfile_size = xet_runtime::utils::ByteSize::from("8kb");
 
-            let reconstructed = reconstruct_to_vec(&client, file_contents.file_hash, None, &config)
-                .await
-                .unwrap();
-            assert_eq!(reconstructed, file_contents.data);
+                let reconstructed = reconstruct_to_vec(&client, file_contents.file_hash, None, &config, None)
+                    .await
+                    .unwrap();
+                assert_eq!(reconstructed, file_contents.data);
 
-            assert_eq!(sem.total_permits(), expected_total);
-            assert_eq!(XetRuntime::current().common().active_downloads.load(Ordering::Relaxed), 0);
-        })
-        .unwrap();
+                assert_eq!(sem.total_permits(), expected_total);
+                assert_eq!(ctx.common.active_downloads.load(Ordering::Relaxed), 0);
+            })
+            .unwrap();
     }
 
     // ==================== File Output Specific Tests ====================
@@ -1181,7 +1260,7 @@ mod tests {
         range: FileRange,
         config: ReconstructionConfig,
     ) -> Result<u64> {
-        FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_hash)
+        FileReconstructor::new(&XetContext::default().unwrap(), &(client.clone() as Arc<dyn Client>), file_hash)
             .with_byte_range(range)
             .with_config(config)
             .reconstruct_to_file(file_path, None, false)
@@ -1198,7 +1277,7 @@ mod tests {
         // Each xorb has ~64KB of data (16 chunks * 4KB), giving us ~1MB total with 16 xorbs.
         let term_spec: Vec<(u64, (u64, u64))> = (1..=16).map(|i| (i, (0, 16))).collect();
 
-        let client = LocalClient::temporary().await.unwrap();
+        let client = LocalClient::temporary(XetContext::default().unwrap()).await.unwrap();
         let file_contents = client.upload_random_file(&term_spec, LARGE_CHUNK_SIZE).await.unwrap();
         let file_len = file_contents.data.len() as u64;
 
@@ -1237,7 +1316,7 @@ mod tests {
             let config = config.clone();
 
             join_set.spawn(async move {
-                FileReconstructor::new(&(client as Arc<dyn Client>), file_hash)
+                FileReconstructor::new(&XetContext::default().unwrap(), &(client as Arc<dyn Client>), file_hash)
                     .with_byte_range(range)
                     .with_config(config)
                     .reconstruct_to_file(&file_path, None, false)
@@ -1288,72 +1367,206 @@ mod tests {
         assert_eq!(&result[start as usize..end as usize], &file_contents.data[start as usize..end as usize]);
     }
 
+    // ==================== Multi-Disjoint Range Tests (LocalClient) ====================
+    //
+    // These tests exercise complex disjoint range patterns through the LocalClient path
+    // (no HTTP server), ensuring the reconstruction logic handles V2 multi-range
+    // XorbBlocks correctly.
+
+    /// Single xorb with three disjoint chunk ranges.
+    #[tokio::test]
+    async fn test_triple_disjoint_ranges_full() {
+        let (client, file_contents) = setup_test_file(&[(1, (0, 2)), (1, (4, 6)), (1, (8, 10))]).await;
+        reconstruct_and_verify_full(&client, &file_contents, test_config()).await;
+    }
+
+    /// Single xorb with three disjoint chunk ranges, partial byte range.
+    #[tokio::test]
+    async fn test_triple_disjoint_ranges_partial() {
+        let (client, file_contents) = setup_test_file(&[(1, (0, 2)), (1, (4, 6)), (1, (8, 10))]).await;
+        let file_len = file_contents.data.len() as u64;
+        let range = FileRange::new(file_len / 4, file_len * 3 / 4);
+        reconstruct_and_verify_range(&client, &file_contents, range, test_config()).await;
+    }
+
+    /// Multiple xorbs, each with multiple disjoint ranges, interleaved.
+    #[tokio::test]
+    async fn test_multi_xorb_interleaved_disjoint() {
+        let term_spec = &[
+            (1, (0, 2)),
+            (2, (0, 2)),
+            (1, (4, 6)),
+            (2, (4, 6)),
+            (1, (8, 10)),
+            (2, (8, 10)),
+        ];
+        let (client, file_contents) = setup_test_file(term_spec).await;
+        reconstruct_and_verify_full(&client, &file_contents, test_config()).await;
+    }
+
+    /// Multiple xorbs with interleaved disjoint ranges, partial byte range.
+    #[tokio::test]
+    async fn test_multi_xorb_interleaved_disjoint_partial() {
+        let term_spec = &[
+            (1, (0, 2)),
+            (2, (0, 2)),
+            (1, (4, 6)),
+            (2, (4, 6)),
+            (1, (8, 10)),
+            (2, (8, 10)),
+        ];
+        let (client, file_contents) = setup_test_file(term_spec).await;
+        let file_len = file_contents.data.len() as u64;
+        let range = FileRange::new(file_len / 3, file_len * 2 / 3);
+        reconstruct_and_verify_range(&client, &file_contents, range, test_config()).await;
+    }
+
+    /// Single xorb with four disjoint ranges (many gaps).
+    #[tokio::test]
+    async fn test_four_disjoint_ranges() {
+        let term_spec = &[(1, (0, 2)), (1, (4, 6)), (1, (8, 10)), (1, (12, 14))];
+        let (client, file_contents) = setup_test_file(term_spec).await;
+        reconstruct_and_verify_full(&client, &file_contents, test_config()).await;
+    }
+
+    /// Mix of contiguous and disjoint ranges from the same xorb.
+    #[tokio::test]
+    async fn test_mixed_contiguous_and_disjoint() {
+        let term_spec = &[
+            (1, (0, 3)),  // contiguous block
+            (1, (3, 5)),  // continues contiguously
+            (1, (8, 10)), // gap, then disjoint
+        ];
+        let (client, file_contents) = setup_test_file(term_spec).await;
+        reconstruct_and_verify_full(&client, &file_contents, test_config()).await;
+    }
+
+    /// Disjoint ranges across three xorbs with a complex access pattern.
+    #[tokio::test]
+    async fn test_complex_three_xorb_disjoint() {
+        let term_spec = &[
+            (1, (0, 2)),
+            (2, (0, 3)),
+            (3, (2, 5)),
+            (1, (5, 8)),
+            (2, (6, 8)),
+            (3, (0, 2)),
+        ];
+        let (client, file_contents) = setup_test_file(term_spec).await;
+        reconstruct_and_verify_full(&client, &file_contents, test_config()).await;
+    }
+
+    /// LocalClient with max_ranges_per_fetch=2 (tests V2 response splitting without HTTP).
+    #[tokio::test]
+    async fn test_local_client_max_ranges_2_disjoint() {
+        let client = LocalClient::temporary(XetContext::default().unwrap()).await.unwrap();
+        client.set_max_ranges_per_fetch(2);
+
+        let term_spec = &[(1, (0, 2)), (1, (4, 6)), (1, (8, 10)), (1, (12, 14))];
+        let file_contents = client.upload_random_file(term_spec, TEST_CHUNK_SIZE).await.unwrap();
+
+        let config = test_config();
+        let result = reconstruct_to_vec(&client, file_contents.file_hash, None, &config, None)
+            .await
+            .unwrap();
+        assert_eq!(result, file_contents.data.as_ref());
+    }
+
+    /// LocalClient with max_ranges_per_fetch=1 (every range gets its own fetch entry).
+    #[tokio::test]
+    async fn test_local_client_max_ranges_1_multi_xorb() {
+        let client = LocalClient::temporary(XetContext::default().unwrap()).await.unwrap();
+        client.set_max_ranges_per_fetch(1);
+
+        let term_spec = &[(1, (0, 2)), (2, (0, 2)), (1, (4, 6)), (2, (4, 6))];
+        let file_contents = client.upload_random_file(term_spec, TEST_CHUNK_SIZE).await.unwrap();
+
+        let config = test_config();
+        let result = reconstruct_to_vec(&client, file_contents.file_hash, None, &config, None)
+            .await
+            .unwrap();
+        assert_eq!(result, file_contents.data.as_ref());
+    }
+
     // ==================== Cancellation Flag Tests ====================
 
-    #[tokio::test]
-    async fn test_cancellation_token_before_start() {
-        let (client, file_contents) = setup_test_file(&[(1, (0, 3))]).await;
-        let config = test_config();
+    mod cancellation_tests {
+        use tokio_util::sync::CancellationToken;
 
-        let token = CancellationToken::new();
-        token.cancel();
-        let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
-        let writer = StaticCursorWriter(buffer.clone());
+        use super::*;
 
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+        #[tokio::test]
+        async fn test_cancellation_token_before_start() {
+            let (client, file_contents) = setup_test_file(&[(1, (0, 3))]).await;
+            let config = test_config();
+
+            let token = CancellationToken::new();
+            token.cancel();
+            let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
+            let writer = StaticCursorWriter(buffer.clone());
+
+            let bytes_written = FileReconstructor::new(
+                &XetContext::default().unwrap(),
+                &(client.clone() as Arc<dyn Client>),
+                file_contents.file_hash,
+            )
             .with_config(&config)
             .with_cancellation_token(token)
             .reconstruct_to_writer(writer)
             .await
             .unwrap();
 
-        assert_eq!(bytes_written, 0);
-    }
+            assert_eq!(bytes_written, 0);
+        }
 
-    /// A writer that cancels a token after a certain number of writes,
-    /// used to deterministically test mid-reconstruction cancellation.
-    struct CancellingWriter {
-        buffer: Arc<std::sync::Mutex<Vec<u8>>>,
-        cancel_token: CancellationToken,
-        write_count: AtomicUsize,
-        cancel_after_writes: usize,
-    }
+        /// A writer that cancels a token after a certain number of writes,
+        /// used to deterministically test mid-reconstruction cancellation.
+        struct CancellingWriter {
+            buffer: Arc<std::sync::Mutex<Vec<u8>>>,
+            cancel_token: CancellationToken,
+            write_count: AtomicUsize,
+            cancel_after_writes: usize,
+        }
 
-    impl Write for CancellingWriter {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            let n = self.buffer.lock().unwrap().write(buf)?;
-            let count = self.write_count.fetch_add(1, Ordering::Relaxed) + 1;
-            if count >= self.cancel_after_writes {
-                self.cancel_token.cancel();
+        impl Write for CancellingWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                let n = self.buffer.lock().unwrap().write(buf)?;
+                let count = self.write_count.fetch_add(1, Ordering::Relaxed) + 1;
+                if count >= self.cancel_after_writes {
+                    self.cancel_token.cancel();
+                }
+                Ok(n)
             }
-            Ok(n)
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
         }
 
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
+        #[tokio::test]
+        async fn test_cancellation_token_during_reconstruction() {
+            let term_spec: Vec<(u64, (u64, u64))> = (1..=10).map(|i| (i, (0, 5))).collect();
+            let (client, file_contents) = setup_test_file(&term_spec).await;
+            let config = test_config();
 
-    #[tokio::test]
-    async fn test_cancellation_token_during_reconstruction() {
-        let term_spec: Vec<(u64, (u64, u64))> = (1..=10).map(|i| (i, (0, 5))).collect();
-        let (client, file_contents) = setup_test_file(&term_spec).await;
-        let config = test_config();
+            let token = CancellationToken::new();
+            let buffer = Arc::new(std::sync::Mutex::new(Vec::new()));
 
-        let token = CancellationToken::new();
-        let buffer = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let writer = CancellingWriter {
+                buffer: buffer.clone(),
+                cancel_token: token.clone(),
+                write_count: AtomicUsize::new(0),
+                cancel_after_writes: 1,
+            };
 
-        let writer = CancellingWriter {
-            buffer: buffer.clone(),
-            cancel_token: token.clone(),
-            write_count: AtomicUsize::new(0),
-            cancel_after_writes: 1,
-        };
+            // Use a tiny semaphore to force sequential term processing.
+            let tiny_semaphore = AdjustableSemaphore::new(1, (1, 1));
 
-        // Use a tiny semaphore to force sequential term processing.
-        let tiny_semaphore = AdjustableSemaphore::new(1, (1, 1));
-
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+            let bytes_written = FileReconstructor::new(
+                &XetContext::default().unwrap(),
+                &(client.clone() as Arc<dyn Client>),
+                file_contents.file_hash,
+            )
             .with_config(&config)
             .with_cancellation_token(token)
             .with_buffer_semaphore(tiny_semaphore)
@@ -1361,29 +1574,385 @@ mod tests {
             .await
             .unwrap();
 
-        // Verify cancellation returned Ok(0) and only partial data was written.
-        assert_eq!(bytes_written, 0);
-        let written = buffer.lock().unwrap().len();
-        assert!(written < file_contents.data.len());
-    }
+            // Verify cancellation returned Ok(0) and only partial data was written.
+            assert_eq!(bytes_written, 0);
+            let written = buffer.lock().unwrap().len();
+            assert!(written < file_contents.data.len());
+        }
 
-    #[tokio::test]
-    async fn test_cancellation_token_not_set_completes_normally() {
-        let (client, file_contents) = setup_test_file(&[(1, (0, 3)), (2, (0, 2))]).await;
-        let config = test_config();
+        #[tokio::test]
+        async fn test_cancellation_token_not_set_completes_normally() {
+            let (client, file_contents) = setup_test_file(&[(1, (0, 3)), (2, (0, 2))]).await;
+            let config = test_config();
 
-        let token = CancellationToken::new();
-        let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
-        let writer = StaticCursorWriter(buffer.clone());
+            let token = CancellationToken::new();
+            let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
+            let writer = StaticCursorWriter(buffer.clone());
 
-        let bytes_written = FileReconstructor::new(&(client.clone() as Arc<dyn Client>), file_contents.file_hash)
+            let bytes_written = FileReconstructor::new(
+                &XetContext::default().unwrap(),
+                &(client.clone() as Arc<dyn Client>),
+                file_contents.file_hash,
+            )
             .with_config(&config)
             .with_cancellation_token(token)
             .reconstruct_to_writer(writer)
             .await
             .unwrap();
 
-        assert_eq!(bytes_written, file_contents.data.len() as u64);
-        assert_eq!(buffer.lock().unwrap().get_ref().clone(), file_contents.data);
+            assert_eq!(bytes_written, file_contents.data.len() as u64);
+            assert_eq!(buffer.lock().unwrap().get_ref().clone(), file_contents.data);
+        }
     }
+
+    // ==================== Multirange Fetching Tests (LocalClient) ====================
+
+    mod multirange_tests {
+        use super::*;
+
+        fn with_multirange_config(enable: bool) -> XetContext {
+            let mut config = xet_runtime::config::XetConfig::new();
+            config.client.enable_multirange_fetching = enable;
+            XetContext::with_config(config).unwrap()
+        }
+
+        /// Exercises multiple disjoint-range scenarios through LocalClient with both
+        /// enable_multirange_fetching=true and =false.
+        #[test]
+        fn test_multirange_local_client() {
+            for enable in [false, true] {
+                let ctx = with_multirange_config(enable);
+                ctx.runtime
+                    .bridge_sync(async move {
+                        let scenarios: Vec<Vec<(u64, (u64, u64))>> = vec![
+                            vec![(1, (0, 2)), (1, (4, 6)), (1, (8, 10))],
+                            vec![
+                                (1, (0, 2)),
+                                (2, (0, 2)),
+                                (1, (4, 6)),
+                                (2, (4, 6)),
+                                (1, (8, 10)),
+                                (2, (8, 10)),
+                            ],
+                            vec![
+                                (1, (0, 2)),
+                                (2, (0, 3)),
+                                (3, (2, 5)),
+                                (1, (5, 8)),
+                                (2, (6, 8)),
+                                (3, (0, 2)),
+                            ],
+                        ];
+                        let config = test_config();
+                        for term_spec in &scenarios {
+                            let (client, fc) = setup_test_file(term_spec).await;
+                            reconstruct_and_verify_full(&client, &fc, config.clone()).await;
+
+                            let file_len = fc.data.len() as u64;
+                            let range = FileRange::new(file_len / 4, file_len * 3 / 4);
+                            reconstruct_and_verify_range(&client, &fc, range, config.clone()).await;
+                        }
+                    })
+                    .unwrap();
+            }
+        }
+
+        /// LocalClient with max_ranges_per_fetch constraint, both enable settings.
+        #[test]
+        fn test_multirange_max_ranges() {
+            for enable in [false, true] {
+                let ctx = with_multirange_config(enable);
+                ctx.runtime
+                    .bridge_sync(async {
+                        let client = LocalClient::temporary(XetContext::default().unwrap()).await.unwrap();
+                        client.set_max_ranges_per_fetch(2);
+
+                        let term_spec = &[(1, (0, 2)), (1, (4, 6)), (1, (8, 10)), (1, (12, 14))];
+                        let fc = client.upload_random_file(term_spec, TEST_CHUNK_SIZE).await.unwrap();
+
+                        let config = test_config();
+                        let result = reconstruct_to_vec(&client, fc.file_hash, None, &config, None).await.unwrap();
+                        assert_eq!(result, fc.data.as_ref());
+                    })
+                    .unwrap();
+            }
+        }
+    }
+
+    // ==================== Server-dependent tests (require simulation feature) ====================
+    #[cfg(feature = "simulation")]
+    mod server_tests {
+        use super::*;
+
+        // ==================== V1 Fallback Tests ====================
+        //
+        // These tests use LocalTestServer with V2 disabled to verify that
+        // reconstruction works correctly when the client falls back from V2 to V1.
+
+        /// Helper to reconstruct through a LocalTestServer (RemoteClient HTTP path).
+        async fn reconstruct_via_server(
+            server: &xet_client::cas_client::LocalTestServer,
+            file_hash: MerkleHash,
+            byte_range: Option<FileRange>,
+            config: &ReconstructionConfig,
+        ) -> Result<Vec<u8>> {
+            let buffer = Arc::new(std::sync::Mutex::new(Cursor::new(Vec::new())));
+            let writer = StaticCursorWriter(buffer.clone());
+
+            let client: Arc<dyn Client> = server.remote_client().clone();
+            let mut reconstructor =
+                FileReconstructor::new(&XetContext::default().unwrap(), &client, file_hash).with_config(config);
+
+            if let Some(range) = byte_range {
+                reconstructor = reconstructor.with_byte_range(range);
+            }
+
+            reconstructor.reconstruct_to_writer(writer).await?;
+
+            let data = buffer.lock().unwrap().get_ref().clone();
+            Ok(data)
+        }
+
+        #[tokio::test]
+        async fn test_v1_fallback_full_reconstruction() {
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(&[(1, (0, 3)), (2, (0, 2))], TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.disable_v2_reconstruction(404);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, None, &config)
+                .await
+                .unwrap();
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        #[tokio::test]
+        async fn test_v1_fallback_partial_range() {
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(&[(1, (0, 5)), (2, (0, 3))], TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.disable_v2_reconstruction(404);
+
+            let file_len = file_contents.data.len() as u64;
+            let range = FileRange::new(file_len / 4, file_len * 3 / 4);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, Some(range), &config)
+                .await
+                .unwrap();
+            assert_eq!(result, &file_contents.data[range.start as usize..range.end as usize]);
+        }
+
+        #[tokio::test]
+        async fn test_v1_fallback_non_contiguous_chunks() {
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(&[(1, (0, 2)), (1, (4, 6))], TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.disable_v2_reconstruction(404);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, None, &config)
+                .await
+                .unwrap();
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        #[tokio::test]
+        async fn test_v1_fallback_multiple_xorbs() {
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(&[(1, (0, 2)), (2, (0, 3)), (3, (0, 2)), (1, (2, 4))], TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.disable_v2_reconstruction(404);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, None, &config)
+                .await
+                .unwrap();
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        /// V1 fallback with three disjoint ranges from the same xorb.
+        #[tokio::test]
+        async fn test_v1_fallback_triple_disjoint_ranges() {
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(&[(1, (0, 2)), (1, (4, 6)), (1, (8, 10))], TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.disable_v2_reconstruction(404);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, None, &config)
+                .await
+                .unwrap();
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        // ==================== Max Ranges Tests (via server) ====================
+
+        /// Helper to set up a server with max_ranges_per_fetch and reconstruct.
+        async fn reconstruct_via_server_with_max_ranges(
+            term_spec: &[(u64, (u64, u64))],
+            max_ranges: usize,
+            byte_range: Option<FileRange>,
+        ) -> (Vec<u8>, RandomFileContents) {
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(term_spec, TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.set_max_ranges_per_fetch(max_ranges);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, byte_range, &config)
+                .await
+                .unwrap();
+            (result, file_contents)
+        }
+
+        #[tokio::test]
+        async fn test_max_ranges_simple() {
+            let (result, file_contents) =
+                reconstruct_via_server_with_max_ranges(&[(1, (0, 3)), (2, (0, 2))], 2, None).await;
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        #[tokio::test]
+        async fn test_max_ranges_1_disjoint() {
+            let (result, file_contents) =
+                reconstruct_via_server_with_max_ranges(&[(1, (0, 2)), (1, (4, 6))], 1, None).await;
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        #[tokio::test]
+        async fn test_max_ranges_2_triple_disjoint() {
+            let (result, file_contents) =
+                reconstruct_via_server_with_max_ranges(&[(1, (0, 2)), (1, (4, 6)), (1, (8, 10))], 2, None).await;
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        #[tokio::test]
+        async fn test_max_ranges_2_multi_xorb_disjoint() {
+            let term_spec = &[
+                (1, (0, 2)),
+                (2, (0, 2)),
+                (1, (4, 6)),
+                (2, (4, 6)),
+                (1, (8, 10)),
+                (2, (8, 10)),
+            ];
+            let (result, file_contents) = reconstruct_via_server_with_max_ranges(term_spec, 2, None).await;
+            assert_eq!(result, file_contents.data.as_ref());
+        }
+
+        #[tokio::test]
+        async fn test_max_ranges_2_partial_range() {
+            let term_spec = &[
+                (1, (0, 3)),
+                (2, (0, 2)),
+                (1, (3, 5)),
+                (3, (1, 4)),
+                (2, (4, 6)),
+                (1, (0, 2)),
+            ];
+            let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+            let file_contents = server
+                .remote_client()
+                .upload_random_file(term_spec, TEST_CHUNK_SIZE)
+                .await
+                .unwrap();
+
+            server.set_max_ranges_per_fetch(2);
+
+            let file_len = file_contents.data.len() as u64;
+            let range = FileRange::new(file_len / 4, file_len * 3 / 4);
+
+            let config = test_config();
+            let result = reconstruct_via_server(&server, file_contents.file_hash, Some(range), &config)
+                .await
+                .unwrap();
+            assert_eq!(result, &file_contents.data[range.start as usize..range.end as usize]);
+        }
+
+        // ==================== Multirange via Server ====================
+
+        fn with_multirange_config(enable: bool) -> XetContext {
+            let mut config = xet_runtime::config::XetConfig::new();
+            config.client.enable_multirange_fetching = enable;
+            XetContext::with_config(config).unwrap()
+        }
+
+        /// Exercises HTTP server path with full, max-ranges-split, and partial-range
+        /// reconstruction, both enable_multirange_fetching values.
+        #[test]
+        fn test_multirange_via_server() {
+            for enable in [false, true] {
+                let ctx = with_multirange_config(enable);
+                ctx.runtime
+                    .bridge_sync(async {
+                        let config = test_config();
+
+                        // Full reconstruction with disjoint ranges
+                        let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+                        let fc = server
+                            .remote_client()
+                            .upload_random_file(&[(1, (0, 2)), (1, (4, 6)), (1, (8, 10))], TEST_CHUNK_SIZE)
+                            .await
+                            .unwrap();
+                        let result = reconstruct_via_server(&server, fc.file_hash, None, &config).await.unwrap();
+                        assert_eq!(result, fc.data.as_ref());
+
+                        // Multi-xorb with max_ranges_per_fetch=2
+                        let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+                        let fc = server
+                            .remote_client()
+                            .upload_random_file(
+                                &[(1, (0, 2)), (2, (0, 2)), (1, (4, 6)), (2, (4, 6)), (1, (8, 10))],
+                                TEST_CHUNK_SIZE,
+                            )
+                            .await
+                            .unwrap();
+                        server.set_max_ranges_per_fetch(2);
+                        let result = reconstruct_via_server(&server, fc.file_hash, None, &config).await.unwrap();
+                        assert_eq!(result, fc.data.as_ref());
+
+                        // Partial byte range
+                        let server = xet_client::cas_client::LocalTestServerBuilder::new().start().await;
+                        let fc = server
+                            .remote_client()
+                            .upload_random_file(&[(1, (0, 3)), (2, (0, 2)), (1, (3, 5)), (2, (4, 6))], TEST_CHUNK_SIZE)
+                            .await
+                            .unwrap();
+                        let file_len = fc.data.len() as u64;
+                        let range = FileRange::new(file_len / 4, file_len * 3 / 4);
+                        let result = reconstruct_via_server(&server, fc.file_hash, Some(range), &config)
+                            .await
+                            .unwrap();
+                        assert_eq!(result, &fc.data[range.start as usize..range.end as usize]);
+                    })
+                    .unwrap();
+            }
+        }
+    } // mod server_tests
 }

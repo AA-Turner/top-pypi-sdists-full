@@ -28,15 +28,21 @@ from ...._response import (
 from ...._base_client import make_request_options
 from ....types.tool_router import (
     session_link_params,
+    session_patch_params,
+    session_tools_params,
+    session_attach_params,
     session_create_params,
     session_search_params,
     session_execute_params,
     session_toolkits_params,
     session_execute_meta_params,
     session_proxy_execute_params,
+    session_config_history_params,
 )
 from ....types.tool_router.session_link_response import SessionLinkResponse
+from ....types.tool_router.session_patch_response import SessionPatchResponse
 from ....types.tool_router.session_tools_response import SessionToolsResponse
+from ....types.tool_router.session_attach_response import SessionAttachResponse
 from ....types.tool_router.session_create_response import SessionCreateResponse
 from ....types.tool_router.session_search_response import SessionSearchResponse
 from ....types.tool_router.session_execute_response import SessionExecuteResponse
@@ -44,6 +50,7 @@ from ....types.tool_router.session_retrieve_response import SessionRetrieveRespo
 from ....types.tool_router.session_toolkits_response import SessionToolkitsResponse
 from ....types.tool_router.session_execute_meta_response import SessionExecuteMetaResponse
 from ....types.tool_router.session_proxy_execute_response import SessionProxyExecuteResponse
+from ....types.tool_router.session_config_history_response import SessionConfigHistoryResponse
 
 __all__ = ["SessionResource", "AsyncSessionResource"]
 
@@ -81,10 +88,12 @@ class SessionResource(SyncAPIResource):
         user_id: str,
         auth_configs: Dict[str, str] | Omit = omit,
         connected_accounts: Dict[str, str] | Omit = omit,
+        execute: session_create_params.Execute | Omit = omit,
         experimental: session_create_params.Experimental | Omit = omit,
         manage_connections: session_create_params.ManageConnections | Omit = omit,
         multi_account: session_create_params.MultiAccount | Omit = omit,
         preload: session_create_params.Preload | Omit = omit,
+        search: session_create_params.Search | Omit = omit,
         tags: session_create_params.Tags | Omit = omit,
         toolkits: session_create_params.Toolkits | Omit = omit,
         tools: Dict[str, session_create_params.Tools] | Omit = omit,
@@ -124,14 +133,9 @@ class SessionResource(SyncAPIResource):
           multi_account: Configure multi-account behavior. When enabled, users can connect multiple
               accounts per toolkit.
 
-          preload: Preload configuration. Controls which tools appear in `session.tools` and the
-              MCP server tool list so the agent can call them directly without going through
-              search first — useful for frequently used tools. Each slug must be allowed by
-              the session filters (`toolkits`, `tools`, `tags`), otherwise session creation
-              fails with a 400. Custom tools declared in `custom_tools` / `custom_toolkits`
-              can also be preloaded. Not supported when multi-account is enabled. Each
-              preloaded tool adds to the agent context window, so keep the list at or under
-              ~20 tools.
+          preload: Preload configuration. Use an explicit list for frequently used tool slugs, or
+              "all" to dynamically expose every app tool allowed by positive
+              toolkits/tools/tags filters.
 
           tags: Global MCP tool annotation hints for filtering. Array format is treated as
               enabled list. Object format supports both enabled (tool must have at least one)
@@ -158,16 +162,18 @@ class SessionResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._post(
-            "/api/v3/tool_router/session",
+            "/api/v3.1/tool_router/session",
             body=maybe_transform(
                 {
                     "user_id": user_id,
                     "auth_configs": auth_configs,
                     "connected_accounts": connected_accounts,
+                    "execute": execute,
                     "experimental": experimental,
                     "manage_connections": manage_connections,
                     "multi_account": multi_account,
                     "preload": preload,
+                    "search": search,
                     "tags": tags,
                     "toolkits": toolkits,
                     "tools": tools,
@@ -211,11 +217,108 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._get(
-            path_template("/api/v3/tool_router/session/{session_id}", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}", session_id=session_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=SessionRetrieveResponse,
+        )
+
+    def attach(
+        self,
+        session_id: str,
+        *,
+        experimental: session_attach_params.Experimental | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SessionAttachResponse:
+        """
+        Fetch an existing tool router session by ID.
+
+        Args:
+          session_id: The unique identifier of the tool router session
+
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not session_id:
+            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
+        return self._post(
+            path_template("/api/v3.1/tool_router/session/{session_id}/attach", session_id=session_id),
+            body=maybe_transform({"experimental": experimental}, session_attach_params.SessionAttachParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SessionAttachResponse,
+        )
+
+    def config_history(
+        self,
+        session_id: str,
+        *,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SessionConfigHistoryResponse:
+        """Returns the session config history ordered by version DESC (newest first).
+
+        The
+        live (current) config appears once, on the first page only, with
+        `is_current: true`; archived versions have `is_current: false`.
+
+        Args:
+          session_id: The unique identifier of the tool router session
+
+          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
+              limit. The page is the page number and the limit is the number of items per
+              page. The cursor is used to paginate through the items. The cursor is not
+              required for the first page.
+
+          limit: Number of items per page, max allowed is 100
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not session_id:
+            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
+        return self._get(
+            path_template("/api/v3.1/tool_router/session/{session_id}/config_history", session_id=session_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "limit": limit,
+                    },
+                    session_config_history_params.SessionConfigHistoryParams,
+                ),
+            ),
+            cast_to=SessionConfigHistoryResponse,
         )
 
     def execute(
@@ -226,6 +329,7 @@ class SessionResource(SyncAPIResource):
         account: str | Omit = omit,
         arguments: Dict[str, Optional[object]] | Omit = omit,
         enable_auto_workbench_offload: bool | Omit = omit,
+        experimental: session_execute_params.Experimental | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -233,18 +337,8 @@ class SessionResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionExecuteResponse:
-        """Executes a specific tool within a tool router session.
-
-        This is the primary
-        execution endpoint for both meta tools and app tools exposed by the session. The
-        toolkit is automatically inferred from the tool slug. For app tools, the tool
-        must belong to an allowed toolkit and must not be disabled in the session
-        configuration. The endpoint validates permissions, resolves connected accounts
-        when needed, and executes the tool with the session context. The top-level
-        account field applies only to direct app tool execution in multi-account
-        sessions. Meta/helper tools either ignore it or define their own
-        account-selection fields, for example
-        COMPOSIO_MULTI_EXECUTE_TOOL.tools[].account.
+        """
+        Execute a tool (meta or app) within an existing tool router session.
 
         Args:
           session_id: The unique identifier of the tool router session. Required for public API
@@ -268,6 +362,9 @@ class SessionResource(SyncAPIResource):
               response. Meta/helper tools are unaffected, and COMPOSIO_MULTI_EXECUTE_TOOL uses
               session.workbench configuration for its own batch-level offload behavior.
 
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -279,13 +376,14 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/execute", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/execute", session_id=session_id),
             body=maybe_transform(
                 {
                     "tool_slug": tool_slug,
                     "account": account,
                     "arguments": arguments,
                     "enable_auto_workbench_offload": enable_auto_workbench_offload,
+                    "experimental": experimental,
                 },
                 session_execute_params.SessionExecuteParams,
             ),
@@ -311,6 +409,7 @@ class SessionResource(SyncAPIResource):
             "COMPOSIO_GET_RECIPE",
         ],
         arguments: Dict[str, Optional[object]] | Omit = omit,
+        experimental: session_execute_meta_params.Experimental | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -318,11 +417,9 @@ class SessionResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionExecuteMetaResponse:
-        """Executes a Composio meta tool (COMPOSIO\\__\\**) within a tool router session.
-
-        This
-        endpoint is kept for meta-tool compatibility; clients can also use the primary
-        /execute endpoint.
+        """
+        Execute a Composio meta tool (COMPOSIO\\__\\**) within an existing tool router
+        session.
 
         Args:
           session_id: The unique identifier of the tool router session. Required for public API
@@ -331,6 +428,9 @@ class SessionResource(SyncAPIResource):
           slug: The unique slug identifier of the meta tool to execute
 
           arguments: The arguments required by the meta tool
+
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
 
           extra_headers: Send extra headers
 
@@ -343,11 +443,12 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/execute_meta", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/execute_meta", session_id=session_id),
             body=maybe_transform(
                 {
                     "slug": slug,
                     "arguments": arguments,
+                    "experimental": experimental,
                 },
                 session_execute_meta_params.SessionExecuteMetaParams,
             ),
@@ -397,7 +498,7 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/link", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/link", session_id=session_id),
             body=maybe_transform(
                 {
                     "toolkit": toolkit,
@@ -410,6 +511,101 @@ class SessionResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=SessionLinkResponse,
+        )
+
+    def patch(
+        self,
+        session_id: str,
+        *,
+        auth_configs: Dict[str, str] | Omit = omit,
+        connected_accounts: Dict[str, str] | Omit = omit,
+        execute: session_patch_params.Execute | Omit = omit,
+        experimental: Optional[session_patch_params.Experimental] | Omit = omit,
+        manage_connections: Optional[session_patch_params.ManageConnections] | Omit = omit,
+        multi_account: Optional[session_patch_params.MultiAccount] | Omit = omit,
+        preload: session_patch_params.Preload | Omit = omit,
+        search: session_patch_params.Search | Omit = omit,
+        tags: session_patch_params.Tags | Omit = omit,
+        toolkits: session_patch_params.Toolkits | Omit = omit,
+        tools: Dict[str, session_patch_params.Tools] | Omit = omit,
+        workbench: Optional[session_patch_params.Workbench] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SessionPatchResponse:
+        """Partially updates the configuration of an existing tool router session.
+
+        Only the
+        fields provided in the request body will be updated. Uses optimistic concurrency
+        control to prevent lost updates. The previous config is stored in config
+        history.
+
+        Args:
+          session_id: The unique identifier of the tool router session
+
+          auth_configs: The auth configs to use for the session. This will override the default behavior
+              and use the given auth config when specific toolkits are being executed
+
+          connected_accounts: The connected accounts to use for the session. This will override the default
+              behaviour and use the given connected account when specific toolkits are being
+              executed. Each connected account must exist (not deleted or disabled) and belong
+              to the same `user_id` as the session — otherwise session creation fails with a
+              clear error explaining which account didn't match.
+
+          preload: Preload configuration. Use an explicit list for frequently used tool slugs, or
+              "all" to dynamically expose every app tool allowed by positive
+              toolkits/tools/tags filters.
+
+          tags: Global MCP tool annotation hints for filtering. Array format is treated as
+              enabled list. Object format supports both enabled (tool must have at least one)
+              and disabled (tool must NOT have any) lists. Toolkit-level tags override this.
+              Toolkit enabled/disabled lists take precedence over tag filtering.
+
+          toolkits: Toolkit configuration - specify either enable toolkits (allowlist) or disable
+              toolkits (denylist). Mutually exclusive.
+
+          tools: Tool-level configuration per toolkit. Allows you to enable, disable, or filter
+              by tags for specific tools within each toolkit. Every slug passed in `enable` /
+              `disable` must be a valid Composio tool slug for that toolkit — invalid or
+              typo'd slugs fail session creation with a clear error listing which ones didn't
+              match.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not session_id:
+            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
+        return self._patch(
+            path_template("/api/v3.1/tool_router/session/{session_id}", session_id=session_id),
+            body=maybe_transform(
+                {
+                    "auth_configs": auth_configs,
+                    "connected_accounts": connected_accounts,
+                    "execute": execute,
+                    "experimental": experimental,
+                    "manage_connections": manage_connections,
+                    "multi_account": multi_account,
+                    "preload": preload,
+                    "search": search,
+                    "tags": tags,
+                    "toolkits": toolkits,
+                    "tools": tools,
+                    "workbench": workbench,
+                },
+                session_patch_params.SessionPatchParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SessionPatchResponse,
         )
 
     def proxy_execute(
@@ -469,7 +665,7 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/proxy_execute", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/proxy_execute", session_id=session_id),
             body=maybe_transform(
                 {
                     "endpoint": endpoint,
@@ -493,6 +689,7 @@ class SessionResource(SyncAPIResource):
         session_id: str,
         *,
         queries: Iterable[session_search_params.Query],
+        experimental: session_search_params.Experimental | Omit = omit,
         model: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -502,17 +699,18 @@ class SessionResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionSearchResponse:
         """
-        Search for tools matching a given use case query within a tool router session.
-        Returns matching tool slugs, full tool schemas, toolkit connection statuses, and
-        workflow guidance in a predictable format.
+        Search for tools matching a use case query within an existing tool router
+        session.
 
         Args:
           session_id: Tool router session ID (trs\\__\\**)
 
-          queries: List of search queries to execute in parallel. Up to 7 queries supported.
+          queries: List of search queries to execute in parallel.
 
-          model: Optional model hint for search/planning behavior (e.g., "gpt-4o"). Ignored if
-              invalid.
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
+
+          model: Optional model hint for search/planning behavior (e.g., "gpt-4o").
 
           extra_headers: Send extra headers
 
@@ -525,10 +723,11 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/search", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/search", session_id=session_id),
             body=maybe_transform(
                 {
                     "queries": queries,
+                    "experimental": experimental,
                     "model": model,
                 },
                 session_search_params.SessionSearchParams,
@@ -589,7 +788,7 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._get(
-            path_template("/api/v3/tool_router/session/{session_id}/toolkits", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/toolkits", session_id=session_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -613,6 +812,8 @@ class SessionResource(SyncAPIResource):
         self,
         session_id: str,
         *,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -620,14 +821,20 @@ class SessionResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionToolsResponse:
-        """Returns the tools available in a tool router session with their complete
-        schemas.
+        """Returns tools available in a tool router session with complete schemas.
 
-        This includes both meta tools and any preloaded app tools exposed by
-        the session.
+        Results
+        are paginated; use `next_cursor` to fetch the next page.
 
         Args:
           session_id: Tool router session ID
+
+          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
+              limit. The page is the page number and the limit is the number of items per
+              page. The cursor is used to paginate through the items. The cursor is not
+              required for the first page.
+
+          limit: Number of items per page, max allowed is 500
 
           extra_headers: Send extra headers
 
@@ -640,9 +847,19 @@ class SessionResource(SyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return self._get(
-            path_template("/api/v3/tool_router/session/{session_id}/tools", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/tools", session_id=session_id),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "limit": limit,
+                    },
+                    session_tools_params.SessionToolsParams,
+                ),
             ),
             cast_to=SessionToolsResponse,
         )
@@ -681,10 +898,12 @@ class AsyncSessionResource(AsyncAPIResource):
         user_id: str,
         auth_configs: Dict[str, str] | Omit = omit,
         connected_accounts: Dict[str, str] | Omit = omit,
+        execute: session_create_params.Execute | Omit = omit,
         experimental: session_create_params.Experimental | Omit = omit,
         manage_connections: session_create_params.ManageConnections | Omit = omit,
         multi_account: session_create_params.MultiAccount | Omit = omit,
         preload: session_create_params.Preload | Omit = omit,
+        search: session_create_params.Search | Omit = omit,
         tags: session_create_params.Tags | Omit = omit,
         toolkits: session_create_params.Toolkits | Omit = omit,
         tools: Dict[str, session_create_params.Tools] | Omit = omit,
@@ -724,14 +943,9 @@ class AsyncSessionResource(AsyncAPIResource):
           multi_account: Configure multi-account behavior. When enabled, users can connect multiple
               accounts per toolkit.
 
-          preload: Preload configuration. Controls which tools appear in `session.tools` and the
-              MCP server tool list so the agent can call them directly without going through
-              search first — useful for frequently used tools. Each slug must be allowed by
-              the session filters (`toolkits`, `tools`, `tags`), otherwise session creation
-              fails with a 400. Custom tools declared in `custom_tools` / `custom_toolkits`
-              can also be preloaded. Not supported when multi-account is enabled. Each
-              preloaded tool adds to the agent context window, so keep the list at or under
-              ~20 tools.
+          preload: Preload configuration. Use an explicit list for frequently used tool slugs, or
+              "all" to dynamically expose every app tool allowed by positive
+              toolkits/tools/tags filters.
 
           tags: Global MCP tool annotation hints for filtering. Array format is treated as
               enabled list. Object format supports both enabled (tool must have at least one)
@@ -758,16 +972,18 @@ class AsyncSessionResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._post(
-            "/api/v3/tool_router/session",
+            "/api/v3.1/tool_router/session",
             body=await async_maybe_transform(
                 {
                     "user_id": user_id,
                     "auth_configs": auth_configs,
                     "connected_accounts": connected_accounts,
+                    "execute": execute,
                     "experimental": experimental,
                     "manage_connections": manage_connections,
                     "multi_account": multi_account,
                     "preload": preload,
+                    "search": search,
                     "tags": tags,
                     "toolkits": toolkits,
                     "tools": tools,
@@ -811,11 +1027,108 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._get(
-            path_template("/api/v3/tool_router/session/{session_id}", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}", session_id=session_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=SessionRetrieveResponse,
+        )
+
+    async def attach(
+        self,
+        session_id: str,
+        *,
+        experimental: session_attach_params.Experimental | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SessionAttachResponse:
+        """
+        Fetch an existing tool router session by ID.
+
+        Args:
+          session_id: The unique identifier of the tool router session
+
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not session_id:
+            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
+        return await self._post(
+            path_template("/api/v3.1/tool_router/session/{session_id}/attach", session_id=session_id),
+            body=await async_maybe_transform({"experimental": experimental}, session_attach_params.SessionAttachParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SessionAttachResponse,
+        )
+
+    async def config_history(
+        self,
+        session_id: str,
+        *,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SessionConfigHistoryResponse:
+        """Returns the session config history ordered by version DESC (newest first).
+
+        The
+        live (current) config appears once, on the first page only, with
+        `is_current: true`; archived versions have `is_current: false`.
+
+        Args:
+          session_id: The unique identifier of the tool router session
+
+          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
+              limit. The page is the page number and the limit is the number of items per
+              page. The cursor is used to paginate through the items. The cursor is not
+              required for the first page.
+
+          limit: Number of items per page, max allowed is 100
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not session_id:
+            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
+        return await self._get(
+            path_template("/api/v3.1/tool_router/session/{session_id}/config_history", session_id=session_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "limit": limit,
+                    },
+                    session_config_history_params.SessionConfigHistoryParams,
+                ),
+            ),
+            cast_to=SessionConfigHistoryResponse,
         )
 
     async def execute(
@@ -826,6 +1139,7 @@ class AsyncSessionResource(AsyncAPIResource):
         account: str | Omit = omit,
         arguments: Dict[str, Optional[object]] | Omit = omit,
         enable_auto_workbench_offload: bool | Omit = omit,
+        experimental: session_execute_params.Experimental | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -833,18 +1147,8 @@ class AsyncSessionResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionExecuteResponse:
-        """Executes a specific tool within a tool router session.
-
-        This is the primary
-        execution endpoint for both meta tools and app tools exposed by the session. The
-        toolkit is automatically inferred from the tool slug. For app tools, the tool
-        must belong to an allowed toolkit and must not be disabled in the session
-        configuration. The endpoint validates permissions, resolves connected accounts
-        when needed, and executes the tool with the session context. The top-level
-        account field applies only to direct app tool execution in multi-account
-        sessions. Meta/helper tools either ignore it or define their own
-        account-selection fields, for example
-        COMPOSIO_MULTI_EXECUTE_TOOL.tools[].account.
+        """
+        Execute a tool (meta or app) within an existing tool router session.
 
         Args:
           session_id: The unique identifier of the tool router session. Required for public API
@@ -868,6 +1172,9 @@ class AsyncSessionResource(AsyncAPIResource):
               response. Meta/helper tools are unaffected, and COMPOSIO_MULTI_EXECUTE_TOOL uses
               session.workbench configuration for its own batch-level offload behavior.
 
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -879,13 +1186,14 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/execute", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/execute", session_id=session_id),
             body=await async_maybe_transform(
                 {
                     "tool_slug": tool_slug,
                     "account": account,
                     "arguments": arguments,
                     "enable_auto_workbench_offload": enable_auto_workbench_offload,
+                    "experimental": experimental,
                 },
                 session_execute_params.SessionExecuteParams,
             ),
@@ -911,6 +1219,7 @@ class AsyncSessionResource(AsyncAPIResource):
             "COMPOSIO_GET_RECIPE",
         ],
         arguments: Dict[str, Optional[object]] | Omit = omit,
+        experimental: session_execute_meta_params.Experimental | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -918,11 +1227,9 @@ class AsyncSessionResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionExecuteMetaResponse:
-        """Executes a Composio meta tool (COMPOSIO\\__\\**) within a tool router session.
-
-        This
-        endpoint is kept for meta-tool compatibility; clients can also use the primary
-        /execute endpoint.
+        """
+        Execute a Composio meta tool (COMPOSIO\\__\\**) within an existing tool router
+        session.
 
         Args:
           session_id: The unique identifier of the tool router session. Required for public API
@@ -931,6 +1238,9 @@ class AsyncSessionResource(AsyncAPIResource):
           slug: The unique slug identifier of the meta tool to execute
 
           arguments: The arguments required by the meta tool
+
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
 
           extra_headers: Send extra headers
 
@@ -943,11 +1253,12 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/execute_meta", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/execute_meta", session_id=session_id),
             body=await async_maybe_transform(
                 {
                     "slug": slug,
                     "arguments": arguments,
+                    "experimental": experimental,
                 },
                 session_execute_meta_params.SessionExecuteMetaParams,
             ),
@@ -997,7 +1308,7 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/link", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/link", session_id=session_id),
             body=await async_maybe_transform(
                 {
                     "toolkit": toolkit,
@@ -1010,6 +1321,101 @@ class AsyncSessionResource(AsyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=SessionLinkResponse,
+        )
+
+    async def patch(
+        self,
+        session_id: str,
+        *,
+        auth_configs: Dict[str, str] | Omit = omit,
+        connected_accounts: Dict[str, str] | Omit = omit,
+        execute: session_patch_params.Execute | Omit = omit,
+        experimental: Optional[session_patch_params.Experimental] | Omit = omit,
+        manage_connections: Optional[session_patch_params.ManageConnections] | Omit = omit,
+        multi_account: Optional[session_patch_params.MultiAccount] | Omit = omit,
+        preload: session_patch_params.Preload | Omit = omit,
+        search: session_patch_params.Search | Omit = omit,
+        tags: session_patch_params.Tags | Omit = omit,
+        toolkits: session_patch_params.Toolkits | Omit = omit,
+        tools: Dict[str, session_patch_params.Tools] | Omit = omit,
+        workbench: Optional[session_patch_params.Workbench] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SessionPatchResponse:
+        """Partially updates the configuration of an existing tool router session.
+
+        Only the
+        fields provided in the request body will be updated. Uses optimistic concurrency
+        control to prevent lost updates. The previous config is stored in config
+        history.
+
+        Args:
+          session_id: The unique identifier of the tool router session
+
+          auth_configs: The auth configs to use for the session. This will override the default behavior
+              and use the given auth config when specific toolkits are being executed
+
+          connected_accounts: The connected accounts to use for the session. This will override the default
+              behaviour and use the given connected account when specific toolkits are being
+              executed. Each connected account must exist (not deleted or disabled) and belong
+              to the same `user_id` as the session — otherwise session creation fails with a
+              clear error explaining which account didn't match.
+
+          preload: Preload configuration. Use an explicit list for frequently used tool slugs, or
+              "all" to dynamically expose every app tool allowed by positive
+              toolkits/tools/tags filters.
+
+          tags: Global MCP tool annotation hints for filtering. Array format is treated as
+              enabled list. Object format supports both enabled (tool must have at least one)
+              and disabled (tool must NOT have any) lists. Toolkit-level tags override this.
+              Toolkit enabled/disabled lists take precedence over tag filtering.
+
+          toolkits: Toolkit configuration - specify either enable toolkits (allowlist) or disable
+              toolkits (denylist). Mutually exclusive.
+
+          tools: Tool-level configuration per toolkit. Allows you to enable, disable, or filter
+              by tags for specific tools within each toolkit. Every slug passed in `enable` /
+              `disable` must be a valid Composio tool slug for that toolkit — invalid or
+              typo'd slugs fail session creation with a clear error listing which ones didn't
+              match.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not session_id:
+            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
+        return await self._patch(
+            path_template("/api/v3.1/tool_router/session/{session_id}", session_id=session_id),
+            body=await async_maybe_transform(
+                {
+                    "auth_configs": auth_configs,
+                    "connected_accounts": connected_accounts,
+                    "execute": execute,
+                    "experimental": experimental,
+                    "manage_connections": manage_connections,
+                    "multi_account": multi_account,
+                    "preload": preload,
+                    "search": search,
+                    "tags": tags,
+                    "toolkits": toolkits,
+                    "tools": tools,
+                    "workbench": workbench,
+                },
+                session_patch_params.SessionPatchParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SessionPatchResponse,
         )
 
     async def proxy_execute(
@@ -1069,7 +1475,7 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/proxy_execute", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/proxy_execute", session_id=session_id),
             body=await async_maybe_transform(
                 {
                     "endpoint": endpoint,
@@ -1093,6 +1499,7 @@ class AsyncSessionResource(AsyncAPIResource):
         session_id: str,
         *,
         queries: Iterable[session_search_params.Query],
+        experimental: session_search_params.Experimental | Omit = omit,
         model: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -1102,17 +1509,18 @@ class AsyncSessionResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionSearchResponse:
         """
-        Search for tools matching a given use case query within a tool router session.
-        Returns matching tool slugs, full tool schemas, toolkit connection statuses, and
-        workflow guidance in a predictable format.
+        Search for tools matching a use case query within an existing tool router
+        session.
 
         Args:
           session_id: Tool router session ID (trs\\__\\**)
 
-          queries: List of search queries to execute in parallel. Up to 7 queries supported.
+          queries: List of search queries to execute in parallel.
 
-          model: Optional model hint for search/planning behavior (e.g., "gpt-4o"). Ignored if
-              invalid.
+          experimental: Inline custom tools and toolkits for this request. v3.1 sessions do not persist
+              customs — pass them on every request that needs them.
+
+          model: Optional model hint for search/planning behavior (e.g., "gpt-4o").
 
           extra_headers: Send extra headers
 
@@ -1125,10 +1533,11 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._post(
-            path_template("/api/v3/tool_router/session/{session_id}/search", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/search", session_id=session_id),
             body=await async_maybe_transform(
                 {
                     "queries": queries,
+                    "experimental": experimental,
                     "model": model,
                 },
                 session_search_params.SessionSearchParams,
@@ -1189,7 +1598,7 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._get(
-            path_template("/api/v3/tool_router/session/{session_id}/toolkits", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/toolkits", session_id=session_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -1213,6 +1622,8 @@ class AsyncSessionResource(AsyncAPIResource):
         self,
         session_id: str,
         *,
+        cursor: str | Omit = omit,
+        limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1220,14 +1631,20 @@ class AsyncSessionResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionToolsResponse:
-        """Returns the tools available in a tool router session with their complete
-        schemas.
+        """Returns tools available in a tool router session with complete schemas.
 
-        This includes both meta tools and any preloaded app tools exposed by
-        the session.
+        Results
+        are paginated; use `next_cursor` to fetch the next page.
 
         Args:
           session_id: Tool router session ID
+
+          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
+              limit. The page is the page number and the limit is the number of items per
+              page. The cursor is used to paginate through the items. The cursor is not
+              required for the first page.
+
+          limit: Number of items per page, max allowed is 500
 
           extra_headers: Send extra headers
 
@@ -1240,9 +1657,19 @@ class AsyncSessionResource(AsyncAPIResource):
         if not session_id:
             raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
         return await self._get(
-            path_template("/api/v3/tool_router/session/{session_id}/tools", session_id=session_id),
+            path_template("/api/v3.1/tool_router/session/{session_id}/tools", session_id=session_id),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "limit": limit,
+                    },
+                    session_tools_params.SessionToolsParams,
+                ),
             ),
             cast_to=SessionToolsResponse,
         )
@@ -1258,6 +1685,12 @@ class SessionResourceWithRawResponse:
         self.retrieve = to_raw_response_wrapper(
             session.retrieve,
         )
+        self.attach = to_raw_response_wrapper(
+            session.attach,
+        )
+        self.config_history = to_raw_response_wrapper(
+            session.config_history,
+        )
         self.execute = to_raw_response_wrapper(
             session.execute,
         )
@@ -1266,6 +1699,9 @@ class SessionResourceWithRawResponse:
         )
         self.link = to_raw_response_wrapper(
             session.link,
+        )
+        self.patch = to_raw_response_wrapper(
+            session.patch,
         )
         self.proxy_execute = to_raw_response_wrapper(
             session.proxy_execute,
@@ -1296,6 +1732,12 @@ class AsyncSessionResourceWithRawResponse:
         self.retrieve = async_to_raw_response_wrapper(
             session.retrieve,
         )
+        self.attach = async_to_raw_response_wrapper(
+            session.attach,
+        )
+        self.config_history = async_to_raw_response_wrapper(
+            session.config_history,
+        )
         self.execute = async_to_raw_response_wrapper(
             session.execute,
         )
@@ -1304,6 +1746,9 @@ class AsyncSessionResourceWithRawResponse:
         )
         self.link = async_to_raw_response_wrapper(
             session.link,
+        )
+        self.patch = async_to_raw_response_wrapper(
+            session.patch,
         )
         self.proxy_execute = async_to_raw_response_wrapper(
             session.proxy_execute,
@@ -1334,6 +1779,12 @@ class SessionResourceWithStreamingResponse:
         self.retrieve = to_streamed_response_wrapper(
             session.retrieve,
         )
+        self.attach = to_streamed_response_wrapper(
+            session.attach,
+        )
+        self.config_history = to_streamed_response_wrapper(
+            session.config_history,
+        )
         self.execute = to_streamed_response_wrapper(
             session.execute,
         )
@@ -1342,6 +1793,9 @@ class SessionResourceWithStreamingResponse:
         )
         self.link = to_streamed_response_wrapper(
             session.link,
+        )
+        self.patch = to_streamed_response_wrapper(
+            session.patch,
         )
         self.proxy_execute = to_streamed_response_wrapper(
             session.proxy_execute,
@@ -1372,6 +1826,12 @@ class AsyncSessionResourceWithStreamingResponse:
         self.retrieve = async_to_streamed_response_wrapper(
             session.retrieve,
         )
+        self.attach = async_to_streamed_response_wrapper(
+            session.attach,
+        )
+        self.config_history = async_to_streamed_response_wrapper(
+            session.config_history,
+        )
         self.execute = async_to_streamed_response_wrapper(
             session.execute,
         )
@@ -1380,6 +1840,9 @@ class AsyncSessionResourceWithStreamingResponse:
         )
         self.link = async_to_streamed_response_wrapper(
             session.link,
+        )
+        self.patch = async_to_streamed_response_wrapper(
+            session.patch,
         )
         self.proxy_execute = async_to_streamed_response_wrapper(
             session.proxy_execute,

@@ -1965,6 +1965,9 @@ app.add_typer(config_app, name="config")
 secrets_app = typer.Typer(help="Secrets and .env file hygiene")
 app.add_typer(secrets_app, name="secrets")
 
+sms_app = typer.Typer(help="Message bridge — control any SAGE computer from iMessage or Google Messages")
+app.add_typer(sms_app, name="sms")
+
 
 @secrets_app.command("gitignore")
 def secrets_gitignore() -> None:
@@ -14232,6 +14235,368 @@ def whoami_cmd() -> None:
         return
     renderer.console.print(f"  Email:  [cyan]{info['email']}[/cyan]")
     renderer.console.print(f"  Plan:   [bold]{info['tier']}[/bold]")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SMS / MESSAGE BRIDGE
+# User-scoped: authorized contacts and device registry live in the SAGE backend.
+# Requires sage login. Works with iMessage and Google Messages (no carrier config).
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _sms_backend():
+    """Load the SAGE backend client using the current auth token."""
+    from sage.core.sms_bridge import SAGEBackend, _load_sage_token
+    token, base = _load_sage_token()
+    return SAGEBackend(token, base)
+
+
+@sms_app.command("setup")
+def sms_setup() -> None:
+    """Guided setup — bridge email, computer name, authorized phone contacts."""
+    from sage.core.sms_bridge import run_setup_wizard
+    run_setup_wizard()
+
+
+@sms_app.command("start")
+def sms_start(
+    directory: Annotated[
+        str | None,
+        typer.Option("--dir", "-d", help="Working directory for tasks"),
+    ] = None,
+    model: Annotated[
+        str | None,
+        typer.Option("--model", "-m", help="Override AI model"),
+    ] = None,
+    name: Annotated[
+        str | None,
+        typer.Option("--name", "-n", help="Override this computer's routing name"),
+    ] = None,
+    foreground: Annotated[
+        bool,
+        typer.Option("--foreground", "-f", help="Run in foreground (default: background daemon)"),
+    ] = False,
+) -> None:
+    """Start the bridge daemon in the background — requires sage login."""
+    import shutil
+    import subprocess as _sp
+    from sage.core.sms_bridge import SMSConfig, SAGEMessageBridge, SMS_PID_FILE, SMS_LOG_FILE, _load_sage_token
+
+    cfg = SMSConfig.load()
+    if cfg is None:
+        renderer.error("Not configured. Run: sage sms setup")
+        raise typer.Exit(1)
+
+    if directory:
+        cfg.working_dir = str(Path(directory).expanduser().resolve())
+    if model:
+        cfg.model = model
+    if name:
+        cfg.computer_name = name
+
+    try:
+        token, api_base = _load_sage_token()
+    except RuntimeError as exc:
+        renderer.error(str(exc))
+        raise typer.Exit(1)
+
+    # ── Foreground mode: run bridge directly (used by daemon re-exec) ──────────
+    if foreground:
+        SMS_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SMS_PID_FILE.write_text(str(os.getpid()))
+        bridge = SAGEMessageBridge(cfg, token, api_base)
+        try:
+            bridge.run()
+        except KeyboardInterrupt:
+            pass
+        return
+
+    # ── Background daemon mode (default) ───────────────────────────────────────
+    # Check if already running
+    if SMS_PID_FILE.exists():
+        try:
+            pid = int(SMS_PID_FILE.read_text().strip())
+            os.kill(pid, 0)  # signal 0 = existence check
+            renderer.console.print(f"[yellow]Bridge already running[/yellow] (pid {pid})")
+            renderer.console.print(f"  Stop with: [bold]sage sms stop[/bold]")
+            renderer.console.print(f"  Logs: [dim]{SMS_LOG_FILE}[/dim]")
+            return
+        except (ProcessLookupError, ValueError):
+            SMS_PID_FILE.unlink(missing_ok=True)
+
+    # Build re-exec command, forwarding any overrides
+    sage_bin = shutil.which("sage") or sys.executable
+    cmd: list[str] = (
+        [sage_bin, "sms", "start", "--foreground"]
+        if sage_bin != sys.executable
+        else [sys.executable, "-m", "sage", "sms", "start", "--foreground"]
+    )
+    if directory: cmd += ["--dir", cfg.working_dir]
+    if model:     cmd += ["--model", cfg.model]
+    if name:      cmd += ["--name", cfg.computer_name]
+
+    SMS_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    log_fp = open(SMS_LOG_FILE, "a")
+    proc = _sp.Popen(cmd, stdout=log_fp, stderr=_sp.STDOUT, start_new_session=True)
+    SMS_PID_FILE.write_text(str(proc.pid))
+
+    renderer.console.print("\n[bold green]✦ SAGE Message Bridge started[/bold green]")
+    renderer.console.print(f"  Computer : [bold cyan]{cfg.computer_name}[/bold cyan]")
+    renderer.console.print(f"  Dir      : [cyan]{cfg.working_dir}[/cyan]")
+    renderer.console.print(f"  Model    : [cyan]{cfg.model or 'default'}[/cyan]")
+    renderer.console.print(f"  PID      : [dim]{proc.pid}[/dim]")
+    renderer.console.print(f"  Logs     : [dim]{SMS_LOG_FILE}[/dim]")
+    renderer.console.print()
+    renderer.console.print("  [dim]Stop with:[/dim]  [bold]sage sms stop[/bold]")
+    renderer.console.print("  [dim]Tail logs:[/dim]  [bold]tail -f ~/.sage/sms.log[/bold]")
+    renderer.console.print()
+
+
+@sms_app.command("stop")
+def sms_stop() -> None:
+    """Stop the running bridge daemon on this computer."""
+    from sage.core.sms_bridge import SMS_PID_FILE
+    import signal
+
+    if not SMS_PID_FILE.exists():
+        renderer.warning("Bridge not running (no PID file).")
+        return
+    try:
+        pid = int(SMS_PID_FILE.read_text().strip())
+        os.kill(pid, signal.SIGTERM)
+        SMS_PID_FILE.unlink()
+        renderer.success(f"Bridge stopped (pid {pid})")
+    except ProcessLookupError:
+        SMS_PID_FILE.unlink(missing_ok=True)
+        renderer.warning("Bridge already stopped.")
+    except Exception as exc:
+        renderer.error(str(exc))
+
+
+@sms_app.command("logs")
+def sms_logs() -> None:
+    """Tail the bridge log file (live output — Ctrl-C to stop)."""
+    from sage.core.sms_bridge import SMS_LOG_FILE
+
+    if not SMS_LOG_FILE.exists():
+        renderer.console.print(f"No log file yet. Start the bridge first: [bold]sage sms start[/bold]")
+        return
+
+    renderer.console.print(f"[dim]Tailing {SMS_LOG_FILE} — Ctrl-C to stop[/dim]\n")
+    try:
+        import subprocess as _sp
+        _sp.run(["tail", "-f", str(SMS_LOG_FILE)])
+    except KeyboardInterrupt:
+        pass
+
+
+@sms_app.command("status")
+def sms_status() -> None:
+    """Show this computer's bridge status and your account-wide devices/contacts."""
+    from sage.core.sms_bridge import SMSConfig, SMS_PID_FILE
+
+    cfg = SMSConfig.load()
+    if cfg is None:
+        renderer.warning("Not configured. Run: sage sms setup")
+        return
+
+    running = False
+    if SMS_PID_FILE.exists():
+        try:
+            pid = int(SMS_PID_FILE.read_text().strip())
+            os.kill(pid, 0)
+            running = True
+        except (ProcessLookupError, ValueError):
+            pass
+
+    dot = "[green]●[/green]" if running else "[yellow]○[/yellow]"
+    renderer.console.print(f"\n{dot} [{cfg.computer_name}]  Bridge: [cyan]messages@sageworksai.com[/cyan]")
+    renderer.console.print(f"   Dir: [cyan]{cfg.working_dir}[/cyan]  Model: [cyan]{cfg.model or 'default'}[/cyan]\n")
+
+    try:
+        be = _sms_backend()
+        computers = be.list_computers()
+        contacts = be.list_contacts()
+        renderer.console.print(f"[bold]Your computers ({len(computers)}):[/bold]")
+        for c in computers:
+            indicator = "[green]●[/green]" if c["computer_name"] == cfg.computer_name and running else "○"
+            renderer.console.print(f"  {indicator} [cyan]@{c['computer_name']}[/cyan]  bridge: {c.get('bridge_email','')}  last: {c.get('last_seen','?')[:19]}")
+        renderer.console.print()
+        renderer.console.print(f"[bold]Authorized contacts ({len(contacts)}):[/bold]")
+        for ct in contacts:
+            renderer.console.print(f"  {ct['email']}  [dim]{ct.get('label','')}[/dim]")
+        renderer.console.print()
+    except Exception as exc:
+        renderer.warning(f"Could not fetch account data: {exc}")
+
+
+@sms_app.command("devices")
+def sms_devices() -> None:
+    """List all computers registered to your SAGE account."""
+    try:
+        be = _sms_backend()
+        computers = be.list_computers()
+    except RuntimeError as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+
+    if not computers:
+        renderer.console.print("No computers registered. Run: sage sms start")
+        return
+
+    renderer.console.print(f"\n[bold]Your SAGE computers ({len(computers)}):[/bold]\n")
+    for c in computers:
+        renderer.console.print(
+            f"  [cyan]@{c['computer_name']}[/cyan]"
+            f"  id={c['computer_id']}"
+            f"  last_seen={c.get('last_seen','?')[:19]}"
+        )
+    renderer.console.print()
+    renderer.console.print("[dim]Route a task: @name: your task  |  Broadcast: @all: git status[/dim]\n")
+
+
+@sms_app.command("unregister")
+def sms_unregister(
+    computer_id: Annotated[str, typer.Argument(help="computer_id from `sage sms devices`")],
+) -> None:
+    """Remove a computer from your account (run sage sms devices to find the ID)."""
+    import httpx as _httpx
+    try:
+        be = _sms_backend()
+        be.remove_computer(computer_id)
+        renderer.success(f"Removed computer {computer_id}")
+    except RuntimeError as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+    except _httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            renderer.error(f"Computer not found: {computer_id}")
+        else:
+            renderer.error(str(exc))
+        raise typer.Exit(1)
+    except Exception as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+
+
+@sms_app.command("test")
+def sms_test() -> None:
+    """Verify bridge connectivity and send a test message via all linked channels."""
+    from sage.core.sms_bridge import SMSConfig, _send_imessage
+
+    cfg = SMSConfig.load()
+    if cfg is None:
+        renderer.error("Not configured. Run: sage sms setup")
+        raise typer.Exit(1)
+
+    try:
+        be = _sms_backend()
+        # Sync provider emails as contacts first
+        added = be.sync_provider_contacts()
+        if added:
+            for a in added:
+                renderer.console.print(f"  [dim]Auto-registered {a['provider']} contact: {a['email']}[/dim]")
+        contacts = be.contact_emails()
+        providers = be.get_linked_providers()
+    except RuntimeError as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+
+    renderer.success(f"Backend connection OK  [{cfg.computer_name}]")
+
+    # iMessage test (macOS only)
+    apple = next((p for p in providers if p.get("provider_id") == "apple.com" and p.get("email")), None)
+    if apple:
+        msg = (
+            f"🧪 [{cfg.computer_name}] SAGE test message.\n"
+            f"If you received this, iMessage delivery is working."
+        )
+        if _send_imessage(apple["email"], msg):
+            renderer.success(f"iMessage sent → {apple['email']}")
+        else:
+            renderer.warning(f"iMessage failed — ensure Messages app is open and signed in")
+
+    if not contacts:
+        renderer.warning("No contacts registered. Run: sage sms contacts add <phone-or-email>")
+        return
+
+    renderer.console.print(f"\n[bold]Authorized contacts ({len(contacts)}):[/bold]")
+    for addr in contacts:
+        renderer.console.print(f"  [cyan]{addr}[/cyan]")
+    renderer.console.print(
+        f"\n[dim]Email [bold]messages@sageworksai.com[/bold] from any of the above to send a task.[/dim]\n"
+    )
+
+
+# ── sage sms contacts subgroup ─────────────────────────────────────────────────
+
+sms_contacts_app = typer.Typer(help="Manage authorized phone contacts for your SAGE account")
+sms_app.add_typer(sms_contacts_app, name="contacts")
+
+
+@sms_contacts_app.command("list")
+def sms_contacts_list() -> None:
+    """List all phone contacts authorized to send commands to your SAGE computers."""
+    try:
+        contacts = _sms_backend().list_contacts()
+    except RuntimeError as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+
+    if not contacts:
+        renderer.console.print("No contacts. Add with: sage sms contacts add <email>")
+        return
+
+    renderer.console.print(f"\n[bold]Authorized contacts ({len(contacts)}):[/bold]\n")
+    for c in contacts:
+        display = c.get("display") or c.get("email", "")
+        stored  = c.get("email", "")
+        label_  = c.get("label", "")
+        if stored.startswith("phone:"):
+            renderer.console.print(f"  [cyan]{display}[/cyan]  [dim]{label_}  (any carrier)[/dim]")
+        else:
+            renderer.console.print(f"  [cyan]{display}[/cyan]  [dim]{label_}[/dim]")
+    renderer.console.print()
+
+
+@sms_contacts_app.command("add")
+def sms_contacts_add(
+    email: Annotated[str, typer.Argument(help="Email address OR phone number (e.g. 4085553210)")],
+    label: Annotated[str, typer.Option("--label", "-l", help='Label, e.g. "My iPhone"')] = "",
+) -> None:
+    """Add an authorized contact — accepts email addresses or phone numbers."""
+    try:
+        result = _sms_backend().add_contact(email.strip(), label)
+        stored  = result.get("email", "")
+        display = result.get("display") or stored
+        lbl     = result.get("label", "")
+        if stored.startswith("phone:"):
+            renderer.success(f"Added: {display}  ({lbl})")
+            renderer.console.print(
+                "  [dim]Matches texts from any carrier "
+                f"(AT&T, Verizon, T-Mobile, etc.)[/dim]"
+            )
+        else:
+            renderer.success(f"Added: {display}  ({lbl})")
+    except RuntimeError as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+    except Exception as exc:
+        renderer.error(str(exc))
+
+
+@sms_contacts_app.command("remove")
+def sms_contacts_remove(
+    email: Annotated[str, typer.Argument(help="Email address or phone number to remove")],
+) -> None:
+    """Remove an authorized contact — they will no longer be able to control SAGE."""
+    import httpx as _httpx
+    try:
+        _sms_backend().remove_contact(email.strip().lower())
+        renderer.success(f"Removed: {email}")
+    except RuntimeError as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
+    except _httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            renderer.error(f"Contact not found: {email}")
+        else:
+            renderer.error(str(exc))
+        raise typer.Exit(1)
+    except Exception as exc:
+        renderer.error(str(exc)); raise typer.Exit(1)
 
 
 def cli_entry() -> None:

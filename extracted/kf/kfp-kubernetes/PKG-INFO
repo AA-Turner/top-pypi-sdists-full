@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp-kubernetes
-Version: 2.16.0
+Version: 2.16.1
 Summary: Kubernetes platform configuration library and generated protos.
 Home-page: https://github.com/kubeflow/pipelines
 Author: google

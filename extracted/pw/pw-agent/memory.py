@@ -259,11 +259,17 @@ class MemoryStore:
 
         return results
 
-    def format_context(self, query: str) -> str:
-        """Retrieve and format relevant memories for injection into the prompt."""
+    def format_context(self, query: str) -> tuple[str, list]:
+        """Retrieve and format relevant memories for injection into the prompt.
+
+        Returns a (context_str, raw_hits) tuple so the caller can derive stats
+        from ``raw_hits`` without issuing a second embed round-trip.
+        ``raw_hits`` is the same list[tuple[KnowledgeUnit, float]] returned by
+        ``retrieve()``.
+        """
         results = self.retrieve(query)
         if not results:
-            return ""
+            return "", []
 
         header = "## User profile (cross-project):" if self.scope == "global" else "## Relevant memories from previous sessions:"
         lines = [header]
@@ -275,7 +281,7 @@ class MemoryStore:
             lines.append(entry)
             total_chars += len(entry)
 
-        return "\n".join(lines)
+        return "\n".join(lines), results
 
     @property
     def size(self) -> int:

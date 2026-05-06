@@ -324,6 +324,37 @@ class MachineConfig(_common.CaseInSensitiveEnum):
     """The default value: milligcu 4000, memory 4 Gib"""
 
 
+class Protocol(_common.CaseInSensitiveEnum):
+    """Protocol for port. Defaults to TCP if not specified."""
+
+    PROTOCOL_UNSPECIFIED = "PROTOCOL_UNSPECIFIED"
+    """Unspecified protocol. Defaults to TCP."""
+    TCP = "TCP"
+    """TCP protocol."""
+    UDP = "UDP"
+    """UDP protocol."""
+
+
+class DefaultContainerCategory(_common.CaseInSensitiveEnum):
+    """The category of the default container image."""
+
+    DEFAULT_CONTAINER_CATEGORY_UNSPECIFIED = "DEFAULT_CONTAINER_CATEGORY_UNSPECIFIED"
+    """The default value. This value is unused."""
+    DEFAULT_CONTAINER_CATEGORY_COMPUTER_USE = "DEFAULT_CONTAINER_CATEGORY_COMPUTER_USE"
+    """The default container image for Computer Use."""
+
+
+class PostSnapshotAction(_common.CaseInSensitiveEnum):
+    """Input only. Action to take on the source SandboxEnvironment after the snapshot is taken. This field is only used in CreateSandboxEnvironmentSnapshotRequest and it is not stored in the resource."""
+
+    POST_SNAPSHOT_ACTION_UNSPECIFIED = "POST_SNAPSHOT_ACTION_UNSPECIFIED"
+    """The default value. This value is unused."""
+    RUNNING = "RUNNING"
+    """Sandbox environment will continue to run after snapshot is taken."""
+    PAUSE = "PAUSE"
+    """Sandbox environment will be paused after snapshot is taken."""
+
+
 class Framework(_common.CaseInSensitiveEnum):
     """Framework used to build the application."""
 
@@ -9051,6 +9082,10 @@ class UpdateAgentEngineConfig(_common.BaseModel):
         description="""The update mask to apply. For the `FieldMask` definition, see
       https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask.""",
     )
+    traffic_config: Optional[ReasoningEngineTrafficConfig] = Field(
+        default=None,
+        description="""Traffic distribution configuration for the Reasoning Engine.""",
+    )
 
 
 class UpdateAgentEngineConfigDict(TypedDict, total=False):
@@ -9195,6 +9230,9 @@ class UpdateAgentEngineConfigDict(TypedDict, total=False):
     update_mask: Optional[str]
     """The update mask to apply. For the `FieldMask` definition, see
       https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask."""
+
+    traffic_config: Optional[ReasoningEngineTrafficConfigDict]
+    """Traffic distribution configuration for the Reasoning Engine."""
 
 
 UpdateAgentEngineConfigOrDict = Union[
@@ -11620,6 +11658,402 @@ ListAgentEngineMemoryRevisionsResponseOrDict = Union[
 ]
 
 
+class GetAgentEngineRuntimeRevisionConfig(_common.BaseModel):
+    """Config for getting an Agent Engine Runtime Revision."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetAgentEngineRuntimeRevisionConfigDict(TypedDict, total=False):
+    """Config for getting an Agent Engine Runtime Revision."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetAgentEngineRuntimeRevisionConfigOrDict = Union[
+    GetAgentEngineRuntimeRevisionConfig, GetAgentEngineRuntimeRevisionConfigDict
+]
+
+
+class _GetAgentEngineRuntimeRevisionRequestParameters(_common.BaseModel):
+    """Parameters for getting an agent engine runtime revision."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the agent engine runtime revision."""
+    )
+    config: Optional[GetAgentEngineRuntimeRevisionConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetAgentEngineRuntimeRevisionRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting an agent engine runtime revision."""
+
+    name: Optional[str]
+    """Name of the agent engine runtime revision."""
+
+    config: Optional[GetAgentEngineRuntimeRevisionConfigDict]
+    """"""
+
+
+_GetAgentEngineRuntimeRevisionRequestParametersOrDict = Union[
+    _GetAgentEngineRuntimeRevisionRequestParameters,
+    _GetAgentEngineRuntimeRevisionRequestParametersDict,
+]
+
+
+class ReasoningEngineRuntimeRevision(_common.BaseModel):
+    """A runtime revision."""
+
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this ReasoningEngineRuntimeRevision was created.""",
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the ReasoningEngineRuntimeRevision. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/runtimeRevisions/{runtime_revision}`""",
+    )
+    spec: Optional[ReasoningEngineSpec] = Field(
+        default=None,
+        description="""Immutable. Configurations of the ReasoningEngineRuntimeRevision. Contains only revision specific fields.""",
+    )
+    state: Optional[State] = Field(
+        default=None, description="""Output only. The state of the revision."""
+    )
+
+
+class ReasoningEngineRuntimeRevisionDict(TypedDict, total=False):
+    """A runtime revision."""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this ReasoningEngineRuntimeRevision was created."""
+
+    name: Optional[str]
+    """Identifier. The resource name of the ReasoningEngineRuntimeRevision. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/runtimeRevisions/{runtime_revision}`"""
+
+    spec: Optional[ReasoningEngineSpecDict]
+    """Immutable. Configurations of the ReasoningEngineRuntimeRevision. Contains only revision specific fields."""
+
+    state: Optional[State]
+    """Output only. The state of the revision."""
+
+
+ReasoningEngineRuntimeRevisionOrDict = Union[
+    ReasoningEngineRuntimeRevision, ReasoningEngineRuntimeRevisionDict
+]
+
+
+class ListAgentEngineRuntimeRevisionsConfig(_common.BaseModel):
+    """Config for listing reasoning engine runtime revisions."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None,
+        description="""An expression for filtering the results of the request.
+      For field names both snake_case and camelCase are supported.""",
+    )
+
+
+class ListAgentEngineRuntimeRevisionsConfigDict(TypedDict, total=False):
+    """Config for listing reasoning engine runtime revisions."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """An expression for filtering the results of the request.
+      For field names both snake_case and camelCase are supported."""
+
+
+ListAgentEngineRuntimeRevisionsConfigOrDict = Union[
+    ListAgentEngineRuntimeRevisionsConfig, ListAgentEngineRuntimeRevisionsConfigDict
+]
+
+
+class _ListAgentEngineRuntimeRevisionsRequestParameters(_common.BaseModel):
+    """Parameters for listing reasoning engine runtime revisions."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the reasoning engine."""
+    )
+    config: Optional[ListAgentEngineRuntimeRevisionsConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _ListAgentEngineRuntimeRevisionsRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing reasoning engine runtime revisions."""
+
+    name: Optional[str]
+    """Name of the reasoning engine."""
+
+    config: Optional[ListAgentEngineRuntimeRevisionsConfigDict]
+    """"""
+
+
+_ListAgentEngineRuntimeRevisionsRequestParametersOrDict = Union[
+    _ListAgentEngineRuntimeRevisionsRequestParameters,
+    _ListAgentEngineRuntimeRevisionsRequestParametersDict,
+]
+
+
+class ListReasoningEnginesRuntimeRevisionsResponse(_common.BaseModel):
+    """Response for listing agent engine runtime revisions."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    reasoning_engine_runtime_revisions: Optional[
+        list[ReasoningEngineRuntimeRevision]
+    ] = Field(
+        default=None, description="""List of reasoning engine runtime revisions."""
+    )
+
+
+class ListReasoningEnginesRuntimeRevisionsResponseDict(TypedDict, total=False):
+    """Response for listing agent engine runtime revisions."""
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    reasoning_engine_runtime_revisions: Optional[
+        list[ReasoningEngineRuntimeRevisionDict]
+    ]
+    """List of reasoning engine runtime revisions."""
+
+
+ListReasoningEnginesRuntimeRevisionsResponseOrDict = Union[
+    ListReasoningEnginesRuntimeRevisionsResponse,
+    ListReasoningEnginesRuntimeRevisionsResponseDict,
+]
+
+
+class DeleteAgentEngineRuntimeRevisionConfig(_common.BaseModel):
+    """Config for deleting an Agent Engine Runtime Revision."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+
+
+class DeleteAgentEngineRuntimeRevisionConfigDict(TypedDict, total=False):
+    """Config for deleting an Agent Engine Runtime Revision."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+
+DeleteAgentEngineRuntimeRevisionConfigOrDict = Union[
+    DeleteAgentEngineRuntimeRevisionConfig, DeleteAgentEngineRuntimeRevisionConfigDict
+]
+
+
+class _DeleteAgentEngineRuntimeRevisionRequestParameters(_common.BaseModel):
+    """Parameters for deleting agent engine runtime revisions."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Name of the agent engine runtime revision to delete.""",
+    )
+    config: Optional[DeleteAgentEngineRuntimeRevisionConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _DeleteAgentEngineRuntimeRevisionRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting agent engine runtime revisions."""
+
+    name: Optional[str]
+    """Name of the agent engine runtime revision to delete."""
+
+    config: Optional[DeleteAgentEngineRuntimeRevisionConfigDict]
+    """"""
+
+
+_DeleteAgentEngineRuntimeRevisionRequestParametersOrDict = Union[
+    _DeleteAgentEngineRuntimeRevisionRequestParameters,
+    _DeleteAgentEngineRuntimeRevisionRequestParametersDict,
+]
+
+
+class DeleteAgentEngineRuntimeRevisionOperation(_common.BaseModel):
+    """Operation for deleting agent engine runtime revisions."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteAgentEngineRuntimeRevisionOperationDict(TypedDict, total=False):
+    """Operation for deleting agent engine runtime revisions."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteAgentEngineRuntimeRevisionOperationOrDict = Union[
+    DeleteAgentEngineRuntimeRevisionOperation,
+    DeleteAgentEngineRuntimeRevisionOperationDict,
+]
+
+
+class GetDeleteAgentEngineRuntimeRevisionOperationConfig(_common.BaseModel):
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetDeleteAgentEngineRuntimeRevisionOperationConfigDict(TypedDict, total=False):
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetDeleteAgentEngineRuntimeRevisionOperationConfigOrDict = Union[
+    GetDeleteAgentEngineRuntimeRevisionOperationConfig,
+    GetDeleteAgentEngineRuntimeRevisionOperationConfigDict,
+]
+
+
+class _GetDeleteAgentEngineRuntimeRevisionOperationParameters(_common.BaseModel):
+    """Parameters for getting an operation that deletes a agent engine runtime revision."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetDeleteAgentEngineRuntimeRevisionOperationConfig] = Field(
+        default=None, description="""Used to override the default configuration."""
+    )
+
+
+class _GetDeleteAgentEngineRuntimeRevisionOperationParametersDict(
+    TypedDict, total=False
+):
+    """Parameters for getting an operation that deletes a agent engine runtime revision."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetDeleteAgentEngineRuntimeRevisionOperationConfigDict]
+    """Used to override the default configuration."""
+
+
+_GetDeleteAgentEngineRuntimeRevisionOperationParametersOrDict = Union[
+    _GetDeleteAgentEngineRuntimeRevisionOperationParameters,
+    _GetDeleteAgentEngineRuntimeRevisionOperationParametersDict,
+]
+
+
+class QueryAgentEngineRuntimeRevisionConfig(_common.BaseModel):
+    """Config for querying agent engine runtime revisions."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    class_method: Optional[str] = Field(
+        default=None, description="""The class method to call."""
+    )
+    input: Optional[dict[str, Any]] = Field(
+        default=None, description="""The input to the class method."""
+    )
+    include_all_fields: Optional[bool] = Field(default=False, description="""""")
+
+
+class QueryAgentEngineRuntimeRevisionConfigDict(TypedDict, total=False):
+    """Config for querying agent engine runtime revisions."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    class_method: Optional[str]
+    """The class method to call."""
+
+    input: Optional[dict[str, Any]]
+    """The input to the class method."""
+
+    include_all_fields: Optional[bool]
+    """"""
+
+
+QueryAgentEngineRuntimeRevisionConfigOrDict = Union[
+    QueryAgentEngineRuntimeRevisionConfig, QueryAgentEngineRuntimeRevisionConfigDict
+]
+
+
+class _QueryAgentEngineRuntimeRevisionRequestParameters(_common.BaseModel):
+    """Parameters for querying agent engine runtime revisions."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the agent engine runtime revision."""
+    )
+    config: Optional[QueryAgentEngineRuntimeRevisionConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _QueryAgentEngineRuntimeRevisionRequestParametersDict(TypedDict, total=False):
+    """Parameters for querying agent engine runtime revisions."""
+
+    name: Optional[str]
+    """Name of the agent engine runtime revision."""
+
+    config: Optional[QueryAgentEngineRuntimeRevisionConfigDict]
+    """"""
+
+
+_QueryAgentEngineRuntimeRevisionRequestParametersOrDict = Union[
+    _QueryAgentEngineRuntimeRevisionRequestParameters,
+    _QueryAgentEngineRuntimeRevisionRequestParametersDict,
+]
+
+
 class SandboxEnvironmentSpecCodeExecutionEnvironment(_common.BaseModel):
     """The code execution environment with customized settings."""
 
@@ -11713,6 +12147,20 @@ class CreateAgentEngineSandboxConfig(_common.BaseModel):
         default=None,
         description="""The TTL for this resource. The expiration time is computed: now + TTL.""",
     )
+    sandbox_environment_template: Optional[str] = Field(
+        default=None,
+        description="""The name of the sandbox environment template to create the sandbox from. The sandbox environment template should be in the format:
+      projects/{project}/locations/{location}/agentEngines/{agent_engine}/sandboxEnvironmentTemplates/{sandbox_environment_template}""",
+    )
+    sandbox_environment_snapshot: Optional[str] = Field(
+        default=None,
+        description="""The name of the sandbox environment snapshot to restore the sandbox from. The sandbox environment snapshot should be in the format:
+      projects/{project}/locations/{location}/agentEngines/{agent_engine}/sandboxEnvironmentSnapshots/{sandbox_environment_snapshot}""",
+    )
+    owner: Optional[str] = Field(
+        default=None,
+        description="""Owner information for this sandbox environment. A sandbox can only be restored from a snapshot belonging to the same owner.""",
+    )
 
 
 class CreateAgentEngineSandboxConfigDict(TypedDict, total=False):
@@ -11732,6 +12180,17 @@ class CreateAgentEngineSandboxConfigDict(TypedDict, total=False):
 
     ttl: Optional[str]
     """The TTL for this resource. The expiration time is computed: now + TTL."""
+
+    sandbox_environment_template: Optional[str]
+    """The name of the sandbox environment template to create the sandbox from. The sandbox environment template should be in the format:
+      projects/{project}/locations/{location}/agentEngines/{agent_engine}/sandboxEnvironmentTemplates/{sandbox_environment_template}"""
+
+    sandbox_environment_snapshot: Optional[str]
+    """The name of the sandbox environment snapshot to restore the sandbox from. The sandbox environment snapshot should be in the format:
+      projects/{project}/locations/{location}/agentEngines/{agent_engine}/sandboxEnvironmentSnapshots/{sandbox_environment_snapshot}"""
+
+    owner: Optional[str]
+    """Owner information for this sandbox environment. A sandbox can only be restored from a snapshot belonging to the same owner."""
 
 
 CreateAgentEngineSandboxConfigOrDict = Union[
@@ -12351,6 +12810,1159 @@ class _GetAgentEngineSandboxOperationParametersDict(TypedDict, total=False):
 _GetAgentEngineSandboxOperationParametersOrDict = Union[
     _GetAgentEngineSandboxOperationParameters,
     _GetAgentEngineSandboxOperationParametersDict,
+]
+
+
+class SandboxEnvironmentTemplateCustomContainerSpec(_common.BaseModel):
+    """Specification for deploying from a custom container image."""
+
+    image_uri: Optional[str] = Field(
+        default=None,
+        description="""Required. The Artifact Registry Docker image URI (e.g., us-central1-docker.pkg.dev/my-project/my-repo/my-image:tag) of the container image that is to be run on each worker replica.""",
+    )
+
+
+class SandboxEnvironmentTemplateCustomContainerSpecDict(TypedDict, total=False):
+    """Specification for deploying from a custom container image."""
+
+    image_uri: Optional[str]
+    """Required. The Artifact Registry Docker image URI (e.g., us-central1-docker.pkg.dev/my-project/my-repo/my-image:tag) of the container image that is to be run on each worker replica."""
+
+
+SandboxEnvironmentTemplateCustomContainerSpecOrDict = Union[
+    SandboxEnvironmentTemplateCustomContainerSpec,
+    SandboxEnvironmentTemplateCustomContainerSpecDict,
+]
+
+
+class SandboxEnvironmentTemplateNetworkPort(_common.BaseModel):
+    """Represents a network port in a container."""
+
+    port: Optional[int] = Field(
+        default=None,
+        description="""Optional. Port number to expose. This must be a valid port number, between 1 and 65535.""",
+    )
+    protocol: Optional[Protocol] = Field(
+        default=None,
+        description="""Optional. Protocol for port. Defaults to TCP if not specified.""",
+    )
+
+
+class SandboxEnvironmentTemplateNetworkPortDict(TypedDict, total=False):
+    """Represents a network port in a container."""
+
+    port: Optional[int]
+    """Optional. Port number to expose. This must be a valid port number, between 1 and 65535."""
+
+    protocol: Optional[Protocol]
+    """Optional. Protocol for port. Defaults to TCP if not specified."""
+
+
+SandboxEnvironmentTemplateNetworkPortOrDict = Union[
+    SandboxEnvironmentTemplateNetworkPort, SandboxEnvironmentTemplateNetworkPortDict
+]
+
+
+class SandboxEnvironmentTemplateResourceRequirements(_common.BaseModel):
+    """Message to define resource requests and limits (mirroring Kubernetes) for each sandbox instance created from this template."""
+
+    limits: Optional[dict[str, str]] = Field(
+        default=None,
+        description="""Optional. The maximum amounts of compute resources allowed. Keys are resource names (e.g., "cpu", "memory"). Values are quantities (e.g., "500m", "1Gi").""",
+    )
+    requests: Optional[dict[str, str]] = Field(
+        default=None,
+        description="""Optional. The requested amounts of compute resources. Keys are resource names (e.g., "cpu", "memory"). Values are quantities (e.g., "250m", "512Mi").""",
+    )
+
+
+class SandboxEnvironmentTemplateResourceRequirementsDict(TypedDict, total=False):
+    """Message to define resource requests and limits (mirroring Kubernetes) for each sandbox instance created from this template."""
+
+    limits: Optional[dict[str, str]]
+    """Optional. The maximum amounts of compute resources allowed. Keys are resource names (e.g., "cpu", "memory"). Values are quantities (e.g., "500m", "1Gi")."""
+
+    requests: Optional[dict[str, str]]
+    """Optional. The requested amounts of compute resources. Keys are resource names (e.g., "cpu", "memory"). Values are quantities (e.g., "250m", "512Mi")."""
+
+
+SandboxEnvironmentTemplateResourceRequirementsOrDict = Union[
+    SandboxEnvironmentTemplateResourceRequirements,
+    SandboxEnvironmentTemplateResourceRequirementsDict,
+]
+
+
+class SandboxEnvironmentTemplateCustomContainerEnvironment(_common.BaseModel):
+    """The customized sandbox runtime environment for BYOC."""
+
+    custom_container_spec: Optional[SandboxEnvironmentTemplateCustomContainerSpec] = (
+        Field(
+            default=None,
+            description="""The specification of the custom container environment.""",
+        )
+    )
+    ports: Optional[list[SandboxEnvironmentTemplateNetworkPort]] = Field(
+        default=None, description="""Ports to expose from the container."""
+    )
+    resources: Optional[SandboxEnvironmentTemplateResourceRequirements] = Field(
+        default=None, description="""Resource requests and limits for the container."""
+    )
+
+
+class SandboxEnvironmentTemplateCustomContainerEnvironmentDict(TypedDict, total=False):
+    """The customized sandbox runtime environment for BYOC."""
+
+    custom_container_spec: Optional[SandboxEnvironmentTemplateCustomContainerSpecDict]
+    """The specification of the custom container environment."""
+
+    ports: Optional[list[SandboxEnvironmentTemplateNetworkPortDict]]
+    """Ports to expose from the container."""
+
+    resources: Optional[SandboxEnvironmentTemplateResourceRequirementsDict]
+    """Resource requests and limits for the container."""
+
+
+SandboxEnvironmentTemplateCustomContainerEnvironmentOrDict = Union[
+    SandboxEnvironmentTemplateCustomContainerEnvironment,
+    SandboxEnvironmentTemplateCustomContainerEnvironmentDict,
+]
+
+
+class SandboxEnvironmentTemplateDefaultContainerEnvironment(_common.BaseModel):
+    """The default sandbox runtime environment for default container workloads."""
+
+    default_container_category: Optional[DefaultContainerCategory] = Field(
+        default=None,
+        description="""Required. The category of the default container image.""",
+    )
+
+
+class SandboxEnvironmentTemplateDefaultContainerEnvironmentDict(TypedDict, total=False):
+    """The default sandbox runtime environment for default container workloads."""
+
+    default_container_category: Optional[DefaultContainerCategory]
+    """Required. The category of the default container image."""
+
+
+SandboxEnvironmentTemplateDefaultContainerEnvironmentOrDict = Union[
+    SandboxEnvironmentTemplateDefaultContainerEnvironment,
+    SandboxEnvironmentTemplateDefaultContainerEnvironmentDict,
+]
+
+
+class SandboxEnvironmentTemplateEgressControlConfig(_common.BaseModel):
+    """Configuration for egress control of sandbox instances."""
+
+    internet_access: Optional[bool] = Field(
+        default=None, description="""Optional. Whether to allow internet access."""
+    )
+
+
+class SandboxEnvironmentTemplateEgressControlConfigDict(TypedDict, total=False):
+    """Configuration for egress control of sandbox instances."""
+
+    internet_access: Optional[bool]
+    """Optional. Whether to allow internet access."""
+
+
+SandboxEnvironmentTemplateEgressControlConfigOrDict = Union[
+    SandboxEnvironmentTemplateEgressControlConfig,
+    SandboxEnvironmentTemplateEgressControlConfigDict,
+]
+
+
+class CreateSandboxEnvironmentTemplateConfig(_common.BaseModel):
+    """Config for creating a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+    custom_container_environment: Optional[
+        SandboxEnvironmentTemplateCustomContainerEnvironment
+    ] = Field(
+        default=None,
+        description="""The custom container environment for the sandbox template.""",
+    )
+    default_container_environment: Optional[
+        SandboxEnvironmentTemplateDefaultContainerEnvironment
+    ] = Field(
+        default=None,
+        description="""The default container environment for the sandbox template.""",
+    )
+    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfig] = (
+        Field(
+            default=None,
+            description="""The egress control config for the sandbox template.""",
+        )
+    )
+
+
+class CreateSandboxEnvironmentTemplateConfigDict(TypedDict, total=False):
+    """Config for creating a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+    custom_container_environment: Optional[
+        SandboxEnvironmentTemplateCustomContainerEnvironmentDict
+    ]
+    """The custom container environment for the sandbox template."""
+
+    default_container_environment: Optional[
+        SandboxEnvironmentTemplateDefaultContainerEnvironmentDict
+    ]
+    """The default container environment for the sandbox template."""
+
+    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfigDict]
+    """The egress control config for the sandbox template."""
+
+
+CreateSandboxEnvironmentTemplateConfigOrDict = Union[
+    CreateSandboxEnvironmentTemplateConfig, CreateSandboxEnvironmentTemplateConfigDict
+]
+
+
+class _CreateSandboxEnvironmentTemplateRequestParameters(_common.BaseModel):
+    """Parameters for creating Sandbox Environment Templates."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Name of the agent engine to create the template under.""",
+    )
+    config: Optional[CreateSandboxEnvironmentTemplateConfig] = Field(
+        default=None, description=""""""
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""The display name of the sandbox template."""
+    )
+
+
+class _CreateSandboxEnvironmentTemplateRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating Sandbox Environment Templates."""
+
+    name: Optional[str]
+    """Name of the agent engine to create the template under."""
+
+    config: Optional[CreateSandboxEnvironmentTemplateConfigDict]
+    """"""
+
+    display_name: Optional[str]
+    """The display name of the sandbox template."""
+
+
+_CreateSandboxEnvironmentTemplateRequestParametersOrDict = Union[
+    _CreateSandboxEnvironmentTemplateRequestParameters,
+    _CreateSandboxEnvironmentTemplateRequestParametersDict,
+]
+
+
+class SandboxEnvironmentTemplateWarmPoolConfig(_common.BaseModel):
+    """Configuration for a warm pool of sandbox instances."""
+
+    target_instance_count: Optional[int] = Field(
+        default=None,
+        description="""Optional. The target number of pre-warmed instances to maintain.""",
+    )
+
+
+class SandboxEnvironmentTemplateWarmPoolConfigDict(TypedDict, total=False):
+    """Configuration for a warm pool of sandbox instances."""
+
+    target_instance_count: Optional[int]
+    """Optional. The target number of pre-warmed instances to maintain."""
+
+
+SandboxEnvironmentTemplateWarmPoolConfigOrDict = Union[
+    SandboxEnvironmentTemplateWarmPoolConfig,
+    SandboxEnvironmentTemplateWarmPoolConfigDict,
+]
+
+
+class SandboxEnvironmentTemplate(_common.BaseModel):
+    """A sandbox environment template."""
+
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. The timestamp when this SandboxEnvironmentTemplate was created.""",
+    )
+    custom_container_environment: Optional[
+        SandboxEnvironmentTemplateCustomContainerEnvironment
+    ] = Field(
+        default=None,
+        description="""The sandbox environment for custom container workloads.""",
+    )
+    default_container_environment: Optional[
+        SandboxEnvironmentTemplateDefaultContainerEnvironment
+    ] = Field(
+        default=None,
+        description="""The sandbox environment for default container workloads.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""Required. The display name of the SandboxEnvironmentTemplate.""",
+    )
+    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfig] = (
+        Field(
+            default=None,
+            description="""Optional. The configuration for egress control of this template.""",
+        )
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the SandboxEnvironmentTemplate. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentTemplates/{sandbox_environment_template}`""",
+    )
+    state: Optional[
+        Literal[
+            "UNSPECIFIED",
+            "PROVISIONING",
+            "ACTIVE",
+            "DEPROVISIONING",
+            "DELETED",
+            "FAILED",
+        ]
+    ] = Field(
+        default=None,
+        description="""Output only. The state of the sandbox environment template.""",
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. The timestamp when this SandboxEnvironmentTemplate was most recently updated.""",
+    )
+    warm_pool_config: Optional[SandboxEnvironmentTemplateWarmPoolConfig] = Field(
+        default=None,
+        description="""Optional. The configuration for the warm pool of this template.""",
+    )
+
+
+class SandboxEnvironmentTemplateDict(TypedDict, total=False):
+    """A sandbox environment template."""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. The timestamp when this SandboxEnvironmentTemplate was created."""
+
+    custom_container_environment: Optional[
+        SandboxEnvironmentTemplateCustomContainerEnvironmentDict
+    ]
+    """The sandbox environment for custom container workloads."""
+
+    default_container_environment: Optional[
+        SandboxEnvironmentTemplateDefaultContainerEnvironmentDict
+    ]
+    """The sandbox environment for default container workloads."""
+
+    display_name: Optional[str]
+    """Required. The display name of the SandboxEnvironmentTemplate."""
+
+    egress_control_config: Optional[SandboxEnvironmentTemplateEgressControlConfigDict]
+    """Optional. The configuration for egress control of this template."""
+
+    name: Optional[str]
+    """Identifier. The resource name of the SandboxEnvironmentTemplate. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentTemplates/{sandbox_environment_template}`"""
+
+    state: Optional[
+        Literal[
+            "UNSPECIFIED",
+            "PROVISIONING",
+            "ACTIVE",
+            "DEPROVISIONING",
+            "DELETED",
+            "FAILED",
+        ]
+    ]
+    """Output only. The state of the sandbox environment template."""
+
+    update_time: Optional[datetime.datetime]
+    """Output only. The timestamp when this SandboxEnvironmentTemplate was most recently updated."""
+
+    warm_pool_config: Optional[SandboxEnvironmentTemplateWarmPoolConfigDict]
+    """Optional. The configuration for the warm pool of this template."""
+
+
+SandboxEnvironmentTemplateOrDict = Union[
+    SandboxEnvironmentTemplate, SandboxEnvironmentTemplateDict
+]
+
+
+class SandboxEnvironmentTemplateOperation(_common.BaseModel):
+    """Operation that has an agent engine sandbox as a response."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+    response: Optional[SandboxEnvironmentTemplate] = Field(
+        default=None, description="""The Agent Engine Sandbox Template."""
+    )
+
+
+class SandboxEnvironmentTemplateOperationDict(TypedDict, total=False):
+    """Operation that has an agent engine sandbox as a response."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+    response: Optional[SandboxEnvironmentTemplateDict]
+    """The Agent Engine Sandbox Template."""
+
+
+SandboxEnvironmentTemplateOperationOrDict = Union[
+    SandboxEnvironmentTemplateOperation, SandboxEnvironmentTemplateOperationDict
+]
+
+
+class DeleteSandboxEnvironmentTemplateConfig(_common.BaseModel):
+    """Config for deleting a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class DeleteSandboxEnvironmentTemplateConfigDict(TypedDict, total=False):
+    """Config for deleting a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+DeleteSandboxEnvironmentTemplateConfigOrDict = Union[
+    DeleteSandboxEnvironmentTemplateConfig, DeleteSandboxEnvironmentTemplateConfigDict
+]
+
+
+class _DeleteSandboxEnvironmentTemplateRequestParameters(_common.BaseModel):
+    """Parameters for deleting sandbox templates."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the sandbox template to delete."""
+    )
+    config: Optional[DeleteSandboxEnvironmentTemplateConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _DeleteSandboxEnvironmentTemplateRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting sandbox templates."""
+
+    name: Optional[str]
+    """Name of the sandbox template to delete."""
+
+    config: Optional[DeleteSandboxEnvironmentTemplateConfigDict]
+    """"""
+
+
+_DeleteSandboxEnvironmentTemplateRequestParametersOrDict = Union[
+    _DeleteSandboxEnvironmentTemplateRequestParameters,
+    _DeleteSandboxEnvironmentTemplateRequestParametersDict,
+]
+
+
+class DeleteSandboxEnvironmentTemplateOperation(_common.BaseModel):
+    """Operation for deleting sandbox templates."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteSandboxEnvironmentTemplateOperationDict(TypedDict, total=False):
+    """Operation for deleting sandbox templates."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteSandboxEnvironmentTemplateOperationOrDict = Union[
+    DeleteSandboxEnvironmentTemplateOperation,
+    DeleteSandboxEnvironmentTemplateOperationDict,
+]
+
+
+class GetSandboxEnvironmentTemplateConfig(_common.BaseModel):
+    """Config for getting a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetSandboxEnvironmentTemplateConfigDict(TypedDict, total=False):
+    """Config for getting a Sandbox Template."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetSandboxEnvironmentTemplateConfigOrDict = Union[
+    GetSandboxEnvironmentTemplateConfig, GetSandboxEnvironmentTemplateConfigDict
+]
+
+
+class _GetSandboxEnvironmentTemplateRequestParameters(_common.BaseModel):
+    """Parameters for getting a sandbox template."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the sandbox template."""
+    )
+    config: Optional[GetSandboxEnvironmentTemplateConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetSandboxEnvironmentTemplateRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a sandbox template."""
+
+    name: Optional[str]
+    """Name of the sandbox template."""
+
+    config: Optional[GetSandboxEnvironmentTemplateConfigDict]
+    """"""
+
+
+_GetSandboxEnvironmentTemplateRequestParametersOrDict = Union[
+    _GetSandboxEnvironmentTemplateRequestParameters,
+    _GetSandboxEnvironmentTemplateRequestParametersDict,
+]
+
+
+class ListSandboxEnvironmentTemplatesConfig(_common.BaseModel):
+    """Config for listing sandbox templates."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None,
+        description="""An expression for filtering the results of the request.""",
+    )
+
+
+class ListSandboxEnvironmentTemplatesConfigDict(TypedDict, total=False):
+    """Config for listing sandbox templates."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """An expression for filtering the results of the request."""
+
+
+ListSandboxEnvironmentTemplatesConfigOrDict = Union[
+    ListSandboxEnvironmentTemplatesConfig, ListSandboxEnvironmentTemplatesConfigDict
+]
+
+
+class _ListSandboxEnvironmentTemplatesRequestParameters(_common.BaseModel):
+    """Parameters for listing sandbox templates."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the agent engine."""
+    )
+    config: Optional[ListSandboxEnvironmentTemplatesConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _ListSandboxEnvironmentTemplatesRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing sandbox templates."""
+
+    name: Optional[str]
+    """Name of the agent engine."""
+
+    config: Optional[ListSandboxEnvironmentTemplatesConfigDict]
+    """"""
+
+
+_ListSandboxEnvironmentTemplatesRequestParametersOrDict = Union[
+    _ListSandboxEnvironmentTemplatesRequestParameters,
+    _ListSandboxEnvironmentTemplatesRequestParametersDict,
+]
+
+
+class ListSandboxEnvironmentTemplatesResponse(_common.BaseModel):
+    """Response for listing sandbox templates."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    sandbox_environment_templates: Optional[list[SandboxEnvironmentTemplate]] = Field(
+        default=None, description="""List of sandbox templates."""
+    )
+
+
+class ListSandboxEnvironmentTemplatesResponseDict(TypedDict, total=False):
+    """Response for listing sandbox templates."""
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    sandbox_environment_templates: Optional[list[SandboxEnvironmentTemplateDict]]
+    """List of sandbox templates."""
+
+
+ListSandboxEnvironmentTemplatesResponseOrDict = Union[
+    ListSandboxEnvironmentTemplatesResponse, ListSandboxEnvironmentTemplatesResponseDict
+]
+
+
+class _GetSandboxEnvironmentTemplateOperationParameters(_common.BaseModel):
+    """Parameters for getting an operation with a sandbox template as a response."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetAgentEngineOperationConfig] = Field(
+        default=None, description="""Used to override the default configuration."""
+    )
+
+
+class _GetSandboxEnvironmentTemplateOperationParametersDict(TypedDict, total=False):
+    """Parameters for getting an operation with a sandbox template as a response."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetAgentEngineOperationConfigDict]
+    """Used to override the default configuration."""
+
+
+_GetSandboxEnvironmentTemplateOperationParametersOrDict = Union[
+    _GetSandboxEnvironmentTemplateOperationParameters,
+    _GetSandboxEnvironmentTemplateOperationParametersDict,
+]
+
+
+class CreateAgentEngineSandboxSnapshotConfig(_common.BaseModel):
+    """Config for creating a Sandbox Environment Snapshot."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""The display name of the sandbox snapshot."""
+    )
+    owner: Optional[str] = Field(
+        default=None, description="""The owner of the sandbox snapshot."""
+    )
+    ttl: Optional[str] = Field(
+        default=None,
+        description="""The TTL for this resource. The expiration time is computed: now + TTL.""",
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Waits for the operation to complete before returning.""",
+    )
+
+
+class CreateAgentEngineSandboxSnapshotConfigDict(TypedDict, total=False):
+    """Config for creating a Sandbox Environment Snapshot."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    display_name: Optional[str]
+    """The display name of the sandbox snapshot."""
+
+    owner: Optional[str]
+    """The owner of the sandbox snapshot."""
+
+    ttl: Optional[str]
+    """The TTL for this resource. The expiration time is computed: now + TTL."""
+
+    wait_for_completion: Optional[bool]
+    """Waits for the operation to complete before returning."""
+
+
+CreateAgentEngineSandboxSnapshotConfigOrDict = Union[
+    CreateAgentEngineSandboxSnapshotConfig, CreateAgentEngineSandboxSnapshotConfigDict
+]
+
+
+class _CreateSandboxEnvironmentSnapshotRequestParameters(_common.BaseModel):
+    """Parameters for creating a sandbox environment snapshot."""
+
+    source_sandbox_environment_name: Optional[str] = Field(
+        default=None, description="""Name of the sandbox environment to snapshot."""
+    )
+    config: Optional[CreateAgentEngineSandboxSnapshotConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _CreateSandboxEnvironmentSnapshotRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating a sandbox environment snapshot."""
+
+    source_sandbox_environment_name: Optional[str]
+    """Name of the sandbox environment to snapshot."""
+
+    config: Optional[CreateAgentEngineSandboxSnapshotConfigDict]
+    """"""
+
+
+_CreateSandboxEnvironmentSnapshotRequestParametersOrDict = Union[
+    _CreateSandboxEnvironmentSnapshotRequestParameters,
+    _CreateSandboxEnvironmentSnapshotRequestParametersDict,
+]
+
+
+class SandboxEnvironmentSnapshot(_common.BaseModel):
+    """A sandbox environment snapshot."""
+
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""The display name of the sandbox environment snapshot.""",
+    )
+    expire_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Expiration time of the sandbox environment snapshot.
+      """,
+    )
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. The timestamp when this SandboxEnvironmentSnapshot was created.""",
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the SandboxEnvironmentSnapshot. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentSnapshots/{sandbox_environment_snapshot}`""",
+    )
+    owner: Optional[str] = Field(
+        default=None,
+        description="""Optional. Owner information for this sandbox snapshot. Different owners will have isolations on snapshot storage and identity. If not set, snapshot will be created as the default owner.""",
+    )
+    parent_snapshot: Optional[str] = Field(
+        default=None,
+        description="""Output only. The resource name of the parent SandboxEnvironmentSnapshot. Empty if this is a root Snapshot (the first snapshot from a newly created sandbox). Can be used to reconstruct the whole ancestry tree of snapshots.""",
+    )
+    post_snapshot_action: Optional[PostSnapshotAction] = Field(
+        default=None,
+        description="""Optional. Input only. Action to take on the source SandboxEnvironment after the snapshot is taken. This field is only used in CreateSandboxEnvironmentSnapshotRequest and it is not stored in the resource.""",
+    )
+    size_bytes: Optional[int] = Field(
+        default=None,
+        description="""Optional. Output only. Size of the snapshot data in bytes.""",
+    )
+    source_sandbox_environment: Optional[str] = Field(
+        default=None,
+        description="""Required. The resource name of the source SandboxEnvironment this snapshot was taken from.""",
+    )
+    ttl: Optional[str] = Field(
+        default=None,
+        description="""Optional. Input only. The TTL for the sandbox environment snapshot. The expiration time is computed: now + TTL.""",
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. The timestamp when this SandboxEnvironment was most recently updated.""",
+    )
+
+
+class SandboxEnvironmentSnapshotDict(TypedDict, total=False):
+    """A sandbox environment snapshot."""
+
+    display_name: Optional[str]
+    """The display name of the sandbox environment snapshot."""
+
+    expire_time: Optional[datetime.datetime]
+    """Expiration time of the sandbox environment snapshot.
+      """
+
+    create_time: Optional[datetime.datetime]
+    """Output only. The timestamp when this SandboxEnvironmentSnapshot was created."""
+
+    name: Optional[str]
+    """Identifier. The resource name of the SandboxEnvironmentSnapshot. Format: `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine}/sandboxEnvironmentSnapshots/{sandbox_environment_snapshot}`"""
+
+    owner: Optional[str]
+    """Optional. Owner information for this sandbox snapshot. Different owners will have isolations on snapshot storage and identity. If not set, snapshot will be created as the default owner."""
+
+    parent_snapshot: Optional[str]
+    """Output only. The resource name of the parent SandboxEnvironmentSnapshot. Empty if this is a root Snapshot (the first snapshot from a newly created sandbox). Can be used to reconstruct the whole ancestry tree of snapshots."""
+
+    post_snapshot_action: Optional[PostSnapshotAction]
+    """Optional. Input only. Action to take on the source SandboxEnvironment after the snapshot is taken. This field is only used in CreateSandboxEnvironmentSnapshotRequest and it is not stored in the resource."""
+
+    size_bytes: Optional[int]
+    """Optional. Output only. Size of the snapshot data in bytes."""
+
+    source_sandbox_environment: Optional[str]
+    """Required. The resource name of the source SandboxEnvironment this snapshot was taken from."""
+
+    ttl: Optional[str]
+    """Optional. Input only. The TTL for the sandbox environment snapshot. The expiration time is computed: now + TTL."""
+
+    update_time: Optional[datetime.datetime]
+    """Output only. The timestamp when this SandboxEnvironment was most recently updated."""
+
+
+SandboxEnvironmentSnapshotOrDict = Union[
+    SandboxEnvironmentSnapshot, SandboxEnvironmentSnapshotDict
+]
+
+
+class AgentEngineSandboxSnapshotOperation(_common.BaseModel):
+    """Operation that has an agent engine sandbox snapshot as a response."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+    response: Optional[SandboxEnvironmentSnapshot] = Field(
+        default=None, description="""The Agent Engine Sandbox Snapshot."""
+    )
+
+
+class AgentEngineSandboxSnapshotOperationDict(TypedDict, total=False):
+    """Operation that has an agent engine sandbox snapshot as a response."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+    response: Optional[SandboxEnvironmentSnapshotDict]
+    """The Agent Engine Sandbox Snapshot."""
+
+
+AgentEngineSandboxSnapshotOperationOrDict = Union[
+    AgentEngineSandboxSnapshotOperation, AgentEngineSandboxSnapshotOperationDict
+]
+
+
+class DeleteSandboxEnvironmentSnapshotConfig(_common.BaseModel):
+    """Config for deleting a Sandbox Environment Snapshot."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class DeleteSandboxEnvironmentSnapshotConfigDict(TypedDict, total=False):
+    """Config for deleting a Sandbox Environment Snapshot."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+DeleteSandboxEnvironmentSnapshotConfigOrDict = Union[
+    DeleteSandboxEnvironmentSnapshotConfig, DeleteSandboxEnvironmentSnapshotConfigDict
+]
+
+
+class _DeleteSandboxEnvironmentSnapshotRequestParameters(_common.BaseModel):
+    """Parameters for deleting sandbox environment snapshots."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Name of the sandbox environment snapshot to delete.""",
+    )
+    config: Optional[DeleteSandboxEnvironmentSnapshotConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _DeleteSandboxEnvironmentSnapshotRequestParametersDict(TypedDict, total=False):
+    """Parameters for deleting sandbox environment snapshots."""
+
+    name: Optional[str]
+    """Name of the sandbox environment snapshot to delete."""
+
+    config: Optional[DeleteSandboxEnvironmentSnapshotConfigDict]
+    """"""
+
+
+_DeleteSandboxEnvironmentSnapshotRequestParametersOrDict = Union[
+    _DeleteSandboxEnvironmentSnapshotRequestParameters,
+    _DeleteSandboxEnvironmentSnapshotRequestParametersDict,
+]
+
+
+class DeleteSandboxEnvironmentSnapshotOperation(_common.BaseModel):
+    """Operation for deleting sandbox environment snapshots."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteSandboxEnvironmentSnapshotOperationDict(TypedDict, total=False):
+    """Operation for deleting sandbox environment snapshots."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteSandboxEnvironmentSnapshotOperationOrDict = Union[
+    DeleteSandboxEnvironmentSnapshotOperation,
+    DeleteSandboxEnvironmentSnapshotOperationDict,
+]
+
+
+class GetSandboxEnvironmentSnapshotConfig(_common.BaseModel):
+    """Config for getting a Sandbox Environment Snapshot."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetSandboxEnvironmentSnapshotConfigDict(TypedDict, total=False):
+    """Config for getting a Sandbox Environment Snapshot."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetSandboxEnvironmentSnapshotConfigOrDict = Union[
+    GetSandboxEnvironmentSnapshotConfig, GetSandboxEnvironmentSnapshotConfigDict
+]
+
+
+class _GetSandboxEnvironmentSnapshotRequestParameters(_common.BaseModel):
+    """Parameters for getting a sandbox environment snapshot."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the sandbox environment snapshot."""
+    )
+    config: Optional[GetSandboxEnvironmentSnapshotConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetSandboxEnvironmentSnapshotRequestParametersDict(TypedDict, total=False):
+    """Parameters for getting a sandbox environment snapshot."""
+
+    name: Optional[str]
+    """Name of the sandbox environment snapshot."""
+
+    config: Optional[GetSandboxEnvironmentSnapshotConfigDict]
+    """"""
+
+
+_GetSandboxEnvironmentSnapshotRequestParametersOrDict = Union[
+    _GetSandboxEnvironmentSnapshotRequestParameters,
+    _GetSandboxEnvironmentSnapshotRequestParametersDict,
+]
+
+
+class ListSandboxEnvironmentSnapshotsConfig(_common.BaseModel):
+    """Config for listing sandbox environment snapshots."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None,
+        description="""An expression for filtering the results of the request.""",
+    )
+
+
+class ListSandboxEnvironmentSnapshotsConfigDict(TypedDict, total=False):
+    """Config for listing sandbox environment snapshots."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """An expression for filtering the results of the request."""
+
+
+ListSandboxEnvironmentSnapshotsConfigOrDict = Union[
+    ListSandboxEnvironmentSnapshotsConfig, ListSandboxEnvironmentSnapshotsConfigDict
+]
+
+
+class _ListSandboxEnvironmentSnapshotsRequestParameters(_common.BaseModel):
+    """Parameters for listing sandbox environment snapshots."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Name of the reasoning engine to list snapshots from.""",
+    )
+    config: Optional[ListSandboxEnvironmentSnapshotsConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _ListSandboxEnvironmentSnapshotsRequestParametersDict(TypedDict, total=False):
+    """Parameters for listing sandbox environment snapshots."""
+
+    name: Optional[str]
+    """Name of the reasoning engine to list snapshots from."""
+
+    config: Optional[ListSandboxEnvironmentSnapshotsConfigDict]
+    """"""
+
+
+_ListSandboxEnvironmentSnapshotsRequestParametersOrDict = Union[
+    _ListSandboxEnvironmentSnapshotsRequestParameters,
+    _ListSandboxEnvironmentSnapshotsRequestParametersDict,
+]
+
+
+class ListSandboxEnvironmentSnapshotsResponse(_common.BaseModel):
+    """Response for listing sandbox environment snapshots."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    sandbox_environment_snapshots: Optional[list[SandboxEnvironmentSnapshot]] = Field(
+        default=None, description="""List of sandbox environment snapshots."""
+    )
+
+
+class ListSandboxEnvironmentSnapshotsResponseDict(TypedDict, total=False):
+    """Response for listing sandbox environment snapshots."""
+
+    sdk_http_response: Optional[genai_types.HttpResponseDict]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    sandbox_environment_snapshots: Optional[list[SandboxEnvironmentSnapshotDict]]
+    """List of sandbox environment snapshots."""
+
+
+ListSandboxEnvironmentSnapshotsResponseOrDict = Union[
+    ListSandboxEnvironmentSnapshotsResponse, ListSandboxEnvironmentSnapshotsResponseDict
+]
+
+
+class _GetAgentEngineSandboxSnapshotOperationParameters(_common.BaseModel):
+    """Parameters for getting an operation with a sandbox snapshot as a response."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetAgentEngineOperationConfig] = Field(
+        default=None, description="""Used to override the default configuration."""
+    )
+
+
+class _GetAgentEngineSandboxSnapshotOperationParametersDict(TypedDict, total=False):
+    """Parameters for getting an operation with a sandbox snapshot as a response."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetAgentEngineOperationConfigDict]
+    """Used to override the default configuration."""
+
+
+_GetAgentEngineSandboxSnapshotOperationParametersOrDict = Union[
+    _GetAgentEngineSandboxSnapshotOperationParameters,
+    _GetAgentEngineSandboxSnapshotOperationParametersDict,
 ]
 
 
@@ -17247,6 +18859,9 @@ class AgentEngineConfig(_common.BaseModel):
       Contains configuration on a specified endpoint that a deployment host
       should use to keep the container alive based on the probe settings.""",
     )
+    traffic_config: Optional[ReasoningEngineTrafficConfig] = Field(
+        default=None, description="""The traffic config for the Agent Engine."""
+    )
 
 
 class AgentEngineConfigDict(TypedDict, total=False):
@@ -17430,6 +19045,9 @@ class AgentEngineConfigDict(TypedDict, total=False):
     """Optional. Specifies the configuration for keep-alive probe.
       Contains configuration on a specified endpoint that a deployment host
       should use to keep the container alive based on the probe settings."""
+
+    traffic_config: Optional[ReasoningEngineTrafficConfigDict]
+    """The traffic config for the Agent Engine."""
 
 
 AgentEngineConfigOrDict = Union[AgentEngineConfig, AgentEngineConfigDict]
@@ -18037,3 +19655,69 @@ class OptimizeJobConfigDict(TypedDict, total=False):
 
 
 OptimizeJobConfigOrDict = Union[OptimizeJobConfig, OptimizeJobConfigDict]
+
+
+class AgentEngineRuntimeRevision(_common.BaseModel):
+    """An agent engine runtime revision instance."""
+
+    api_client: Optional[Any] = Field(
+        default=None, description="""The underlying API client."""
+    )
+    api_async_client: Optional[Any] = Field(
+        default=None,
+        description="""The underlying API client for asynchronous operations.""",
+    )
+    api_resource: Optional[ReasoningEngineRuntimeRevision] = Field(
+        default=None,
+        description="""The underlying API resource (i.e. ReasoningEngineRuntimeRevision).""",
+    )
+
+    # Allows dynamic binding of methods based on the registered operations.
+    model_config = ConfigDict(extra="allow")
+
+    def __repr__(self) -> str:
+        return (
+            f"AgentEngineRuntimeRevision(api_resource.name='{self.api_resource.name}')"
+            if self.api_resource is not None
+            else "AgentEngineRuntimeRevision(api_resource.name=None)"
+        )
+
+    def operation_schemas(self) -> Optional[list[Dict[str, Any]]]:
+        """Returns the schemas of all registered operations for the agent."""
+        if not isinstance(self.api_resource, ReasoningEngineRuntimeRevision):
+            raise ValueError("api_resource is not initialized.")
+        if not self.api_resource.spec:
+            raise ValueError("api_resource.spec is not initialized.")
+        return self.api_resource.spec.class_methods
+
+    def delete(
+        self,
+        config: Optional[DeleteAgentEngineRuntimeRevisionConfigOrDict] = None,
+    ) -> None:
+        """Deletes the agent engine runtime revision.
+
+        Args:
+          config (DeleteAgentEngineRuntimeRevisionConfig):
+              Optional. Additional configurations for deleting the Agent Engine Runtime Revision.
+        """
+        if not isinstance(self.api_resource, ReasoningEngineRuntimeRevision):
+            raise ValueError("api_resource is not initialized.")
+        self.api_client.delete(name=self.api_resource.name, config=config)  # type: ignore[union-attr]
+
+
+class AgentEngineRuntimeRevisionDict(TypedDict, total=False):
+    """An agent engine runtime revision instance."""
+
+    api_client: Optional[Any]
+    """The underlying API client."""
+
+    api_async_client: Optional[Any]
+    """The underlying API client for asynchronous operations."""
+
+    api_resource: Optional[ReasoningEngineRuntimeRevisionDict]
+    """The underlying API resource (i.e. ReasoningEngineRuntimeRevision)."""
+
+
+AgentEngineRuntimeRevisionOrDict = Union[
+    AgentEngineRuntimeRevision, AgentEngineRuntimeRevisionDict
+]

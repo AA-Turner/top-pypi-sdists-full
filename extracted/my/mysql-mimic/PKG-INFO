@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysql-mimic
-Version: 3.0.2
+Version: 3.0.4
 Summary: A python implementation of the mysql server protocol
 Home-page: https://github.com/kelsin/mysql-mimic
 Author: Christopher Giroir
@@ -23,15 +23,18 @@ Requires-Dist: mysql-connector-python; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: freezegun; extra == "dev"
-Requires-Dist: gssapi; extra == "dev"
-Requires-Dist: k5test; extra == "dev"
+Requires-Dist: greenlet; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sqlalchemy; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Requires-Dist: uvloop; sys_platform != "win32" and extra == "dev"
 Requires-Dist: wheel; extra == "dev"
+Provides-Extra: dev-krb5
+Requires-Dist: gssapi; extra == "dev-krb5"
+Requires-Dist: k5test; extra == "dev-krb5"
 Provides-Extra: krb5
 Requires-Dist: gssapi; extra == "krb5"
 Dynamic: author

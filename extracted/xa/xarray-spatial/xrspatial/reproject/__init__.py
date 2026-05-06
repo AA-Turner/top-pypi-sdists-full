@@ -14,12 +14,15 @@ import math
 import numpy as np
 import xarray as xr
 
+from xrspatial.utils import _validate_raster
+
 from ._crs_utils import _detect_nodata, _detect_source_crs, _resolve_crs
 from ._grid import (
     _chunk_bounds,
     _compute_chunk_layout,
     _compute_output_grid,
     _make_output_coords,
+    _validate_grid_params,
 )
 from ._interpolate import (
     _resample_cupy,
@@ -284,7 +287,6 @@ def _reproject_chunk_numpy(
         for b in range(n_bands):
             band_data = window[:, :, b].astype(np.float64)
             if not np.isnan(nodata):
-                band_data = band_data.copy()
                 band_data[band_data == nodata] = np.nan
             band_result = _resample_numpy(band_data, local_row, local_col,
                                           resampling=resampling, nodata=nodata)
@@ -299,7 +301,6 @@ def _reproject_chunk_numpy(
 
     # Convert sentinel nodata to NaN so numba kernels can detect it
     if not np.isnan(nodata):
-        window = window.copy()
         window[window == nodata] = np.nan
 
     result = _resample_numpy(window, local_row, local_col,
@@ -350,14 +351,18 @@ def _reproject_chunk_cupy(
             src_row_px = (src_top - src_y) / src_res_y - 0.5
         else:
             src_row_px = (src_y - src_bottom) / src_res_y - 0.5
-        # Need min/max on CPU for window selection
-        r_min_val = float(cp.nanmin(src_row_px).get())
-        if not np.isfinite(r_min_val):
-            return cp.full(chunk_shape, nodata, dtype=cp.float64)
-        r_max_val = float(cp.nanmax(src_row_px).get())
-        c_min_val = float(cp.nanmin(src_col_px).get())
-        c_max_val = float(cp.nanmax(src_col_px).get())
-        if not np.isfinite(r_max_val) or not np.isfinite(c_min_val) or not np.isfinite(c_max_val):
+        # Need min/max on CPU for window selection.
+        # Stack the four reductions and pull them across in one device-to-host
+        # transfer to avoid four separate synchronous syncs.
+        mins_maxes = cp.stack([
+            cp.nanmin(src_row_px), cp.nanmax(src_row_px),
+            cp.nanmin(src_col_px), cp.nanmax(src_col_px),
+        ])
+        r_min_val, r_max_val, c_min_val, c_max_val = (
+            float(v) for v in mins_maxes.get()
+        )
+        if not (np.isfinite(r_min_val) and np.isfinite(r_max_val)
+                and np.isfinite(c_min_val) and np.isfinite(c_max_val)):
             return cp.full(chunk_shape, nodata, dtype=cp.float64)
         r_min = int(np.floor(r_min_val)) - 2
         r_max = int(np.ceil(r_max_val)) + 3
@@ -422,6 +427,7 @@ def _reproject_chunk_cupy(
         window = window.compute()
     if not isinstance(window, cp.ndarray):
         window = cp.asarray(window)
+    orig_dtype = window.dtype
     window = window.astype(cp.float64)
 
     # Adjust coordinates relative to window (stays on GPU if CuPy)
@@ -431,16 +437,21 @@ def _reproject_chunk_cupy(
     if _use_native_cuda:
         # Coordinates are already CuPy arrays -- use native CUDA kernels
         # (nodata->NaN conversion is handled inside _resample_cupy_native)
-        return _resample_cupy_native(window, local_row, local_col,
-                                     resampling=resampling, nodata=nodata)
+        result = _resample_cupy_native(window, local_row, local_col,
+                                       resampling=resampling, nodata=nodata)
+    else:
+        # CPU coordinates -- convert sentinel nodata to NaN before map_coordinates
+        if not np.isnan(nodata):
+            window[window == nodata] = cp.nan
 
-    # CPU coordinates -- convert sentinel nodata to NaN before map_coordinates
-    if not np.isnan(nodata):
-        window = window.copy()
-        window[window == nodata] = cp.nan
+        result = _resample_cupy(window, local_row, local_col,
+                                resampling=resampling, nodata=nodata)
 
-    return _resample_cupy(window, local_row, local_col,
-                          resampling=resampling, nodata=nodata)
+    # Clamp and cast back for integer source dtypes (parity with numpy path)
+    if np.issubdtype(orig_dtype, np.integer):
+        info = np.iinfo(orig_dtype)
+        result = cp.clip(cp.round(result), info.min, info.max).astype(orig_dtype)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -494,7 +505,9 @@ def reproject(
         Higher values increase accuracy at the cost of more pyproj calls.
         Set to 0 for exact per-pixel transforms matching GDAL/rasterio.
     chunk_size : int or (int, int) or None
-        Output chunk size for dask. Defaults to 512.
+        Output chunk size for dask. If None, defaults to 512 for the
+        standard dask path and 2048 for the in-memory streaming and
+        dask+cupy paths (chosen to amortize kernel launch overhead).
     name : str or None
         Name for the output DataArray.
     max_memory : int or str or None
@@ -520,12 +533,45 @@ def reproject(
         The output ``attrs['crs']`` is in WKT format.
         If vertical transformation was applied, ``attrs['vertical_crs']``
         records the target vertical datum.
+
+        The output y coordinate is always emitted in descending order
+        (top-down, north-up) regardless of the input direction. This
+        matches the standard raster convention and the output of common
+        GIS libraries.
+
+        Non-spatial coords from the input (such as a scalar ``time``
+        coord or a non-dimension coord that is not aligned to the
+        spatial dims) are carried through to the output. Coords that
+        are aligned to the input y or x dims are dropped because their
+        values do not apply to the rebuilt grid.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> from xrspatial.reproject import reproject
+    >>> raster = xr.DataArray(
+    ...     np.random.rand(64, 64),
+    ...     dims=['y', 'x'],
+    ...     coords={'y': np.linspace(50, 40, 64),
+    ...             'x': np.linspace(-5, 5, 64)},
+    ...     attrs={'crs': 'EPSG:4326'},
+    ... )
+    >>> result = reproject(raster, 'EPSG:3857')
+    >>> result.attrs['crs'].startswith(('PROJCRS', 'PROJCS'))
+    True
     """
-    if not isinstance(raster, xr.DataArray):
-        raise TypeError(
-            f"reproject(): raster must be an xr.DataArray, "
-            f"got {type(raster).__name__}"
-        )
+    _validate_raster(raster, func_name='reproject', name='raster',
+                     ndim=(2, 3))
+
+    _validate_grid_params(
+        resolution=resolution,
+        bounds=bounds,
+        width=width,
+        height=height,
+        transform_precision=transform_precision,
+        func_name='reproject',
+    )
 
     _validate_resampling(resampling)
 
@@ -659,10 +705,26 @@ def reproject(
             )
 
     ydim, xdim = _find_spatial_dims(raster)
-    out_attrs = {
-        'crs': tgt_wkt,
-        'nodata': nd,
-    }
+    # Carry input attrs forward so units, long_name, scale_factor, etc.
+    # survive the transform. Re-emit `transform` and `res` for the new
+    # output grid (rasterio 6-tuple convention). Drop `crs_wkt` since it
+    # would duplicate (or contradict) the canonical `crs` we re-emit.
+    out_left, _out_bottom, _out_right, out_top = grid['bounds']
+    out_res_x = grid['res_x']
+    out_res_y = grid['res_y']
+    out_attrs = {**raster.attrs}
+    out_attrs.pop('crs_wkt', None)
+    out_attrs['crs'] = tgt_wkt
+    out_attrs['nodata'] = nd
+    out_attrs['res'] = (out_res_x, out_res_y)
+    out_attrs['transform'] = (
+        out_res_x, 0.0, out_left, 0.0, -out_res_y, out_top,
+    )
+    # If the input used `_FillValue`, propagate the resolved nodata to
+    # both keys so downstream consumers reading either find a consistent
+    # value. If `_FillValue` was absent, leave it absent.
+    if '_FillValue' in raster.attrs:
+        out_attrs['_FillValue'] = nd
     if tgt_vertical_crs is not None:
         out_attrs['vertical_crs'] = tgt_vertical_crs
 
@@ -675,9 +737,27 @@ def reproject(
         out_coords = {ydim: y_coords, xdim: x_coords}
         if band_dim in raster.coords:
             out_coords[band_dim] = raster.coords[band_dim]
+        # Carry forward non-spatial coords (e.g. scalar 'time' coord).
+        # Skip coords aligned to the rebuilt spatial dims because their
+        # values do not apply to the new grid.
+        for cname, cval in raster.coords.items():
+            if cname in (ydim, xdim, band_dim):
+                continue
+            if ydim in cval.dims or xdim in cval.dims:
+                continue
+            out_coords[cname] = cval
     else:
         out_dims = [ydim, xdim]
         out_coords = {ydim: y_coords, xdim: x_coords}
+        # Carry forward non-spatial coords (e.g. scalar 'time' coord).
+        # Skip coords aligned to the rebuilt spatial dims because their
+        # values do not apply to the new grid.
+        for cname, cval in raster.coords.items():
+            if cname in (ydim, xdim):
+                continue
+            if ydim in cval.dims or xdim in cval.dims:
+                continue
+            out_coords[cname] = cval
 
     result = xr.DataArray(
         result_data,
@@ -765,12 +845,22 @@ def _apply_vertical_shift(data, y_coords, x_coords,
             xx_strip = np.asarray(lon_s, dtype=np.float64).reshape(n_rows, out_w)
             yy_strip = np.asarray(lat_s, dtype=np.float64).reshape(n_rows, out_w)
 
+        # Guard against non-finite output coords (projection singularities,
+        # antimeridian, polar regions). Hand NaN to the JIT batch so the
+        # longitude wrap loop in _interp_geoid_point does not see inf and
+        # spin forever.
+        finite_coord = np.isfinite(xx_strip) & np.isfinite(yy_strip)
+        if not finite_coord.all():
+            xx_strip = np.where(finite_coord, xx_strip, np.nan)
+            yy_strip = np.where(finite_coord, yy_strip, np.nan)
+
         # Apply each geoid shift
         strip_data = result[r0:r1]
         if is_nan_nodata:
             is_valid = np.isfinite(strip_data)
         else:
             is_valid = strip_data != nodata
+        is_valid = is_valid & finite_coord
 
         for (grid_data, g_left, g_top, g_rx, g_ry, g_h, g_w), sign in zip(geoids, signs):
             N_strip = np.empty((n_rows, out_w), dtype=np.float64)
@@ -1058,14 +1148,17 @@ def _reproject_dask_cupy(
                 else:
                     src_row_px = (src_y - src_bottom) / src_res_y - 0.5
 
-                r_min_val = float(cp.nanmin(src_row_px).get())
-                if not np.isfinite(r_min_val):
-                    col_offset += cchunk
-                    continue
-                r_max_val = float(cp.nanmax(src_row_px).get())
-                c_min_val = float(cp.nanmin(src_col_px).get())
-                c_max_val = float(cp.nanmax(src_col_px).get())
-                if not np.isfinite(r_max_val) or not np.isfinite(c_min_val) or not np.isfinite(c_max_val):
+                # Batch the four reductions into a single device-to-host
+                # transfer instead of four separate synchronous .get() calls.
+                mins_maxes = cp.stack([
+                    cp.nanmin(src_row_px), cp.nanmax(src_row_px),
+                    cp.nanmin(src_col_px), cp.nanmax(src_col_px),
+                ])
+                r_min_val, r_max_val, c_min_val, c_max_val = (
+                    float(v) for v in mins_maxes.get()
+                )
+                if not (np.isfinite(r_min_val) and np.isfinite(r_max_val)
+                        and np.isfinite(c_min_val) and np.isfinite(c_max_val)):
                     col_offset += cchunk
                     continue
                 r_min = int(np.floor(r_min_val)) - 2
@@ -1129,7 +1222,6 @@ def _reproject_dask_cupy(
             window = window.astype(cp.float64)
 
             if not np.isnan(nodata):
-                window = window.copy()
                 window[window == nodata] = cp.nan
 
             local_row = src_row_px - r_min_clip
@@ -1288,15 +1380,25 @@ def _reproject_dask(
         src_footprint_tgt=src_footprint_tgt,
     )
 
+    # Pick the template dtype to match the eager path: integer sources
+    # round-trip back to their original dtype after clamping; floats stay
+    # float64. Without this, dask claims float64 meta but the chunks
+    # actually return the integer dtype, producing inconsistent output.
+    src_dtype = np.dtype(raster.dtype)
+    if np.issubdtype(src_dtype, np.integer):
+        out_dtype = src_dtype
+    else:
+        out_dtype = np.dtype(np.float64)
+
     template = da.empty(
-        out_shape, dtype=np.float64, chunks=(row_chunks, col_chunks)
+        out_shape, dtype=out_dtype, chunks=(row_chunks, col_chunks)
     )
 
     return da.map_blocks(
         bound_adapter,
         template,
-        dtype=np.float64,
-        meta=np.array((), dtype=np.float64),
+        dtype=out_dtype,
+        meta=np.array((), dtype=out_dtype),
     )
 
 
@@ -1314,6 +1416,7 @@ def merge(
     nodata=None,
     strategy='first',
     chunk_size=None,
+    transform_precision=16,
     name=None,
 ):
     """Merge multiple rasters into a single mosaic.
@@ -1339,16 +1442,71 @@ def merge(
     strategy : str
         Merge strategy: 'first', 'last', 'mean', 'max', 'min'.
     chunk_size : int or (int, int) or None
-        Chunk size for dask output.
+        Output chunk size for dask. If None, defaults to 512 for the
+        standard dask path and 2048 for the in-memory streaming and
+        dask+cupy paths (chosen to amortize kernel launch overhead).
+    transform_precision : int
+        Control-grid subdivisions for the coordinate transform (default 16).
+        Higher values increase accuracy at the cost of more pyproj calls.
+        Set to 0 for exact per-pixel transforms matching GDAL/rasterio.
     name : str or None
         Name for the output DataArray.
 
     Returns
     -------
     xr.DataArray
+        The output y coordinate is always emitted in descending order
+        (top-down, north-up) regardless of the input direction. This
+        matches the standard raster convention and the output of common
+        GIS libraries.
+
+        Non-spatial coords from the first raster (such as a scalar
+        ``time`` coord) are carried through to the output. Coords
+        aligned to the spatial dims are dropped because their values
+        do not apply to the merged grid.
+
+    Notes
+    -----
+    There is no streaming in-memory path; for very large output mosaics,
+    pass dask-backed inputs (or rely on the automatic promotion to the
+    dask path) so that each output chunk is computed independently.
+
+    Examples
+    --------
+    >>> import xarray as xr
+    >>> import numpy as np
+    >>> from xrspatial.reproject import merge
+    >>> tile_a = xr.DataArray(
+    ...     np.full((32, 32), 1.0), dims=['y', 'x'],
+    ...     coords={'y': np.linspace(50, 45, 32),
+    ...             'x': np.linspace(-5, 0, 32)},
+    ...     attrs={'crs': 'EPSG:4326'},
+    ... )
+    >>> tile_b = xr.DataArray(
+    ...     np.full((32, 32), 2.0), dims=['y', 'x'],
+    ...     coords={'y': np.linspace(50, 45, 32),
+    ...             'x': np.linspace(0, 5, 32)},
+    ...     attrs={'crs': 'EPSG:4326'},
+    ... )
+    >>> mosaic = merge([tile_a, tile_b], resolution=0.5)
+    >>> mosaic.shape[1] >= 32
+    True
     """
     if not rasters:
         raise ValueError("merge(): rasters list must not be empty")
+
+    for i, r in enumerate(rasters):
+        _validate_raster(r, func_name='merge', name=f'rasters[{i}]',
+                         ndim=(2, 3))
+
+    _validate_grid_params(
+        resolution=resolution,
+        bounds=bounds,
+        width=None,
+        height=None,
+        transform_precision=transform_precision,
+        func_name='merge',
+    )
 
     _validate_resampling(resampling)
     _validate_strategy(strategy)
@@ -1362,7 +1520,7 @@ def merge(
             "Could not detect target CRS. Pass target_crs explicitly."
         )
 
-    # Detect nodata
+    # Detect output nodata (the sentinel the user asked for)
     nd = nodata if nodata is not None else _detect_nodata(rasters[0], nodata)
 
     # Gather source info for each raster
@@ -1375,8 +1533,13 @@ def merge(
                 "Ensure all rasters have CRS metadata."
             )
         sb = _source_bounds(r)
-        ss = (r.sizes[r.dims[-2]], r.sizes[r.dims[-1]])
+        r_ydim, r_xdim = _find_spatial_dims(r)
+        ss = (r.sizes[r_ydim], r.sizes[r_xdim])
         yd = _is_y_descending(r)
+        # Per-raster input nodata sentinel. Detected independently of the
+        # user-supplied output nodata so that mixed-sentinel inputs are
+        # canonicalized correctly during merge.
+        r_nd = _detect_nodata(r, None)
         raster_infos.append({
             'raster': r,
             'src_crs': src_crs,
@@ -1384,6 +1547,7 @@ def merge(
             'src_shape': ss,
             'y_desc': yd,
             'src_wkt': src_crs.to_wkt(),
+            'raster_nodata': r_nd,
         })
 
     # Compute unified output grid
@@ -1434,27 +1598,54 @@ def merge(
     if any_dask:
         result_data = _merge_dask(
             raster_infos, tgt_wkt, out_bounds, out_shape,
-            resampling, nd, strategy, chunk_size,
+            resampling, nd, strategy, chunk_size, transform_precision,
         )
     else:
         result_data = _merge_inmemory(
             raster_infos, tgt_wkt, out_bounds, out_shape,
-            resampling, nd, strategy,
+            resampling, nd, strategy, transform_precision,
         )
 
     y_coords, x_coords = _make_output_coords(out_bounds, out_shape)
-    ydim = rasters[0].dims[-2]
-    xdim = rasters[0].dims[-1]
+    ydim, xdim = _find_spatial_dims(rasters[0])
+
+    out_coords = {ydim: y_coords, xdim: x_coords}
+    # Carry forward non-spatial coords from the first raster (e.g. scalar
+    # 'time' coord). Skip coords aligned to the rebuilt spatial dims
+    # because their values do not apply to the new grid.
+    for cname, cval in rasters[0].coords.items():
+        if cname in (ydim, xdim):
+            continue
+        if ydim in cval.dims or xdim in cval.dims:
+            continue
+        out_coords[cname] = cval
+
+    # Carry the first raster's attrs forward (matches the default
+    # strategy='first'). Drop the duplicate `crs_wkt` and re-emit
+    # `transform` and `res` for the new output grid (rasterio 6-tuple).
+    out_left, _out_bottom, _out_right, out_top = grid['bounds']
+    out_res_x = grid['res_x']
+    out_res_y = grid['res_y']
+    out_attrs = {**rasters[0].attrs}
+    out_attrs.pop('crs_wkt', None)
+    out_attrs['crs'] = tgt_wkt
+    out_attrs['nodata'] = nd
+    out_attrs['res'] = (out_res_x, out_res_y)
+    out_attrs['transform'] = (
+        out_res_x, 0.0, out_left, 0.0, -out_res_y, out_top,
+    )
+    # If the first raster used `_FillValue`, propagate the resolved
+    # nodata to both keys for consistent round-trip. Leave absent
+    # otherwise.
+    if '_FillValue' in rasters[0].attrs:
+        out_attrs['_FillValue'] = nd
 
     result = xr.DataArray(
         result_data,
         dims=[ydim, xdim],
-        coords={ydim: y_coords, xdim: x_coords},
-        name=name or 'merged',
-        attrs={
-            'crs': tgt_wkt,
-            'nodata': nd,
-        },
+        coords=out_coords,
+        name=name or rasters[0].name or 'merged',
+        attrs=out_attrs,
     )
     return result
 
@@ -1524,38 +1715,54 @@ def _place_same_crs(src_data, src_bounds, src_shape, y_desc,
 
 def _merge_inmemory(
     raster_infos, tgt_wkt, out_bounds, out_shape,
-    resampling, nodata, strategy,
+    resampling, nodata, strategy, transform_precision,
 ):
     """In-memory merge using numpy.
 
     Detects same-CRS tiles and uses fast direct placement instead
     of reprojection.
+
+    Each raster is reprojected using its own nodata sentinel and then
+    canonicalized to NaN before the strategy merge so that mixed-sentinel
+    inputs do not leak invalid pixels into the mosaic. After merging, the
+    NaN canonical sentinel is converted back to the user-requested
+    output ``nodata``.
     """
     from ._crs_utils import _crs_from_wkt
     tgt_crs = _crs_from_wkt(tgt_wkt)
 
     arrays = []
     for info in raster_infos:
+        r_nd = info.get('raster_nodata', float('nan'))
         # Check if source CRS matches target (no reprojection needed)
         placed = None
         if info['src_crs'] == tgt_crs:
             placed = _place_same_crs(
                 info['raster'].values,
                 info['src_bounds'], info['src_shape'], info['y_desc'],
-                out_bounds, out_shape, nodata,
+                out_bounds, out_shape, r_nd,
             )
         if placed is not None:
-            arrays.append(placed)
+            arr = placed
         else:
-            reprojected = _reproject_chunk_numpy(
+            arr = _reproject_chunk_numpy(
                 info['raster'].values,
                 info['src_bounds'], info['src_shape'], info['y_desc'],
                 info['src_wkt'], tgt_wkt,
                 out_bounds, out_shape,
-                resampling, nodata, 16,
+                resampling, r_nd, transform_precision,
             )
-            arrays.append(reprojected)
-    return _merge_arrays_numpy(arrays, nodata, strategy)
+        # Canonicalize this raster's sentinel to NaN before the merge so
+        # rasters with different sentinels merge correctly.
+        if not np.isnan(r_nd):
+            arr = np.asarray(arr, dtype=np.float64)
+            arr = np.where(arr == r_nd, np.nan, arr)
+        arrays.append(arr)
+
+    merged = _merge_arrays_numpy(arrays, float('nan'), strategy)
+    if not np.isnan(nodata):
+        merged = np.where(np.isnan(merged), nodata, merged)
+    return merged
 
 
 def _merge_block_adapter(
@@ -1564,9 +1771,14 @@ def _merge_block_adapter(
     src_wkt_list, tgt_wkt,
     out_bounds, out_shape,
     resampling, nodata, strategy, precision,
-    src_footprints_tgt,
+    src_footprints_tgt, raster_nodata_list, same_crs_list,
 ):
-    """``map_blocks`` adapter for merge."""
+    """``map_blocks`` adapter for merge.
+
+    Each raster is reprojected with its own input nodata sentinel and
+    canonicalized to NaN before the strategy merge. The final result is
+    converted back to the user-requested output ``nodata``.
+    """
     info = block_info[0]
     (row_start, row_end), (col_start, col_end) = info['array-location']
     chunk_shape = (row_end - row_start, col_end - col_start)
@@ -1579,23 +1791,45 @@ def _merge_block_adapter(
         if (src_footprints_tgt[i] is not None
                 and not _bounds_overlap(cb, src_footprints_tgt[i])):
             continue
-        reprojected = _reproject_chunk_numpy(
-            raster_data_list[i],
-            src_bounds_list[i], src_shape_list[i], y_desc_list[i],
-            src_wkt_list[i], tgt_wkt,
-            cb, chunk_shape,
-            resampling, nodata, precision,
-        )
-        arrays.append(reprojected)
+        r_nd = raster_nodata_list[i]
+        placed = None
+        if same_crs_list[i]:
+            # Same-CRS path: direct pixel placement (no resampling).
+            # Mirrors the eager merge so dask matches numpy bit-for-bit.
+            src_data = raster_data_list[i]
+            if hasattr(src_data, 'compute'):
+                src_data = src_data.compute()
+            placed = _place_same_crs(
+                np.asarray(src_data),
+                src_bounds_list[i], src_shape_list[i], y_desc_list[i],
+                cb, chunk_shape, r_nd,
+            )
+        if placed is not None:
+            arr = placed
+        else:
+            arr = _reproject_chunk_numpy(
+                raster_data_list[i],
+                src_bounds_list[i], src_shape_list[i], y_desc_list[i],
+                src_wkt_list[i], tgt_wkt,
+                cb, chunk_shape,
+                resampling, r_nd, precision,
+            )
+        if not np.isnan(r_nd):
+            arr = np.asarray(arr, dtype=np.float64)
+            arr = np.where(arr == r_nd, np.nan, arr)
+        arrays.append(arr)
 
     if not arrays:
         return np.full(chunk_shape, nodata, dtype=np.float64)
-    return _merge_arrays_numpy(arrays, nodata, strategy)
+    merged = _merge_arrays_numpy(arrays, float('nan'), strategy)
+    if not np.isnan(nodata):
+        merged = np.where(np.isnan(merged), nodata, merged)
+    return merged
 
 
 def _merge_dask(
     raster_infos, tgt_wkt, out_bounds, out_shape,
-    resampling, nodata, strategy, chunk_size,
+    resampling, nodata, strategy, chunk_size, transform_precision,
 ):
     """Dask merge backend using ``map_blocks``."""
     import functools
@@ -1610,10 +1844,22 @@ def _merge_dask(
     shape_list = [info['src_shape'] for info in raster_infos]
     ydesc_list = [info['y_desc'] for info in raster_infos]
     wkt_list = [info['src_wkt'] for info in raster_infos]
+    rnodata_list = [
+        info.get('raster_nodata', float('nan')) for info in raster_infos
+    ]
 
     # Precompute source footprints in target CRS
     footprints = [
         _source_footprint_in_target(bounds_list[i], wkt_list[i], tgt_wkt)
+        for i in range(len(raster_infos))
+    ]
+
+    # Precompute CRS-equality flags so per-block adapters can shortcut to
+    # direct pixel placement (matches the eager _merge_inmemory path).
+    from ._crs_utils import _crs_from_wkt
+    tgt_crs = _crs_from_wkt(tgt_wkt)
+    same_crs_list = [
+        bool(_crs_from_wkt(wkt_list[i]) == tgt_crs)
         for i in range(len(raster_infos))
     ]
 
@@ -1632,8 +1878,10 @@ def _merge_dask(
         resampling=resampling,
         nodata=nodata,
         strategy=strategy,
-        precision=16,
+        precision=transform_precision,
         src_footprints_tgt=footprints,
+        raster_nodata_list=rnodata_list,
+        same_crs_list=same_crs_list,
     )
 
     template = da.empty(

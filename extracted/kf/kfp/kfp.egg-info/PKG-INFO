@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp
-Version: 2.16.0
+Version: 2.16.1
 Summary: Kubeflow Pipelines SDK
 Home-page: https://github.com/kubeflow/pipelines
 Author: The Kubeflow Authors
@@ -42,12 +42,12 @@ Requires-Dist: urllib3<3.0.0
 Requires-Dist: typing-extensions<5,>=3.7.4; python_version < "3.9"
 Provides-Extra: all
 Requires-Dist: docker; extra == "all"
-Requires-Dist: kfp-kubernetes==2.16.0; extra == "all"
+Requires-Dist: kfp-kubernetes==2.16.1; extra == "all"
 Requires-Dist: nbclient<1,>=0.10; extra == "all"
 Requires-Dist: ipykernel<7,>=6; extra == "all"
 Requires-Dist: jupyter_client<9,>=7; extra == "all"
 Provides-Extra: kubernetes
-Requires-Dist: kfp-kubernetes==2.16.0; extra == "kubernetes"
+Requires-Dist: kfp-kubernetes==2.16.1; extra == "kubernetes"
 Provides-Extra: notebooks
 Requires-Dist: nbclient<1,>=0.10; extra == "notebooks"
 Requires-Dist: ipykernel<7,>=6; extra == "notebooks"

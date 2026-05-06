@@ -1,5 +1,15 @@
 # coding=utf-8
 from .._impl import (
+    scout_channel_api_BatchGetLocatorDelimitersEntry as BatchGetLocatorDelimitersEntry,
+    scout_channel_api_BatchGetLocatorDelimitersRequest as BatchGetLocatorDelimitersRequest,
+    scout_channel_api_BatchGetLocatorDelimitersResponse as BatchGetLocatorDelimitersResponse,
+    scout_channel_api_BatchSearchChannelsEntry as BatchSearchChannelsEntry,
+    scout_channel_api_BatchSearchChannelsRequest as BatchSearchChannelsRequest,
+    scout_channel_api_BatchSearchChannelsResponse as BatchSearchChannelsResponse,
+    scout_channel_api_BatchedChannelEntry as BatchedChannelEntry,
+    scout_channel_api_BatchedLocator as BatchedLocator,
+    scout_channel_api_BatchedLocatorChannelMetadata as BatchedLocatorChannelMetadata,
+    scout_channel_api_BatchedLocatorWithDelimiter as BatchedLocatorWithDelimiter,
     scout_channel_api_ChannelChildEntry as ChannelChildEntry,
     scout_channel_api_ChannelChildEntryVisitor as ChannelChildEntryVisitor,
     scout_channel_api_ChannelEntry as ChannelEntry,
@@ -21,6 +31,16 @@ from .._impl import (
 )
 
 __all__ = [
+    'BatchGetLocatorDelimitersEntry',
+    'BatchGetLocatorDelimitersRequest',
+    'BatchGetLocatorDelimitersResponse',
+    'BatchSearchChannelsEntry',
+    'BatchSearchChannelsRequest',
+    'BatchSearchChannelsResponse',
+    'BatchedChannelEntry',
+    'BatchedLocator',
+    'BatchedLocatorChannelMetadata',
+    'BatchedLocatorWithDelimiter',
     'ChannelChildEntry',
     'ChannelChildEntryVisitor',
     'ChannelEntry',

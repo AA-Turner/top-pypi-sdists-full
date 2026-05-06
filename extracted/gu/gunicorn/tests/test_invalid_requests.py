@@ -51,6 +51,11 @@ def test_http_parser(fname, http_parser):
         ):
             pytest.skip(f"fast parser does not raise {expect.__name__}")
 
+        # Fixture-level opt-out for validations not (yet) implemented by
+        # the C parser. The sidecar sets `python_only = True`.
+        if env.get('python_only'):
+            pytest.skip("fixture marked python_only")
+
     # Determine acceptable exceptions (fast parser may raise alternates)
     if http_parser == 'fast' and expect in _FAST_PARSER_ALTERNATES:
         acceptable = (expect,) + _FAST_PARSER_ALTERNATES[expect]

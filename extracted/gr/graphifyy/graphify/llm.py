@@ -50,6 +50,7 @@ BACKENDS: dict[str, dict] = {
         "env_key": "ANTHROPIC_API_KEY",
         "pricing": {"input": 3.0, "output": 15.0},  # USD per 1M tokens
         "temperature": 0,
+        "max_tokens": 16384,
     },
     "kimi": {
         "base_url": "https://api.moonshot.ai/v1",
@@ -57,8 +58,30 @@ BACKENDS: dict[str, dict] = {
         "env_key": "MOONSHOT_API_KEY",
         "pricing": {"input": 0.74, "output": 4.66},  # USD per 1M tokens
         "temperature": None,  # kimi-k2.6 enforces its own fixed temperature; sending any value raises 400
+        "max_tokens": 16384,
+    },
+    "ollama": {
+        "base_url": os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+        "default_model": os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:7b"),
+        "env_key": "OLLAMA_API_KEY",
+        "pricing": {"input": 0.0, "output": 0.0},
+        "temperature": 0,
+        "max_tokens": 16384,
     },
 }
+
+
+def _resolve_max_tokens(default: int) -> int:
+    """Honour GRAPHIFY_MAX_OUTPUT_TOKENS env var override, else use backend default."""
+    raw = os.environ.get("GRAPHIFY_MAX_OUTPUT_TOKENS", "").strip()
+    if raw:
+        try:
+            v = int(raw)
+            if v > 0:
+                return v
+        except ValueError:
+            pass
+    return default
 
 _EXTRACTION_SYSTEM = """\
 You are a graphify semantic extraction agent. Extract a knowledge graph fragment from the files provided.
@@ -113,6 +136,9 @@ def _call_openai_compat(
     model: str,
     user_message: str,
     temperature: float | None = 0,
+    max_tokens: int = 8192,
+    *,
+    backend: str = "",
 ) -> dict:
     """Call any OpenAI-compatible API (Kimi, OpenAI, etc.) and return parsed JSON."""
     try:
@@ -130,7 +156,7 @@ def _call_openai_compat(
             {"role": "system", "content": _EXTRACTION_SYSTEM},
             {"role": "user", "content": user_message},
         ],
-        "max_completion_tokens": 8192,
+        "max_completion_tokens": max_tokens,
     }
     if temperature is not None:
         kwargs["temperature"] = temperature
@@ -146,10 +172,18 @@ def _call_openai_compat(
     # mid-generation. The JSON we got back is truncated; callers should
     # treat this as a signal to retry with smaller input.
     result["finish_reason"] = resp.choices[0].finish_reason
+    output_tokens = result["output_tokens"]
+    if output_tokens < 50 and backend == "ollama":
+        print(
+            "[graphify] warning: ollama returned very few tokens — the model may be "
+            "too small or not following the JSON instruction format. "
+            "Try a larger model with --model (e.g. --model qwen2.5-coder:14b).",
+            file=sys.stderr,
+        )
     return result
 
 
-def _call_claude(api_key: str, model: str, user_message: str) -> dict:
+def _call_claude(api_key: str, model: str, user_message: str, max_tokens: int = 8192) -> dict:
     """Call Anthropic Claude directly (not via OpenAI compat layer)."""
     try:
         import anthropic
@@ -162,7 +196,7 @@ def _call_claude(api_key: str, model: str, user_message: str) -> dict:
     client = anthropic.Anthropic(api_key=api_key)
     resp = client.messages.create(
         model=model,
-        max_tokens=8192,
+        max_tokens=max_tokens,
         system=_EXTRACTION_SYSTEM,
         messages=[{"role": "user", "content": user_message}],
     )
@@ -194,6 +228,8 @@ def extract_files_direct(
 
     cfg = BACKENDS[backend]
     key = api_key or os.environ.get(cfg["env_key"], "")
+    if not key and backend == "ollama":
+        key = "ollama"  # Ollama ignores auth but openai client requires non-empty
     if not key:
         raise ValueError(
             f"No API key for backend '{backend}'. "
@@ -201,11 +237,12 @@ def extract_files_direct(
         )
     mdl = model or cfg["default_model"]
     user_msg = _read_files(files, root)
+    max_out = _resolve_max_tokens(cfg.get("max_tokens", 8192))
 
     if backend == "claude":
-        return _call_claude(key, mdl, user_msg)
+        return _call_claude(key, mdl, user_msg, max_tokens=max_out)
     else:
-        return _call_openai_compat(cfg["base_url"], key, mdl, user_msg, temperature=cfg.get("temperature", 0))
+        return _call_openai_compat(cfg["base_url"], key, mdl, user_msg, temperature=cfg.get("temperature", 0), max_tokens=max_out, backend=backend)
 
 
 def _estimate_file_tokens(path: Path) -> int:
@@ -468,11 +505,13 @@ def estimate_cost(backend: str, input_tokens: int, output_tokens: int) -> float:
 def detect_backend() -> str | None:
     """Return the name of whichever backend has an API key set, or None.
 
-    Kimi is checked first (opt-in). Falls back to Claude if ANTHROPIC_API_KEY is set.
-    Claude is the default for the skill.md subagent pipeline and is never forced here.
+    Priority: kimi → ollama (if OLLAMA_BASE_URL set) → claude.
+    Ollama is opt-in via env var — never auto-probed.
     """
     if os.environ.get("MOONSHOT_API_KEY"):
         return "kimi"
+    if os.environ.get("OLLAMA_BASE_URL"):
+        return "ollama"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "claude"
     return None

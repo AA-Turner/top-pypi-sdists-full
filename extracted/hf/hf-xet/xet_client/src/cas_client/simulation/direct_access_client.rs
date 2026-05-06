@@ -12,14 +12,16 @@ use bytes::Bytes;
 use xet_core_structures::merklehash::MerkleHash;
 use xet_core_structures::xorb_object::XorbObject;
 
-use super::super::error::Result;
 use super::super::interface::Client;
-use crate::cas_types::{FileRange, XorbReconstructionFetchInfo};
+use crate::cas_types::{
+    FileRange, QueryReconstructionResponse, QueryReconstructionResponseV2, XorbReconstructionFetchInfo,
+};
+use crate::error::Result;
 
 /// A Client with direct access to XORB and file storage.
 ///
 /// This trait extends the standard Client interface with methods for:
-/// - Direct XORB access (read, list, delete)
+/// - Direct XORB access (read, list)
 /// - File data retrieval
 /// - URL expiration control
 /// - API delay simulation
@@ -40,6 +42,47 @@ pub trait DirectAccessClient: Client + Send + Sync {
     /// Pass `None` to disable the delay.
     fn set_api_delay_range(&self, delay_range: Option<Range<Duration>>);
 
+    /// Sets the maximum number of byte ranges per `XorbMultiRangeFetch` entry
+    /// in V2 reconstruction responses.
+    ///
+    /// Default is `usize::MAX` (all ranges in one fetch). When set to N,
+    /// ranges for each xorb are grouped into entries of at most N ranges.
+    /// This simulates the CloudFront URL length limit that forces splitting.
+    fn set_max_ranges_per_fetch(&self, max_ranges: usize);
+
+    /// Sets the expiration duration for global dedup shards.
+    ///
+    /// When set, `query_for_global_dedup_shard` will set the shard footer's
+    /// `shard_key_expiry` to `now + expiration`
+    ///
+    /// Pass `None` to disable (default: returns full shards with no expiration).
+    fn set_global_dedup_shard_expiration(&self, expiration: Option<Duration>);
+
+    /// Disables V2 reconstruction responses with the given HTTP status code.
+    /// When disabled, the V2 endpoint returns this status, forcing clients to
+    /// fall back to V1. Pass 0 to re-enable.
+    fn disable_v2_reconstruction(&self, status_code: u16);
+
+    /// Returns the HTTP status code the V2 endpoint should return when disabled,
+    /// or 0 if V2 is enabled.
+    fn v2_disabled_status_code(&self) -> u16 {
+        0
+    }
+
+    /// V1 reconstruction: returns per-range presigned URLs.
+    async fn get_reconstruction_v1(
+        &self,
+        file_id: &MerkleHash,
+        bytes_range: Option<FileRange>,
+    ) -> Result<Option<QueryReconstructionResponse>>;
+
+    /// V2 reconstruction: returns per-xorb multi-range fetch descriptors.
+    async fn get_reconstruction_v2(
+        &self,
+        file_id: &MerkleHash,
+        bytes_range: Option<FileRange>,
+    ) -> Result<Option<QueryReconstructionResponseV2>>;
+
     /// Applies the configured API delay if set.
     ///
     /// This method sleeps for a random duration within the configured delay range.
@@ -48,9 +91,6 @@ pub trait DirectAccessClient: Client + Send + Sync {
 
     /// Returns all XORB hashes stored in this client.
     async fn list_xorbs(&self) -> Result<Vec<MerkleHash>>;
-
-    /// Deletes a XORB by hash.
-    async fn delete_xorb(&self, hash: &MerkleHash);
 
     /// Get all uncompressed bytes from a XORB.
     async fn get_full_xorb(&self, hash: &MerkleHash) -> Result<Bytes>;

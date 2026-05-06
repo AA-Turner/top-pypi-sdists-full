@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: csvw
-Version: 3.7.0
+Version: 4.0.0
 Summary: Python library to work with CSVW described tabular data
 Home-page: https://github.com/cldf/csvw
 Author: Robert Forkel
@@ -15,25 +15,23 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: attrs>=18.1
 Requires-Dist: isodate
 Requires-Dist: python-dateutil
 Requires-Dist: rfc3986<2
 Requires-Dist: uritemplate>=3.0.0
 Requires-Dist: babel
-Requires-Dist: requests
 Requires-Dist: language-tags
 Requires-Dist: rdflib
 Requires-Dist: termcolor
@@ -47,7 +45,6 @@ Provides-Extra: test
 Requires-Dist: frictionless; extra == "test"
 Requires-Dist: pytest>=5; extra == "test"
 Requires-Dist: pytest-mock; extra == "test"
-Requires-Dist: requests-mock; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx<7; extra == "docs"
@@ -65,6 +62,10 @@ This package provides
 - a Python API to read and write relational, tabular data according to the [CSV on the Web](https://csvw.org/) specification and 
 - commandline tools for reading and validating CSVW data.
 
+> [!IMPORTANT]  
+> The Python API provided by `csvw` 4.x is not fully backwards compatible with `csvw` < 4.
+> See [CHANGES](CHANGES) for more information.
+
 
 ## Links
 
@@ -75,7 +76,7 @@ This package provides
 
 ## Installation
 
-This package runs under Python >=3.8, use pip to install:
+This package runs under Python >=3.9, use pip to install:
 
 ```bash
 $ pip install csvw

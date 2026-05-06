@@ -1,25 +1,19 @@
 Metadata-Version: 2.4
 Name: claripy
-Version: 9.2.213
+Version: 9.2.214
 Summary: An abstraction layer for constraint solvers
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/angr/claripy
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cachetools
-Requires-Dist: typing-extensions
 Requires-Dist: z3-solver==4.13.0.0
-Provides-Extra: docs
-Requires-Dist: furo; extra == "docs"
-Requires-Dist: myst-parser; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Dynamic: license-file
 
 # claripy

@@ -29,13 +29,17 @@ from .literals import (
     AlertCategoryType,
     ChannelStateType,
     CompressionMethodType,
+    EventNameType,
     FillPolicyType,
+    FunctionTypeType,
     InsertionModeType,
     ListPrefetchScheduleTypeType,
     LoggingStrategyType,
     ManifestServiceExcludeEventTypeType,
+    ManifestServicePublishOptInEventTypeType,
     MessageTypeType,
     MethodType,
+    MethodTypeType,
     ModeType,
     OriginManifestTypeType,
     PlaybackModeType,
@@ -96,12 +100,16 @@ __all__ = (
     "CreateSourceLocationResponseTypeDef",
     "CreateVodSourceRequestTypeDef",
     "CreateVodSourceResponseTypeDef",
+    "CustomOutputConfigurationOutputTypeDef",
+    "CustomOutputConfigurationTypeDef",
+    "CustomOutputConfigurationUnionTypeDef",
     "DashConfigurationForPutTypeDef",
     "DashConfigurationTypeDef",
     "DashPlaylistSettingsTypeDef",
     "DefaultSegmentDeliveryConfigurationTypeDef",
     "DeleteChannelPolicyRequestTypeDef",
     "DeleteChannelRequestTypeDef",
+    "DeleteFunctionRequestTypeDef",
     "DeleteLiveSourceRequestTypeDef",
     "DeletePlaybackConfigurationRequestTypeDef",
     "DeletePrefetchScheduleRequestTypeDef",
@@ -119,11 +127,15 @@ __all__ = (
     "DescribeVodSourceRequestTypeDef",
     "DescribeVodSourceResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "FunctionRefTypeDef",
+    "FunctionTypeDef",
     "GetChannelPolicyRequestTypeDef",
     "GetChannelPolicyResponseTypeDef",
     "GetChannelScheduleRequestPaginateTypeDef",
     "GetChannelScheduleRequestTypeDef",
     "GetChannelScheduleResponseTypeDef",
+    "GetFunctionRequestTypeDef",
+    "GetFunctionResponseTypeDef",
     "GetPlaybackConfigurationRequestTypeDef",
     "GetPlaybackConfigurationResponseTypeDef",
     "GetPrefetchScheduleRequestTypeDef",
@@ -134,6 +146,9 @@ __all__ = (
     "HlsPlaylistSettingsUnionTypeDef",
     "HttpConfigurationTypeDef",
     "HttpPackageConfigurationTypeDef",
+    "HttpRequestConfigurationOutputTypeDef",
+    "HttpRequestConfigurationTypeDef",
+    "HttpRequestConfigurationUnionTypeDef",
     "HttpRequestOutputTypeDef",
     "HttpRequestTypeDef",
     "KeyValuePairTypeDef",
@@ -143,6 +158,9 @@ __all__ = (
     "ListChannelsRequestPaginateTypeDef",
     "ListChannelsRequestTypeDef",
     "ListChannelsResponseTypeDef",
+    "ListFunctionsRequestPaginateTypeDef",
+    "ListFunctionsRequestTypeDef",
+    "ListFunctionsResponseTypeDef",
     "ListLiveSourcesRequestPaginateTypeDef",
     "ListLiveSourcesRequestTypeDef",
     "ListLiveSourcesResponseTypeDef",
@@ -178,6 +196,8 @@ __all__ = (
     "PrefetchRetrievalUnionTypeDef",
     "PrefetchScheduleTypeDef",
     "PutChannelPolicyRequestTypeDef",
+    "PutFunctionRequestTypeDef",
+    "PutFunctionResponseTypeDef",
     "PutPlaybackConfigurationRequestTypeDef",
     "PutPlaybackConfigurationResponseTypeDef",
     "RecurringConsumptionOutputTypeDef",
@@ -196,6 +216,9 @@ __all__ = (
     "SecretsManagerAccessTokenConfigurationTypeDef",
     "SegmentDeliveryConfigurationTypeDef",
     "SegmentationDescriptorTypeDef",
+    "SequentialExecutorConfigurationOutputTypeDef",
+    "SequentialExecutorConfigurationTypeDef",
+    "SequentialExecutorConfigurationUnionTypeDef",
     "SlateSourceTypeDef",
     "SourceLocationTypeDef",
     "SpliceInsertMessageTypeDef",
@@ -318,6 +341,7 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 class ManifestServiceInteractionLogOutputTypeDef(TypedDict):
+    PublishOptInEventTypes: NotRequired[list[ManifestServicePublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[list[ManifestServiceExcludeEventTypeType]]
 
 class TimeShiftConfigurationTypeDef(TypedDict):
@@ -342,6 +366,14 @@ class SegmentDeliveryConfigurationTypeDef(TypedDict):
     BaseUrl: NotRequired[str]
     Name: NotRequired[str]
 
+class CustomOutputConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    Output: NotRequired[dict[str, str]]
+
+class CustomOutputConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    Output: NotRequired[Mapping[str, str]]
+
 class DashConfigurationForPutTypeDef(TypedDict):
     MpdLocation: NotRequired[str]
     OriginManifestType: NotRequired[OriginManifestTypeType]
@@ -362,6 +394,9 @@ class DeleteChannelPolicyRequestTypeDef(TypedDict):
 
 class DeleteChannelRequestTypeDef(TypedDict):
     ChannelName: str
+
+class DeleteFunctionRequestTypeDef(TypedDict):
+    FunctionId: str
 
 class DeleteLiveSourceRequestTypeDef(TypedDict):
     LiveSourceName: str
@@ -403,6 +438,23 @@ class DescribeVodSourceRequestTypeDef(TypedDict):
     SourceLocationName: str
     VodSourceName: str
 
+class FunctionRefTypeDef(TypedDict):
+    RunCondition: NotRequired[str]
+    FunctionId: NotRequired[str]
+
+HttpRequestConfigurationOutputTypeDef = TypedDict(
+    "HttpRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+    },
+)
+
 class GetChannelPolicyRequestTypeDef(TypedDict):
     ChannelName: str
 
@@ -417,6 +469,9 @@ class GetChannelScheduleRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     Audience: NotRequired[str]
+
+class GetFunctionRequestTypeDef(TypedDict):
+    FunctionId: str
 
 class GetPlaybackConfigurationRequestTypeDef(TypedDict):
     Name: str
@@ -440,12 +495,29 @@ class HlsPlaylistSettingsTypeDef(TypedDict):
     ManifestWindowSeconds: NotRequired[int]
     AdMarkupType: NotRequired[Sequence[AdMarkupTypeType]]
 
+HttpRequestConfigurationTypeDef = TypedDict(
+    "HttpRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+    },
+)
+
 class ListAlertsRequestTypeDef(TypedDict):
     ResourceArn: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
 class ListChannelsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListFunctionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -478,6 +550,7 @@ class ListVodSourcesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class ManifestServiceInteractionLogTypeDef(TypedDict):
+    PublishOptInEventTypes: NotRequired[Sequence[ManifestServicePublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[Sequence[ManifestServiceExcludeEventTypeType]]
 
 TimestampTypeDef = Union[datetime, str]
@@ -704,6 +777,22 @@ class VodSourceTypeDef(TypedDict):
     LastModifiedTime: NotRequired[datetime]
     Tags: NotRequired[dict[str, str]]
 
+CustomOutputConfigurationUnionTypeDef = Union[
+    CustomOutputConfigurationTypeDef, CustomOutputConfigurationOutputTypeDef
+]
+
+class SequentialExecutorConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    FunctionList: list[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    Output: NotRequired[dict[str, str]]
+
+class SequentialExecutorConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    FunctionList: Sequence[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    Output: NotRequired[Mapping[str, str]]
+
 class GetChannelScheduleRequestPaginateTypeDef(TypedDict):
     ChannelName: str
     DurationMinutes: NotRequired[str]
@@ -715,6 +804,9 @@ class ListAlertsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListChannelsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFunctionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListLiveSourcesRequestPaginateTypeDef(TypedDict):
@@ -746,6 +838,9 @@ class ResponseOutputItemTypeDef(TypedDict):
 
 HlsPlaylistSettingsUnionTypeDef = Union[
     HlsPlaylistSettingsTypeDef, HlsPlaylistSettingsOutputTypeDef
+]
+HttpRequestConfigurationUnionTypeDef = Union[
+    HttpRequestConfigurationTypeDef, HttpRequestConfigurationOutputTypeDef
 ]
 ManifestServiceInteractionLogUnionTypeDef = Union[
     ManifestServiceInteractionLogTypeDef, ManifestServiceInteractionLogOutputTypeDef
@@ -902,6 +997,7 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    FunctionMapping: dict[EventNameType, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PlaybackConfigurationTypeDef(TypedDict):
@@ -927,6 +1023,7 @@ class PlaybackConfigurationTypeDef(TypedDict):
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
+    FunctionMapping: NotRequired[dict[EventNameType, str]]
 
 class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     AdDecisionServerUrl: str
@@ -951,6 +1048,7 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    FunctionMapping: dict[EventNameType, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLiveSourcesResponseTypeDef(TypedDict):
@@ -962,6 +1060,42 @@ class ListVodSourcesResponseTypeDef(TypedDict):
     Items: list[VodSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class FunctionTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: NotRequired[str]
+    HttpRequestConfiguration: NotRequired[HttpRequestConfigurationOutputTypeDef]
+    CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
+    SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
+    Tags: NotRequired[dict[str, str]]
+    Arn: NotRequired[str]
+
+class GetFunctionResponseTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: str
+    HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
+    SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    Tags: dict[str, str]
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutFunctionResponseTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: str
+    HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
+    SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    Tags: dict[str, str]
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+SequentialExecutorConfigurationUnionTypeDef = Union[
+    SequentialExecutorConfigurationTypeDef, SequentialExecutorConfigurationOutputTypeDef
+]
 
 class ChannelTypeDef(TypedDict):
     Arn: str
@@ -1091,11 +1225,26 @@ class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
+    FunctionMapping: NotRequired[Mapping[EventNameType, str]]
 
 class ListPlaybackConfigurationsResponseTypeDef(TypedDict):
     Items: list[PlaybackConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ListFunctionsResponseTypeDef(TypedDict):
+    Items: list[FunctionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class PutFunctionRequestTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: NotRequired[str]
+    HttpRequestConfiguration: NotRequired[HttpRequestConfigurationUnionTypeDef]
+    CustomOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
+    SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
 
 class ListChannelsResponseTypeDef(TypedDict):
     Items: list[ChannelTypeDef]

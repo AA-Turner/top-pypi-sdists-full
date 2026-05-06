@@ -79,6 +79,15 @@ class ConnectedAccountsResource(SyncAPIResource):
         the `user_id` field to associate the connection with a specific user in your
         system.
 
+        **Deprecated for Composio-managed OAuth:** For Composio-managed auth configs on
+        OAuth1, OAuth2, or DCR_OAUTH schemes, this endpoint is being retired and will
+        start returning `400 BadRequest` on **2026-05-08** for new organizations and
+        **2026-07-03** for all remaining organizations. Migrate those calls to
+        `POST /api/v3/connected_accounts/link`. Custom auth configs and non-OAuth
+        schemes (API key, bearer, basic) continue to be supported here. Responses on the
+        retiring path carry a `Deprecation` header (RFC 9745) and a `Sunset` header
+        (RFC 8594) for client-side detection.
+
         Args:
           validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
               API Key Auth scheme
@@ -92,7 +101,7 @@ class ConnectedAccountsResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._post(
-            "/api/v3/connected_accounts",
+            "/api/v3.1/connected_accounts",
             body=maybe_transform(
                 {
                     "auth_config": auth_config,
@@ -134,7 +143,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return self._get(
-            path_template("/api/v3/connected_accounts/{nanoid}", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -150,7 +159,9 @@ class ConnectedAccountsResource(SyncAPIResource):
         limit: Optional[float] | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        statuses: Optional[List[Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE"]]]
+        statuses: Optional[
+            List[Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]]
+        ]
         | Omit = omit,
         toolkit_slugs: Optional[SequenceNotStr[str]] | Omit = omit,
         user_ids: Optional[SequenceNotStr[str]] | Omit = omit,
@@ -196,7 +207,7 @@ class ConnectedAccountsResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._get(
-            "/api/v3/connected_accounts",
+            "/api/v3.1/connected_accounts",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -249,7 +260,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return self._delete(
-            path_template("/api/v3/connected_accounts/{nanoid}", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -290,7 +301,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return self._patch(
-            path_template("/api/v3/connected_accounts/{nanoid}", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
             body=maybe_transform(
                 {
                     "alias": alias,
@@ -338,7 +349,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return self._post(
-            path_template("/api/v3/connected_accounts/{nanoid}/refresh", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}/refresh", nanoid=nanoid),
             body=maybe_transform(
                 {
                     "body_redirect_url": body_redirect_url,
@@ -390,7 +401,7 @@ class ConnectedAccountsResource(SyncAPIResource):
         if not nano_id:
             raise ValueError(f"Expected a non-empty value for `nano_id` but received {nano_id!r}")
         return self._patch(
-            path_template("/api/v3/connected_accounts/{nano_id}/status", nano_id=nano_id),
+            path_template("/api/v3.1/connected_accounts/{nano_id}/status", nano_id=nano_id),
             body=maybe_transform(
                 {"enabled": enabled}, connected_account_update_status_params.ConnectedAccountUpdateStatusParams
             ),
@@ -444,6 +455,15 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         the `user_id` field to associate the connection with a specific user in your
         system.
 
+        **Deprecated for Composio-managed OAuth:** For Composio-managed auth configs on
+        OAuth1, OAuth2, or DCR_OAUTH schemes, this endpoint is being retired and will
+        start returning `400 BadRequest` on **2026-05-08** for new organizations and
+        **2026-07-03** for all remaining organizations. Migrate those calls to
+        `POST /api/v3/connected_accounts/link`. Custom auth configs and non-OAuth
+        schemes (API key, bearer, basic) continue to be supported here. Responses on the
+        retiring path carry a `Deprecation` header (RFC 9745) and a `Sunset` header
+        (RFC 8594) for client-side detection.
+
         Args:
           validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
               API Key Auth scheme
@@ -457,7 +477,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._post(
-            "/api/v3/connected_accounts",
+            "/api/v3.1/connected_accounts",
             body=await async_maybe_transform(
                 {
                     "auth_config": auth_config,
@@ -499,7 +519,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return await self._get(
-            path_template("/api/v3/connected_accounts/{nanoid}", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -515,7 +535,9 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         limit: Optional[float] | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        statuses: Optional[List[Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE"]]]
+        statuses: Optional[
+            List[Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]]
+        ]
         | Omit = omit,
         toolkit_slugs: Optional[SequenceNotStr[str]] | Omit = omit,
         user_ids: Optional[SequenceNotStr[str]] | Omit = omit,
@@ -561,7 +583,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._get(
-            "/api/v3/connected_accounts",
+            "/api/v3.1/connected_accounts",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -614,7 +636,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return await self._delete(
-            path_template("/api/v3/connected_accounts/{nanoid}", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -655,7 +677,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return await self._patch(
-            path_template("/api/v3/connected_accounts/{nanoid}", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
             body=await async_maybe_transform(
                 {
                     "alias": alias,
@@ -703,7 +725,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         if not nanoid:
             raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
         return await self._post(
-            path_template("/api/v3/connected_accounts/{nanoid}/refresh", nanoid=nanoid),
+            path_template("/api/v3.1/connected_accounts/{nanoid}/refresh", nanoid=nanoid),
             body=await async_maybe_transform(
                 {
                     "body_redirect_url": body_redirect_url,
@@ -755,7 +777,7 @@ class AsyncConnectedAccountsResource(AsyncAPIResource):
         if not nano_id:
             raise ValueError(f"Expected a non-empty value for `nano_id` but received {nano_id!r}")
         return await self._patch(
-            path_template("/api/v3/connected_accounts/{nano_id}/status", nano_id=nano_id),
+            path_template("/api/v3.1/connected_accounts/{nano_id}/status", nano_id=nano_id),
             body=await async_maybe_transform(
                 {"enabled": enabled}, connected_account_update_status_params.ConnectedAccountUpdateStatusParams
             ),

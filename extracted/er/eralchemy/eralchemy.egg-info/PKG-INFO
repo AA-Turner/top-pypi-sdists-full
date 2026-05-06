@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eralchemy
-Version: 1.6.0
+Version: 1.7.0
 Summary: Simple entity relation (ER) diagrams generation
 Author-email: Alexis Benoist <Alexis-benoist@users.noreply.github.com>, Florian Maurer <fmaurer@disroot.org>
 License: Apache-2.0
@@ -13,13 +13,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Database
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: sqlalchemy>=1.4.18
 Provides-Extra: test
 Requires-Dist: flask-sqlalchemy>=2.5.1; extra == "test"
-Requires-Dist: psycopg2>=2.9.3; extra == "test"
+Requires-Dist: psycopg2-binary>=2.9.3; extra == "test"
 Requires-Dist: pytest>=7.4.3; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pygraphviz>=1.9; extra == "test"
@@ -158,7 +158,7 @@ render_er(Base, "forum.svg")
 graph LR
     subgraph Inputs
         A[Markdown representation]
-        )B[SQLAlchemy Schema]
+        B[SQLAlchemy Schema]
         C[Existing database]
         D[Other ORM ?]
     end
@@ -191,7 +191,7 @@ Every feedback is welcome on the [GitHub issues](https://github.com/eralchemy/er
 
 Install the development dependencies using
 
-    $ pip install -e .[ci,dev]
+    $ pip install -e .[dev,test]
 
 Make sure to run the pre-commit to fix formatting
 
@@ -202,7 +202,7 @@ All tested PR are welcome.
 ## Running tests
 
 This project uses the pytest test suite.
-To run the tests, use : `$ pytest` or `$ tox`.
+To run the tests, use : `$ pytest` or `$ nox`.
 
 Some tests require having a local PostgreSQL database with a schema named test in a database
 named test all owned by a user named eralchemy with a password of eralchemy.

@@ -22,9 +22,11 @@ Classes:
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+from ouroboros.orchestrator_stage import VALID_STAGE_KEYS
 
 
 class ModelConfig(BaseModel, frozen=True):
@@ -115,9 +117,16 @@ class LLMConfig(BaseModel, frozen=True):
         context_compression_model: Default model for workflow context compression
     """
 
-    backend: Literal["claude", "claude_code", "litellm", "codex", "gemini", "opencode"] = (
-        "claude_code"
-    )
+    backend: Literal[
+        "claude",
+        "claude_code",
+        "litellm",
+        "codex",
+        "copilot",
+        "gemini",
+        "opencode",
+        "kiro",
+    ] = "claude_code"
     permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "default"
     opencode_permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "acceptEdits"
     qa_model: str = "claude-sonnet-4-20250514"
@@ -330,11 +339,114 @@ class LoggingConfig(BaseModel, frozen=True):
     include_reasoning: bool = True
 
 
+VALID_RUNTIME_BACKENDS = frozenset(
+    {
+        "claude",
+        "claude_code",
+        "codex",
+        "codex_cli",
+        "opencode",
+        "opencode_cli",
+        "hermes",
+        "hermes_cli",
+        "gemini",
+        "gemini_cli",
+        "kiro",
+        "kiro_cli",
+        "copilot",
+        "copilot_cli",
+    }
+)
+
+
+class RuntimeProfileConfig(BaseModel, frozen=True):
+    """Runtime profile configuration (issue #519 / M4 / S3).
+
+    The Agent OS architecture diagram agreed in #476 lets each pipeline
+    stage (``interview`` / ``execute`` / ``evaluate`` / ``reflect``) be
+    served by a different harness. This block exposes that decision as
+    a configuration surface; the resolution helper in
+    ``ouroboros.orchestrator.stage`` reads it.
+
+    This object also reserves ``backend_profile`` for backend-native
+    profile selection (for example PR #505's Codex ``worker`` profile),
+    so the public ``orchestrator.runtime_profile`` key has one stable
+    object shape instead of conflicting string-vs-table meanings.
+
+    Attributes:
+        backend_profile: Optional backend-native profile name. Stage
+            routing does not interpret it; backend adapters may map it
+            to their own profile mechanism.
+        default: Optional runtime backend that serves any stage missing
+            from ``stages``. ``None`` means "fall through to the
+            orchestrator's top-level ``runtime_backend``".
+        stages: Explicit per-stage mapping. Keys must be members of the
+            closed stage vocabulary; unknown keys raise ``ValueError``
+            during Pydantic validation at startup.
+    """
+
+    backend_profile: str | None = None
+    default: str | None = None
+    stages: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("backend_profile")
+    @classmethod
+    def _validate_backend_profile(cls, value: str | None) -> str | None:
+        """Normalize optional backend-native profile names."""
+        if value is None:
+            return None
+        candidate = value.strip()
+        if not candidate:
+            raise ValueError("runtime_profile.backend_profile must not be empty")
+        return candidate
+
+    @field_validator("default")
+    @classmethod
+    def _validate_default_backend(cls, value: str | None) -> str | None:
+        """Reject invalid runtime_profile.default backend names at startup."""
+        if value is None:
+            return None
+        return _validate_runtime_backend(value, field_name="runtime_profile.default")
+
+    @field_validator("stages")
+    @classmethod
+    def _validate_stage_keys(cls, value: dict[str, str]) -> dict[str, str]:
+        """Reject unknown stage names and invalid backend names at startup."""
+        validated: dict[str, str] = {}
+        for key, backend in value.items():
+            if key not in VALID_STAGE_KEYS:
+                valid_list = ", ".join(sorted(VALID_STAGE_KEYS))
+                raise ValueError(
+                    f"Unknown runtime_profile.stages key: {key!r}. Valid keys are: {valid_list}.",
+                )
+            validated[key] = _validate_runtime_backend(
+                backend,
+                field_name=f"runtime_profile.stages[{key!r}]",
+            )
+        return validated
+
+
+def _validate_runtime_backend(value: str, *, field_name: str) -> str:
+    """Validate runtime_profile backend names against orchestrator backends."""
+    candidate = value.strip().lower()
+    if candidate not in VALID_RUNTIME_BACKENDS:
+        valid_list = ", ".join(sorted(VALID_RUNTIME_BACKENDS))
+        raise ValueError(f"{field_name} must be one of: {valid_list}")
+    return candidate
+
+
 class OrchestratorConfig(BaseModel, frozen=True):
     """Orchestrator runtime configuration.
 
     Attributes:
         runtime_backend: Agent runtime backend to use for orchestrator execution.
+        runtime_profile: Optional Agent OS runtime profile object.
+            ``runtime_profile.backend_profile`` selects backend-native profiles
+            such as Codex ``--profile ouroboros-worker``. Default ``None``
+            preserves the backend's normal user-config behavior. The ``default``
+            and ``stages`` fields reserve the same object contract used by the
+            stage-routing stack so this public key does not split into
+            incompatible string-vs-table meanings.
         permission_mode: Default permission mode for local agent runtimes.
         opencode_permission_mode: Default permission mode for OpenCode agent runtimes.
         cli_path: Path to Claude CLI binary. Supports:
@@ -366,7 +478,19 @@ class OrchestratorConfig(BaseModel, frozen=True):
         worktree_lock_stale_after_minutes: Staleness threshold for task lock recovery
     """
 
-    runtime_backend: Literal["claude", "codex", "opencode", "hermes", "gemini"] = "claude"
+    runtime_backend: Literal[
+        "claude", "codex", "opencode", "hermes", "gemini", "kiro", "copilot"
+    ] = "claude"
+    runtime_profile: RuntimeProfileConfig | None = None
+
+    @field_validator("runtime_profile", mode="before")
+    @classmethod
+    def _coerce_runtime_profile(cls, value: Any) -> Any:
+        """Accept the legacy PR #505 string shorthand as backend_profile."""
+        if isinstance(value, str):
+            return {"backend_profile": value}
+        return value
+
     permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "acceptEdits"
     opencode_permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = (
         "bypassPermissions"
@@ -377,9 +501,11 @@ class OrchestratorConfig(BaseModel, frozen=True):
     opencode_mode: Literal["plugin", "subprocess"] | None = None
     cli_path: str | None = None
     codex_cli_path: str | None = None
+    copilot_cli_path: str | None = None
     opencode_cli_path: str | None = None
     hermes_cli_path: str | None = None
     gemini_cli_path: str | None = None
+    kiro_cli_path: str | None = None
     default_max_turns: int = Field(default=10, ge=1)
     max_parallel_workers: int = Field(default=3, ge=1)
     usage_limit_pause_hours: float = Field(default=5.0, gt=0.0)
@@ -391,9 +517,11 @@ class OrchestratorConfig(BaseModel, frozen=True):
     @field_validator(
         "cli_path",
         "codex_cli_path",
+        "copilot_cli_path",
         "opencode_cli_path",
         "hermes_cli_path",
         "gemini_cli_path",
+        "kiro_cli_path",
     )
     @classmethod
     def expand_cli_path(cls, v: str | None) -> str | None:

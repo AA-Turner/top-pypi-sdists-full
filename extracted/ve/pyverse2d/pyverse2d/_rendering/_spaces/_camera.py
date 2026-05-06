@@ -1,9 +1,10 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, not_null, positive, clamped, not_in, over, HasPosition
+from ..._internal import expect,  positive, clamped, over, HasPosition, expect_callable, not_null
+from ..._core import Transform
 from ...math import Point, Vector
-from ...math.easing import EasingFunc, is_easing
+from ...math.easing import EasingFunc
 from ...abc import Request, Space
 
 from pyglet.math import Mat4
@@ -22,7 +23,18 @@ class TransitionRequest(Request):
     duration: float
     elapsed: float
     easing: EasingFunc | None
-    _id: str = "transition"
+
+    _id: ClassVar[str] = "transition"
+
+    def __post_init__(self) -> None:
+        """Transtypage et vérifications"""
+        object.__setattr__(self, "start", Point(self.start))
+        object.__setattr__(self, "end", Point(self.end))
+        object.__setattr__(self, "duration", float(self.duration))
+
+        if __debug__:
+            positive(self.duration)
+            expect_callable(self.easing)
 
 @dataclass(frozen=True, slots=True)
 class FollowRequest(Request):
@@ -31,7 +43,18 @@ class FollowRequest(Request):
     offset: Vector
     smoothing: float
     max_speed: float
-    _id: str = "follow"
+
+    _id: ClassVar[str] = "follow"
+
+    def __post_init__(self) -> None:
+        """Transtypage et vérifications"""
+        object.__setattr__(self, "offset", Vector(self.offset))
+        object.__setattr__(self, "smoothing", float(self.smoothing))
+        object.__setattr__(self, "max_speed", float(self.max_speed))
+
+        if __debug__:
+            clamped(self.smoothing, include_max=False)
+            if self.max_speed is not None: over(self.max_speed, 0, include=False)
 
 @dataclass(frozen=True, slots=True)
 class AttachRequest(Request):
@@ -44,19 +67,33 @@ class AttachRequest(Request):
     zoom_factor: float
     same_rotation: bool
     rotation_offset: float
-    _id: str = "attach"
+
+    _id: ClassVar[str] = "attach"
+
+    def __post_init__(self) -> None:
+        """Transtypage et vérifications"""
+        object.__setattr__(self, "offset", Vector(self.offset))
+        object.__setattr__(self, "parallax_x", float(self.parallax_x))
+        object.__setattr__(self, "parallax_y", float(self.parallax_y))
+        object.__setattr__(self, "same_zoom", bool(self.same_zoom))
+        object.__setattr__(self, "zoom_factor", float(self.zoom_factor))
+        object.__setattr__(self, "same_rotation", bool(self.same_rotation))
+        object.__setattr__(self, "rotation_offset", float(self.rotation_offset))
+
+        if __debug__:
+            not_null(self.zoom_factor)
 
 # ======================================== CAMERA ========================================
 class Camera(Space):
-    """Définit un point de vue
+    """Définit un point de vue du monde
 
     Args:
         position: position de la caméra
-        view_width: largeur de vision (en unités)
-        view_height: hauteur de vision (en unités)
+        view_width: largeur de vision *(en unités monde)*
+        view_height: hauteur de vision *(en unités monde)*
         anchor: ancre relative locale
         zoom: facteur de zoom
-        rotation: angle de rotation en degrés
+        rotation: angle de rotation
     """
     __slots__ = (
         "_position", "_view_width", "_view_height", "_anchor",
@@ -83,17 +120,21 @@ class Camera(Space):
             zoom: Real = 1.0,
             rotation: Real = 0.0,
         ):
-        # Vision
-        self._position: Point = Point(position)
-        self._view_width: float = over(float(expect(view_width, Real)), 0, include=False) if view_width is not None else None
-        self._view_height: float = over(float(expect(view_height, Real)), 0, include=False) if view_height is not None else None
-        self._anchor: Point = Point(anchor)
+        # Transtypage et vérifications
+        transform = Transform(position, anchor, rotation, zoom)
+        view_width = float(view_width) if view_width is not None else None
+        view_height = float(view_height) if view_height is not None else None
 
-        # Transformation
-        self._zoom: float = over(float(expect(zoom, Real)), 0, include=False)
-        self._rotation: float = float(expect(rotation, Real))
+        if __debug__:
+            if view_width is not None: over(view_width, 0, include=False)
+            if view_height is not None: over(view_height, 0, include=False)
 
-        # Etat
+        # Attributs publiques
+        self._transform: Transform = transform
+        self._view_width: float = view_width
+        self._view_height: float = view_height
+
+        # Attributs internes
         self._state: Request = None
 
     # ======================================== FACTORY ========================================
@@ -136,17 +177,21 @@ class Camera(Space):
 
     # ======================================== PROPERTIES ========================================
     @property
+    def transform(self) -> Transform:
+        """Renvoie la transformation monde"""
+        return self._transform
+
+    @property
     def position(self) -> Point:
         """Position de la vision
 
         La position peut être un objet ``Point`` ou un tuple ``(x, y)``.
         """
-        return self._position
+        return self._transform.position
     
     @position.setter
     def position(self, value: Point) -> None:
-        self._position.x = value[0]
-        self._position.y = value[1]
+        self._transform.position = value
 
     @property
     def x(self) -> float:
@@ -154,11 +199,11 @@ class Camera(Space):
         
         La coordonnée doit être un ``Réel``.
         """
-        return self._position.x
+        return self._transform.x
     
     @x.setter
     def x(self, value: Real) -> None:
-        self._position.x = value
+        self._transform.x = value
 
     @property
     def y(self) -> float:
@@ -166,11 +211,11 @@ class Camera(Space):
         
         La coordonnée doit être un ``Réel``.
         """
-        return self._position.y
+        return self._transform.y
     
     @y.setter
     def y(self, value: Real) -> None:
-        self._position.y = value
+        self._transform.y = value
 
     @property
     def view_width(self) -> float:
@@ -183,7 +228,10 @@ class Camera(Space):
     
     @view_width.setter
     def view_width(self, value: Real | None) -> None:
-        self._view_width = over(float(expect(value, Real)), 0, include=False) if value is not None else None
+        value = float(value) if value is not None else None
+        if __debug__:
+            if value is not None: over(value, 0, include= False)
+        self._view_width = value
 
     @property
     def view_height(self) -> float:
@@ -196,7 +244,10 @@ class Camera(Space):
     
     @view_height.setter
     def view_height(self, value: Real | None) -> None:
-        self._view_height = over(float(expect(value, Real)), 0, include=False) if value is not None else None
+        value = float(value) if value is not None else None
+        if __debug__:
+            if value is not None: over(value, 0, include=False)
+        self._view_height = value
 
     @property
     def anchor(self) -> Point:
@@ -205,11 +256,11 @@ class Camera(Space):
         Les coordonnées de l'ancre doivent être normalisées dans l'intervalle [0, 1].
         Cette propriété défini le point de la caméra correspondant à sa position ``(cx, cy)``.
         """
-        return self._anchor
+        return self.transform.anchor
     
     @anchor.setter
     def anchor(self, value: Point) -> None:
-        self._anchor: Point = Point(value)
+        self._transform.anchor = value
 
     @property
     def zoom(self) -> float:
@@ -217,11 +268,11 @@ class Camera(Space):
         
         Le facteur doit être un ``Réel`` positif non nul.
         """
-        return self._zoom
+        return self._transform.scale
     
     @zoom.setter
     def zoom(self, value: Real):
-        self._zoom = over(float(expect(value, Real)), 0, include=False)
+        self._transform.scale = value
 
     @property
     def rotation(self) -> float:
@@ -229,11 +280,11 @@ class Camera(Space):
 
         La rotation se fait en ``degrés`` dans le sens trigonométrique ``(CCW)``.
         """
-        return self._rotation
+        return self._transform.rotation
     
     @rotation.setter
     def rotation(self, value: Real) -> None:
-        self._rotation = float(expect(value, Real))
+        self._transform.rotation = value
 
     # ======================================== PREDICATES ========================================
     def in_transition(self) -> bool:
@@ -258,10 +309,10 @@ class Camera(Space):
     def copy(self) -> Camera:
         """Crée une copie de la caméra"""
         return Camera(
-            position = self._position.copy(),
+            position = self._position,
             view_width = self._view_width,
             view_height = self._view_height,
-            anchor = self._anchor.copy(),
+            anchor = self._anchor,
             zoom = self._zoom,
             rotation = self._rotation,
         )
@@ -273,8 +324,8 @@ class Camera(Space):
         Args:
             vector: vecteur de translation
         """
-        self._position.x += vector[0]
-        self._position.y += vector[1]
+        self._transform.x += vector[0]
+        self._transform.y += vector[1]
 
     def goto(
             self,
@@ -289,12 +340,16 @@ class Camera(Space):
             duration: durée de transition
             easing: fonction de progression
         """
-        start = self._position.copy()
-        end = Point(position)
-        duration = positive(float(expect(duration, Real)))
+        start = self._transform.position
+        end = position
         elapsed = 0.0
-        if easing is not None and not is_easing(easing): raise ValueError("easing must be an EasingFunc from pyverse2d.math.easing")
-        self._state = TransitionRequest(start, end, duration, elapsed, easing)
+        self._state = TransitionRequest(
+            start = start,
+            end = end,
+            duration = duration,
+            elapsed = elapsed,
+            easing = easing,
+        )
 
     def follow(
             self,
@@ -308,13 +363,15 @@ class Camera(Space):
         Args:
             target: objet à suivre
             offset: vecteur de décalage
-            smoothing: facteur de retard relatif [0, 1[
-            max_speed: vitesse maximale de déplacement en u/s
+            smoothing: facteur de retard relatif *[0, 1[*
+            max_speed: vitesse maximale de déplacement *(en u/s)*
         """
-        offset = Vector(offset)
-        not_in(clamped(float(expect(smoothing, Real))), 1)
-        if max_speed is not None: positive(not_null(float(expect(max_speed, Real))))
-        self._state = FollowRequest(target, offset, smoothing, max_speed)
+        self._state = FollowRequest(
+            target = target,
+            offset = offset,
+            smoothing = smoothing,
+            max_speed = max_speed,
+        )
 
     def attach_to(
             self,
@@ -339,15 +396,16 @@ class Camera(Space):
             same_rotation: suivi de la rotation de la caméra cible
             rotation_offset: décalage de la rotation
         """
-        camera = expect(camera, Camera)
-        offset = Vector(offset)
-        parallax_x = float(expect(parallax_x, Real))
-        parallax_y = float(expect(parallax_y, Real))
-        same_zoom = expect(same_zoom, bool)
-        zoom_factor = over(float(expect(zoom_factor, Real)), 0, include=False)
-        same_rotation = expect(same_rotation, bool)
-        rotation_offset = float(expect(rotation_offset, Real))
-        self._state = AttachRequest(camera, offset, parallax_x, parallax_y, same_zoom, zoom_factor, same_rotation, rotation_offset)
+        self._state = AttachRequest(
+            camera = camera,
+            offset = offset,
+            parallax_x = parallax_x,
+            parallax_y = parallax_y,
+            same_zoom = same_zoom,
+            zoom_factor = zoom_factor,
+            same_rotation = same_rotation,
+            rotation_offset = rotation_offset,
+        )
 
     def idle(self) -> None:
         """Désactive l'état courant"""
@@ -408,14 +466,14 @@ class Camera(Space):
         
         # Limitation de vitesse
         if follow.max_speed is not None:
-            dx = x - self._position.x
+            dx = x - self._transform.x
             dy = y - self._position.y
             max_dist = follow.max_speed * dt
             dist = (dx ** 2 + dy ** 2) ** 0.5
             if dist > max_dist:
                 zoom = max_dist / dist
-                x = self._position.x + dx * zoom
-                y = self._position.y + dy * zoom
+                x = self._transform.x + dx * zoom
+                y = self._transform.y + dy * zoom
 
         # Application
         self._go(x, y)
@@ -438,9 +496,9 @@ class Camera(Space):
 
         # Transformation
         if attach.same_zoom:
-            self._zoom = camera.zoom * attach.zoom_factor
+            self._transform.scale = camera.zoom * attach.zoom_factor
         if attach.same_rotation:
-            self._rotation = camera.rotation + attach.rotation_offset
+            self._transform.rotation = camera.rotation + attach.rotation_offset
 
     # ======================================== RESOLVE ========================================
     def projection_matrix(self, fb_w: int, fb_h: int) -> Mat4:
@@ -448,7 +506,7 @@ class Camera(Space):
         # Renommage
         vw = self._view_width
         vh = self._view_height
-        ax, ay = self._anchor
+        ax, ay = self._transform.anchor
 
         # Cache
         projection_key: tuple = (fb_w, fb_h, vw, vh, ax, ay)
@@ -463,9 +521,9 @@ class Camera(Space):
     def view_matrix(self) -> Mat4:
         """Renvoie la matrice de vue"""
         # Renommage
-        cx, cy = self._position
-        theta = self._rotation
-        zoom = self._zoom
+        cx, cy = self._transform.position
+        theta = self._transform.rotation
+        zoom = self._transform.scale
 
         # Cache
         view_key: tuple = (cx, cy, theta, zoom)
@@ -497,8 +555,8 @@ class Camera(Space):
     # ======================================== INTERNALS ========================================
     def _go(self, x: float, y: float) -> None:
         """Déplacement instantanné"""
-        self._position.x = x
-        self._position.y = y
+        self._transform.x = x
+        self._transform.y = y
 
     def _compute_projection(self, fb_w: int, fb_h: int, vw: float, vh: float, ax: float, ay: float) -> Mat4:
         """Compute la matrice de projection *(TS)^(-1)*

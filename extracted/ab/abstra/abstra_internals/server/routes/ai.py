@@ -5,6 +5,8 @@ from abstra_internals.controllers.ai import AiController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.usage import editor_usage
 
+MAX_AI_UPLOAD_SIZE = 300 * 1024 * 1024  # 300MB, matches cloud-api
+
 
 def get_editor_bp(main_controller: MainController):
     bp = flask.Blueprint("editor_ai", __name__)
@@ -95,5 +97,32 @@ def get_editor_bp(main_controller: MainController):
         if not conversation:
             flask.abort(403)
         return conversation
+
+    @bp.post("/upload")
+    @editor_usage
+    def _upload_attachment():
+        content_length = flask.request.content_length
+        if content_length is not None and content_length > MAX_AI_UPLOAD_SIZE:
+            flask.abort(413)
+        file = flask.request.files.get("file")
+        conversation_id = flask.request.form.get("conversationId")
+        if file is None or not conversation_id:
+            flask.abort(400)
+        return controller.save_uploaded_file(file, conversation_id)
+
+    @bp.delete("/upload")
+    @editor_usage
+    def _delete_attachment():
+        body = flask.request.json
+        if not body:
+            flask.abort(400)
+        file_path = body.get("filePath")
+        if not file_path:
+            flask.abort(400)
+        try:
+            controller.delete_uploaded_file(file_path)
+        except ValueError:
+            flask.abort(400)
+        return {"success": True}
 
     return bp

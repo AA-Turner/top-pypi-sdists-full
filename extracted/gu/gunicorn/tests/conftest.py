@@ -20,6 +20,10 @@ if tests_dir not in sys.path:
 def http_parser(request):
     """Parametrize tests over http_parser implementations."""
     if request.param == "fast":
+        # gunicorn_h1c ships as a CPython C extension; it is not reliable
+        # under PyPy (SIGSEGV observed in CI). Skip the fast parameter there.
+        if hasattr(sys, "pypy_version_info"):
+            pytest.skip("gunicorn_h1c not supported on PyPy")
         gunicorn_h1c = pytest.importorskip("gunicorn_h1c", reason="gunicorn_h1c required")
         # Require >= 0.6.2 for asgi_headers support
         if not hasattr(gunicorn_h1c.H1CProtocol, 'asgi_headers'):

@@ -19,7 +19,11 @@ from ._types import (
     RequestOptions,
     not_given,
 )
-from ._utils import is_given, get_async_library
+from ._utils import (
+    is_given,
+    is_mapping_t,
+    get_async_library,
+)
 from ._compat import cached_property
 from ._version import __version__
 from ._streaming import Stream as Stream, AsyncStream as AsyncStream
@@ -45,6 +49,7 @@ if TYPE_CHECKING:
         playground,
         concurrency,
         phone_number,
+        export_request,
         knowledge_base,
         conversation_flow,
         conversation_flow_component,
@@ -61,6 +66,7 @@ if TYPE_CHECKING:
     from .resources.playground import PlaygroundResource, AsyncPlaygroundResource
     from .resources.concurrency import ConcurrencyResource, AsyncConcurrencyResource
     from .resources.phone_number import PhoneNumberResource, AsyncPhoneNumberResource
+    from .resources.export_request import ExportRequestResource, AsyncExportRequestResource
     from .resources.knowledge_base import KnowledgeBaseResource, AsyncKnowledgeBaseResource
     from .resources.conversation_flow import ConversationFlowResource, AsyncConversationFlowResource
     from .resources.conversation_flow_component import (
@@ -115,6 +121,15 @@ class Retell(SyncAPIClient):
             base_url = os.environ.get("RETELL_BASE_URL")
         if base_url is None:
             base_url = f"https://api.retellai.com"
+
+        custom_headers_env = os.environ.get("RETELL_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
 
         super().__init__(
             version=__version__,
@@ -192,6 +207,12 @@ class Retell(SyncAPIClient):
         from .resources.concurrency import ConcurrencyResource
 
         return ConcurrencyResource(self)
+
+    @cached_property
+    def export_request(self) -> ExportRequestResource:
+        from .resources.export_request import ExportRequestResource
+
+        return ExportRequestResource(self)
 
     @cached_property
     def batch_call(self) -> BatchCallResource:
@@ -374,6 +395,15 @@ class AsyncRetell(AsyncAPIClient):
         if base_url is None:
             base_url = f"https://api.retellai.com"
 
+        custom_headers_env = os.environ.get("RETELL_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
+
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -450,6 +480,12 @@ class AsyncRetell(AsyncAPIClient):
         from .resources.concurrency import AsyncConcurrencyResource
 
         return AsyncConcurrencyResource(self)
+
+    @cached_property
+    def export_request(self) -> AsyncExportRequestResource:
+        from .resources.export_request import AsyncExportRequestResource
+
+        return AsyncExportRequestResource(self)
 
     @cached_property
     def batch_call(self) -> AsyncBatchCallResource:
@@ -663,6 +699,12 @@ class RetellWithRawResponse:
         return ConcurrencyResourceWithRawResponse(self._client.concurrency)
 
     @cached_property
+    def export_request(self) -> export_request.ExportRequestResourceWithRawResponse:
+        from .resources.export_request import ExportRequestResourceWithRawResponse
+
+        return ExportRequestResourceWithRawResponse(self._client.export_request)
+
+    @cached_property
     def batch_call(self) -> batch_call.BatchCallResourceWithRawResponse:
         from .resources.batch_call import BatchCallResourceWithRawResponse
 
@@ -760,6 +802,12 @@ class AsyncRetellWithRawResponse:
         from .resources.concurrency import AsyncConcurrencyResourceWithRawResponse
 
         return AsyncConcurrencyResourceWithRawResponse(self._client.concurrency)
+
+    @cached_property
+    def export_request(self) -> export_request.AsyncExportRequestResourceWithRawResponse:
+        from .resources.export_request import AsyncExportRequestResourceWithRawResponse
+
+        return AsyncExportRequestResourceWithRawResponse(self._client.export_request)
 
     @cached_property
     def batch_call(self) -> batch_call.AsyncBatchCallResourceWithRawResponse:
@@ -861,6 +909,12 @@ class RetellWithStreamedResponse:
         return ConcurrencyResourceWithStreamingResponse(self._client.concurrency)
 
     @cached_property
+    def export_request(self) -> export_request.ExportRequestResourceWithStreamingResponse:
+        from .resources.export_request import ExportRequestResourceWithStreamingResponse
+
+        return ExportRequestResourceWithStreamingResponse(self._client.export_request)
+
+    @cached_property
     def batch_call(self) -> batch_call.BatchCallResourceWithStreamingResponse:
         from .resources.batch_call import BatchCallResourceWithStreamingResponse
 
@@ -958,6 +1012,12 @@ class AsyncRetellWithStreamedResponse:
         from .resources.concurrency import AsyncConcurrencyResourceWithStreamingResponse
 
         return AsyncConcurrencyResourceWithStreamingResponse(self._client.concurrency)
+
+    @cached_property
+    def export_request(self) -> export_request.AsyncExportRequestResourceWithStreamingResponse:
+        from .resources.export_request import AsyncExportRequestResourceWithStreamingResponse
+
+        return AsyncExportRequestResourceWithStreamingResponse(self._client.export_request)
 
     @cached_property
     def batch_call(self) -> batch_call.AsyncBatchCallResourceWithStreamingResponse:

@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -15,11 +15,13 @@ class NestedParentSoftware:
         uuid (UUID):
         name (str):
         url (str):
+        versions (list[str]):
     """
 
     uuid: UUID
     name: str
     url: str
+    versions: list[str]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -29,6 +31,8 @@ class NestedParentSoftware:
 
         url = self.url
 
+        versions = self.versions
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -36,6 +40,7 @@ class NestedParentSoftware:
                 "uuid": uuid,
                 "name": name,
                 "url": url,
+                "versions": versions,
             }
         )
 
@@ -50,10 +55,13 @@ class NestedParentSoftware:
 
         url = d.pop("url")
 
+        versions = cast(list[str], d.pop("versions"))
+
         nested_parent_software = cls(
             uuid=uuid,
             name=name,
             url=url,
+            versions=versions,
         )
 
         nested_parent_software.additional_properties = d

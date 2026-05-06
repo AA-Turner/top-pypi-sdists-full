@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.43
+Version: 0.0.44
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -215,6 +215,25 @@ raindrop.init(
 > initializing MistralAI instrumentor") and from OTel attribute type validation
 > (e.g. provider SDKs using sentinel types like `Omit`). Enable
 > `set_debug_logs(True)` to see these messages for troubleshooting.
+
+## Buffering and Performance
+
+All event-tracking calls (`track_ai`, `identify`, `track_signal`, and
+`Interaction.set_input` / `set_properties` / `add_attachments` / `finish`) are
+non-blocking from the caller's perspective. They append to an in-memory buffer
+that a background daemon thread drains every second by POSTing to the Raindrop
+API. The HTTP request never runs on the calling thread, so it is safe to call
+these from a request hot path.
+
+`shutdown()` is registered via `atexit` and drains any still-pending events
+before the process exits. Call `flush()` explicitly if you need to force a
+drain at a known point.
+
+```python
+# Tune the in-memory buffer size (default 10_000 events)
+import raindrop.analytics as raindrop
+raindrop.max_queue_size = 500
+```
 
 ## Configuration
 

@@ -385,8 +385,11 @@ class TestControlSocketAfterReload:
             response = make_request('127.0.0.1', port)
             assert b'Hello, World!' in response
 
-            # Verify control socket still exists
-            assert os.path.exists(control_socket), "Control socket disappeared after reload"
+            # Verify control socket is re-created by the new master.
+            # The arbiter recreates the socket asynchronously after SIGHUP, so
+            # poll for it instead of asserting on a fixed sleep.
+            assert wait_for_socket(control_socket, timeout=10), \
+                "Control socket was not re-created after reload"
 
         finally:
             cleanup_gunicorn(proc)

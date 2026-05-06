@@ -11,6 +11,9 @@ def _make_callback_with_page(page_callback):
     return lambda page: page_callback(page)
 
 
+_SENTINEL = object()
+
+
 def get_many_entries(
     api_func: Callable,
     response_list_key,
@@ -18,7 +21,7 @@ def get_many_entries(
     maximum=None,
     page_callback=None,
     page_key="page_at_id",
-    resp_page_key="page_at_id",
+    resp_page_key=_SENTINEL,
     resp_page_val_non_empty=False,
     **kwargs,
 ):
@@ -32,9 +35,14 @@ def get_many_entries(
     """
     if "limit" in kwargs:
         del kwargs["limit"]
+    if page_size is None:
+        page_size = 100
     kwargs["limit"] = page_size
     if page_key not in kwargs:
         kwargs[page_key] = ""
+
+    if resp_page_key is _SENTINEL:
+        resp_page_key = page_key
 
     retval = []
     page_callback_wrapper = None

@@ -749,10 +749,10 @@ class PlatoSandboxClient:
 
     def get_gitea_credentials(self) -> dict[str, str]:
         """
-        Get Gitea credentials for the organization.
+        Get per-user Gitea credentials. Mints a fresh PAT on every call, revoking the previous one.
 
         Returns:
-            Dict with 'username', 'password', 'org_name'
+            Dict with 'username' and 'password' (freshly-minted PAT)
 
         Raises:
             RuntimeError: If getting credentials fails
@@ -768,7 +768,7 @@ class PlatoSandboxClient:
             logger.error(f"Failed to get Gitea credentials: {response['error']}")
             raise RuntimeError(f"Failed to get credentials: {response['error']}")
 
-        logger.info(f"Got Gitea credentials for user: {response.get('username')}, org: {response.get('org_name')}")
+        logger.info(f"Got Gitea credentials for user: {response.get('username')}")
         return response
 
     def list_gitea_simulators(self) -> list[dict[str, Any]]:

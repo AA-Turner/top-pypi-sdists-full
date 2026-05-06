@@ -35,6 +35,18 @@ __all__ = [
 ]
 
 
+def _order_preserving_union(primary: t.Iterable[str], secondary: t.Iterable[str]) -> list[str]:
+    """Return primary items followed by unseen secondary items in their original order."""
+    merged: list[str] = []
+    seen: set[str] = set()
+    for item in (*primary, *secondary):
+        if item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
+
+
 @dataclass
 class TransformOperation:
     """An operation to be run on a dbt manifest node."""
@@ -211,13 +223,7 @@ def inherit_upstream_column_knowledge(
 
         for _ in context.pool.map(
             partial(inherit_upstream_column_knowledge, context),
-            (
-                n
-                for _, n in _iter_candidate_nodes(
-                    context,
-                    include_external=context.settings.include_external,
-                )
-            ),
+            (n for _, n in _iter_candidate_nodes(context)),
         ):
             ...
         return
@@ -225,7 +231,7 @@ def inherit_upstream_column_knowledge(
     logger.info(":dna: Inheriting column knowledge for => %s", node.unique_id)
 
     from dbt_osmosis.core.inheritance import _build_column_knowledge_graph
-    from dbt_osmosis.core.introspection import _get_setting_for_node
+    from dbt_osmosis.core.introspection import resolve_setting
 
     column_knowledge_graph = _build_column_knowledge_graph(context, node)
     kwargs = None
@@ -233,22 +239,33 @@ def inherit_upstream_column_knowledge(
         kwargs = column_knowledge_graph.get(name)
         if kwargs is None:
             continue
-        inheritable = ["description"]
-        if not _get_setting_for_node(
+        inheritable = []
+        if not resolve_setting(
+            context,
+            "skip-inherit-descriptions",
+            node,
+            name,
+            fallback=context.settings.skip_inherit_descriptions,
+        ):
+            inheritable.append("description")
+        if not resolve_setting(
+            context,
             "skip-add-tags",
             node,
             name,
             fallback=context.settings.skip_add_tags,
         ):
             inheritable.append("tags")
-        if not _get_setting_for_node(
+        if not resolve_setting(
+            context,
             "skip-merge-meta",
             node,
             name,
             fallback=context.settings.skip_merge_meta,
         ):
             inheritable.append("meta")
-        for extra in _get_setting_for_node(
+        for extra in resolve_setting(
+            context,
             "add-inheritance-for-specified-keys",
             node,
             name,
@@ -259,7 +276,8 @@ def inherit_upstream_column_knowledge(
 
         # Special case: osmosis_progenitor should always be inherited if add-progenitor-to-meta is enabled,
         # regardless of skip-merge-meta setting. This ensures progenitor tracking works independently.
-        if _get_setting_for_node(
+        if resolve_setting(
+            context,
             "add-progenitor-to-meta",
             node,
             name,
@@ -278,7 +296,8 @@ def inherit_upstream_column_knowledge(
         # a description, don't inherit the description from upstream (preserve local description)
         if (
             "description" in inheritable
-            and not _get_setting_for_node(
+            and not resolve_setting(
+                context,
                 "force-inherit-descriptions",
                 node,
                 name,
@@ -303,12 +322,9 @@ def inject_missing_columns(
     node: ResultNode | None = None,
 ) -> None:
     """Add missing columns to a dbt node and it's corresponding yaml section. Changes are implicitly buffered until commit_yamls is called."""
-    from dbt_osmosis.core.introspection import _get_setting_for_node, get_columns
+    from dbt_osmosis.core.introspection import get_columns, resolve_setting
     from dbt_osmosis.core.node_filters import _iter_candidate_nodes
 
-    if _get_setting_for_node("skip-add-columns", node, fallback=context.settings.skip_add_columns):
-        logger.debug(":no_entry_sign: Skipping column injection (skip_add_columns=True).")
-        return
     if node is None:
         logger.info(":wave: Injecting missing columns for all matched nodes.")
         for _ in context.pool.map(
@@ -317,8 +333,14 @@ def inject_missing_columns(
         ):
             ...
         return
+    if resolve_setting(
+        context, "skip-add-columns", node, fallback=context.settings.skip_add_columns
+    ):
+        logger.debug(":no_entry_sign: Skipping column injection (skip_add_columns=True).")
+        return
     if (
-        _get_setting_for_node(
+        resolve_setting(
+            context,
             "skip-add-source-columns",
             node,
             fallback=context.settings.skip_add_source_columns,
@@ -331,11 +353,11 @@ def inject_missing_columns(
     from dbt_osmosis.core.introspection import normalize_column_name
 
     incoming_columns = get_columns(context, node)
-    output_to_upper = _get_setting_for_node(
-        "output-to-upper", node, fallback=context.settings.output_to_upper
+    output_to_upper = resolve_setting(
+        context, "output-to-upper", node, fallback=context.settings.output_to_upper
     )
-    output_to_lower = _get_setting_for_node(
-        "output-to-lower", node, fallback=context.settings.output_to_lower
+    output_to_lower = resolve_setting(
+        context, "output-to-lower", node, fallback=context.settings.output_to_lower
     )
     case_insensitive = output_to_upper or output_to_lower
     current_columns = {
@@ -360,7 +382,8 @@ def inject_missing_columns(
                 final_name = incoming_name.lower()
 
             gen_col = {"name": final_name, "description": incoming_meta.comment or ""}
-            if (dtype := incoming_meta.type) and not _get_setting_for_node(
+            if (dtype := incoming_meta.type) and not resolve_setting(
+                context,
                 "skip-add-data-types",
                 node,
                 fallback=context.settings.skip_add_data_types,
@@ -372,8 +395,6 @@ def inject_missing_columns(
                 else:
                     gen_col["data_type"] = dtype
             node.columns[final_name] = ColumnInfo.from_dict(gen_col)
-            if hasattr(node.columns[final_name], "config"):
-                delattr(node.columns[final_name], "config")
 
 
 @_transform_op("Remove Extra Columns")
@@ -383,9 +404,9 @@ def remove_columns_not_in_database(
 ) -> None:
     """Remove columns from a dbt node and it's corresponding yaml section that are not present in the database. Changes are implicitly buffered until commit_yamls is called."""
     from dbt_osmosis.core.introspection import (
-        _get_setting_for_node,
         get_columns,
         normalize_column_name,
+        resolve_setting,
     )
     from dbt_osmosis.core.node_filters import _iter_candidate_nodes
 
@@ -397,11 +418,11 @@ def remove_columns_not_in_database(
         ):
             ...
         return
-    output_to_upper = _get_setting_for_node(
-        "output-to-upper", node, fallback=context.settings.output_to_upper
+    output_to_upper = resolve_setting(
+        context, "output-to-upper", node, fallback=context.settings.output_to_upper
     )
-    output_to_lower = _get_setting_for_node(
-        "output-to-lower", node, fallback=context.settings.output_to_lower
+    output_to_lower = resolve_setting(
+        context, "output-to-lower", node, fallback=context.settings.output_to_lower
     )
     case_insensitive = output_to_upper or output_to_lower
     current_columns = {
@@ -475,7 +496,7 @@ def sort_columns_alphabetically(
     node: ResultNode | None = None,
 ) -> None:
     """Sort columns in a dbt node and it's corresponding yaml section alphabetically. Changes are implicitly buffered until commit_yamls is called."""
-    from dbt_osmosis.core.introspection import _get_setting_for_node
+    from dbt_osmosis.core.introspection import resolve_setting
     from dbt_osmosis.core.node_filters import _iter_candidate_nodes
 
     if node is None:
@@ -490,12 +511,14 @@ def sort_columns_alphabetically(
 
     # Determine the case conversion setting for sorting
     # We need to sort based on the FINAL case of the column names, not the original case
-    output_to_lower = _get_setting_for_node(
+    output_to_lower = resolve_setting(
+        context,
         "output-to-lower",
         node,
         fallback=context.settings.output_to_lower,
     )
-    output_to_upper = _get_setting_for_node(
+    output_to_upper = resolve_setting(
+        context,
         "output-to-upper",
         node,
         fallback=context.settings.output_to_upper,
@@ -519,7 +542,7 @@ def sort_columns_as_configured(
     context: YamlRefactorContextProtocol,
     node: ResultNode | None = None,
 ) -> None:
-    from dbt_osmosis.core.introspection import _get_setting_for_node
+    from dbt_osmosis.core.introspection import resolve_setting
     from dbt_osmosis.core.node_filters import _iter_candidate_nodes
 
     if node is None:
@@ -530,7 +553,7 @@ def sort_columns_as_configured(
         ):
             ...
         return
-    sort_by = _get_setting_for_node("sort-by", node, fallback="database")
+    sort_by = resolve_setting(context, "sort-by", node, fallback="database")
     if sort_by == "database":
         _ = sort_columns_as_in_database(context, node)
     elif sort_by == "alphabetical":
@@ -546,9 +569,9 @@ def synchronize_data_types(
 ) -> None:
     """Populate data types for columns in a dbt node and it's corresponding yaml section. Changes are implicitly buffered until commit_yamls is called."""
     from dbt_osmosis.core.introspection import (
-        _get_setting_for_node,
         get_columns,
         normalize_column_name,
+        resolve_setting,
     )
     from dbt_osmosis.core.node_filters import _iter_candidate_nodes
 
@@ -563,23 +586,26 @@ def synchronize_data_types(
     logger.info(":1234: Synchronizing data types => %s", node.unique_id)
     incoming_columns = get_columns(context, node)
     incoming_columns_lower = {k.lower(): v for k, v in incoming_columns.items()}
-    if _get_setting_for_node("skip-add-data-types", node, fallback=False):
+    if resolve_setting(context, "skip-add-data-types", node, fallback=False):
         return
     for name, column in node.columns.items():
-        if _get_setting_for_node(
+        if resolve_setting(
+            context,
             "skip-add-data-types",
             node,
             name,
             fallback=context.settings.skip_add_data_types,
         ):
             continue
-        lowercase = _get_setting_for_node(
+        lowercase = resolve_setting(
+            context,
             "output-to-lower",
             node,
             name,
             fallback=context.settings.output_to_lower,
         )
-        uppercase = _get_setting_for_node(
+        uppercase = resolve_setting(
+            context,
             "output-to-upper",
             node,
             name,
@@ -832,12 +858,7 @@ def apply_semantic_analysis(
         logger.info(":wave: Applying semantic analysis across all matched nodes.")
         for _ in context.pool.map(
             partial(apply_semantic_analysis, context),
-            (
-                n
-                for _, n in _iter_candidate_nodes(
-                    context, include_external=context.settings.include_external
-                )
-            ),
+            (n for _, n in _iter_candidate_nodes(context)),
         ):
             ...
         return
@@ -912,7 +933,7 @@ def apply_semantic_analysis(
             if semantic_result.get("tags"):
                 existing_tags = list(column_info.tags) if column_info.tags else []
                 new_tags = semantic_result["tags"]
-                merged_tags = list(set(existing_tags + new_tags))
+                merged_tags = _order_preserving_union(existing_tags, new_tags)
                 if merged_tags != existing_tags:
                     node.columns[column_name] = column_info.replace(tags=merged_tags)
                     logger.debug(
@@ -975,7 +996,7 @@ def suggest_improved_documentation(
         - Uses project style analysis to match team's voice
         - Only applies suggestions above confidence threshold
     """
-    from dbt_osmosis.core.introspection import _get_setting_for_node
+    from dbt_osmosis.core.introspection import resolve_setting
     from dbt_osmosis.core.node_filters import _iter_candidate_nodes
     from dbt_osmosis.core.voice_learning import (
         ProjectStyleProfile,
@@ -1007,7 +1028,7 @@ def suggest_improved_documentation(
         return
 
     # Check if AI co-pilot is disabled for this node
-    if _get_setting_for_node("skip-ai-suggestions", node, fallback=False):
+    if resolve_setting(context, "skip-ai-suggestions", node, fallback=False):
         logger.debug(":no_entry_sign: Skipping AI suggestions (skip_ai_suggestions=True).")
         return
 

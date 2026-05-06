@@ -76,6 +76,8 @@ class Resource:
             will be scheduled for termination.
         project_effective_end_date (Union[None, Unset, datetime.date]): Effective project end date including grace
             period. After this date, resources will be terminated.
+        project_is_in_grace_period (Union[Unset, bool]): True if the project is past its end date but still within the
+            grace period.
         project_end_date_requested_by (Union[None, Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         customer_name (Union[Unset, str]):
@@ -165,6 +167,7 @@ class Resource:
     project_description: Union[Unset, str] = UNSET
     project_end_date: Union[None, Unset, datetime.date] = UNSET
     project_effective_end_date: Union[None, Unset, datetime.date] = UNSET
+    project_is_in_grace_period: Union[Unset, bool] = UNSET
     project_end_date_requested_by: Union[None, Unset, str] = UNSET
     customer_uuid: Union[Unset, UUID] = UNSET
     customer_name: Union[Unset, str] = UNSET
@@ -354,6 +357,8 @@ class Resource:
             project_effective_end_date = self.project_effective_end_date.isoformat()
         else:
             project_effective_end_date = self.project_effective_end_date
+
+        project_is_in_grace_period = self.project_is_in_grace_period
 
         project_end_date_requested_by: Union[None, Unset, str]
         if isinstance(self.project_end_date_requested_by, Unset):
@@ -591,6 +596,8 @@ class Resource:
             field_dict["project_end_date"] = project_end_date
         if project_effective_end_date is not UNSET:
             field_dict["project_effective_end_date"] = project_effective_end_date
+        if project_is_in_grace_period is not UNSET:
+            field_dict["project_is_in_grace_period"] = project_is_in_grace_period
         if project_end_date_requested_by is not UNSET:
             field_dict["project_end_date_requested_by"] = project_end_date_requested_by
         if customer_uuid is not UNSET:
@@ -916,6 +923,8 @@ class Resource:
 
         project_effective_end_date = _parse_project_effective_end_date(d.pop("project_effective_end_date", UNSET))
 
+        project_is_in_grace_period = d.pop("project_is_in_grace_period", UNSET)
+
         def _parse_project_end_date_requested_by(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -1181,6 +1190,7 @@ class Resource:
             project_description=project_description,
             project_end_date=project_end_date,
             project_effective_end_date=project_effective_end_date,
+            project_is_in_grace_period=project_is_in_grace_period,
             project_end_date_requested_by=project_end_date_requested_by,
             customer_uuid=customer_uuid,
             customer_name=customer_name,

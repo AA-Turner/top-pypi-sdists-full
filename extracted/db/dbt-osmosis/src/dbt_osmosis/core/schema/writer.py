@@ -7,6 +7,9 @@ Thread-safety:
 """
 
 import io
+import os
+import secrets
+import stat
 import threading
 import typing as t
 from pathlib import Path
@@ -14,10 +17,12 @@ from pathlib import Path
 import ruamel.yaml
 
 from dbt_osmosis.core import logger
+from dbt_osmosis.core.schema.parser import _partition_yaml_top_level_sections
 from dbt_osmosis.core.schema.reader import (
     _YAML_BUFFER_CACHE,
     _YAML_BUFFER_CACHE_LOCK,
     _YAML_ORIGINAL_CACHE,
+    _discard_yaml_caches,
 )
 
 __all__ = [
@@ -27,35 +32,39 @@ __all__ = [
 ]
 
 
-# Keys that are filtered out by OsmosisYAML but should be preserved when writing
-_PRESERVED_KEYS = {"semantic_models", "macros", "metrics", "anchors"}
-
-
 def _merge_preserved_sections(
     filtered_data: dict[str, t.Any], original_data: dict[str, t.Any]
 ) -> dict[str, t.Any]:
-    """Merge preserved sections (semantic_models, macros, etc.) from original YAML.
+    """Merge preserved top-level sections from original YAML.
 
-    When dbt-osmosis processes a YAML file, it filters out sections like semantic_models
-    and macros that it shouldn't modify. This function restores those sections from the
-    original file so they're not lost when writing back to disk.
+    When dbt-osmosis processes a YAML file, it filters out top-level sections that it
+    does not manage directly. This function restores every preserved section from the
+    original file so mixed schema files do not lose snapshots, exposures, anchors,
+    semantic models, or any future dbt keys that dbt-osmosis still ignores.
 
     Args:
         filtered_data: The processed YAML data (may have models, sources, etc.)
-        original_data: The original unfiltered YAML data (may have semantic_models, macros, etc.)
+        original_data: The original unfiltered YAML data with unmanaged top-level keys
 
     Returns:
         A merged dictionary containing both processed and preserved sections.
 
     """
-    # Start with the filtered data (processed content)
-    merged = dict(filtered_data)
+    # Preserve the original top-level order so anchors defined in unmanaged
+    # sections can still precede managed aliases after dbt-osmosis writes.
+    merged: dict[str, t.Any] = {}
+    _, preserved_sections = _partition_yaml_top_level_sections(original_data)
 
-    # Add back any preserved sections from the original data
-    for key in _PRESERVED_KEYS:
-        if key in original_data and key not in merged:
-            merged[key] = original_data[key]
+    for key, value in original_data.items():
+        if key in filtered_data:
+            merged[key] = filtered_data[key]
+        elif key in preserved_sections:
+            merged[key] = value
             logger.debug(f":recycle: Restoring preserved section '{key}' from original YAML")
+
+    for key, value in filtered_data.items():
+        if key not in merged:
+            merged[key] = value
 
     return merged
 
@@ -78,6 +87,34 @@ def _strip_eof_blank_lines(content: bytes) -> bytes:
     return result.encode("utf-8")
 
 
+def _write_unique_temp_file(path: Path, content: bytes) -> tuple[Path, int]:
+    """Write content to a unique temp file in the target directory."""
+    for _ in range(100):
+        temp_path = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+        try:
+            with temp_path.open("xb") as f:
+                bytes_written = f.write(content)
+            if path.exists():
+                temp_path.chmod(stat.S_IMODE(path.stat().st_mode))
+            return temp_path, bytes_written
+        except FileExistsError:
+            continue
+        except Exception:
+            _cleanup_temp_path(temp_path)
+            raise
+
+    raise FileExistsError(f"Unable to create unique temporary file for {path}")
+
+
+def _cleanup_temp_path(temp_path: Path | None) -> None:
+    """Remove a temp file if this write still owns one."""
+    if temp_path and temp_path.exists():
+        try:
+            temp_path.unlink()
+        except Exception:
+            pass
+
+
 def _write_yaml(
     yaml_handler: ruamel.yaml.YAML,
     yaml_handler_lock: threading.Lock,
@@ -87,6 +124,7 @@ def _write_yaml(
     mutation_tracker: t.Callable[[int], None] | None = None,
     strip_eof_blank_lines: bool = False,
     written_file_tracker: t.Callable[[Path], None] | None = None,
+    allow_overwrite: bool = True,
 ) -> None:
     """Write a yaml file to disk and register a mutation with the context. Clears the path from the buffer cache.
 
@@ -95,7 +133,7 @@ def _write_yaml(
     for cache invalidation. Multiple threads can safely write to different files.
 
     Uses a write-validate-replace pattern to prevent data loss:
-    1. Write to temporary file (.yml.tmp)
+    1. Write to a unique temporary file in the target directory
     2. Validate write succeeded (file exists and non-empty)
     3. Replace original file via atomic rename
     4. If any step fails, clean up temp file and preserve original
@@ -112,6 +150,8 @@ def _write_yaml(
                 data = _merge_preserved_sections(data, original_content)
 
         if not dry_run:
+            if not allow_overwrite and path.exists():
+                raise FileExistsError(f"Refusing to overwrite existing YAML file: {path}")
             path.parent.mkdir(parents=True, exist_ok=True)
 
         original = path.read_bytes() if path.is_file() else b""
@@ -127,12 +167,10 @@ def _write_yaml(
                 else:
                     logger.info(":writing_hand: Writing changes to => %s", path)
 
-                    # Write to temporary file first for safety
-                    temp_path = path.with_suffix(path.suffix + ".tmp")
+                    # Write to a unique temporary file first for safety
+                    temp_path: Path | None = None
                     try:
-                        # Write to temp file
-                        with temp_path.open("wb") as f:
-                            bytes_written = f.write(modified)
+                        temp_path, bytes_written = _write_unique_temp_file(path, modified)
 
                         # Validate write succeeded
                         if not temp_path.exists():
@@ -145,25 +183,28 @@ def _write_yaml(
                             )
 
                         # Atomic replace: only delete original after successful temp write
-                        _replace_atomically(temp_path, path)
+                        if allow_overwrite:
+                            _replace_atomically(temp_path, path)
+                        else:
+                            try:
+                                os.link(temp_path, path)
+                            except FileExistsError:
+                                raise FileExistsError(
+                                    f"Refusing to overwrite existing YAML file: {path}"
+                                ) from None
+                            finally:
+                                _cleanup_temp_path(temp_path)
+                            temp_path = None
 
                         # Clear cache entry only after successful write
                         with _YAML_BUFFER_CACHE_LOCK:
-                            if path in _YAML_BUFFER_CACHE:
-                                del _YAML_BUFFER_CACHE[path]
-                            if path in _YAML_ORIGINAL_CACHE:
-                                del _YAML_ORIGINAL_CACHE[path]
+                            _discard_yaml_caches(path)
 
                         if written_file_tracker:
                             written_file_tracker(path)
 
                     except Exception as e:
-                        # Clean up temp file on any error
-                        if temp_path.exists():
-                            try:
-                                temp_path.unlink()
-                            except Exception:
-                                pass
+                        _cleanup_temp_path(temp_path)
                         # Re-raise to signal failure
                         logger.error(":boom: Failed to write YAML to => %s: %s", path, e)
                         raise
@@ -171,15 +212,16 @@ def _write_yaml(
                 # Track mutation regardless of dry_run (enables --check with --dry-run)
                 if mutation_tracker:
                     mutation_tracker(1)
+
             else:
                 logger.debug(":white_check_mark: Skipping write => %s (no changes)", path)
-                # Clear cache entry even when no changes (to keep cache consistent)
-                if not dry_run:
-                    with _YAML_BUFFER_CACHE_LOCK:
-                        if path in _YAML_BUFFER_CACHE:
-                            del _YAML_BUFFER_CACHE[path]
-                        if path in _YAML_ORIGINAL_CACHE:
-                            del _YAML_ORIGINAL_CACHE[path]
+
+            # Clear cache entries after truthful disk outcomes. Dry-run writes
+            # always compare against disk but must not pin process-global YAML
+            # state for later reads in the same process.
+            if dry_run or modified == original:
+                with _YAML_BUFFER_CACHE_LOCK:
+                    _discard_yaml_caches(path)
 
 
 def _replace_atomically(temp_path: Path, target_path: Path) -> None:
@@ -240,12 +282,10 @@ def commit_yamls(
                     else:
                         logger.info(":writing_hand: Writing => %s", path)
 
-                        # Write to temporary file first for safety
-                        temp_path = path.with_suffix(path.suffix + ".tmp")
+                        # Write to a unique temporary file first for safety
+                        temp_path: Path | None = None
                         try:
-                            # Write to temp file
-                            with temp_path.open("wb") as f:
-                                bytes_written = f.write(modified)
+                            temp_path, bytes_written = _write_unique_temp_file(path, modified)
 
                             # Validate write succeeded
                             if not temp_path.exists():
@@ -262,21 +302,13 @@ def commit_yamls(
 
                             # Clear cache entry only after successful write
                             with _YAML_BUFFER_CACHE_LOCK:
-                                if path in _YAML_BUFFER_CACHE:
-                                    del _YAML_BUFFER_CACHE[path]
-                                if path in _YAML_ORIGINAL_CACHE:
-                                    del _YAML_ORIGINAL_CACHE[path]
+                                _discard_yaml_caches(path)
 
                             if written_file_tracker:
                                 written_file_tracker(path)
 
                         except Exception as e:
-                            # Clean up temp file on any error
-                            if temp_path.exists():
-                                try:
-                                    temp_path.unlink()
-                                except Exception:
-                                    pass
+                            _cleanup_temp_path(temp_path)
                             # Re-raise to signal failure
                             logger.error(":boom: Failed to commit YAML to => %s: %s", path, e)
                             raise
@@ -290,7 +322,10 @@ def commit_yamls(
                     # Clear cache entry even when no changes (to keep cache consistent)
                     if not dry_run:
                         with _YAML_BUFFER_CACHE_LOCK:
-                            if path in _YAML_BUFFER_CACHE:
-                                del _YAML_BUFFER_CACHE[path]
-                            if path in _YAML_ORIGINAL_CACHE:
-                                del _YAML_ORIGINAL_CACHE[path]
+                            _discard_yaml_caches(path)
+
+                # After dry-run mutation reporting, discard every processed
+                # buffered path so follow-up reads reflect disk-backed state.
+                if dry_run:
+                    with _YAML_BUFFER_CACHE_LOCK:
+                        _discard_yaml_caches(path)

@@ -47,6 +47,7 @@ class CustomerFieldEnum(str, Enum):
     POSTAL = "postal"
     PROJECTS_COUNT = "projects_count"
     PROJECT_METADATA_CHECKLIST = "project_metadata_checklist"
+    PROJECT_SLUG_TEMPLATE = "project_slug_template"
     REGISTRATION_CODE = "registration_code"
     SERVICE_PROVIDER = "service_provider"
     SERVICE_PROVIDER_UUID = "service_provider_uuid"

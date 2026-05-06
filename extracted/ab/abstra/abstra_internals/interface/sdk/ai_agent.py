@@ -61,6 +61,19 @@ def run_agent(
     tools: Optional[List[Union[Callable, AgentTools]]] = None,
     max_steps: int = 30,
 ) -> Dict[str, Any]:
+    """
+    Run an autonomous AI agent loop. The agent reasons about the prompt, decides which tools to call, executes them, and continues until it produces a final answer or hits `max_steps`.
+
+    Use this from any regular Python stage (Tasklet, Job, Hook, or Form logic) when the task requires multi-step reasoning, tool use, or autonomous decision-making. For single-shot completions, use `prompt` instead.
+
+    Args:
+        prompt (str): Instruction(s) for the agent. A single string, a list of strings, or a list mixing strings, files (Path), and images. Files and images are forwarded to the LLM as multimodal input.
+        tools (Optional): Tools the agent may call. Each item is either a plain Python function (its name, type hints and docstring become the tool spec) or an `AgentTools` subclass instance (e.g. `BrowserTools`, `TablesTools`, `FilesTools`, `ConnectorsTools`). Defaults to None (no tools).
+        max_steps (int): Maximum number of reasoning/tool-use iterations before the agent is forced to stop. Defaults to 30.
+
+    Returns:
+        The agent's final response as a dict with the agent output payload.
+    """
     resolved_tools = tools if tools is not None else []
     tool_items, tool_callables = _collect_tools(resolved_tools)
     prompt_list = to_list(prompt)

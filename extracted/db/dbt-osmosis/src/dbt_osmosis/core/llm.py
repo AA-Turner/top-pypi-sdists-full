@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false, reportConstantRedefinition=false
 """Supplementary module for LLM synthesis of dbt documentation."""
 
 from __future__ import annotations
@@ -9,16 +10,27 @@ import time
 import typing as t
 from dataclasses import dataclass
 from textwrap import dedent
+from urllib.parse import urlparse
+
+from dbt_osmosis.core.exceptions import LLMConfigurationError, LLMResponseError
+
+_OpenAIRateLimitError: type[Exception]
 
 try:
     import openai
     from openai import AzureOpenAI, OpenAI
 
+    _OpenAIRateLimitError = openai.RateLimitError
     _OPENAI_AVAILABLE = True
 except ImportError:
     openai = None  # type: ignore[assignment]
     OpenAI = None  # type: ignore[assignment,misc]
     AzureOpenAI = None  # type: ignore[assignment,misc]
+
+    class _FallbackOpenAIRateLimitError(Exception):
+        """Fallback sentinel used when the optional OpenAI SDK is unavailable."""
+
+    _OpenAIRateLimitError = _FallbackOpenAIRateLimitError
     _OPENAI_AVAILABLE = False
 
 
@@ -31,7 +43,26 @@ except ImportError:
     EnvironmentCredential = None  # type: ignore[assignment,misc]
     _AZURE_IDENTITY_AVAILABLE = False
 
-from dbt_osmosis.core.exceptions import LLMConfigurationError, LLMResponseError
+
+_LLM_PROVIDER_REQUIRED_ENV_VARS: dict[str, list[str]] = {
+    "openai": ["OPENAI_API_KEY"],
+    "azure-openai": [
+        "AZURE_OPENAI_BASE_URL",
+        "AZURE_OPENAI_API_KEY",
+        "AZURE_OPENAI_DEPLOYMENT_NAME",
+    ],
+    "azure-openai-ad": [
+        "AZURE_OPENAI_BASE_URL",
+        "AZURE_OPENAI_AD_TOKEN_SCOPE",
+        "AZURE_OPENAI_DEPLOYMENT_NAME",
+    ],
+    # These OpenAI-compatible local providers ship with safe local defaults.
+    # Callers may override them, but they should not have to restate them.
+    "lm-studio": [],
+    "ollama": [],
+    "google-gemini": ["GOOGLE_GEMINI_API_KEY"],
+    "anthropic": ["ANTHROPIC_API_KEY"],
+}
 
 
 def _call_with_retry(func, max_retries=5, initial_delay=1.0):
@@ -54,14 +85,15 @@ def _call_with_retry(func, max_retries=5, initial_delay=1.0):
     for attempt in range(max_retries + 1):
         try:
             return func()
-        except openai.RateLimitError as e:
+        except _OpenAIRateLimitError as e:
             last_exception = e
             if attempt == max_retries:
                 raise
 
             wait_time = delay
-            if hasattr(e, "response") and e.response:
-                retry_after = e.response.headers.get("retry-after")
+            response = getattr(e, "response", None)
+            if response:
+                retry_after = response.headers.get("retry-after")
                 if retry_after:
                     try:
                         wait_time = float(retry_after)
@@ -128,6 +160,28 @@ def _redact_credentials(text: str) -> str:
     return redacted
 
 
+def _normalize_azure_ad_token_scope(scope: str) -> str:
+    """Normalize Azure AD resource scopes to the token form Azure expects.
+
+    Azure OpenAI examples commonly show the Cognitive Services resource URI and
+    the Azure SDK examples commonly request that same resource as
+    `.../.default`. Accept both forms so CLI users can follow either convention
+    without needing to know which credential path we take internally.
+
+    Keep explicitly scoped values (for example `api://app-id/access_as_user`)
+    unchanged instead of blindly appending `/.default`.
+    """
+    normalized = scope.strip()
+    if normalized.endswith("/.default"):
+        return normalized
+
+    parsed_scope = urlparse(normalized)
+    if parsed_scope.scheme and parsed_scope.path in {"", "/"}:
+        return f"{normalized.rstrip('/')}/.default"
+
+    return normalized
+
+
 # Dynamic client creation function
 def get_llm_client() -> tuple[t.Any, str]:
     """Creates and returns an LLM client and model engine string based on environment variables.
@@ -140,7 +194,7 @@ def get_llm_client() -> tuple[t.Any, str]:
 
     """
     if not _OPENAI_AVAILABLE:
-        raise ImportError(
+        raise LLMConfigurationError(
             "OpenAI is not installed. Please install it with: "
             "pip install 'dbt-osmosis[openai]' or pip install openai"
         )
@@ -183,6 +237,7 @@ def get_llm_client() -> tuple[t.Any, str]:
     elif provider == "azure-openai-ad":
         azure_endpoint = os.getenv("AZURE_OPENAI_BASE_URL")
         model_engine = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
         azure_ad_token_scope = os.getenv("AZURE_OPENAI_AD_TOKEN_SCOPE")
 
         if not (azure_endpoint and model_engine):
@@ -195,11 +250,16 @@ def get_llm_client() -> tuple[t.Any, str]:
                 "AZURE_OPENAI_AD_TOKEN_SCOPE must be set for azure-openai-ad provider"
             )
 
+        normalized_scope = _normalize_azure_ad_token_scope(azure_ad_token_scope)
+
         if not _AZURE_IDENTITY_AVAILABLE:
             raise LLMConfigurationError(
                 "Azure Identity library is not installed. "
                 "Please install it with: pip install 'dbt-osmosis[azure]' or pip install azure-identity"
             )
+
+        assert EnvironmentCredential is not None
+        assert DefaultAzureCredential is not None
 
         try:
             azure_tenant_id = os.getenv("AZURE_TENANT_ID")
@@ -208,23 +268,19 @@ def get_llm_client() -> tuple[t.Any, str]:
 
             if azure_tenant_id and azure_client_id and azure_client_secret:
                 credential = EnvironmentCredential()  # type: ignore[misc]
-                scope = (
-                    f"{azure_ad_token_scope}/.default"
-                    if not azure_ad_token_scope.endswith("/.default")
-                    else azure_ad_token_scope
-                )
-                token = credential.get_token(scope).token
+                token = credential.get_token(normalized_scope).token
             else:
                 credential = DefaultAzureCredential()  # type: ignore[misc]
-                token = credential.get_token(azure_ad_token_scope).token
+                token = credential.get_token(normalized_scope).token
         except Exception as e:
             raise LLMConfigurationError(
                 f"Failed to acquire Azure AD token: {_redact_credentials(str(e))}"
             ) from e
 
-        client = OpenAI(
-            base_url=azure_endpoint.rstrip("/"),
-            api_key=token,
+        client = AzureOpenAI(
+            azure_endpoint=azure_endpoint,
+            azure_ad_token=token,
+            api_version=api_version,
         )
 
     elif provider == "lm-studio":
@@ -273,25 +329,7 @@ def get_llm_client() -> tuple[t.Any, str]:
             f"Invalid LLM provider '{provider}'. Valid options: openai, azure-openai, azure-openai-ad, google-gemini, anthropic, lm-studio, ollama.",
         )
 
-    required_env_vars = {
-        "openai": ["OPENAI_API_KEY"],
-        "azure-openai": [
-            "AZURE_OPENAI_BASE_URL",
-            "AZURE_OPENAI_API_KEY",
-            "AZURE_OPENAI_DEPLOYMENT_NAME",
-        ],
-        "azure-openai-ad": [
-            "AZURE_OPENAI_BASE_URL",
-            "AZURE_OPENAI_AD_TOKEN_SCOPE",
-            "AZURE_OPENAI_DEPLOYMENT_NAME",
-        ],
-        "lm-studio": ["LM_STUDIO_BASE_URL", "LM_STUDIO_API_KEY"],
-        "ollama": ["OLLAMA_BASE_URL", "OLLAMA_API_KEY"],
-        "google-gemini": ["GOOGLE_GEMINI_API_KEY"],
-        "anthropic": ["ANTHROPIC_API_KEY"],
-    }
-
-    missing_vars = [var for var in required_env_vars[provider] if not os.getenv(var)]
+    missing_vars = [var for var in _LLM_PROVIDER_REQUIRED_ENV_VARS[provider] if not os.getenv(var)]
     if missing_vars:
         raise LLMConfigurationError(
             f"ERROR: Missing environment variables for {provider}: {', '.join(missing_vars)}. Please refer to the documentation to set them correctly.",

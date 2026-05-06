@@ -3,8 +3,10 @@ from __future__ import annotations
 import datetime
 import inspect
 import json
+import math
 import os
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -15,6 +17,7 @@ from abstra_internals.environment import CLOUD_API_PROD_SHARED_TOKEN, IS_DEVELOP
 from abstra_internals.interface.sdk import user_exceptions
 from abstra_internals.repositories.users import UsersRepository
 from abstra_internals.services.jwt import UserClaims
+from abstra_internals.settings import Settings
 from abstra_internals.utils import serialize
 from abstra_internals.utils.insensitive_dict import CaseInsensitiveDict
 
@@ -42,13 +45,23 @@ class PageSDKController:
         return func
 
     def register_static(self, file_path: str | os.PathLike) -> str:
-        import pathlib
+        root = Settings.root_path.resolve()
+        source = Path(file_path)
+        if not source.is_absolute():
+            source = root / source
+        source = source.resolve()
 
-        source = pathlib.Path(file_path)
+        try:
+            rel_path = source.relative_to(root)
+        except ValueError:
+            raise ValueError(
+                f"Static file must be inside the project root ({root}): {file_path}"
+            )
+
         if not source.is_file():
             raise FileNotFoundError(f"Static file not found: {file_path}")
 
-        relative = str(source)
+        relative = rel_path.as_posix()
         token = pyjwt.encode(
             {
                 "asset": relative,
@@ -317,13 +330,67 @@ class PageSDKController:
             "  }",
         ]
 
-    def _build_js_regular(self, name: str, params: List[Dict[str, str]]) -> List[str]:
+    def _build_js_regular(
+        self,
+        name: str,
+        params: List[Dict[str, str]],
+        cache_ttl_seconds: Optional[float] = None,
+    ) -> List[str]:
         param_names = ", ".join(p["name"] for p in params)
+
+        if cache_ttl_seconds is None:
+            lines = [f"async function {name}({param_names}) {{"]
+            lines.extend(self._build_js_fetch(name, params))
+            lines.append("  const data = await response.json();")
+            lines.append("  return data.result;")
+            lines.append("}")
+            return lines
+
+        # Cached path. The strategy:
+        #   1. Wrap the fetch in __doFetch so we can call it from multiple branches.
+        #   2. Bypass cache when any arg is a Blob/FileList — keying file content
+        #      is impractical and stale uploads are surprising.
+        #   3. Bypass cache (gracefully) if the args aren't JSON-serializable,
+        #      e.g. circular refs or BigInt.
+        #   4. Store the *promise* (not the resolved value) so concurrent in-flight
+        #      callers share a single round trip. Evict on rejection so we never
+        #      cache errors.
+        ttl_ms = int(cache_ttl_seconds * 1000)
         lines = [f"async function {name}({param_names}) {{"]
-        lines.extend(self._build_js_fetch(name, params))
-        lines.append("  const data = await response.json();")
-        lines.append("  return data.result;")
+        lines.append("  const __doFetch = async () => {")
+        lines.extend("  " + line for line in self._build_js_fetch(name, params))
+        lines.append("    const data = await response.json();")
+        lines.append("    return data.result;")
+        lines.append("  };")
+        lines.append(f"  const __args = [{param_names}];")
+        lines.append("  const __cIsBlob = (v) => v instanceof Blob;")
+        lines.append(
+            "  const __cIsBlobList = (v) => (Array.isArray(v) || "
+            "(typeof FileList !== 'undefined' && v instanceof FileList)) "
+            "&& Array.from(v).every(__cIsBlob);"
+        )
+        lines.append(
+            "  if (__args.some(v => __cIsBlob(v) || __cIsBlobList(v))) return __doFetch();"
+        )
+        lines.append("  let __key;")
+        lines.append(
+            "  try { __key = JSON.stringify(__args); } "
+            "catch (e) { return __doFetch(); }"
+        )
+        lines.append(f"  const __cache = ({name}._cache ||= new Map());")
+        lines.append("  const __hit = __cache.get(__key);")
+        lines.append(
+            "  if (__hit && __hit.expiresAt > Date.now()) return __hit.promise;"
+        )
+        lines.append("  const __promise = __doFetch();")
+        lines.append(
+            f"  __cache.set(__key, {{ promise: __promise, "
+            f"expiresAt: Date.now() + {ttl_ms} }});"
+        )
+        lines.append("  __promise.catch(() => __cache.delete(__key));")
+        lines.append("  return __promise;")
         lines.append("}")
+        lines.append(f"{name}.clearCache = () => {{ {name}._cache?.clear(); }};")
         return lines
 
     def _build_js_generator(self, name: str, params: List[Dict[str, str]]) -> List[str]:
@@ -393,9 +460,19 @@ class PageSDKController:
             params = self._get_function_params(func)
 
             if inspect.isgeneratorfunction(func):
+                # The public decorator rejects cache= on generators. Defensive:
+                # ignore any stray attribute rather than emit unreachable JS.
                 lines.extend(self._build_js_generator(name, params))
             else:
-                lines.extend(self._build_js_regular(name, params))
+                cache_ttl = getattr(func, "_abstra_cache_ttl", None)
+                if cache_ttl is not None and not (
+                    isinstance(cache_ttl, (int, float))
+                    and not isinstance(cache_ttl, bool)
+                    and math.isfinite(cache_ttl)
+                    and cache_ttl > 0
+                ):
+                    cache_ttl = None
+                lines.extend(self._build_js_regular(name, params, cache_ttl))
             lines.append("")
         return "\n".join(lines)
 

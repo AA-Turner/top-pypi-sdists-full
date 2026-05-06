@@ -9786,7 +9786,8 @@ paths:
         and returns the Task ID of the launched task.
 
         The task response contains a link to download the exported item from Amazon
-        S3. The download is a ZIP file that contains the exported PDFs.
+        S3. The download is a ZIP file that contains the exported content in the requested
+        format (PDF or HTML).
 
         This endpoint is subject to throughput rate limiting. Due to the long running
         nature of these export requests, the endpoint may reject the request with
@@ -9818,7 +9819,8 @@ paths:
             The task response contains a link to download the exported item from Amazon
             S3.
 
-            The download is a ZIP file that contains the exported PDFs.
+            The download is a ZIP file that contains the exported content in the requested
+            format (PDF or HTML).
 
             '
         '400':
@@ -28249,6 +28251,13 @@ components:
     ExportItemRequest:
       additionalProperties: false
       properties:
+        format:
+          default: pdf
+          description: The export format for the item. Defaults to pdf if not specified.
+          enum:
+          - pdf
+          - html
+          type: string
         id:
           description: ID of the item to export
           example: etr_1X1AlQPD

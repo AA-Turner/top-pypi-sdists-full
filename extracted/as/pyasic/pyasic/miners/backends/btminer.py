@@ -926,7 +926,12 @@ class BTMinerV3(StockFirmware):
         except LookupError:
             pass
 
-        if pools is not None and settings is not None and device_info is not None:
+        if (
+            pools is not None
+            and settings is not None
+            and device_info is not None
+            and miner_summary is not None
+        ):
             self.config = MinerConfig.from_btminer_v3(
                 rpc_pools=pools,
                 rpc_settings=settings,
@@ -1132,6 +1137,16 @@ class BTMinerV3(StockFirmware):
         if rpc_get_device_info is None:
             return []
         rpm = rpc_get_device_info.get("msg", {}).get("power", {}).get("fanspeed")
+        if rpm is None:
+            return []
+
+        # Ensure rpm is an integer, as some models may return it as a string or float
+        if not isinstance(rpm, int):
+            try:
+                rpm = int(round(float(rpm)))
+            except (TypeError, ValueError):
+                return []
+
         return [Fan(speed=rpm)] if rpm is not None else []
 
     async def _get_errors(
@@ -1166,7 +1181,10 @@ class BTMinerV3(StockFirmware):
                 except (TypeError, ValueError):
                     continue
 
-        return [WhatsminerError(error_code=code) for code in sorted(set(parsed_codes))]
+        errors: list[MinerErrorData] = [
+            WhatsminerError(error_code=code) for code in sorted(set(parsed_codes))
+        ]
+        return errors
 
     async def _get_serial_number(
         self, rpc_get_device_info: dict | None = None

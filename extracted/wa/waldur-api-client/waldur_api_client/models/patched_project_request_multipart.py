@@ -2,6 +2,7 @@ import datetime
 from collections.abc import Mapping
 from io import BytesIO
 from typing import Any, TypeVar, Union, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -41,6 +42,7 @@ class PatchedProjectRequestMultipart:
         user_email_patterns (Union[Unset, Any]):
         user_affiliations (Union[Unset, Any]):
         user_identity_sources (Union[Unset, Any]): List of allowed identity sources (identity providers).
+        science_sub_domain (Union[None, UUID, Unset]):
     """
 
     name: Union[Unset, str] = UNSET
@@ -60,6 +62,7 @@ class PatchedProjectRequestMultipart:
     user_email_patterns: Union[Unset, Any] = UNSET
     user_affiliations: Union[Unset, Any] = UNSET
     user_identity_sources: Union[Unset, Any] = UNSET
+    science_sub_domain: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -134,6 +137,14 @@ class PatchedProjectRequestMultipart:
 
         user_identity_sources = self.user_identity_sources
 
+        science_sub_domain: Union[None, Unset, str]
+        if isinstance(self.science_sub_domain, Unset):
+            science_sub_domain = UNSET
+        elif isinstance(self.science_sub_domain, UUID):
+            science_sub_domain = str(self.science_sub_domain)
+        else:
+            science_sub_domain = self.science_sub_domain
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -171,6 +182,8 @@ class PatchedProjectRequestMultipart:
             field_dict["user_affiliations"] = user_affiliations
         if user_identity_sources is not UNSET:
             field_dict["user_identity_sources"] = user_identity_sources
+        if science_sub_domain is not UNSET:
+            field_dict["science_sub_domain"] = science_sub_domain
 
         return field_dict
 
@@ -249,6 +262,12 @@ class PatchedProjectRequestMultipart:
 
         if not isinstance(self.user_identity_sources, Unset):
             files.append(("user_identity_sources", (None, str(self.user_identity_sources).encode(), "text/plain")))
+
+        if not isinstance(self.science_sub_domain, Unset):
+            if isinstance(self.science_sub_domain, UUID):
+                files.append(("science_sub_domain", (None, str(self.science_sub_domain), "text/plain")))
+            else:
+                files.append(("science_sub_domain", (None, str(self.science_sub_domain).encode(), "text/plain")))
 
         for prop_name, prop in self.additional_properties.items():
             files.append((prop_name, (None, str(prop).encode(), "text/plain")))
@@ -379,6 +398,23 @@ class PatchedProjectRequestMultipart:
 
         user_identity_sources = d.pop("user_identity_sources", UNSET)
 
+        def _parse_science_sub_domain(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                science_sub_domain_type_0 = UUID(data)
+
+                return science_sub_domain_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        science_sub_domain = _parse_science_sub_domain(d.pop("science_sub_domain", UNSET))
+
         patched_project_request_multipart = cls(
             name=name,
             slug=slug,
@@ -397,6 +433,7 @@ class PatchedProjectRequestMultipart:
             user_email_patterns=user_email_patterns,
             user_affiliations=user_affiliations,
             user_identity_sources=user_identity_sources,
+            science_sub_domain=science_sub_domain,
         )
 
         patched_project_request_multipart.additional_properties = d

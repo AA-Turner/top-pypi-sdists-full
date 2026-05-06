@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import json
-import logging
 import os
 import re
 import textwrap
@@ -165,7 +164,9 @@ class StoredOrCalculatedItem(Item):
                 item_map.log(self.id, f'Using overrides from {os.path.dirname(override["File"])}:')
             item = self._lookup_in_datasource_map(context, pushed_workbook_id, override, item_map)
         else:
-            item_map.log(self.id, f'No datasource map overrides found')
+            item_map.log(self.id, 'No datasource map overrides found for '
+                                  f'Datasource Class "{_common.get(self, "Datasource Class")}" '
+                                  f'and Datasource ID "{_common.get(self, "Datasource ID")}"')
 
         if item is not None:
             item_map.log(self.id, f'Successful mapping:')
@@ -213,7 +214,9 @@ class StoredOrCalculatedItem(Item):
                 item_map.log(self.id, f'Using non-overrides from {os.path.dirname(non_override["File"])}:')
             item = self._lookup_in_datasource_map(context, pushed_workbook_id, non_override, item_map)
         else:
-            item_map.log(self.id, f'No (non-override) datasource maps found')
+            item_map.log(self.id, 'No (non-override) datasource maps found for '
+                                  f'Datasource Class "{_common.get(self, "Datasource Class")}" '
+                                  f'and Datasource ID "{_common.get(self, "Datasource ID")}"')
 
         if item is None:
             item_map.log(self.id, f'{self} not successfully mapped', at_top=True)
@@ -608,7 +611,7 @@ class StoredItem(StoredOrCalculatedItem):
             is_example_data = (datasource_class and datasource_class == 'Time Series CSV Files' and
                                datasource_id and datasource_id == 'Example Data')
 
-            if (context.override_max_interp and item.type == 'StoredSignal' and not is_example_data and
+            if (context.current_params.override_max_interp and item.type == 'StoredSignal' and not is_example_data and
                     'Maximum Interpolation' in self):
                 src_max_interp = Item._property_input_from_scalar_str(self['Maximum Interpolation'])
                 dst_max_interp_prop = item['Maximum Interpolation']
@@ -640,7 +643,7 @@ class StoredItem(StoredOrCalculatedItem):
                          datasource_output: DatasourceOutputV1, dummy_items_workbook_context):
         metadata_dict = self.definition_dict.copy()
 
-        if context.global_inventory == 'overwrite' and not _common.present(self.definition, 'Scoped To'):
+        if context.current_params.global_inventory == 'overwrite' and not _common.present(self.definition, 'Scoped To'):
             label = None
 
         metadata_dict['Dummy Item'] = True
@@ -656,7 +659,7 @@ class StoredItem(StoredOrCalculatedItem):
         metadata_dict['Datasource Class'] = datasource_output.datasource_class
         metadata_dict['Datasource ID'] = datasource_output.datasource_id
         metadata_dict['Data ID'] = self._construct_data_id(
-            label, for_item=self, reconcile_by=context.reconcile_inventory_by,
+            label, for_item=self, reconcile_by=context.current_params.reconcile_inventory_by,
             workbook_id=dummy_items_workbook_context.workbook_object.id)
 
         if 'Parent ID' in metadata_dict:
@@ -693,13 +696,13 @@ class StoredItem(StoredOrCalculatedItem):
             metadata_dict['Datasource Class'] = datasource_output.datasource_class
             metadata_dict['Datasource ID'] = datasource_output.datasource_id
             metadata_dict['Data ID'] = self._construct_data_id(
-                label, for_item=self, reconcile_by=context.reconcile_inventory_by,
+                label, for_item=self, reconcile_by=context.current_params.reconcile_inventory_by,
                 workbook_id=pushed_workbook_id)
 
             if 'Parent ID' in metadata_dict:
                 metadata_dict['Parent Data ID'] = self._construct_data_id(
                     label, for_item=item_inventory[self.definition['Parent ID']],
-                    reconcile_by=context.reconcile_inventory_by, workbook_id=pushed_workbook_id)
+                    reconcile_by=context.current_params.reconcile_inventory_by, workbook_id=pushed_workbook_id)
                 del metadata_dict['Parent ID']
         else:
             # get here when round tripping an item that already exists but may be in a different
@@ -730,12 +733,11 @@ class StoredItem(StoredOrCalculatedItem):
             return cached_item
 
         if self.id in context.failed_mappings:
-            intentional = self.id in context.intentional_no_mappings
-            raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=intentional)
+            raise context.failed_mappings[self.id]
 
         local: bool = self['Scoped To'] is not None
         only_override_maps = item_map.only_override_maps
-        must_lookup_global = not local and context.global_inventory == 'overwrite'
+        must_lookup_global = not local and context.current_params.global_inventory == 'overwrite'
         if local:
             only_override_maps = True
 
@@ -757,22 +759,21 @@ class StoredItem(StoredOrCalculatedItem):
             else:
                 # Check if this is an intentional no-mapping and short-circuit before dummy item creation
                 if self.id in context.intentional_no_mappings:
-                    log_message = f'Intentionally not mapped (New: null in datasource map) for {self}:\n{item_map.explain(self.id)}'
-                    status.log(log_message, level=logging.INFO)
-                    # Add to failed mappings so we don't try again and spam the logs
-                    context.failed_mappings.add(self.id)
-                    raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=True)
+                    e = SPyDependencyNotFound(
+                        f'Intentionally did not map {self}:\n{item_map.explain(self.id)}', intentional_no_mapping=True)
+                    context.failed_mappings[self.id] = e
+                    raise e
 
                 if dummy_items_workbook_context is None:
                     # Mapping failed (not intentional)
-                    status.log(f'Mapping failed for {self}:\n{item_map.explain(self.id)}', level=logging.ERROR)
-                    # Add to failed mappings so we don't try again and spam the logs
-                    context.failed_mappings.add(self.id)
-                    raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=False)
+                    e = SPyDependencyNotFound(
+                        f'Mapping failed for {self}:\n{item_map.explain(self.id)}', intentional_no_mapping=False)
+                    context.failed_mappings[self.id] = e
+                    raise e
 
                 status.log(f'{dry_run_tense} dummy item for {self}')
                 self._push_dummy_item(context, label, item_map, datasource_output, dummy_items_workbook_context)
-        elif local and context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+        elif local and context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
             item_scope = _common.get(item, 'Scoped To')
             item_is_scoped_to_other_workbook = item_scope is not None and item_scope != pushed_workbook_id
             self_already_exists_and_may_need_update = (
@@ -861,7 +862,7 @@ class CalculatedItem(StoredOrCalculatedItem):
             context, pushed_workbook_id, item_map, only_override_maps=only_override_maps,
             item_exists=item_exists, item_search_preview=item_search_preview)
 
-        if item is None and context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+        if item is None and context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
             # If we didn't explicitly map the item somewhere else, then we're just using the item as-is
             item = self
 
@@ -883,7 +884,8 @@ class CalculatedItem(StoredOrCalculatedItem):
                              item_exists: ItemExists = ItemExists.MAYBE,
                              item_search_preview: ItemSearchPreviewV1 = None):
         # If global_inventory is 'do not touch' and this is a global item, skip processing it
-        if context.global_inventory == 'do not touch' and not _common.present(self.definition, 'Scoped To'):
+        if context.current_params.global_inventory == 'do not touch' and not _common.present(self.definition,
+                                                                                             'Scoped To'):
             Status.log_if(context, f'Ignoring global inventory item: {self}')
             item_map[self.id] = self.id
             return None
@@ -901,7 +903,7 @@ class CalculatedItem(StoredOrCalculatedItem):
             if item_output is None:
                 item_output = self._find_by_name(context.session, pushed_workbook_id)
 
-        if context.global_inventory == 'overwrite' and not _common.present(self.definition, 'Scoped To'):
+        if context.current_params.global_inventory == 'overwrite' and not _common.present(self.definition, 'Scoped To'):
             label = None
 
         if label is None and item_exists != ItemExists.NO and item_search_preview is None:
@@ -912,7 +914,7 @@ class CalculatedItem(StoredOrCalculatedItem):
         if 'Formula' in self.definition:
             metadata_dict['Formula'] = Item.formula_string_from_list(self.definition['Formula'])
 
-        if context.global_inventory == 'copy local' or _common.present(self.definition, 'Scoped To'):
+        if context.current_params.global_inventory == 'copy local' or _common.present(self.definition, 'Scoped To'):
             metadata_dict['Scoped To'] = pushed_workbook_id
 
         if 'Scoped To' not in metadata_dict:
@@ -942,12 +944,13 @@ class CalculatedItem(StoredOrCalculatedItem):
             metadata_dict['Datasource Class'] = datasource_output.datasource_class
             metadata_dict['Datasource ID'] = datasource_output.datasource_id
             metadata_dict['Data ID'] = self._construct_data_id(
-                label, for_item=self, reconcile_by=context.reconcile_inventory_by, workbook_id=pushed_workbook_id)
+                label, for_item=self, reconcile_by=context.current_params.reconcile_inventory_by,
+                workbook_id=pushed_workbook_id)
 
             if 'Parent ID' in metadata_dict:
                 metadata_dict['Parent Data ID'] = self._construct_data_id(
                     label, for_item=item_inventory[self.definition['Parent ID']],
-                    reconcile_by=context.reconcile_inventory_by, workbook_id=pushed_workbook_id)
+                    reconcile_by=context.current_params.reconcile_inventory_by, workbook_id=pushed_workbook_id)
 
         return metadata_dict
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-hub
-Version: 0.28.0
+Version: 0.29.0
 Summary: Pretrained models for Keras.
 Author-email: Keras team <keras-users@googlegroups.com>
 License-Expression: Apache-2.0

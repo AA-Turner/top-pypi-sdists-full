@@ -700,6 +700,7 @@ def _process_condition(index, push_context, row_dict, scoped_data_id, session, s
                action_description=f'set common properties for Condition {row_dict["ID"]}',
                additional_errors=[400],
                status=status)
+        _push_special_properties(session, condition_update_input, types.SimpleNamespace(id=row_dict['ID']))
     else:
         condition_update_input.datasource_class = row_dict['Datasource Class']
         condition_update_input.datasource_id = row_dict['Datasource ID']

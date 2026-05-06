@@ -11,7 +11,9 @@
 //! - Per-request timeout (30s default).
 //!
 //! Command crates must never import [`reqwest`] directly — they go
-//! through [`Client::get`] and [`Client::post`].
+//! through [`Client::get`], [`Client::post`], or
+//! [`Client::post_no_response`] (for endpoints that return an empty
+//! body on success).
 
 use std::time::Duration;
 
@@ -114,7 +116,8 @@ impl Client {
     /// GET `path` and deserialize the JSON body as `T`.
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, CliError> {
         let url = self.join(path)?;
-        self.execute(self.inner.get(url)).await
+        let resp = self.execute_request(self.inner.get(url)).await?;
+        self.decode_json(resp).await
     }
 
     /// POST `body` as JSON to `path` and deserialize the JSON
@@ -125,7 +128,25 @@ impl Client {
         body: &B,
     ) -> Result<T, CliError> {
         let url = self.join(path)?;
-        self.execute(self.inner.post(url).json(body)).await
+        let resp = self
+            .execute_request(self.inner.post(url).json(body))
+            .await?;
+        self.decode_json(resp).await
+    }
+
+    /// POST `body` as JSON to `path` and discard the response body.
+    /// Use when the endpoint returns an empty body (or any body the
+    /// caller does not care about) on success — `post::<Value>` would
+    /// fail to deserialize an empty response.
+    pub async fn post_no_response<B: Serialize + ?Sized>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<(), CliError> {
+        let url = self.join(path)?;
+        self.execute_request(self.inner.post(url).json(body))
+            .await
+            .map(drop)
     }
 
     fn join(&self, path: &str) -> Result<Url, CliError> {
@@ -143,10 +164,10 @@ impl Client {
             .map_err(|e| self.api_error(format!("invalid path {path:?}: {e}")))
     }
 
-    async fn execute<T: DeserializeOwned>(
+    async fn execute_request(
         &self,
         builder: reqwest::RequestBuilder,
-    ) -> Result<T, CliError> {
+    ) -> Result<reqwest::Response, CliError> {
         let mut backoff = self.retry.initial_backoff;
         let mut last_message = String::from("HTTP request failed without response");
 
@@ -165,10 +186,7 @@ impl Client {
                 Ok(resp) => {
                     let status = resp.status();
                     if status.is_success() {
-                        return resp
-                            .json::<T>()
-                            .await
-                            .map_err(|e| self.api_error(format!("parse response JSON: {e}")));
+                        return Ok(resp);
                     }
                     last_message = error_message(status, resp).await;
                     if status.is_server_error() && attempt + 1 < self.retry.max_attempts {
@@ -184,17 +202,43 @@ impl Client {
                     backoff *= 2;
                 }
                 Err(e) => {
-                    return Err(self.api_error(format!("request failed: {e}")));
+                    let msg = if e.is_timeout() {
+                        format!(
+                            "{} did not respond in time. The request was aborted — please retry.",
+                            self.service_name()
+                        )
+                    } else if e.is_connect() {
+                        format!("could not reach {}: {e}", self.service_name())
+                    } else {
+                        format!("request failed: {e}")
+                    };
+                    return Err(self.api_error(msg));
                 }
             }
         }
         Err(self.api_error(last_message))
     }
 
+    async fn decode_json<T: DeserializeOwned>(
+        &self,
+        resp: reqwest::Response,
+    ) -> Result<T, CliError> {
+        resp.json::<T>()
+            .await
+            .map_err(|e| self.api_error(format!("parse response JSON: {e}")))
+    }
+
     fn api_error(&self, message: String) -> CliError {
         match self.flavor {
             ApiFlavor::GitHub => CliError::GitHubApi(message),
             ApiFlavor::Mergify => CliError::MergifyApi(message),
+        }
+    }
+
+    fn service_name(&self) -> &'static str {
+        match self.flavor {
+            ApiFlavor::GitHub => "GitHub",
+            ApiFlavor::Mergify => "Mergify",
         }
     }
 }
@@ -309,6 +353,45 @@ mod tests {
             !requests[0].headers.contains_key("authorization"),
             "expected no Authorization header for empty token"
         );
+    }
+
+    #[tokio::test]
+    async fn post_no_response_succeeds_on_empty_2xx_body() {
+        // Mergify endpoints like POST /scopes return an empty body
+        // on success — `post::<Value>` would fail to deserialize.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/empty"))
+            .and(body_json(Foo { bar: 1 }))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        client
+            .post_no_response("/empty", &Foo { bar: 1 })
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn post_no_response_propagates_4xx() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/empty"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("nope"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let err = client
+            .post_no_response("/empty", &Foo { bar: 1 })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, CliError::MergifyApi(_)));
+        assert!(err.to_string().contains("404"));
     }
 
     #[tokio::test]
@@ -432,6 +515,75 @@ mod tests {
             panic!("expected Err for max_attempts=0");
         };
         assert!(err.to_string().contains("max_attempts"));
+    }
+
+    #[tokio::test]
+    async fn timeout_yields_did_not_respond_message() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/foo"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(5)))
+            .mount(&server)
+            .await;
+
+        // Custom client with a tight request timeout so the test
+        // provokes a real reqwest timeout in milliseconds rather than
+        // the production-default 30s.
+        let inner = reqwest::Client::builder()
+            .timeout(Duration::from_millis(100))
+            .build()
+            .unwrap();
+        let client = Client {
+            inner,
+            base_url: Url::parse(&server.uri()).unwrap(),
+            flavor: ApiFlavor::GitHub,
+            token: Some("test-token".to_string()),
+            retry: RetryPolicy {
+                max_attempts: 1,
+                initial_backoff: Duration::from_millis(0),
+            },
+        };
+
+        let err = client.get::<Foo>("/foo").await.unwrap_err();
+        assert!(matches!(err, CliError::GitHubApi(_)));
+        let msg = err.to_string();
+        assert!(
+            msg.contains("GitHub did not respond in time. The request was aborted — please retry."),
+            "expected friendly timeout message, got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn connect_failure_yields_could_not_reach_message() {
+        let inner = reqwest::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap();
+        // Bind, capture port, drop the listener — the port is then
+        // guaranteed-closed for the duration of the test, so connect
+        // fails fast with ECONNREFUSED. Avoids hard-coding a port like
+        // `1` that could happen to be bound on some CI images.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let client = Client {
+            inner,
+            base_url: Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap(),
+            flavor: ApiFlavor::Mergify,
+            token: Some("t".to_string()),
+            retry: RetryPolicy {
+                max_attempts: 1,
+                initial_backoff: Duration::from_millis(0),
+            },
+        };
+
+        let err = client.get::<Foo>("/foo").await.unwrap_err();
+        assert!(matches!(err, CliError::MergifyApi(_)));
+        let msg = err.to_string();
+        assert!(
+            msg.contains("could not reach Mergify"),
+            "expected connect message, got: {msg}"
+        );
     }
 
     #[tokio::test]

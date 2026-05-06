@@ -1,0 +1,2 @@
+import{t as e}from"./src-CIfY5g1C.js";var t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`]);export{t};
+//# sourceMappingURL=layout-fjh3CzCy.js.map

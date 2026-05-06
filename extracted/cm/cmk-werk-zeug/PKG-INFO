@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmk-werk-zeug
-Version: 0.2.8
+Version: 0.3.0
 Summary: cmk-werk-zeug
 Author-email: Benedikt Seidl <benedikt.seidl@checkmk.com>, Frans Fürst <frans.fuerst@checkmk.com>
 License-File: LICENSE
@@ -31,13 +31,16 @@ A CLI for querying and validating component and code ownership details of the `c
 
 **Use cases:**
 
-- Browse all components interactively (TUI, default when no subcommand is given)
-- List all known components: `list`
-- Show members/owners of a component: `members <COMPONENT>`
-- Show which paths belong to a component: `paths <COMPONENT>`
-- Look up who owns a given file or directory: `owners <PATH>`
-- Find which component a path belongs to: `component <PATH>`
+- Browse all components interactively (TUI, default when no subcommand is given): `tui`
+- List all known components: `list` (alias: `ls`)
+- Show full details of one or more components: `info [COMPONENT ...]`
+- Show members/owners of a component: `members [COMPONENT ...]`
+- Show which paths belong to a component: `paths <COMPONENT> [...]`
+- Look up who owns a given file or directory: `owners <PATH> [...]`
+- Find which component a path belongs to: `component <PATH> [...]`
 - List all `OWNERS` config files in the repo: `config-files`
+- Show your own responsibilities (components and paths): `my-responsibilities` (alias: `me`)
+- Validate the code-owners configuration for consistency: `validate-config`
 
 **Credentials**: resolved in folowing order:
 - `~/.netrc` (looking for the hostname extracted from `gerrit-url`)
@@ -48,7 +51,7 @@ A CLI for querying and validating component and code ownership details of the `c
 **Source for ownership details**: `--gerrit-url`, `--project-name` (defaults to `check_mk`), `--branch` (useful for change valildation)
 to point at a different Gerrit instance or branch.
 
-**Output modes** (`--mode`): `rich` (default in a terminal), `json`, `script` (YAML, default when
+**Output modes** (`--mode`): `rich` (default in a terminal), `json`, `script` (default when
 stdout is not a TTY — suitable for piping).
 
 **Caching** (`--cache-mode auto|always|never`): a locally cached collection of component and

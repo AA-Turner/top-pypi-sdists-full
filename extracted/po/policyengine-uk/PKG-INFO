@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policyengine-uk
-Version: 2.88.12
+Version: 2.88.13
 Summary: PolicyEngine tax and benefit system for the UK.
 Project-URL: Homepage, https://github.com/PolicyEngine/policyengine-uk
 Project-URL: Repository, https://github.com/PolicyEngine/policyengine-uk
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.9
 Requires-Dist: microdf-python>=1.2.1
-Requires-Dist: policyengine-core>=3.25.0
+Requires-Dist: policyengine-core>=3.26.0
 Requires-Dist: pydantic>=2.11.7
 Requires-Dist: tables<3.10.2,>=3.10.0; python_version == '3.10.*'
 Requires-Dist: tables<3.10.2,>=3.9.2; python_version < '3.10'

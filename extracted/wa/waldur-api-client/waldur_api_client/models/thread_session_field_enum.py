@@ -5,6 +5,7 @@ class ThreadSessionFieldEnum(str, Enum):
     CHAT_SESSION = "chat_session"
     CREATED = "created"
     FLAGS = "flags"
+    HAS_FEEDBACK = "has_feedback"
     INPUT_TOKENS = "input_tokens"
     IS_ARCHIVED = "is_archived"
     IS_FLAGGED = "is_flagged"

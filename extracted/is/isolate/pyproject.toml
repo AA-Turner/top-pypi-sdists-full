@@ -76,3 +76,8 @@ keep-runtime-typing = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "PLC", "PLE", "PLW", "I", "UP"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --durations=50"
+asyncio_mode = "auto"
+testpaths = "tests"

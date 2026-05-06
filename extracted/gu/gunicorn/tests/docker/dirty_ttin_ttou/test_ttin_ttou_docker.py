@@ -21,7 +21,10 @@ pytestmark = [
 # Directory containing this test file
 TEST_DIR = Path(__file__).parent
 COMPOSE_FILE = TEST_DIR / "docker-compose.yml"
-BASE_URL = "http://localhost:18000"
+# Use 127.0.0.1 (not "localhost") so we always hit IPv4. Docker Desktop /
+# OrbStack on macOS map host ports to IPv4 only, and ``localhost`` resolves
+# to ``::1`` on this host, which yields connection-reset noise.
+BASE_URL = "http://127.0.0.1:18000"
 
 
 @pytest.fixture(scope="module")
@@ -100,6 +103,30 @@ def send_signal_to_dirty_arbiter(sig):
     )
 
 
+def wait_for_apps_ready(*paths, timeout=10):
+    """Poll the given app endpoints until each returns 200.
+
+    The dirty arbiter rebalances apps across workers asynchronously after
+    TTIN/TTOU signals.  Tests that care about app availability — rather
+    than worker counts — should call this between scaling and the request
+    so they don't race the rebalance.
+    """
+    deadline = time.time() + timeout
+    pending = list(paths)
+    while pending and time.time() < deadline:
+        for path in list(pending):
+            try:
+                resp = requests.get(f"{BASE_URL}{path}", timeout=2)
+                if resp.status_code == 200:
+                    pending.remove(path)
+            except requests.RequestException:
+                pass
+        if pending:
+            time.sleep(0.5)
+    if pending:
+        raise RuntimeError(f"Apps did not become ready: {pending}")
+
+
 class TestTTINSignal:
     """Test SIGTTIN increases dirty workers."""
 
@@ -159,14 +186,24 @@ class TestTTOUSignal:
 class TestUnlimitedApps:
     """Test apps with worker_count=None work correctly."""
 
-    def test_unlimited_app_works(self, docker_services):
+    @pytest.fixture(autouse=True)
+    def _ready(self, docker_services):
+        # The TTOU-spam test before this class may leave the arbiter at
+        # the floor (2 workers).  Bump the count back up so LimitedTask
+        # has spare capacity, then wait for both apps to be reachable.
+        for _ in range(2):
+            send_signal_to_dirty_arbiter("TTIN")
+            time.sleep(0.5)
+        wait_for_apps_ready("/unlimited", "/limited", timeout=30)
+
+    def test_unlimited_app_works(self):
         """UnlimitedTask should work."""
         resp = requests.get(f"{BASE_URL}/unlimited", timeout=10)
         assert resp.status_code == 200
         data = resp.json()
         assert data["task"] == "unlimited"
 
-    def test_limited_app_works(self, docker_services):
+    def test_limited_app_works(self):
         """LimitedTask should work."""
         resp = requests.get(f"{BASE_URL}/limited", timeout=10)
         assert resp.status_code == 200

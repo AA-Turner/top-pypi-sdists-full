@@ -126,6 +126,12 @@ class MergifyError(click.ClickException):
         click.secho(f"error: {self.message}", file=file, err=True, fg="red")
 
 
+def subprocess_env() -> dict[str, str]:
+    # Force C locale: fetch_notes_ref and read_reasons match git error
+    # messages by English substring, which breaks under translated locales.
+    return {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
+
+
 async def run_command(*args: str) -> str:
     if is_debug():
         console.print(f"[purple]DEBUG: running: git {' '.join(args)} [/]")
@@ -134,6 +140,7 @@ async def run_command(*args: str) -> str:
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
+            env=subprocess_env(),
         )
     except FileNotFoundError as e:
         raise CommandError(args, -1, str(e).encode()) from e
@@ -329,7 +336,10 @@ def get_http_client(
         headers=default_headers,
         event_hooks=default_event_hooks,
         follow_redirects=follow_redirects,
-        timeout=5.0,
+        # GitHub's PR create/update can briefly exceed 5s under load, but
+        # a slow CLI is worse than a fast retry — 10s absorbs transient
+        # hiccups while keeping the tool responsive when GitHub is down.
+        timeout=httpx.Timeout(5.0, read=10.0, write=10.0),
     )
 
 

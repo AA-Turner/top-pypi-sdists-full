@@ -451,6 +451,54 @@ def test_shorten_path_non_pathlike_returns_str():
     assert cli._shorten_path(123) == "123"
 
 
+def test_apply_display_filters_severity_filters_without_crashing():
+    result = {
+        "analysis_summary": {"total_files": 1},
+        "quality": [
+            {"severity": "LOW", "file": "src/a.py", "message": "low"},
+            {"severity": "MEDIUM", "file": "src/b.py", "message": "medium"},
+            {"severity": "HIGH", "file": "src/c.py", "message": "high"},
+        ],
+        "danger": [],
+        "secrets": [],
+        "unused_functions": [{"name": "unused", "file": "src/a.py", "line": 1}],
+    }
+
+    filtered = cli._apply_display_filters(result, severity="medium")
+
+    assert filtered["quality"] == [
+        {"severity": "MEDIUM", "file": "src/b.py", "message": "medium"},
+        {"severity": "HIGH", "file": "src/c.py", "message": "high"},
+    ]
+    assert filtered["unused_functions"] == result["unused_functions"]
+    assert filtered["analysis_summary"] == result["analysis_summary"]
+
+
+def test_apply_display_filters_combines_category_file_and_severity():
+    result = {
+        "analysis_summary": {"total_files": 1},
+        "quality": [
+            {"severity": "HIGH", "file": "src/keep.py", "message": "keep"},
+            {"severity": "LOW", "file": "src/keep.py", "message": "drop severity"},
+            {"severity": "HIGH", "file": "src/drop.py", "message": "drop file"},
+        ],
+        "danger": [
+            {"severity": "HIGH", "file": "src/keep.py", "message": "drop category"}
+        ],
+        "secrets": [],
+        "unused_functions": [],
+    }
+
+    filtered = cli._apply_display_filters(
+        result, severity="medium", category="quality", file_filter="keep.py"
+    )
+
+    assert filtered["quality"] == [
+        {"severity": "HIGH", "file": "src/keep.py", "message": "keep"}
+    ]
+    assert filtered["danger"] == []
+
+
 def test_comment_out_unused_import_handles_exception_and_returns_false():
     with (
         patch("pathlib.Path.read_text", return_value="import os\n"),
@@ -482,6 +530,68 @@ def test_comment_out_unused_function_handles_exception_and_returns_false():
     assert ok is False
     w.assert_not_called()
     assert logerr.called
+
+
+def test_generate_llm_report_formats_findings_and_defaults_dead_code(tmp_path):
+    src = tmp_path / "app.py"
+    src.write_text(
+        "\n".join(
+            [
+                "def live():",
+                "    value = input()",
+                "    eval(value)",
+                "    return value",
+                "",
+                "def unused():",
+                "    return 2",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    result = {
+        "danger": [
+            {
+                "rule_id": "SKY-D201",
+                "severity": "HIGH",
+                "message": "eval used",
+                "file": str(src),
+                "line": 3,
+                "name": "live",
+            }
+        ],
+        "secrets": [],
+        "quality": [
+            {
+                "rule_id": "SKY-Q301",
+                "severity": "MEDIUM",
+                "message": "complex",
+                "file": str(src),
+                "line": 1,
+                "name": "live",
+            }
+        ],
+        "custom_rules": [],
+        "unused_functions": [
+            {"name": "unused", "file": str(src), "line": 6, "why_unused": ["no refs"]}
+        ],
+        "unused_imports": [],
+        "unused_classes": [],
+        "unused_variables": [],
+        "unused_parameters": [],
+        "unused_files": [],
+    }
+
+    report = cli._generate_llm_report(result, tmp_path)
+
+    assert report.startswith("# Skylos Report — 3 findings\n\n")
+    assert "## 1. SKY-D201 | HIGH | Security\n" in report
+    assert "## 2. SKY-Q301 | MEDIUM | Quality\n" in report
+    assert "## 3. SKY-DC001 | MEDIUM | Dead Code\n" in report
+    assert ">>>    3 |     eval(value)" in report
+    assert "Unused function 'unused' is never used (no refs)" in report
+    assert result["unused_functions"][0]["rule_id"] == "SKY-DC001"
+    assert result["unused_functions"][0]["severity"] == "MEDIUM"
 
 
 def test_render_results_unused_table_includes_confidence_column_and_formats():

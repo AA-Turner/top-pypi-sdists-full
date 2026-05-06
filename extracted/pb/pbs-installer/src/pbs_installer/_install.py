@@ -43,7 +43,7 @@ def get_download_link(
     """Get the download URL matching the given requested version.
 
     Parameters:
-        request: The version of Python to install, e.g. 3.8,3.10.4
+        request: The version of Python to install, e.g. 3.14, 3.10.4, pypy@3.10
         arch: The architecture to install, e.g. x86_64, arm64
         platform: The platform to install, e.g. linux, macos
         implementation: The implementation of Python to install, allowed values are 'cpython' and 'pypy'
@@ -139,7 +139,7 @@ def install_file(
         build_dir: Whether to include the `build/` directory from indygreg builds
     """
 
-    from ._utils import unpack_tar, unpack_zip, unpack_zst
+    from ._utils import unpack_tar, unpack_zip
 
     if original_filename is None:
         original_filename = str(filename)
@@ -150,12 +150,10 @@ def install_file(
         original_filename,
     )
     filename = cast(str, filename)
-    if original_filename.endswith(".zst"):
-        unpack_zst(filename, destination)
-    elif original_filename.endswith(".zip"):
+    if original_filename.endswith(".zip"):
         unpack_zip(filename, destination)
     else:
-        unpack_tar(filename, destination)
+        unpack_tar(filename, destination, original_filename)
 
 
 def install(

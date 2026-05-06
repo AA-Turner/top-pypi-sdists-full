@@ -517,14 +517,55 @@ class TestWPM:
         expected = 0.2 ** 0.4 * 0.5 ** 0.35 * 0.6 ** 0.25
         assert float(result.values[0, 0]) == pytest.approx(expected)
 
-    def test_zero_value_kills_product(self):
-        """A zero criterion value should produce zero output."""
+    def test_zero_value_raises(self):
+        """A zero criterion value is rejected.
+
+        ``0 ** w`` collapses the whole product to zero for any positive
+        weight, which masks bugs in upstream standardization. ``wpm``
+        now requires strictly positive inputs.
+        """
         ds = xr.Dataset({
             "a": xr.DataArray(np.array([[0.0]]), dims=["y", "x"]),
             "b": xr.DataArray(np.array([[0.8]]), dims=["y", "x"]),
         })
+        with pytest.raises(ValueError, match="non-positive"):
+            wpm(ds, {"a": 0.5, "b": 0.5})
+
+    def test_negative_value_raises(self):
+        """A negative criterion value is rejected.
+
+        ``(-x) ** w`` is NaN for non-integer ``w``; without validation
+        the function silently returns NaN.
+        """
+        ds = xr.Dataset({
+            "a": xr.DataArray(np.array([[-0.1, 0.5]]), dims=["y", "x"]),
+            "b": xr.DataArray(np.array([[0.7, 0.7]]), dims=["y", "x"]),
+        })
+        with pytest.raises(ValueError, match="non-positive"):
+            wpm(ds, {"a": 0.5, "b": 0.5})
+
+    def test_error_names_offending_variable(self):
+        """The error message identifies which variable is bad."""
+        ds = xr.Dataset({
+            "ok": xr.DataArray(np.array([[0.5]]), dims=["y", "x"]),
+            "bad": xr.DataArray(np.array([[-1.0]]), dims=["y", "x"]),
+        })
+        with pytest.raises(ValueError, match="bad"):
+            wpm(ds, {"ok": 0.5, "bad": 0.5})
+
+    def test_strictly_positive_inputs_work(self):
+        """The positive path is unchanged."""
+        ds = xr.Dataset({
+            "a": xr.DataArray(np.array([[0.2, 0.5]]), dims=["y", "x"]),
+            "b": xr.DataArray(np.array([[0.8, 0.4]]), dims=["y", "x"]),
+        })
         result = wpm(ds, {"a": 0.5, "b": 0.5})
-        assert float(result.values[0, 0]) == pytest.approx(0.0)
+        assert float(result.values[0, 0]) == pytest.approx(
+            0.2 ** 0.5 * 0.8 ** 0.5
+        )
+        assert float(result.values[0, 1]) == pytest.approx(
+            0.5 ** 0.5 * 0.4 ** 0.5
+        )
 
 
 class TestWLCNaN:
@@ -757,6 +798,40 @@ class TestSensitivityMonteCarlo:
             sensitivity(
                 criteria_dataset, weights_3, combine_method="bad",
             )
+
+    def test_monte_carlo_n_samples_zero_raises(
+        self, criteria_dataset, weights_3,
+    ):
+        # Issue #1371: n_samples=0 used to silently divide by zero and
+        # return a raster of zeros. Should raise ValueError now.
+        with pytest.raises(ValueError, match="n_samples"):
+            sensitivity(
+                criteria_dataset, weights_3,
+                method="monte_carlo", n_samples=0,
+            )
+
+    def test_monte_carlo_n_samples_negative_raises(
+        self, criteria_dataset, weights_3,
+    ):
+        # Issue #1371: range(-1) is empty, so negative values used to
+        # silently return zeros too.
+        with pytest.raises(ValueError, match="n_samples"):
+            sensitivity(
+                criteria_dataset, weights_3,
+                method="monte_carlo", n_samples=-1,
+            )
+
+    def test_monte_carlo_n_samples_one_succeeds(
+        self, criteria_dataset, weights_3,
+    ):
+        # n_samples=1 is the meaningful minimum: variance is zero
+        # everywhere, but the call should still succeed.
+        result = sensitivity(
+            criteria_dataset, weights_3,
+            method="monte_carlo", n_samples=1,
+        )
+        assert result is not None
+        assert not np.any(np.isnan(result.values))
 
 
 @pytest.mark.skipif(not HAS_DASK, reason="Requires dask")
@@ -1118,14 +1193,14 @@ class TestWPMEdgeCases:
         r = wpm(ds, {"a": 0.3, "b": 0.7})
         assert float(r.values[0, 0]) == pytest.approx(1.0)
 
-    def test_all_zeros(self):
-        """All criteria at 0.0 should produce 0.0."""
+    def test_all_zeros_raises(self):
+        """All criteria at 0.0 is rejected by the positive-input check."""
         ds = xr.Dataset({
             "a": xr.DataArray(np.array([[0.0]]), dims=["y", "x"]),
             "b": xr.DataArray(np.array([[0.0]]), dims=["y", "x"]),
         })
-        r = wpm(ds, {"a": 0.5, "b": 0.5})
-        assert float(r.values[0, 0]) == pytest.approx(0.0)
+        with pytest.raises(ValueError, match="non-positive"):
+            wpm(ds, {"a": 0.5, "b": 0.5})
 
 
 class TestConstrainEdgeCases:
@@ -1828,3 +1903,50 @@ class TestNonFiniteWeights1311:
             {("a", "b"): 2.0, ("a", "c"): 4.0, ("b", "c"): 2.0},
         )
         assert all(np.isfinite(v) for v in weights.values())
+
+
+# ===========================================================================
+# Memory guard for owa() (#1370)
+# ===========================================================================
+
+class TestOWAMemoryGuard:
+    """Memory guard on the eager owa() path."""
+
+    def test_oversize_raises(self, criteria_dataset, weights_3):
+        """owa raises MemoryError when the criteria stack exceeds the budget."""
+        from unittest.mock import patch
+
+        with patch(
+            "xrspatial.mcda.combine._available_memory_bytes",
+            return_value=1,
+        ):
+            with pytest.raises(MemoryError, match="working memory"):
+                owa(criteria_dataset, weights_3, [0.5, 0.3, 0.2])
+
+    def test_normal_succeeds(self, criteria_dataset, weights_3):
+        """A normal-size dataset passes the guard with real available memory."""
+        result = owa(criteria_dataset, weights_3, [0.5, 0.3, 0.2])
+        assert result.shape == criteria_dataset["slope"].shape
+        assert np.all(np.isfinite(result.values))
+
+    def test_error_message_names_dimensions_and_count(
+        self, criteria_dataset, weights_3,
+    ):
+        """The error message identifies the criterion count and grid shape."""
+        from unittest.mock import patch
+
+        n = len(criteria_dataset.data_vars)
+        h, w = criteria_dataset["slope"].shape
+        shape_token = f"{h}x{w}"
+
+        with patch(
+            "xrspatial.mcda.combine._available_memory_bytes",
+            return_value=1,
+        ):
+            with pytest.raises(MemoryError) as exc_info:
+                owa(criteria_dataset, weights_3, [0.5, 0.3, 0.2])
+
+        msg = str(exc_info.value)
+        assert f"{n} criteria" in msg
+        assert shape_token in msg
+        assert "dask" in msg

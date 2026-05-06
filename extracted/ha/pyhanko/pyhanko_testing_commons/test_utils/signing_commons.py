@@ -27,6 +27,7 @@ from pyhanko_testing_commons.test_data.samples import (
     TESTING_CA_ECDSA,
     TESTING_CA_ED448,
     TESTING_CA_ED25519,
+    TESTING_CA_MLDSA,
     UNRELATED_TSA,
     read_all,
 )
@@ -52,6 +53,8 @@ OCSP_CERT = TESTING_CA.get_cert(CertLabel('interm-ocsp'))
 REVOKED_CERT = TESTING_CA.get_cert(CertLabel('signer2'))
 TSA_CERT = TESTING_CA.get_cert(CertLabel('tsa'))
 TSA2_CERT = TESTING_CA.get_cert(CertLabel('tsa2'))
+MLDSA_ROOT_CERT = TESTING_CA_MLDSA.get_cert(CertLabel('root'))
+MLDSA_INTERM_CERT = TESTING_CA_MLDSA.get_cert(CertLabel('interm'))
 FROM_CA = signers.SimpleSigner(
     signing_cert=TESTING_CA.get_cert(CertLabel('signer1')),
     signing_key=TESTING_CA.key_set.get_private_key(KeyLabel('signer1')),

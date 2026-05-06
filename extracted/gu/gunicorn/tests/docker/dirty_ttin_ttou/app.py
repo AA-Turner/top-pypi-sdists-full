@@ -45,10 +45,14 @@ def app(environ, start_response):
         start_response('200 OK', [('Content-Type', 'text/plain')])
         return [b'OK']
 
+    # client.execute(app_path, action, *args, **kwargs) — action is the
+    # method name on the DirtyApp.  The original fixture passed the data
+    # dict where ``action`` belongs, which surfaced as a 500 from
+    # ``getattr(self, action)`` on the dirty worker.
     if path == '/unlimited':
         try:
             client = get_dirty_client()
-            result = client.execute('app:UnlimitedTask', {'test': 'data'})
+            result = client.execute('app:UnlimitedTask', 'process', {'test': 'data'})
             start_response('200 OK', [('Content-Type', 'application/json')])
             return [json.dumps(result).encode()]
         except Exception as e:
@@ -59,7 +63,7 @@ def app(environ, start_response):
     if path == '/limited':
         try:
             client = get_dirty_client()
-            result = client.execute('app:LimitedTask', {'test': 'data'})
+            result = client.execute('app:LimitedTask', 'process', {'test': 'data'})
             start_response('200 OK', [('Content-Type', 'application/json')])
             return [json.dumps(result).encode()]
         except Exception as e:

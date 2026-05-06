@@ -40,7 +40,6 @@ def _get_kwargs(
     state: Union[Unset, list[CoreStates]] = UNSET,
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -134,11 +133,6 @@ def _get_kwargs(
         json_tenant_uuid = str(tenant_uuid)
     params["tenant_uuid"] = json_tenant_uuid
 
-    json_uuid: Union[Unset, str] = UNSET
-    if not isinstance(uuid, Unset):
-        json_uuid = str(uuid)
-    params["uuid"] = json_uuid
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -207,7 +201,6 @@ def sync_detailed(
     state: Union[Unset, list[CoreStates]] = UNSET,
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
     """List volumes
 
@@ -242,7 +235,6 @@ def sync_detailed(
         state (Union[Unset, list[CoreStates]]):
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -281,7 +273,6 @@ def sync_detailed(
         state=state,
         tenant=tenant,
         tenant_uuid=tenant_uuid,
-        uuid=uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -322,7 +313,6 @@ def sync(
     state: Union[Unset, list[CoreStates]] = UNSET,
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
     """List volumes
 
@@ -357,7 +347,6 @@ def sync(
         state (Union[Unset, list[CoreStates]]):
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -397,7 +386,6 @@ def sync(
         state=state,
         tenant=tenant,
         tenant_uuid=tenant_uuid,
-        uuid=uuid,
     ).parsed
 
 
@@ -432,7 +420,6 @@ async def asyncio_detailed(
     state: Union[Unset, list[CoreStates]] = UNSET,
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
     """List volumes
 
@@ -467,7 +454,6 @@ async def asyncio_detailed(
         state (Union[Unset, list[CoreStates]]):
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -506,7 +492,6 @@ async def asyncio_detailed(
         state=state,
         tenant=tenant,
         tenant_uuid=tenant_uuid,
-        uuid=uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -545,7 +530,6 @@ async def asyncio(
     state: Union[Unset, list[CoreStates]] = UNSET,
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
     """List volumes
 
@@ -580,7 +564,6 @@ async def asyncio(
         state (Union[Unset, list[CoreStates]]):
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -621,6 +604,5 @@ async def asyncio(
             state=state,
             tenant=tenant,
             tenant_uuid=tenant_uuid,
-            uuid=uuid,
         )
     ).parsed

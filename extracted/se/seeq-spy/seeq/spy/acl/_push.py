@@ -12,20 +12,20 @@ from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.acl import _pull
-from seeq.spy.workbooks import Item
+from seeq.spy.workbooks import Item, Identity
 
 
 @Status.top_level_spy_function()
 def push(
-    items: Union[pd.DataFrame, dict, list, str, Item],
-    acl: Union[pd.DataFrame, dict, list],
-    *,
-    replace: bool = False,
-    disable_inheritance: Optional[bool] = None,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        items: Union[pd.DataFrame, dict, list, str, Item],
+        acl: Union[pd.DataFrame, dict, list],
+        *,
+        replace: bool = False,
+        disable_inheritance: Optional[bool] = None,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> pd.DataFrame:
     """
     Pushes new access control entries against a set of items as specified
@@ -172,30 +172,9 @@ def push(
                     f'Access Control DataFrame must include value in either ID or Name or Username column:\n'
                     f'{acl_row}')
 
-            matches = list()
+            matches = Identity.search(session, acl_row)
             query = _common.get(acl_row, 'Username') if _common.present(acl_row, 'Username') else \
                 _common.get(acl_row, 'Name')
-
-            identities = users_api.autocomplete_users_and_groups(query=query, limit=100000)
-
-            for identity in identities.items:  # type: IdentityPreviewV1
-                if (_common.present(acl_row, 'Name') and
-                        _insensitive_not_equal(identity.name, _common.get(acl_row, 'Name'))):
-                    continue
-
-                if (_common.present(acl_row, 'Username') and
-                        _insensitive_not_equal(identity.username, _common.get(acl_row, 'Username'))):
-                    continue
-
-                if (_common.present(acl_row, 'Type') and
-                        _insensitive_not_equal(identity.type, _common.get(acl_row, 'Type'))):
-                    continue
-
-                if (_common.present(acl_row, 'Directory') and
-                        _insensitive_not_equal(identity.datasource.name, _common.get(acl_row, 'Directory'))):
-                    continue
-
-                matches.append(identity)
 
             if len(matches) == 0:
                 raise SPyValueError(

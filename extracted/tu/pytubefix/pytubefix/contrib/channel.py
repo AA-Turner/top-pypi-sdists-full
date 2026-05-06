@@ -52,7 +52,17 @@ class Channel(Playlist):
             The verifier will return the visitorData and po_token respectively.
             (if passed, else default verifier will be used)
         """
-        super().__init__(url, proxies)
+        super().__init__(
+            url,
+            client=client,
+            proxies=proxies,
+            use_oauth=use_oauth,
+            allow_oauth_cache=allow_oauth_cache,
+            token_file=token_file,
+            oauth_verifier=oauth_verifier,
+            use_po_token=use_po_token,
+            po_token_verifier=po_token_verifier,
+        )
 
         self.channel_uri = extract.channel_name(url)
 

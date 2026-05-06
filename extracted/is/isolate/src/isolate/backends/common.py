@@ -166,13 +166,15 @@ def _close_fd(fd: int) -> None:
 
 
 def _unblocked_pipe() -> tuple[int, int]:
-    """Create a pair of unblocked pipes. This is actually
-    the same as os.pipe2(os.O_NONBLOCK), but that is not
-    available in MacOS so we have to do it manually."""
+    """Create a pipe whose read end is non-blocking, so the reader thread in
+    `_io_observer` can `select()` + `read()` without risk of hanging on a
+    partial-line edge case. The write end stays blocking so the worker's
+    stdout/stderr applies backpressure (waits for the reader to drain the
+    kernel pipe buffer) instead of raising BlockingIOError when the buffer
+    fills up — which happens reliably with chunky tracebacks on Python 3.14."""
 
     read_fd, write_fd = os.pipe()
     os.set_blocking(read_fd, False)
-    os.set_blocking(write_fd, False)
     return read_fd, write_fd
 
 

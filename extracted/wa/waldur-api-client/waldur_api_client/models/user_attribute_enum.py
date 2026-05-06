@@ -8,10 +8,12 @@ class UserAttributeEnum(str, Enum):
     COUNTRY_OF_RESIDENCE = "country_of_residence"
     EDUPERSON_ASSURANCE = "eduperson_assurance"
     EMAIL = "email"
+    FIRST_NAME = "first_name"
     FULL_NAME = "full_name"
     GENDER = "gender"
     IDENTITY_SOURCE = "identity_source"
     JOB_TITLE = "job_title"
+    LAST_NAME = "last_name"
     NATIONALITIES = "nationalities"
     NATIONALITY = "nationality"
     ORGANIZATION = "organization"
@@ -21,6 +23,7 @@ class UserAttributeEnum(str, Enum):
     PERSONAL_TITLE = "personal_title"
     PHONE_NUMBER = "phone_number"
     PLACE_OF_BIRTH = "place_of_birth"
+    REGISTRATION_METHOD = "registration_method"
     USERNAME = "username"
 
     def __str__(self) -> str:

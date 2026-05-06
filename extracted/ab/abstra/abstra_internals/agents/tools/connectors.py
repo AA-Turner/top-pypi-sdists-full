@@ -29,6 +29,10 @@ def to_params(p: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 class ConnectorsTools(AgentTools):
+    """
+    Toolkit that lets an agent call your project's configured connectors (Slack, Stripe, email providers, custom HTTP integrations, etc.). The agent gets a single `call(connection, action, params)` tool, optionally restricted to specific connections and actions.
+    """
+
     connections: Optional[Set[str]]
     actions: Optional[Set[str]]
     params: Dict[str, Any]
@@ -39,6 +43,14 @@ class ConnectorsTools(AgentTools):
         action: Optional[Union[str, Iterable[str]]] = None,
         params: Optional[Dict[str, Any]] = None,
     ):
+        """
+        Build a ConnectorsTools toolkit, optionally scoped to specific connections, actions, and default params.
+
+        Args:
+            connection (Optional): Restrict the agent to a single connection name (e.g. `"slack"`) or a list of names. `None` allows any configured connection. Defaults to None.
+            action (Optional): Restrict the agent to a single action name (e.g. `"send_message"`) or a list of names. `None` allows any action. Defaults to None.
+            params (Optional): Default parameters merged into every `call()` (call-site values take precedence). Useful for fixed values like channel IDs or API versions. Defaults to None.
+        """
         self.connections = to_connections(connection)
         self.actions = to_actions(action)
         self.params = to_params(params)

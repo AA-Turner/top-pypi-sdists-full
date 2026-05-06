@@ -30,6 +30,7 @@ class ThreadSession:
         title_gen_output_tokens (Union[None, Unset, int]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
+        has_feedback (Union[Unset, bool]):
         user_username (Union[Unset, str]):
         user_full_name (Union[Unset, str]):
         created (Union[Unset, datetime.datetime]):
@@ -49,6 +50,7 @@ class ThreadSession:
     title_gen_output_tokens: Union[None, Unset, int] = UNSET
     is_flagged: Union[Unset, bool] = UNSET
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET
+    has_feedback: Union[Unset, bool] = UNSET
     user_username: Union[Unset, str] = UNSET
     user_full_name: Union[Unset, str] = UNSET
     created: Union[Unset, datetime.datetime] = UNSET
@@ -108,6 +110,8 @@ class ThreadSession:
         if not isinstance(self.max_severity, Unset):
             max_severity = self.max_severity.value
 
+        has_feedback = self.has_feedback
+
         user_username = self.user_username
 
         user_full_name = self.user_full_name
@@ -149,6 +153,8 @@ class ThreadSession:
             field_dict["is_flagged"] = is_flagged
         if max_severity is not UNSET:
             field_dict["max_severity"] = max_severity
+        if has_feedback is not UNSET:
+            field_dict["has_feedback"] = has_feedback
         if user_username is not UNSET:
             field_dict["user_username"] = user_username
         if user_full_name is not UNSET:
@@ -239,6 +245,8 @@ class ThreadSession:
         else:
             max_severity = InjectionSeverityEnum(_max_severity)
 
+        has_feedback = d.pop("has_feedback", UNSET)
+
         user_username = d.pop("user_username", UNSET)
 
         user_full_name = d.pop("user_full_name", UNSET)
@@ -271,6 +279,7 @@ class ThreadSession:
             title_gen_output_tokens=title_gen_output_tokens,
             is_flagged=is_flagged,
             max_severity=max_severity,
+            has_feedback=has_feedback,
             user_username=user_username,
             user_full_name=user_full_name,
             created=created,

@@ -1,5 +1,3 @@
-import subprocess
-import sys
 from typing import List, Optional
 
 from abstra_internals.repositories.linter.models import (
@@ -8,14 +6,18 @@ from abstra_internals.repositories.linter.models import (
     LinterRule,
 )
 from abstra_internals.services.requirements import (
+    Requirements,
     RequirementsRepository,
     analyze_project_imports,
+    create_requirement,
+    get_installed_version,
 )
 from abstra_internals.settings import Settings
 
 
 class AddPackageToRequirements(LinterFix):
-    """Fix that adds a missing package to requirements.txt."""
+    """Fix that adds a missing package to requirements.txt, installing it
+    if it isn't already present in the current environment."""
 
     def __init__(self, package_name: str, version: Optional[str] = None):
         self.package_name = package_name
@@ -31,6 +33,10 @@ class AddPackageToRequirements(LinterFix):
         requirements.add(self.package_name, self.version)
         RequirementsRepository.save(requirements)
 
+        if get_installed_version(self.package_name) is None:
+            req = create_requirement(self.package_name, self.version)
+            Requirements([req]).install()
+
 
 class InstallRequirements(LinterFix):
     """Fix that installs missing packages from requirements.txt."""
@@ -43,10 +49,8 @@ class InstallRequirements(LinterFix):
         if not requirements_path.exists():
             return
 
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-r", str(requirements_path)],
-            check=False,
-        )
+        requirements = RequirementsRepository.load()
+        requirements.install()
 
 
 class MissingPackageInRequirements(LinterIssue):

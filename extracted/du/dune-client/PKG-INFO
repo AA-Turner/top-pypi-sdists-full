@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dune_client
-Version: 1.10.0
+Version: 1.11.0
 Summary: A simple framework for interacting with Dune Analytics official API service.
 Project-URL: Homepage, https://github.com/duneanalytics/dune-client
 Project-URL: Repository, https://github.com/duneanalytics/dune-client
@@ -16,12 +16,12 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
-Requires-Dist: aiohttp~=3.12.15
+Requires-Dist: aiohttp~=3.13.4
 Requires-Dist: dataclasses-json~=0.6.4
 Requires-Dist: deprecated~=1.2.18
 Requires-Dist: ndjson~=0.3.1
 Requires-Dist: python-dateutil~=2.9.0
-Requires-Dist: requests~=2.32.5
+Requires-Dist: requests~=2.33.0
 Description-Content-Type: text/markdown
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)

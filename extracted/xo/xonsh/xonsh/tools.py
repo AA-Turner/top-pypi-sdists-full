@@ -2782,12 +2782,16 @@ def _case_insensitive_iglob(pattern, *, include_dotfiles=False, recursive=False)
         # itself started with one.
         strip_dot_prefix = not pattern.startswith("." + os.sep)
 
-    def _entries(d):
+    def _entries(d, part):
         try:
             entries = os.listdir(d)
         except OSError:
             return None
-        if not include_dotfiles:
+        # Mirror stdlib glob: a segment that starts with '.' is treated as
+        # an explicit request for hidden names (literal '.foo' or wildcard
+        # '.x*'), so the dotfile filter does not apply. Bare wildcards
+        # ('*', '**', 'foo*') still hide dotfiles unless include_dotfiles.
+        if not include_dotfiles and not part.startswith("."):
             entries = [e for e in entries if not e.startswith(".")]
         return entries
 
@@ -2796,10 +2800,23 @@ def _case_insensitive_iglob(pattern, *, include_dotfiles=False, recursive=False)
 
     for idx, part in enumerate(parts):
         is_last = idx == len(parts) - 1
-        # '.' and empty segments are no-ops (e.g. './foo' splits to
-        # ['.', 'foo'] — we should stay in cwd rather than look for an
-        # entry literally named '.').
-        if part in ("", ".") and not is_last:
+        # '.' / '' / '..' are never returned by os.listdir, so handle
+        # them as literal path-walking segments to match stdlib glob:
+        # '.' / '' stay in the current directory, '..' moves up. Without
+        # this branch, patterns like '../*', '/tmp/../etc' or a bare
+        # 'cd ../' (which expands to '../*') would yield zero matches.
+        # A trailing '' (empty) segment also preserves the trailing
+        # separator on the result, so 'foo/' yields 'foo/' rather than
+        # 'foo'.
+        if part in ("", ".", ".."):
+            if part in ("", ".") and not is_last:
+                continue
+            nxt = [_join(d, part) for d in cur]
+            if not is_last:
+                nxt = [p for p in nxt if os.path.isdir(p)]
+            cur = nxt
+            if not cur:
+                return
             continue
         nxt = []
         if recursive and part == "**":
@@ -2811,7 +2828,7 @@ def _case_insensitive_iglob(pattern, *, include_dotfiles=False, recursive=False)
                     continue
                 seen.add(d)
                 nxt.append(d)
-                entries = _entries(d)
+                entries = _entries(d, part)
                 if entries is None:
                     continue
                 for e in entries:
@@ -2822,7 +2839,7 @@ def _case_insensitive_iglob(pattern, *, include_dotfiles=False, recursive=False)
             continue
         has_meta = any(c in part for c in _GLOB_META)
         for d in cur:
-            entries = _entries(d)
+            entries = _entries(d, part)
             if entries is None:
                 # Parent unreadable (sandbox, EACCES) — keep the literal
                 # name if it actually exists on disk, otherwise drop

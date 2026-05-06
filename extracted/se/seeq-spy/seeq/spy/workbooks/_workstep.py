@@ -114,6 +114,51 @@ class Workstep(Item):
         kwargs['definition'] = definition_dict
         return derived_class(**kwargs)
 
+    def push(self, workbook_id: str, worksheet_id: str, *, refresh_screens: bool = True,
+             session: Optional[Session] = None) -> str:
+        """
+        Pushes this workstep to a specific (already-present-on-server) worksheet in Seeq.
+
+        Parameters
+        ----------
+        workbook_id : str
+            The ID of the workbook containing the target worksheet.
+
+        worksheet_id : str
+            The ID of the worksheet to push this workstep to.
+
+        refresh_screens : bool, default True
+            If True, any Workbench screens currently viewing the target
+            worksheet will automatically refresh (without the user's
+            intervention).
+
+            Should only be set to False when multiple worksteps are
+            being pushed in quick succession and a subsequent
+            call will be made to set the current workstep.
+
+        session : spy.Session, optional
+            If supplied, the Session object (and its Options) will be used to
+            store the login session state. This is useful to log in to
+            different Seeq servers at the same time or with different
+            credentials.
+
+        Returns
+        -------
+        str
+            The ID of the newly created workstep on the server.
+        """
+        session = Session.validate(session)
+        workbooks_api = WorkbooksApi(session.client)
+        self._validate_before_push()
+        workstep_input = WorkstepInputV1(data=_common.safe_json_dumps(self.data))
+        workstep_output = workbooks_api.create_workstep(
+            workbook_id=workbook_id,
+            worksheet_id=worksheet_id,
+            no_workstep_message=not refresh_screens,
+            body=workstep_input
+        )
+        return workstep_output.id
+
     def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id: str,
                                    pushed_worksheet_id: Optional[str], item_map, include_inventory, *,
                                    no_workstep_message=None):
@@ -126,7 +171,7 @@ class Workstep(Item):
 
         workstep_to_push = self._apply_map(item_map)
 
-        if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and workstep_to_push is self:
+        if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and workstep_to_push is self:
             context.status.log(
                 f'No changes for Workstep {pushed_workbook_id}/{pushed_worksheet_id}/{self.id} -- skipping')
             return self.id

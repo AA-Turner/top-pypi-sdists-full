@@ -44,6 +44,7 @@ class OfferingUser:
         user_gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         user_personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
         user_place_of_birth (Union[Unset, str]):
+        user_address (Union[Unset, str]):
         user_country_of_residence (Union[Unset, str]):
         user_nationality (Union[Unset, str]): Primary citizenship (ISO 3166-1 alpha-2 code)
         user_nationalities (Union[Unset, Any]): List of all citizenships (ISO 3166-1 alpha-2 codes)
@@ -69,6 +70,7 @@ class OfferingUser:
             service provider comment
         has_consent (Union[Unset, bool]): Check if the user has active consent for this offering.
         requires_reconsent (Union[Unset, bool]): Check if the user needs to re-consent due to ToS changes.
+        offering_has_active_tos (Union[Unset, bool]):
         has_compliance_checklist (Union[Unset, bool]): Check if the offering user has a connected compliance checklist
             completion.
         consent_data (Union['OfferingUserConsentDataType0', None, Unset]): User consent data including uuid, version,
@@ -97,6 +99,7 @@ class OfferingUser:
     user_gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     user_personal_title: Union[Unset, str] = UNSET
     user_place_of_birth: Union[Unset, str] = UNSET
+    user_address: Union[Unset, str] = UNSET
     user_country_of_residence: Union[Unset, str] = UNSET
     user_nationality: Union[Unset, str] = UNSET
     user_nationalities: Union[Unset, Any] = UNSET
@@ -118,6 +121,7 @@ class OfferingUser:
     service_provider_comment_url: Union[Unset, str] = UNSET
     has_consent: Union[Unset, bool] = UNSET
     requires_reconsent: Union[Unset, bool] = UNSET
+    offering_has_active_tos: Union[Unset, bool] = UNSET
     has_compliance_checklist: Union[Unset, bool] = UNSET
     consent_data: Union["OfferingUserConsentDataType0", None, Unset] = UNSET
     is_profile_complete: Union[Unset, bool] = UNSET
@@ -185,6 +189,8 @@ class OfferingUser:
 
         user_place_of_birth = self.user_place_of_birth
 
+        user_address = self.user_address
+
         user_country_of_residence = self.user_country_of_residence
 
         user_nationality = self.user_nationality
@@ -245,6 +251,8 @@ class OfferingUser:
 
         requires_reconsent = self.requires_reconsent
 
+        offering_has_active_tos = self.offering_has_active_tos
+
         has_compliance_checklist = self.has_compliance_checklist
 
         consent_data: Union[None, Unset, dict[str, Any]]
@@ -304,6 +312,8 @@ class OfferingUser:
             field_dict["user_personal_title"] = user_personal_title
         if user_place_of_birth is not UNSET:
             field_dict["user_place_of_birth"] = user_place_of_birth
+        if user_address is not UNSET:
+            field_dict["user_address"] = user_address
         if user_country_of_residence is not UNSET:
             field_dict["user_country_of_residence"] = user_country_of_residence
         if user_nationality is not UNSET:
@@ -346,6 +356,8 @@ class OfferingUser:
             field_dict["has_consent"] = has_consent
         if requires_reconsent is not UNSET:
             field_dict["requires_reconsent"] = requires_reconsent
+        if offering_has_active_tos is not UNSET:
+            field_dict["offering_has_active_tos"] = offering_has_active_tos
         if has_compliance_checklist is not UNSET:
             field_dict["has_compliance_checklist"] = has_compliance_checklist
         if consent_data is not UNSET:
@@ -447,6 +459,8 @@ class OfferingUser:
 
         user_place_of_birth = d.pop("user_place_of_birth", UNSET)
 
+        user_address = d.pop("user_address", UNSET)
+
         user_country_of_residence = d.pop("user_country_of_residence", UNSET)
 
         user_nationality = d.pop("user_nationality", UNSET)
@@ -531,6 +545,8 @@ class OfferingUser:
 
         requires_reconsent = d.pop("requires_reconsent", UNSET)
 
+        offering_has_active_tos = d.pop("offering_has_active_tos", UNSET)
+
         has_compliance_checklist = d.pop("has_compliance_checklist", UNSET)
 
         def _parse_consent_data(data: object) -> Union["OfferingUserConsentDataType0", None, Unset]:
@@ -575,6 +591,7 @@ class OfferingUser:
             user_gender=user_gender,
             user_personal_title=user_personal_title,
             user_place_of_birth=user_place_of_birth,
+            user_address=user_address,
             user_country_of_residence=user_country_of_residence,
             user_nationality=user_nationality,
             user_nationalities=user_nationalities,
@@ -596,6 +613,7 @@ class OfferingUser:
             service_provider_comment_url=service_provider_comment_url,
             has_consent=has_consent,
             requires_reconsent=requires_reconsent,
+            offering_has_active_tos=offering_has_active_tos,
             has_compliance_checklist=has_compliance_checklist,
             consent_data=consent_data,
             is_profile_complete=is_profile_complete,

@@ -1,3 +1,5 @@
+use crate::node::{Node, Nodes};
+use pyo3::PyErr;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -11,19 +13,6 @@ pub struct Parser {
     text: String,
     blocks: Vec<(BlockCommand, BlockCommand)>,
     known_commands: Vec<String>,
-}
-
-pub enum Node {
-    Tree {
-        data: String,
-        children: Vec<Node>,
-    },
-    Token {
-        type_: String,
-        value: String,
-        line: Option<usize>,
-        column: Option<usize>,
-    },
 }
 
 pub enum ErrorType {
@@ -40,7 +29,7 @@ pub struct Error {
     pub column: usize,
 }
 
-fn tree(data: &str, children: Vec<Node>) -> Node {
+pub fn tree(data: &str, children: Nodes) -> Node {
     Node::Tree {
         data: data.to_string(),
         children,
@@ -261,7 +250,7 @@ impl Parser {
             offset = new_offset;
         }
 
-        let mut result: Vec<Node> = vec![];
+        let mut result: Nodes = vec![];
         let mut last_newline_or_gap: Option<Node> = None;
         loop {
             if self.element_t(end_command, offset)?.is_some() {
@@ -332,7 +321,7 @@ impl Parser {
         Ok(None)
     }
 
-    fn commented_argument_atom(&self, offset: usize) -> Result<Option<(Vec<Node>, usize)>, Error> {
+    fn commented_argument_atom(&self, offset: usize) -> Result<Option<(Nodes, usize)>, Error> {
         if let Some((matched, offset)) = self.bracket_comment(offset)? {
             return Ok(Some((vec![matched], offset)));
         }
@@ -758,7 +747,7 @@ impl Parser {
             Some((_, new_offset)) => new_offset,
             None => 0usize,
         };
-        let mut result: Vec<Node> = vec![];
+        let mut result: Nodes = vec![];
         let mut last_newline_or_gap: Option<Node> = None;
 
         #[allow(clippy::while_let_loop)]
@@ -830,4 +819,21 @@ fn prepare_blocks(blocks: BlockDefinitions) -> Vec<(BlockCommand, BlockCommand)>
         .into_iter()
         .map(|(start, end)| (block_command(start), block_command(end)))
         .collect()
+}
+
+pyo3::import_exception!(gersemi.exceptions, GenericParsingError);
+pyo3::import_exception!(gersemi.exceptions, UnbalancedBlock);
+pyo3::import_exception!(gersemi.exceptions, UnbalancedBrackets);
+pyo3::import_exception!(gersemi.exceptions, UnbalancedParentheses);
+
+impl From<Error> for PyErr {
+    fn from(error: Error) -> Self {
+        let exception = match error.error_type {
+            ErrorType::GenericParsingError => GenericParsingError::new_err,
+            ErrorType::UnbalancedBlock => UnbalancedBlock::new_err,
+            ErrorType::UnbalancedBrackets => UnbalancedBrackets::new_err,
+            ErrorType::UnbalancedParentheses => UnbalancedParentheses::new_err,
+        };
+        exception((error.explanation, error.line, error.column))
+    }
 }

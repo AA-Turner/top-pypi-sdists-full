@@ -1060,123 +1060,155 @@ def print_badge(
     console.print("```")
 
 
-def _generate_llm_report(result: dict, project_root: pathlib.Path) -> str:
-    sections = []
-    finding_num = 0
+_LLM_REPORT_CATEGORIES = [
+    ("danger", "Security"),
+    ("secrets", "Secrets"),
+    ("quality", "Quality"),
+    ("custom_rules", "Custom Rules"),
+]
+_LLM_REPORT_DEAD_CODE_META = {
+    "unused_functions": ("SKY-DC001", "MEDIUM", "Unused function"),
+    "unused_imports": ("SKY-DC002", "LOW", "Unused import"),
+    "unused_classes": ("SKY-DC003", "MEDIUM", "Unused class"),
+    "unused_variables": ("SKY-DC004", "LOW", "Unused variable"),
+    "unused_parameters": ("SKY-DC005", "LOW", "Unused parameter"),
+    "unused_files": ("SKY-DC006", "LOW", "Empty file"),
+}
+_LLM_REPORT_SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
+
+def _default_dead_code_llm_fields(finding, rule_id, severity, human_label):
+    if not finding.get("message"):
+        name = finding.get("name") or finding.get("simple_name") or ""
+        why = finding.get("why_unused")
+        if why:
+            finding["message"] = (
+                f"{human_label} '{name}' is never used ({', '.join(why)})"
+            )
+        else:
+            finding["message"] = f"{human_label} '{name}' is never used"
+    if not finding.get("rule_id"):
+        finding["rule_id"] = rule_id
+    if not finding.get("severity"):
+        finding["severity"] = severity
+
+
+def _collect_llm_report_findings(result: dict):
     all_findings = []
-    for category, label in [
-        ("danger", "Security"),
-        ("secrets", "Secrets"),
-        ("quality", "Quality"),
-        ("custom_rules", "Custom Rules"),
-    ]:
-        for f in result.get(category, []):
-            all_findings.append((f, label))
+    for category, label in _LLM_REPORT_CATEGORIES:
+        for finding in result.get(category, []):
+            all_findings.append((finding, label))
 
-    _dead_code_meta = {
-        "unused_functions": ("SKY-DC001", "MEDIUM", "Unused function"),
-        "unused_imports": ("SKY-DC002", "LOW", "Unused import"),
-        "unused_classes": ("SKY-DC003", "MEDIUM", "Unused class"),
-        "unused_variables": ("SKY-DC004", "LOW", "Unused variable"),
-        "unused_parameters": ("SKY-DC005", "LOW", "Unused parameter"),
-        "unused_files": ("SKY-DC006", "LOW", "Empty file"),
-    }
-    for category in _dead_code_meta:
-        rule_id, sev, human_label = _dead_code_meta[category]
-        for f in result.get(category, []):
-            if not f.get("message"):
-                name = f.get("name") or f.get("simple_name") or ""
-                why = f.get("why_unused")
-                if why:
-                    f["message"] = (
-                        f"{human_label} '{name}' is never used ({', '.join(why)})"
-                    )
-                else:
-                    f["message"] = f"{human_label} '{name}' is never used"
-            if not f.get("rule_id"):
-                f["rule_id"] = rule_id
-            if not f.get("severity"):
-                f["severity"] = sev
-            all_findings.append((f, "Dead Code"))
+    for category in _LLM_REPORT_DEAD_CODE_META:
+        rule_id, severity, human_label = _LLM_REPORT_DEAD_CODE_META[category]
+        for finding in result.get(category, []):
+            _default_dead_code_llm_fields(finding, rule_id, severity, human_label)
+            all_findings.append((finding, "Dead Code"))
 
+    return all_findings
+
+
+def _llm_report_sort_key(finding_with_label):
+    finding, _label = finding_with_label
+    return _LLM_REPORT_SEVERITY_ORDER.get(finding.get("severity", "LOW"), 4)
+
+
+def _llm_report_code_block(
+    file_path: str, line: int, project_root: pathlib.Path, file_cache: dict
+) -> str:
+    try:
+        abs_path = pathlib.Path(file_path)
+        if not abs_path.is_absolute():
+            abs_path = project_root / file_path
+        cache_key = str(abs_path)
+        if cache_key not in file_cache:
+            if abs_path.is_file():
+                file_cache[cache_key] = abs_path.read_text(
+                    encoding="utf-8", errors="replace"
+                ).splitlines()
+            else:
+                file_cache[cache_key] = None
+        src_lines = file_cache[cache_key]
+        if src_lines is not None:
+            start = max(0, line - 3)
+            end = min(len(src_lines), line + 4)
+            context_lines = []
+            for i in range(start, end):
+                marker = ">>>" if i == line - 1 else "   "
+                context_lines.append(f"{marker} {i + 1:4d} | {src_lines[i]}")
+            if context_lines:
+                return "\n```\n" + "\n".join(context_lines) + "\n```\n"
+    except Exception:
+        pass
+    return ""
+
+
+def _format_llm_report_section(finding_num, finding, label, code_block):
+    rule_id = finding.get("rule_id", "")
+    severity = finding.get("severity", "INFO")
+    name = finding.get("name") or finding.get("simple_name", "")
+    file_path = finding.get("file", "")
+    line = finding.get("line", 0)
+    message = finding.get("message", "")
+
+    return (
+        f"\n## {finding_num}. {rule_id} | {severity} | {label}\n"
+        f"File: {file_path}:{line}\n"
+        f"Name: {name}\n"
+        f"{code_block}\n"
+        f"Problem: {message}\n"
+        f"\n---\n"
+    )
+
+
+def _generate_llm_report(result: dict, project_root: pathlib.Path) -> str:
+    all_findings = _collect_llm_report_findings(result)
     if not all_findings:
         return "# Skylos Report\n\nNo findings.\n"
 
-    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    all_findings.sort(key=lambda x: severity_order.get(x[0].get("severity", "LOW"), 4))
+    all_findings.sort(key=_llm_report_sort_key)
 
-    header = (
+    sections = [
         f"# Skylos Report — {len(all_findings)} findings\n\n"
         f"Fix each finding below. The code context shows the problematic lines.\n\n---\n"
-    )
-    sections.append(header)
+    ]
+    file_cache = {}
 
-    _file_cache = {}
-
-    for finding, label in all_findings:
-        finding_num += 1
-        rule_id = finding.get("rule_id", "")
-        severity = finding.get("severity", "INFO")
-        name = finding.get("name") or finding.get("simple_name", "")
+    for finding_num, (finding, label) in enumerate(all_findings, 1):
         file_path = finding.get("file", "")
         line = finding.get("line", 0)
-        message = finding.get("message", "")
-
-        code_block = ""
-        try:
-            abs_path = pathlib.Path(file_path)
-            if not abs_path.is_absolute():
-                abs_path = project_root / file_path
-            cache_key = str(abs_path)
-            if cache_key not in _file_cache:
-                if abs_path.is_file():
-                    _file_cache[cache_key] = abs_path.read_text(
-                        encoding="utf-8", errors="replace"
-                    ).splitlines()
-                else:
-                    _file_cache[cache_key] = None
-            src_lines = _file_cache[cache_key]
-            if src_lines is not None:
-                start = max(0, line - 3)
-                end = min(len(src_lines), line + 4)
-                context_lines = []
-                for i in range(start, end):
-                    marker = ">>>" if i == line - 1 else "   "
-                    context_lines.append(f"{marker} {i + 1:4d} | {src_lines[i]}")
-                if context_lines:
-                    code_block = "\n```\n" + "\n".join(context_lines) + "\n```\n"
-        except Exception:
-            pass
-
-        section = (
-            f"\n## {finding_num}. {rule_id} | {severity} | {label}\n"
-            f"File: {file_path}:{line}\n"
-            f"Name: {name}\n"
-            f"{code_block}\n"
-            f"Problem: {message}\n"
-            f"\n---\n"
+        code_block = _llm_report_code_block(file_path, line, project_root, file_cache)
+        sections.append(
+            _format_llm_report_section(finding_num, finding, label, code_block)
         )
-        sections.append(section)
 
     return "".join(sections)
 
 
-def _emit_github_annotations(result, *, max_annotations=50, severity_filter=None):
-    severity_map = {
-        "CRITICAL": "error",
-        "HIGH": "error",
-        "MEDIUM": "warning",
-        "LOW": "notice",
-    }
-    severity_priority = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    severity_thresholds = {
-        "critical": {"CRITICAL"},
-        "high": {"CRITICAL", "HIGH"},
-        "medium": {"CRITICAL", "HIGH", "MEDIUM"},
-        "low": {"CRITICAL", "HIGH", "MEDIUM", "LOW"},
-    }
+_GITHUB_ANNOTATION_LEVELS = {
+    "CRITICAL": "error",
+    "HIGH": "error",
+    "MEDIUM": "warning",
+    "LOW": "notice",
+}
+_GITHUB_ANNOTATION_PRIORITY = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+_GITHUB_ANNOTATION_THRESHOLDS = {
+    "critical": {"CRITICAL"},
+    "high": {"CRITICAL", "HIGH"},
+    "medium": {"CRITICAL", "HIGH", "MEDIUM"},
+    "low": {"CRITICAL", "HIGH", "MEDIUM", "LOW"},
+}
+_GITHUB_FINDING_CATEGORIES = ("danger", "quality", "secrets", "custom_rules")
+_GITHUB_DEAD_CODE_CATEGORIES = (
+    ("unused_functions", "Unused function"),
+    ("unused_imports", "Unused import"),
+    ("unused_classes", "Unused class"),
+    ("unused_variables", "Unused variable"),
+    ("unused_parameters", "Unused parameter"),
+)
 
+
+def _emit_github_grade_annotation(result):
     grade_data = result.get("grade")
     if grade_data:
         overall = grade_data["overall"]
@@ -1184,97 +1216,153 @@ def _emit_github_annotations(result, *, max_annotations=50, severity_filter=None
             f"::notice title=Skylos Grade::{overall['letter']} ({overall['score']}/100)"
         )
 
+
+def _github_finding_annotation(finding):
+    file = finding.get("file") or finding.get("file_path") or ""
+    line = finding.get("line") or finding.get("line_number") or 1
+    msg = (
+        finding.get("message")
+        or finding.get("msg")
+        or finding.get("detail")
+        or "Issue detected"
+    )
+    rule_id = finding.get("rule_id") or ""
+    severity = finding.get("severity", "MEDIUM").upper()
+    title = f"Skylos {rule_id}" if rule_id else "Skylos"
+    return {
+        "file": file,
+        "line": line,
+        "msg": msg,
+        "title": title,
+        "severity": severity,
+    }
+
+
+def _github_dead_code_annotation(item, label):
+    name = item.get("name", "") if isinstance(item, dict) else str(item)
+    file = item.get("file", "") if isinstance(item, dict) else ""
+    line = item.get("line", 1) if isinstance(item, dict) else 1
+    return {
+        "file": file,
+        "line": line,
+        "msg": f"{label}: {name}",
+        "title": "Skylos Dead Code",
+        "severity": "MEDIUM",
+    }
+
+
+def _github_annotation_items(result):
     annotations = []
-
-    for category in ("danger", "quality", "secrets", "custom_rules"):
+    for category in _GITHUB_FINDING_CATEGORIES:
         for finding in result.get(category, []) or []:
-            file = finding.get("file") or finding.get("file_path") or ""
-            line = finding.get("line") or finding.get("line_number") or 1
-            msg = (
-                finding.get("message")
-                or finding.get("msg")
-                or finding.get("detail")
-                or "Issue detected"
-            )
-            rule_id = finding.get("rule_id") or ""
-            severity = finding.get("severity", "MEDIUM").upper()
-            title = f"Skylos {rule_id}" if rule_id else "Skylos"
-            annotations.append(
-                {
-                    "file": file,
-                    "line": line,
-                    "msg": msg,
-                    "title": title,
-                    "severity": severity,
-                }
-            )
+            annotations.append(_github_finding_annotation(finding))
 
-    for category, label in (
-        ("unused_functions", "Unused function"),
-        ("unused_imports", "Unused import"),
-        ("unused_classes", "Unused class"),
-        ("unused_variables", "Unused variable"),
-        ("unused_parameters", "Unused parameter"),
-    ):
+    for category, label in _GITHUB_DEAD_CODE_CATEGORIES:
         for item in result.get(category, []) or []:
-            name = item.get("name", "") if isinstance(item, dict) else str(item)
-            file = item.get("file", "") if isinstance(item, dict) else ""
-            line = item.get("line", 1) if isinstance(item, dict) else 1
-            annotations.append(
-                {
-                    "file": file,
-                    "line": line,
-                    "msg": f"{label}: {name}",
-                    "title": "Skylos Dead Code",
-                    "severity": "MEDIUM",
-                }
-            )
+            annotations.append(_github_dead_code_annotation(item, label))
+    return annotations
 
+
+def _filter_github_annotations_by_severity(annotations, severity_filter):
     if severity_filter:
-        allowed = severity_thresholds.get(severity_filter, set())
-        annotations = [a for a in annotations if a["severity"] in allowed]
+        allowed = _GITHUB_ANNOTATION_THRESHOLDS.get(severity_filter, set())
+        return [a for a in annotations if a["severity"] in allowed]
+    return annotations
 
-    annotations.sort(key=lambda a: severity_priority.get(a["severity"], 99))
-    annotations = annotations[:max_annotations]
 
-    for ann in annotations:
-        level = severity_map.get(ann["severity"], "warning")
-        print(
-            f"::{level} file={ann['file']},line={ann['line']},title={ann['title']}::{ann['msg']}"
-        )
+def _github_annotation_sort_key(annotation):
+    return _GITHUB_ANNOTATION_PRIORITY.get(annotation["severity"], 99)
+
+
+def _emit_github_annotation(annotation):
+    level = _GITHUB_ANNOTATION_LEVELS.get(annotation["severity"], "warning")
+    print(
+        f"::{level} file={annotation['file']},line={annotation['line']},"
+        f"title={annotation['title']}::{annotation['msg']}"
+    )
+
+
+def _emit_github_annotations(result, *, max_annotations=50, severity_filter=None):
+    _emit_github_grade_annotation(result)
+    annotations = _github_annotation_items(result)
+    annotations = _filter_github_annotations_by_severity(annotations, severity_filter)
+    annotations.sort(key=_github_annotation_sort_key)
+
+    for annotation in annotations[:max_annotations]:
+        _emit_github_annotation(annotation)
+
+
+_DISPLAY_FILTER_SEVERITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+_DISPLAY_FILTER_CATEGORY_MAP = {
+    "unused_functions": "dead_code",
+    "unused_imports": "dead_code",
+    "unused_parameters": "dead_code",
+    "unused_variables": "dead_code",
+    "unused_classes": "dead_code",
+    "unused_fixtures": "dead_code",
+    "danger": "security",
+    "secrets": "secret",
+    "quality": "quality",
+    "circular_dependencies": "quality",
+    "custom_rules": "quality",
+    "dependency_vulnerabilities": "dependency",
+}
+
+
+def _display_filter_min_rank(severity):
+    if severity:
+        return _DISPLAY_FILTER_SEVERITY_RANK.get(str(severity).lower(), 0)
+    return 0
+
+
+def _display_filter_allowed_categories(category):
+    if category:
+        return {c.strip().lower() for c in category.split(",")}
+    return None
+
+
+def _display_filter_matches_file(item, file_filter):
+    if not file_filter:
+        return True
+    return file_filter in (item.get("file") or item.get("file_path") or "")
+
+
+def _display_filter_has_severity(items):
+    for item in items:
+        if "severity" in item:
+            return True
+    return False
+
+
+def _display_filter_passes_severity(item, min_rank):
+    sev = (item.get("severity") or "").lower()
+    return _DISPLAY_FILTER_SEVERITY_RANK.get(sev, 0) >= min_rank
+
+
+def _display_filter_items(items, file_filter, min_rank):
+    kept = items
+    if file_filter:
+        kept = [
+            item for item in kept if _display_filter_matches_file(item, file_filter)
+        ]
+
+    if min_rank > 0 and kept and _display_filter_has_severity(kept):
+        kept = [
+            item for item in kept if _display_filter_passes_severity(item, min_rank)
+        ]
+
+    return kept
 
 
 def _apply_display_filters(result, severity=None, category=None, file_filter=None):
     import copy
 
-    SEVERITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
-    if severity:
-        min_rank = SEVERITY_RANK.get(str(severity).lower(), 0)
-    else:
-        min_rank = 0
-
-    allowed_cats = None
-    if category:
-        allowed_cats = {c.strip().lower() for c in category.split(",")}
-
-    CATEGORY_MAP = {
-        "unused_functions": "dead_code",
-        "unused_imports": "dead_code",
-        "unused_parameters": "dead_code",
-        "unused_variables": "dead_code",
-        "unused_classes": "dead_code",
-        "unused_fixtures": "dead_code",
-        "danger": "security",
-        "secrets": "secret",
-        "quality": "quality",
-        "circular_dependencies": "quality",
-        "custom_rules": "quality",
-        "dependency_vulnerabilities": "dependency",
-    }
+    min_rank = _display_filter_min_rank(severity)
+    allowed_cats = _display_filter_allowed_categories(category)
 
     filtered = copy.copy(result)
 
-    for key, cat in CATEGORY_MAP.items():
+    for key, cat in _DISPLAY_FILTER_CATEGORY_MAP.items():
         items = result.get(key, []) or []
         if not items:
             continue
@@ -1283,37 +1371,601 @@ def _apply_display_filters(result, severity=None, category=None, file_filter=Non
             filtered[key] = []
             continue
 
-        kept = items
-        if file_filter:
-            kept = [
-                item
-                for item in kept
-                if file_filter in (item.get("file") or item.get("file_path") or "")
-            ]
-
-        if min_rank > 0:
-
-            def _passes_severity(item):
-                sev = (item.get("severity") or "").lower()
-                return SEVERITY_RANK.get(sev, 0) >= min_rank
-
-            if kept:
-                has_severity = False
-                for item in kept:
-                    if "severity" in item:
-                        has_severity = True
-                        break
-
-                if has_severity:
-                    filtered = []
-                    for item in kept:
-                        if _passes_severity(item):
-                            filtered.append(item)
-                    kept = filtered
-
-        filtered[key] = kept
+        filtered[key] = _display_filter_items(items, file_filter, min_rank)
 
     return filtered
+
+
+_RESULTS_SUPPRESS_HINT = '[muted]Suppress: # skylos: ignore (line), ignore = ["SKY-XXX"] (rule), or # skylos: ignore-start/end (block)[/muted]\n'
+_RESULTS_DOCS_LINK = (
+    _RESULTS_SUPPRESS_HINT
+    + "[muted]Full guide: https://docs.skylos.dev/guides/understanding-output[/muted]\n"
+)
+
+
+def _results_pill(label, n, ok_style="good", bad_style="bad"):
+    if n == 0:
+        style = ok_style
+    else:
+        style = bad_style
+    return f"[{style}]{label}: {n}[/{style}]"
+
+
+def _display_cap(items, limit):
+    cap = limit or len(items)
+    return items[:cap], max(0, len(items) - cap)
+
+
+def _score_style(score):
+    if score >= 90:
+        return "good"
+    if score >= 80:
+        return "brand"
+    if score >= 70:
+        return "yellow"
+    return "bad"
+
+
+def _render_grade(console: Console, grade_data):
+    from skylos.grader import generate_badge_url
+
+    overall = grade_data["overall"]
+    cats = grade_data["categories"]
+    o_score = overall["score"]
+    g_style = _score_style(o_score)
+
+    console.print(
+        Panel.fit(
+            f"[{g_style}]Codebase Grade: {overall['letter']} ({o_score}/100)[/{g_style}]",
+            border_style=g_style,
+        )
+    )
+
+    grade_table = Table(title="Grade Breakdown", expand=True)
+    grade_table.add_column("Category", style="bold", width=16)
+    grade_table.add_column("Score", justify="right", width=8)
+    grade_table.add_column("Grade", width=6)
+    grade_table.add_column("Weight", style="muted", width=8)
+    grade_table.add_column("Key Issue", overflow="fold")
+
+    for cat_name in ("security", "quality", "dead_code", "dependencies", "secrets"):
+        cat = cats[cat_name]
+        display_name = cat_name.replace("_", " ").title()
+        s_val = cat["score"]
+        l_val = cat["letter"]
+        w_pct = f"{int(cat['weight'] * 100)}%"
+        issue = cat.get("key_issue") or "-"
+        if len(issue) > 60:
+            issue = issue[:57] + "..."
+
+        s_style = _score_style(s_val)
+        s_str = f"[{s_style}]{s_val}[/{s_style}]"
+        l_str = f"[{s_style}]{l_val}[/{s_style}]"
+
+        grade_table.add_row(display_name, s_str, l_str, w_pct, issue)
+
+    console.print(grade_table)
+    badge_url = generate_badge_url(overall["letter"], o_score)
+    badge_markdown = (
+        f"[![Skylos Grade]({badge_url})](https://github.com/duriantaco/skylos)"
+    )
+
+    console.print()
+    console.print(
+        Panel.fit(
+            "[bold cyan]Score Badge for your README.md:[/bold cyan]\n\n"
+            f"[yellow]{badge_markdown}[/yellow]",
+            title="[cyan]Score Badge[/cyan]",
+            border_style="cyan",
+        )
+    )
+
+    try:
+        import pyperclip
+
+        pyperclip.copy(badge_markdown)
+        console.print("[good]Copied to clipboard![/good]")
+    except ImportError:
+        console.print(
+            "[muted]Install pyperclip for auto-copy: pip install pyperclip[/muted]"
+        )
+    except Exception:
+        pass
+
+    console.print()
+
+
+def _format_confidence(conf):
+    if isinstance(conf, int):
+        if conf >= 90:
+            return f"[red]{conf}%[/red]"
+        if conf >= 75:
+            return f"[yellow]{conf}%[/yellow]"
+        return f"[dim]{conf}%[/dim]"
+    return str(conf)
+
+
+def _render_unused(console: Console, root_path, limit, title, items, name_key="name"):
+    if not items:
+        return
+
+    console.rule(f"[bold]{title}")
+
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Name", style="bold")
+    table.add_column("Location", style="muted", overflow="fold")
+    table.add_column("Conf", style="yellow", width=6, justify="right")
+
+    show, overflow = _display_cap(items, limit)
+    for i, item in enumerate(show, 1):
+        nm = item.get(name_key) or item.get("simple_name") or "<?>"
+        short = _shorten_path(item.get("file"), root_path)
+        loc = f"{short}:{item.get('line', '?')}"
+        conf_str = _format_confidence(item.get("confidence", "?"))
+        table.add_row(str(i), nm, loc, conf_str)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print(
+        "[muted]Name — the unused function, import, class, or variable.[/muted]\n"
+        "[muted]Conf — how confident Skylos is that this code is truly unused (higher = safer to remove).[/muted]\n"
+        + _RESULTS_DOCS_LINK
+    )
+
+
+def _render_unused_simple(
+    console: Console, root_path, limit, title, items, name_key="name"
+):
+    if not items:
+        return
+
+    console.rule(f"[bold]{title}")
+
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Name", style="bold")
+    table.add_column("Location", style="muted", overflow="fold")
+
+    show, overflow = _display_cap(items, limit)
+    for i, item in enumerate(show, 1):
+        nm = item.get(name_key) or item.get("simple_name") or "<?>"
+        short = _shorten_path(item.get("file"), root_path)
+        loc = f"{short}:{item.get('line', '?')}"
+        table.add_row(str(i), nm, loc)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print()
+
+
+def _quality_detail(quality):
+    raw_kind = quality.get("kind") or quality.get("metric") or "quality"
+    func = quality.get("name") or quality.get("simple_name") or "<?>"
+    value = quality.get("value") or quality.get("complexity")
+    thr = quality.get("threshold")
+    length = quality.get("length")
+    qtype = quality.get("type", "")
+
+    if qtype == "string":
+        detail = f"repeated {value}×"
+        if thr is not None:
+            detail += f" (max {thr})"
+        func = f'"{func}"'
+    elif qtype == "dependency":
+        detail = str(value)
+    elif raw_kind in {
+        "typing",
+        "framework",
+        "framework_security",
+        "repo_policy",
+    }:
+        detail = quality.get("message") or str(value)
+    elif raw_kind == "nesting":
+        detail = f"Deep nesting: depth {value}"
+    elif raw_kind == "structure":
+        detail = f"Line count: {value}"
+    elif raw_kind == "complexity":
+        detail = f"Complexity: {value}"
+        if thr is not None:
+            detail += f" (max {thr})"
+    else:
+        detail = f"{value}"
+        if thr is not None:
+            detail += f" (max {thr})"
+    if length is not None:
+        detail += f", {length} lines"
+
+    return raw_kind.replace("_", " ").title(), func, detail
+
+
+def _render_quality(console: Console, limit, items):
+    if not items:
+        return
+
+    console.rule("[bold red]Quality Issues")
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Type", style="yellow", width=12)
+    table.add_column("Name", style="bold")
+    table.add_column("Detail")
+    table.add_column("Location", style="muted", width=36)
+
+    show, overflow = _display_cap(items, limit)
+    for i, quality in enumerate(show, 1):
+        kind, func, detail = _quality_detail(quality)
+        loc = f"{quality.get('basename', '?')}:{quality.get('line', '?')}"
+        table.add_row(str(i), kind, func, detail, loc)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print(
+        "[muted]Reading the table:[/muted]\n"
+        "[muted]  • Complexity — number of branches/loops in a function (lower = easier to test)[/muted]\n"
+        "[muted]  • Nesting — how deeply indented the code is (depth count)[/muted]\n"
+        "[muted]  • Structure — line count of a function or argument count[/muted]\n"
+        "[muted]  • Duplicate strings — how many times a literal appears[/muted]\n"
+        '[muted]  • "max N" / "(max N)" — the configured threshold; tune in [tool.skylos] (complexity, nesting, max_args, max_lines, duplicate_strings)[/muted]\n'
+        + _RESULTS_DOCS_LINK
+    )
+
+
+def _render_circular_deps(console: Console, limit, items):
+    if not items:
+        return
+
+    console.rule("[bold yellow]Circular Dependencies")
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Cycle", style="bold")
+    table.add_column("Length", width=6)
+    table.add_column("Severity", width=8)
+    table.add_column("Suggested Break", style="cyan")
+
+    show, overflow = _display_cap(items, limit)
+    for i, cd in enumerate(show, 1):
+        cycle = cd.get("cycle", [])
+        cycle_str = " → ".join(cycle) + f" → {cycle[0]}" if cycle else "?"
+        length = str(cd.get("cycle_length", len(cycle)))
+        sev = cd.get("severity", "MEDIUM")
+        suggested = cd.get("suggested_break", "?")
+        table.add_row(str(i), cycle_str, length, sev, suggested)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print(
+        "[muted]Cycle — the chain of modules that import each other in a loop.[/muted]\n"
+        "[muted]Length — how many modules are in the cycle.[/muted]\n"
+        "[muted]Suggested Break — the module to refactor to break the dependency loop.[/muted]\n"
+        + _RESULTS_DOCS_LINK
+    )
+
+
+def _render_custom_rules(console: Console, root_path, limit, items):
+    custom = [
+        i for i in (items or []) if str(i.get("rule_id", "")).startswith("CUSTOM-")
+    ]
+    if not custom:
+        return
+
+    console.rule("[bold magenta]Custom Rules")
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Rule", style="magenta", width=18)
+    table.add_column("Severity", width=10)
+    table.add_column("Message", overflow="fold")
+    table.add_column("Location", style="muted", width=36)
+
+    show, overflow = _display_cap(custom, limit)
+    for i, d in enumerate(show, 1):
+        rule = d.get("rule_id") or "CUSTOM"
+        sev = d.get("severity") or "MEDIUM"
+        msg = d.get("message") or "Custom rule violation"
+        short = _shorten_path(d.get("file"), root_path)
+        loc = f"{short}:{d.get('line', '?')}"
+        table.add_row(str(i), rule, sev, msg, loc)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print()
+
+
+def _render_secrets(console: Console, root_path, limit, items):
+    if not items:
+        return
+
+    console.rule("[bold red]Secrets")
+    has_provenance = any(s.get("ai_authored") is not None for s in (items or []))
+
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Provider", style="yellow", width=14)
+    table.add_column("Message")
+    table.add_column("Preview", style="muted", width=18)
+    table.add_column("Location", style="muted", overflow="fold")
+
+    if has_provenance:
+        table.add_column("AI", width=12)
+
+    show, overflow = _display_cap(items, limit)
+    for i, s in enumerate(show, 1):
+        prov = s.get("provider") or "generic"
+        msg = s.get("message") or "Secret detected"
+        prev = s.get("preview") or "****"
+        short = _shorten_path(s.get("file"), root_path)
+        loc = f"{short}:{s.get('line', '?')}"
+        row = [str(i), prov, msg, prev, loc]
+
+        if has_provenance:
+            if s.get("ai_authored"):
+                agent = s.get("ai_agent") or "ai"
+                row.append(f"[red]{agent}[/red]")
+            else:
+                row.append("[muted]-[/muted]")
+
+        table.add_row(*row)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print(
+        '[muted]Provider — the service the secret belongs to (e.g. AWS, Stripe, GitHub) or "generic" for high-entropy strings.[/muted]\n'
+        "[muted]Preview — a masked snippet of the detected secret.[/muted]\n"
+        + _RESULTS_DOCS_LINK
+    )
+
+
+def _render_result_tree(console: Console, result, root_path=None):
+    by_file = defaultdict(list)
+
+    def _add_unused(items, kind):
+        for u in items or []:
+            file = u.get("file")
+            if not file:
+                continue
+            line = u.get("line") or u.get("lineno") or 1
+            name = u.get("name") or u.get("simple_name") or "<?>"
+            msg = f"Unused {kind}: {name}"
+            by_file[file].append((line, "info", msg))
+
+    def _add_findings(items, kind, default_sev="medium"):
+        for f in items or []:
+            file = f.get("file")
+            if not file:
+                continue
+            line = f.get("line") or 1
+            sev = (f.get("severity") or default_sev).lower()
+            rule = f.get("rule_id")
+            msg = f.get("message") or kind
+            if rule:
+                msg = f"[{rule}] {msg}"
+            by_file[file].append((line, sev, msg))
+
+    _add_unused(result.get("unused_functions"), "function")
+    _add_unused(result.get("unused_imports"), "import")
+    _add_unused(result.get("unused_classes"), "class")
+    _add_unused(result.get("unused_variables"), "variable")
+    _add_unused(result.get("unused_parameters"), "parameter")
+
+    _add_findings(result.get("danger"), "security", default_sev="high")
+    _add_findings(result.get("secrets"), "secret", default_sev="high")
+    _add_findings(result.get("quality"), "quality", default_sev="medium")
+    _add_findings(
+        result.get("dependency_vulnerabilities"),
+        "vulnerability",
+        default_sev="high",
+    )
+
+    if not by_file:
+        console.print("[good]No findings to display.[/good]")
+        return
+
+    root_label = str(root_path) if root_path is not None else "Skylos results"
+    tree = Tree(f"[brand]{root_label}[/brand]")
+
+    for file in sorted(by_file.keys()):
+        short = _shorten_path(file, root_path)
+        file_node = tree.add(f"[bold]{short}[/bold]")
+
+        for line, sev, msg in sorted(by_file[file], key=lambda t: t[0]):
+            if sev == "high" or sev == "critical":
+                style = "bad"
+            elif sev == "medium":
+                style = "warn"
+            else:
+                style = "muted"
+            file_node.add(f"[{style}]L{line}[/{style}] {msg}")
+
+    console.print(tree)
+
+
+def _display_rule_name(rule_id):
+    RULE_TITLES = {
+        "SKY-D201": "Dynamic code execution (eval)",
+        "SKY-D202": "Dynamic code execution (exec)",
+        "SKY-D203": "OS command execution (os.system)",
+        "SKY-D204": "Unsafe deserialization (pickle.load)",
+        "SKY-D205": "Unsafe deserialization (pickle.loads)",
+        "SKY-D206": "Unsafe YAML load (no SafeLoader)",
+        "SKY-D207": "Weak hash (MD5)",
+        "SKY-D208": "Weak hash (SHA1)",
+        "SKY-D209": "Shell execution (subprocess shell=True)",
+        "SKY-D210": "TLS verification disabled (requests verify=False)",
+        "SKY-D211": "SQL injection (cursor)",
+        "SKY-D212": "Possible command injection (os.system): tainted input",
+        "SKY-D222": "Dependency hallucination",
+        "SKY-D223": "Undeclared third-party dependency",
+    }
+    return RULE_TITLES.get(rule_id, "Security issue")
+
+
+def _verification_proof(danger_finding):
+    verification = danger_finding.get("verification")
+    if verification is None:
+        verification = {}
+
+    evidence = verification.get("evidence")
+    if evidence is None:
+        evidence = {}
+
+    chain = evidence.get("chain")
+    if isinstance(chain, list) and len(chain) > 0:
+        names = []
+        for x in chain[:6]:
+            fn = None
+            if isinstance(x, dict):
+                fn = x.get("fn")
+            if not fn:
+                fn = "?"
+            names.append(fn)
+        return " -> ".join(names)
+
+    entrypoints = evidence.get("entrypoints")
+    if entrypoints:
+        return str(len(entrypoints)) + " entrypoints scanned"
+
+    ver = verification.get("verdict")
+    if ver:
+        return "No evidence attached"
+    return ""
+
+
+def _verification_label(verdict):
+    if verdict == "VERIFIED":
+        return "[good]VERIFIED[/good]"
+    if verdict == "REFUTED":
+        return "[muted]REFUTED[/muted]"
+    if verdict == "UNKNOWN":
+        return "[warn]UNKNOWN[/warn]"
+    return "-"
+
+
+def _render_danger(console: Console, root_path, limit, items):
+    if not items:
+        return
+
+    console.rule("[bold red]Security Issues")
+
+    has_verification = any(
+        isinstance(d.get("verification"), dict) and d["verification"].get("verdict")
+        for d in (items or [])
+    )
+    has_provenance = any(d.get("ai_authored") is not None for d in (items or []))
+
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Issue", style="yellow", width=20)
+    table.add_column("Severity", width=9)
+    table.add_column("Message", overflow="fold")
+    table.add_column("Location", style="muted", width=20, overflow="fold")
+    table.add_column("Symbol", style="muted", width=10, overflow="fold")
+
+    if has_provenance:
+        table.add_column("AI", width=12)
+
+    if has_verification:
+        table.add_column("Verified", width=9)
+        table.add_column("Proof", overflow="fold")
+
+    show, overflow = _display_cap(items, limit)
+    for i, d in enumerate(show, 1):
+        rule_id = d.get("rule_id") or "UNKNOWN"
+        issue_name = _display_rule_name(rule_id)
+        issue_cell = f"{issue_name}\n[dim]{rule_id}[/dim]"
+        sev = (d.get("severity") or "UNKNOWN").title()
+        msg = d.get("message") or "Issue detected"
+        short = _shorten_path(d.get("file"), root_path)
+        loc = f"{short}:{d.get('line', '?')}"
+        symbol = d.get("symbol") or "<module>"
+        row = [str(i), issue_cell, sev, msg, loc, symbol]
+
+        if has_provenance:
+            if d.get("ai_authored"):
+                agent = d.get("ai_agent") or "ai"
+                row.append(f"[red]{agent}[/red]")
+            else:
+                row.append("[muted]-[/muted]")
+
+        if has_verification:
+            ver = (d.get("verification") or {}).get("verdict")
+            row.extend([_verification_label(ver), _verification_proof(d)])
+
+        table.add_row(*row)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print(
+        "[muted]Issue — the type of vulnerability (e.g. SQL injection, command injection, eval).[/muted]\n"
+        "[muted]Severity — risk level: Critical > High > Medium > Low.[/muted]\n"
+        "[muted]Symbol — the function or scope where the issue was found.[/muted]\n"
+        + _RESULTS_DOCS_LINK
+    )
+
+
+def _render_sca(console: Console, limit, items):
+    if not items:
+        return
+
+    console.rule("[bold red]Dependency Vulnerabilities (SCA)")
+    table = Table(expand=True)
+    table.add_column("#", style="muted", width=3)
+    table.add_column("Package", style="yellow", width=22)
+    table.add_column("Vuln ID", width=18)
+    table.add_column("Severity", width=9)
+    table.add_column("Reachability", width=14)
+    table.add_column("Message", overflow="fold")
+    table.add_column("Fix", style="good", width=14, overflow="fold")
+
+    show, overflow = _display_cap(items, limit)
+    for i, v in enumerate(show, 1):
+        meta = v.get("metadata") or {}
+        pkg = f"{meta.get('package_name', '?')}@{meta.get('package_version', '?')}"
+        vuln_id = meta.get("display_id") or meta.get("vuln_id") or v.get("rule_id", "")
+        sev = (v.get("severity") or "MEDIUM").title()
+        msg = v.get("message") or "Known vulnerability"
+        fix = meta.get("fixed_version") or "-"
+        rv = meta.get("reachability_verdict", "")
+        if rv == "reachable":
+            reach = "[red]Reachable[/red]"
+        elif rv.startswith("unreachable"):
+            reach = "[green]Unreachable[/green]"
+        elif rv == "inconclusive":
+            reach = "[yellow]Inconclusive[/yellow]"
+        else:
+            reach = "[dim]-[/dim]"
+        table.add_row(str(i), pkg, vuln_id, sev, reach, msg, fix)
+
+    console.print(table)
+    if overflow:
+        console.print(
+            f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
+        )
+    console.print(
+        "[muted]Package — the dependency and its installed version.[/muted]\n"
+        "[muted]Reachability — whether your code actually calls the vulnerable code path.[/muted]\n"
+        "[muted]Fix — the version that patches the vulnerability (upgrade to this).[/muted]\n"
+        + _RESULTS_DOCS_LINK
+    )
 
 
 def render_results(console: Console, result, tree=False, root_path=None, limit=None):
@@ -1325,30 +1977,27 @@ def render_results(console: Console, result, tree=False, root_path=None, limit=N
         )
     )
 
-    def _pill(label, n, ok_style="good", bad_style="bad"):
-        if n == 0:
-            style = ok_style
-        else:
-            style = bad_style
-        return f"[{style}]{label}: {n}[/{style}]"
-
     console.print(
         " ".join(
             [
-                _pill("Unused functions", len(result.get("unused_functions", []))),
-                _pill("Unused imports", len(result.get("unused_imports", []))),
-                _pill("Unused params", len(result.get("unused_parameters", []))),
-                _pill("Unused vars", len(result.get("unused_variables", []))),
-                _pill("Unused classes", len(result.get("unused_classes", []))),
-                _pill(
+                _results_pill(
+                    "Unused functions", len(result.get("unused_functions", []))
+                ),
+                _results_pill("Unused imports", len(result.get("unused_imports", []))),
+                _results_pill(
+                    "Unused params", len(result.get("unused_parameters", []))
+                ),
+                _results_pill("Unused vars", len(result.get("unused_variables", []))),
+                _results_pill("Unused classes", len(result.get("unused_classes", []))),
+                _results_pill(
                     "Quality", len(result.get("quality", []) or []), bad_style="warn"
                 ),
-                _pill(
+                _results_pill(
                     "Custom",
                     len(result.get("custom_rules", []) or []),
                     bad_style="warn",
                 ),
-                _pill(
+                _results_pill(
                     "Suppressed",
                     len(result.get("suppressed", []) or []),
                     ok_style="muted",
@@ -1361,607 +2010,69 @@ def render_results(console: Console, result, tree=False, root_path=None, limit=N
 
     grade_data = result.get("grade")
     if grade_data:
-        from skylos.grader import generate_badge_url
-
-        overall = grade_data["overall"]
-        cats = grade_data["categories"]
-        o_score = overall["score"]
-
-        if o_score >= 90:
-            g_style = "good"
-        elif o_score >= 80:
-            g_style = "brand"
-        elif o_score >= 70:
-            g_style = "yellow"
-        else:
-            g_style = "bad"
-
-        console.print(
-            Panel.fit(
-                f"[{g_style}]Codebase Grade: {overall['letter']} ({o_score}/100)[/{g_style}]",
-                border_style=g_style,
-            )
-        )
-
-        grade_table = Table(title="Grade Breakdown", expand=True)
-        grade_table.add_column("Category", style="bold", width=16)
-        grade_table.add_column("Score", justify="right", width=8)
-        grade_table.add_column("Grade", width=6)
-        grade_table.add_column("Weight", style="muted", width=8)
-        grade_table.add_column("Key Issue", overflow="fold")
-
-        for cat_name in ("security", "quality", "dead_code", "dependencies", "secrets"):
-            cat = cats[cat_name]
-            display_name = cat_name.replace("_", " ").title()
-            s_val = cat["score"]
-            l_val = cat["letter"]
-            w_pct = f"{int(cat['weight'] * 100)}%"
-            issue = cat.get("key_issue") or "-"
-            if len(issue) > 60:
-                issue = issue[:57] + "..."
-
-            if s_val >= 90:
-                s_str = f"[good]{s_val}[/good]"
-                l_str = f"[good]{l_val}[/good]"
-            elif s_val >= 80:
-                s_str = f"[brand]{s_val}[/brand]"
-                l_str = f"[brand]{l_val}[/brand]"
-            elif s_val >= 70:
-                s_str = f"[yellow]{s_val}[/yellow]"
-                l_str = f"[yellow]{l_val}[/yellow]"
-            else:
-                s_str = f"[bad]{s_val}[/bad]"
-                l_str = f"[bad]{l_val}[/bad]"
-
-            grade_table.add_row(display_name, s_str, l_str, w_pct, issue)
-
-        console.print(grade_table)
-        badge_url = generate_badge_url(overall["letter"], o_score)
-        badge_markdown = (
-            f"[![Skylos Grade]({badge_url})](https://github.com/duriantaco/skylos)"
-        )
-
-        console.print()
-        console.print(
-            Panel.fit(
-                "[bold cyan]Score Badge for your README.md:[/bold cyan]\n\n"
-                f"[yellow]{badge_markdown}[/yellow]",
-                title="[cyan]Score Badge[/cyan]",
-                border_style="cyan",
-            )
-        )
-
-        try:
-            import pyperclip
-
-            pyperclip.copy(badge_markdown)
-            console.print("[good]Copied to clipboard![/good]")
-        except ImportError:
-            console.print(
-                "[muted]Install pyperclip for auto-copy: pip install pyperclip[/muted]"
-            )
-        except Exception:
-            pass
-
-        console.print()
-
-    _SUPPRESS_HINT = '[muted]Suppress: # skylos: ignore (line), ignore = ["SKY-XXX"] (rule), or # skylos: ignore-start/end (block)[/muted]\n'
-    _DOCS_LINK = (
-        _SUPPRESS_HINT
-        + "[muted]Full guide: https://docs.skylos.dev/guides/understanding-output[/muted]\n"
-    )
-
-    def _display_cap(items):
-        cap = limit or len(items)
-        return items[:cap], max(0, len(items) - cap)
-
-    def _render_unused(title, items, name_key="name"):
-        if not items:
-            return
-
-        console.rule(f"[bold]{title}")
-
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Name", style="bold")
-        table.add_column("Location", style="muted", overflow="fold")
-        table.add_column("Conf", style="yellow", width=6, justify="right")
-
-        show, overflow = _display_cap(items)
-        for i, item in enumerate(show, 1):
-            nm = item.get(name_key) or item.get("simple_name") or "<?>"
-            short = _shorten_path(item.get("file"), root_path)
-            loc = f"{short}:{item.get('line', '?')}"
-            conf = item.get("confidence", "?")
-
-            if isinstance(conf, int):
-                if conf >= 90:
-                    conf_str = f"[red]{conf}%[/red]"
-                elif conf >= 75:
-                    conf_str = f"[yellow]{conf}%[/yellow]"
-                else:
-                    conf_str = f"[dim]{conf}%[/dim]"
-            else:
-                conf_str = str(conf)
-
-            table.add_row(str(i), nm, loc, conf_str)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print(
-            "[muted]Name — the unused function, import, class, or variable.[/muted]\n"
-            "[muted]Conf — how confident Skylos is that this code is truly unused (higher = safer to remove).[/muted]\n"
-            + _DOCS_LINK
-        )
-
-    def _render_unused_simple(title, items, name_key="name"):
-        if not items:
-            return
-
-        console.rule(f"[bold]{title}")
-
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Name", style="bold")
-        table.add_column("Location", style="muted", overflow="fold")
-
-        show, overflow = _display_cap(items)
-        for i, item in enumerate(show, 1):
-            nm = item.get(name_key) or item.get("simple_name") or "<?>"
-            short = _shorten_path(item.get("file"), root_path)
-            loc = f"{short}:{item.get('line', '?')}"
-            table.add_row(str(i), nm, loc)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print()
-
-    def _render_quality(items):
-        if not items:
-            return
-
-        console.rule("[bold red]Quality Issues")
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Type", style="yellow", width=12)
-        table.add_column("Name", style="bold")
-        table.add_column("Detail")
-        table.add_column("Location", style="muted", width=36)
-
-        show, overflow = _display_cap(items)
-        for i, quality in enumerate(show, 1):
-            raw_kind = quality.get("kind") or quality.get("metric") or "quality"
-            kind = raw_kind.title()
-            func = quality.get("name") or quality.get("simple_name") or "<?>"
-            loc = f"{quality.get('basename', '?')}:{quality.get('line', '?')}"
-            value = quality.get("value") or quality.get("complexity")
-            thr = quality.get("threshold")
-            length = quality.get("length")
-            qtype = quality.get("type", "")
-
-            if qtype == "string":
-                detail = f"repeated {value}×"
-                if thr is not None:
-                    detail += f" (max {thr})"
-                func = f'"{func}"'
-            elif qtype == "dependency":
-                detail = str(value)
-            elif raw_kind == "nesting":
-                detail = f"Deep nesting: depth {value}"
-            elif raw_kind == "structure":
-                detail = f"Line count: {value}"
-            elif raw_kind == "complexity":
-                detail = f"Complexity: {value}"
-                if thr is not None:
-                    detail += f" (max {thr})"
-            else:
-                detail = f"{value}"
-                if thr is not None:
-                    detail += f" (max {thr})"
-            if length is not None:
-                detail += f", {length} lines"
-            table.add_row(str(i), kind, func, detail, loc)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print(
-            "[muted]Reading the table:[/muted]\n"
-            "[muted]  • Complexity — number of branches/loops in a function (lower = easier to test)[/muted]\n"
-            "[muted]  • Nesting — how deeply indented the code is (depth count)[/muted]\n"
-            "[muted]  • Structure — line count of a function or argument count[/muted]\n"
-            "[muted]  • Duplicate strings — how many times a literal appears[/muted]\n"
-            '[muted]  • "max N" / "(max N)" — the configured threshold; tune in [tool.skylos] (complexity, nesting, max_args, max_lines, duplicate_strings)[/muted]\n'
-            + _DOCS_LINK
-        )
-
-    def _render_circular_deps(items):
-        if not items:
-            return
-
-        console.rule("[bold yellow]Circular Dependencies")
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Cycle", style="bold")
-        table.add_column("Length", width=6)
-        table.add_column("Severity", width=8)
-        table.add_column("Suggested Break", style="cyan")
-
-        show, overflow = _display_cap(items)
-        for i, cd in enumerate(show, 1):
-            cycle = cd.get("cycle", [])
-            cycle_str = " → ".join(cycle) + f" → {cycle[0]}" if cycle else "?"
-            length = str(cd.get("cycle_length", len(cycle)))
-            sev = cd.get("severity", "MEDIUM")
-            suggested = cd.get("suggested_break", "?")
-
-            table.add_row(str(i), cycle_str, length, sev, suggested)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print(
-            "[muted]Cycle — the chain of modules that import each other in a loop.[/muted]\n"
-            "[muted]Length — how many modules are in the cycle.[/muted]\n"
-            "[muted]Suggested Break — the module to refactor to break the dependency loop.[/muted]\n"
-            + _DOCS_LINK
-        )
-
-    def _render_custom_rules(items):
-        custom = [
-            i for i in (items or []) if str(i.get("rule_id", "")).startswith("CUSTOM-")
-        ]
-        if not custom:
-            return
-
-        console.rule("[bold magenta]Custom Rules")
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Rule", style="magenta", width=18)
-        table.add_column("Severity", width=10)
-        table.add_column("Message", overflow="fold")
-        table.add_column("Location", style="muted", width=36)
-
-        show, overflow = _display_cap(custom)
-        for i, d in enumerate(show, 1):
-            rule = d.get("rule_id") or "CUSTOM"
-            sev = d.get("severity") or "MEDIUM"
-            msg = d.get("message") or "Custom rule violation"
-            short = _shorten_path(d.get("file"), root_path)
-            loc = f"{short}:{d.get('line', '?')}"
-            table.add_row(str(i), rule, sev, msg, loc)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print()
-
-    def _render_secrets(items):
-        if not items:
-            return
-
-        console.rule("[bold red]Secrets")
-
-        has_provenance = any(s.get("ai_authored") is not None for s in (items or []))
-
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Provider", style="yellow", width=14)
-        table.add_column("Message")
-        table.add_column("Preview", style="muted", width=18)
-        table.add_column("Location", style="muted", overflow="fold")
-
-        if has_provenance:
-            table.add_column("AI", width=12)
-
-        show, overflow = _display_cap(items)
-        for i, s in enumerate(show, 1):
-            prov = s.get("provider") or "generic"
-            msg = s.get("message") or "Secret detected"
-            prev = s.get("preview") or "****"
-            short = _shorten_path(s.get("file"), root_path)
-            loc = f"{short}:{s.get('line', '?')}"
-            row = [str(i), prov, msg, prev, loc]
-
-            if has_provenance:
-                if s.get("ai_authored"):
-                    agent = s.get("ai_agent") or "ai"
-                    row.append(f"[red]{agent}[/red]")
-                else:
-                    row.append("[muted]-[/muted]")
-
-            table.add_row(*row)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print(
-            '[muted]Provider — the service the secret belongs to (e.g. AWS, Stripe, GitHub) or "generic" for high-entropy strings.[/muted]\n'
-            "[muted]Preview — a masked snippet of the detected secret.[/muted]\n"
-            + _DOCS_LINK
-        )
-
-    def render_tree(console: Console, result, root_path=None):
-        by_file = defaultdict(list)
-
-        def _add_unused(items, kind):
-            for u in items or []:
-                file = u.get("file")
-                if not file:
-                    continue
-                line = u.get("line") or u.get("lineno") or 1
-                name = u.get("name") or u.get("simple_name") or "<?>"
-                msg = f"Unused {kind}: {name}"
-                by_file[file].append((line, "info", msg))
-
-        def _add_findings(items, kind, default_sev="medium"):
-            for f in items or []:
-                file = f.get("file")
-                if not file:
-                    continue
-                line = f.get("line") or 1
-                sev = (f.get("severity") or default_sev).lower()
-                rule = f.get("rule_id")
-                msg = f.get("message") or kind
-                if rule:
-                    msg = f"[{rule}] {msg}"
-                by_file[file].append((line, sev, msg))
-
-        _add_unused(result.get("unused_functions"), "function")
-        _add_unused(result.get("unused_imports"), "import")
-        _add_unused(result.get("unused_classes"), "class")
-        _add_unused(result.get("unused_variables"), "variable")
-        _add_unused(result.get("unused_parameters"), "parameter")
-
-        _add_findings(result.get("danger"), "security", default_sev="high")
-        _add_findings(result.get("secrets"), "secret", default_sev="high")
-        _add_findings(result.get("quality"), "quality", default_sev="medium")
-        _add_findings(
-            result.get("dependency_vulnerabilities"),
-            "vulnerability",
-            default_sev="high",
-        )
-
-        if not by_file:
-            console.print("[good]No findings to display.[/good]")
-            return
-
-        root_label = str(root_path) if root_path is not None else "Skylos results"
-        tree = Tree(f"[brand]{root_label}[/brand]")
-
-        for file in sorted(by_file.keys()):
-            short = _shorten_path(file, root_path)
-            file_node = tree.add(f"[bold]{short}[/bold]")
-
-            for line, sev, msg in sorted(by_file[file], key=lambda t: t[0]):
-                if sev == "high" or sev == "critical":
-                    style = "bad"
-                elif sev == "medium":
-                    style = "warn"
-                else:
-                    style = "muted"
-                file_node.add(f"[{style}]L{line}[/{style}] {msg}")
-
-        console.print(tree)
-
-    def _display_rule_name(rule_id):
-        RULE_TITLES = {
-            "SKY-D201": "Dynamic code execution (eval)",
-            "SKY-D202": "Dynamic code execution (exec)",
-            "SKY-D203": "OS command execution (os.system)",
-            "SKY-D204": "Unsafe deserialization (pickle.load)",
-            "SKY-D205": "Unsafe deserialization (pickle.loads)",
-            "SKY-D206": "Unsafe YAML load (no SafeLoader)",
-            "SKY-D207": "Weak hash (MD5)",
-            "SKY-D208": "Weak hash (SHA1)",
-            "SKY-D209": "Shell execution (subprocess shell=True)",
-            "SKY-D210": "TLS verification disabled (requests verify=False)",
-            "SKY-D211": "SQL injection (cursor)",
-            "SKY-D212": "Possible command injection (os.system): tainted input",
-            "SKY-D222": "Dependency hallucination",
-            "SKY-D223": "Undeclared third-party dependency",
-        }
-        return RULE_TITLES.get(rule_id, "Security issue")
-
-    def _render_danger(items):
-        if not items:
-            return
-
-        console.rule("[bold red]Security Issues")
-
-        has_verification = any(
-            isinstance(d.get("verification"), dict) and d["verification"].get("verdict")
-            for d in (items or [])
-        )
-
-        has_provenance = any(d.get("ai_authored") is not None for d in (items or []))
-
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Issue", style="yellow", width=20)
-        table.add_column("Severity", width=9)
-        table.add_column("Message", overflow="fold")
-        table.add_column("Location", style="muted", width=20, overflow="fold")
-        table.add_column("Symbol", style="muted", width=10, overflow="fold")
-
-        if has_provenance:
-            table.add_column("AI", width=12)
-
-        if has_verification:
-            table.add_column("Verified", width=9)
-            table.add_column("Proof", overflow="fold")
-
-        show, overflow = _display_cap(items)
-        for i, d in enumerate(show, 1):
-            rule_id = d.get("rule_id") or "UNKNOWN"
-
-            issue_name = _display_rule_name(rule_id)
-            issue_cell = f"{issue_name}\n[dim]{rule_id}[/dim]"
-
-            sev = (d.get("severity") or "UNKNOWN").title()
-            msg = d.get("message") or "Issue detected"
-
-            short = _shorten_path(d.get("file"), root_path)
-            loc = f"{short}:{d.get('line', '?')}"
-
-            symbol = d.get("symbol") or "<module>"
-
-            row = [str(i), issue_cell, sev, msg, loc, symbol]
-
-            if has_provenance:
-                if d.get("ai_authored"):
-                    agent = d.get("ai_agent") or "ai"
-                    row.append(f"[red]{agent}[/red]")
-                else:
-                    row.append("[muted]-[/muted]")
-
-            if has_verification:
-                ver = (d.get("verification") or {}).get("verdict")
-                if ver == "VERIFIED":
-                    ver_str = "[good]VERIFIED[/good]"
-                elif ver == "REFUTED":
-                    ver_str = "[muted]REFUTED[/muted]"
-                elif ver == "UNKNOWN":
-                    ver_str = "[warn]UNKNOWN[/warn]"
-                else:
-                    ver_str = "-"
-
-                proof = ""
-                verification = d.get("verification")
-                if verification is None:
-                    verification = {}
-
-                evidence = verification.get("evidence")
-                if evidence is None:
-                    evidence = {}
-
-                chain = evidence.get("chain")
-
-                if isinstance(chain, list) and len(chain) > 0:
-                    names = []
-                    for x in chain[:6]:
-                        fn = None
-                        if isinstance(x, dict):
-                            fn = x.get("fn")
-                        if not fn:
-                            fn = "?"
-                        names.append(fn)
-
-                    proof = " -> ".join(names)
-
-                else:
-                    entrypoints = evidence.get("entrypoints")
-
-                    if entrypoints:
-                        proof = str(len(entrypoints)) + " entrypoints scanned"
-                    else:
-                        if ver:
-                            proof = "No evidence attached"
-
-                row.extend([ver_str, proof])
-
-            table.add_row(*row)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print(
-            "[muted]Issue — the type of vulnerability (e.g. SQL injection, command injection, eval).[/muted]\n"
-            "[muted]Severity — risk level: Critical > High > Medium > Low.[/muted]\n"
-            "[muted]Symbol — the function or scope where the issue was found.[/muted]\n"
-            + _DOCS_LINK
-        )
-
-    def _render_sca(items):
-        if not items:
-            return
-
-        console.rule("[bold red]Dependency Vulnerabilities (SCA)")
-        table = Table(expand=True)
-        table.add_column("#", style="muted", width=3)
-        table.add_column("Package", style="yellow", width=22)
-        table.add_column("Vuln ID", width=18)
-        table.add_column("Severity", width=9)
-        table.add_column("Reachability", width=14)
-        table.add_column("Message", overflow="fold")
-        table.add_column("Fix", style="good", width=14, overflow="fold")
-
-        show, overflow = _display_cap(items)
-        for i, v in enumerate(show, 1):
-            meta = v.get("metadata") or {}
-            pkg = f"{meta.get('package_name', '?')}@{meta.get('package_version', '?')}"
-            vuln_id = (
-                meta.get("display_id") or meta.get("vuln_id") or v.get("rule_id", "")
-            )
-            sev = (v.get("severity") or "MEDIUM").title()
-            msg = v.get("message") or "Known vulnerability"
-            fix = meta.get("fixed_version") or "-"
-            rv = meta.get("reachability_verdict", "")
-            if rv == "reachable":
-                reach = "[red]Reachable[/red]"
-            elif rv.startswith("unreachable"):
-                reach = "[green]Unreachable[/green]"
-            elif rv == "inconclusive":
-                reach = "[yellow]Inconclusive[/yellow]"
-            else:
-                reach = "[dim]-[/dim]"
-            table.add_row(str(i), pkg, vuln_id, sev, reach, msg, fix)
-
-        console.print(table)
-        if overflow:
-            console.print(
-                f"  [muted]... and {overflow} more (use --limit to adjust)[/muted]"
-            )
-        console.print(
-            "[muted]Package — the dependency and its installed version.[/muted]\n"
-            "[muted]Reachability — whether your code actually calls the vulnerable code path.[/muted]\n"
-            "[muted]Fix — the version that patches the vulnerability (upgrade to this).[/muted]\n"
-            + _DOCS_LINK
-        )
+        _render_grade(console, grade_data)
 
     if tree:
-        render_tree(console, result, root_path=root_path)
+        _render_result_tree(console, result, root_path=root_path)
     else:
         _render_unused(
-            "Unused Functions", result.get("unused_functions", []), name_key="name"
+            console,
+            root_path,
+            limit,
+            "Unused Functions",
+            result.get("unused_functions", []),
+            name_key="name",
         )
         _render_unused(
-            "Unused Imports", result.get("unused_imports", []), name_key="name"
+            console,
+            root_path,
+            limit,
+            "Unused Imports",
+            result.get("unused_imports", []),
+            name_key="name",
         )
         _render_unused(
-            "Unused Parameters", result.get("unused_parameters", []), name_key="name"
+            console,
+            root_path,
+            limit,
+            "Unused Parameters",
+            result.get("unused_parameters", []),
+            name_key="name",
         )
         _render_unused(
-            "Unused Variables", result.get("unused_variables", []), name_key="name"
+            console,
+            root_path,
+            limit,
+            "Unused Variables",
+            result.get("unused_variables", []),
+            name_key="name",
         )
         _render_unused(
-            "Unused Classes", result.get("unused_classes", []), name_key="name"
+            console,
+            root_path,
+            limit,
+            "Unused Classes",
+            result.get("unused_classes", []),
+            name_key="name",
         )
         _render_unused_simple(
-            "Unused Fixtures", result.get("unused_fixtures", []), name_key="name"
+            console,
+            root_path,
+            limit,
+            "Unused Fixtures",
+            result.get("unused_fixtures", []),
+            name_key="name",
         )
-        _render_secrets(result.get("secrets", []) or [])
-        _render_danger(result.get("danger", []) or [])
-        _render_quality(result.get("quality", []) or [])
-        _render_circular_deps(result.get("circular_dependencies", []) or [])
-        _render_custom_rules(result.get("custom_rules", []) or [])
-        _render_sca(result.get("dependency_vulnerabilities", []) or [])
+        _render_secrets(console, root_path, limit, result.get("secrets", []) or [])
+        _render_danger(console, root_path, limit, result.get("danger", []) or [])
+        _render_quality(console, limit, result.get("quality", []) or [])
+        _render_circular_deps(
+            console, limit, result.get("circular_dependencies", []) or []
+        )
+        _render_custom_rules(
+            console, root_path, limit, result.get("custom_rules", []) or []
+        )
+        _render_sca(console, limit, result.get("dependency_vulnerabilities", []) or [])
 
 
 def run_init():
@@ -2663,7 +2774,11 @@ def _formatted_output_gate_exit_code(
     provenance=None,
 ) -> int:
     """Evaluate --gate for output modes that must not print gate UI."""
-    from skylos.gatekeeper import build_summary_markdown, check_gate, write_github_summary
+    from skylos.gatekeeper import (
+        build_summary_markdown,
+        check_gate,
+        write_github_summary,
+    )
 
     config = config or {}
     gate_cfg = config.get("gate") or {}
@@ -2678,7 +2793,9 @@ def _formatted_output_gate_exit_code(
     return 1
 
 
-def _concise_scan_exit_code(result: dict, config: dict, args, *, provenance=None) -> int:
+def _concise_scan_exit_code(
+    result: dict, config: dict, args, *, provenance=None
+) -> int:
     if bool(getattr(args, "gate", False)):
         return _formatted_output_gate_exit_code(
             result,
@@ -2764,7 +2881,10 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
 
     enabled_from_policy = []
     if not explicit_category_flags:
-        if bool(project_cfg.get("security_enabled", False)) or security_contracts_configured:
+        if (
+            bool(project_cfg.get("security_enabled", False))
+            or security_contracts_configured
+        ):
             args.danger = True
             enabled_from_policy.append("danger")
         if bool(project_cfg.get("secrets_enabled", False)):
@@ -3525,9 +3645,7 @@ def main() -> None:
                         kind = get_non_library_dir_kind(relpath_obj, project_root)
                         if kind in staged_secret_only_files:
                             staged_secret_only_files[kind].append(relpath)
-                            report_targets.add(
-                                str((project_root / relpath).resolve())
-                            )
+                            report_targets.add(str((project_root / relpath).resolve()))
                             continue
                         staged_source_files.append(relpath)
                         abs_path = str((project_root / relpath).resolve())
@@ -3605,9 +3723,7 @@ def main() -> None:
                                 " Using staged git snapshot for exact commit results."
                             )
                         else:
-                            snapshot_note = (
-                                " Exact staged snapshot unavailable; using working tree context."
-                            )
+                            snapshot_note = " Exact staged snapshot unavailable; using working tree context."
 
                 exclude_folders = parse_exclude_folders(
                     use_defaults=True,
@@ -3793,8 +3909,8 @@ def main() -> None:
                 staged_findings = _filter_precommit_findings_to_changed_lines(
                     staged_findings, changed_ranges
                 )
-                staged_findings, suppressed_local_findings = _apply_precommit_gate_policy(
-                    staged_findings
+                staged_findings, suppressed_local_findings = (
+                    _apply_precommit_gate_policy(staged_findings)
                 )
                 if staged_findings:
                     if agent_args.format == "json":
@@ -3810,7 +3926,9 @@ def main() -> None:
                             for name, count in category_counts.items()
                             if count
                         ]
-                        count_suffix = f" ({', '.join(count_bits)})" if count_bits else ""
+                        count_suffix = (
+                            f" ({', '.join(count_bits)})" if count_bits else ""
+                        )
                         console.print(
                             f"[warn]{len(staged_findings)} issue(s) found in staged files{count_suffix}:[/warn]"
                         )
@@ -4086,8 +4204,8 @@ def main() -> None:
                     llm_result, format=agent_args.format, output_file=agent_args.output
                 )
                 blockers_attr = getattr(llm_result, "has_blockers", False)
-                has_blockers = blockers_attr() if callable(blockers_attr) else bool(
-                    blockers_attr
+                has_blockers = (
+                    blockers_attr() if callable(blockers_attr) else bool(blockers_attr)
                 )
                 sys.exit(1 if has_blockers else 0)
 
@@ -4761,10 +4879,7 @@ def main() -> None:
 
         result = json.loads(result_json)
 
-        if (
-            getattr(args, "sca", False)
-            and "dependency_vulnerabilities" not in result
-        ):
+        if getattr(args, "sca", False) and "dependency_vulnerabilities" not in result:
             try:
                 from skylos.rules.sca.vulnerability_scanner import scan_dependencies
 
@@ -5094,9 +5209,7 @@ def main() -> None:
 
                 passed = upload_resp.get("quality_gate_passed")
                 if passed is None:
-                    passed = (upload_resp.get("quality_gate") or {}).get(
-                        "passed", True
-                    )
+                    passed = (upload_resp.get("quality_gate") or {}).get("passed", True)
 
                 if passed is False and not args.force:
                     raise SystemExit(1)

@@ -52,6 +52,7 @@ class ConstanceSettingsRequestMultipart:
         currency_name (Union[Unset, str]):
         thumbnail_size (Union[Unset, str]):
         anonymous_user_can_view_offerings (Union[Unset, bool]):
+        show_offering_cover_image (Union[Unset, bool]):
         anonymous_user_can_view_plans (Union[Unset, bool]):
         restricted_offering_visibility_mode (Union[Unset, RESTRICTEDOFFERINGVISIBILITYMODEEnum]):
         allow_service_provider_offering_management (Union[Unset, bool]):
@@ -214,6 +215,7 @@ class ConstanceSettingsRequestMultipart:
         waldur_auth_social_role_claim (Union[Unset, str]):
         remote_eduteams_refresh_token (Union[Unset, str]):
         default_offering_user_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
+        default_call_user_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         invitation_allowed_fields (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         enabled_user_profile_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         mandatory_user_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
@@ -246,10 +248,20 @@ class ConstanceSettingsRequestMultipart:
         ai_assistant_token_limit_daily (Union[Unset, int]):
         ai_assistant_token_limit_weekly (Union[Unset, int]):
         ai_assistant_token_limit_monthly (Union[Unset, int]):
+        ai_assistant_global_daily_token_budget (Union[Unset, int]):
+        ai_assistant_global_requests_per_minute (Union[Unset, int]):
         ai_assistant_session_retention_days (Union[Unset, int]):
         ai_assistant_history_limit (Union[Unset, int]):
+        ai_assistant_stream_timeout_seconds (Union[Unset, int]):
         ai_assistant_injection_allowlist (Union[Unset, str]):
         ai_assistant_name (Union[Unset, str]):
+        ai_assistant_system_prompt_custom_instructions (Union[Unset, str]):
+        anonymous_chat_user_slug_salt (Union[Unset, str]):
+        anonymous_chat_feedback_token_secret (Union[Unset, str]):
+        anonymous_chat_catalog_max_entries (Union[Unset, int]):
+        anonymous_chat_review_enabled (Union[Unset, bool]):
+        anonymous_chat_review_daily_token_budget (Union[Unset, int]):
+        anonymous_chat_artifact_retention_days (Union[Unset, int]):
         software_catalog_eessi_update_enabled (Union[Unset, bool]):
         software_catalog_eessi_version (Union[Unset, str]):
         software_catalog_eessi_api_url (Union[Unset, str]):
@@ -281,6 +293,7 @@ class ConstanceSettingsRequestMultipart:
         arrow_consumption_sync_enabled (Union[Unset, bool]):
         arrow_consumption_sync_interval_hours (Union[Unset, int]):
         arrow_billing_check_interval_hours (Union[Unset, int]):
+        usage_poll_record_retention_months (Union[Unset, int]):
         slurm_policy_evaluation_log_retention_days (Union[Unset, int]):
         federated_identity_sync_enabled (Union[Unset, bool]):
         federated_identity_sync_allowed_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
@@ -305,6 +318,7 @@ class ConstanceSettingsRequestMultipart:
     currency_name: Union[Unset, str] = UNSET
     thumbnail_size: Union[Unset, str] = UNSET
     anonymous_user_can_view_offerings: Union[Unset, bool] = UNSET
+    show_offering_cover_image: Union[Unset, bool] = UNSET
     anonymous_user_can_view_plans: Union[Unset, bool] = UNSET
     restricted_offering_visibility_mode: Union[Unset, RESTRICTEDOFFERINGVISIBILITYMODEEnum] = UNSET
     allow_service_provider_offering_management: Union[Unset, bool] = UNSET
@@ -467,6 +481,7 @@ class ConstanceSettingsRequestMultipart:
     waldur_auth_social_role_claim: Union[Unset, str] = UNSET
     remote_eduteams_refresh_token: Union[Unset, str] = UNSET
     default_offering_user_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
+    default_call_user_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     invitation_allowed_fields: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     enabled_user_profile_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     mandatory_user_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
@@ -499,10 +514,20 @@ class ConstanceSettingsRequestMultipart:
     ai_assistant_token_limit_daily: Union[Unset, int] = UNSET
     ai_assistant_token_limit_weekly: Union[Unset, int] = UNSET
     ai_assistant_token_limit_monthly: Union[Unset, int] = UNSET
+    ai_assistant_global_daily_token_budget: Union[Unset, int] = UNSET
+    ai_assistant_global_requests_per_minute: Union[Unset, int] = UNSET
     ai_assistant_session_retention_days: Union[Unset, int] = UNSET
     ai_assistant_history_limit: Union[Unset, int] = UNSET
+    ai_assistant_stream_timeout_seconds: Union[Unset, int] = UNSET
     ai_assistant_injection_allowlist: Union[Unset, str] = UNSET
     ai_assistant_name: Union[Unset, str] = UNSET
+    ai_assistant_system_prompt_custom_instructions: Union[Unset, str] = UNSET
+    anonymous_chat_user_slug_salt: Union[Unset, str] = UNSET
+    anonymous_chat_feedback_token_secret: Union[Unset, str] = UNSET
+    anonymous_chat_catalog_max_entries: Union[Unset, int] = UNSET
+    anonymous_chat_review_enabled: Union[Unset, bool] = UNSET
+    anonymous_chat_review_daily_token_budget: Union[Unset, int] = UNSET
+    anonymous_chat_artifact_retention_days: Union[Unset, int] = UNSET
     software_catalog_eessi_update_enabled: Union[Unset, bool] = UNSET
     software_catalog_eessi_version: Union[Unset, str] = UNSET
     software_catalog_eessi_api_url: Union[Unset, str] = UNSET
@@ -534,6 +559,7 @@ class ConstanceSettingsRequestMultipart:
     arrow_consumption_sync_enabled: Union[Unset, bool] = UNSET
     arrow_consumption_sync_interval_hours: Union[Unset, int] = UNSET
     arrow_billing_check_interval_hours: Union[Unset, int] = UNSET
+    usage_poll_record_retention_months: Union[Unset, int] = UNSET
     slurm_policy_evaluation_log_retention_days: Union[Unset, int] = UNSET
     federated_identity_sync_enabled: Union[Unset, bool] = UNSET
     federated_identity_sync_allowed_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
@@ -569,6 +595,8 @@ class ConstanceSettingsRequestMultipart:
         thumbnail_size = self.thumbnail_size
 
         anonymous_user_can_view_offerings = self.anonymous_user_can_view_offerings
+
+        show_offering_cover_image = self.show_offering_cover_image
 
         anonymous_user_can_view_plans = self.anonymous_user_can_view_plans
 
@@ -1026,6 +1054,18 @@ class ConstanceSettingsRequestMultipart:
 
                 default_offering_user_attributes.append(default_offering_user_attributes_item)
 
+        default_call_user_attributes: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.default_call_user_attributes, Unset):
+            default_call_user_attributes = []
+            for default_call_user_attributes_item_data in self.default_call_user_attributes:
+                default_call_user_attributes_item: str
+                if isinstance(default_call_user_attributes_item_data, UserAttributeEnum):
+                    default_call_user_attributes_item = default_call_user_attributes_item_data.value
+                else:
+                    default_call_user_attributes_item = default_call_user_attributes_item_data.value
+
+                default_call_user_attributes.append(default_call_user_attributes_item)
+
         invitation_allowed_fields: Union[Unset, list[str]] = UNSET
         if not isinstance(self.invitation_allowed_fields, Unset):
             invitation_allowed_fields = []
@@ -1152,13 +1192,33 @@ class ConstanceSettingsRequestMultipart:
 
         ai_assistant_token_limit_monthly = self.ai_assistant_token_limit_monthly
 
+        ai_assistant_global_daily_token_budget = self.ai_assistant_global_daily_token_budget
+
+        ai_assistant_global_requests_per_minute = self.ai_assistant_global_requests_per_minute
+
         ai_assistant_session_retention_days = self.ai_assistant_session_retention_days
 
         ai_assistant_history_limit = self.ai_assistant_history_limit
 
+        ai_assistant_stream_timeout_seconds = self.ai_assistant_stream_timeout_seconds
+
         ai_assistant_injection_allowlist = self.ai_assistant_injection_allowlist
 
         ai_assistant_name = self.ai_assistant_name
+
+        ai_assistant_system_prompt_custom_instructions = self.ai_assistant_system_prompt_custom_instructions
+
+        anonymous_chat_user_slug_salt = self.anonymous_chat_user_slug_salt
+
+        anonymous_chat_feedback_token_secret = self.anonymous_chat_feedback_token_secret
+
+        anonymous_chat_catalog_max_entries = self.anonymous_chat_catalog_max_entries
+
+        anonymous_chat_review_enabled = self.anonymous_chat_review_enabled
+
+        anonymous_chat_review_daily_token_budget = self.anonymous_chat_review_daily_token_budget
+
+        anonymous_chat_artifact_retention_days = self.anonymous_chat_artifact_retention_days
 
         software_catalog_eessi_update_enabled = self.software_catalog_eessi_update_enabled
 
@@ -1223,6 +1283,8 @@ class ConstanceSettingsRequestMultipart:
         arrow_consumption_sync_interval_hours = self.arrow_consumption_sync_interval_hours
 
         arrow_billing_check_interval_hours = self.arrow_billing_check_interval_hours
+
+        usage_poll_record_retention_months = self.usage_poll_record_retention_months
 
         slurm_policy_evaluation_log_retention_days = self.slurm_policy_evaluation_log_retention_days
 
@@ -1307,6 +1369,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["THUMBNAIL_SIZE"] = thumbnail_size
         if anonymous_user_can_view_offerings is not UNSET:
             field_dict["ANONYMOUS_USER_CAN_VIEW_OFFERINGS"] = anonymous_user_can_view_offerings
+        if show_offering_cover_image is not UNSET:
+            field_dict["SHOW_OFFERING_COVER_IMAGE"] = show_offering_cover_image
         if anonymous_user_can_view_plans is not UNSET:
             field_dict["ANONYMOUS_USER_CAN_VIEW_PLANS"] = anonymous_user_can_view_plans
         if restricted_offering_visibility_mode is not UNSET:
@@ -1637,6 +1701,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["REMOTE_EDUTEAMS_REFRESH_TOKEN"] = remote_eduteams_refresh_token
         if default_offering_user_attributes is not UNSET:
             field_dict["DEFAULT_OFFERING_USER_ATTRIBUTES"] = default_offering_user_attributes
+        if default_call_user_attributes is not UNSET:
+            field_dict["DEFAULT_CALL_USER_ATTRIBUTES"] = default_call_user_attributes
         if invitation_allowed_fields is not UNSET:
             field_dict["INVITATION_ALLOWED_FIELDS"] = invitation_allowed_fields
         if enabled_user_profile_attributes is not UNSET:
@@ -1703,14 +1769,36 @@ class ConstanceSettingsRequestMultipart:
             field_dict["AI_ASSISTANT_TOKEN_LIMIT_WEEKLY"] = ai_assistant_token_limit_weekly
         if ai_assistant_token_limit_monthly is not UNSET:
             field_dict["AI_ASSISTANT_TOKEN_LIMIT_MONTHLY"] = ai_assistant_token_limit_monthly
+        if ai_assistant_global_daily_token_budget is not UNSET:
+            field_dict["AI_ASSISTANT_GLOBAL_DAILY_TOKEN_BUDGET"] = ai_assistant_global_daily_token_budget
+        if ai_assistant_global_requests_per_minute is not UNSET:
+            field_dict["AI_ASSISTANT_GLOBAL_REQUESTS_PER_MINUTE"] = ai_assistant_global_requests_per_minute
         if ai_assistant_session_retention_days is not UNSET:
             field_dict["AI_ASSISTANT_SESSION_RETENTION_DAYS"] = ai_assistant_session_retention_days
         if ai_assistant_history_limit is not UNSET:
             field_dict["AI_ASSISTANT_HISTORY_LIMIT"] = ai_assistant_history_limit
+        if ai_assistant_stream_timeout_seconds is not UNSET:
+            field_dict["AI_ASSISTANT_STREAM_TIMEOUT_SECONDS"] = ai_assistant_stream_timeout_seconds
         if ai_assistant_injection_allowlist is not UNSET:
             field_dict["AI_ASSISTANT_INJECTION_ALLOWLIST"] = ai_assistant_injection_allowlist
         if ai_assistant_name is not UNSET:
             field_dict["AI_ASSISTANT_NAME"] = ai_assistant_name
+        if ai_assistant_system_prompt_custom_instructions is not UNSET:
+            field_dict["AI_ASSISTANT_SYSTEM_PROMPT_CUSTOM_INSTRUCTIONS"] = (
+                ai_assistant_system_prompt_custom_instructions
+            )
+        if anonymous_chat_user_slug_salt is not UNSET:
+            field_dict["ANONYMOUS_CHAT_USER_SLUG_SALT"] = anonymous_chat_user_slug_salt
+        if anonymous_chat_feedback_token_secret is not UNSET:
+            field_dict["ANONYMOUS_CHAT_FEEDBACK_TOKEN_SECRET"] = anonymous_chat_feedback_token_secret
+        if anonymous_chat_catalog_max_entries is not UNSET:
+            field_dict["ANONYMOUS_CHAT_CATALOG_MAX_ENTRIES"] = anonymous_chat_catalog_max_entries
+        if anonymous_chat_review_enabled is not UNSET:
+            field_dict["ANONYMOUS_CHAT_REVIEW_ENABLED"] = anonymous_chat_review_enabled
+        if anonymous_chat_review_daily_token_budget is not UNSET:
+            field_dict["ANONYMOUS_CHAT_REVIEW_DAILY_TOKEN_BUDGET"] = anonymous_chat_review_daily_token_budget
+        if anonymous_chat_artifact_retention_days is not UNSET:
+            field_dict["ANONYMOUS_CHAT_ARTIFACT_RETENTION_DAYS"] = anonymous_chat_artifact_retention_days
         if software_catalog_eessi_update_enabled is not UNSET:
             field_dict["SOFTWARE_CATALOG_EESSI_UPDATE_ENABLED"] = software_catalog_eessi_update_enabled
         if software_catalog_eessi_version is not UNSET:
@@ -1773,6 +1861,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["ARROW_CONSUMPTION_SYNC_INTERVAL_HOURS"] = arrow_consumption_sync_interval_hours
         if arrow_billing_check_interval_hours is not UNSET:
             field_dict["ARROW_BILLING_CHECK_INTERVAL_HOURS"] = arrow_billing_check_interval_hours
+        if usage_poll_record_retention_months is not UNSET:
+            field_dict["USAGE_POLL_RECORD_RETENTION_MONTHS"] = usage_poll_record_retention_months
         if slurm_policy_evaluation_log_retention_days is not UNSET:
             field_dict["SLURM_POLICY_EVALUATION_LOG_RETENTION_DAYS"] = slurm_policy_evaluation_log_retention_days
         if federated_identity_sync_enabled is not UNSET:
@@ -1839,6 +1929,11 @@ class ConstanceSettingsRequestMultipart:
                     "ANONYMOUS_USER_CAN_VIEW_OFFERINGS",
                     (None, str(self.anonymous_user_can_view_offerings).encode(), "text/plain"),
                 )
+            )
+
+        if not isinstance(self.show_offering_cover_image, Unset):
+            files.append(
+                ("SHOW_OFFERING_COVER_IMAGE", (None, str(self.show_offering_cover_image).encode(), "text/plain"))
             )
 
         if not isinstance(self.anonymous_user_can_view_plans, Unset):
@@ -2618,6 +2713,23 @@ class ConstanceSettingsRequestMultipart:
                         )
                     )
 
+        if not isinstance(self.default_call_user_attributes, Unset):
+            for default_call_user_attributes_item_element in self.default_call_user_attributes:
+                if isinstance(default_call_user_attributes_item_element, UserAttributeEnum):
+                    files.append(
+                        (
+                            "DEFAULT_CALL_USER_ATTRIBUTES",
+                            (None, str(default_call_user_attributes_item_element.value).encode(), "text/plain"),
+                        )
+                    )
+                else:
+                    files.append(
+                        (
+                            "DEFAULT_CALL_USER_ATTRIBUTES",
+                            (None, str(default_call_user_attributes_item_element.value).encode(), "text/plain"),
+                        )
+                    )
+
         if not isinstance(self.invitation_allowed_fields, Unset):
             for invitation_allowed_fields_item_element in self.invitation_allowed_fields:
                 if isinstance(invitation_allowed_fields_item_element, UserAttributeEnum):
@@ -2898,6 +3010,22 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.ai_assistant_global_daily_token_budget, Unset):
+            files.append(
+                (
+                    "AI_ASSISTANT_GLOBAL_DAILY_TOKEN_BUDGET",
+                    (None, str(self.ai_assistant_global_daily_token_budget).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.ai_assistant_global_requests_per_minute, Unset):
+            files.append(
+                (
+                    "AI_ASSISTANT_GLOBAL_REQUESTS_PER_MINUTE",
+                    (None, str(self.ai_assistant_global_requests_per_minute).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.ai_assistant_session_retention_days, Unset):
             files.append(
                 (
@@ -2911,6 +3039,14 @@ class ConstanceSettingsRequestMultipart:
                 ("AI_ASSISTANT_HISTORY_LIMIT", (None, str(self.ai_assistant_history_limit).encode(), "text/plain"))
             )
 
+        if not isinstance(self.ai_assistant_stream_timeout_seconds, Unset):
+            files.append(
+                (
+                    "AI_ASSISTANT_STREAM_TIMEOUT_SECONDS",
+                    (None, str(self.ai_assistant_stream_timeout_seconds).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.ai_assistant_injection_allowlist, Unset):
             files.append(
                 (
@@ -2921,6 +3057,62 @@ class ConstanceSettingsRequestMultipart:
 
         if not isinstance(self.ai_assistant_name, Unset):
             files.append(("AI_ASSISTANT_NAME", (None, str(self.ai_assistant_name).encode(), "text/plain")))
+
+        if not isinstance(self.ai_assistant_system_prompt_custom_instructions, Unset):
+            files.append(
+                (
+                    "AI_ASSISTANT_SYSTEM_PROMPT_CUSTOM_INSTRUCTIONS",
+                    (None, str(self.ai_assistant_system_prompt_custom_instructions).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.anonymous_chat_user_slug_salt, Unset):
+            files.append(
+                (
+                    "ANONYMOUS_CHAT_USER_SLUG_SALT",
+                    (None, str(self.anonymous_chat_user_slug_salt).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.anonymous_chat_feedback_token_secret, Unset):
+            files.append(
+                (
+                    "ANONYMOUS_CHAT_FEEDBACK_TOKEN_SECRET",
+                    (None, str(self.anonymous_chat_feedback_token_secret).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.anonymous_chat_catalog_max_entries, Unset):
+            files.append(
+                (
+                    "ANONYMOUS_CHAT_CATALOG_MAX_ENTRIES",
+                    (None, str(self.anonymous_chat_catalog_max_entries).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.anonymous_chat_review_enabled, Unset):
+            files.append(
+                (
+                    "ANONYMOUS_CHAT_REVIEW_ENABLED",
+                    (None, str(self.anonymous_chat_review_enabled).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.anonymous_chat_review_daily_token_budget, Unset):
+            files.append(
+                (
+                    "ANONYMOUS_CHAT_REVIEW_DAILY_TOKEN_BUDGET",
+                    (None, str(self.anonymous_chat_review_daily_token_budget).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.anonymous_chat_artifact_retention_days, Unset):
+            files.append(
+                (
+                    "ANONYMOUS_CHAT_ARTIFACT_RETENTION_DAYS",
+                    (None, str(self.anonymous_chat_artifact_retention_days).encode(), "text/plain"),
+                )
+            )
 
         if not isinstance(self.software_catalog_eessi_update_enabled, Unset):
             files.append(
@@ -3151,6 +3343,14 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.usage_poll_record_retention_months, Unset):
+            files.append(
+                (
+                    "USAGE_POLL_RECORD_RETENTION_MONTHS",
+                    (None, str(self.usage_poll_record_retention_months).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.slurm_policy_evaluation_log_retention_days, Unset):
             files.append(
                 (
@@ -3286,6 +3486,8 @@ class ConstanceSettingsRequestMultipart:
         thumbnail_size = d.pop("THUMBNAIL_SIZE", UNSET)
 
         anonymous_user_can_view_offerings = d.pop("ANONYMOUS_USER_CAN_VIEW_OFFERINGS", UNSET)
+
+        show_offering_cover_image = d.pop("SHOW_OFFERING_COVER_IMAGE", UNSET)
 
         anonymous_user_can_view_plans = d.pop("ANONYMOUS_USER_CAN_VIEW_PLANS", UNSET)
 
@@ -3891,6 +4093,31 @@ class ConstanceSettingsRequestMultipart:
 
             default_offering_user_attributes.append(default_offering_user_attributes_item)
 
+        default_call_user_attributes = []
+        _default_call_user_attributes = d.pop("DEFAULT_CALL_USER_ATTRIBUTES", UNSET)
+        for default_call_user_attributes_item_data in _default_call_user_attributes or []:
+
+            def _parse_default_call_user_attributes_item(data: object) -> Union[BlankEnum, UserAttributeEnum]:
+                try:
+                    if not isinstance(data, str):
+                        raise TypeError()
+                    default_call_user_attributes_item_type_0 = UserAttributeEnum(data)
+
+                    return default_call_user_attributes_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, str):
+                    raise TypeError()
+                default_call_user_attributes_item_type_1 = BlankEnum(data)
+
+                return default_call_user_attributes_item_type_1
+
+            default_call_user_attributes_item = _parse_default_call_user_attributes_item(
+                default_call_user_attributes_item_data
+            )
+
+            default_call_user_attributes.append(default_call_user_attributes_item)
+
         invitation_allowed_fields = []
         _invitation_allowed_fields = d.pop("INVITATION_ALLOWED_FIELDS", UNSET)
         for invitation_allowed_fields_item_data in _invitation_allowed_fields or []:
@@ -4092,13 +4319,33 @@ class ConstanceSettingsRequestMultipart:
 
         ai_assistant_token_limit_monthly = d.pop("AI_ASSISTANT_TOKEN_LIMIT_MONTHLY", UNSET)
 
+        ai_assistant_global_daily_token_budget = d.pop("AI_ASSISTANT_GLOBAL_DAILY_TOKEN_BUDGET", UNSET)
+
+        ai_assistant_global_requests_per_minute = d.pop("AI_ASSISTANT_GLOBAL_REQUESTS_PER_MINUTE", UNSET)
+
         ai_assistant_session_retention_days = d.pop("AI_ASSISTANT_SESSION_RETENTION_DAYS", UNSET)
 
         ai_assistant_history_limit = d.pop("AI_ASSISTANT_HISTORY_LIMIT", UNSET)
 
+        ai_assistant_stream_timeout_seconds = d.pop("AI_ASSISTANT_STREAM_TIMEOUT_SECONDS", UNSET)
+
         ai_assistant_injection_allowlist = d.pop("AI_ASSISTANT_INJECTION_ALLOWLIST", UNSET)
 
         ai_assistant_name = d.pop("AI_ASSISTANT_NAME", UNSET)
+
+        ai_assistant_system_prompt_custom_instructions = d.pop("AI_ASSISTANT_SYSTEM_PROMPT_CUSTOM_INSTRUCTIONS", UNSET)
+
+        anonymous_chat_user_slug_salt = d.pop("ANONYMOUS_CHAT_USER_SLUG_SALT", UNSET)
+
+        anonymous_chat_feedback_token_secret = d.pop("ANONYMOUS_CHAT_FEEDBACK_TOKEN_SECRET", UNSET)
+
+        anonymous_chat_catalog_max_entries = d.pop("ANONYMOUS_CHAT_CATALOG_MAX_ENTRIES", UNSET)
+
+        anonymous_chat_review_enabled = d.pop("ANONYMOUS_CHAT_REVIEW_ENABLED", UNSET)
+
+        anonymous_chat_review_daily_token_budget = d.pop("ANONYMOUS_CHAT_REVIEW_DAILY_TOKEN_BUDGET", UNSET)
+
+        anonymous_chat_artifact_retention_days = d.pop("ANONYMOUS_CHAT_ARTIFACT_RETENTION_DAYS", UNSET)
 
         software_catalog_eessi_update_enabled = d.pop("SOFTWARE_CATALOG_EESSI_UPDATE_ENABLED", UNSET)
 
@@ -4163,6 +4410,8 @@ class ConstanceSettingsRequestMultipart:
         arrow_consumption_sync_interval_hours = d.pop("ARROW_CONSUMPTION_SYNC_INTERVAL_HOURS", UNSET)
 
         arrow_billing_check_interval_hours = d.pop("ARROW_BILLING_CHECK_INTERVAL_HOURS", UNSET)
+
+        usage_poll_record_retention_months = d.pop("USAGE_POLL_RECORD_RETENTION_MONTHS", UNSET)
 
         slurm_policy_evaluation_log_retention_days = d.pop("SLURM_POLICY_EVALUATION_LOG_RETENTION_DAYS", UNSET)
 
@@ -4272,6 +4521,7 @@ class ConstanceSettingsRequestMultipart:
             currency_name=currency_name,
             thumbnail_size=thumbnail_size,
             anonymous_user_can_view_offerings=anonymous_user_can_view_offerings,
+            show_offering_cover_image=show_offering_cover_image,
             anonymous_user_can_view_plans=anonymous_user_can_view_plans,
             restricted_offering_visibility_mode=restricted_offering_visibility_mode,
             allow_service_provider_offering_management=allow_service_provider_offering_management,
@@ -4434,6 +4684,7 @@ class ConstanceSettingsRequestMultipart:
             waldur_auth_social_role_claim=waldur_auth_social_role_claim,
             remote_eduteams_refresh_token=remote_eduteams_refresh_token,
             default_offering_user_attributes=default_offering_user_attributes,
+            default_call_user_attributes=default_call_user_attributes,
             invitation_allowed_fields=invitation_allowed_fields,
             enabled_user_profile_attributes=enabled_user_profile_attributes,
             mandatory_user_attributes=mandatory_user_attributes,
@@ -4466,10 +4717,20 @@ class ConstanceSettingsRequestMultipart:
             ai_assistant_token_limit_daily=ai_assistant_token_limit_daily,
             ai_assistant_token_limit_weekly=ai_assistant_token_limit_weekly,
             ai_assistant_token_limit_monthly=ai_assistant_token_limit_monthly,
+            ai_assistant_global_daily_token_budget=ai_assistant_global_daily_token_budget,
+            ai_assistant_global_requests_per_minute=ai_assistant_global_requests_per_minute,
             ai_assistant_session_retention_days=ai_assistant_session_retention_days,
             ai_assistant_history_limit=ai_assistant_history_limit,
+            ai_assistant_stream_timeout_seconds=ai_assistant_stream_timeout_seconds,
             ai_assistant_injection_allowlist=ai_assistant_injection_allowlist,
             ai_assistant_name=ai_assistant_name,
+            ai_assistant_system_prompt_custom_instructions=ai_assistant_system_prompt_custom_instructions,
+            anonymous_chat_user_slug_salt=anonymous_chat_user_slug_salt,
+            anonymous_chat_feedback_token_secret=anonymous_chat_feedback_token_secret,
+            anonymous_chat_catalog_max_entries=anonymous_chat_catalog_max_entries,
+            anonymous_chat_review_enabled=anonymous_chat_review_enabled,
+            anonymous_chat_review_daily_token_budget=anonymous_chat_review_daily_token_budget,
+            anonymous_chat_artifact_retention_days=anonymous_chat_artifact_retention_days,
             software_catalog_eessi_update_enabled=software_catalog_eessi_update_enabled,
             software_catalog_eessi_version=software_catalog_eessi_version,
             software_catalog_eessi_api_url=software_catalog_eessi_api_url,
@@ -4501,6 +4762,7 @@ class ConstanceSettingsRequestMultipart:
             arrow_consumption_sync_enabled=arrow_consumption_sync_enabled,
             arrow_consumption_sync_interval_hours=arrow_consumption_sync_interval_hours,
             arrow_billing_check_interval_hours=arrow_billing_check_interval_hours,
+            usage_poll_record_retention_months=usage_poll_record_retention_months,
             slurm_policy_evaluation_log_retention_days=slurm_policy_evaluation_log_retention_days,
             federated_identity_sync_enabled=federated_identity_sync_enabled,
             federated_identity_sync_allowed_attributes=federated_identity_sync_allowed_attributes,

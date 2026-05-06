@@ -11,12 +11,15 @@
 """
 External Codes interface
 """
+
 from __future__ import annotations
-from typing import IO, Any, TypedDict
+
 import logging
 import os.path
-import defusedxml.ElementTree as et
 from importlib.resources import files as _res_files
+from typing import IO, Any, TypedDict
+
+import defusedxml.ElementTree as et
 
 from pyx12.errors import EngineError
 
@@ -28,7 +31,7 @@ class CodesError(Exception):
 class _CodeSet(TypedDict):
     name: str | None
     dataele: str | None
-    codes: list[str | None]
+    codes: frozenset[str | None]
 
 
 class ExternalCodes:
@@ -43,34 +46,34 @@ class ExternalCodes:
         """
         Initialize the external list of codes
 
-        base_path: Override directory containing codes.xml.  If None,
-            uses package resource folder.
-        exclude: comma-separated string of external code names to ignore.
+        :param base_path: Override directory containing codes.xml.
+            If None, uses package resource folder.
+        :param exclude: comma-separated string of external code names to ignore.
 
-        self.codes maps codeset_id to {'name', 'dataele', 'codes'}.
+        ``self.codes`` maps codeset_id to ``{'name', 'dataele', 'codes'}``.
         """
-        logger = logging.getLogger('pyx12')
+        logger = logging.getLogger("pyx12")
         self.codes = {}
-        codes_file = 'codes.xml'
+        codes_file = "codes.xml"
         # ElementTree.parse accepts either text- or binary-mode streams; the
         # file source differs between override path and bundled package resource.
         code_fd: IO[Any]
         if base_path is not None:
             logger.debug(f"Looking for codes file '{codes_file}' in map_path '{base_path}'")
-            code_fd = open(os.path.join(base_path, codes_file), encoding='utf-8')
+            code_fd = open(os.path.join(base_path, codes_file), encoding="utf-8")
         else:
             logger.debug(f"Looking for codes file '{codes_file}' in package resources")
-            code_fd = _res_files('pyx12').joinpath('map', codes_file).open('rb')
+            code_fd = _res_files("pyx12").joinpath("map", codes_file).open("rb")
 
-        self.exclude_list = exclude.split(',') if exclude is not None else []
+        self.exclude_list = exclude.split(",") if exclude is not None else []
         with code_fd:
-            parser = et.XMLParser(encoding='utf-8')
-            for cElem in et.parse(code_fd, parser=parser).iter('codeset'):
-                codeset_id = cElem.findtext('id')
+            parser = et.XMLParser(encoding="utf-8")
+            for cElem in et.parse(code_fd, parser=parser).iter("codeset"):
+                codeset_id = cElem.findtext("id")
                 self.codes[codeset_id] = {
-                    'name': cElem.findtext('name'),
-                    'dataele': cElem.findtext('data_ele'),
-                    'codes': [c.text for c in cElem.iterfind('version/code')],
+                    "name": cElem.findtext("name"),
+                    "dataele": cElem.findtext("data_ele"),
+                    "codes": frozenset(c.text for c in cElem.iterfind("version/code")),
                 }
 
     def isValid(self, key: str | None, code: str | None, check_dte: str | None = None) -> bool:
@@ -78,14 +81,40 @@ class ExternalCodes:
         Return True if code is in the codeset identified by key.
         """
         if not key:
-            raise EngineError(f'bad key {key!r}')
+            raise EngineError(f"bad key {key!r}")
         if key in self.exclude_list:
             return True
         if key not in self.codes:
             raise EngineError(f'External Code "{key}" is not defined')
-        return code in self.codes[key]['codes']
+        return code in self.codes[key]["codes"]
 
     def debug_print(self, count: int = 10) -> None:
-        """Debug print first <count> codes for each codeset."""
+        """Debug print first <count> codes for each codeset (alphabetical)."""
         for key in self.codes:
-            print(self.codes[key]['codes'][:count])
+            print(sorted(self.codes[key]["codes"], key=lambda c: c or "")[:count])
+
+
+def list_external_codesets(base_path: str | None = None) -> list[tuple[str, str]]:
+    """Return ``(id, name)`` for every codeset in ``codes.xml``.
+
+    Used by CLI scripts to populate ``--help`` with the list of names
+    accepted by the ``--exclude-external-codes`` flag. Loads the metadata
+    only — does not parse code values — so the cost is small.
+
+    :param base_path: Override directory containing codes.xml.
+        If None, uses package resource folder.
+    """
+    code_fd: IO[Any]
+    if base_path is not None:
+        code_fd = open(os.path.join(base_path, "codes.xml"), encoding="utf-8")
+    else:
+        code_fd = _res_files("pyx12").joinpath("map", "codes.xml").open("rb")
+    pairs: list[tuple[str, str]] = []
+    with code_fd:
+        parser = et.XMLParser(encoding="utf-8")
+        for cs in et.parse(code_fd, parser=parser).iter("codeset"):
+            cid = (cs.findtext("id") or "").strip()
+            name = (cs.findtext("name") or "").strip()
+            if cid:
+                pairs.append((cid, name))
+    return pairs

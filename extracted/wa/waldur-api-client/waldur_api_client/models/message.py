@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -8,9 +8,13 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.action_taken_enum import ActionTakenEnum
+from ..models.feedback_category_enum import FeedbackCategoryEnum
 from ..models.injection_severity_enum import InjectionSeverityEnum
 from ..models.message_role_enum import MessageRoleEnum
-from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.message_blocks_item import MessageBlocksItem
+
 
 T = TypeVar("T", bound="Message")
 
@@ -22,8 +26,8 @@ class Message:
         uuid (UUID):
         thread (UUID):
         role (MessageRoleEnum):
-        content_display (str):
-        tool_calls (Any):
+        blocks (list['MessageBlocksItem']):
+        warning (str):
         sequence_index (int):
         replaces (Union[None, UUID]):
         created (datetime.datetime):
@@ -34,14 +38,19 @@ class Message:
         injection_categories (Any):
         pii_categories (Any):
         action_taken (ActionTakenEnum):
-        content (Union[Unset, str]):
+        feedback_score (Union[None, bool]): User feedback: True=thumbs up, False=thumbs down, None=no feedback.
+        feedback_comment (Union[None, str]): Optional user comment accompanying feedback.
+        feedback_category (Union[FeedbackCategoryEnum, None]): Category tag when feedback_score is False (thumbs down);
+            null otherwise.
+        feedback_submitted_at (Union[None, datetime.datetime]): Timestamp of the most recent feedback submission;
+            overwritten on resubmit.
     """
 
     uuid: UUID
     thread: UUID
     role: MessageRoleEnum
-    content_display: str
-    tool_calls: Any
+    blocks: list["MessageBlocksItem"]
+    warning: str
     sequence_index: int
     replaces: Union[None, UUID]
     created: datetime.datetime
@@ -52,7 +61,10 @@ class Message:
     injection_categories: Any
     pii_categories: Any
     action_taken: ActionTakenEnum
-    content: Union[Unset, str] = UNSET
+    feedback_score: Union[None, bool]
+    feedback_comment: Union[None, str]
+    feedback_category: Union[FeedbackCategoryEnum, None]
+    feedback_submitted_at: Union[None, datetime.datetime]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,9 +74,12 @@ class Message:
 
         role = self.role.value
 
-        content_display = self.content_display
+        blocks = []
+        for blocks_item_data in self.blocks:
+            blocks_item = blocks_item_data.to_dict()
+            blocks.append(blocks_item)
 
-        tool_calls = self.tool_calls
+        warning = self.warning
 
         sequence_index = self.sequence_index
 
@@ -92,7 +107,23 @@ class Message:
 
         action_taken = self.action_taken.value
 
-        content = self.content
+        feedback_score: Union[None, bool]
+        feedback_score = self.feedback_score
+
+        feedback_comment: Union[None, str]
+        feedback_comment = self.feedback_comment
+
+        feedback_category: Union[None, str]
+        if isinstance(self.feedback_category, FeedbackCategoryEnum):
+            feedback_category = self.feedback_category.value
+        else:
+            feedback_category = self.feedback_category
+
+        feedback_submitted_at: Union[None, str]
+        if isinstance(self.feedback_submitted_at, datetime.datetime):
+            feedback_submitted_at = self.feedback_submitted_at.isoformat()
+        else:
+            feedback_submitted_at = self.feedback_submitted_at
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -101,8 +132,8 @@ class Message:
                 "uuid": uuid,
                 "thread": thread,
                 "role": role,
-                "content_display": content_display,
-                "tool_calls": tool_calls,
+                "blocks": blocks,
+                "warning": warning,
                 "sequence_index": sequence_index,
                 "replaces": replaces,
                 "created": created,
@@ -113,15 +144,19 @@ class Message:
                 "injection_categories": injection_categories,
                 "pii_categories": pii_categories,
                 "action_taken": action_taken,
+                "feedback_score": feedback_score,
+                "feedback_comment": feedback_comment,
+                "feedback_category": feedback_category,
+                "feedback_submitted_at": feedback_submitted_at,
             }
         )
-        if content is not UNSET:
-            field_dict["content"] = content
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.message_blocks_item import MessageBlocksItem
+
         d = dict(src_dict)
         uuid = UUID(d.pop("uuid"))
 
@@ -129,9 +164,14 @@ class Message:
 
         role = MessageRoleEnum(d.pop("role"))
 
-        content_display = d.pop("content_display")
+        blocks = []
+        _blocks = d.pop("blocks")
+        for blocks_item_data in _blocks:
+            blocks_item = MessageBlocksItem.from_dict(blocks_item_data)
 
-        tool_calls = d.pop("tool_calls")
+            blocks.append(blocks_item)
+
+        warning = d.pop("warning")
 
         sequence_index = d.pop("sequence_index")
 
@@ -176,14 +216,56 @@ class Message:
 
         action_taken = ActionTakenEnum(d.pop("action_taken"))
 
-        content = d.pop("content", UNSET)
+        def _parse_feedback_score(data: object) -> Union[None, bool]:
+            if data is None:
+                return data
+            return cast(Union[None, bool], data)
+
+        feedback_score = _parse_feedback_score(d.pop("feedback_score"))
+
+        def _parse_feedback_comment(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        feedback_comment = _parse_feedback_comment(d.pop("feedback_comment"))
+
+        def _parse_feedback_category(data: object) -> Union[FeedbackCategoryEnum, None]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                feedback_category_type_0 = FeedbackCategoryEnum(data)
+
+                return feedback_category_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[FeedbackCategoryEnum, None], data)
+
+        feedback_category = _parse_feedback_category(d.pop("feedback_category"))
+
+        def _parse_feedback_submitted_at(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                feedback_submitted_at_type_0 = isoparse(data)
+
+                return feedback_submitted_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        feedback_submitted_at = _parse_feedback_submitted_at(d.pop("feedback_submitted_at"))
 
         message = cls(
             uuid=uuid,
             thread=thread,
             role=role,
-            content_display=content_display,
-            tool_calls=tool_calls,
+            blocks=blocks,
+            warning=warning,
             sequence_index=sequence_index,
             replaces=replaces,
             created=created,
@@ -194,7 +276,10 @@ class Message:
             injection_categories=injection_categories,
             pii_categories=pii_categories,
             action_taken=action_taken,
-            content=content,
+            feedback_score=feedback_score,
+            feedback_comment=feedback_comment,
+            feedback_category=feedback_category,
+            feedback_submitted_at=feedback_submitted_at,
         )
 
         message.additional_properties = d

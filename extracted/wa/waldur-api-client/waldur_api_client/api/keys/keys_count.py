@@ -27,7 +27,6 @@ def _get_kwargs(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -80,11 +79,6 @@ def _get_kwargs(
     if not isinstance(user_uuid, Unset):
         json_user_uuid = str(user_uuid)
     params["user_uuid"] = json_user_uuid
-
-    json_uuid: Union[Unset, str] = UNSET
-    if not isinstance(uuid, Unset):
-        json_uuid = str(uuid)
-    params["uuid"] = json_uuid
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -140,7 +134,6 @@ def sync_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
@@ -159,7 +152,6 @@ def sync_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -184,7 +176,6 @@ def sync_detailed(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid=uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -211,7 +202,6 @@ def sync(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
@@ -230,7 +220,6 @@ def sync(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -256,7 +245,6 @@ def sync(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid=uuid,
     ).parsed
 
 
@@ -277,7 +265,6 @@ async def asyncio_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
@@ -296,7 +283,6 @@ async def asyncio_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -321,7 +307,6 @@ async def asyncio_detailed(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid=uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -346,7 +331,6 @@ async def asyncio(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
@@ -365,7 +349,6 @@ async def asyncio(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -392,6 +375,5 @@ async def asyncio(
             page=page,
             page_size=page_size,
             user_uuid=user_uuid,
-            uuid=uuid,
         )
     ).parsed

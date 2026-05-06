@@ -130,7 +130,9 @@ def _configure_certomancer():
         cfg_text = inf.read()
     cfg = yaml.safe_load(cfg_text)
 
-    return CertomancerConfig(cfg, key_search_dir=CRYPTO_DATA_DIR)
+    return CertomancerConfig(
+        cfg, key_search_dir=CRYPTO_DATA_DIR, lazy_load_keys=True
+    )
 
 
 CERTOMANCER = _configure_certomancer()
@@ -141,8 +143,12 @@ TESTING_CA_ERRORS = CERTOMANCER.get_pki_arch(
 UNRELATED_TSA = CERTOMANCER.get_pki_arch(ArchLabel('unrelated-tsa'))
 TESTING_CA_ECDSA = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-ecdsa'))
 TESTING_CA_DSA = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-dsa'))
+
 TESTING_CA_ED25519 = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-ed25519'))
+
 TESTING_CA_ED448 = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-ed448'))
+
+TESTING_CA_MLDSA = CERTOMANCER.get_pki_arch(ArchLabel('testing-ca-mldsa'))
 TESTING_CA_QUALIFIED = CERTOMANCER.get_pki_arch(
     ArchLabel('testing-ca-qualified')
 )

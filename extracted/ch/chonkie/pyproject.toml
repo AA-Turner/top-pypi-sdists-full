@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chonkie"
-version = "1.6.4"
+version = "1.6.5"
 description = "🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -52,6 +52,7 @@ dependencies = [
     "chonkie-core>=0.8.0",
     "tenacity>=8.0.0",
     "httpx>=0.28.1",
+    "tokie>=0.0.9",
 ]
 
 [project.urls]
@@ -82,7 +83,7 @@ api = [
 # Optional dependencies for table chef
 table = ["pandas", "tabulate", "openpyxl", "lxml"]
 
-# Optional dependencies for tokenizers
+# Legacy tokenizer extras (tokie is now the default, these are for backward compat)
 tokenizers = ["tokenizers>=0.16.0"]
 tiktoken = ["tiktoken>=0.5.0"]
 

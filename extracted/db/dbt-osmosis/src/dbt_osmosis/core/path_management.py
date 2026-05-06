@@ -70,7 +70,7 @@ def _get_yaml_path_template(context: YamlRefactorContextProtocol, node: ResultNo
         return None
 
     # Use SettingsResolver to get the path template from config sources
-    resolver = SettingsResolver()
+    resolver = SettingsResolver(context=context)
     raw_path_template = resolver.get_yaml_path_template(node)
     path_template = raw_path_template if isinstance(raw_path_template, str) else None
 
@@ -133,30 +133,28 @@ def get_target_yaml_path(context: YamlRefactorContextProtocol, node: ResultNode)
         logger.warning(":warning: No path template found for => %s", node.unique_id)
         return Path(project_root, t.cast("str", node.original_file_path))
 
-    # Use local copies to avoid TOCTOU race conditions from mutating node objects
-    # Build a safe format dict with only immutable/copy data
     path = Path(project_root, t.cast("str", node.original_file_path))
-
-    # Create a simple node object with common attributes for format strings
-    # Avoid exposing fqn/tags as indexed dicts to prevent TOCTOU issues
-    node_attrs = {
-        "name": node.name,
-        "schema": node.schema,
-        "database": node.database,
-        "package": node.package_name,
-    }
-    # Add source_name only for Source nodes (non-source nodes don't have this attribute)
-    if node.resource_type == NodeType.Source:
-        node_attrs["source_name"] = node.source_name
 
     format_dict = {
         "model": node.name,
         "parent": path.parent.name,
         "schema": node.schema,
-        "node": type("obj", (object,), node_attrs)(),
+        "node": node,
     }
 
-    rendered = tpl.format(**format_dict)
+    try:
+        rendered = tpl.format(**format_dict)
+    except KeyError as exc:
+        missing_key = exc.args[0] if exc.args else "<unknown>"
+        raise PathResolutionError(
+            f"Unable to render YAML path template for node '{node.unique_id}' using template "
+            f"'{tpl}': missing template key '{missing_key}'."
+        ) from exc
+    except AttributeError as exc:
+        raise PathResolutionError(
+            f"Unable to render YAML path template for node '{node.unique_id}' using template "
+            f"'{tpl}': missing or invalid template attribute ({exc})."
+        ) from exc
 
     segments: list[Path | str] = []
 
@@ -222,8 +220,6 @@ def create_missing_source_yamls(context: t.Any) -> None:
     from dbt_osmosis.core.config import _reload_manifest
     from dbt_osmosis.core.introspection import _find_first, get_columns
     from dbt_osmosis.core.schema.reader import (
-        _YAML_BUFFER_CACHE,
-        _YAML_BUFFER_CACHE_LOCK,
         _read_yaml,
     )
     from dbt_osmosis.core.schema.writer import _write_yaml
@@ -232,7 +228,7 @@ def create_missing_source_yamls(context: t.Any) -> None:
         logger.warning(":warning: Introspection is disabled, cannot create missing source YAMLs.")
         return
     logger.info(":factory: Creating missing source YAMLs and updating existing sources (if any).")
-    database: str = context.project.runtime_cfg.credentials.database
+    default_database: str = context.project.runtime_cfg.credentials.database
     lowercase: bool = context.settings.output_to_lower
     uppercase: bool = context.settings.output_to_upper
     project_root = t.cast("str", context.project.runtime_cfg.project_root)
@@ -240,13 +236,16 @@ def create_missing_source_yamls(context: t.Any) -> None:
         raise PathResolutionError("Project root is not set in runtime config.")
     model_paths = t.cast("list[str]", context.project.runtime_cfg.model_paths or ["models"])
 
-    did_side_effect: bool = False
+    starting_disk_mutations = getattr(context, "disk_mutation_count", 0)
+    source_changes_detected = False
+    written_file_tracker = getattr(context, "register_written_file", None)
     for source, spec in context.source_definitions.items():
+        database = default_database
         if isinstance(spec, str):
             schema = source
             src_yaml_path = spec
         elif isinstance(spec, dict):
-            database = t.cast("str", spec.get("database", database))
+            database = t.cast("str", spec.get("database", default_database))
             schema = t.cast("str", spec.get("schema", source))
             src_yaml_path = t.cast("str", spec["path"])
         else:
@@ -363,12 +362,9 @@ def create_missing_source_yamls(context: t.Any) -> None:
                     context.settings.dry_run,
                     context.register_mutations,
                     context.settings.strip_eof_blank_lines,
+                    written_file_tracker=written_file_tracker,
                 )
-                # Clear cache for the updated file
-                with _YAML_BUFFER_CACHE_LOCK:
-                    if src_yaml_path_obj in _YAML_BUFFER_CACHE:
-                        del _YAML_BUFFER_CACHE[src_yaml_path_obj]
-                did_side_effect = True
+                source_changes_detected = True
             else:
                 logger.debug(
                     ":white_check_mark: No new tables found for source => %s",
@@ -393,11 +389,14 @@ def create_missing_source_yamls(context: t.Any) -> None:
                 context.settings.dry_run,
                 context.register_mutations,
                 context.settings.strip_eof_blank_lines,
+                written_file_tracker=written_file_tracker,
             )
 
-            did_side_effect = True
+            source_changes_detected = True
 
-    if did_side_effect:
+    if getattr(
+        context, "disk_mutation_count", starting_disk_mutations
+    ) > starting_disk_mutations or (source_changes_detected and not context.settings.dry_run):
         logger.info(
             ":arrows_counterclockwise: Sources were updated, reloading the project.",
         )

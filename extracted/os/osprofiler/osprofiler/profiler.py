@@ -14,38 +14,52 @@
 #    under the License.
 
 import collections
-import datetime
+from collections.abc import Callable
 import functools
 import inspect
 import socket
 import threading
+import types
+from typing import Any, ParamSpec, TypeVar, cast
 
 from oslo_utils import reflection
+from oslo_utils import timeutils
 from oslo_utils import uuidutils
 
 from osprofiler import _utils as utils
 from osprofiler import notifier
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+T = TypeVar("T", bound=type)
+
 # NOTE(boris-42): Thread safe storage for profiler instances.
 __local_ctx = threading.local()
 
 
-def clean():
+def clean() -> None:
     __local_ctx.profiler = None
 
 
-def _ensure_no_multiple_traced(traceable_attrs):
+def _ensure_no_multiple_traced(
+    traceable_attrs: list[tuple[str, Any]],
+) -> None:
     for attr_name, attr in traceable_attrs:
         traced_times = getattr(attr, "__traced__", 0)
         if traced_times:
-            raise ValueError("Can not apply new trace on top of"
-                             " previously traced attribute '%s' since"
-                             " it has been traced %s times previously"
-                             % (attr_name, traced_times))
+            raise ValueError(
+                "Can not apply new trace on top of"
+                f" previously traced attribute '{attr_name}' since"
+                f" it has been traced {traced_times} times previously"
+            )
 
 
-def init(hmac_key, base_id=None, parent_id=None):
+def init(
+    hmac_key: str,
+    base_id: str | None = None,
+    parent_id: str | None = None,
+) -> "_Profiler":
     """Init profiler instance for current thread.
 
     You should call profiler.init() before using osprofiler.
@@ -57,12 +71,13 @@ def init(hmac_key, base_id=None, parent_id=None):
     :returns: Profiler instance
     """
     if get() is None:
-        __local_ctx.profiler = _Profiler(hmac_key, base_id=base_id,
-                                         parent_id=parent_id)
-    return __local_ctx.profiler
+        __local_ctx.profiler = _Profiler(
+            hmac_key, base_id=base_id, parent_id=parent_id
+        )
+    return cast("_Profiler", __local_ctx.profiler)
 
 
-def get():
+def get() -> "_Profiler | None":
     """Get profiler instance.
 
     :returns: Profiler instance or None if profiler wasn't inited.
@@ -70,7 +85,7 @@ def get():
     return getattr(__local_ctx, "profiler", None)
 
 
-def start(name, info=None):
+def start(name: str, info: dict[str, Any] | None = None) -> None:
     """Send new start notification if profiler instance is presented.
 
     :param name: The name of action. E.g. wsgi, rpc, db, etc..
@@ -82,15 +97,20 @@ def start(name, info=None):
         profiler.start(name, info=info)
 
 
-def stop(info=None):
+def stop(info: dict[str, Any] | None = None) -> None:
     """Send new stop notification if profiler instance is presented."""
     profiler = get()
     if profiler:
         profiler.stop(info=info)
 
 
-def trace(name, info=None, hide_args=False, hide_result=True,
-          allow_multiple_trace=True):
+def trace(
+    name: str,
+    info: dict[str, Any] | None = None,
+    hide_args: bool = False,
+    hide_result: bool = True,
+    allow_multiple_trace: bool = True,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Trace decorator for functions.
 
     Very useful if you would like to add trace point on existing function:
@@ -119,26 +139,27 @@ def trace(name, info=None, hide_args=False, hide_result=True,
         info = info.copy()
     info["function"] = {}
 
-    def decorator(f):
+    def decorator(f: Callable[P, R]) -> Callable[P, R]:
         trace_times = getattr(f, "__traced__", 0)
         if not allow_multiple_trace and trace_times:
-            raise ValueError("Function '%s' has already"
-                             " been traced %s times" % (f, trace_times))
+            raise ValueError(
+                f"Function '{f}' has already been traced {trace_times} times"
+            )
 
         try:
-            f.__traced__ = trace_times + 1
+            setattr(f, "__traced__", trace_times + 1)
         except AttributeError:
             # Tries to work around the following:
             #
             # AttributeError: 'instancemethod' object has no
             # attribute '__traced__'
             try:
-                f.im_func.__traced__ = trace_times + 1
+                setattr(getattr(f, "im_func"), "__traced__", trace_times + 1)
             except AttributeError:  # nosec
                 pass
 
         @functools.wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # NOTE(tovin07): Workaround for this issue
             # F823 local variable 'info'
             # (defined in enclosing scope on line xxx)
@@ -153,14 +174,14 @@ def trace(name, info=None, hide_args=False, hide_result=True,
                 info_["function"]["args"] = str(args)
                 info_["function"]["kwargs"] = str(kwargs)
 
-            stop_info = None
+            stop_info: dict[str, Any] | None = None
             try:
                 start(name, info=info_)
                 result = f(*args, **kwargs)
             except Exception as ex:
                 stop_info = {
                     "etype": reflection.get_class_name(ex),
-                    "message": str(ex)
+                    "message": str(ex),
                 }
                 raise
             else:
@@ -175,9 +196,16 @@ def trace(name, info=None, hide_args=False, hide_result=True,
     return decorator
 
 
-def trace_cls(name, info=None, hide_args=False, hide_result=True,
-              trace_private=False, allow_multiple_trace=True,
-              trace_class_methods=False, trace_static_methods=False):
+def trace_cls(
+    name: str,
+    info: dict[str, Any] | None = None,
+    hide_args: bool = False,
+    hide_result: bool = True,
+    trace_private: bool = False,
+    allow_multiple_trace: bool = True,
+    trace_class_methods: bool = False,
+    trace_static_methods: bool = False,
+) -> Callable[[T], T]:
     """Trace decorator for instances of class .
 
     Very useful if you would like to add trace point on existing method:
@@ -215,7 +243,9 @@ def trace_cls(name, info=None, hide_args=False, hide_result=True,
                                  tracing is not allowed (by default allow).
     """
 
-    def trace_checker(attr_name, to_be_wrapped):
+    def trace_checker(
+        attr_name: str, to_be_wrapped: Any
+    ) -> tuple[bool, type | None]:
         if attr_name.startswith("__"):
             # Never trace really private methods.
             return (False, None)
@@ -231,11 +261,11 @@ def trace_cls(name, info=None, hide_args=False, hide_result=True,
             return (True, classmethod)
         return (True, None)
 
-    def decorator(cls):
+    def decorator(cls: T) -> T:
         clss = cls if inspect.isclass(cls) else cls.__class__
         mro_dicts = [c.__dict__ for c in inspect.getmro(clss)]
-        traceable_attrs = []
-        traceable_wrappers = []
+        traceable_attrs: list[tuple[str, Any]] = []
+        traceable_wrappers: list[type | None] = []
         for attr_name, attr in inspect.getmembers(cls):
             if not (inspect.ismethod(attr) or inspect.isfunction(attr)):
                 continue
@@ -254,8 +284,9 @@ def trace_cls(name, info=None, hide_args=False, hide_result=True,
             # halfway trace this class).
             _ensure_no_multiple_traced(traceable_attrs)
         for i, (attr_name, attr) in enumerate(traceable_attrs):
-            wrapped_method = trace(name, info=info, hide_args=hide_args,
-                                   hide_result=hide_result)(attr)
+            wrapped_method = trace(
+                name, info=info, hide_args=hide_args, hide_result=hide_result
+            )(attr)
             wrapper = traceable_wrappers[i]
             if wrapper is not None:
                 wrapped_method = wrapper(wrapped_method)
@@ -288,21 +319,30 @@ class TracedMeta(type):
     mandatory key included - "name", that will define name of action to be
     traced - E.g. wsgi, rpc, db, etc...
     """
-    def __init__(cls, cls_name, bases, attrs):
+
+    def __init__(
+        cls,
+        cls_name: str,
+        bases: tuple[type, ...],
+        attrs: dict[str, Any],
+    ) -> None:
         super().__init__(cls_name, bases, attrs)
 
         trace_args = dict(getattr(cls, "__trace_args__", {}))
         trace_private = trace_args.pop("trace_private", False)
         allow_multiple_trace = trace_args.pop("allow_multiple_trace", True)
         if "name" not in trace_args:
-            raise TypeError("Please specify __trace_args__ class level "
-                            "dictionary attribute with mandatory 'name' key - "
-                            "e.g. __trace_args__ = {'name': 'rpc'}")
+            raise TypeError(
+                "Please specify __trace_args__ class level "
+                "dictionary attribute with mandatory 'name' key - "
+                "e.g. __trace_args__ = {'name': 'rpc'}"
+            )
 
-        traceable_attrs = []
+        traceable_attrs: list[tuple[str, Any]] = []
         for attr_name, attr_value in attrs.items():
-            if not (inspect.ismethod(attr_value)
-                    or inspect.isfunction(attr_value)):
+            if not (
+                inspect.ismethod(attr_value) or inspect.isfunction(attr_value)
+            ):
                 continue
             if attr_name.startswith("__"):
                 continue
@@ -314,13 +354,13 @@ class TracedMeta(type):
             # halfway trace this class).
             _ensure_no_multiple_traced(traceable_attrs)
         for attr_name, attr_value in traceable_attrs:
-            setattr(cls, attr_name, trace(**trace_args)(getattr(cls,
-                                                                attr_name)))
+            setattr(
+                cls, attr_name, trace(**trace_args)(getattr(cls, attr_name))
+            )
 
 
 class Trace:
-
-    def __init__(self, name, info=None):
+    def __init__(self, name: str, info: dict[str, Any] | None = None) -> None:
         """With statement way to use profiler start()/stop().
 
 
@@ -338,30 +378,41 @@ class Trace:
         self._name = name
         self._info = info
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         start(self._name, info=self._info)
 
-    def __exit__(self, etype, value, traceback):
+    def __exit__(
+        self,
+        etype: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None:
         info = None
-        if etype:
+        if etype and value is not None:
             info = {
                 "etype": reflection.get_class_name(etype),
-                "message": value.args[0] if value.args else None
+                "message": value.args[0] if value.args else None,
             }
         stop(info=info)
 
 
 class _Profiler:
-
-    def __init__(self, hmac_key, base_id=None, parent_id=None):
+    def __init__(
+        self,
+        hmac_key: str,
+        base_id: str | None = None,
+        parent_id: str | None = None,
+    ) -> None:
         self.hmac_key = hmac_key
         if not base_id:
             base_id = str(uuidutils.generate_uuid())
-        self._trace_stack = collections.deque([base_id, parent_id or base_id])
-        self._name = collections.deque()
-        self._host = socket.gethostname()
+        self._trace_stack: collections.deque[str] = collections.deque(
+            [base_id, parent_id or base_id]
+        )
+        self._name: collections.deque[str] = collections.deque()
+        self._host: str = socket.gethostname()
 
-    def get_shorten_id(self, uuid_id):
+    def get_shorten_id(self, uuid_id: str | int) -> str:
         """Return shorten id of a uuid that will be used in OpenTracing drivers
 
         :param uuid_id: A string of uuid that was generated by uuidutils
@@ -369,7 +420,7 @@ class _Profiler:
         """
         return format(utils.shorten_id(uuid_id), "x")
 
-    def get_base_id(self):
+    def get_base_id(self) -> str:
         """Return base id of a trace.
 
         Base id is the same for all elements in one trace. It's main goal is
@@ -377,15 +428,15 @@ class _Profiler:
         """
         return self._trace_stack[0]
 
-    def get_parent_id(self):
+    def get_parent_id(self) -> str:
         """Returns parent trace element id."""
         return self._trace_stack[-2]
 
-    def get_id(self):
+    def get_id(self) -> str:
         """Returns current trace element id."""
         return self._trace_stack[-1]
 
-    def start(self, name, info=None):
+    def start(self, name: str, info: dict[str, Any] | None = None) -> None:
         """Start new event.
 
         Adds new trace_id to trace stack and sends notification
@@ -403,9 +454,9 @@ class _Profiler:
         info["host"] = self._host
         self._name.append(name)
         self._trace_stack.append(str(uuidutils.generate_uuid()))
-        self._notify("%s-start" % name, info)
+        self._notify(f"{name}-start", info)
 
-    def stop(self, info=None):
+    def stop(self, info: dict[str, Any] | None = None) -> None:
         """Finish latest event.
 
         Same as a start, but instead of pushing trace_id to stack it pops it.
@@ -414,17 +465,21 @@ class _Profiler:
         """
         info = info or {}
         info["host"] = self._host
-        self._notify("%s-stop" % self._name.pop(), info)
-        self._trace_stack.pop()
+        # Guard against stop() being called without matching start()
+        if not self._name:
+            # Silently return if there's no active profiling context
+            return
+        self._notify(f"{self._name.pop()}-stop", info)
+        if self._trace_stack:
+            self._trace_stack.pop()
 
-    def _notify(self, name, info):
-        payload = {
+    def _notify(self, name: str, info: dict[str, Any]) -> None:
+        payload: dict[str, Any] = {
             "name": name,
             "base_id": self.get_base_id(),
             "trace_id": self.get_id(),
             "parent_id": self.get_parent_id(),
-            "timestamp": datetime.datetime.utcnow().strftime(
-                "%Y-%m-%dT%H:%M:%S.%f"),
+            "timestamp": timeutils.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f"),
         }
         if info:
             payload["info"] = info

@@ -8,6 +8,7 @@ import pytest
 
 from ouroboros.orchestrator.adapter import ClaudeAgentAdapter
 from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
+from ouroboros.orchestrator.copilot_cli_runtime import CopilotCliRuntime
 from ouroboros.orchestrator.hermes_runtime import HermesCliRuntime
 from ouroboros.orchestrator.opencode_runtime import OpenCodeRuntime
 from ouroboros.orchestrator.runtime_factory import (
@@ -82,6 +83,70 @@ class TestCreateAgentRuntime:
         assert runtime._skill_dispatcher is mock_dispatcher
         assert mock_create_dispatcher.call_args.kwargs["cwd"] == "/tmp/project"
         assert mock_create_dispatcher.call_args.kwargs["runtime_backend"] == "codex"
+
+    def test_create_codex_runtime_propagates_runtime_profile(self) -> None:
+        """``get_runtime_profile()`` must reach CodexCliRuntime via the factory.
+
+        The runtime is the only place that translates the orchestrator
+        ``runtime_profile`` into a Codex ``--profile`` argument, so a
+        regression in the factory wiring would silently disable
+        worker-subprocess isolation. Lock the path under test.
+        """
+        with (
+            patch(
+                "ouroboros.orchestrator.runtime_factory.get_runtime_profile",
+                return_value="worker",
+            ),
+            patch(
+                "ouroboros.orchestrator.runtime_factory.create_codex_command_dispatcher",
+                return_value=object(),
+            ),
+        ):
+            runtime = create_agent_runtime(backend="codex", cwd="/tmp/project")
+
+        assert isinstance(runtime, CodexCliRuntime)
+        assert runtime._runtime_profile == "worker"
+        assert runtime._codex_profile == "ouroboros-worker"
+
+    def test_create_copilot_runtime_propagates_runtime_profile(self) -> None:
+        """``get_runtime_profile()`` must reach CopilotCliRuntime via the factory."""
+        with (
+            patch(
+                "ouroboros.orchestrator.runtime_factory.get_runtime_profile",
+                return_value="worker",
+            ),
+            patch(
+                "ouroboros.orchestrator.runtime_factory.get_copilot_cli_path",
+                return_value="/tmp/copilot",
+            ),
+            patch(
+                "ouroboros.orchestrator.runtime_factory.create_codex_command_dispatcher",
+                return_value=object(),
+            ),
+        ):
+            runtime = create_agent_runtime(backend="copilot", cwd="/tmp/project")
+
+        assert isinstance(runtime, CopilotCliRuntime)
+        assert runtime._runtime_profile == "worker"
+        assert runtime._copilot_agent == "ouroboros-worker"
+
+    def test_create_codex_runtime_default_profile_is_none(self) -> None:
+        """Unset profile must remain unset all the way through to the runtime."""
+        with (
+            patch(
+                "ouroboros.orchestrator.runtime_factory.get_runtime_profile",
+                return_value=None,
+            ),
+            patch(
+                "ouroboros.orchestrator.runtime_factory.create_codex_command_dispatcher",
+                return_value=object(),
+            ),
+        ):
+            runtime = create_agent_runtime(backend="codex", cwd="/tmp/project")
+
+        assert isinstance(runtime, CodexCliRuntime)
+        assert runtime._runtime_profile is None
+        assert runtime._codex_profile is None
 
     def test_create_claude_runtime_uses_factory_cwd_and_cli_path(self) -> None:
         """Claude runtime receives the same construction options as other backends."""

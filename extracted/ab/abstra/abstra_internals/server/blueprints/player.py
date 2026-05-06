@@ -376,7 +376,8 @@ def get_player_bp(controller: MainController):
             flask.abort(403)
 
         file_path = (Settings.root_path / filename).resolve()
-        if not file_path.is_relative_to(Settings.root_path) or not file_path.is_file():
+        root = Settings.root_path.resolve()
+        if not file_path.is_relative_to(root) or not file_path.is_file():
             flask.abort(404)
 
         mimetypes.add_type("application/javascript", ".js")

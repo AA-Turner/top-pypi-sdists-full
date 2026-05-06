@@ -54,6 +54,7 @@ Documentation = "https://optree.readthedocs.io"
 "Bug Report" = "https://github.com/metaopt/optree/issues"
 
 [project.optional-dependencies]
+attrs = ["attrs"]
 jax = ["jax"]
 numpy = ["numpy"]
 torch = ["torch"]
@@ -89,6 +90,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinxcontrib-bibtex",
     "docutils",
+    "attrs",
     "jax[cpu]",
     "numpy",
     "torch",
@@ -116,6 +118,7 @@ environment-pass = [
     "CMAKE_CXX_STANDARD",
     "OPTREE_CXX_WERROR",
     "_GLIBCXX_USE_CXX11_ABI",
+    "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR",
     "COLUMNS",
     "FORCE_COLOR",
     "CLICOLOR_FORCE",

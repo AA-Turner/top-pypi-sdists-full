@@ -23,6 +23,7 @@ from ouroboros.codex.cli_policy import (
     build_codex_child_env,
     resolve_codex_cli_path,
 )
+from ouroboros.codex.runtime_profile import resolve_codex_profile
 from ouroboros.codex_permissions import (
     build_codex_exec_permission_args,
     resolve_codex_permission_mode,
@@ -101,6 +102,7 @@ class CodexCliRuntime:
         skills_dir: str | Path | None = None,
         skill_dispatcher: SkillDispatchHandler | None = None,
         llm_backend: str | None = None,
+        runtime_profile: str | None = None,
     ) -> None:
         self._cli_path = self._resolve_cli_path(cli_path)
         self._permission_mode = self._resolve_permission_mode(permission_mode)
@@ -109,6 +111,12 @@ class CodexCliRuntime:
         self._skills_dir = self._resolve_skills_dir(skills_dir)
         self._skill_dispatcher = skill_dispatcher
         self._llm_backend = llm_backend or self._default_llm_backend
+        self._runtime_profile = runtime_profile
+        self._codex_profile = resolve_codex_profile(
+            runtime_profile,
+            logger=log,
+            log_namespace=self._log_namespace,
+        )
         self._builtin_mcp_handlers: dict[str, Any] | None = None
 
         log.info(
@@ -117,6 +125,8 @@ class CodexCliRuntime:
             permission_mode=permission_mode,
             model=model,
             cwd=self._cwd,
+            runtime_profile=runtime_profile,
+            codex_profile=self._codex_profile,
             skills_dir=(
                 str(self._skills_dir) if self._skills_dir is not None else self._skills_package_uri
             ),
@@ -529,6 +539,73 @@ class CodexCliRuntime:
             error=self._invalid_skill_log_error(dispatch_result),
         )
 
+    @staticmethod
+    def _is_auto_recoverable_dispatch_unavailable(recoverable_error: AgentMessage) -> bool:
+        """Return whether a recoverable auto dispatch error means the tool is unavailable."""
+        error_type = recoverable_error.data.get("error_type")
+        if error_type == "MCPResourceNotFoundError":
+            return True
+
+        error_text = recoverable_error.content.lower()
+        if error_type == "MCPClientError":
+            return any(
+                marker in error_text
+                for marker in (
+                    "unavailable",
+                    "not found",
+                    "not registered",
+                    "unknown tool",
+                    "no such tool",
+                )
+            )
+        if error_type != "MCPToolError":
+            return False
+
+        if error_text.startswith("auto pipeline failed:"):
+            return False
+        return any(
+            marker in error_text
+            for marker in (
+                "unavailable",
+                "not found",
+                "not registered",
+                "unknown tool",
+                "no such tool",
+            )
+        )
+
+    def _build_auto_dispatch_unavailable_message(
+        self,
+        intercept: Resolved,
+        current_handle: RuntimeHandle | None,
+        *,
+        dispatch_error_type: str | None = None,
+        dispatch_error: str | None = None,
+    ) -> AgentMessage:
+        """Build the fail-closed result for unavailable `ooo auto` dispatch."""
+        data: dict[str, Any] = {
+            "subtype": "error",
+            "error_type": "SkillDispatchUnavailable",
+            "skill_name": intercept.skill_name,
+            "tool_name": intercept.mcp_tool,
+            "command_prefix": intercept.command_prefix,
+        }
+        if dispatch_error_type:
+            data["dispatch_error_type"] = dispatch_error_type
+        if dispatch_error:
+            data["dispatch_error"] = dispatch_error
+
+        return AgentMessage(
+            type="result",
+            content=(
+                "Cannot run ooo auto: required MCP tool "
+                f"`{intercept.mcp_tool}` is unavailable. "
+                "Run `ouroboros mcp doctor` / setup to register the MCP server."
+            ),
+            data=data,
+            resume_handle=current_handle,
+        )
+
     async def _maybe_dispatch_skill_intercept(
         self,
         prompt: str,
@@ -553,24 +630,55 @@ class CodexCliRuntime:
         try:
             dispatched_messages = await dispatcher(intercept, current_handle)
         except Exception as e:
+            failure_context = self._build_intercept_failure_context(intercept)
+            auto_handler_missing = (
+                intercept.skill_name == "auto"
+                and type(e) is LookupError
+                and "No local handler registered" in str(e)
+            )
+            if auto_handler_missing:
+                failure_context["fallback"] = "terminal_error"
             log.warning(
                 f"{self._log_namespace}.skill_intercept_dispatch_failed",
-                **self._build_intercept_failure_context(intercept),
+                **failure_context,
                 error_type=type(e).__name__,
                 error=str(e),
                 exc_info=True,
             )
+            if auto_handler_missing:
+                return (
+                    self._build_auto_dispatch_unavailable_message(
+                        intercept,
+                        current_handle,
+                        dispatch_error_type=type(e).__name__,
+                        dispatch_error=str(e),
+                    ),
+                )
             return None
 
         recoverable_error = self._extract_recoverable_dispatch_error(dispatched_messages)
         if recoverable_error is not None:
+            failure_context = self._build_intercept_failure_context(intercept)
+            if intercept.skill_name == "auto":
+                failure_context["fallback"] = "terminal_error"
             log.warning(
                 f"{self._log_namespace}.skill_intercept_dispatch_failed",
-                **self._build_intercept_failure_context(intercept),
+                **failure_context,
                 error_type=recoverable_error.data.get("error_type"),
                 error=recoverable_error.content,
                 recoverable=True,
             )
+            if intercept.skill_name == "auto":
+                if self._is_auto_recoverable_dispatch_unavailable(recoverable_error):
+                    return (
+                        self._build_auto_dispatch_unavailable_message(
+                            intercept,
+                            current_handle,
+                            dispatch_error_type=str(recoverable_error.data.get("error_type") or ""),
+                            dispatch_error=recoverable_error.content,
+                        ),
+                    )
+                return dispatched_messages
             return None
 
         return dispatched_messages
@@ -625,6 +733,13 @@ class CodexCliRuntime:
         """Build the CLI command args.  Prompt is fed via stdin separately."""
         command = [self._cli_path, "exec"]
 
+        # Codex accepts one active --profile. The backend runtime profile is
+        # the worker-isolation boundary, so it owns that singular flag when
+        # configured; role/task profile resolution may still contribute a
+        # model fallback below, but not a second --profile.
+        if self._codex_profile:
+            command.extend(["--profile", self._codex_profile])
+
         command.extend(
             [
                 "--json",
@@ -641,7 +756,7 @@ class CodexCliRuntime:
             command.extend(["--model", normalized_model])
         else:
             runtime_model, runtime_profile = self._resolve_runtime_codex_config(runtime_handle)
-            if runtime_profile:
+            if runtime_profile and not self._codex_profile:
                 command.extend(["--profile", runtime_profile])
             else:
                 normalized_runtime_model = self._normalize_model(runtime_model)

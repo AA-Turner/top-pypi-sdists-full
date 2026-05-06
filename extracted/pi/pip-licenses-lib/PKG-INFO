@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip-licenses-lib
-Version: 1.1.0
+Version: 1.2.1
 Summary: Retrieve the software license list of Python packages installed with pip.
 Author: raimon49, stefan6419846 (library version)
 License-Expression: MIT
@@ -77,6 +77,12 @@ Changes compared to the original version:
     * This has been changed in the meantime. Please use `piplicenses-lib<=0.4.1` if you need to support Python < 3.9. 
   * Do not use abbreviations for naming purposes.
   * Rewrite tests to use plain *unittest* functionality.
+
+## Limitations
+
+  * If you use this package in an environment with `setuptools>=71`, the results might be inconsistent if
+    `setuptools` is imported before running *pip-licenses-lib*. This is due to `setuptools` modifying `sys.path`
+    and inserting its vendored package path there. [Upstream issue](https://github.com/pypa/setuptools/issues/5213)
 
 ## Installation
 

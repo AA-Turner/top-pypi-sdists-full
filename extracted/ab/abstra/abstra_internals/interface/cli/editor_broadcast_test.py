@@ -36,8 +36,10 @@ class TestEditorBroadcastConsumer(unittest.TestCase):
     @patch("abstra_internals.interface.cli.editor.load_dotenv")
     @patch("abstra_internals.interface.cli.editor.AbstraLogger")
     @patch("abstra_internals.interface.cli.editor.Settings")
+    @patch("abstra_internals.interface.cli.editor.WebEditorHeartbeat")
     def test_starts_broadcast_consumer_when_flag_on(
         self,
+        mock_heartbeat,
         mock_settings,
         mock_logger,
         mock_dotenv,

@@ -629,15 +629,20 @@ class CodebaseIndex:
 
     def format_context(self, query: str, max_chars: int = MAX_AUTO_INJECT_CHARS,
                        top_k: int = AUTO_INJECT_TOP_K,
-                       min_similarity: float = MIN_SIMILARITY_AUTO) -> str:
+                       min_similarity: float = MIN_SIMILARITY_AUTO) -> tuple[str, list]:
         """Retrieve + format the top chunks for auto-injection into the system
         prompt. Stricter threshold than search_codebase tool calls; bounded by
-        a char cap so it never blows the context budget."""
+        a char cap so it never blows the context budget.
+
+        Returns a (context_str, raw_hits) tuple so the caller can derive stats
+        from ``raw_hits`` without issuing a second embed round-trip.
+        ``raw_hits`` is the list[tuple[chunk_dict, float]] from search_hybrid.
+        """
         if not self.is_indexed:
-            return ""
+            return "", []
         hits = self.search_hybrid(query, top_k=top_k, min_similarity=min_similarity)
         if not hits:
-            return ""
+            return "", hits
         lines = ["## Relevant code (auto-retrieved):"]
         total = len(lines[0])
         for chunk, score in hits:
@@ -655,4 +660,4 @@ class CodebaseIndex:
                 break
             lines.append(entry)
             total += len(entry)
-        return "\n\n".join(lines)
+        return "\n\n".join(lines), hits

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 from sqlalchemy import create_engine
@@ -79,15 +80,15 @@ def column_to_intermediary(
         type=type_formatter(col.type),
         is_key=col.primary_key,
         is_null=col.nullable,
+        is_foreign_key=len(col.foreign_keys) > 0,
     )
 
 
 def table_to_intermediary(table: sa.Table) -> Table:
     """Transform an SQLAlchemy Table object to its intermediary representation."""
-    table_columns = getattr(table.c, "_colset", getattr(table.c, "_data", {}).values())
     return Table(
         name=table.fullname,
-        columns=[column_to_intermediary(col) for col in table_columns],
+        columns=[column_to_intermediary(col) for col in table.columns],
     )
 
 

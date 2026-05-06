@@ -14,6 +14,7 @@
 #    under the License.
 
 import logging
+from typing import Any
 
 from oslo_serialization import jsonutils
 
@@ -24,13 +25,20 @@ LOG = logging.getLogger(__name__)
 
 
 class SQLAlchemyDriver(base.Driver):
-    def __init__(self, connection_str, project=None, service=None, host=None,
-                 **kwargs):
-        super().__init__(connection_str, project=project,
-                         service=service, host=host)
+    def __init__(
+        self,
+        connection_str: str,
+        project: str | None = None,
+        service: str | None = None,
+        host: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            connection_str, project=project, service=service, host=host
+        )
 
         try:
-            from sqlalchemy import create_engine
+            from sqlalchemy import create_engine  # type: ignore[import-not-found]
             from sqlalchemy import Table, MetaData, Column
             from sqlalchemy import String, JSON, Integer
         except ImportError:
@@ -38,7 +46,8 @@ class SQLAlchemyDriver(base.Driver):
         else:
             self._metadata = MetaData()
             self._data_table = Table(
-                "data", self._metadata,
+                "data",
+                self._metadata,
                 Column("id", Integer, primary_key=True),
                 # timestamp - date/time of the trace point
                 Column("timestamp", String(26), index=True),
@@ -54,7 +63,7 @@ class SQLAlchemyDriver(base.Driver):
                 Column("service", String(255), index=True),
                 # name - trace point name
                 Column("name", String(255), index=True),
-                Column("data", JSON)
+                Column("data", JSON),
             )
 
         # we don't want to kill any service that does use osprofiler
@@ -66,14 +75,18 @@ class SQLAlchemyDriver(base.Driver):
             # startup when using the sqlalchemy driver...
             self._metadata.create_all(self._engine, checkfirst=True)
         except Exception:
-            LOG.exception("Failed to create engine/connection and setup "
-                          "intial database tables")
+            LOG.exception(
+                "Failed to create engine/connection and setup "
+                "intial database tables"
+            )
 
     @classmethod
-    def get_name(cls):
+    def get_name(cls) -> str:
         return "sqlalchemy"
 
-    def notify(self, info, context=None):
+    def notify(
+        self, info: dict[str, Any], context: Any = None, **kwargs: Any
+    ) -> None:
         """Write a notification the the database"""
         data = info.copy()
         base_id = data.pop("base_id", None)
@@ -95,38 +108,52 @@ class SQLAlchemyDriver(base.Driver):
                 service=service,
                 host=host,
                 name=name,
-                data=jsonutils.dumps(data)
+                data=jsonutils.dumps(data),
             )
             self._conn.execute(ins)
         except Exception:
-            LOG.exception("Can not store osprofiler tracepoint {} "
-                          "(base_id {})".format(trace_id, base_id))
+            LOG.exception(
+                "Can not store osprofiler tracepoint %s (base id %s)",
+                trace_id,
+                base_id,
+            )
 
-    def list_traces(self, fields=None):
+    def list_traces(
+        self, fields: set[str] | None = None
+    ) -> list[dict[str, Any]]:
         try:
-            from sqlalchemy.sql import select
+            from sqlalchemy.sql import select  # type: ignore[import-not-found]
         except ImportError:
             raise exc.CommandError(
-                "To use this command, you should install 'SQLAlchemy'")
+                "To use this command, you should install 'SQLAlchemy'"
+            )
+        fields = set(fields or self.default_trace_fields)
         stmt = select([self._data_table])
-        seen_ids = set()
-        result = []
+        seen_ids: set[str] = set()
+        result: list[dict[str, Any]] = []
         traces = self._conn.execute(stmt).fetchall()
         for trace in traces:
             if trace["base_id"] not in seen_ids:
                 seen_ids.add(trace["base_id"])
-                result.append({key: value for key, value in trace.items()
-                               if key in fields})
+                result.append(
+                    {
+                        key: value
+                        for key, value in trace.items()
+                        if key in fields
+                    }
+                )
         return result
 
-    def get_report(self, base_id):
+    def get_report(self, base_id: str) -> dict[str, Any]:
         try:
             from sqlalchemy.sql import select
         except ImportError:
             raise exc.CommandError(
-                "To use this command, you should install 'SQLAlchemy'")
+                "To use this command, you should install 'SQLAlchemy'"
+            )
         stmt = select([self._data_table]).where(
-            self._data_table.c.base_id == base_id)
+            self._data_table.c.base_id == base_id
+        )
         results = self._conn.execute(stmt).fetchall()
         for n in results:
             timestamp = n["timestamp"]
@@ -137,6 +164,14 @@ class SQLAlchemyDriver(base.Driver):
             service = n["service"]
             host = n["host"]
             data = jsonutils.loads(n["data"])
-            self._append_results(trace_id, parent_id, name, project, service,
-                                 host, timestamp, data)
+            self._append_results(
+                trace_id,
+                parent_id,
+                name,
+                project,
+                service,
+                host,
+                timestamp,
+                data,
+            )
         return self._parse_results()

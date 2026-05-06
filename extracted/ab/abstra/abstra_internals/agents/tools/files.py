@@ -37,6 +37,10 @@ def path_in_glob(glob_exp: str, path: PathLike) -> bool:
 
 
 class FilesTools(AgentTools):
+    """
+    Toolkit that gives an agent access to the project filesystem. The agent gets one tool per allowed action (`read_text`, `write_text`, `list`, `delete`, etc.), restricted to paths matching the configured glob patterns.
+    """
+
     actions: Set[FileAction]
     globs: Set[str]
 
@@ -45,6 +49,13 @@ class FilesTools(AgentTools):
         actions: Union[FileAction, Iterable[FileAction]] = get_args(FileAction),
         globs: Union[str, PathLike, Iterable[PathLike]] = "*",
     ):
+        """
+        Build a FilesTools toolkit, optionally scoped to specific actions and path globs.
+
+        Args:
+            actions (Union): Allowed file operations. One of `"read"`, `"read_text"`, `"read_bytes"`, `"write"`, `"write_text"`, `"write_bytes"`, `"delete"`, `"move"`, `"list"`, `"append"`, or a list of them. Shorthand `"read"` enables both `read_text` and `read_bytes`; `"write"` enables both write variants. Defaults to all actions.
+            globs (Union): Glob pattern(s) restricting which paths the agent can touch (e.g. `"data/*"` or `["*.csv", "reports/**"]`). Defaults to `"*"` (all paths).
+        """
         self.actions = to_actions(actions)
         self.globs = to_globs(globs)
 

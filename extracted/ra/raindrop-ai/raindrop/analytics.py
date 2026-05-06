@@ -178,6 +178,7 @@ _direct_tool_spans_buffer: list[dict[str, Any]] = []
 
 _partial_buffers: dict[str, PartialTrackAIEvent] = {}
 _partial_timers: dict[str, Timer] = {}
+_partial_flush_queue: list[Dict[str, Any]] = []
 _PARTIAL_TIMEOUT = 2  # 2 seconds
 
 
@@ -223,6 +224,7 @@ def flush_loop():
 def flush() -> None:
     global buffer
     global _direct_tool_spans_buffer
+    global _partial_flush_queue
 
     if buffer is None:
         logger.error("No buffer available")
@@ -236,6 +238,8 @@ def flush() -> None:
         buffer = []
         current_direct_tool_spans = _direct_tool_spans_buffer
         _direct_tool_spans_buffer = []
+        current_partials = _partial_flush_queue
+        _partial_flush_queue = []
 
     logger.debug(f"Flushing buffer size: {len(current_buffer)}")
 
@@ -252,6 +256,9 @@ def flush() -> None:
             batch = events_data[i : i + upload_size]
             logger.debug(f"Sending {len(batch)} events to {endpoint}")
             send_request(endpoint, batch)
+
+    for partial_data in current_partials:
+        send_request("events/track_partial", partial_data)
 
     _flush_direct_tool_spans(current_direct_tool_spans)
 
@@ -475,10 +482,13 @@ def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
         logger.error("Direct tool span buffer is full. Discarding span.")
         return
 
+    if shutdown_event.is_set():
+        _flush_direct_tool_spans([span])
+        return
+
     with flush_lock:
         _direct_tool_spans_buffer.append(span)
-
-    start_flush_thread()
+        start_flush_thread()
 
 
 def send_request(
@@ -520,10 +530,13 @@ def save_to_buffer(event: Dict[str, Union[str, Dict]]) -> None:
 
     logger.debug(f"Adding event to buffer: {event}")
 
+    if shutdown_event.is_set():
+        send_request(event["type"], [event["data"]])
+        return
+
     with flush_lock:
         buffer.append(event)
-
-    start_flush_thread()
+        start_flush_thread()
 
 
 def identify(user_id: str, traits: Dict[str, Union[str, int, bool, float]]) -> None:
@@ -1291,7 +1304,13 @@ def _track_ai_partial(event: PartialTrackAIEvent) -> None:
 
 def _flush_partial_event(event_id: str) -> None:
     """
-    Send the accumulated patch as a single object to `events/track_partial`.
+    Enqueue the accumulated patch for asynchronous send to `events/track_partial`.
+
+    Serialization happens on the calling thread so per-event PII redaction and
+    size checks still apply, but the actual HTTP POST is performed by the
+    background ``flush_loop`` thread (matching the TypeScript SDK semantics
+    where ``interaction.finish()`` is fire-and-forget rather than blocking the
+    caller on a network round trip).
     """
     if t := _partial_timers.pop(event_id, None):
         t.cancel()
@@ -1318,7 +1337,16 @@ def _flush_partial_event(event_id: str) -> None:
         logger.warning(f"[raindrop] partial event {event_id} > 1 MB; skipping")
         return
 
-    send_request("events/track_partial", data)
+    if shutdown_event.is_set():
+        send_request("events/track_partial", data)
+        return
+
+    with flush_lock:
+        if len(_partial_flush_queue) >= max_queue_size:
+            logger.error("Partial queue is full. Discarding event.")
+            return
+        _partial_flush_queue.append(data)
+        start_flush_thread()
 
 
 atexit.register(shutdown)

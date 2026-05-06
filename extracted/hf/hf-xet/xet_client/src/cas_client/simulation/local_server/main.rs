@@ -43,9 +43,11 @@
 
 use std::path::PathBuf;
 
+use anyhow::Result;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 use xet_client::cas_client::{LocalServer, LocalServerConfig};
+use xet_runtime::core::XetContext;
 
 /// A local HTTP server that wraps a DirectAccessClient for testing and development.
 ///
@@ -93,7 +95,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     // Initialize tracing with environment filter (respects RUST_LOG)
     tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
 
@@ -115,7 +117,8 @@ async fn main() -> anyhow::Result<()> {
     }
     tracing::info!("Listening on: {}:{}", config.host, config.port);
 
-    let server: xet_client::cas_client::LocalServer = LocalServer::new(config).await?;
+    let ctx = XetContext::default().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let server: xet_client::cas_client::LocalServer = LocalServer::new(ctx, config).await?;
     server.run().await?;
 
     Ok(())

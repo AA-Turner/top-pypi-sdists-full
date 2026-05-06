@@ -156,3 +156,15 @@ class UpdateGroupMetadataResponse(_message.Message):
     GROUP_FIELD_NUMBER: _ClassVar[int]
     group: Group
     def __init__(self, group: _Optional[_Union[Group, _Mapping]] = ...) -> None: ...
+
+class CreateOrUpdateGroupRequest(_message.Message):
+    __slots__ = ("group",)
+    GROUP_FIELD_NUMBER: _ClassVar[int]
+    group: Group
+    def __init__(self, group: _Optional[_Union[Group, _Mapping]] = ...) -> None: ...
+
+class CreateOrUpdateGroupResponse(_message.Message):
+    __slots__ = ("group",)
+    GROUP_FIELD_NUMBER: _ClassVar[int]
+    group: Group
+    def __init__(self, group: _Optional[_Union[Group, _Mapping]] = ...) -> None: ...

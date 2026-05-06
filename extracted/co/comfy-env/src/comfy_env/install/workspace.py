@@ -197,7 +197,6 @@ def _dedupe_envs_libomp(
 # ---------------------------------------------------------------------------
 
 def _read_env_torch_version(
-    pixi_path: Path,
     workspace_dir: Path,
     env_name: str,
     log: Optional[Callable[[str], None]] = None,
@@ -215,10 +214,11 @@ def _read_env_torch_version(
     `pixi run -e <env> python` themselves.
     """
     import subprocess
+    from ..packages.pixi import PIXI
     env = os.environ.copy()
     env.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
     r = subprocess.run(
-        [str(pixi_path), "run", "-e", env_name,
+        [PIXI, "run", "-e", env_name,
          "python", "-c",
          "import torch, sys; sys.stdout.write(torch.__version__)"],
         cwd=str(workspace_dir),
@@ -427,8 +427,9 @@ def install_workspace(
 
     Returns the workspace directory on success, None if nothing to install.
     """
+    from ..packages.pixi import ensure_pixi, PIXI
+    ensure_pixi()
     from ..environment.cache import CE_WORKSPACE_DIR
-    from ..packages.pixi import ensure_pixi
     from ..packages.toml_generator import write_workspace_pixi_toml
 
     comfyui_dir = Path(comfyui_dir).resolve()
@@ -509,9 +510,6 @@ def install_workspace(
             log("[comfy-env] dry_run -- skipping `pixi install`")
             return workspace_dir
 
-        pixi_path = ensure_pixi(log=log)
-        log(f"[comfy-env] pixi: {pixi_path}")
-
         _patch_uv_platform_py(log)
 
         pixi_env = dict(os.environ)
@@ -520,7 +518,7 @@ def install_workspace(
 
         log("[comfy-env] Running `pixi install --all`...")
         result = _run_streaming(
-            [str(pixi_path), "install", "--all"],
+            [PIXI, "install", "--all"],
             log=log, cwd=workspace_dir, env=pixi_env,
         )
         _log_subprocess(log, result, "pixi install --all")

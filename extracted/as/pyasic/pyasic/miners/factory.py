@@ -39,6 +39,7 @@ from pyasic.miners.blockminer import *
 from pyasic.miners.braiins import *
 from pyasic.miners.device.makes import *
 from pyasic.miners.elphapex import *
+from pyasic.miners.fluminer import *
 from pyasic.miners.goldshell import *
 from pyasic.miners.hammer import *
 from pyasic.miners.iceriver import *
@@ -69,6 +70,7 @@ class MinerTypes(enum.Enum):
     LUCKYMINER = 16
     ELPHAPEX = 17
     MSKMINER = 18
+    FLUMINER = 19
 
 
 MINER_CLASSES: dict[MinerTypes, dict[str | None, Any]] = {
@@ -404,8 +406,11 @@ MINER_CLASSES: dict[MinerTypes, dict[str | None, Any]] = {
         "M56SVJ40": BTMinerM56SVJ40,
         "M56VH30": BTMinerM56VH30,
         "M59VH30": BTMinerM59VH30,
+        "M60S++VLA0": BTMinerM60SPlusPlusVLA0,
+        "M60S++VLB0": BTMinerM60SPlusPlusVLB0,
         "M60S++VL30": BTMinerM60SPlusPlusVL30,
         "M60S++VL40": BTMinerM60SPlusPlusVL40,
+        "M60S++VL80": BTMinerM60SPlusPlusVL80,
         "M60S+VK30": BTMinerM60SPlusVK30,
         "M60S+VK40": BTMinerM60SPlusVK40,
         "M60S+VK50": BTMinerM60SPlusVK50,
@@ -717,6 +722,10 @@ MINER_CLASSES: dict[MinerTypes, dict[str | None, Any]] = {
         "DG1": ElphapexDG1,
         "DG1-Home": ElphapexDG1Home,
     },
+    MinerTypes.FLUMINER: {
+        None: type("FluminerUnknown", (Fluminer, FluminerMake), {}),
+        "T3": FluminerT3,
+    },
 }
 
 
@@ -802,6 +811,7 @@ class MinerFactory:
                 MinerTypes.HAMMER: self.get_miner_model_hammer,
                 MinerTypes.VOLCMINER: self.get_miner_model_volcminer,
                 MinerTypes.ELPHAPEX: self.get_miner_model_elphapex,
+                MinerTypes.FLUMINER: self.get_miner_model_fluminer,
             }
             version: str | None = None
             miner_version_fns = {
@@ -850,8 +860,9 @@ class MinerFactory:
 
             text, resp = await concurrent_get_first_result(
                 tasks,
-                lambda x: x[0] is not None
-                and self._parse_web_type(x[0], x[1]) is not None,
+                lambda x: (
+                    x[0] is not None and self._parse_web_type(x[0], x[1]) is not None
+                ),
             )
             if text is not None:
                 mtype = self._parse_web_type(text, resp)
@@ -930,6 +941,8 @@ class MinerFactory:
             return MinerTypes.AVALONMINER
         if "DragonMint" in web_text:
             return MinerTypes.INNOSILICON
+        if "<title>Fluminer</title>" in web_text or "Fluminer" in web_text:
+            return MinerTypes.FLUMINER
         if "Miner UI" in web_text:
             return MinerTypes.AURADINE
         return None
@@ -943,8 +956,16 @@ class MinerFactory:
             lambda x: x is not None and self._parse_socket_type(x) is not None,
         )
         if data is not None:
-            d = self._parse_socket_type(data)
-            return d
+            return self._parse_socket_type(data)
+
+        data_v3 = await self._socket_ping_btminer_v3(ip, "get.device.info")
+        if data_v3 is not None:
+            try:
+                parsed = json.loads(data_v3)
+                if isinstance(parsed.get("msg"), dict) and "miner" in parsed["msg"]:
+                    return MinerTypes.WHATSMINER
+            except (json.JSONDecodeError, AttributeError):
+                pass
         return None
 
     @staticmethod
@@ -994,6 +1015,51 @@ class MinerFactory:
                 await writer.wait_closed()
             except (ConnectionError, OSError):
                 pass
+        if data:
+            return data.decode("utf-8")
+        return None
+
+    @staticmethod
+    async def _socket_ping_btminer_v3(ip: str, cmd: str) -> str | None:
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(str(ip), 4433),
+                timeout=settings.get("factory_get_timeout", 3),
+            )
+        except (ConnectionError, OSError, asyncio.TimeoutError):
+            return None
+
+        command_dict = {"cmd": cmd}
+        json_cmd = json.dumps(command_dict).encode("utf-8")
+        try:
+            writer.write(len(json_cmd).to_bytes(4, byteorder="little"))
+            writer.write(json_cmd)
+            await writer.drain()
+
+            resp_len_bytes = await asyncio.wait_for(
+                reader.readexactly(4),
+                timeout=settings.get("btminer_v3_ping_timeout", 1),
+            )
+            data = await asyncio.wait_for(
+                reader.readexactly(int.from_bytes(resp_len_bytes, byteorder="little")),
+                timeout=settings.get("factory_get_timeout", 3),
+            )
+        except (
+            ConnectionError,
+            OSError,
+            asyncio.TimeoutError,
+            asyncio.IncompleteReadError,
+        ):
+            return None
+        except asyncio.CancelledError:
+            raise
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (ConnectionError, OSError):
+                pass
+
         if data:
             return data.decode("utf-8")
         return None
@@ -1295,6 +1361,16 @@ class MinerFactory:
                 return version
             except LookupError:
                 pass
+
+            sock_json_data_v3 = await self.send_btminer_v3_api_command(
+                ip, "get.device.info"
+            )
+            if sock_json_data_v3 is not None:
+                try:
+                    version = sock_json_data_v3["msg"]["system"]["fwversion"]
+                    return version
+                except (TypeError, LookupError):
+                    pass
         return None
 
     async def get_miner_model_avalonminer(self, ip: str) -> str | None:
@@ -1573,6 +1649,16 @@ class MinerFactory:
             try:
                 miner_model = web_json_data["minertype"]
                 return miner_model
+            except (TypeError, LookupError):
+                pass
+        return None
+
+    async def get_miner_model_fluminer(self, ip: str) -> str | None:
+        web_json_data = await self.send_web_command(ip, "/api/overview")
+
+        if web_json_data is not None:
+            try:
+                return web_json_data["data"]["minerInfo"]["model"]
             except (TypeError, LookupError):
                 pass
         return None

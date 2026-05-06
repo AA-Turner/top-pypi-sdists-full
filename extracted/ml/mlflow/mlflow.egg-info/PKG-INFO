@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow
-Version: 3.11.1
+Version: 3.12.0
 Summary: MLflow is an open source platform for the complete machine learning lifecycle
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,8 +224,8 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: mlflow-skinny==3.11.1
-Requires-Dist: mlflow-tracing==3.11.1
+Requires-Dist: mlflow-skinny==3.12.0
+Requires-Dist: mlflow-tracing==3.12.0
 Requires-Dist: Flask-CORS<7
 Requires-Dist: Flask<4
 Requires-Dist: aiohttp<4
@@ -282,7 +282,7 @@ Requires-Dist: tiktoken<1; extra == "genai"
 Requires-Dist: uvicorn[standard]<1; extra == "genai"
 Requires-Dist: watchfiles<2; extra == "genai"
 Provides-Extra: mcp
-Requires-Dist: fastmcp<3,>=2.0.0; extra == "mcp"
+Requires-Dist: fastmcp<4,>=2.0.0; extra == "mcp"
 Requires-Dist: click!=8.3.0; extra == "mcp"
 Provides-Extra: azure
 Requires-Dist: azure-storage-blob>=12; extra == "azure"
@@ -296,7 +296,7 @@ Requires-Dist: mlflow-jfrog-plugin; extra == "jfrog"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes; extra == "kubernetes"
 Provides-Extra: langchain
-Requires-Dist: langchain<=1.2.12,>=0.3.21; extra == "langchain"
+Requires-Dist: langchain<=1.2.15,>=0.3.25; extra == "langchain"
 Provides-Extra: auth
 Requires-Dist: Flask-WTF<2; extra == "auth"
 Dynamic: license-file

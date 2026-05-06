@@ -16,6 +16,7 @@
 import copy
 import logging
 import unittest
+from unittest.mock import MagicMock
 
 import hypothesis.strategies as st
 import torch
@@ -24,7 +25,10 @@ import torch.nn.functional as F
 from hypothesis import given, settings
 from opacus.grad_sample import GradSampleModule, GradSampleModuleFastGradientClipping
 from opacus.optimizers import DPOptimizer, DPOptimizerFastGradientClipping
-from opacus.utils.fast_gradient_clipping_utils import DPLossFastGradientClipping
+from opacus.utils.fast_gradient_clipping_utils import (
+    DPLossFastGradientClipping,
+    DPTensorFastGradientClipping,
+)
 from opacus.utils.per_sample_gradients_utils import clone_module
 from torch.utils.data import DataLoader, Dataset
 
@@ -36,7 +40,7 @@ class SyntheticDataset(Dataset):
         self.size = size
         self.length = length
         self.dim = dim
-        self.images = torch.randn(self.size, self.length, self.dim, dtype=torch.float32)
+        self.images = torch.randn(self.size, self.length, self.dim)
         self.labels = torch.randint(
             0, 2, size=(self.size, self.length), dtype=torch.float32
         )
@@ -75,9 +79,7 @@ class SampleEmbeddingModule(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
 
         # Manually set weights for the embedding layer for testing
-        self.embedding.weight = nn.Parameter(
-            torch.tensor([[0.1], [0.2], [0.3]], dtype=torch.float32)
-        )
+        self.embedding.weight = nn.Parameter(torch.tensor([[0.1], [0.2], [0.3]]))
 
     def forward(self, x):
         x = self.embedding(x)
@@ -128,6 +130,8 @@ class GradSampleModuleFastGradientClippingTest(GradSampleModuleTest):
         """
         Tests if norm calculation is the same between standard (opacus) and fast gradient clipping"
         """
+        torch.set_default_dtype(torch.float64)
+
         self.length = length
         self.size = size
         self.dim = dim
@@ -201,10 +205,11 @@ class GradSampleModuleFastGradientClippingTest(GradSampleModuleTest):
         dim=st.sampled_from([2]),
     )
     @settings(deadline=1000000)
-    def test_gradient_calculation_fast_gradient_clipping(self, size, length, dim):
+    def test_weight_update_fast_gradient_clipping(self, size, length, dim):
         """
-        Tests if gradients are the same between standard (opacus) and fast gradient clipping"
+        Tests if weight updates are the same between standard (opacus) and fast gradient clipping"
         """
+        torch.set_default_dtype(torch.float32)
 
         noise_multiplier = 0.0
         batch_size = size
@@ -250,29 +255,29 @@ class GradSampleModuleFastGradientClippingTest(GradSampleModuleTest):
         loss_normal.backward()
         optimizer_normal.step()
 
-        all_grads_normal = [
-            param.summed_grad for param in self.model_normal.parameters()
-        ]
-        flat_grads_normal = torch.cat([p.flatten() for p in all_grads_normal])
+        all_params_normal = [param for param in self.model_normal.parameters()]
+        flat_params_normal = torch.cat([p.flatten() for p in all_params_normal])
 
         output_gc = self.grad_sample_module(input_data)
 
         loss_gc = criterion_gc(output_gc, target_data)
         loss_gc.backward()
-        # double_backward(self.grad_sample_module, optimizer_gc, first_loss_per_sample)
+        optimizer_gc.step()
 
-        all_grads_gc = [param.grad for param in self.grad_sample_module.parameters()]
-        flat_grads_gc = torch.cat([p.flatten() for p in all_grads_gc])
+        all_params_gc = [param for param in self.grad_sample_module.parameters()]
+        flat_params_gc = torch.cat([p.flatten() for p in all_params_gc])
 
         diff = torch.tensor(
             [
-                (g_gc - g_normal).norm()
-                for (g_gc, g_normal) in zip(flat_grads_gc, flat_grads_normal)
+                (p_gc - p_normal).norm()
+                for (p_gc, p_normal) in zip(flat_params_gc, flat_params_normal)
             ]
         )
-        logging.info(f"Max difference between (vanilla) Opacus and FGC = {max(diff)}")
-        msg = "Fail: Gradients from vanilla DP-SGD and from fast gradient clipping are different"
-        assert torch.allclose(flat_grads_normal, flat_grads_gc, atol=1e-3), msg
+        logging.info(
+            f"Max difference between the model parameters of (vanilla) Opacus and FGC = {max(diff)}"
+        )
+        msg = "Fail: Parameters from vanilla DP-SGD and from fast gradient clipping are different"
+        assert torch.allclose(flat_params_normal, flat_params_gc, atol=1e-3), msg
 
 
 class GradSampleModuleFastGradientClippingEmbeddingLayerTest(unittest.TestCase):
@@ -421,3 +426,176 @@ class GradSampleModuleFastGradientClippingEmbeddingLayerTest(unittest.TestCase):
         logging.info(f"Max difference between (vanilla) Opacus and FGC = {max(diff)}")
         msg = "Fail: Gradients from vanilla DP-SGD and from fast gradient clipping are different"
         assert torch.allclose(flat_grads_normal, flat_grads_gc, atol=1e-3), msg
+
+    @unittest.skipIf(torch.cuda.device_count() < 2, "Need at least 2 GPUs")
+    def test_multidevice_get_norm_sample(self):
+        """Test that get_norm_sample handles parameters on different devices."""
+        device1 = torch.device("cuda:0")
+        device2 = torch.device("cuda:1")
+
+        # Create a simple model with parameters on different devices
+        class MultiDeviceModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc1 = nn.Linear(10, 20).to(device1)
+                self.fc2 = nn.Linear(20, 5).to(device2)
+
+            def forward(self, x):
+                x = x.to(device1)
+                x = torch.relu(self.fc1(x))
+                x = x.to(device2)
+                return self.fc2(x)
+
+        model = MultiDeviceModel()
+        grad_sample_module = GradSampleModuleFastGradientClipping(
+            model, max_grad_norm=1.0, use_ghost_clipping=False
+        )
+
+        # Simulate _norm_sample on different devices
+        batch_size = 4
+        for param in grad_sample_module.trainable_parameters:
+            param._norm_sample = torch.randn(batch_size, device=param.device)
+
+        # This should not raise any device mismatch errors
+        try:
+            norm_sample = grad_sample_module.get_norm_sample()
+            success = True
+        except RuntimeError as e:
+            if "Expected all tensors to be on the same device" in str(e):
+                success = False
+                self.fail(f"Device mismatch error in get_norm_sample: {e}")
+            else:
+                raise
+
+        self.assertTrue(
+            success, "get_norm_sample should handle multi-device parameters"
+        )
+        self.assertEqual(norm_sample.shape[0], batch_size)
+
+    @unittest.skipIf(torch.cuda.device_count() < 2, "Need at least 2 GPUs")
+    def test_multidevice_get_clipping_coef(self):
+        """Test that get_clipping_coef handles parameters on different devices."""
+        device1 = torch.device("cuda:0")
+        device2 = torch.device("cuda:1")
+
+        # Create a simple model with parameters on different devices
+        class MultiDeviceModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc1 = nn.Linear(10, 20).to(device1)
+                self.fc2 = nn.Linear(20, 5).to(device2)
+
+            def forward(self, x):
+                x = x.to(device1)
+                x = torch.relu(self.fc1(x))
+                x = x.to(device2)
+                return self.fc2(x)
+
+        model = MultiDeviceModel()
+        max_grad_norm = 1.0
+        grad_sample_module = GradSampleModuleFastGradientClipping(
+            model, max_grad_norm=max_grad_norm, use_ghost_clipping=False
+        )
+
+        # Simulate _norm_sample on different devices
+        batch_size = 4
+        for param in grad_sample_module.trainable_parameters:
+            # Create norms with values that will require clipping
+            param._norm_sample = torch.ones(batch_size, device=param.device) * 2.0
+
+        # This should not raise any device mismatch errors
+        try:
+            clipping_coef = grad_sample_module.get_clipping_coef()
+            success = True
+        except RuntimeError as e:
+            if "Expected all tensors to be on the same device" in str(e):
+                success = False
+                self.fail(f"Device mismatch error in get_clipping_coef: {e}")
+            else:
+                raise
+
+        self.assertTrue(
+            success,
+            "get_clipping_coef should handle multi-device parameters",
+        )
+        self.assertEqual(clipping_coef.shape[0], batch_size)
+        # Verify clipping coefficients are correct
+        self.assertTrue(torch.all(clipping_coef <= 1.0))
+
+
+class DPTensorArithmeticTest(unittest.TestCase):
+    def setUp(self):
+        self.module = MagicMock()
+        self.optimizer = MagicMock()
+        self.loss_per_sample = torch.tensor([1.0, 2.0, 3.0])
+        self.dp_tensor = DPTensorFastGradientClipping(
+            self.module, self.optimizer, self.loss_per_sample, loss_reduction="mean"
+        )
+
+    def test_add(self):
+        res = self.dp_tensor + 1.0
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([2.0, 3.0, 4.0]))
+        )
+
+    def test_radd(self):
+        res = 1.0 + self.dp_tensor
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([2.0, 3.0, 4.0]))
+        )
+
+    def test_sub(self):
+        res = self.dp_tensor - 1.0
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([0.0, 1.0, 2.0]))
+        )
+
+    def test_mul(self):
+        res = self.dp_tensor * 2.0
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([2.0, 4.0, 6.0]))
+        )
+
+    def test_rmul(self):
+        res = 2.0 * self.dp_tensor
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([2.0, 4.0, 6.0]))
+        )
+
+    def test_truediv(self):
+        res = self.dp_tensor / 2.0
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([0.5, 1.0, 1.5]))
+        )
+
+    def test_neg(self):
+        res = -self.dp_tensor
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([-1.0, -2.0, -3.0]))
+        )
+
+    def test_add_dp_tensors(self):
+        other_loss = torch.tensor([0.1, 0.2, 0.3])
+        other_dp = DPTensorFastGradientClipping(
+            self.module, self.optimizer, other_loss, loss_reduction="mean"
+        )
+        res = self.dp_tensor + other_dp
+        self.assertIsInstance(res, DPTensorFastGradientClipping)
+        self.assertTrue(
+            torch.allclose(res.loss_per_sample, torch.tensor([1.1, 2.2, 3.3]))
+        )
+
+    def test_item(self):
+        self.assertAlmostEqual(self.dp_tensor.item(), 2.0)
+
+        dp_sum = DPTensorFastGradientClipping(
+            self.module, self.optimizer, self.loss_per_sample, loss_reduction="sum"
+        )
+        self.assertAlmostEqual(dp_sum.item(), 6.0)

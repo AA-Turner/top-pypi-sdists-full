@@ -15,13 +15,22 @@ from ._header import (
     TAG_PREDICTOR, TAG_COLORMAP,
     TAG_TILE_WIDTH, TAG_TILE_LENGTH,
     TAG_TILE_OFFSETS, TAG_TILE_BYTE_COUNTS,
+    TAG_EXTRA_SAMPLES,
     TAG_SAMPLE_FORMAT, TAG_GDAL_METADATA, TAG_GDAL_NODATA,
     TAG_MODEL_PIXEL_SCALE, TAG_MODEL_TIEPOINT,
     TAG_MODEL_TRANSFORMATION,
     TAG_GEO_KEY_DIRECTORY, TAG_GEO_DOUBLE_PARAMS, TAG_GEO_ASCII_PARAMS,
 )
 
-# Tags that the writer manages -- everything else can be passed through
+# ImageDescription tag (270). Captured for round-trip but not managed
+# by the writer -- it flows through extra_tags pass-through.
+TAG_IMAGE_DESCRIPTION = 270
+
+# Tags the writer manages directly. Tags not in this set are collected
+# into GeoInfo.extra_tags on read and re-emitted on write via the
+# extra_tags pass-through. ColorMap (320), ExtraSamples (338, only emitted
+# automatically when samples > 1), and ImageDescription (270) intentionally
+# stay OUT of this set so they round-trip without dedicated writer plumbing.
 _MANAGED_TAGS = frozenset({
     TAG_IMAGE_WIDTH, TAG_IMAGE_LENGTH, TAG_BITS_PER_SAMPLE,
     TAG_COMPRESSION, TAG_PHOTOMETRIC,
@@ -29,7 +38,7 @@ _MANAGED_TAGS = frozenset({
     TAG_ROWS_PER_STRIP, TAG_STRIP_BYTE_COUNTS,
     TAG_X_RESOLUTION, TAG_Y_RESOLUTION,
     TAG_PLANAR_CONFIG, TAG_RESOLUTION_UNIT,
-    TAG_PREDICTOR, TAG_COLORMAP,
+    TAG_PREDICTOR,
     TAG_TILE_WIDTH, TAG_TILE_LENGTH,
     TAG_TILE_OFFSETS, TAG_TILE_BYTE_COUNTS,
     TAG_SAMPLE_FORMAT, TAG_GDAL_METADATA, TAG_GDAL_NODATA,
@@ -105,6 +114,11 @@ class GeoTransform:
 class GeoInfo:
     """Geographic metadata extracted from GeoTIFF tags."""
     transform: GeoTransform = field(default_factory=GeoTransform)
+    # True when ModelTransformation, ModelPixelScale, or ModelTiepoint tags
+    # were present in the IFD. False for plain TIFFs with no GeoTIFF tags --
+    # callers should fall back to integer pixel coordinates rather than
+    # using the default transform (which would produce negative y values).
+    has_georef: bool = False
     crs_epsg: int | None = None
     model_type: int = 0
     raster_type: int = RASTER_PIXEL_IS_AREA
@@ -139,6 +153,11 @@ class GeoInfo:
     # Extra TIFF tags not managed by the writer (pass-through on round-trip)
     # List of (tag_id, type_id, count, raw_value) tuples.
     extra_tags: list | None = None
+    # ImageDescription tag (270) decoded as a Python str, when present.
+    image_description: str | None = None
+    # ExtraSamples tag (338) as a tuple of int alpha/extra-sample codes,
+    # when present.
+    extra_samples: tuple | None = None
     # Raw geokeys dict for anything else
     geokeys: dict[int, int | float | str] = field(default_factory=dict)
 
@@ -274,23 +293,53 @@ def _parse_geokeys(ifd: IFD, data: bytes | memoryview,
     return geokeys
 
 
-def _extract_transform(ifd: IFD) -> GeoTransform:
+def _extract_transform(ifd: IFD) -> tuple[GeoTransform, bool]:
     """Extract affine transform from ModelTransformation, or
-    ModelTiepoint + ModelPixelScale tags."""
+    ModelTiepoint + ModelPixelScale tags.
 
-    # Try ModelTransformationTag (4x4 matrix)
+    Returns
+    -------
+    (transform, has_georef)
+        ``has_georef`` is True when at least one of the geo-transform tags
+        was present.  When False, ``transform`` is the default identity
+        and callers should fall back to pixel coordinates.
+    """
+
+    # Try ModelTransformationTag (4x4 row-major matrix, 16 doubles).
+    # Per the GeoTIFF spec this tag wins over ModelPixelScale + ModelTiepoint
+    # when present.
+    #
+    #   x = M[0]*col + M[1]*row + M[2]*z + M[3]
+    #   y = M[4]*col + M[5]*row + M[6]*z + M[7]
+    #
+    # GeoTransform only carries the axis-aligned case.  For rotated, sheared,
+    # or z-coupled transforms we raise NotImplementedError instead of silently
+    # dropping the off-diagonal terms.
     transform_tag = ifd.get_value(TAG_MODEL_TRANSFORMATION)
     if transform_tag is not None:
         if isinstance(transform_tag, tuple) and len(transform_tag) >= 12:
-            # 4x4 row-major matrix
-            # x = M[0]*col + M[1]*row + M[3]
-            # y = M[4]*col + M[5]*row + M[7]
+            m = transform_tag
+            # Off-diagonal terms (rotation/skew) and z-coupling.  Use a small
+            # tolerance scaled to the diagonal to absorb floating-point noise.
+            scale = max(abs(m[0]), abs(m[5]), 1.0)
+            tol = 1e-12 * scale
+            rotation_terms = (m[1], m[4])
+            z_terms = (m[2], m[6]) if len(m) >= 8 else (0.0, 0.0)
+            if any(abs(t) > tol for t in rotation_terms + z_terms):
+                raise NotImplementedError(
+                    "ModelTransformationTag (34264) contains rotation, "
+                    "skew, or z-coupling terms "
+                    f"(M[1]={m[1]!r}, M[4]={m[4]!r}, "
+                    f"M[2]={m[2] if len(m) > 2 else 0.0!r}, "
+                    f"M[6]={m[6] if len(m) > 6 else 0.0!r}). "
+                    "Only axis-aligned affine transforms are supported."
+                )
             return GeoTransform(
-                origin_x=transform_tag[3],
-                origin_y=transform_tag[7],
-                pixel_width=transform_tag[0],
-                pixel_height=transform_tag[5],
-            )
+                origin_x=m[3],
+                origin_y=m[7],
+                pixel_width=m[0],
+                pixel_height=m[5],
+            ), True
 
     # Try ModelTiepoint + ModelPixelScale
     tiepoint = ifd.get_value(TAG_MODEL_TIEPOINT)
@@ -320,11 +369,15 @@ def _extract_transform(ifd: IFD) -> GeoTransform:
                 origin_y=origin_y,
                 pixel_width=sx,
                 pixel_height=-sy,  # negative because y decreases
-            )
+            ), True
 
-        return GeoTransform(pixel_width=sx, pixel_height=-sy)
+        return GeoTransform(pixel_width=sx, pixel_height=-sy), True
 
-    return GeoTransform()
+    # Tiepoint without scale: still flag as georeferenced (origin known)
+    if tiepoint is not None:
+        return GeoTransform(), True
+
+    return GeoTransform(), False
 
 
 def extract_geo_info(ifd: IFD, data: bytes | memoryview,
@@ -344,7 +397,7 @@ def extract_geo_info(ifd: IFD, data: bytes | memoryview,
     -------
     GeoInfo
     """
-    transform = _extract_transform(ifd)
+    transform, has_georef = _extract_transform(ifd)
     geokeys = _parse_geokeys(ifd, data, byte_order)
 
     # Extract EPSG
@@ -478,9 +531,28 @@ def extract_geo_info(ifd: IFD, data: bytes | memoryview,
 
     # Collect extra (non-managed) tags for pass-through
     extra_tags = []
+    image_description = None
+    extra_samples = None
     for tag_id, entry in ifd.entries.items():
-        if tag_id not in _MANAGED_TAGS:
-            extra_tags.append((tag_id, entry.type_id, entry.count, entry.value))
+        if tag_id in _MANAGED_TAGS:
+            continue
+        extra_tags.append((tag_id, entry.type_id, entry.count, entry.value))
+        # Surface a few well-known extras as friendly attrs while still
+        # carrying the raw entry in extra_tags so to_geotiff can rewrite
+        # it byte-for-byte.
+        if tag_id == TAG_IMAGE_DESCRIPTION:
+            v = entry.value
+            if isinstance(v, bytes):
+                v = v.rstrip(b'\x00').decode('ascii', errors='replace')
+            elif isinstance(v, str):
+                v = v.rstrip('\x00')
+            image_description = v
+        elif tag_id == TAG_EXTRA_SAMPLES:
+            v = entry.value
+            if isinstance(v, tuple):
+                extra_samples = tuple(int(x) for x in v)
+            elif isinstance(v, int):
+                extra_samples = (int(v),)
     if not extra_tags:
         extra_tags = None
 
@@ -491,6 +563,7 @@ def extract_geo_info(ifd: IFD, data: bytes | memoryview,
 
     return GeoInfo(
         transform=transform,
+        has_georef=has_georef,
         crs_epsg=epsg,
         model_type=int(model_type) if isinstance(model_type, (int, float)) else 0,
         raster_type=int(raster_type) if isinstance(raster_type, (int, float)) else RASTER_PIXEL_IS_AREA,
@@ -518,6 +591,8 @@ def extract_geo_info(ifd: IFD, data: bytes | memoryview,
         gdal_metadata=gdal_metadata,
         gdal_metadata_xml=gdal_metadata_xml,
         extra_tags=extra_tags,
+        image_description=image_description,
+        extra_samples=extra_samples,
         geokeys=geokeys,
     )
 

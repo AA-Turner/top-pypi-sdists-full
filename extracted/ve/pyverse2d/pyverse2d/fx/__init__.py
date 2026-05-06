@@ -10,7 +10,7 @@ from . import particle
 from .particle import (
     Particle,
     PointEmitter, CircleEmitter, LineEmitter, ConeEmitter,
-    Gravity, Wind, Drag,
+    Gravity, Wind, Drag, Attractor,
     ParticleRenderer,
 )
 
@@ -24,6 +24,6 @@ __all__ = [
     "particle",
     "Particle",
     "PointEmitter", "CircleEmitter", "LineEmitter", "ConeEmitter",
-    "Gravity", "Wind", "Drag",
+    "Gravity", "Wind", "Drag", "Attractor",
     "ParticleRenderer",
 ]

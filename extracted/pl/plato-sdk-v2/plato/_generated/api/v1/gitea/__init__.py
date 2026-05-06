@@ -7,7 +7,6 @@ from . import (
     get_accessible_simulators,
     get_gitea_credentials,
     get_gitea_repository,
-    get_my_gitea_info,
     get_my_repositories,
     get_repository_branches,
     get_repository_contents,
@@ -19,7 +18,6 @@ from . import (
 
 __all__ = [
     "get_my_repositories",
-    "get_my_gitea_info",
     "get_gitea_credentials",
     "create_gitea_repository",
     "get_gitea_repository",

@@ -13,11 +13,14 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    params["feedback_score"] = feedback_score
 
     params["include_history"] = include_history
 
@@ -68,12 +71,14 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Message"]]:
     """
     Args:
+        feedback_score (Union[Unset, bool]):
         include_history (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         thread (Union[Unset, UUID]):
@@ -87,6 +92,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        feedback_score=feedback_score,
         include_history=include_history,
         is_flagged=is_flagged,
         thread=thread,
@@ -102,12 +108,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
 ) -> list["Message"]:
     """
     Args:
+        feedback_score (Union[Unset, bool]):
         include_history (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         thread (Union[Unset, UUID]):
@@ -122,6 +130,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        feedback_score=feedback_score,
         include_history=include_history,
         is_flagged=is_flagged,
         thread=thread,
@@ -131,12 +140,14 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Message"]]:
     """
     Args:
+        feedback_score (Union[Unset, bool]):
         include_history (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         thread (Union[Unset, UUID]):
@@ -150,6 +161,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        feedback_score=feedback_score,
         include_history=include_history,
         is_flagged=is_flagged,
         thread=thread,
@@ -163,12 +175,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
 ) -> list["Message"]:
     """
     Args:
+        feedback_score (Union[Unset, bool]):
         include_history (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         thread (Union[Unset, UUID]):
@@ -184,6 +198,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            feedback_score=feedback_score,
             include_history=include_history,
             is_flagged=is_flagged,
             thread=thread,
@@ -194,6 +209,7 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
@@ -206,6 +222,7 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        feedback_score (Union[Unset, bool]):
         include_history (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         thread (Union[Unset, UUID]):
@@ -223,6 +240,7 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        feedback_score=feedback_score,
         include_history=include_history,
         is_flagged=is_flagged,
         thread=thread,
@@ -273,6 +291,7 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    feedback_score: Union[Unset, bool] = UNSET,
     include_history: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     thread: Union[Unset, UUID] = UNSET,
@@ -285,6 +304,7 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        feedback_score (Union[Unset, bool]):
         include_history (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         thread (Union[Unset, UUID]):
@@ -302,6 +322,7 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        feedback_score=feedback_score,
         include_history=include_history,
         is_flagged=is_flagged,
         thread=thread,

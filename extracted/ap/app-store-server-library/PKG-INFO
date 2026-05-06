@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: app-store-server-library
-Version: 3.0.0
+Version: 3.1.0
 Summary: The App Store Server Library
 License: MIT
 Classifier: License :: OSI Approved :: MIT License
@@ -20,7 +20,7 @@ Requires-Dist: httpx; extra == "async"
 Dynamic: license-file
 
 # Apple App Store Server Python Library
-The [Python](https://github.com/apple/app-store-server-library-python) server library for the [App Store Server API](https://developer.apple.com/documentation/appstoreserverapi), [App Store Server Notifications](https://developer.apple.com/documentation/appstoreservernotifications), and [Retention Messaging API](https://developer.apple.com/documentation/retentionmessaging). Also available in [Swift](https://github.com/apple/app-store-server-library-swift), [Node.js](https://github.com/apple/app-store-server-library-node), and [Java](https://github.com/apple/app-store-server-library-java).
+The [Python](https://github.com/apple/app-store-server-library-python) server library for the [App Store Server API](https://developer.apple.com/documentation/appstoreserverapi), [App Store Server Notifications](https://developer.apple.com/documentation/appstoreservernotifications), [Retention Messaging API](https://developer.apple.com/documentation/retentionmessaging), and [Advanced Commerce API](https://developer.apple.com/documentation/AdvancedCommerceAPI). Also available in [Swift](https://github.com/apple/app-store-server-library-swift), [Node.js](https://github.com/apple/app-store-server-library-node), and [Java](https://github.com/apple/app-store-server-library-java).
 
 ## Table of Contents
 1. [Installation](#installation)

@@ -17,6 +17,8 @@ from ...utils import parse_link_header
 def _get_kwargs(
     service_provider_uuid: UUID,
     *,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -29,6 +31,7 @@ def _get_kwargs(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -39,10 +42,23 @@ def _get_kwargs(
     page_size: Union[Unset, int] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    params["affiliated_organization_name"] = affiliated_organization_name
+
+    json_affiliated_organization_uuid: Union[Unset, list[str]] = UNSET
+    if not isinstance(affiliated_organization_uuid, Unset):
+        json_affiliated_organization_uuid = []
+        for affiliated_organization_uuid_item_data in affiliated_organization_uuid:
+            affiliated_organization_uuid_item = str(affiliated_organization_uuid_item_data)
+            json_affiliated_organization_uuid.append(affiliated_organization_uuid_item)
+
+    params["affiliated_organization_uuid"] = json_affiliated_organization_uuid
 
     params["backend_id"] = backend_id
 
@@ -88,6 +104,8 @@ def _get_kwargs(
 
     params["field"] = json_field
 
+    params["has_affiliated_organization"] = has_affiliated_organization
+
     params["is_removed"] = is_removed
 
     json_modified: Union[Unset, str] = UNSET
@@ -121,6 +139,16 @@ def _get_kwargs(
     params["project_customer_uuid"] = json_project_customer_uuid
 
     params["query"] = query
+
+    json_science_domain_uuid: Union[Unset, str] = UNSET
+    if not isinstance(science_domain_uuid, Unset):
+        json_science_domain_uuid = str(science_domain_uuid)
+    params["science_domain_uuid"] = json_science_domain_uuid
+
+    json_science_sub_domain_uuid: Union[Unset, str] = UNSET
+    if not isinstance(science_sub_domain_uuid, Unset):
+        json_science_sub_domain_uuid = str(science_sub_domain_uuid)
+    params["science_sub_domain_uuid"] = json_science_sub_domain_uuid
 
     params["slug"] = slug
 
@@ -172,6 +200,8 @@ def sync_detailed(
     service_provider_uuid: UUID,
     *,
     client: AuthenticatedClient,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -184,6 +214,7 @@ def sync_detailed(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -194,6 +225,8 @@ def sync_detailed(
     page_size: Union[Unset, int] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> Response[list["MarketplaceProviderCustomerProject"]]:
@@ -204,6 +237,8 @@ def sync_detailed(
 
     Args:
         service_provider_uuid (UUID):
+        affiliated_organization_name (Union[Unset, str]):
+        affiliated_organization_uuid (Union[Unset, list[UUID]]):
         backend_id (Union[Unset, str]):
         can_admin (Union[Unset, bool]):
         can_manage (Union[Unset, bool]):
@@ -216,6 +251,7 @@ def sync_detailed(
         customer_native_name (Union[Unset, str]):
         description (Union[Unset, str]):
         field (Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]]):
+        has_affiliated_organization (Union[Unset, bool]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
         modified_before (Union[Unset, datetime.datetime]):
@@ -226,6 +262,8 @@ def sync_detailed(
         page_size (Union[Unset, int]):
         project_customer_uuid (UUID):
         query (Union[Unset, str]):
+        science_domain_uuid (Union[Unset, UUID]):
+        science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
@@ -239,6 +277,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         service_provider_uuid=service_provider_uuid,
+        affiliated_organization_name=affiliated_organization_name,
+        affiliated_organization_uuid=affiliated_organization_uuid,
         backend_id=backend_id,
         can_admin=can_admin,
         can_manage=can_manage,
@@ -251,6 +291,7 @@ def sync_detailed(
         customer_native_name=customer_native_name,
         description=description,
         field=field,
+        has_affiliated_organization=has_affiliated_organization,
         is_removed=is_removed,
         modified=modified,
         modified_before=modified_before,
@@ -261,6 +302,8 @@ def sync_detailed(
         page_size=page_size,
         project_customer_uuid=project_customer_uuid,
         query=query,
+        science_domain_uuid=science_domain_uuid,
+        science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
@@ -276,6 +319,8 @@ def sync(
     service_provider_uuid: UUID,
     *,
     client: AuthenticatedClient,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -288,6 +333,7 @@ def sync(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -298,6 +344,8 @@ def sync(
     page_size: Union[Unset, int] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["MarketplaceProviderCustomerProject"]:
@@ -308,6 +356,8 @@ def sync(
 
     Args:
         service_provider_uuid (UUID):
+        affiliated_organization_name (Union[Unset, str]):
+        affiliated_organization_uuid (Union[Unset, list[UUID]]):
         backend_id (Union[Unset, str]):
         can_admin (Union[Unset, bool]):
         can_manage (Union[Unset, bool]):
@@ -320,6 +370,7 @@ def sync(
         customer_native_name (Union[Unset, str]):
         description (Union[Unset, str]):
         field (Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]]):
+        has_affiliated_organization (Union[Unset, bool]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
         modified_before (Union[Unset, datetime.datetime]):
@@ -330,6 +381,8 @@ def sync(
         page_size (Union[Unset, int]):
         project_customer_uuid (UUID):
         query (Union[Unset, str]):
+        science_domain_uuid (Union[Unset, UUID]):
+        science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
@@ -344,6 +397,8 @@ def sync(
     return sync_detailed(
         service_provider_uuid=service_provider_uuid,
         client=client,
+        affiliated_organization_name=affiliated_organization_name,
+        affiliated_organization_uuid=affiliated_organization_uuid,
         backend_id=backend_id,
         can_admin=can_admin,
         can_manage=can_manage,
@@ -356,6 +411,7 @@ def sync(
         customer_native_name=customer_native_name,
         description=description,
         field=field,
+        has_affiliated_organization=has_affiliated_organization,
         is_removed=is_removed,
         modified=modified,
         modified_before=modified_before,
@@ -366,6 +422,8 @@ def sync(
         page_size=page_size,
         project_customer_uuid=project_customer_uuid,
         query=query,
+        science_domain_uuid=science_domain_uuid,
+        science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
         user_uuid_with_active_role=user_uuid_with_active_role,
     ).parsed
@@ -375,6 +433,8 @@ async def asyncio_detailed(
     service_provider_uuid: UUID,
     *,
     client: AuthenticatedClient,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -387,6 +447,7 @@ async def asyncio_detailed(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -397,6 +458,8 @@ async def asyncio_detailed(
     page_size: Union[Unset, int] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> Response[list["MarketplaceProviderCustomerProject"]]:
@@ -407,6 +470,8 @@ async def asyncio_detailed(
 
     Args:
         service_provider_uuid (UUID):
+        affiliated_organization_name (Union[Unset, str]):
+        affiliated_organization_uuid (Union[Unset, list[UUID]]):
         backend_id (Union[Unset, str]):
         can_admin (Union[Unset, bool]):
         can_manage (Union[Unset, bool]):
@@ -419,6 +484,7 @@ async def asyncio_detailed(
         customer_native_name (Union[Unset, str]):
         description (Union[Unset, str]):
         field (Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]]):
+        has_affiliated_organization (Union[Unset, bool]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
         modified_before (Union[Unset, datetime.datetime]):
@@ -429,6 +495,8 @@ async def asyncio_detailed(
         page_size (Union[Unset, int]):
         project_customer_uuid (UUID):
         query (Union[Unset, str]):
+        science_domain_uuid (Union[Unset, UUID]):
+        science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
@@ -442,6 +510,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         service_provider_uuid=service_provider_uuid,
+        affiliated_organization_name=affiliated_organization_name,
+        affiliated_organization_uuid=affiliated_organization_uuid,
         backend_id=backend_id,
         can_admin=can_admin,
         can_manage=can_manage,
@@ -454,6 +524,7 @@ async def asyncio_detailed(
         customer_native_name=customer_native_name,
         description=description,
         field=field,
+        has_affiliated_organization=has_affiliated_organization,
         is_removed=is_removed,
         modified=modified,
         modified_before=modified_before,
@@ -464,6 +535,8 @@ async def asyncio_detailed(
         page_size=page_size,
         project_customer_uuid=project_customer_uuid,
         query=query,
+        science_domain_uuid=science_domain_uuid,
+        science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
@@ -477,6 +550,8 @@ async def asyncio(
     service_provider_uuid: UUID,
     *,
     client: AuthenticatedClient,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -489,6 +564,7 @@ async def asyncio(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -499,6 +575,8 @@ async def asyncio(
     page_size: Union[Unset, int] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["MarketplaceProviderCustomerProject"]:
@@ -509,6 +587,8 @@ async def asyncio(
 
     Args:
         service_provider_uuid (UUID):
+        affiliated_organization_name (Union[Unset, str]):
+        affiliated_organization_uuid (Union[Unset, list[UUID]]):
         backend_id (Union[Unset, str]):
         can_admin (Union[Unset, bool]):
         can_manage (Union[Unset, bool]):
@@ -521,6 +601,7 @@ async def asyncio(
         customer_native_name (Union[Unset, str]):
         description (Union[Unset, str]):
         field (Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]]):
+        has_affiliated_organization (Union[Unset, bool]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
         modified_before (Union[Unset, datetime.datetime]):
@@ -531,6 +612,8 @@ async def asyncio(
         page_size (Union[Unset, int]):
         project_customer_uuid (UUID):
         query (Union[Unset, str]):
+        science_domain_uuid (Union[Unset, UUID]):
+        science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
@@ -546,6 +629,8 @@ async def asyncio(
         await asyncio_detailed(
             service_provider_uuid=service_provider_uuid,
             client=client,
+            affiliated_organization_name=affiliated_organization_name,
+            affiliated_organization_uuid=affiliated_organization_uuid,
             backend_id=backend_id,
             can_admin=can_admin,
             can_manage=can_manage,
@@ -558,6 +643,7 @@ async def asyncio(
             customer_native_name=customer_native_name,
             description=description,
             field=field,
+            has_affiliated_organization=has_affiliated_organization,
             is_removed=is_removed,
             modified=modified,
             modified_before=modified_before,
@@ -568,6 +654,8 @@ async def asyncio(
             page_size=page_size,
             project_customer_uuid=project_customer_uuid,
             query=query,
+            science_domain_uuid=science_domain_uuid,
+            science_sub_domain_uuid=science_sub_domain_uuid,
             slug=slug,
             user_uuid_with_active_role=user_uuid_with_active_role,
         )
@@ -578,6 +666,8 @@ def sync_all(
     service_provider_uuid: UUID,
     *,
     client: AuthenticatedClient,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -590,6 +680,7 @@ def sync_all(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -598,6 +689,8 @@ def sync_all(
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["MarketplaceProviderCustomerProject"]:
@@ -610,6 +703,8 @@ def sync_all(
 
     Args:
         service_provider_uuid (UUID):
+        affiliated_organization_name (Union[Unset, str]):
+        affiliated_organization_uuid (Union[Unset, list[UUID]]):
         backend_id (Union[Unset, str]):
         can_admin (Union[Unset, bool]):
         can_manage (Union[Unset, bool]):
@@ -622,6 +717,7 @@ def sync_all(
         customer_native_name (Union[Unset, str]):
         description (Union[Unset, str]):
         field (Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]]):
+        has_affiliated_organization (Union[Unset, bool]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
         modified_before (Union[Unset, datetime.datetime]):
@@ -630,6 +726,8 @@ def sync_all(
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
         project_customer_uuid (UUID):
         query (Union[Unset, str]):
+        science_domain_uuid (Union[Unset, UUID]):
+        science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
@@ -647,6 +745,8 @@ def sync_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         service_provider_uuid=service_provider_uuid,
+        affiliated_organization_name=affiliated_organization_name,
+        affiliated_organization_uuid=affiliated_organization_uuid,
         backend_id=backend_id,
         can_admin=can_admin,
         can_manage=can_manage,
@@ -659,6 +759,7 @@ def sync_all(
         customer_native_name=customer_native_name,
         description=description,
         field=field,
+        has_affiliated_organization=has_affiliated_organization,
         is_removed=is_removed,
         modified=modified,
         modified_before=modified_before,
@@ -667,6 +768,8 @@ def sync_all(
         o=o,
         project_customer_uuid=project_customer_uuid,
         query=query,
+        science_domain_uuid=science_domain_uuid,
+        science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
@@ -717,6 +820,8 @@ async def asyncio_all(
     service_provider_uuid: UUID,
     *,
     client: AuthenticatedClient,
+    affiliated_organization_name: Union[Unset, str] = UNSET,
+    affiliated_organization_uuid: Union[Unset, list[UUID]] = UNSET,
     backend_id: Union[Unset, str] = UNSET,
     can_admin: Union[Unset, bool] = UNSET,
     can_manage: Union[Unset, bool] = UNSET,
@@ -729,6 +834,7 @@ async def asyncio_all(
     customer_native_name: Union[Unset, str] = UNSET,
     description: Union[Unset, str] = UNSET,
     field: Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]] = UNSET,
+    has_affiliated_organization: Union[Unset, bool] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
     modified_before: Union[Unset, datetime.datetime] = UNSET,
@@ -737,6 +843,8 @@ async def asyncio_all(
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
     project_customer_uuid: UUID,
     query: Union[Unset, str] = UNSET,
+    science_domain_uuid: Union[Unset, UUID] = UNSET,
+    science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["MarketplaceProviderCustomerProject"]:
@@ -749,6 +857,8 @@ async def asyncio_all(
 
     Args:
         service_provider_uuid (UUID):
+        affiliated_organization_name (Union[Unset, str]):
+        affiliated_organization_uuid (Union[Unset, list[UUID]]):
         backend_id (Union[Unset, str]):
         can_admin (Union[Unset, bool]):
         can_manage (Union[Unset, bool]):
@@ -761,6 +871,7 @@ async def asyncio_all(
         customer_native_name (Union[Unset, str]):
         description (Union[Unset, str]):
         field (Union[Unset, list[MarketplaceProviderCustomerProjectFieldEnum]]):
+        has_affiliated_organization (Union[Unset, bool]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
         modified_before (Union[Unset, datetime.datetime]):
@@ -769,6 +880,8 @@ async def asyncio_all(
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
         project_customer_uuid (UUID):
         query (Union[Unset, str]):
+        science_domain_uuid (Union[Unset, UUID]):
+        science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
@@ -786,6 +899,8 @@ async def asyncio_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         service_provider_uuid=service_provider_uuid,
+        affiliated_organization_name=affiliated_organization_name,
+        affiliated_organization_uuid=affiliated_organization_uuid,
         backend_id=backend_id,
         can_admin=can_admin,
         can_manage=can_manage,
@@ -798,6 +913,7 @@ async def asyncio_all(
         customer_native_name=customer_native_name,
         description=description,
         field=field,
+        has_affiliated_organization=has_affiliated_organization,
         is_removed=is_removed,
         modified=modified,
         modified_before=modified_before,
@@ -806,6 +922,8 @@ async def asyncio_all(
         o=o,
         project_customer_uuid=project_customer_uuid,
         query=query,
+        science_domain_uuid=science_domain_uuid,
+        science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )

@@ -17,6 +17,8 @@ import collections
 import copy
 import datetime
 import re
+import unittest
+from typing import Any, ClassVar
 from unittest import mock
 
 
@@ -25,7 +27,6 @@ from osprofiler.tests import test
 
 
 class ProfilerGlobMethodsTestCase(test.TestCase):
-
     def test_get_profiler_not_inited(self):
         profiler.clean()
         self.assertIsNone(profiler.get())
@@ -44,8 +45,8 @@ class ProfilerGlobMethodsTestCase(test.TestCase):
 
     def test_start(self):
         p = profiler.init("secret", base_id="1", parent_id="2")
-        p.start = mock.MagicMock()
-        profiler.start("name", info="info")
+        p.start = mock.MagicMock()  # type: ignore[method-assign]
+        profiler.start("name", info="info")  # type: ignore[arg-type]
         p.start.assert_called_once_with("name", info="info")
 
     def test_stop_not_inited(self):
@@ -54,13 +55,12 @@ class ProfilerGlobMethodsTestCase(test.TestCase):
 
     def test_stop(self):
         p = profiler.init("secret", base_id="1", parent_id="2")
-        p.stop = mock.MagicMock()
-        profiler.stop(info="info")
+        p.stop = mock.MagicMock()  # type: ignore[method-assign]
+        profiler.stop(info="info")  # type: ignore[arg-type]
         p.stop.assert_called_once_with(info="info")
 
 
 class ProfilerTestCase(test.TestCase):
-
     def test_profiler_get_shorten_id(self):
         uuid_id = "4e3e0ec6-2938-40b1-8504-09eb1d4b0dee"
         prof = profiler._Profiler("secret", base_id="1", parent_id="2")
@@ -100,14 +100,15 @@ class ProfilerTestCase(test.TestCase):
         prof.start("test")
         self.assertEqual(prof.get_id(), "43")
 
-    @mock.patch("osprofiler.profiler.datetime")
+    @mock.patch("osprofiler.profiler.timeutils")
     @mock.patch("osprofiler.profiler.uuidutils.generate_uuid")
     @mock.patch("osprofiler.profiler.notifier.notify")
-    def test_profiler_start(self, mock_notify, mock_generate_uuid,
-                            mock_datetime):
+    def test_profiler_start(
+        self, mock_notify, mock_generate_uuid, mock_timeutils
+    ):
         mock_generate_uuid.return_value = "44"
-        now = datetime.datetime.utcnow()
-        mock_datetime.datetime.utcnow.return_value = now
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        mock_timeutils.utcnow.return_value = now
 
         info = {"some": "info"}
         payload = {
@@ -124,11 +125,11 @@ class ProfilerTestCase(test.TestCase):
 
         mock_notify.assert_called_once_with(payload)
 
-    @mock.patch("osprofiler.profiler.datetime")
+    @mock.patch("osprofiler.profiler.timeutils")
     @mock.patch("osprofiler.profiler.notifier.notify")
-    def test_profiler_stop(self, mock_notify, mock_datetime):
-        now = datetime.datetime.utcnow()
-        mock_datetime.datetime.utcnow.return_value = now
+    def test_profiler_stop(self, mock_notify, mock_timeutils):
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        mock_timeutils.utcnow.return_value = now
         prof = profiler._Profiler("secret", base_id="1", parent_id="2")
         prof._trace_stack.append("44")
         prof._name.append("abc")
@@ -149,6 +150,22 @@ class ProfilerTestCase(test.TestCase):
         self.assertEqual(len(prof._name), 0)
         self.assertEqual(prof._trace_stack, collections.deque(["1", "2"]))
 
+    @mock.patch("osprofiler.profiler.notifier.notify")
+    def test_profiler_stop_empty_stack(self, mock_notify):
+        """Test stop() gracefully handles empty profiler stack"""
+        prof = profiler._Profiler("secret", base_id="1", parent_id="2")
+        # Don't append anything to _name or _trace_stack
+        # This simulates stop() being called without matching start()
+
+        # Should not raise IndexError, just return silently
+        prof.stop(info={"some": "info"})
+
+        # No notification should be sent
+        mock_notify.assert_not_called()
+        # Stacks should remain empty
+        self.assertEqual(len(prof._name), 0)
+        self.assertEqual(len(prof._trace_stack), 2)  # base_id and parent_id
+
     def test_profiler_hmac(self):
         hmac = "secret"
         prof = profiler._Profiler(hmac, base_id="1", parent_id="2")
@@ -156,15 +173,14 @@ class ProfilerTestCase(test.TestCase):
 
 
 class WithTraceTestCase(test.TestCase):
-
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
     def test_with_trace(self, mock_start, mock_stop):
 
-        with profiler.Trace("a", info="a1"):
+        with profiler.Trace("a", info="a1"):  # type: ignore[arg-type]
             mock_start.assert_called_once_with("a", info="a1")
             mock_start.reset_mock()
-            with profiler.Trace("b", info="b1"):
+            with profiler.Trace("b", info="b1"):  # type: ignore[arg-type]
                 mock_start.assert_called_once_with("b", info="b1")
             mock_stop.assert_called_once_with(info=None)
             mock_stop.reset_mock()
@@ -180,10 +196,9 @@ class WithTraceTestCase(test.TestCase):
 
         self.assertRaises(ValueError, foo)
         mock_start.assert_called_once_with("foo", info=None)
-        mock_stop.assert_called_once_with(info={
-            "etype": "ValueError",
-            "message": "bar"
-        })
+        mock_stop.assert_called_once_with(
+            info={"etype": "ValueError", "message": "bar"}
+        )
 
 
 @profiler.trace("function", info={"info": "some_info"})
@@ -207,7 +222,6 @@ def trace_with_result_func(a, i=10):
 
 
 class TraceDecoratorTestCase(test.TestCase):
-
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
     def test_duplicate_trace_disallow(self, mock_start, mock_stop):
@@ -219,7 +233,8 @@ class TraceDecoratorTestCase(test.TestCase):
         self.assertRaises(
             ValueError,
             profiler.trace("test-again", allow_multiple_trace=False),
-            trace_me)
+            trace_me,
+        )
 
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
@@ -230,8 +245,8 @@ class TraceDecoratorTestCase(test.TestCase):
             "function": {
                 "name": "osprofiler.tests.unit.test_profiler.traced_func",
                 "args": str((1,)),
-                "kwargs": str({})
-            }
+                "kwargs": str({}),
+            },
         }
         mock_start.assert_called_once_with("function", info=expected_info)
         mock_stop.assert_called_once_with(info=None)
@@ -243,7 +258,7 @@ class TraceDecoratorTestCase(test.TestCase):
         expected_info = {
             "function": {
                 "name": "osprofiler.tests.unit.test_profiler"
-                        ".trace_hide_args_func"
+                ".trace_hide_args_func"
             }
         }
         mock_start.assert_called_once_with("hide_args", info=expected_info)
@@ -270,23 +285,18 @@ class TraceDecoratorTestCase(test.TestCase):
         start_info = {
             "function": {
                 "name": "osprofiler.tests.unit.test_profiler"
-                        ".trace_with_result_func",
+                ".trace_with_result_func",
                 "args": str((1,)),
-                "kwargs": str({"i": 2})
+                "kwargs": str({"i": 2}),
             }
         }
 
-        stop_info = {
-            "function": {
-                "result": str((1, 2))
-            }
-        }
+        stop_info = {"function": {"result": str((1, 2))}}
         mock_start.assert_called_once_with("hide_result", info=start_info)
         mock_stop.assert_called_once_with(info=stop_info)
 
 
 class FakeTracedCls:
-
     def method1(self, a, b, c=10):
         return a + b + c
 
@@ -345,8 +355,9 @@ class FakeTraceClassMethodSkip(FakeTraceClassMethodBase):
 def py3_info(info):
     # NOTE(boris-42): py33 I hate you.
     info_py3 = copy.deepcopy(info)
-    new_name = re.sub("FakeTrace[^.]*", "FakeTracedCls",
-                      info_py3["function"]["name"])
+    new_name = re.sub(
+        "FakeTrace[^.]*", "FakeTracedCls", info_py3["function"]["name"]
+    )
     info_py3["function"]["name"] = new_name
     return info_py3
 
@@ -357,7 +368,6 @@ def possible_mock_calls(name, info):
 
 
 class TraceClsDecoratorTestCase(test.TestCase):
-
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
     def test_args(self, mock_start, mock_stop):
@@ -366,15 +376,19 @@ class TraceClsDecoratorTestCase(test.TestCase):
         expected_info = {
             "a": 10,
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceClassWithInfo.method1"),
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceClassWithInfo.method1"
+                ),
                 "args": str((fake_cls, 5, 15)),
-                "kwargs": str({})
-            }
+                "kwargs": str({}),
+            },
         }
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -385,15 +399,19 @@ class TraceClsDecoratorTestCase(test.TestCase):
         expected_info = {
             "a": 10,
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceClassWithInfo.method3"),
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceClassWithInfo.method3"
+                ),
                 "args": str((fake_cls,)),
-                "kwargs": str({"g": 5, "h": 10})
-            }
+                "kwargs": str({"g": 5, "h": 10}),
+            },
         }
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -401,8 +419,8 @@ class TraceClsDecoratorTestCase(test.TestCase):
     def test_without_private(self, mock_start, mock_stop):
         fake_cls = FakeTraceClassHideArgs()
         self.assertEqual(10, fake_cls._method(10))
-        self.assertFalse(mock_start.called)
-        self.assertFalse(mock_stop.called)
+        mock_start.assert_not_called()
+        mock_stop.assert_not_called()
 
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
@@ -412,14 +430,18 @@ class TraceClsDecoratorTestCase(test.TestCase):
         expected_info = {
             "b": 20,
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceClassHideArgs.method1"),
-            }
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceClassHideArgs.method1"
+                ),
+            },
         }
 
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("a", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("a", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -430,23 +452,28 @@ class TraceClsDecoratorTestCase(test.TestCase):
 
         expected_info = {
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTracePrivate._method"),
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTracePrivate._method"
+                ),
                 "args": str((fake_cls, 5)),
-                "kwargs": str({})
+                "kwargs": str({}),
             }
         }
 
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
-    @test.testcase.skip(
+    @unittest.skip(
         "Static method tracing was disabled due the bug. This test should be "
-        "skipped until we find the way to address it.")
+        "skipped until we find the way to address it."
+    )
     def test_static(self, mock_start, mock_stop):
         fake_cls = FakeTraceStaticMethod()
 
@@ -459,38 +486,41 @@ class TraceClsDecoratorTestCase(test.TestCase):
                 #                  expect to see method4 because method is
                 #                  static and doesn't have reference to class
                 #                  - and FakeTraceStatic.method4 in PY3
-                "name":
-                    "osprofiler.tests.unit.test_profiler"
-                    "osprofiler.tests.unit.test_profiler.FakeTraceStatic"
-                    ".method4",
+                "name": "osprofiler.tests.unit.test_profiler"
+                "osprofiler.tests.unit.test_profiler.FakeTraceStatic"
+                ".method4",
                 "args": str((25,)),
-                "kwargs": str({})
+                "kwargs": str({}),
             }
         }
 
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
     def test_static_method_skip(self, mock_start, mock_stop):
         self.assertEqual(25, FakeTraceStaticMethodSkip.static_method(25))
-        self.assertFalse(mock_start.called)
-        self.assertFalse(mock_stop.called)
+        mock_start.assert_not_called()
+        mock_stop.assert_not_called()
 
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
     def test_class_method_skip(self, mock_start, mock_stop):
         self.assertEqual("foo", FakeTraceClassMethodSkip.class_method("foo"))
-        self.assertFalse(mock_start.called)
-        self.assertFalse(mock_stop.called)
+        mock_start.assert_not_called()
+        mock_stop.assert_not_called()
 
 
 class FakeTraceWithMetaclassBase(metaclass=profiler.TracedMeta):
-    __trace_args__ = {"name": "rpc",
-                      "info": {"a": 10}}
+    __trace_args__: ClassVar[dict[str, Any]] = {
+        "name": "rpc",
+        "info": {"a": 10},
+    }
 
     def method1(self, a, b, c=10):
         return a + b + c
@@ -511,29 +541,34 @@ class FakeTraceDummy(FakeTraceWithMetaclassBase):
 
 
 class FakeTraceWithMetaclassHideArgs(FakeTraceWithMetaclassBase):
-    __trace_args__ = {"name": "a",
-                      "info": {"b": 20},
-                      "hide_args": True}
+    __trace_args__: ClassVar[dict[str, Any]] = {
+        "name": "a",
+        "info": {"b": 20},
+        "hide_args": True,
+    }
 
     def method5(self, k, l):
         return k + l
 
 
 class FakeTraceWithMetaclassPrivate(FakeTraceWithMetaclassBase):
-    __trace_args__ = {"name": "rpc",
-                      "trace_private": True}
+    __trace_args__: ClassVar[dict[str, Any]] = {
+        "name": "rpc",
+        "trace_private": True,
+    }
 
     def _new_private_method(self, m):
         return 2 * m
 
 
 class TraceWithMetaclassTestCase(test.TestCase):
-
     def test_no_name_exception(self):
         def define_class_with_no_name():
-            class FakeTraceWithMetaclassNoName(FakeTracedCls,
-                                               metaclass=profiler.TracedMeta):
+            class FakeTraceWithMetaclassNoName(
+                FakeTracedCls, metaclass=profiler.TracedMeta
+            ):
                 pass
+
         self.assertRaises(TypeError, define_class_with_no_name, 1)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -544,15 +579,19 @@ class TraceWithMetaclassTestCase(test.TestCase):
         expected_info = {
             "a": 10,
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceWithMetaclassBase.method1"),
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceWithMetaclassBase.method1"
+                ),
                 "args": str((fake_cls, 5, 15)),
-                "kwargs": str({})
-            }
+                "kwargs": str({}),
+            },
         }
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -563,15 +602,19 @@ class TraceWithMetaclassTestCase(test.TestCase):
         expected_info = {
             "a": 10,
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceWithMetaclassBase.method3"),
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceWithMetaclassBase.method3"
+                ),
                 "args": str((fake_cls,)),
-                "kwargs": str({"g": 5, "h": 10})
-            }
+                "kwargs": str({"g": 5, "h": 10}),
+            },
         }
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -579,8 +622,8 @@ class TraceWithMetaclassTestCase(test.TestCase):
     def test_without_private(self, mock_start, mock_stop):
         fake_cls = FakeTraceWithMetaclassHideArgs()
         self.assertEqual(10, fake_cls._method(10))
-        self.assertFalse(mock_start.called)
-        self.assertFalse(mock_stop.called)
+        mock_start.assert_not_called()
+        mock_stop.assert_not_called()
 
     @mock.patch("osprofiler.profiler.stop")
     @mock.patch("osprofiler.profiler.start")
@@ -590,14 +633,18 @@ class TraceWithMetaclassTestCase(test.TestCase):
         expected_info = {
             "b": 20,
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceWithMetaclassHideArgs.method5")
-            }
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceWithMetaclassHideArgs.method5"
+                )
+            },
         }
 
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("a", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("a", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)
 
     @mock.patch("osprofiler.profiler.stop")
@@ -608,14 +655,18 @@ class TraceWithMetaclassTestCase(test.TestCase):
 
         expected_info = {
             "function": {
-                "name": ("osprofiler.tests.unit.test_profiler"
-                         ".FakeTraceWithMetaclassPrivate._new_private_method"),
+                "name": (
+                    "osprofiler.tests.unit.test_profiler"
+                    ".FakeTraceWithMetaclassPrivate._new_private_method"
+                ),
                 "args": str((fake_cls, 5)),
-                "kwargs": str({})
+                "kwargs": str({}),
             }
         }
 
-        self.assertEqual(1, len(mock_start.call_args_list))
-        self.assertIn(mock_start.call_args_list[0],
-                      possible_mock_calls("rpc", expected_info))
+        mock_start.assert_called_once()
+        self.assertIn(
+            mock_start.call_args_list[0],
+            possible_mock_calls("rpc", expected_info),
+        )
         mock_stop.assert_called_once_with(info=None)

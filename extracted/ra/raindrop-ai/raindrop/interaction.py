@@ -71,7 +71,17 @@ class Interaction:
         self.set_properties({key: value})
 
     def finish(self, *, output: str | None = None, **extra) -> None:
+        """Mark the interaction complete.
 
+        This call is non-blocking: the merged payload is serialized on the
+        calling thread (so PII redaction and size checks still apply) and
+        then enqueued for the background flush thread to POST to
+        ``events/track_partial``. The HTTP request itself never runs on the
+        caller, so it is safe to call ``finish()`` from a request hot path.
+
+        On process shutdown, ``analytics.shutdown()`` (registered via
+        ``atexit``) drains any still-pending partials before exiting.
+        """
         payload = PartialTrackAIEvent(
             event_id=self._event_id,
             ai_data={"output": output} if output is not None else None,

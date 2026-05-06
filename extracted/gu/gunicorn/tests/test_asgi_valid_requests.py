@@ -45,10 +45,6 @@ def test_asgi_parser(fname):
         if getattr(cfg, flag, False):
             pytest.skip(f"Callback parser incompatible with {flag}")
 
-    # Skip proxy protocol tests
-    if getattr(cfg, 'proxy_protocol', 'off') != 'off':
-        pytest.skip("Callback parser does not support proxy_protocol")
-
     req = treq_asgi.request(fname, expect)
 
     # Test with different sending strategies

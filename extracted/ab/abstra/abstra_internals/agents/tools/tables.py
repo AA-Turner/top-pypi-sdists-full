@@ -27,6 +27,10 @@ def to_table(t: Optional[Union[str, Iterable[str]]]) -> Set[str]:
 
 
 class TablesTools(AgentTools):
+    """
+    Toolkit that gives an agent access to your Abstra Tables. The agent gets one tool per allowed method (`select`, `insert`, `update`, `delete`, optionally `run_sql`), scoped to the tables and default WHERE clause you configure.
+    """
+
     methods: Set[Method]
     table: Optional[Set[str]]
     where: Dict[str, Any]
@@ -39,6 +43,15 @@ class TablesTools(AgentTools):
         where: Optional[Dict[str, Any]] = None,
         allow_sql: bool = False,
     ):
+        """
+        Build a TablesTools toolkit, optionally scoped to specific methods, tables, and a default WHERE clause.
+
+        Args:
+            method (Union): Allowed table operations. Either `"all"` (full CRUD), a single method (`"select"`, `"insert"`, `"update"`, `"delete"`), or a list of methods. Defaults to `"all"`.
+            table (Optional): Restrict access to one or more table names. `None` allows all tables in the project. Defaults to None.
+            where (Optional): Default WHERE clause merged into every query. Useful for tenant scoping (e.g. `{"tenant_id": "abc"}`). Defaults to None.
+            allow_sql (bool): If True, exposes an extra `run_sql` tool that accepts arbitrary read-only SQL. Use with caution. Defaults to False.
+        """
         self.methods = to_method(method)
         self.table = to_table(table)
         self.where = where or {}

@@ -1,5 +1,6 @@
 """ReAct agent loop — the brain of pw-agent."""
 
+import concurrent.futures
 import json
 import os
 import re
@@ -1071,11 +1072,19 @@ class Agent:
         # bottom_toolbar was not active — between prompts, during embeds,
         # between tool calls.
         prep_live = None
-        prep_label = ["⠋ Preparing context..."]
+        _SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        _spinner_idx = [0]
+        prep_label = [f"{_SPINNER_FRAMES[0]} Preparing context..."]
         if not self.quiet:
             def _prep_render():
+                # Advance the spinner frame each time the Live block re-renders
+                # (Rich calls this at refresh_per_second=10, so the animation
+                # is driven by the render cycle — no extra thread needed).
+                frame = _SPINNER_FRAMES[_spinner_idx[0] % len(_SPINNER_FRAMES)]
+                _spinner_idx[0] += 1
+                tail = prep_label[0].split(" ", 1)[1] if " " in prep_label[0] else prep_label[0]
                 return Group(
-                    Text(prep_label[0], style="cyan"),
+                    Text(f"{frame} {tail}", style="cyan"),
                     _render_status_bar(self),
                 )
             try:
@@ -1093,55 +1102,92 @@ class Agent:
                 self._prep_live = None
                 self._prep_update = None
 
-        # Retrieve relevant memories for this query — global tier first
-        # (user profile), then project-scoped recollections
+        # Retrieve relevant memories + codebase context concurrently.
+        # All three embed calls are independent (global_memory, memory,
+        # codebase) so we fan them out with a thread pool and wait for all
+        # three at once.  Total latency drops from sum-of-three to
+        # max-of-three — typically 1-3 s instead of 3-9 s.
+        #
+        # format_context now returns (str, raw_hits) so we avoid a second
+        # redundant embed call for /stats and /waste accounting.
         memory_context = ""
         mem_avg_sim = 0.0
         mem_hit_count = 0
-        try:
-            parts = []
-            if self.memory_enabled and self.global_memory and self.global_memory.size > 0:
-                gctx = self.global_memory.format_context(user_input)
-                if gctx:
-                    parts.append(gctx)
-            if self.memory_enabled and self.memory and self.memory.size > 0:
-                pctx = self.memory.format_context(user_input)
-                if pctx:
-                    parts.append(pctx)
-                # Also capture raw hits for /stats and /waste accounting
-                try:
-                    raw = self.memory.retrieve(user_input, top_k=5)
-                    mem_hit_count = len(raw)
-                    if raw:
-                        mem_avg_sim = sum(s for _, s in raw) / len(raw)
-                except Exception:
-                    pass
-            memory_context = "\n\n".join(parts)
-            if memory_context and not self.quiet:
-                count = memory_context.count("\n- ")
-                console.print(f"  [dim]📚 Retrieved {count} memories[/dim]")
-        except Exception:
-            pass  # Memory retrieval is best-effort
-
-        # Auto-retrieve codebase context for this query — skip on chat inputs
-        # so "hey" doesn't pay embedding cost. Same heuristic as slim prompt.
         codebase_context = ""
         code_avg_sim = 0.0
         code_hit_count = 0
-        if self.codebase and self.rag_enabled and _looks_like_chat(user_input) is False:
+
+        _do_global = self.memory_enabled and self.global_memory and self.global_memory.size > 0
+        _do_memory = self.memory_enabled and self.memory and self.memory.size > 0
+        _do_codebase = bool(self.codebase and self.rag_enabled and _looks_like_chat(user_input) is False)
+
+        def _fetch_global():
             try:
-                codebase_context = self.codebase.format_context(user_input) or ""
+                return self.global_memory.format_context(user_input)
+            except Exception:
+                return "", []
+
+        def _fetch_memory():
+            try:
+                return self.memory.format_context(user_input)
+            except Exception:
+                return "", []
+
+        def _fetch_codebase():
+            try:
+                return self.codebase.format_context(user_input)
+            except Exception:
+                return "", []
+
+        _futures = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as _pool:
+            if _do_global:
+                _futures["global"] = _pool.submit(_fetch_global)
+            if _do_memory:
+                _futures["memory"] = _pool.submit(_fetch_memory)
+            if _do_codebase:
+                _futures["codebase"] = _pool.submit(_fetch_codebase)
+            # Results are collected after all futures complete (pool __exit__
+            # blocks until all submitted tasks finish).
+
+        # Unpack global memory result
+        _mem_parts = []
+        if "global" in _futures:
+            try:
+                gctx, _ = _futures["global"].result()
+                if gctx:
+                    _mem_parts.append(gctx)
+            except Exception:
+                pass
+
+        # Unpack project memory result; derive stats from raw hits
+        if "memory" in _futures:
+            try:
+                pctx, raw_hits = _futures["memory"].result()
+                if pctx:
+                    _mem_parts.append(pctx)
+                mem_hit_count = len(raw_hits)
+                if raw_hits:
+                    mem_avg_sim = sum(s for _, s in raw_hits) / len(raw_hits)
+            except Exception:
+                pass
+
+        memory_context = "\n\n".join(_mem_parts)
+        if memory_context and not self.quiet:
+            count = memory_context.count("\n- ")
+            console.print(f"  [dim]📚 Retrieved {count} memories[/dim]")
+
+        # Unpack codebase result; derive stats from raw hits
+        if "codebase" in _futures:
+            try:
+                codebase_context, raw_hits = _futures["codebase"].result()
+                codebase_context = codebase_context or ""
                 if codebase_context and not self.quiet:
                     hit_count = codebase_context.count("\n### ")
                     console.print(f"  [dim]🧭 Retrieved {hit_count} code chunks[/dim]")
-                # Stats breakdown for /stats and /waste
-                try:
-                    raw = self.codebase.search_hybrid(user_input, top_k=4, min_similarity=0.0)
-                    code_hit_count = len(raw)
-                    if raw:
-                        code_avg_sim = sum(s for _, s in raw) / len(raw)
-                except Exception:
-                    pass
+                code_hit_count = len(raw_hits)
+                if raw_hits:
+                    code_avg_sim = sum(s for _, s in raw_hits) / len(raw_hits)
             except Exception:
                 pass  # Best-effort — agent can still call search_codebase manually
 

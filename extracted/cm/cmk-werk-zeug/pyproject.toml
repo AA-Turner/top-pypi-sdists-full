@@ -1,6 +1,6 @@
 [project]
 name = "cmk-werk-zeug"
-version = "0.2.8"
+version = "0.3.0"
 description = "cmk-werk-zeug"
 authors = [
     {name = "Benedikt Seidl", email = "benedikt.seidl@checkmk.com"},
@@ -25,6 +25,7 @@ dependencies = [
 
 [project.scripts]
 cmk-components = 'cwz.cmk_components:main'
+cmk-check-plugins = 'cwz.cmk_check_plugins:main'
 ci-build-metrics = 'cwz.ci_build_metrics:main'
 activity-from-fs = 'cwz.activity_from_fs:main'
 
@@ -140,6 +141,13 @@ ignore = [
     "ANN201",
     "ALL",
 ]
+"cwz/cmk_check_plugins.py" = [
+    "C901",    # `check` is too complex
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    "TRY301",  # Abstract `raise` to an inner function
+
+]
 "test/*" = [
     "D100"
 ]
@@ -159,6 +167,9 @@ exclude = [
     "^cwz/staging/.*$",
     "cwz/jira_utils/client.py",
     "cwz/ci_build_metrics.py",
+    "cwz/cmk_bi_toolbox.py",
+    "cwz/cmk_check_plugins.py",
+    "cwz/tracing/tracer.py",
     "cwz/devboard.py",
     "odfpy",
 ]

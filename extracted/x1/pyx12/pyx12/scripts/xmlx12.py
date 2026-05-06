@@ -14,33 +14,44 @@
 Create an X12 document from a XML data file
 """
 
-import sys
+import argparse
 import logging
+import sys
 
 import pyx12.segment
 import pyx12.xmlx12_simple
 
-#Global Variables
+# Global Variables
 __author__ = pyx12.__author__
 __status__ = pyx12.__status__
 __version__ = pyx12.__version__
 __date__ = pyx12.__date__
 
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argparse parser. Exposed so docs/conf.py can render --help."""
+    parser = argparse.ArgumentParser(prog="xmlx12", description="XML to X12 conversion")
+    parser.add_argument("--log-file", "-l", action="store", dest="logfile", default=None)
+    parser.add_argument("--verbose", "-v", action="count", default=0)
+    parser.add_argument("--debug", "-d", action="store_true")
+    parser.add_argument("--quiet", "-q", action="store_true")
+    parser.add_argument("--outputfile", "-o", action="store", help="X12 target filename")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"{parser.prog} {__version__}",
+    )
+    parser.add_argument("input_file")
+    return parser
+
+
 def main():
     """Script main program."""
-    import argparse
-    parser = argparse.ArgumentParser(description='XML to X12 conversion')
-    parser.add_argument('--log-file', '-l', action='store', dest="logfile", default=None)
-    parser.add_argument('--verbose', '-v', action='count', default=0)
-    parser.add_argument('--debug', '-d', action='store_true')
-    parser.add_argument('--quiet', '-q', action='store_true')
-    parser.add_argument('--outputfile', '-o', action='store', help="X12 target filename")
-    parser.add_argument('--version', action='version', version='{prog} {version}'.format(prog=parser.prog, version=__version__))
-    parser.add_argument('input_file')
+    parser = build_parser()
     args = parser.parse_args()
 
-    logger = logging.getLogger('pyx12')
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    logger = logging.getLogger("pyx12")
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 
     stdout_hdlr = logging.StreamHandler()
     stdout_hdlr.setFormatter(formatter)
@@ -58,23 +69,23 @@ def main():
             hdlr = logging.FileHandler(args.logfile)
             hdlr.setFormatter(formatter)
             logger.addHandler(hdlr)
-        except IOError:
-            logger.exception('Could not open log file: %s' % (args.logfile))
+        except OSError:
+            logger.exception("Could not open log file: %s" % (args.logfile))
 
     if args.input_file:
         try:
-            fd_source = open(args.input_file, encoding='utf-8')
+            fd_source = open(args.input_file, encoding="utf-8")
         except OSError:
-            logger.exception('Could not open file %s' % (args.input_file))
+            logger.exception("Could not open file %s" % (args.input_file))
             return False
     else:
         fd_source = sys.stdin
 
     if args.outputfile:
         try:
-            fd_x12 = open(args.outputfile, mode='w', encoding='ascii')
+            fd_x12 = open(args.outputfile, mode="w", encoding="ascii")
         except OSError:
-            logger.exception('Could not open file %s' % (args.outputfile))
+            logger.exception("Could not open file %s" % (args.outputfile))
             return False
     else:
         fd_x12 = sys.stdout
@@ -82,12 +93,13 @@ def main():
     try:
         result = pyx12.xmlx12_simple.convert(fd_source, fd_x12)
         if not result:
-            logger.error('Input file had errors.')
+            logger.error("Input file had errors.")
             return False
     except KeyboardInterrupt:
         print("\n[interrupt]")
 
     return True
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(not main())

@@ -33,12 +33,12 @@ jobs:
           echo "VERSION=${GITHUB_REF_NAME#v}" | tee -a $GITHUB_ENV
 
       - name: Set up Python
-        uses: actions/setup-python@v6.1.0
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: "3.X"
 
       - name: Get packages
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v8.0.1
         with:
           name: ${{ needs.ci.outputs.artifact-name }}
           path: dist
@@ -54,7 +54,7 @@ jobs:
           test $(python -c "from rubicon.objc import __version__; print(__version__)") = $VERSION
 
       - name: Create Release
-        uses: ncipollo/release-action@v1.20.0
+        uses: ncipollo/release-action@v1.21.0
         with:
           name: ${{ env.VERSION }}
           draft: true
@@ -71,7 +71,7 @@ jobs:
       id-token: write
     steps:
       - name: Get packages
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v8.0.1
         with:
           name: ${{ needs.ci.outputs.artifact-name }}
           path: dist

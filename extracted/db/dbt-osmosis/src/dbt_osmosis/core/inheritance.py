@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from decimal import Decimal, InvalidOperation
 import typing as t
 from importlib import import_module
 from types import MappingProxyType
@@ -28,6 +30,26 @@ __all__ = [
 ]
 
 
+def _generation_sort_key(generation: str) -> tuple[int, str]:
+    """Sort generation_N keys by numeric depth with a deterministic fallback."""
+    try:
+        return (int(generation.rsplit("_", 1)[1]), generation)
+    except (IndexError, ValueError):
+        return (-1, generation)
+
+
+def _order_preserving_union(primary: t.Iterable[str], secondary: t.Iterable[str]) -> list[str]:
+    """Return primary items followed by unseen secondary items in their original order."""
+    merged: list[str] = []
+    seen: set[str] = set()
+    for item in (*primary, *secondary):
+        if item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
+
+
 def _column_to_dict(column: t.Any, **kwargs: t.Any) -> dict[str, t.Any]:
     """Convert a ColumnInfo to dict, handling missing config attribute in dbt-core 1.10+.
 
@@ -54,6 +76,217 @@ def _column_to_dict(column: t.Any, **kwargs: t.Any) -> dict[str, t.Any]:
     return column.to_dict(**kwargs)
 
 
+def _apply_effective_column_metadata(column_data: dict[str, t.Any]) -> None:
+    """Expose config.meta/config.tags through the inherited meta/tags fields."""
+    from dbt_osmosis.core.introspection import (
+        _get_effective_column_meta,
+        _get_effective_column_tags,
+    )
+
+    if effective_meta := _get_effective_column_meta(column_data):
+        column_data["meta"] = effective_meta
+    if effective_tags := _get_effective_column_tags(column_data):
+        column_data["tags"] = effective_tags
+
+
+def _initialize_column_knowledge(column: t.Any, node: ResultNode) -> dict[str, t.Any]:
+    """Normalize one local column into the knowledge-graph representation."""
+    column_data = _column_to_dict(column, omit_none=True)
+    _apply_effective_column_metadata(column_data)
+
+    # Clear out self-referential progenitors left behind by prior runs.
+    if column_data.get("meta", {}).get("osmosis_progenitor") == node.unique_id:
+        column_data["meta"].pop("osmosis_progenitor", None)
+        if not column_data["meta"]:
+            column_data.pop("meta", None)
+
+    # Handle the config.meta path used by fusion_compat output.
+    if isinstance(column_data.get("config"), dict):
+        config_meta = column_data["config"].get("meta", {})
+        if config_meta.get("osmosis_progenitor") == node.unique_id:
+            config_meta.pop("osmosis_progenitor", None)
+            if not config_meta:
+                column_data["config"].pop("meta", None)
+            if not column_data["config"]:
+                column_data.pop("config", None)
+
+    # Match the existing graph-builder behavior by dropping empty scalars/collections.
+    return {k: v for k, v in column_data.items() if v not in ("", [], ())}
+
+
+def _strip_progenitor_override_controls(column_data: dict[str, t.Any]) -> None:
+    """Remove local override-control metadata before inheriting from another node."""
+    meta = column_data.get("meta")
+    if isinstance(meta, dict):
+        meta.pop("column_default_progenitor", None)
+        if not meta:
+            column_data.pop("meta", None)
+
+    config = column_data.get("config")
+    if isinstance(config, dict):
+        config_meta = config.get("meta")
+        if isinstance(config_meta, dict):
+            config_meta.pop("column_default_progenitor", None)
+            if not config_meta:
+                config.pop("meta", None)
+        if not config:
+            column_data.pop("config", None)
+
+
+def _raw_model_version_value(value: t.Any) -> str | None:
+    """Normalize only representation noise while preserving string version identity."""
+    if value is None or isinstance(value, bool):
+        return None
+
+    raw_value = str(value).strip()
+    if not raw_value:
+        return None
+    return raw_value
+
+
+def _normalize_model_version_value(value: t.Any) -> str | None:
+    """Normalize dbt model version values for numeric YAML/manifest equivalence checks."""
+    raw_value = _raw_model_version_value(value)
+    if raw_value is None:
+        return None
+
+    try:
+        decimal_value = Decimal(raw_value)
+    except (InvalidOperation, ValueError):
+        return raw_value
+
+    if decimal_value == decimal_value.to_integral_value():
+        return str(int(decimal_value))
+    return format(decimal_value.normalize(), "f")
+
+
+def _can_use_numeric_version_fallback(left: t.Any, right: t.Any) -> bool:
+    """Return whether non-exact version values can use numeric equivalence."""
+    left_is_str = isinstance(left, str)
+    right_is_str = isinstance(right, str)
+    if left_is_str and right_is_str:
+        return False
+
+    for value in (left, right):
+        if not isinstance(value, str):
+            continue
+        raw_value = _raw_model_version_value(value)
+        normalized_value = _normalize_model_version_value(value)
+        if raw_value is None or normalized_value is None or raw_value != normalized_value:
+            return False
+    return True
+
+
+def _version_values_match(left: t.Any, right: t.Any) -> bool:
+    """Return whether two dbt model version values identify the same version."""
+    left_raw = _raw_model_version_value(left)
+    right_raw = _raw_model_version_value(right)
+    if left_raw is not None and left_raw == right_raw:
+        return True
+    if not _can_use_numeric_version_fallback(left, right):
+        return False
+
+    left_normalized = _normalize_model_version_value(left)
+    right_normalized = _normalize_model_version_value(right)
+    return left_normalized is not None and left_normalized == right_normalized
+
+
+def _get_member_model_version(member: ResultNode) -> t.Any | None:
+    """Read a dbt ModelNode version with a unique_id fallback for older shapes."""
+    version = getattr(member, "version", None)
+    if version is not None:
+        return version
+
+    unique_id = getattr(member, "unique_id", "")
+    if not isinstance(unique_id, str):
+        return None
+    _, separator, suffix = unique_id.rpartition(".v")
+    if separator and suffix:
+        return suffix
+    return None
+
+
+def _versioned_model_yaml_view(
+    model: t.Mapping[str, t.Any],
+    member: ResultNode,
+) -> dict[str, t.Any] | None:
+    """Build a YAML view for the selected versioned model block.
+
+    Version-level columns own the selected node's columns. Missing node-level
+    metadata falls back explicitly to the parent model entry so properties such
+    as description, meta, and tags remain visible when authored once at the
+    top-level model block.
+    """
+    member_version = _get_member_model_version(member)
+    if member_version is None:
+        return None
+
+    versions = model.get("versions", [])
+    if not isinstance(versions, list):
+        return None
+
+    member_version_raw = _raw_model_version_value(member_version)
+    selected_version = next(
+        (
+            version
+            for version in versions
+            if isinstance(version, t.Mapping)
+            and _raw_model_version_value(version.get("v")) == member_version_raw
+        ),
+        None,
+    )
+    if selected_version is None:
+        selected_version = next(
+            (
+                version
+                for version in versions
+                if isinstance(version, t.Mapping)
+                and _version_values_match(version.get("v"), member_version)
+            ),
+            None,
+        )
+    if selected_version is None:
+        return None
+
+    selected = dict(selected_version)
+    selected.setdefault("name", model.get("name"))
+    for fallback_key in ("description", "meta", "tags"):
+        if fallback_key not in selected and fallback_key in model:
+            selected[fallback_key] = model[fallback_key]
+    if not selected.get("description") and "description" in model:
+        selected["description"] = model["description"]
+    return selected
+
+
+def _preserve_column_progenitor_override(
+    graph_node: dict[str, t.Any],
+    node_yaml: t.Mapping[str, t.Any] | None,
+    column_name: str,
+) -> None:
+    """Keep the target column's override metadata so sync does not erase it."""
+    from dbt_osmosis.core.introspection import _find_first
+
+    if not node_yaml:
+        return
+
+    column_meta = _find_first(
+        node_yaml.get("columns", []),
+        lambda c: c.get("name") == column_name,
+        {},
+    )
+    override_value = column_meta.get("meta", {}).get("column_default_progenitor")
+    if override_value:
+        graph_node.setdefault("meta", {})["column_default_progenitor"] = override_value
+
+    config_override_value = (
+        column_meta.get("config", {}).get("meta", {}).get("column_default_progenitor")
+    )
+    if config_override_value:
+        graph_node.setdefault("config", {}).setdefault("meta", {})["column_default_progenitor"] = (
+            config_override_value
+        )
+
+
 def _build_node_ancestor_tree(
     manifest: t.Any,
     node: ResultNode,
@@ -65,7 +298,7 @@ def _build_node_ancestor_tree(
     """Build a flat graph of a node and it's ancestors."""
     logger.debug(":seedling: Building ancestor tree/branch for => %s", node.unique_id)
     if tree is None or visited is None:
-        visited = set(node.unique_id)
+        visited = {node.unique_id}
         tree = {"generation_0": [node.unique_id]}
         depth = 1
 
@@ -146,6 +379,10 @@ def _get_node_yaml(
         )
         maybe_doc = _find_first(models, lambda model: model["name"] == member.name)
         if maybe_doc is not None:
+            if isinstance(member, ModelNode):
+                versioned_doc = _versioned_model_yaml_view(maybe_doc, member)
+                if versioned_doc is not None:
+                    return MappingProxyType(versioned_doc)
             return MappingProxyType(maybe_doc)
 
     return None
@@ -162,7 +399,7 @@ def _collect_column_variants(
     node_column_variants: dict[str, list[str]] = {}
     for column_name, _ in node.columns.items():
         variants = node_column_variants.setdefault(column_name, [column_name])
-        for v in pm.hook.get_candidates(name=column_name, node=node, context=context.project):
+        for v in pm.hook.get_candidates(name=column_name, node=node, context=context):
             variants.extend(t.cast("list[str]", v))
 
     return node_column_variants
@@ -183,7 +420,9 @@ def _get_unrendered(
     raw_column_metadata = _find_first(
         raw_columns,
         lambda c: (
-            normalize_column_name(c["name"], context.project.runtime_cfg.credentials.type)
+            isinstance(c, t.Mapping)
+            and isinstance(c.get("name"), str)
+            and normalize_column_name(c["name"], context.project.runtime_cfg.credentials.type)
             in node_column_variants[name]
         ),
         {},
@@ -201,11 +440,13 @@ def _build_graph_edge(
 ) -> dict[str, t.Any]:
     """Build a graph edge from incoming column with inheritance applied."""
     graph_edge = _column_to_dict(incoming, omit_none=True)
+    _apply_effective_column_metadata(graph_edge)
 
-    from dbt_osmosis.core.introspection import _get_setting_for_node
+    from dbt_osmosis.core.introspection import resolve_setting
 
     # Add progenitor to meta if configured
-    if _get_setting_for_node(
+    if resolve_setting(
+        context,
         "add-progenitor-to-meta",
         node,
         name,
@@ -214,7 +455,8 @@ def _build_graph_edge(
         graph_edge.setdefault("meta", {})["osmosis_progenitor"] = ancestor.unique_id
 
     # Use unrendered descriptions if configured
-    if _get_setting_for_node(
+    if resolve_setting(
+        context,
         "use-unrendered-descriptions",
         node,
         name,
@@ -230,7 +472,8 @@ def _build_graph_edge(
             graph_edge["description"] = unrendered_description
 
     # Handle inheritance for specified keys
-    for inheritable in _get_setting_for_node(
+    for inheritable in resolve_setting(
+        context,
         "add-inheritance-for-specified-keys",
         node,
         name,
@@ -251,6 +494,49 @@ def _build_graph_edge(
     return graph_edge
 
 
+def _filter_skipped_inherited_meta_keys(
+    context: YamlRefactorContextProtocol,
+    graph_edge: dict[str, t.Any],
+    node: ResultNode,
+    name: str,
+) -> None:
+    """Remove configured meta keys from inherited graph-edge metadata."""
+    from dbt_osmosis.core.introspection import resolve_setting
+
+    skipped_meta_keys = resolve_setting(
+        context,
+        "skip-inheritance-for-meta-keys",
+        node,
+        name,
+        fallback=context.settings.skip_inheritance_for_meta_keys,
+    )
+    if not skipped_meta_keys:
+        return
+
+    if isinstance(skipped_meta_keys, str):
+        skipped = {skipped_meta_keys}
+    else:
+        skipped = set(skipped_meta_keys)
+
+    meta = graph_edge.get("meta")
+    if isinstance(meta, dict):
+        for key in skipped:
+            meta.pop(key, None)
+        if not meta:
+            graph_edge.pop("meta", None)
+
+    config = graph_edge.get("config")
+    if isinstance(config, dict):
+        config_meta = config.get("meta")
+        if isinstance(config_meta, dict):
+            for key in skipped:
+                config_meta.pop(key, None)
+            if not config_meta:
+                config.pop("meta", None)
+        if not config:
+            graph_edge.pop("config", None)
+
+
 def _clean_graph_edge(
     context: YamlRefactorContextProtocol,
     graph_edge: dict[str, t.Any],
@@ -259,13 +545,14 @@ def _clean_graph_edge(
     name: str,
 ) -> None:
     """Clean up empty values and placeholder descriptions from graph edge."""
-    from dbt_osmosis.core.introspection import _get_setting_for_node
+    from dbt_osmosis.core.introspection import resolve_setting
     from dbt_osmosis.core.settings import EMPTY_STRING
 
     # Remove placeholder descriptions or force inherit if direct ancestor
     if graph_edge.get("description", EMPTY_STRING) in context.placeholders or (
         generation == "generation_0"
-        and _get_setting_for_node(
+        and resolve_setting(
+            context,
             "force_inherit_descriptions",
             node,
             name,
@@ -316,7 +603,7 @@ def _merge_graph_node_data(
     """Merge graph edge data into existing graph node, handling tags and meta merging."""
     # Merge top-level tags
     current_tags = graph_node.get("tags", [])
-    if merged_tags := (set(graph_edge.pop("tags", [])) | set(current_tags)):
+    if merged_tags := _order_preserving_union(current_tags, graph_edge.pop("tags", [])):
         graph_edge["tags"] = list(merged_tags)
 
     # Merge top-level meta, but preserve osmosis_progenitor from the first (farthest) generation
@@ -350,7 +637,10 @@ def _merge_graph_node_data(
         # Merge config.tags
         current_config_tags = current_config.get("tags", [])
         edge_config_tags = edge_config.pop("tags", [])
-        if merged_config_tags := (set(edge_config_tags) | set(current_config_tags)):
+        if merged_config_tags := _order_preserving_union(
+            current_config_tags,
+            edge_config_tags,
+        ):
             edge_config["tags"] = list(merged_config_tags)
         # Merge remaining config keys
         for k, v in current_config.items():
@@ -364,8 +654,6 @@ def _merge_graph_node_data(
 
 
 def _get_progenitor_override(
-    context: YamlRefactorContextProtocol,
-    node: ResultNode,
     column_name: str,
     node_yaml: t.Mapping[str, t.Any] | None,
 ) -> str | None:
@@ -375,8 +663,6 @@ def _get_progenitor_override(
     model-level default (default_progenitor).
 
     Args:
-        context: The refactor context
-        node: The dbt node
         column_name: Name of the column
         node_yaml: The parsed YAML for the node
 
@@ -408,19 +694,19 @@ def _get_progenitor_override(
 
 def _get_inherited_metadata_from_progenitor(
     context: YamlRefactorContextProtocol,
-    node: ResultNode,
     column_name: str,
     progenitor_id: str,
     node_column_variants: dict[str, list[str]],
+    progenitor_knowledge_cache: dict[str, dict[str, dict[str, t.Any]]] | None = None,
 ) -> dict[str, t.Any] | None:
     """Get inherited metadata from a specific progenitor.
 
     Args:
         context: The refactor context
-        node: The dbt node
         column_name: Name of the column
         progenitor_id: The unique_id of the progenitor
         node_column_variants: Column name variants
+        progenitor_knowledge_cache: Optional cache of previously-built knowledge graphs
 
     Returns:
         Dictionary of inherited metadata, or None if progenitor not found
@@ -433,21 +719,27 @@ def _get_inherited_metadata_from_progenitor(
     if not isinstance(progenitor, (SourceDefinition, SeedNode, ModelNode)):
         return None
 
-    # Find matching column in progenitor
+    progenitor_knowledge = None
+    if progenitor_knowledge_cache is not None:
+        progenitor_knowledge = progenitor_knowledge_cache.get(progenitor_id)
+    if progenitor_knowledge is None:
+        progenitor_knowledge = _build_column_knowledge_graph(context, progenitor)
+        if progenitor_knowledge_cache is not None:
+            progenitor_knowledge_cache[progenitor_id] = progenitor_knowledge
+
+    # Find the concrete column name in the progenitor, then reuse that node's
+    # already-merged knowledge graph so overrides inherit the same contract that
+    # downstream lineage would see from that node.
     incoming = _find_matching_column(progenitor, node_column_variants[column_name])
     if incoming is None:
         return None
 
-    # Build graph edge from progenitor
-    graph_edge = _build_graph_edge(
-        context,
-        node,
-        column_name,
-        incoming,
-        progenitor,
-        node_column_variants,
-    )
+    graph_edge = progenitor_knowledge.get(getattr(incoming, "name", column_name))
+    if graph_edge is None:
+        return None
 
+    graph_edge = deepcopy(graph_edge)
+    _strip_progenitor_override_controls(graph_edge)
     return graph_edge
 
 
@@ -474,27 +766,24 @@ def _apply_progenitor_overrides(
         node_column_variants: Column name variants
 
     """
-    from dbt_osmosis.core.introspection import _find_first
+    progenitor_knowledge_cache: dict[str, dict[str, dict[str, t.Any]]] = {}
 
     for column_name, graph_node in column_knowledge_graph.items():
         # Check both top-level and config-nested meta for progenitor
         current_progenitor = graph_node.get("meta", {}).get("osmosis_progenitor") or graph_node.get(
             "config", {}
         ).get("meta", {}).get("osmosis_progenitor")
-        if not current_progenitor:
-            continue
-
         alternatives = progenitor_alternatives.get(column_name, [])
 
         # Get the override progenitor (column-level takes precedence over model-level)
-        override_progenitor = _get_progenitor_override(context, node, column_name, node_yaml)
+        override_progenitor = _get_progenitor_override(column_name, node_yaml)
 
         if not override_progenitor:
             continue
 
-        # Only apply override if:
-        # 1. The override is in the alternatives list (valid ancestor)
-        # 2. The override is different from the current progenitor
+        # Only apply the override when it points at a real ancestor. When progenitor
+        # tracking is disabled there may be no current_progenitor, but the override
+        # still needs to select a different inheritance source.
         if override_progenitor not in alternatives or override_progenitor == current_progenitor:
             continue
 
@@ -508,10 +797,10 @@ def _apply_progenitor_overrides(
         # Get inherited metadata from the override progenitor
         inherited = _get_inherited_metadata_from_progenitor(
             context,
-            node,
             column_name,
             override_progenitor,
             node_column_variants,
+            progenitor_knowledge_cache,
         )
 
         if not inherited:
@@ -522,27 +811,13 @@ def _apply_progenitor_overrides(
             )
             continue
 
-        # Update the graph node with inherited metadata
-        for key in ["description", "tags"]:
-            if key in inherited:
-                graph_node[key] = inherited[key]
+        overridden_graph_node = _initialize_column_knowledge(node.columns[column_name], node)
+        _filter_skipped_inherited_meta_keys(context, inherited, node, column_name)
+        _merge_graph_node_data(overridden_graph_node, inherited)
+        _preserve_column_progenitor_override(overridden_graph_node, node_yaml, column_name)
 
-        # Update progenitor in meta
-        graph_node.setdefault("meta", {})["osmosis_progenitor"] = inherited.get("meta", {}).get(
-            "osmosis_progenitor",
-            override_progenitor,
-        )
-
-        # Preserve column_default_progenitor if it was the reason for this change
-        override_source = _get_progenitor_override(context, node, column_name, node_yaml)
-        if override_source:
-            column_meta = _find_first(
-                node_yaml.get("columns", []) if node_yaml else [],
-                lambda c: c.get("name") == column_name,
-                {},
-            )
-            if column_meta.get("meta", {}).get("column_default_progenitor"):
-                graph_node.setdefault("meta", {})["column_default_progenitor"] = override_source
+        graph_node.clear()
+        graph_node.update(overridden_graph_node)
 
 
 def _build_column_knowledge_graph(
@@ -560,30 +835,7 @@ def _build_column_knowledge_graph(
     # This ensures local metadata is preserved and merged with inherited metadata
     column_knowledge_graph: dict[str, dict[str, t.Any]] = {}
     for name, column in node.columns.items():
-        column_data = _column_to_dict(column, omit_none=True)
-
-        # Clear out osmosis_progenitor if it points to the target node itself
-        # (this can happen from previous runs or dbt docs generate)
-        if column_data.get("meta", {}).get("osmosis_progenitor") == node.unique_id:
-            column_data["meta"].pop("osmosis_progenitor", None)
-            # Remove meta dict if it's now empty
-            if not column_data["meta"]:
-                column_data.pop("meta", None)
-
-        # Also clear from config.meta path (handles data from fusion_compat mode)
-        if isinstance(column_data.get("config"), dict):
-            config_meta = column_data["config"].get("meta", {})
-            if config_meta.get("osmosis_progenitor") == node.unique_id:
-                config_meta.pop("osmosis_progenitor", None)
-                if not config_meta:
-                    column_data["config"].pop("meta", None)
-                if not column_data["config"]:
-                    column_data.pop("config", None)
-
-        # Filter out empty strings and empty lists to match previous behavior
-        # (omit_none=True only removes None values, not empty strings/lists)
-        column_data = {k: v for k, v in column_data.items() if v not in ("", [], ())}
-        column_knowledge_graph[name] = column_data
+        column_knowledge_graph[name] = _initialize_column_knowledge(column, node)
 
     # Track which columns have been processed in each generation to avoid
     # multiple ancestors in the same generation from overwriting each other
@@ -594,7 +846,7 @@ def _build_column_knowledge_graph(
     progenitor_alternatives: dict[str, list[str]] = {}
 
     # Process ancestors from farthest to closest
-    for generation in reversed(sorted(tree.keys())):
+    for generation in sorted(tree.keys(), key=_generation_sort_key, reverse=True):
         ancestors = tree[generation]
         processed_columns_in_generation[generation] = set()
 
@@ -619,9 +871,10 @@ def _build_column_knowledge_graph(
                     if not any(name in cols for cols in processed_columns_in_generation.values()):
                         # For columns originating in the target node, set it as the progenitor
                         # This provides useful information for tracking column lineage
-                        from dbt_osmosis.core.introspection import _get_setting_for_node
+                        from dbt_osmosis.core.introspection import resolve_setting
 
-                        if _get_setting_for_node(
+                        if resolve_setting(
+                            context,
                             "add-progenitor-to-meta",
                             node,
                             name,
@@ -630,6 +883,7 @@ def _build_column_knowledge_graph(
                             # Get the current column data to build the edge
                             incoming = node.columns[name]
                             graph_edge = _column_to_dict(incoming, omit_none=True)
+                            _apply_effective_column_metadata(graph_edge)
                             # Set osmosis_progenitor to the target node itself
                             graph_edge.setdefault("meta", {})["osmosis_progenitor"] = node.unique_id
 
@@ -677,6 +931,10 @@ def _build_column_knowledge_graph(
 
                 # Clean up empty values and placeholders
                 _clean_graph_edge(context, graph_edge, generation, node, name)
+
+                # Remove only configured meta keys from ancestor metadata before
+                # merging into the local graph node so local child meta survives.
+                _filter_skipped_inherited_meta_keys(context, graph_edge, node, name)
 
                 # Merge with existing graph node (which already has local column data)
                 graph_node = column_knowledge_graph.setdefault(name, {})

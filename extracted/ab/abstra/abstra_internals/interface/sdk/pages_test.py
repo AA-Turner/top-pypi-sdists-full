@@ -15,6 +15,7 @@ import os
 import subprocess
 import sys
 from unittest import TestCase
+from unittest.mock import MagicMock, patch
 
 from abstra_internals.interface.sdk import pages as internal_pages
 
@@ -145,3 +146,105 @@ print("OK")
             f"stdout={result.stdout}\nstderr={result.stderr}",
         )
         self.assertIn("OK", result.stdout)
+
+
+class TestRegisterFunctionCacheDecorator(TestCase):
+    """The cache= kwarg on register_function lets the generated JS stub cache
+    results in memory for N seconds. Validation runs at decoration time so
+    misconfigured pages fail fast at import, not on first browser call."""
+
+    def _patched_sdk(self):
+        # The public register_function calls _get_page_sdk() which expects an
+        # active SDKContext. Tests patch it to a MagicMock so we can exercise
+        # validation and attribute-setting without standing up a full context.
+        sdk_mock = MagicMock()
+        sdk_mock.register_function.side_effect = lambda f: f
+        return patch.object(internal_pages, "_get_page_sdk", return_value=sdk_mock)
+
+    def test_bare_decorator_still_works(self):
+        with self._patched_sdk():
+
+            @internal_pages.register_function
+            def get_data():
+                return None
+
+            self.assertFalse(hasattr(get_data, "_abstra_cache_ttl"))
+
+    def test_cache_kwarg_sets_ttl_attribute(self):
+        with self._patched_sdk():
+
+            @internal_pages.register_function(cache=60)
+            def get_data():
+                return None
+
+            self.assertEqual(get_data._abstra_cache_ttl, 60.0)  # type: ignore[attr-defined]
+
+    def test_cache_accepts_float(self):
+        with self._patched_sdk():
+
+            @internal_pages.register_function(cache=0.5)
+            def get_data():
+                return None
+
+            self.assertEqual(get_data._abstra_cache_ttl, 0.5)  # type: ignore[attr-defined]
+
+    def test_cache_negative_rejected(self):
+        with self.assertRaises(ValueError):
+            internal_pages.register_function(cache=-1)
+
+    def test_cache_zero_rejected(self):
+        with self.assertRaises(ValueError):
+            internal_pages.register_function(cache=0)
+
+    def test_cache_inf_rejected(self):
+        with self.assertRaises(ValueError):
+            internal_pages.register_function(cache=float("inf"))
+
+    def test_cache_nan_rejected(self):
+        with self.assertRaises(ValueError):
+            internal_pages.register_function(cache=float("nan"))
+
+    def test_cache_bool_rejected(self):
+        # bool is a subclass of int; reject explicitly so cache=True doesn't
+        # silently become "cache for 1 second".
+        with self.assertRaises(TypeError):
+            internal_pages.register_function(cache=True)
+        with self.assertRaises(TypeError):
+            internal_pages.register_function(cache=False)
+
+    def test_cache_string_rejected(self):
+        with self.assertRaises(TypeError):
+            internal_pages.register_function(cache="60")  # type: ignore[arg-type]
+
+    def test_cache_on_generator_rejected(self):
+        with self._patched_sdk():
+            with self.assertRaises(ValueError) as cm:
+
+                @internal_pages.register_function(cache=60)
+                def stream_data():
+                    yield 1
+
+            self.assertIn("generator", str(cm.exception).lower())
+
+    def test_cache_on_render_rejected(self):
+        with self._patched_sdk():
+            with self.assertRaises(ValueError) as cm:
+
+                @internal_pages.register_function(cache=60)
+                def __render__():
+                    return "<h1>Hi</h1>"
+
+            self.assertIn("__render__", str(cm.exception))
+
+    def test_register_function_passes_through_to_sdk(self):
+        # The decorator must still call sdk.register_function so the function
+        # is actually registered for dispatch — not just decorated.
+        sdk_mock = MagicMock()
+        sdk_mock.register_function.side_effect = lambda f: f
+        with patch.object(internal_pages, "_get_page_sdk", return_value=sdk_mock):
+
+            @internal_pages.register_function(cache=60)
+            def get_data():
+                return None
+
+            sdk_mock.register_function.assert_called_once_with(get_data)

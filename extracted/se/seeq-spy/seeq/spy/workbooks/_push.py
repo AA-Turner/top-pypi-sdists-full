@@ -4,7 +4,7 @@ import datetime
 import logging
 import types
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -20,10 +20,10 @@ from seeq.spy.workbooks import _folder
 from seeq.spy.workbooks import _pull
 from seeq.spy.workbooks import _user
 from seeq.spy.workbooks._annotation import Annotation
-from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
+from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode, WorkbookPushParameters
 from seeq.spy.workbooks._item import Item, ItemMap
 from seeq.spy.workbooks._template import ItemTemplate
-from seeq.spy.workbooks._workbook import Workbook, WorkbookList, DatasourceMapList
+from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 MAX_PUSH_ERRORS_TO_DISPLAY = 10
 
@@ -32,7 +32,7 @@ MAX_PUSH_ERRORS_TO_DISPLAY = 10
 def push(
         workbooks: Union[Workbook, List[Workbook], WorkbookList],
         *,
-        path: Optional[str] = None,
+        path: Optional[Union[str, Callable]] = None,
         owner: Optional[str] = None,
         label: Optional[str] = None,
         datasource: Optional[str] = None,
@@ -67,7 +67,7 @@ def push(
     workbooks : {Workbook, list[Workbook], WorkbookList}
         A Workbook object, list of Workbook objects, or WorkbookList to be pushed into Seeq.
 
-    path : str, default None
+    path : {str, callable}, default None
         A '>>'-delimited folder path to create to contain the workbooks. Note
         that a further subfolder hierarchy will be created to preserve the
         relative paths that the folders were in when they were searched for
@@ -86,6 +86,11 @@ def push(
         will be recreated on the target server if it doesn't already exist.
         (You must be an admin to use this to ensure you have permissions to
         put things where they need to go.)
+
+        If you specify a callable, it will be called once per workbook with the
+        Workbook instance as its sole argument and must return the desired path
+        string (or None) for that workbook. This allows you to route different
+        workbooks to different folders in a single push call.
 
     owner : str, default None
         Determines the ownership of pushed workbooks and folders.
@@ -315,23 +320,26 @@ def push(
     if (dry_run or verbose) and not status.verbose:
         status.set_verbose(True)
 
+    status.add_log_section_marker('] Pushing')
+
     if dry_run:
         # Doesn't make sense to refresh when we're not actually pushing
         refresh = False
 
-    if path == _folder.ORIGINAL_FOLDER and not use_full_path:
-        raise SPyValueError('You must specify use_full_path=True when path=spy.workbooks.ORIGINAL_FOLDER')
+    if not callable(path):
+        if path == _folder.ORIGINAL_FOLDER and not use_full_path:
+            raise SPyValueError('You must specify use_full_path=True when path=spy.workbooks.ORIGINAL_FOLDER')
 
-    if path == _folder.ORIGINAL_FOLDER and not session.user.is_admin:
-        raise SPyValueError('Must be an admin to use path=spy.workbooks.ORIGINAL_FOLDER')
+        if path == _folder.ORIGINAL_FOLDER and not session.user.is_admin:
+            raise SPyValueError('Must be an admin to use path=spy.workbooks.ORIGINAL_FOLDER')
+
+        if path == _folder.ORIGINAL_FOLDER and owner not in (_user.ORIGINAL_OWNER, _user.FORCE_ME_AS_OWNER):
+            raise SPyValueError(
+                'You must specify owner=spy.workbooks.ORIGINAL_OWNER or owner=spy.workbooks.FORCE_ME_AS_OWNER to use '
+                'path=spy.workbooks.ORIGINAL_FOLDER')
 
     if owner == _user.ORIGINAL_OWNER and not session.user.is_admin:
         raise SPyValueError('Must be an admin to use owner=spy.workbooks.ORIGINAL_OWNER')
-
-    if path == _folder.ORIGINAL_FOLDER and owner not in (_user.ORIGINAL_OWNER, _user.FORCE_ME_AS_OWNER):
-        raise SPyValueError(
-            'You must specify owner=spy.workbooks.ORIGINAL_OWNER or owner=spy.workbooks.FORCE_ME_AS_OWNER to use '
-            'path=spy.workbooks.ORIGINAL_FOLDER')
 
     if label is not None and ('[' in label or ']' in label):
         raise SPyValueError('label argument cannot contain square brackets []')
@@ -432,20 +440,12 @@ def push(
                                                      None, datasource, dry_run=dry_run)
 
     context = WorkbookPushContext(
-        access_control=access_control,
-        datasource=datasource,
         dummy_items_workbook_context=workbook_context,
-        include_annotations=include_annotations,
-        override_max_interp=override_max_interp,
-        owner=owner,
-        reconcile_inventory_by=reconcile_inventory_by,
-        global_inventory=global_inventory,
         session=session,
-        specific_worksheet_ids=specific_worksheet_ids,
         pushed_inventory={},
         status=status,
         dry_run=dry_run,
-        mode=mode
+        datasource_output=datasource_output,
     )
 
     # Sort such that Analyses are pushed before Topics, since the latter usually depends on the former
@@ -464,10 +464,10 @@ def push(
         status.df.at[index, 'Errors'] = 0
         status.df.at[index, 'Result'] = 'Queued'
 
-    datasource_map_overrides: DatasourceMapList = DatasourceMapList()
     if datasource_map_folder:
-        datasource_map_overrides = Workbook.load_datasource_maps(datasource_map_folder, overrides=True, status=status)
-        context.add_server_scoped_item_level_map_files(datasource_map_overrides)
+        context.datasource_map_overrides = Workbook.load_datasource_maps(datasource_map_folder, overrides=True,
+                                                                         status=status)
+        context.add_server_scoped_item_level_map_files(context.datasource_map_overrides)
 
     at_least_one_thing_pushed = False
     search_folder_ids = dict()
@@ -479,7 +479,48 @@ def push(
             if not isinstance(workbook, Workbook):
                 raise SPyRuntimeError('"workbooks" argument contains a non Workbook item: %s' % workbook)
 
-            if isinstance(workbook, ItemTemplate) and label is not None:
+            if label is None:
+                # If a label is not supplied, check to see if we should be automatically isolating by user.
+                isolate_by_user = False
+                if _common.get(workbook.definition, 'Isolate By User', default=False):
+                    # Workbooks can be marked as 'Isolate By User' so they're not stepping on each other when
+                    # they do spy.workbook.push(). All of the Example Exports are marked with "Isolate By User"
+                    # equal to True.
+                    status.log('Isolating pushed items by user due to workbook setting "Isolate By User"')
+                    isolate_by_user = True
+
+                if workbook.provenance == Item.CONSTRUCTOR:
+                    # If a Workbook is constructed (and not persisted -- i.e., not pulled/loaded) then the best
+                    # policy is to isolate such workbooks so that their Data IDs can't collide in the event that
+                    # two users happen to name their workbooks the same.
+                    status.log('Isolating pushed items by user due to workbook provenance being CONSTRUCTOR')
+                    isolate_by_user = True
+
+                if isolate_by_user:
+                    label = owner_identity.username if owner_identity is not None else session.user.username
+
+            resolved_path = path(workbook.real) if callable(path) else path
+
+            push_params = WorkbookPushParameters(
+                path=resolved_path,
+                owner=owner,
+                label=label,
+                mode=mode,
+                use_full_path=use_full_path,
+                access_control=access_control,
+                override_max_interp=override_max_interp,
+                include_inventory=include_inventory,
+                include_annotations=include_annotations,
+                specific_worksheet_ids=specific_worksheet_ids.copy() if specific_worksheet_ids is not None else None,
+                create_dummy_items_in_workbook=create_dummy_items_in_workbook,
+                assume_dependencies_exist=assume_dependencies_exist,
+                reconcile_inventory_by=reconcile_inventory_by,
+                global_inventory=global_inventory,
+            )
+
+            context.current_params = push_params
+
+            if isinstance(workbook, ItemTemplate) and push_params.label is not None:
                 raise SPyValueError('Cannot specify a label when pushing a Template workbook')
 
             try:
@@ -495,31 +536,11 @@ def push(
                                workbook['ID']),
                               Status.RUNNING)
 
-                if label is None:
-                    # If a label is not supplied, check to see if we should be automatically isolating by user.
-                    isolate_by_user = False
-                    if _common.get(workbook.definition, 'Isolate By User', default=False):
-                        # Workbooks can be marked as 'Isolate By User' so they're not stepping on each other when
-                        # they do spy.workbook.push(). All of the Example Exports are marked with "Isolate By User"
-                        # equal to True.
-                        status.log('Isolating pushed items by user due to workbook setting "Isolate By User"')
-                        isolate_by_user = True
-
-                    if workbook.provenance == Item.CONSTRUCTOR:
-                        # If a Workbook is constructed (and not persisted -- i.e., not pulled/loaded) then the best
-                        # policy is to isolate such workbooks so that their Data IDs can't collide in the event that
-                        # two users happen to name their workbooks the same.
-                        status.log('Isolating pushed items by user due to workbook provenance being CONSTRUCTOR')
-                        isolate_by_user = True
-
-                    if isolate_by_user:
-                        label = owner_identity.username if owner_identity is not None else session.user.username
-
                 context.datasource_maps = workbook.datasource_maps.copy()
-                context.datasource_maps.extend(datasource_map_overrides.copy(), overwrite=True)
+                context.datasource_maps.extend(context.datasource_map_overrides.copy(), overwrite=True)
 
                 try:
-                    if include_inventory is None:
+                    if push_params.include_inventory is None:
                         include_inventory_for_this_workbook = not isinstance(workbook, ItemTemplate)
                         if include_inventory_for_this_workbook:
                             status.log('"include_inventory" is None; including inventory for this workbook because it '
@@ -528,16 +549,17 @@ def push(
                             status.log('"include_inventory" is None; not including inventory for this workbook because '
                                        'it is a Template')
                     else:
-                        status.log(f'"include_inventory" is {include_inventory}')
-                        include_inventory_for_this_workbook = include_inventory
+                        status.log(f'"include_inventory" is {push_params.include_inventory}')
+                        include_inventory_for_this_workbook = push_params.include_inventory
 
-                    if not include_inventory_for_this_workbook and datasource_map_folder is not None:
+                    if not include_inventory_for_this_workbook and len(context.datasource_map_overrides) > 0:
                         status.warn('Ignoring datasource_map_folder argument because inventory is not being pushed. '
                                     'Add include_inventory=True to push inventory and use the datasource map folder.')
 
-                    if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+                    if context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
                         search_folder_id, workbook_folder_id = workbook.push_containing_folders(
-                            context, item_map, datasource_output, use_full_path, path, owner, label, access_control)
+                            context, item_map, push_params.use_full_path, push_params.path,
+                            push_params.owner, push_params.label, push_params.access_control)
                     else:
                         if 'Ancestors' not in workbook or len(workbook['Ancestors']) == 0:
                             workbook_folder_id = None
@@ -554,7 +576,8 @@ def push(
                         success_message += ': Already pushed'
 
                     try:
-                        workbook.push(context=context, folder_id=workbook_folder_id, item_map=item_map, label=label,
+                        workbook.push(context=context, folder_id=workbook_folder_id, item_map=item_map,
+                                      label=push_params.label,
                                       include_inventory=include_inventory_for_this_workbook)
                     except (SPyException, ApiException) as e:
                         status.raise_or_put(e, 'Result')
@@ -612,7 +635,7 @@ def push(
         new_workbooks = WorkbookList()
         for workbook in workbooks:
             old_workbook_id = workbook.id
-            if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            if context.current_params.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
                 new_workbook_id = workbook.id
             else:
                 new_workbook_id = item_map[workbook.id]

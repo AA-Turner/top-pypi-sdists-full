@@ -279,7 +279,8 @@ testing_extra_require = (
         # Lazy import requires > 2.12.0
         "tensorflow == 2.14.1; python_version<='3.11'",
         "tensorflow == 2.19.0; python_version>'3.11' and python_version<'3.13'",
-        "protobuf <= 5.29.4",
+        "protobuf >= 5.29.4; python_version>='3.14'",
+        "protobuf <= 5.29.4; python_version<'3.14'",
         # TODO(jayceeli) torch 2.1.0 has conflict with pyfakefs, will check if
         # future versions fix this issue
         "torch >= 2.0.0, < 2.1.0; python_version<='3.11'",

@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import ruamel.yaml
 
 from dbt_osmosis.core.generators import (
     DocumentationCheckResult,
@@ -215,20 +216,18 @@ class TestGenerateStagingFromSource:
             with mock.patch(
                 "dbt_osmosis.core.generators.generate_staging_for_source", return_value=mock_result
             ):
-                # Mock write_staging_files
-                with mock.patch("dbt_osmosis.core.generators.write_staging_files"):
-                    result = generate_staging_from_source(
-                        context=yaml_context.project,
-                        source_name="raw",
-                        table_name="users",
-                        use_ai=True,
-                    )
+                result = generate_staging_from_source(
+                    context=yaml_context.project,
+                    source_name="raw",
+                    table_name="users",
+                    use_ai=True,
+                )
 
-                    assert result.staging_name == "stg_users"
-                    assert result.spec == mock_spec
+                assert result.staging_name == "stg_users"
+                assert result.spec == mock_spec
 
     def test_generate_staging_interface_based(self, yaml_context):
-        """Test generating staging model with interface generator."""
+        """Test interface-based staging generation returns content without writing files."""
         # Mock the source definition
         mock_source = mock.MagicMock()
         mock_source.source_name = "raw"
@@ -244,6 +243,8 @@ class TestGenerateStagingFromSource:
                 "yaml": "version: 2\nmodels: []",
             }
 
+            custom_path = Path(yaml_context.project.config.project_dir) / "tmp_staging_test"
+
             with mock.patch(
                 "dbt_core_interface.staging_generator.generate_staging_model_from_source",
                 return_value=result_dict,
@@ -253,10 +254,16 @@ class TestGenerateStagingFromSource:
                     source_name="raw",
                     table_name="orders",
                     use_ai=False,
+                    staging_path=custom_path,
                 )
 
                 assert result.staging_name == "stg_orders"
                 assert result.sql_content == result_dict["sql"]
+                assert result.yaml_content == result_dict["yaml"]
+                assert result.sql_path == custom_path / "stg_orders.sql"
+                assert result.yaml_path == custom_path / "stg_orders.yml"
+                assert result.sql_path is not None and not result.sql_path.exists()
+                assert result.yaml_path is not None and not result.yaml_path.exists()
 
     def test_generate_staging_source_not_found(self, yaml_context):
         """Test staging generation when source not found."""
@@ -321,6 +328,46 @@ class TestGenerateStagingFromSource:
                         table_name="users",
                         use_ai=True,
                     )
+
+    def test_generate_staging_ai_yaml_escapes_special_descriptions(self, yaml_context):
+        """AI staging YAML should parse when descriptions contain YAML-sensitive text."""
+        mock_source = mock.MagicMock()
+        mock_source.source_name = "raw"
+        mock_source.name = "users"
+
+        with mock.patch(
+            "dbt_osmosis.core.generators._get_source_definition", return_value=mock_source
+        ):
+            mock_spec = mock.MagicMock()
+            mock_spec.staging_name = "stg_users"
+            mock_spec.description = (
+                "Model: includes \"quotes\" and {{ doc('model:users') }}\nsecond line"
+            )
+            mock_spec.columns = [
+                mock.Mock(
+                    new_name="user_id",
+                    description="Column: has \"quotes\" and {{ doc('column:user_id') }}\nnext line",
+                )
+            ]
+            mock_spec.to_sql.return_value = "select 1 as user_id"
+
+            mock_result = mock.MagicMock()
+            mock_result.spec = mock_spec
+            mock_result.error = None
+
+            with mock.patch(
+                "dbt_osmosis.core.generators.generate_staging_for_source", return_value=mock_result
+            ):
+                result = generate_staging_from_source(
+                    context=yaml_context.project,
+                    source_name="raw",
+                    table_name="users",
+                    use_ai=True,
+                )
+
+        parsed = ruamel.yaml.YAML().load(result.yaml_content)
+        assert parsed["models"][0]["description"] == mock_spec.description
+        assert parsed["models"][0]["columns"][0]["description"] == mock_spec.columns[0].description
 
 
 class TestCheckDocumentation:

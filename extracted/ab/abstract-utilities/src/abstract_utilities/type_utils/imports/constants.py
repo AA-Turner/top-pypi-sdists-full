@@ -1,6 +1,5 @@
 from .module_imports import *
 from .utils import *
-
 MIME_TYPES = {
     'image': {
         '.jpg':   'image/jpeg',
@@ -15,6 +14,21 @@ MIME_TYPES = {
         '.heic':  'image/heic',
         '.psd':   'image/vnd.adobe.photoshop',
         '.raw':   'image/x-raw',
+        '.apng':  'image/apng',
+        '.heif':  'image/heif',
+        '.jp2':   'image/jp2',
+        '.jxl':   'image/jxl',
+        '.eps':   'application/postscript',
+        '.ai':    'application/postscript',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.bmp': 'image/bmp',
+        '.tiff': 'image/tiff',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon',
     },
     'video': {
         '.mp4':   'video/mp4',
@@ -26,9 +40,14 @@ MIME_TYPES = {
         '.flv':   'video/x-flv',
         '.wmv':   'video/x-ms-wmv',
         '.3gp':   'video/3gpp',
-        '.ts':    'video/mp2t',
         '.mpeg':  'video/mpeg',
-        '.mpg':   'video/mpg'
+        '.mpg':   'video/mpg',
+        '.m4v':   'video/x-m4v',
+        '.f4v':   'video/x-f4v',
+        '.asf':   'video/x-ms-asf',
+        '.vob':   'video/dvd',
+        '.m2ts':  'video/mp2t',
+        '.mts':   'video/mp2t',
     },
     'audio': {
         '.mp3':   'audio/mpeg',
@@ -38,6 +57,13 @@ MIME_TYPES = {
         '.ogg':   'audio/ogg',
         '.m4a':   'audio/mp4',
         '.opus':  'audio/opus',
+        '.aif':   'audio/x-aiff',
+        '.aiff':  'audio/x-aiff',
+        '.amr':   'audio/amr',
+        '.mid':   'audio/midi',
+        '.midi':  'audio/midi',
+        '.wma':   'audio/x-ms-wma',
+        '.mka':   'audio/x-matroska',
     },
     'document': {
         '.pdf':   'application/pdf',
@@ -58,7 +84,13 @@ MIME_TYPES = {
         '.cfg':   'text/plain',
         '.toml':  'application/toml',
         '.csv':   'text/csv',
-        '.tsv':   'text/tab-separated-values'
+        '.tsv':   'text/tab-separated-values',
+        '.epub':  'application/epub+zip',
+        '.mobi':  'application/x-mobipocket-ebook',
+        '.azw':   'application/vnd.amazon.ebook',
+        '.pages': 'application/x-iwork-pages-sffpages',
+        '.numbers':'application/x-iwork-numbers-sffnumbers',
+        '.key':   'application/x-iwork-keynote-sffkey',
     },
     'presentation': {
         '.ppt':   'application/vnd.ms-powerpoint',
@@ -71,6 +103,18 @@ MIME_TYPES = {
         '.ods':   'application/vnd.oasis.opendocument.spreadsheet',
         '.csv':   'text/csv',
         '.tsv':   'text/tab-separated-values'
+    },
+    'data_science': {
+        '.parquet': 'application/x-parquet',
+        '.avro':    'application/avro',
+        '.hdf5':    'application/x-hdf5',
+        '.h5':      'application/x-hdf5',
+        '.pickle':  'application/octet-stream',
+        '.npy':     'application/x-npy',
+        '.npz':     'application/x-npz',
+        '.ipynb':   'application/x-ipynb+json',
+        '.sqlite':  'application/x-sqlite3',
+        '.db':      'application/x-sqlite3',
     },
     'code': {
         '.py':    'text/x-python',
@@ -85,6 +129,7 @@ MIME_TYPES = {
         '.jsx':   'application/javascript',
         '.ts':    'application/typescript',
         '.tsx':   'application/typescript',
+        '.ts':    'application/javascript',
         '.rb':    'text/x-ruby',
         '.php':   'application/x-php',
         '.go':    'text/x-go',
@@ -98,6 +143,36 @@ MIME_TYPES = {
         '.yml':   'application/x-yaml',
         '.coffee':'text/coffeescript',
         '.lua':   'text/x-lua',
+        '.py':    'text/x-python',
+        '.js':    'application/javascript',
+        '.ts':    'application/typescript',
+        '.tsx':   'application/typescript',
+        '.jsx':   'application/javascript',
+        '.css':   'text/css',
+        '.scss':  'text/x-scss',
+        '.sass':  'text/x-sass',
+        '.less':  'text/x-less',
+        '.html':  'text/html',
+        '.htm':   'text/html',
+        '.vue':   'text/x-vue',
+        '.svelte':'text/x-svelte',
+        '.graphql':'application/graphql',
+        '.gql':   'application/graphql',
+        '.dockerfile': 'text/x-dockerfile',
+        '.makefile': 'text/x-makefile',
+        '.go':    'text/x-go',
+        '.rs':    'text/rust',
+        '.sol':   'text/x-solidity'
+    },
+    'three_d': {
+        '.obj':   'model/obj',
+        '.stl':   'model/stl',
+        '.glb':   'model/gltf-binary',
+        '.gltf':  'model/gltf+json',
+        '.fbx':   'application/octet-stream',
+        '.usd':   'model/usd',
+        '.usdz':  'model/vnd.usdz+zip',
+        '.blend': 'application/x-blender',
     },
     'archive': {
         '.zip':   'application/zip',
@@ -114,6 +189,8 @@ MIME_TYPES = {
         '.war':   'application/java-archive',
         '.whl':   'application/python-wheel',
         '.egg':   'application/python-egg',
+        '.iso':   'application/x-iso9660-image',
+        '.zpaq':  'application/x-zpaq',
     },
     'font': {
         '.ttf':   'font/ttf',
@@ -127,10 +204,40 @@ MIME_TYPES = {
         '.dll':   'application/vnd.microsoft.portable-executable',
         '.bin':   'application/octet-stream',
         '.deb':   'application/vnd.debian.binary-package',
-        '.rpm':   'application/x-rpm'
+        '.rpm':   'application/x-rpm',
+        '.app':   'application/x-executable',
+        '.ipa':   'application/x-itunes-ipa',
+        '.apk':   'application/vnd.android.package-archive',
+    },
+    'geospatial': {
+        '.geojson':  'application/geo+json',
+        '.kml':      'application/vnd.google-earth.kml+xml',
+        '.kmz':      'application/vnd.google-earth.kmz',
+        '.shp':      'application/x-qgis-main-file',
+        '.shx':      'application/x-qgis-shape-index',
+        '.dbf':      'application/x-dbf',
+        '.gpkg':     'application/geopackage+sqlite3',
+        '.gpx':      'application/gpx+xml',
+        '.tif':      'image/tiff', 
+        '.tiff':     'image/tiff',
+        '.osm':      'application/xml', 
+        '.wkt':      'text/plain' 
+    },
+    'pandas_data': {
+        '.parquet':  'application/x-parquet',
+        '.feather':  'application/x-feather',
+        '.orc':      'application/x-orc',
+        '.hdf':      'application/x-hdf',
+        '.h5':       'application/x-hdf5',
+        '.pickle':   'application/octet-stream',
+        '.pkl':      'application/octet-stream',
+        '.msgpack':  'application/x-msgpack',
+        '.stata':    'application/x-stata',
+        '.dta':      'application/x-stata',
+        '.sas7bdat': 'application/x-sas-data',
+        '.sav':      'application/x-spss-sav',
     }
 }
-
 # And just the sets, if you only need to test ext‐membership:
 MEDIA_TYPES = make_key_map(MIME_TYPES)
 

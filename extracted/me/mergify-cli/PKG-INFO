@@ -1,16 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.5.1.1
-Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
-Project-URL: Homepage, https://mergify.com
-Project-URL: Documentation, https://docs.mergify.com
-Project-URL: Repository, https://github.com/Mergifyio/mergify-cli
-Project-URL: Issues, https://github.com/Mergifyio/mergify-cli/issues
-Project-URL: Changelog, https://github.com/Mergifyio/mergify-cli/releases
-Author-email: Mergify Team <hello@mergify.com>
-License-Expression: Apache-2.0
-License-File: LICENSE
-Keywords: ci,git,github,merge,pull-request,stacked-pr
+Version: 2026.5.5.4
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -19,20 +9,30 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Version Control :: Git
 Classifier: Typing :: Typed
-Requires-Python: >=3.13
-Requires-Dist: aiofiles==25.1.0
-Requires-Dist: click==8.3.3
 Requires-Dist: httpx==0.28.1
 Requires-Dist: jsonschema==4.26.0
+Requires-Dist: rich==15.0.0
+Requires-Dist: aiofiles==25.1.0
+Requires-Dist: click==8.3.3
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.41.1
 Requires-Dist: opentelemetry-sdk==1.41.1
-Requires-Dist: pydantic==2.13.3
-Requires-Dist: pyyaml==6.0.3
-Requires-Dist: questionary>=2.0.0
-Requires-Dist: rich==15.0.0
 Requires-Dist: tenacity==9.1.4
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: pydantic==2.13.3
+Requires-Dist: questionary>=2.0.0
 Requires-Dist: tzlocal==5.3.1
-Description-Content-Type: text/markdown
+License-File: LICENSE
+Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
+Keywords: git,github,pull-request,stacked-pr,ci,merge
+Author-email: Mergify Team <hello@mergify.com>
+License-Expression: Apache-2.0
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://github.com/Mergifyio/mergify-cli/releases
+Project-URL: Documentation, https://docs.mergify.com
+Project-URL: Homepage, https://mergify.com
+Project-URL: Issues, https://github.com/Mergifyio/mergify-cli/issues
+Project-URL: Repository, https://github.com/Mergifyio/mergify-cli
 
 # Mergify CLI
 
@@ -91,3 +91,4 @@ Contributions are welcome — open an issue or pull request.
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
+

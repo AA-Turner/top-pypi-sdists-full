@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -25,8 +25,8 @@ class CourseAccount:
         project_uuid (UUID):
         project_name (str):
         project_slug (str):
-        project_start_date (datetime.date):
-        project_end_date (datetime.date):
+        project_start_date (Union[None, datetime.date]):
+        project_end_date (Union[None, datetime.date]):
         user_uuid (UUID):
         username (str):
         customer_uuid (UUID):
@@ -46,8 +46,8 @@ class CourseAccount:
     project_uuid: UUID
     project_name: str
     project_slug: str
-    project_start_date: datetime.date
-    project_end_date: datetime.date
+    project_start_date: Union[None, datetime.date]
+    project_end_date: Union[None, datetime.date]
     user_uuid: UUID
     username: str
     customer_uuid: UUID
@@ -76,9 +76,17 @@ class CourseAccount:
 
         project_slug = self.project_slug
 
-        project_start_date = self.project_start_date.isoformat()
+        project_start_date: Union[None, str]
+        if isinstance(self.project_start_date, datetime.date):
+            project_start_date = self.project_start_date.isoformat()
+        else:
+            project_start_date = self.project_start_date
 
-        project_end_date = self.project_end_date.isoformat()
+        project_end_date: Union[None, str]
+        if isinstance(self.project_end_date, datetime.date):
+            project_end_date = self.project_end_date.isoformat()
+        else:
+            project_end_date = self.project_end_date
 
         user_uuid = str(self.user_uuid)
 
@@ -147,9 +155,35 @@ class CourseAccount:
 
         project_slug = d.pop("project_slug")
 
-        project_start_date = isoparse(d.pop("project_start_date")).date()
+        def _parse_project_start_date(data: object) -> Union[None, datetime.date]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_start_date_type_0 = isoparse(data).date()
 
-        project_end_date = isoparse(d.pop("project_end_date")).date()
+                return project_start_date_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.date], data)
+
+        project_start_date = _parse_project_start_date(d.pop("project_start_date"))
+
+        def _parse_project_end_date(data: object) -> Union[None, datetime.date]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_end_date_type_0 = isoparse(data).date()
+
+                return project_end_date_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.date], data)
+
+        project_end_date = _parse_project_end_date(d.pop("project_end_date"))
 
         user_uuid = UUID(d.pop("user_uuid"))
 

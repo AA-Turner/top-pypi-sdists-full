@@ -17,18 +17,25 @@ from .models.CheckTestNotificationResponse import CheckTestNotificationResponse
 from .models.ConsumptionRequest import ConsumptionRequest
 from .models.ConsumptionRequestV1 import ConsumptionRequestV1
 from .models.DefaultConfigurationRequest import DefaultConfigurationRequest
+from .models.DefaultConfigurationResponse import DefaultConfigurationResponse
 from .models.Environment import Environment
 from .models.ExtendRenewalDateRequest import ExtendRenewalDateRequest
 from .models.ExtendRenewalDateResponse import ExtendRenewalDateResponse
 from .models.GetImageListResponse import GetImageListResponse
 from .models.GetMessageListResponse import GetMessageListResponse
 from .models.HistoryResponse import HistoryResponse
+from .models.ImageSize import ImageSize
 from .models.MassExtendRenewalDateRequest import MassExtendRenewalDateRequest
 from .models.MassExtendRenewalDateResponse import MassExtendRenewalDateResponse
 from .models.MassExtendRenewalDateStatusResponse import MassExtendRenewalDateStatusResponse
 from .models.NotificationHistoryRequest import NotificationHistoryRequest
 from .models.NotificationHistoryResponse import NotificationHistoryResponse
 from .models.OrderLookupResponse import OrderLookupResponse
+from .models.PerformanceTestRequest import PerformanceTestRequest
+from .models.PerformanceTestResponse import PerformanceTestResponse
+from .models.PerformanceTestResultResponse import PerformanceTestResultResponse
+from .models.RealtimeUrlRequest import RealtimeUrlRequest
+from .models.RealtimeUrlResponse import RealtimeUrlResponse
 from .models.RefundHistoryResponse import RefundHistoryResponse
 from .models.SendTestNotificationResponse import SendTestNotificationResponse
 from .models.Status import Status
@@ -391,6 +398,62 @@ class APIError(IntEnum):
     https://developer.apple.com/documentation/appstoreserverapi/transactionidisnotoriginaltransactioniderror
     """
 
+    INVALID_PERFORMANCE_TEST_REQUEST = 4000211
+    """
+    An error the API returns that indicates the performance test request is invalid.
+
+    https://developer.apple.com/documentation/retentionmessaging/invalidperformancetestrequesterror
+    """
+
+    INVALID_REQUEST_ID = 4000212
+    """
+    An error that indicates the request ID is invalid.
+
+    https://developer.apple.com/documentation/retentionmessaging/invalidrequestiderror
+    """
+
+    EXISTING_PERFORMANCE_TEST_RUN = 4000213
+    """
+    An error that indicates an error with an existing test.
+
+    https://developer.apple.com/documentation/retentionmessaging/existingperformancetestrunerror
+    """
+
+    BAD_REQUEST_REALTIME_URL = 4000215
+    """
+    An error that indicates the URL is invalid.
+
+    https://developer.apple.com/documentation/retentionmessaging/badrequestrealtimeurlerror
+    """
+
+    BAD_REQUEST_IMAGE_SIZE = 4000216
+    """
+    An error that indicates the image size provided is invalid.
+
+    https://developer.apple.com/documentation/retentionmessaging/badrequestimagesizeerror
+    """
+
+    BAD_REQUEST_TOO_MANY_BULLET_POINTS = 4000218
+    """
+    An error that indicates there are too many bullet points.
+
+    https://developer.apple.com/documentation/retentionmessaging/badrequesttoomanybulletpointserror
+    """
+
+    BAD_REQUEST_BULLET_POINT_TEXT_TOO_LONG = 4000219
+    """
+    An error that indicates the text for a bullet point is too long.
+
+    https://developer.apple.com/documentation/retentionmessaging/badrequestbulletpointtexttoolongerror
+    """
+
+    BAD_REQUEST_ABOVE_IMAGE_REQUIRES_AN_IMAGE = 4000224
+    """
+    An error that indicates that no image object is included, but the request indicates that the header should be placed above the image.
+
+    https://developer.apple.com/documentation/retentionmessaging/badrequestaboveimagerequiresanimageerror
+    """
+
     SUBSCRIPTION_EXTENSION_INELIGIBLE = 4030004
     """
     An error that indicates the subscription doesn't qualify for a renewal-date extension due to its subscription state.
@@ -445,6 +508,13 @@ class APIError(IntEnum):
     An error that indicates the image is currently in use as part of a message, so you can't delete it.
 
     https://developer.apple.com/documentation/retentionmessaging/imageinuseerror
+    """
+
+    FORBIDDEN_NO_PASSING_TEST = 4030026
+    """
+    An error that indicates that passing a performance test is required before you can set a URL for the production environment.
+
+    https://developer.apple.com/documentation/retentionmessaging/forbiddennopassingtesterror
     """
 
     ACCOUNT_NOT_FOUND = 4040001
@@ -531,11 +601,32 @@ class APIError(IntEnum):
     https://developer.apple.com/documentation/retentionmessaging/messagenotfounderror
     """
 
+    PERFORMANCE_TEST_RUN_NOT_FOUND = 4040018
+    """
+    An error the API returns if the service can't find the specified test run.
+
+    https://developer.apple.com/documentation/retentionmessaging/performancetestrunnotfounderror
+    """
+
     APP_TRANSACTION_DOES_NOT_EXIST_ERROR = 4040019
     """
     An error response that indicates an app transaction doesn’t exist for the specified customer.
     
     https://developer.apple.com/documentation/appstoreserverapi/apptransactiondoesnotexisterror
+    """
+
+    DEFAULT_MESSAGE_NOT_FOUND = 4040020
+    """
+    An error that indicates a default message isn’t configured.
+
+    https://developer.apple.com/documentation/retentionmessaging/defaultmessagenotfounderror
+    """
+
+    REALTIME_URL_NOT_FOUND = 4040021
+    """
+    An error that indicates that the URL for your endpoint isn’t configured.
+
+    https://developer.apple.com/documentation/retentionmessaging/realtimeurlnotfounderror
     """
 
     IMAGE_ALREADY_EXISTS = 4090000
@@ -605,11 +696,11 @@ class BaseAppStoreServerAPIClient:
         if environment == Environment.XCODE:
             raise ValueError("Xcode is not a supported environment for an AppStoreServerAPIClient")
         if environment == Environment.PRODUCTION:
-            self._base_url = "https://api.storekit.itunes.apple.com"
+            self._base_url = "https://api.storekit.apple.com"
         elif environment == Environment.LOCAL_TESTING:
             self._base_url = "https://local-testing-base-url"
         elif environment == Environment.SANDBOX:
-            self._base_url = "https://api.storekit-sandbox.itunes.apple.com"
+            self._base_url = "https://api.storekit-sandbox.apple.com"
         else:
             raise ValueError("Invalid environment provided")
         self._signing_key = serialization.load_pem_private_key(signing_key, password=None, backend=default_backend())
@@ -636,7 +727,7 @@ class BaseAppStoreServerAPIClient:
     
     def _get_headers(self) -> Dict[str, str]:
         return {
-            'User-Agent': "app-store-server-library/python/3.0.0",
+            'User-Agent': "app-store-server-library/python/3.1.0",
             'Authorization': f'Bearer {self._generate_token()}',
             'Accept': 'application/json'
         }
@@ -709,12 +800,12 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         """
         return self._make_request(f"/inApps/v1/subscriptions/extend/{original_transaction_id}", "PUT", {}, extend_renewal_date_request, ExtendRenewalDateResponse, None)
     
-    def get_all_subscription_statuses(self, transaction_id: str, status: Optional[List[Status]] = None) -> StatusResponse:
+    def get_all_subscription_statuses(self, any_transaction_id: str, status: Optional[List[Status]] = None) -> StatusResponse:
         """
         Get the statuses for all of a customer's auto-renewable subscriptions in your app.
         https://developer.apple.com/documentation/appstoreserverapi/get_all_subscription_statuses
-        
-        :param transaction_id: The identifier of a transaction that belongs to the customer, and which may be an original transaction identifier.
+
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :param status: An optional filter that indicates the status of subscriptions to include in the response. Your query may specify more than one status query parameter.
         :return: A response that contains status information for all of a customer's auto-renewable subscriptions in your app.
         :throws APIException: If a response was returned indicating the request could not be processed
@@ -722,15 +813,15 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         queryParameters: Dict[str, List[str]] = dict()
         if status is not None:
             queryParameters["status"] = [s.value for s in status]
-        
-        return self._make_request(f"/inApps/v1/subscriptions/{transaction_id}", "GET", queryParameters, None, StatusResponse, None)
+
+        return self._make_request(f"/inApps/v1/subscriptions/{any_transaction_id}", "GET", queryParameters, None, StatusResponse, None)
     
-    def get_refund_history(self, transaction_id: str, revision: Optional[str]) -> RefundHistoryResponse:
+    def get_refund_history(self, any_transaction_id: str, revision: Optional[str]) -> RefundHistoryResponse:
         """
         Get a paginated list of all of a customer's refunded in-app purchases for your app.
         https://developer.apple.com/documentation/appstoreserverapi/get_refund_history
 
-        :param transaction_id: The identifier of a transaction that belongs to the customer, and which may be an original transaction identifier.
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :param revision: A token you provide to get the next set of up to 20 transactions. All responses include a revision token. Use the revision token from the previous RefundHistoryResponse.
         :return: A response that contains status information for all of a customer's auto-renewable subscriptions in your app.
         :throws APIException: If a response was returned indicating the request could not be processed
@@ -739,8 +830,8 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         queryParameters: Dict[str, List[str]] = dict()
         if revision is not None:
             queryParameters["revision"] = [revision]
-        
-        return self._make_request(f"/inApps/v2/refund/lookup/{transaction_id}", "GET", queryParameters, None, RefundHistoryResponse, None)
+
+        return self._make_request(f"/inApps/v2/refund/lookup/{any_transaction_id}", "GET", queryParameters, None, RefundHistoryResponse, None)
     
     def get_status_of_subscription_renewal_date_extensions(self, request_identifier: str, product_id: str) -> MassExtendRenewalDateStatusResponse:
         """
@@ -781,12 +872,12 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         
         return self._make_request("/inApps/v1/notifications/history", "POST", queryParameters, notification_history_request, NotificationHistoryResponse, None)
 
-    def get_transaction_history(self, transaction_id: str, revision: Optional[str], transaction_history_request: TransactionHistoryRequest, version: GetTransactionHistoryVersion = GetTransactionHistoryVersion.V1) -> HistoryResponse:
+    def get_transaction_history(self, any_transaction_id: str, revision: Optional[str], transaction_history_request: TransactionHistoryRequest, version: GetTransactionHistoryVersion = GetTransactionHistoryVersion.V1) -> HistoryResponse:
         """
         Get a customer's in-app purchase transaction history for your app.
         https://developer.apple.com/documentation/appstoreserverapi/get_transaction_history
 
-        :param transaction_id: The identifier of a transaction that belongs to the customer, and which may be an original transaction identifier.
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :param revision: A token you provide to get the next set of up to 20 transactions. All responses include a revision token. Note: For requests that use the revision token, include the same query parameters from the initial request. Use the revision token from the previous HistoryResponse.
         :param transaction_history_request: The request parameters that includes the startDate,endDate,productIds,productTypes and optional query constraints.
         :param version: The version of the Get Transaction History endpoint to use. V2 is recommended.
@@ -821,8 +912,8 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         if transaction_history_request.revoked is not None:
             queryParameters["revoked"] = [str(transaction_history_request.revoked)]
         
-        return self._make_request("/inApps/{}/history/{}".format(version.value, transaction_id), "GET", queryParameters, None, HistoryResponse, None)
-    
+        return self._make_request("/inApps/{}/history/{}".format(version.value, any_transaction_id), "GET", queryParameters, None, HistoryResponse, None)
+
     def get_transaction_info(self, transaction_id: str) -> TransactionInfoResponse:
         """
         Get information about a single transaction for your app.
@@ -892,16 +983,20 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         """
         self._make_request(f"/inApps/v1/transactions/{original_transaction_id}/appAccountToken", "PUT", {}, update_app_account_token_request, None, None)
 
-    def upload_image(self, image_identifier: UUID, image: bytes):
+    def upload_image(self, image_identifier: UUID, image: bytes, image_size: Optional[ImageSize] = None):
         """
         Upload an image to use for retention messaging.
 
         :param image_identifier: A UUID you provide to uniquely identify the image you upload.
         :param image: The image file to upload.
+        :param image_size: The size of the image you upload.
         :raises APIException: If a response was returned indicating the request could not be processed
         :see: https://developer.apple.com/documentation/retentionmessaging/upload-image
         """
-        self._make_request(f"/inApps/v1/messaging/image/{image_identifier}", "PUT", {}, image, None, "image/png")
+        query_parameters = {}
+        if image_size is not None:
+            query_parameters["imageSize"] = [image_size.value]
+        self._make_request(f"/inApps/v1/messaging/image/{image_identifier}", "PUT", query_parameters, image, None, "image/png")
 
     def delete_image(self, image_identifier: UUID):
         """
@@ -976,17 +1071,90 @@ class AppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         :see: https://developer.apple.com/documentation/retentionmessaging/delete-default-message
         """
         self._make_request(f"/inApps/v1/messaging/default/{product_id}/{locale}", "DELETE", {}, None, None, None)
-    
-    def get_app_transaction_info(self, transaction_id: str) -> AppTransactionInfoResponse:
+
+    def get_default_message(self, product_id: str, locale: str) -> DefaultConfigurationResponse:
+        """
+        Gets the default message for a specific product in a specific locale, if it’s configured.
+
+        :param product_id: The product identifier of the message.
+        :param locale: The locale of the message.
+        :return: The response body that contains the default configuration information.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/get-default-message
+        """
+        return self._make_request(f"/inApps/v1/messaging/default/{product_id}/{locale}", "GET", {}, None, DefaultConfigurationResponse, None)
+
+    def configure_realtime_url(self, realtime_url_request: RealtimeUrlRequest):
+        """
+        Configures the URL for your Get Retention Message endpoint in the sandbox and production environments.
+
+        :param realtime_url_request: The request body that includes your endpoint’s URL.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/configure-realtime-url
+        """
+        self._make_request("/inApps/v1/messaging/realtime/url", "PUT", {}, realtime_url_request, None, None)
+
+    def delete_realtime_url(self):
+        """
+        Deletes the URL for your Get Retention Message endpoint, in the sandbox or production environments.
+
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/delete-realtime-url
+        """
+        self._make_request("/inApps/v1/messaging/realtime/url", "DELETE", {}, None, None, None)
+
+    def get_realtime_url(self) -> RealtimeUrlResponse:
+        """
+        Gets the URL for real-time messages that points to your Get Retention Message endpoint, which you previously configured.
+
+        :return: The response body that contains the URL for your Get Retention Message endpoint.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/get-realtime-url
+        """
+        return self._make_request("/inApps/v1/messaging/realtime/url", "GET", {}, None, RealtimeUrlResponse, None)
+
+    def initiate_performance_test(self, performance_test_request: PerformanceTestRequest) -> PerformanceTestResponse:
+        """
+        Initiates a performance test of your Get Retention Message endpoint in the sandbox environment.
+
+        :param performance_test_request: The request body which specifies a transaction identifier of an In-App Purchase to use for this test.
+        :return: The performance test response object.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/initiate-performance-test
+        """
+        return self._make_request("/inApps/v1/messaging/performanceTest", "POST", {}, performance_test_request, PerformanceTestResponse, None)
+
+    def get_performance_test_results(self, request_id: str) -> PerformanceTestResultResponse:
+        """
+        Gets the results of the performance test for the specified identifier.
+
+        :param request_id: The ID of the performance test to return, which you receive in the PerformanceTestResponse when you call Initiate Performance Test.
+        :return: An object the API returns that describes the performance test results.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/get-performance-test-results
+        """
+        return self._make_request(f"/inApps/v1/messaging/performanceTest/result/{request_id}", "GET", {}, None, PerformanceTestResultResponse, None)
+
+    def get_app_transaction_info(self, any_transaction_id: str) -> AppTransactionInfoResponse:
         """
         Get a customer's app transaction information for your app.
-        
-        :param transaction_id Any originalTransactionId, transactionId or appTransactionId that belongs to the customer for your app.
+
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :return: A response that contains signed app transaction information for a customer.
         :raises APIException: If a response was returned indicating the request could not be processed
         :see: https://developer.apple.com/documentation/appstoreserverapi/get-app-transaction-info
         """
-        return self._make_request(f"/inApps/v1/transactions/appTransactions/{transaction_id}", "GET", {}, None, AppTransactionInfoResponse, None)
+        return self._make_request(f"/inApps/v1/transactions/appTransactions/{any_transaction_id}", "GET", {}, None, AppTransactionInfoResponse, None)
+
+    def finish_transaction(self, transaction_id: str):
+        """
+        Notifies the App Store server that your system has finished processing the customer's transaction.
+        https://developer.apple.com/documentation/appstoreserverapi/finish-transaction
+
+        :param transaction_id The transaction identifier of the transaction to mark as finished.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        """
+        self._make_request(f"/inApps/v1/transactions/{transaction_id}/finish", "POST", {}, None, None, None)
 
 class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
     def __init__(self, signing_key: bytes, key_id: str, issuer_id: str, bundle_id: str, environment: Environment):
@@ -1042,12 +1210,12 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         """
         return await self._make_request(f"/inApps/v1/subscriptions/extend/{original_transaction_id}", "PUT", {}, extend_renewal_date_request, ExtendRenewalDateResponse, None)
     
-    async def get_all_subscription_statuses(self, transaction_id: str, status: Optional[List[Status]] = None) -> StatusResponse:
+    async def get_all_subscription_statuses(self, any_transaction_id: str, status: Optional[List[Status]] = None) -> StatusResponse:
         """
         Get the statuses for all of a customer's auto-renewable subscriptions in your app.
         https://developer.apple.com/documentation/appstoreserverapi/get_all_subscription_statuses
-        
-        :param transaction_id: The identifier of a transaction that belongs to the customer, and which may be an original transaction identifier.
+
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :param status: An optional filter that indicates the status of subscriptions to include in the response. Your query may specify more than one status query parameter.
         :return: A response that contains status information for all of a customer's auto-renewable subscriptions in your app.
         :throws APIException: If a response was returned indicating the request could not be processed
@@ -1055,15 +1223,15 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         queryParameters: Dict[str, List[str]] = dict()
         if status is not None:
             queryParameters["status"] = [s.value for s in status]
-        
-        return await self._make_request(f"/inApps/v1/subscriptions/{transaction_id}", "GET", queryParameters, None, StatusResponse, None)
+
+        return await self._make_request(f"/inApps/v1/subscriptions/{any_transaction_id}", "GET", queryParameters, None, StatusResponse, None)
     
-    async def get_refund_history(self, transaction_id: str, revision: Optional[str]) -> RefundHistoryResponse:
+    async def get_refund_history(self, any_transaction_id: str, revision: Optional[str]) -> RefundHistoryResponse:
         """
         Get a paginated list of all of a customer's refunded in-app purchases for your app.
         https://developer.apple.com/documentation/appstoreserverapi/get_refund_history
 
-        :param transaction_id: The identifier of a transaction that belongs to the customer, and which may be an original transaction identifier.
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :param revision: A token you provide to get the next set of up to 20 transactions. All responses include a revision token. Use the revision token from the previous RefundHistoryResponse.
         :return: A response that contains status information for all of a customer's auto-renewable subscriptions in your app.
         :throws APIException: If a response was returned indicating the request could not be processed
@@ -1072,8 +1240,8 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         queryParameters: Dict[str, List[str]] = dict()
         if revision is not None:
             queryParameters["revision"] = [revision]
-        
-        return await self._make_request(f"/inApps/v2/refund/lookup/{transaction_id}", "GET", queryParameters, None, RefundHistoryResponse, None)
+
+        return await self._make_request(f"/inApps/v2/refund/lookup/{any_transaction_id}", "GET", queryParameters, None, RefundHistoryResponse, None)
     
     async def get_status_of_subscription_renewal_date_extensions(self, request_identifier: str, product_id: str) -> MassExtendRenewalDateStatusResponse:
         """
@@ -1114,12 +1282,12 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         
         return await self._make_request("/inApps/v1/notifications/history", "POST", queryParameters, notification_history_request, NotificationHistoryResponse, None)
 
-    async def get_transaction_history(self, transaction_id: str, revision: Optional[str], transaction_history_request: TransactionHistoryRequest, version: GetTransactionHistoryVersion = GetTransactionHistoryVersion.V1) -> HistoryResponse:
+    async def get_transaction_history(self, any_transaction_id: str, revision: Optional[str], transaction_history_request: TransactionHistoryRequest, version: GetTransactionHistoryVersion = GetTransactionHistoryVersion.V1) -> HistoryResponse:
         """
         Get a customer's in-app purchase transaction history for your app.
         https://developer.apple.com/documentation/appstoreserverapi/get_transaction_history
 
-        :param transaction_id: The identifier of a transaction that belongs to the customer, and which may be an original transaction identifier.
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :param revision: A token you provide to get the next set of up to 20 transactions. All responses include a revision token. Note: For requests that use the revision token, include the same query parameters from the initial request. Use the revision token from the previous HistoryResponse.
         :param transaction_history_request: The request parameters that includes the startDate,endDate,productIds,productTypes and optional query constraints.
         :param version: The version of the Get Transaction History endpoint to use. V2 is recommended.
@@ -1154,8 +1322,8 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         if transaction_history_request.revoked is not None:
             queryParameters["revoked"] = [str(transaction_history_request.revoked)]
         
-        return await self._make_request("/inApps/" + version + "/history/" + transaction_id, "GET", queryParameters, None, HistoryResponse, None)
-    
+        return await self._make_request("/inApps/" + version + "/history/" + any_transaction_id, "GET", queryParameters, None, HistoryResponse, None)
+
     async def get_transaction_info(self, transaction_id: str) -> TransactionInfoResponse:
         """
         Get information about a single transaction for your app.
@@ -1224,16 +1392,20 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         """
         await self._make_request(f"/inApps/v1/transactions/{original_transaction_id}/appAccountToken", "PUT", {}, update_app_account_token_request, None, None)
 
-    async def upload_image(self, image_identifier: UUID, image: bytes):
+    async def upload_image(self, image_identifier: UUID, image: bytes, image_size: Optional[ImageSize] = None):
         """
         Upload an image to use for retention messaging.
 
         :param image_identifier: A UUID you provide to uniquely identify the image you upload.
         :param image: The image file to upload.
+        :param image_size: The optional size of the image.
         :raises APIException: If a response was returned indicating the request could not be processed
         :see: https://developer.apple.com/documentation/retentionmessaging/upload-image
         """
-        await self._make_request(f"/inApps/v1/messaging/image/{image_identifier}", "PUT", {}, image, None, "image/png")
+        query_parameters = {}
+        if image_size is not None:
+            query_parameters["imageSize"] = [image_size.value]
+        await self._make_request(f"/inApps/v1/messaging/image/{image_identifier}", "PUT", query_parameters, image, None, "image/png")
 
     async def delete_image(self, image_identifier: UUID):
         """
@@ -1308,15 +1480,88 @@ class AsyncAppStoreServerAPIClient(BaseAppStoreServerAPIClient):
         :see: https://developer.apple.com/documentation/retentionmessaging/delete-default-message
         """
         await self._make_request(f"/inApps/v1/messaging/default/{product_id}/{locale}", "DELETE", {}, None, None, None)
-    
-    async def get_app_transaction_info(self, transaction_id: str) -> AppTransactionInfoResponse:
+
+    async def get_default_message(self, product_id: str, locale: str) -> DefaultConfigurationResponse:
+        """
+        Get the default message for a specific product in a specific locale.
+
+        :param product_id: The product identifier for the default configuration.
+        :param locale: The locale for the default configuration.
+        :return: A response that contains the default configuration information.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/get-default-message
+        """
+        return await self._make_request(f"/inApps/v1/messaging/default/{product_id}/{locale}", "GET", {}, None, DefaultConfigurationResponse, None)
+
+    async def configure_realtime_url(self, realtime_url_request: RealtimeUrlRequest):
+        """
+        Configure the real-time URL for retention messaging.
+
+        :param realtime_url_request: The request body that contains the real-time URL.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/configure-realtime-url
+        """
+        await self._make_request("/inApps/v1/messaging/realtime/url", "PUT", {}, realtime_url_request, None, None)
+
+    async def delete_realtime_url(self):
+        """
+        Delete the real-time URL for retention messaging.
+
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/delete-realtime-url
+        """
+        await self._make_request("/inApps/v1/messaging/realtime/url", "DELETE", {}, None, None, None)
+
+    async def get_realtime_url(self) -> RealtimeUrlResponse:
+        """
+        Get the real-time URL for retention messaging.
+
+        :return: A response that contains the real-time URL information.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/get-realtime-url
+        """
+        return await self._make_request("/inApps/v1/messaging/realtime/url", "GET", {}, None, RealtimeUrlResponse, None)
+
+    async def initiate_performance_test(self, performance_test_request: PerformanceTestRequest) -> PerformanceTestResponse:
+        """
+        Initiates a performance test of your Get Retention Message endpoint in the sandbox environment.
+
+        :param performance_test_request: The request body which specifies a transaction identifier of an In-App Purchase to use for this test.
+        :return: The performance test response object.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/initiate-performance-test
+        """
+        return await self._make_request("/inApps/v1/messaging/performanceTest", "POST", {}, performance_test_request, PerformanceTestResponse, None)
+
+    async def get_performance_test_results(self, request_id: str) -> PerformanceTestResultResponse:
+        """
+        Gets the results of the performance test for the specified identifier.
+
+        :param request_id: The ID of the performance test to return, which you receive in the PerformanceTestResponse when you call Initiate Performance Test.
+        :return: An object the API returns that describes the performance test results.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        :see: https://developer.apple.com/documentation/retentionmessaging/get-performance-test-results
+        """
+        return await self._make_request(f"/inApps/v1/messaging/performanceTest/result/{request_id}", "GET", {}, None, PerformanceTestResultResponse, None)
+
+    async def get_app_transaction_info(self, any_transaction_id: str) -> AppTransactionInfoResponse:
         """
         Get a customer's app transaction information for your app.
-        
-        :param transaction_id Any originalTransactionId, transactionId or appTransactionId that belongs to the customer for your app.
+
+        :param any_transaction_id: Any transactionId, originalTransactionId, or appTransactionId that belongs to the customer for your app.
         :return: A response that contains signed app transaction information for a customer.
         :raises APIException: If a response was returned indicating the request could not be processed
         :see: https://developer.apple.com/documentation/appstoreserverapi/get-app-transaction-info
         """
-        return await self._make_request(f"/inApps/v1/transactions/appTransactions/{transaction_id}", "GET", {}, None, AppTransactionInfoResponse, None)
+        return await self._make_request(f"/inApps/v1/transactions/appTransactions/{any_transaction_id}", "GET", {}, None, AppTransactionInfoResponse, None)
+
+    async def finish_transaction(self, transaction_id: str):
+        """
+        Notifies the App Store server that your system has finished processing the customer's transaction.
+        https://developer.apple.com/documentation/appstoreserverapi/finish-transaction
+
+        :param transaction_id The transaction identifier of the transaction to mark as finished.
+        :raises APIException: If a response was returned indicating the request could not be processed
+        """
+        await self._make_request(f"/inApps/v1/transactions/{transaction_id}/finish", "POST", {}, None, None, None)
     

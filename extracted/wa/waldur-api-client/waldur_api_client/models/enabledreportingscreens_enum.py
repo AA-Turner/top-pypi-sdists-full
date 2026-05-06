@@ -7,6 +7,7 @@ class ENABLEDREPORTINGSCREENSEnum(str, Enum):
     GROWTH = "growth"
     MAINTENANCE_OVERVIEW = "maintenance-overview"
     OFFERING_COSTS = "offering-costs"
+    OFFERING_USAGE = "offering-usage"
     OPENSTACK_INSTANCES = "openstack-instances"
     ORDERS = "orders"
     ORGANIZATION_SUMMARY = "organization-summary"

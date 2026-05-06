@@ -14,11 +14,26 @@
 #
 """The agentplatform module."""
 
+import importlib
 from google.cloud.aiplatform import init
 from google.cloud.aiplatform import version as aiplatform_version
 
 __version__ = aiplatform_version.__version__
 
+
+def __getattr__(name):  # type: ignore[no-untyped-def]
+    if name == "preview":
+        # We need to import carefully to avoid `RecursionError`.
+        # This won't work since it causes `RecursionError`:
+        # `from agentplatform import preview`
+        # This won't work due to Copybara lacking a transform:
+        # `import google.cloud.aiplatform.agentplatform.preview as`
+        #    `agentplatform_preview`
+        return importlib.import_module(".preview", __name__)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
 __all__ = [
     "init",
+    "preview",
 ]

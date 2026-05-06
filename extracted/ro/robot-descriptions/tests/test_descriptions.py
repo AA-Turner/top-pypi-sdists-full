@@ -18,6 +18,9 @@ from robot_descriptions._xacro import get_urdf_path
 class TestDescriptions(unittest.TestCase):
     """Test fixture for all robot descriptions."""
 
+    def test_descriptions_are_sorted(self):
+        self.assertEqual(list(DESCRIPTIONS), sorted(DESCRIPTIONS))
+
     def test_all_descriptions(self):
         """Check all robot-description submodules."""
         for name, desc in DESCRIPTIONS.items():
@@ -48,6 +51,16 @@ class TestDescriptions(unittest.TestCase):
                 self.assertTrue(
                     os.path.exists(urdf_path),
                     f"URDF path {urdf_path} does not exist "
+                    f"in {description}",
+                )
+
+            if desc.license_file is not None:
+                license_path = os.path.join(
+                    description.REPOSITORY_PATH, desc.license_file
+                )
+                self.assertTrue(
+                    os.path.exists(license_path),
+                    f"License path {license_path} does not exist "
                     f"in {description}",
                 )
 

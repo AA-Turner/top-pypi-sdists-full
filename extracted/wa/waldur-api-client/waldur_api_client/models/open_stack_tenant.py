@@ -48,7 +48,7 @@ class OpenStackTenant:
         created (Union[Unset, datetime.datetime]):
         modified (Union[Unset, datetime.datetime]):
         backend_id (Union[None, Unset, str]): ID of tenant in the OpenStack backend
-        access_url (Union[None, Unset, str]):
+        access_url (Union[None, Unset, list[str], str]):
         availability_zone (Union[Unset, str]): Optional availability group. Will be used for all instances provisioned
             in this tenant
         internal_network_id (Union[Unset, str]): ID of internal network in OpenStack tenant
@@ -98,7 +98,7 @@ class OpenStackTenant:
     created: Union[Unset, datetime.datetime] = UNSET
     modified: Union[Unset, datetime.datetime] = UNSET
     backend_id: Union[None, Unset, str] = UNSET
-    access_url: Union[None, Unset, str] = UNSET
+    access_url: Union[None, Unset, list[str], str] = UNSET
     availability_zone: Union[Unset, str] = UNSET
     internal_network_id: Union[Unset, str] = UNSET
     external_network_id: Union[Unset, str] = UNSET
@@ -195,9 +195,12 @@ class OpenStackTenant:
         else:
             backend_id = self.backend_id
 
-        access_url: Union[None, Unset, str]
+        access_url: Union[None, Unset, list[str], str]
         if isinstance(self.access_url, Unset):
             access_url = UNSET
+        elif isinstance(self.access_url, list):
+            access_url = self.access_url
+
         else:
             access_url = self.access_url
 
@@ -492,12 +495,20 @@ class OpenStackTenant:
 
         backend_id = _parse_backend_id(d.pop("backend_id", UNSET))
 
-        def _parse_access_url(data: object) -> Union[None, Unset, str]:
+        def _parse_access_url(data: object) -> Union[None, Unset, list[str], str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                access_url_type_0 = cast(list[str], data)
+
+                return access_url_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url", UNSET))
 

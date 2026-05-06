@@ -14,7 +14,7 @@ from ...utils import parse_link_header
 
 
 def _get_kwargs(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     created: Union[Unset, datetime.datetime] = UNSET,
     created_after: Union[Unset, str] = UNSET,
@@ -31,7 +31,6 @@ def _get_kwargs(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -84,16 +83,11 @@ def _get_kwargs(
         json_user_uuid = str(user_uuid)
     params["user_uuid"] = json_user_uuid
 
-    json_uuid_query: Union[Unset, str] = UNSET
-    if not isinstance(uuid_query, Unset):
-        json_uuid_query = str(uuid_query)
-    params["uuid"] = json_uuid_query
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": f"/api/keys/{uuid_path}/history/",
+        "url": f"/api/keys/{uuid}/history/",
         "params": params,
     }
 
@@ -127,7 +121,7 @@ def _build_response(
 
 
 def sync_detailed(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
@@ -145,14 +139,13 @@ def sync_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> Response[list["VersionHistory"]]:
     """Get version history
 
      Returns the version history for this object. Only accessible by staff and support users.
 
     Args:
-        uuid_path (UUID):
+        uuid (UUID):
         created (Union[Unset, datetime.datetime]):
         created_after (Union[Unset, str]):
         created_before (Union[Unset, str]):
@@ -168,7 +161,6 @@ def sync_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid_query (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -179,7 +171,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        uuid_path=uuid_path,
+        uuid=uuid,
         created=created,
         created_after=created_after,
         created_before=created_before,
@@ -195,7 +187,6 @@ def sync_detailed(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid_query=uuid_query,
     )
 
     response = client.get_httpx_client().request(
@@ -206,7 +197,7 @@ def sync_detailed(
 
 
 def sync(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
@@ -224,14 +215,13 @@ def sync(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get version history
 
      Returns the version history for this object. Only accessible by staff and support users.
 
     Args:
-        uuid_path (UUID):
+        uuid (UUID):
         created (Union[Unset, datetime.datetime]):
         created_after (Union[Unset, str]):
         created_before (Union[Unset, str]):
@@ -247,7 +237,6 @@ def sync(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid_query (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -258,7 +247,7 @@ def sync(
     """
 
     return sync_detailed(
-        uuid_path=uuid_path,
+        uuid=uuid,
         client=client,
         created=created,
         created_after=created_after,
@@ -275,12 +264,11 @@ def sync(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid_query=uuid_query,
     ).parsed
 
 
 async def asyncio_detailed(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
@@ -298,14 +286,13 @@ async def asyncio_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> Response[list["VersionHistory"]]:
     """Get version history
 
      Returns the version history for this object. Only accessible by staff and support users.
 
     Args:
-        uuid_path (UUID):
+        uuid (UUID):
         created (Union[Unset, datetime.datetime]):
         created_after (Union[Unset, str]):
         created_before (Union[Unset, str]):
@@ -321,7 +308,6 @@ async def asyncio_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid_query (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -332,7 +318,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        uuid_path=uuid_path,
+        uuid=uuid,
         created=created,
         created_after=created_after,
         created_before=created_before,
@@ -348,7 +334,6 @@ async def asyncio_detailed(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid_query=uuid_query,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -357,7 +342,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
@@ -375,14 +360,13 @@ async def asyncio(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get version history
 
      Returns the version history for this object. Only accessible by staff and support users.
 
     Args:
-        uuid_path (UUID):
+        uuid (UUID):
         created (Union[Unset, datetime.datetime]):
         created_after (Union[Unset, str]):
         created_before (Union[Unset, str]):
@@ -398,7 +382,6 @@ async def asyncio(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid_query (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -410,7 +393,7 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            uuid_path=uuid_path,
+            uuid=uuid,
             client=client,
             created=created,
             created_after=created_after,
@@ -427,13 +410,12 @@ async def asyncio(
             page=page,
             page_size=page_size,
             user_uuid=user_uuid,
-            uuid_query=uuid_query,
         )
     ).parsed
 
 
 def sync_all(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
@@ -449,7 +431,6 @@ def sync_all(
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get All Pages
 
@@ -459,7 +440,7 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
-        uuid_path (UUID):
+        uuid (UUID):
         created (Union[Unset, datetime.datetime]):
         created_after (Union[Unset, str]):
         created_before (Union[Unset, str]):
@@ -473,7 +454,6 @@ def sync_all(
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
         user_uuid (Union[Unset, UUID]):
-        uuid_query (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -488,7 +468,7 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
-        uuid_path=uuid_path,
+        uuid=uuid,
         created=created,
         created_after=created_after,
         created_before=created_before,
@@ -502,7 +482,6 @@ def sync_all(
         name_exact=name_exact,
         o=o,
         user_uuid=user_uuid,
-        uuid_query=uuid_query,
     )
 
     # Set page_size to maximum
@@ -548,7 +527,7 @@ def sync_all(
 
 
 async def asyncio_all(
-    uuid_path: UUID,
+    uuid: UUID,
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
@@ -564,7 +543,6 @@ async def asyncio_all(
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid_query: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get All Pages (Async)
 
@@ -574,7 +552,7 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
-        uuid_path (UUID):
+        uuid (UUID):
         created (Union[Unset, datetime.datetime]):
         created_after (Union[Unset, str]):
         created_before (Union[Unset, str]):
@@ -588,7 +566,6 @@ async def asyncio_all(
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
         user_uuid (Union[Unset, UUID]):
-        uuid_query (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -603,7 +580,7 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
-        uuid_path=uuid_path,
+        uuid=uuid,
         created=created,
         created_after=created_after,
         created_before=created_before,
@@ -617,7 +594,6 @@ async def asyncio_all(
         name_exact=name_exact,
         o=o,
         user_uuid=user_uuid,
-        uuid_query=uuid_query,
     )
 
     # Set page_size to maximum

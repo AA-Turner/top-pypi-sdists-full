@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.category_enum import CategoryEnum
+from ..models.corrective_action_category_enum import CorrectiveActionCategoryEnum
 from ..models.corrective_action_severity_enum import CorrectiveActionSeverityEnum
 from ..types import UNSET, Unset
 
@@ -21,7 +21,7 @@ class CorrectiveAction:
     """
     Attributes:
         label (str):
-        category (CategoryEnum):
+        category (CorrectiveActionCategoryEnum):
         severity (CorrectiveActionSeverityEnum):
         method (Union[Unset, str]):  Default: 'GET'.
         api_endpoint (Union[Unset, bool]):  Default: False.
@@ -33,7 +33,7 @@ class CorrectiveAction:
     """
 
     label: str
-    category: CategoryEnum
+    category: CorrectiveActionCategoryEnum
     severity: CorrectiveActionSeverityEnum
     method: Union[Unset, str] = "GET"
     api_endpoint: Union[Unset, bool] = False
@@ -109,7 +109,7 @@ class CorrectiveAction:
         d = dict(src_dict)
         label = d.pop("label")
 
-        category = CategoryEnum(d.pop("category"))
+        category = CorrectiveActionCategoryEnum(d.pop("category"))
 
         severity = CorrectiveActionSeverityEnum(d.pop("severity"))
 

@@ -11,6 +11,7 @@ from ...models.injection_severity_enum import InjectionSeverityEnum
 from ...models.thread_session import ThreadSession
 from ...models.thread_session_field_enum import ThreadSessionFieldEnum
 from ...models.thread_session_o_enum import ThreadSessionOEnum
+from ...models.thread_session_scope_enum import ThreadSessionScopeEnum
 from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
 
@@ -19,6 +20,7 @@ def _get_kwargs(
     *,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -31,6 +33,7 @@ def _get_kwargs(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -50,6 +53,8 @@ def _get_kwargs(
             json_field.append(field_item)
 
     params["field"] = json_field
+
+    params["has_feedback"] = has_feedback
 
     params["input_tokens_max"] = input_tokens_max
 
@@ -88,6 +93,12 @@ def _get_kwargs(
     params["page_size"] = page_size
 
     params["query"] = query
+
+    json_scope: Union[Unset, str] = UNSET
+    if not isinstance(scope, Unset):
+        json_scope = scope.value
+
+    params["scope"] = json_scope
 
     params["total_tokens_max"] = total_tokens_max
 
@@ -140,6 +151,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -152,6 +164,7 @@ def sync_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -160,6 +173,7 @@ def sync_detailed(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        has_feedback (Union[Unset, bool]):
         input_tokens_max (Union[Unset, float]):
         input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
@@ -172,6 +186,7 @@ def sync_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        scope (Union[Unset, ThreadSessionScopeEnum]):
         total_tokens_max (Union[Unset, float]):
         total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
@@ -187,6 +202,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        has_feedback=has_feedback,
         input_tokens_max=input_tokens_max,
         input_tokens_min=input_tokens_min,
         is_archived=is_archived,
@@ -199,6 +215,7 @@ def sync_detailed(
         page=page,
         page_size=page_size,
         query=query,
+        scope=scope,
         total_tokens_max=total_tokens_max,
         total_tokens_min=total_tokens_min,
         user=user,
@@ -216,6 +233,7 @@ def sync(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -228,6 +246,7 @@ def sync(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -236,6 +255,7 @@ def sync(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        has_feedback (Union[Unset, bool]):
         input_tokens_max (Union[Unset, float]):
         input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
@@ -248,6 +268,7 @@ def sync(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        scope (Union[Unset, ThreadSessionScopeEnum]):
         total_tokens_max (Union[Unset, float]):
         total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
@@ -264,6 +285,7 @@ def sync(
         client=client,
         created=created,
         field=field,
+        has_feedback=has_feedback,
         input_tokens_max=input_tokens_max,
         input_tokens_min=input_tokens_min,
         is_archived=is_archived,
@@ -276,6 +298,7 @@ def sync(
         page=page,
         page_size=page_size,
         query=query,
+        scope=scope,
         total_tokens_max=total_tokens_max,
         total_tokens_min=total_tokens_min,
         user=user,
@@ -287,6 +310,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -299,6 +323,7 @@ async def asyncio_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -307,6 +332,7 @@ async def asyncio_detailed(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        has_feedback (Union[Unset, bool]):
         input_tokens_max (Union[Unset, float]):
         input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
@@ -319,6 +345,7 @@ async def asyncio_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        scope (Union[Unset, ThreadSessionScopeEnum]):
         total_tokens_max (Union[Unset, float]):
         total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
@@ -334,6 +361,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        has_feedback=has_feedback,
         input_tokens_max=input_tokens_max,
         input_tokens_min=input_tokens_min,
         is_archived=is_archived,
@@ -346,6 +374,7 @@ async def asyncio_detailed(
         page=page,
         page_size=page_size,
         query=query,
+        scope=scope,
         total_tokens_max=total_tokens_max,
         total_tokens_min=total_tokens_min,
         user=user,
@@ -361,6 +390,7 @@ async def asyncio(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -373,6 +403,7 @@ async def asyncio(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -381,6 +412,7 @@ async def asyncio(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        has_feedback (Union[Unset, bool]):
         input_tokens_max (Union[Unset, float]):
         input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
@@ -393,6 +425,7 @@ async def asyncio(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        scope (Union[Unset, ThreadSessionScopeEnum]):
         total_tokens_max (Union[Unset, float]):
         total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
@@ -410,6 +443,7 @@ async def asyncio(
             client=client,
             created=created,
             field=field,
+            has_feedback=has_feedback,
             input_tokens_max=input_tokens_max,
             input_tokens_min=input_tokens_min,
             is_archived=is_archived,
@@ -422,6 +456,7 @@ async def asyncio(
             page=page,
             page_size=page_size,
             query=query,
+            scope=scope,
             total_tokens_max=total_tokens_max,
             total_tokens_min=total_tokens_min,
             user=user,
@@ -434,6 +469,7 @@ def sync_all(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -444,6 +480,7 @@ def sync_all(
     output_tokens_max: Union[Unset, float] = UNSET,
     output_tokens_min: Union[Unset, float] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -458,6 +495,7 @@ def sync_all(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        has_feedback (Union[Unset, bool]):
         input_tokens_max (Union[Unset, float]):
         input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
@@ -468,6 +506,7 @@ def sync_all(
         output_tokens_max (Union[Unset, float]):
         output_tokens_min (Union[Unset, float]):
         query (Union[Unset, str]):
+        scope (Union[Unset, ThreadSessionScopeEnum]):
         total_tokens_max (Union[Unset, float]):
         total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
@@ -487,6 +526,7 @@ def sync_all(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        has_feedback=has_feedback,
         input_tokens_max=input_tokens_max,
         input_tokens_min=input_tokens_min,
         is_archived=is_archived,
@@ -497,6 +537,7 @@ def sync_all(
         output_tokens_max=output_tokens_max,
         output_tokens_min=output_tokens_min,
         query=query,
+        scope=scope,
         total_tokens_max=total_tokens_max,
         total_tokens_min=total_tokens_min,
         user=user,
@@ -549,6 +590,7 @@ async def asyncio_all(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    has_feedback: Union[Unset, bool] = UNSET,
     input_tokens_max: Union[Unset, float] = UNSET,
     input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
@@ -559,6 +601,7 @@ async def asyncio_all(
     output_tokens_max: Union[Unset, float] = UNSET,
     output_tokens_min: Union[Unset, float] = UNSET,
     query: Union[Unset, str] = UNSET,
+    scope: Union[Unset, ThreadSessionScopeEnum] = UNSET,
     total_tokens_max: Union[Unset, float] = UNSET,
     total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
@@ -573,6 +616,7 @@ async def asyncio_all(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        has_feedback (Union[Unset, bool]):
         input_tokens_max (Union[Unset, float]):
         input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
@@ -583,6 +627,7 @@ async def asyncio_all(
         output_tokens_max (Union[Unset, float]):
         output_tokens_min (Union[Unset, float]):
         query (Union[Unset, str]):
+        scope (Union[Unset, ThreadSessionScopeEnum]):
         total_tokens_max (Union[Unset, float]):
         total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
@@ -602,6 +647,7 @@ async def asyncio_all(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        has_feedback=has_feedback,
         input_tokens_max=input_tokens_max,
         input_tokens_min=input_tokens_min,
         is_archived=is_archived,
@@ -612,6 +658,7 @@ async def asyncio_all(
         output_tokens_max=output_tokens_max,
         output_tokens_min=output_tokens_min,
         query=query,
+        scope=scope,
         total_tokens_max=total_tokens_max,
         total_tokens_min=total_tokens_min,
         user=user,

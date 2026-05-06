@@ -1,4 +1,4 @@
-# Copyright 2022-2025 MetaOPT Team. All Rights Reserved.
+# Copyright 2022-2026 MetaOPT Team. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,28 +18,27 @@ project(optree LANGUAGES CXX)
 
 include(FetchContent)
 
-set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/third-party")
+set(THIRD_PARTY_DIR "${PROJECT_SOURCE_DIR}/third-party")
+
+macro(setdefault_ifndef varname)  # setdefault_ifndef(<varname> [<default>])
+    if(NOT DEFINED "${varname}" AND NOT "$ENV{${varname}}" STREQUAL "")
+        set("${varname}" "$ENV{${varname}}")
+    endif()
+    if("${${varname}}" STREQUAL "" AND NOT "${ARGN}" STREQUAL "")
+        set("${varname}" "${ARGN}")
+    endif()
+endmacro()
 
 set(pybind11_MINIMUM_VERSION 2.12)  # for pybind11::gil_safe_call_once_and_store
-if(NOT DEFINED pybind11_VERSION AND NOT "$ENV{pybind11_VERSION}" STREQUAL "")
-    set(pybind11_VERSION "$ENV{pybind11_VERSION}")
-endif()
-if(NOT pybind11_VERSION)
-    set(pybind11_VERSION stable)
-endif()
+setdefault_ifndef(pybind11_VERSION stable)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-if(NOT DEFINED CMAKE_CXX_STANDARD AND NOT "$ENV{CMAKE_CXX_STANDARD}" STREQUAL "")
-    set(CMAKE_CXX_STANDARD "$ENV{CMAKE_CXX_STANDARD}")
-endif()
-if(NOT CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 20)  # for likely/unlikely attributes
-endif()
-if (CMAKE_CXX_STANDARD VERSION_LESS 17)
+setdefault_ifndef(CMAKE_CXX_STANDARD 20)  # for likely/unlikely attributes
+if(CMAKE_CXX_STANDARD VERSION_LESS 17)
     message(FATAL_ERROR "C++17 or higher is required")
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -52,9 +51,7 @@ string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
 string(STRIP "${CMAKE_CXX_FLAGS_DEBUG}" CMAKE_CXX_FLAGS_DEBUG)
 string(STRIP "${CMAKE_CXX_FLAGS_RELEASE}" CMAKE_CXX_FLAGS_RELEASE)
 
-if(NOT DEFINED _GLIBCXX_USE_CXX11_ABI AND NOT "$ENV{_GLIBCXX_USE_CXX11_ABI}" STREQUAL "")
-    set(_GLIBCXX_USE_CXX11_ABI "$ENV{_GLIBCXX_USE_CXX11_ABI}")
-endif()
+setdefault_ifndef(_GLIBCXX_USE_CXX11_ABI 1)
 if(NOT "${_GLIBCXX_USE_CXX11_ABI}" STREQUAL "")
     message(STATUS "Use _GLIBCXX_USE_CXX11_ABI: ${_GLIBCXX_USE_CXX11_ABI}")
     add_definitions("-D_GLIBCXX_USE_CXX11_ABI=${_GLIBCXX_USE_CXX11_ABI}")
@@ -84,19 +81,55 @@ if(MSVC)
     string(
         APPEND CMAKE_CXX_FLAGS_DEBUG
         " /wd4702"  # unreachable code
+        " /Zi"
     )
-    string(APPEND CMAKE_CXX_FLAGS_DEBUG " /Zi")
     string(APPEND CMAKE_CXX_FLAGS_RELEASE " /O2 /Ob2")
+
+    # Force the pre-VS-2022-17.10 `std::mutex` layout on MSVC builds so the constructor's
+    # `_Mtx_init_in_situ` call and the `_Mtx_lock` body both bind to whichever `msvcp140.dll` the
+    # Windows loader resolves at runtime. Without this, if another wheel in the process preloads an
+    # older `msvcp140.dll` (e.g., pyarrow's bundled 14.28.29334.0), the older `_Mtx_lock` interprets
+    # the newer constexpr-zero-init mutex layout as the old ConcRT-backed object and dereferences a
+    # null vptr, crashing inside pybind11's `internals_pp_manager` during `PyInit__C` before any
+    # optree code runs. `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` is Microsoft's documented escape
+    # hatch for this newer-toolset / older-redistributable ABI mismatch:
+    #
+    #   https://github.com/microsoft/STL/releases/tag/vs-2022-17.10
+    #
+    # See also: https://github.com/metaopt/optree/issues/278.
+    #
+    # Remove once optree no longer ships wheels that may be loaded alongside an `msvcp140.dll` older
+    # than the toolset used to build the wheel.
+    #
+    # | CMake variable       | environment variable | mutex workaround |
+    # |----------------------|----------------------|------------------|
+    # | defined as empty     | (whatever)           | disabled         |
+    # | defined as non-empty | (whatever)           | enabled          |
+    # |   defined as "ON"    | (whatever)           | enabled          |
+    # |   defined as "OFF"   | (whatever)           | enabled          |
+    # | not defined          | defined as empty     | disabled         |
+    # | not defined          | defined as non-empty | enabled          |
+    # | not defined          |   defined as "ON"    | enabled          |
+    # | not defined          |   defined as "OFF"   | enabled          |
+    # | not defined          | not defined          | enabled          |
+    if (DEFINED _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR OR DEFINED ENV{_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR})
+        setdefault_ifndef(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+    else()
+        setdefault_ifndef(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR 1)
+    endif()
+    if(NOT "${_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR}" STREQUAL "")
+        message(STATUS "Use _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR: enabled")
+        add_definitions("-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
+    else()
+        message(STATUS "_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR is disabled, using default MSVC mutex layout.")
+    endif()
 else()
     string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra")
     string(APPEND CMAKE_CXX_FLAGS_DEBUG " -g -Og")
     string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O3")
 endif()
 
-if(NOT DEFINED OPTREE_CXX_WERROR AND NOT "$ENV{OPTREE_CXX_WERROR}" STREQUAL "")
-    set(OPTREE_CXX_WERROR "$ENV{OPTREE_CXX_WERROR}")
-endif()
-
+setdefault_ifndef(OPTREE_CXX_WERROR OFF)
 if(OPTREE_CXX_WERROR)
     message(
         AUTHOR_WARNING
@@ -121,9 +154,9 @@ if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug" AND NOT "${CMAKE_BUILD_TYPE}" STRE
     message(STATUS "CXX flags (${CMAKE_BUILD_TYPE}): \"${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}\"")
 endif()
 
-if (NOT DEFINED "CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER}")
+if(NOT DEFINED "CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER}")
     set("CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER}" "${CMAKE_BINARY_DIR}/lib")
-    endif()
+endif()
 message(STATUS "Library output directory (${CMAKE_BUILD_TYPE}): "
                "\"${CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER}}\"")
 
@@ -189,7 +222,7 @@ system(
 message(STATUS "Use Python version: ${Python_VERSION}")
 message(STATUS "Use Python executable: \"${Python_EXECUTABLE}\"")
 
-if (DEFINED Python_ROOT_DIR)
+if(DEFINED Python_ROOT_DIR)
     message(STATUS "Use Python_ROOT_DIR: \"${Python_ROOT_DIR}\"")
 endif()
 
@@ -205,19 +238,19 @@ if("${Python_INCLUDE_DIR}" STREQUAL "")
     message(FATAL_ERROR "Python include directory not found")
 else()
     message(STATUS "Detected Python include directory: \"${Python_INCLUDE_DIR}\"")
-    if (NOT EXISTS "${Python_INCLUDE_DIR}/Python.h")
+    if(NOT EXISTS "${Python_INCLUDE_DIR}/Python.h")
         message(WARNING "Python.h not found in \"${Python_INCLUDE_DIR}\"")
-        if (DEFINED Python_EXTRA_INCLUDE_DIRS)
+        if(DEFINED Python_EXTRA_INCLUDE_DIRS)
             message(STATUS "Looking for Python.h in Python_EXTRA_INCLUDE_DIRS: "
                            "\"${Python_EXTRA_INCLUDE_DIRS}\"")
             foreach(Python_EXTRA_INCLUDE_DIR IN LISTS Python_EXTRA_INCLUDE_DIRS)
-                if (EXISTS "${Python_EXTRA_INCLUDE_DIR}/Python.h")
+                if(EXISTS "${Python_EXTRA_INCLUDE_DIR}/Python.h")
                     set(Python_INCLUDE_DIR "${Python_EXTRA_INCLUDE_DIR}")
                     message(STATUS "Detected Python.h in \"${Python_INCLUDE_DIR}\"")
                     break()
                 endif()
             endforeach()
-            if (NOT EXISTS "${Python_INCLUDE_DIR}/Python.h")
+            if(NOT EXISTS "${Python_INCLUDE_DIR}/Python.h")
                 message(WARNING "Python.h not found in Python_EXTRA_INCLUDE_DIRS")
             endif()
         endif()
@@ -269,15 +302,11 @@ if("${pybind11_DIR}" STREQUAL "")
             BINARY_DIR "${THIRD_PARTY_DIR}/.cmake/pybind11/build"
             STAMP_DIR "${THIRD_PARTY_DIR}/.cmake/pybind11/stamp"
         )
-        FetchContent_GetProperties(pybind11)
-
-        if(NOT pybind11_POPULATED)
-            message(STATUS "Populating Git repository pybind11@${pybind11_VERSION} to third-party/pybind11...")
-            FetchContent_MakeAvailable(pybind11)
-        endif()
+        message(STATUS "Populating Git repository pybind11@${pybind11_VERSION} to third-party/pybind11...")
+        FetchContent_MakeAvailable(pybind11)
     endif()
 else()
-    message(STATUS "Detected Pybind11 CMake directory: \"${pybind11_DIR}\"")
+    message(STATUS "Detected pybind11 CMake directory: \"${pybind11_DIR}\"")
     list(PREPEND CMAKE_PREFIX_PATH "${pybind11_DIR}")
     find_package(pybind11 "${pybind11_MINIMUM_VERSION}" CONFIG REQUIRED)
 endif()
@@ -314,5 +343,5 @@ foreach(
     endif()
 endforeach()
 
-include_directories("${CMAKE_SOURCE_DIR}/include")
-add_subdirectory("${CMAKE_SOURCE_DIR}/src")
+include_directories("${PROJECT_SOURCE_DIR}/include")
+add_subdirectory("${PROJECT_SOURCE_DIR}/src")

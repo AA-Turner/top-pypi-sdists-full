@@ -552,6 +552,22 @@ def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, An
     }
 
 
+def _tool_result_data(it: dict[str, Any]) -> dict[str, Any] | None:
+    tool_call_id = it.get("tool_call_id")
+    if not isinstance(tool_call_id, str) or not tool_call_id:
+        return None
+
+    result: dict[str, Any] = {"toolCallId": tool_call_id}
+    content = it.get("content")
+    if content not in (None, ""):
+        result["content"] = content
+    for key in ("name", "status"):
+        value = it.get(key)
+        if isinstance(value, str) and value:
+            result[key] = value
+    return result
+
+
 def _lc_stream_items_to_a2a_message(
     items: list[dict[str, Any]],
     *,
@@ -604,6 +620,9 @@ def _lc_stream_items_to_a2a_message(
         tc = it.get("tool_calls")
         if isinstance(tc, list) and tc:
             extra_data.setdefault("tool_calls", tc)
+        tool_result = _tool_result_data(it)
+        if tool_result is not None:
+            extra_data.setdefault("tool_results", []).append(tool_result)
 
     parts: list[dict[str, Any]] = []
     if text_parts:
@@ -809,10 +828,21 @@ def _convert_messages_to_a2a_format(
                 else "ROLE_AGENT"
             )
 
+            parts: list[dict[str, Any]] = [{"kind": "text", "text": str(content)}]
+            extra_data: dict[str, Any] = {}
+            tc = msg.get("tool_calls")
+            if isinstance(tc, list) and tc:
+                extra_data["tool_calls"] = tc
+            tool_result = _tool_result_data(msg)
+            if tool_result is not None:
+                extra_data["tool_results"] = [tool_result]
+            if extra_data:
+                parts.append({"kind": "data", "data": extra_data})
+
             a2a_message = {
                 "kind": "message",
                 "role": a2a_role,
-                "parts": [{"kind": "text", "text": str(content)}],
+                "parts": parts,
                 "messageId": id,
                 "taskId": task_id,
                 "contextId": context_id,

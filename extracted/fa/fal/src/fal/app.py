@@ -33,7 +33,7 @@ from fal.container import ContainerImage
 from fal.exceptions import FalServerlessException, RequestCancelledException
 from fal.logging import get_logger
 from fal.realtime import realtime  # noqa: F401
-from fal.ref import set_current_app
+from fal.ref import get_current_app, set_current_app
 from fal.sdk import (
     ApplicationHealthCheckConfig,
     AuthModeLiteral,
@@ -46,6 +46,7 @@ from fal.toolkit.file.providers.fal import _LIFECYCLE_PREFERENCE
 REALTIME_APP_REQUIREMENTS = ["websockets", "msgpack"]
 REQUEST_ID_KEY = "x-fal-request-id"
 REQUEST_ENDPOINT_KEY = "x-fal-endpoint"
+CDN_TOKEN_KEY = "x-fal-cdn-token"
 DEFAULT_APP_FILES_IGNORE = [
     r"\.pyc$",
     r"__pycache__/",
@@ -511,7 +512,7 @@ class RequestContext:
     request_id: str | None
     endpoint: str | None
     lifecycle_preference: dict[str, str] | None
-    headers: fastapi.Header
+    headers: dict[str, str]
 
 
 class App(BaseServable):
@@ -814,6 +815,13 @@ class App(BaseServable):
             ),
         )
 
+        try:
+            import fal_client  # noqa: PLC0415
+
+            fal_client.set_get_current_app(get_current_app)
+        except (ImportError, AttributeError):
+            pass
+
         # We want to not do any directory changes for container apps,
         # since we don't have explicit checks to see the kind of app
         # We check for app_files here and check kind and app_files earlier
@@ -926,13 +934,23 @@ class App(BaseServable):
                 request_id=request.headers.get(REQUEST_ID_KEY),
                 endpoint=request.headers.get(REQUEST_ENDPOINT_KEY),
                 lifecycle_preference=request_lifecycle_preference(request),
-                headers=request.headers,
+                headers=dict(request.headers),
             )
 
             token = self._current_request_context.set(context)
             _LIFECYCLE_PREFERENCE.set(context.lifecycle_preference)
             try:
-                return await call_next(request)
+                initial_cdn_token = request.headers.get(CDN_TOKEN_KEY)
+                response: fastapi.responses.Response = await call_next(request)
+                new_cdn_token = context.headers.get(CDN_TOKEN_KEY)
+
+                # Forward the gateway's re-issued x-fal-cdn-token (extended
+                # with downstream request_ids from chained calls) back to the
+                # caller, so it can read artifacts produced deeper in the chain.
+                if new_cdn_token and new_cdn_token != initial_cdn_token:
+                    response.headers[CDN_TOKEN_KEY] = new_cdn_token
+
+                return response
             finally:
                 self._current_request_context.reset(token)
                 _LIFECYCLE_PREFERENCE.set(None)

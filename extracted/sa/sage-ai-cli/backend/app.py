@@ -14,6 +14,7 @@ This module provides the FastAPI backend with proper architectural patterns:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -700,7 +701,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("App state initialized")
 
+    # Start the central SMS bridge email poller (non-fatal if not configured)
+    from .sms_poller import run_imap_poller, BRIDGE_EMAIL
+    sms_task = None
+    if BRIDGE_EMAIL:
+        sms_task = asyncio.create_task(run_imap_poller())
+        logger.info("SMS bridge poller started for %s", BRIDGE_EMAIL)
+    else:
+        logger.info(
+            "SMS bridge disabled — set SAGE_BRIDGE_EMAIL and "
+            "SAGE_BRIDGE_APP_PASSWORD in Cloud Run env vars to enable"
+        )
+
     yield
+
+    # Cancel SMS poller
+    if sms_task and not sms_task.done():
+        sms_task.cancel()
+        try:
+            await sms_task
+        except (asyncio.CancelledError, Exception):
+            pass
 
     # Shutdown
     logger.info("Shutting down AI Platform API...")
@@ -764,8 +785,13 @@ def create_app() -> FastAPI:
     async def security_headers_middleware(request: Request, call_next):
         response = await call_next(request)
 
-        # Cross-origin isolation — SharedArrayBuffer (WebLLM browser AI)
-        response.headers["Cross-Origin-Opener-Policy"]   = "same-origin-allow-popups"
+        # Cross-origin isolation — required for SharedArrayBuffer / WebLLM.
+        # COOP must be exactly "same-origin" (not "same-origin-allow-popups")
+        # for the browser to set crossOriginIsolated = true.
+        # Firebase signInWithPopup still works because the auth callback
+        # (__/auth/handler) is served from the same origin, so window.opener
+        # is accessible from the same-origin redirect page inside the popup.
+        response.headers["Cross-Origin-Opener-Policy"]   = "same-origin"
         response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
 
         # Clickjacking protection
@@ -2214,6 +2240,47 @@ def billing_cancel(request: Request):
     return {"ok": True, "message": "Subscription cancelled. You will retain access until the end of the billing period."}
 
 
+@app.get("/account/providers")
+def account_get_providers(request: Request):
+    """Return the OAuth providers linked to this account (Google, Apple, etc.)."""
+    from firebase_admin import auth as fb_auth
+    identity = _require_auth(request)
+    try:
+        record = fb_auth.get_user(identity["uid"])
+        providers = [
+            {
+                "provider_id":   p.provider_id,
+                "email":         p.email or "",
+                "display_name":  p.display_name or "",
+                "photo_url":     p.photo_url or "",
+            }
+            for p in record.provider_data
+        ]
+    except Exception as exc:
+        logger.warning("get_providers failed: %s", exc)
+        providers = []
+    return {"ok": True, "providers": providers}
+
+
+@app.post("/account/sync-contacts")
+def account_sync_contacts(request: Request):
+    """Auto-register linked Google/Apple emails as authorized SMS contacts."""
+    from firebase_admin import auth as fb_auth
+    from .sms_manager import add_contact
+    identity = _require_auth(request)
+    try:
+        record = fb_auth.get_user(identity["uid"])
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    added = []
+    for p in record.provider_data:
+        if p.email and p.provider_id in ("google.com", "apple.com"):
+            name = "Google" if p.provider_id == "google.com" else "Apple"
+            add_contact(identity["uid"], p.email, f"{name} — {p.email}")
+            added.append({"email": p.email, "provider": name})
+    return {"ok": True, "added": added}
+
+
 @app.delete("/account")
 def account_delete(request: Request):
     """Delete the user's account and all data."""
@@ -2268,6 +2335,241 @@ async def auth_verify(request: Request):
     from .billing import ADMIN_EMAILS
     tier = "admin" if email in ADMIN_EMAILS else record.get("tier", "free")
     return {"ok": True, "uid": uid, "email": email, "tier": tier}
+
+
+# ── SMS Device & Contact Registry ─────────────────────────────────────────────
+# Each user manages their own computers and authorized phone contacts.
+# All endpoints require a valid SAGE Firebase auth token.
+
+@app.websocket("/ws/sms")
+async def sms_cli_websocket(websocket: WebSocket):
+    """
+    Persistent WebSocket for sage sms start.
+
+    Protocol:
+      CLI  → {"type":"auth","token":"<firebase>","computer_name":"macbook"}
+      SAGE → {"type":"ready","bridge_email":"message@sageworksai.com","display_email":"..."}
+      SAGE → {"type":"task","task_id":"uuid","task":"...","from":"user@icloud.com"}
+      CLI  → {"type":"result","task_id":"uuid","output":"..."}
+      CLI  → {"type":"heartbeat"}  (every 30s, keeps connection alive)
+    """
+    from .sms_poller import (
+        register_cli_session, unregister_cli_session,
+        resolve_task_result, BRIDGE_EMAIL, DISPLAY_EMAIL,
+    )
+    from .sms_manager import register_computer
+
+    await websocket.accept()
+    uid = None
+    computer_name = None
+
+    try:
+        # First message must be auth
+        auth_msg = await asyncio.wait_for(websocket.receive_json(), timeout=15)
+        if auth_msg.get("type") != "auth":
+            await websocket.close(code=4001, reason="First message must be auth")
+            return
+
+        token = auth_msg.get("token", "")
+        computer_name = auth_msg.get("computer_name", "").strip()
+        if not token or not computer_name:
+            await websocket.close(code=4002, reason="token and computer_name required")
+            return
+
+        try:
+            identity = _verify_firebase_token(token)
+        except Exception:
+            await websocket.close(code=4003, reason="Invalid auth token")
+            return
+
+        uid = identity["uid"]
+        ensure_user_record(uid, identity["email"])
+
+        # Register computer in Firestore (idempotent)
+        register_computer(uid, computer_name, BRIDGE_EMAIL or "")
+
+        # Register active WebSocket session for task dispatch
+        register_cli_session(uid, computer_name, websocket)
+
+        await websocket.send_json({
+            "type": "ready",
+            "bridge_email": BRIDGE_EMAIL,
+            "display_email": DISPLAY_EMAIL or BRIDGE_EMAIL,
+            "computer_name": computer_name,
+        })
+
+        # Message loop
+        while True:
+            msg = await websocket.receive_json()
+            msg_type = msg.get("type", "")
+
+            if msg_type == "result":
+                resolve_task_result(msg.get("task_id", ""), msg.get("output", ""))
+
+            elif msg_type == "heartbeat":
+                await websocket.send_json({"type": "pong"})
+
+    except Exception as exc:
+        logger.debug("SMS WS closed: %s", exc)
+    finally:
+        if uid and computer_name:
+            unregister_cli_session(uid, computer_name)
+
+
+@app.post("/sms/computers/register")
+async def sms_register_computer(request: Request):
+    """Register (or refresh) a computer for the authenticated user's SMS bridge."""
+    from .sms_manager import register_computer
+    identity = _require_auth(request)
+    body = await request.json()
+    computer_name = body.get("computer_name", "").strip()
+    if not computer_name:
+        raise HTTPException(status_code=400, detail="computer_name required")
+    # bridge_email is optional now — SAGE owns the bridge email
+    bridge_email = body.get("bridge_email", "").strip()
+    result = register_computer(identity["uid"], computer_name, bridge_email)
+    return {"ok": True, "computer": result}
+
+
+@app.post("/sms/computers/heartbeat")
+async def sms_computer_heartbeat(request: Request):
+    """Update last_seen for a running computer. Called every poll cycle by the bridge."""
+    from .sms_manager import heartbeat_computer
+    identity = _require_auth(request)
+    body = await request.json()
+    computer_name = body.get("computer_name", "").strip()
+    if not computer_name:
+        raise HTTPException(status_code=400, detail="computer_name required")
+    heartbeat_computer(identity["uid"], computer_name)
+    return {"ok": True}
+
+
+@app.get("/sms/computers")
+def sms_list_computers(request: Request):
+    """List all registered computers for the authenticated user."""
+    from .sms_manager import list_computers
+    identity = _require_auth(request)
+    computers = list_computers(identity["uid"])
+    return {"ok": True, "computers": computers}
+
+
+@app.delete("/sms/computers/{computer_id}")
+def sms_remove_computer(computer_id: str, request: Request):
+    """Remove a registered computer from the user's account."""
+    from .sms_manager import remove_computer
+    identity = _require_auth(request)
+    ok = remove_computer(identity["uid"], computer_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Computer not found")
+    return {"ok": True}
+
+
+@app.post("/sms/contacts")
+async def sms_add_contact(request: Request):
+    """Add an authorized contact — accepts an email address or a phone number."""
+    from .sms_manager import add_contact, _normalize_phone
+    identity = _require_auth(request)
+    body = await request.json()
+    raw   = body.get("email", "").strip()
+    label = body.get("label", "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="email or phone number required")
+    # Accept phone numbers (digits only) or valid email addresses
+    phone = _normalize_phone(raw)
+    if not phone and "@" not in raw:
+        raise HTTPException(status_code=400, detail="Provide a valid email or 10-digit phone number")
+    result = add_contact(identity["uid"], raw, label)
+    return {"ok": True, "contact": result}
+
+
+@app.get("/sms/contacts")
+def sms_list_contacts(request: Request):
+    """List all authorized phone contacts for the authenticated user."""
+    from .sms_manager import list_contacts
+    identity = _require_auth(request)
+    contacts = list_contacts(identity["uid"])
+    return {"ok": True, "contacts": contacts}
+
+
+@app.delete("/sms/contacts/{email}")
+def sms_remove_contact(email: str, request: Request):
+    """Remove an authorized contact email."""
+    from .sms_manager import remove_contact
+    from urllib.parse import unquote
+    identity = _require_auth(request)
+    decoded_email = unquote(email)
+    ok = remove_contact(identity["uid"], decoded_email)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return {"ok": True}
+
+
+@app.post("/sms/announce")
+async def sms_announce_online(request: Request):
+    """
+    Send an 'I'm online' message from the bridge computer to all registered contacts.
+    Called once by the CLI immediately after a successful WebSocket connection.
+    """
+    import asyncio
+    from .sms_manager import get_contact_emails
+    from .sms_poller import send_reply
+    identity = _require_auth(request)
+    body = await request.json()
+    computer_name = body.get("computer_name", "SAGE").strip() or "SAGE"
+    emails = get_contact_emails(identity["uid"])
+    if not emails:
+        return {"ok": True, "notified": 0}
+    msg = (
+        f"✅ [{computer_name}] SAGE is online and ready.\n"
+        f"Send me any task and I'll run it on your computer.\n"
+        f"Reply @help to see available commands."
+    )
+    loop = asyncio.get_event_loop()
+    for email in emails:
+        await loop.run_in_executor(None, send_reply, email, msg, computer_name)
+    return {"ok": True, "notified": len(emails)}
+
+
+@app.api_route("/__/auth/{path:path}", methods=["GET", "POST", "OPTIONS"])
+async def firebase_auth_proxy(path: str, request: Request):
+    """
+    Proxy Firebase's OAuth handler to the same origin so signInWithPopup works
+    with COOP: same-origin (required for crossOriginIsolated / WebLLM).
+
+    Without this, the popup opens at sage-ai-d1c22.firebaseapp.com/__/auth/handler
+    (a different origin). With COOP: same-origin, cross-origin popups cannot
+    access window.opener, so Firebase can't deliver the OAuth token back.
+
+    With this proxy the popup URL is sageworksai.com/__/auth/handler — same origin —
+    so window.opener works and both WebLLM and Google/Apple sign-in work together.
+    """
+    from fastapi.responses import Response as _Resp
+    firebase_project = os.environ.get("VITE_FIREBASE_PROJECT_ID", "sage-ai-d1c22")
+    target = f"https://{firebase_project}.firebaseapp.com/__/auth/{path}"
+    if request.query_params:
+        target += "?" + str(request.query_params)
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+            proxy_resp = await client.request(
+                method=request.method,
+                url=target,
+                headers={
+                    k: v for k, v in request.headers.items()
+                    if k.lower() not in ("host", "content-length", "transfer-encoding")
+                },
+                content=await request.body(),
+            )
+        # Strip hop-by-hop headers that can't be forwarded
+        skip = {"transfer-encoding", "content-encoding", "connection", "keep-alive"}
+        headers = {k: v for k, v in proxy_resp.headers.items() if k.lower() not in skip}
+        return _Resp(
+            content=proxy_resp.content,
+            status_code=proxy_resp.status_code,
+            headers=headers,
+        )
+    except Exception as exc:
+        logger.warning("Firebase auth proxy error for %s: %s", path, exc)
+        raise HTTPException(status_code=502, detail="Auth proxy unavailable")
 
 
 @app.get("/pricing")

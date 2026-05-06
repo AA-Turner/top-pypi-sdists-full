@@ -211,8 +211,8 @@ def get_org_orphaned_resources(
         )
 
     if users:
-        total = _users.query(ctx, **kwargs)["users"]
-        orgless = _users.query(ctx, orgless_users=True, **kwargs)["users"]
+        total = _users.query(ctx, **kwargs)
+        orgless = _users.query(ctx, orgless_users=True, **kwargs)
         result["users"] = orgless, total
 
     return result

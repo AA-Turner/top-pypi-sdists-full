@@ -115,6 +115,8 @@ class PLAID(Base):
 
     """
 
+    is_end_to_end_index = True
+
     def __init__(
         self,
         index_folder: str = "indexes",
@@ -216,11 +218,12 @@ class PLAID(Base):
         **kwargs,
     ) -> "PLAID":
         """Add documents to the index."""
-        return self._index.add_documents(
+        self._index.add_documents(
             documents_ids=documents_ids,
             documents_embeddings=documents_embeddings,
             **kwargs,
         )
+        return self
 
     def remove_documents(self, documents_ids: list[str]) -> "PLAID":
         """Remove documents from the index.

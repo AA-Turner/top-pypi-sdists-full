@@ -2096,9 +2096,11 @@ class Evals(_api_module.BaseModule):
         Args:
           src: The source of the dataset. Can be a string (path to a local file,
                 a GCS path, or a BigQuery table), a Pandas DataFrame, or an
-                EvaluationDataset object. If an Evalu
-                ationDataset is provided,
-                it must have `eval_dataset_df` populated.
+                EvaluationDataset object. An EvaluationDataset may have either
+                ``eval_dataset_df`` or ``eval_cases`` populated. When
+                ``eval_cases`` with ``agent_data`` is provided, the last user
+                event in the turns is used as the current prompt and prior
+                events are replayed as session history for local ADK agents.
           model: Optional type is experimental and may change in future versions.
                 The model to use for inference, optional for agent evaluations.
               - For Google Gemini models, provide the model name string (e.g., "gemini-2.5-flash").
@@ -2134,11 +2136,15 @@ class Evals(_api_module.BaseModule):
             config = types.EvalRunInferenceConfig.model_validate(config)
 
         if isinstance(src, types.EvaluationDataset):
-            if src.eval_dataset_df is None:
+            if src.eval_dataset_df is not None:
+                src = src.eval_dataset_df
+            elif src.eval_cases:
+                src = _evals_common._eval_cases_to_dataframe(src.eval_cases)
+            else:
                 raise ValueError(
-                    "EvaluationDataset must have eval_dataset_df populated."
+                    "EvaluationDataset must have eval_dataset_df or eval_cases"
+                    " populated."
                 )
-            src = src.eval_dataset_df
 
         agent_engine_instance = None
         agent_instance = None
@@ -2373,11 +2379,15 @@ class Evals(_api_module.BaseModule):
             {rubric_group_name: [list[Rubric]]}.
         """
         if isinstance(src, types.EvaluationDataset):
-            if src.eval_dataset_df is None:
+            if src.eval_dataset_df is not None:
+                prompts_df = src.eval_dataset_df
+            elif src.eval_cases:
+                prompts_df = _evals_common._eval_cases_to_dataframe(src.eval_cases)
+            else:
                 raise ValueError(
-                    "EvaluationDataset must have eval_dataset_df populated."
+                    "EvaluationDataset must have eval_dataset_df or eval_cases"
+                    " populated."
                 )
-            prompts_df = src.eval_dataset_df
         elif isinstance(src, (str, pd.DataFrame)):
             try:
                 prompts_df = _evals_common._load_dataframe(self._api_client, src)

@@ -31,7 +31,6 @@ def _get_kwargs(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -94,11 +93,6 @@ def _get_kwargs(
         json_user_uuid = str(user_uuid)
     params["user_uuid"] = json_user_uuid
 
-    json_uuid: Union[Unset, str] = UNSET
-    if not isinstance(uuid, Unset):
-        json_uuid = str(uuid)
-    params["uuid"] = json_uuid
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -154,7 +148,6 @@ def sync_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["SshKey"]]:
     """
     Args:
@@ -173,7 +166,6 @@ def sync_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -199,7 +191,6 @@ def sync_detailed(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid=uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -227,7 +218,6 @@ def sync(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["SshKey"]:
     """
     Args:
@@ -246,7 +236,6 @@ def sync(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -273,7 +262,6 @@ def sync(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid=uuid,
     ).parsed
 
 
@@ -295,7 +283,6 @@ async def asyncio_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["SshKey"]]:
     """
     Args:
@@ -314,7 +301,6 @@ async def asyncio_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -340,7 +326,6 @@ async def asyncio_detailed(
         page=page,
         page_size=page_size,
         user_uuid=user_uuid,
-        uuid=uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -366,7 +351,6 @@ async def asyncio(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["SshKey"]:
     """
     Args:
@@ -385,7 +369,6 @@ async def asyncio(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -413,7 +396,6 @@ async def asyncio(
             page=page,
             page_size=page_size,
             user_uuid=user_uuid,
-            uuid=uuid,
         )
     ).parsed
 
@@ -434,7 +416,6 @@ def sync_all(
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["SshKey"]:
     """Get All Pages
 
@@ -457,7 +438,6 @@ def sync_all(
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -485,7 +465,6 @@ def sync_all(
         name_exact=name_exact,
         o=o,
         user_uuid=user_uuid,
-        uuid=uuid,
     )
 
     # Set page_size to maximum
@@ -546,7 +525,6 @@ async def asyncio_all(
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["SshKey"]:
     """Get All Pages (Async)
 
@@ -569,7 +547,6 @@ async def asyncio_all(
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
         user_uuid (Union[Unset, UUID]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -597,7 +574,6 @@ async def asyncio_all(
         name_exact=name_exact,
         o=o,
         user_uuid=user_uuid,
-        uuid=uuid,
     )
 
     # Set page_size to maximum

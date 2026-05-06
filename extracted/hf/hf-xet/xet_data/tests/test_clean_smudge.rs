@@ -1,4 +1,5 @@
 use xet_data::deduplication::constants::{MAX_XORB_BYTES, MAX_XORB_CHUNKS, TARGET_CHUNK_SIZE};
+#[cfg(all(test, not(feature = "smoke-test")))]
 use xet_data::processing::test_utils::*;
 use xet_runtime::test_set_constants;
 
@@ -10,18 +11,26 @@ test_set_constants! {
     MAX_XORB_CHUNKS = 8;
 }
 
-/// Runs clean/smudge test with all combinations of (use_test_server, sequential).
+/// Runs clean/smudge test with all combinations of (hydration_mode, sequential).
 /// Each combination runs sequentially with its own HydrateDehydrateTest instance to avoid
 /// too many open files.
+///
+/// This exercises every hydration path for every test case:
+/// - DirectClient: LocalClient without a server
+/// - ServerV2: LocalTestServer with default V2 reconstruction
+/// - ServerV1Fallback: LocalTestServer with V2 disabled (tests V1-to-V2 conversion)
+/// - ServerMaxRanges2: LocalTestServer with max_ranges_per_fetch=2 (tests fetch splitting)
+#[cfg(all(test, not(feature = "smoke-test")))]
 pub async fn check_clean_smudge_files(file_list: &[(impl AsRef<str> + Clone, usize)]) {
-    for use_server in [false, true] {
+    for &mode in HydrationMode::all() {
         for sequential in [true, false] {
-            eprintln!("Testing use_test_server={use_server}, sequential={sequential}");
+            eprintln!("Testing mode={mode}, sequential={sequential}");
 
-            let mut ts = HydrateDehydrateTest::new(use_server);
+            let mut ts = HydrateDehydrateTest::for_mode(mode);
             create_random_files(&ts.src_dir, file_list, 0);
 
             ts.dehydrate(sequential).await;
+            ts.apply_hydration_mode(mode).await;
             ts.hydrate().await;
             ts.verify_src_dest_match();
             ts.hydrate_partitioned_writers(4).await;
@@ -35,18 +44,22 @@ pub async fn check_clean_smudge_files(file_list: &[(impl AsRef<str> + Clone, usi
 /// Helper for multipart tests:
 ///  - takes a slice of `(String, Vec<(u64, u64)>)` which fully specifies each file.
 ///  - for each file, calls `create_random_multipart_file` with the given segments.
+///
+/// Exercises all hydration modes just like `check_clean_smudge_files`.
+#[cfg(all(test, not(feature = "smoke-test")))]
 async fn check_clean_smudge_files_multipart(file_specs: &[(String, Vec<(usize, u64)>)]) {
-    for use_server in [false, true] {
+    for &mode in HydrationMode::all() {
         for sequential in [true, false] {
-            eprintln!("Testing use_test_server={use_server}, sequential={sequential}");
+            eprintln!("Testing mode={mode}, sequential={sequential}");
 
-            let mut ts = HydrateDehydrateTest::new(use_server);
+            let mut ts = HydrateDehydrateTest::for_mode(mode);
 
             for (file_name, segments) in file_specs {
                 create_random_multipart_file(ts.src_dir.join(file_name), segments);
             }
 
             ts.dehydrate(sequential).await;
+            ts.apply_hydration_mode(mode).await;
             ts.hydrate().await;
             ts.verify_src_dest_match();
             ts.hydrate_partitioned_writers(4).await;
@@ -57,7 +70,7 @@ async fn check_clean_smudge_files_multipart(file_specs: &[(String, Vec<(usize, u
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "smoke-test")))]
 mod testing_clean_smudge {
     use super::*;
 

@@ -15,7 +15,6 @@
 
 import importlib
 import os
-
 from unittest import mock
 
 from google import auth
@@ -23,9 +22,11 @@ from google.auth import credentials as auth_credentials
 from google.cloud import aiplatform
 import vertexai
 from google.cloud.aiplatform import initializer
+from vertexai._genai import sandboxes
 from google.genai import client
 from google.genai import types as genai_types
 import pytest
+
 
 _TEST_CREDENTIALS = mock.Mock(spec=auth_credentials.AnonymousCredentials())
 _TEST_LOCATION = "us-central1"
@@ -73,8 +74,11 @@ class TestSandbox:
     @mock.patch.object(client.Client, "_get_api_client")
     def test_send_command(self, mock_get_api_client):
         mock_sandbox = mock.Mock()
-        mock_sandbox.connection_info.load_balancer_ip = "127.0.0.1"
-        mock_sandbox.connection_info.load_balancer_hostname = None
+        mock_sandbox.connection_info.load_balancer_ip = None
+        mock_sandbox.connection_info.load_balancer_hostname = (
+            "test-us-central1.sandbox.vertexai.goog"
+        )
+        mock_sandbox.connection_info.routing_token = "test_routing_token"
         mock_http_client = mock_get_api_client.return_value
         mock_http_client.request.return_value = genai_types.HttpResponse(
             body=b"{}", headers={}
@@ -91,7 +95,39 @@ class TestSandbox:
         assert call_args is not None
         _, kwargs = call_args
         http_options = kwargs["http_options"]
-        assert http_options.base_url == "http://127.0.0.1/test/path"
+        assert http_options.base_url == (
+            "https://test-us-central1.sandbox.vertexai.goog/test/path"
+        )
         assert http_options.headers["Authorization"] == "Bearer test_token"
 
         mock_http_client.request.assert_called_with("GET", "test/path", {})
+
+    @mock.patch.object(sandboxes.Sandboxes, "generate_access_token")
+    @mock.patch.object(client.Client, "_get_api_client")
+    def test_generate_browser_ws_headers(
+        self, mock_get_api_client, mock_generate_access_token
+    ):
+        mock_generate_access_token.return_value = "test_token"
+
+        mock_sandbox = mock.Mock()
+        mock_sandbox.connection_info.load_balancer_ip = None
+        mock_sandbox.connection_info.load_balancer_hostname = (
+            "test-us-central1.sandbox.vertexai.goog"
+        )
+        mock_sandbox.connection_info.routing_token = "test_routing_token"
+        mock_http_client = mock_get_api_client.return_value
+        mock_http_client.request.return_value = genai_types.HttpResponse(
+            body=b'{"endpoint": "test/endpoint"}', headers={}
+        )
+        ws_url, headers = (
+            self.client.agent_engines.sandboxes.generate_browser_ws_headers(
+                sandbox_environment=mock_sandbox,
+                service_account_email=_TEST_SERVICE_ACCOUNT_EMAIL,
+                timeout=3600,
+            )
+        )
+        assert ws_url == "wss://test-us-central1.sandbox.vertexai.goog/test/endpoint"
+        assert (
+            headers["Sec-WebSocket-Protocol"]
+            == "v1.stream, test_token, test_routing_token, 9222"
+        )

@@ -625,6 +625,7 @@ class Result:
             logger.info('--- The stderr log is printed below: ---')
             yield ('stderr', self.get_stderr())
             logger.info(f'--- The job {self.id} has already completed. Its output was printed above. ---')
+            self.wait()  # Ensure backend has marked the job as ended before returning
             return
 
         compute_node_url = cloud_job['compute_node_url']

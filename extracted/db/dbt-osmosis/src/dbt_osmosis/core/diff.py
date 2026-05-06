@@ -234,7 +234,7 @@ class SchemaDiff:
         """
         self._context = context
         self._fuzzy_match_threshold = fuzzy_match_threshold
-        self._detect_column_renames = detect_column_renames  # type: ignore[assignment]
+        self._rename_detection_enabled = detect_column_renames
 
     def compare_node(self, node: ResultNode) -> SchemaDiffResult:
         """Compare a single node's YAML schema with database schema.
@@ -303,11 +303,12 @@ class SchemaDiff:
             )
 
         # Detect column renames via fuzzy matching
-        if self._detect_column_renames and added_columns and removed_columns:
-            renames = self._detect_column_renames(  # pyright: ignore[reportArgumentType]
+        if self._rename_detection_enabled and added_columns and removed_columns:
+            renames = self._detect_column_renames(
                 list(removed_columns),
                 list(added_columns),
                 database_columns,
+                node,
             )
             # Replace added/removed with rename if we found a match
             changes = [
@@ -339,8 +340,15 @@ class SchemaDiff:
             )
             db_col = database_columns[col_name]
 
-            if yaml_col and db_col and yaml_col.data_type != db_col.type:
-                severity = self._classify_type_change(yaml_col.data_type or "unknown", db_col.type)
+            if yaml_col and db_col:
+                old_type = yaml_col.data_type or "unknown"
+                new_type = db_col.type
+                if self._normalize_comparable_type(old_type) == self._normalize_comparable_type(
+                    new_type
+                ):
+                    continue
+
+                severity = self._classify_type_change(old_type, new_type)
                 changes.append(
                     ColumnTypeChanged(
                         category=ChangeCategory.TYPE_CHANGED,
@@ -348,8 +356,8 @@ class SchemaDiff:
                         node=node,
                         description="",
                         column_name=col_name,
-                        old_type=yaml_col.data_type or "unknown",
-                        new_type=db_col.type,
+                        old_type=old_type,
+                        new_type=new_type,
                     )
                 )
 
@@ -390,6 +398,7 @@ class SchemaDiff:
         removed: list[str],
         added: list[str],
         database_columns: dict[str, ColumnMetadata],
+        node: ResultNode,
     ) -> list[ColumnRenamed]:
         """Detect column renames using fuzzy string matching.
 
@@ -397,18 +406,19 @@ class SchemaDiff:
             removed: Column names in YAML but not in database
             added: Column names in database but not in YAML
             database_columns: Database column metadata for type info
+            node: The dbt node being compared
 
         Returns:
             List of ColumnRenamed changes
         """
         renames: list[ColumnRenamed] = []
-        matched_added: set[str] = set()
+        available_added = sorted(added)
 
-        for old_name in removed:
+        for old_name in sorted(removed):
             # Use fuzzy matching to find potential rename
             match = process.extractOne(
                 old_name,
-                added,
+                available_added,
                 scorer=fuzz.WRatio,
                 score_cutoff=int(self._fuzzy_match_threshold),
             )
@@ -416,15 +426,14 @@ class SchemaDiff:
             if match and match[1] >= self._fuzzy_match_threshold:
                 new_name = match[0]
                 similarity = match[1]
-                matched_added.add(new_name)
 
                 renames.append(
                     ColumnRenamed(
                         category=ChangeCategory.COLUMN_RENAMED,
                         severity=ChangeSeverity.SAFE,
-                        node=self._context.current_node
-                        if hasattr(self._context, "current_node")
-                        else next(iter(self._context.manifest.nodes.values())),  # type: ignore
+                        # compare_node already knows the affected node; relying on
+                        # mutable context state here can misattribute or crash renames.
+                        node=node,
                         description="",
                         old_name=old_name,
                         new_name=new_name,
@@ -432,8 +441,14 @@ class SchemaDiff:
                         data_type=database_columns[new_name].type,
                     )
                 )
+                available_added.remove(new_name)
 
         return renames
+
+    @staticmethod
+    def _normalize_comparable_type(data_type: str) -> str:
+        """Normalize a data type string only for conservative equality checks."""
+        return "".join(data_type.lower().split())
 
     def _classify_type_change(self, old_type: str, new_type: str) -> ChangeSeverity:
         """Classify the severity of a data type change.
@@ -446,8 +461,8 @@ class SchemaDiff:
             ChangeSeverity classification
         """
         # Normalize types for comparison
-        old_norm = old_type.lower().replace(" ", "")
-        new_norm = new_type.lower().replace(" ", "")
+        old_norm = self._normalize_comparable_type(old_type)
+        new_norm = self._normalize_comparable_type(new_type)
 
         # Same type = safe
         if old_norm == new_norm:

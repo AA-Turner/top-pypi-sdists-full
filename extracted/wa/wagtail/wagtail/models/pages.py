@@ -54,6 +54,7 @@ from wagtail.coreutils import (
 )
 from wagtail.fields import StreamField
 from wagtail.log_actions import log
+from wagtail.log_actions import registry as log_registry
 from wagtail.query import PageQuerySet
 from wagtail.search import index
 from wagtail.signals import (
@@ -1037,14 +1038,24 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
         )
         if log_action:
             if not previous_revision:
+                action = log_action if isinstance(log_action, str) else "wagtail.edit"
+                uuid = None
+                if overwrite_revision:
+                    # When overwriting a revision, use the same uuid for all
+                    # edit log entries, so we can group them as one entry and
+                    # avoid the history view becoming too noisy.
+                    logs = log_registry.get_logs_for_instance(self)
+                    uuid = logs.latest_uuid_for_user_revision_action(
+                        user, overwrite_revision, action
+                    )
+
                 log(
                     instance=self,
-                    action=log_action
-                    if isinstance(log_action, str)
-                    else "wagtail.edit",
+                    action=action,
                     user=user,
                     revision=revision,
                     content_changed=changed,
+                    uuid=uuid,
                 )
             else:
                 log(
@@ -1638,7 +1649,18 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
         if not parent_is_root and parent.locale_id != self.locale_id:
             return False
 
-        return self.can_exist_under(parent)
+        # Must be able to exist under parent
+        if not self.can_exist_under(parent):
+            return False
+
+        # If the page has a max_count_per_parent, check for a page of this type under the destination
+        if self.max_count_per_parent is not None:
+            return (
+                parent.get_children().type(self.specific_class).not_page(self).count()
+                < self.max_count_per_parent
+            )
+
+        return True
 
     @classmethod
     def get_verbose_name(cls):
@@ -2183,8 +2205,16 @@ class PagePermissionTester:
     def can_add_subpage(self):
         if not self.user.is_active:
             return False
+
         specific_class = self.page.specific_class
-        if specific_class is None or not specific_class.creatable_subpage_models():
+        if specific_class is None:
+            return False
+
+        creatable_subpage_models = specific_class.creatable_subpage_models()
+        if not any(
+            subpage_model.can_create_at(self.page)
+            for subpage_model in creatable_subpage_models
+        ):
             return False
         return self.user.is_superuser or ("add" in self.permissions)
 
@@ -2351,7 +2381,7 @@ class PagePermissionTester:
         return self.can_delete(ignore_bulk=True)
 
     def can_copy(self):
-        return not self.page_is_root
+        return self.can_edit()
 
     def can_move_to(self, destination):
         # reject the logically impossible cases first
@@ -2398,6 +2428,9 @@ class PagePermissionTester:
             return True
 
     def can_copy_to(self, destination, recursive=False):
+        if not self.can_copy():
+            return False
+
         # reject the logically impossible cases first
         # recursive can't copy to the same tree otherwise it will be on infinite loop
         if recursive and (
@@ -2420,14 +2453,7 @@ class PagePermissionTester:
         # Inspect permissions on the destination
         destination_perms = destination.permissions_for_user(self.user)
 
-        if not destination.specific_class.creatable_subpage_models():
-            return False
-
-        # we always need at least add permission in the target
-        if "add" not in destination_perms.permissions:
-            return False
-
-        return True
+        return destination_perms.can_add_subpage()
 
     def can_view_revisions(self):
         return not self.page_is_root
@@ -2602,7 +2628,7 @@ class PageLogEntry(BaseLogEntry):
 
     objects = PageLogEntryManager()
 
-    class Meta:
+    class Meta(BaseLogEntry.Meta):
         ordering = ["-timestamp", "-id"]
         verbose_name = _("page log entry")
         verbose_name_plural = _("page log entries")

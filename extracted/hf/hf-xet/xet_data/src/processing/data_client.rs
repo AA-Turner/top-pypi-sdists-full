@@ -1,276 +1,51 @@
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use bytes::Bytes;
 use http::header::HeaderMap;
-use itertools::multizip;
-use tracing::{Instrument, Span, info, info_span, instrument};
-use ulid::Ulid;
+use tracing::{Instrument, Span, info_span, instrument};
+use uuid::Uuid;
 use xet_client::cas_client::auth::{AuthConfig, TokenRefresher};
-use xet_client::cas_client::remote_client::PREFIX_DEFAULT;
 use xet_core_structures::merklehash::MerkleHash;
-use xet_core_structures::xorb_object::CompressionScheme;
+use xet_runtime::core::XetContext;
 use xet_runtime::core::par_utils::run_constrained_with_semaphore;
-use xet_runtime::core::{XetRuntime, check_sigint_shutdown, xet_cache_root, xet_config};
 
-use super::configurations::*;
-use super::errors::DataProcessingError;
+use super::configurations::{SessionContext, TranslatorConfig};
 use super::file_cleaner::Sha256Policy;
-use super::file_download_session::FileDownloadSession;
-use super::{FileUploadSession, XetFileInfo, errors};
+use super::{FileUploadSession, XetFileInfo};
 use crate::deduplication::{Chunker, DeduplicationMetrics};
-use crate::progress_tracking::TrackingProgressUpdater;
+use crate::error::Result;
 
 pub fn default_config(
+    ctx: &XetContext,
     endpoint: String,
-    xorb_compression: Option<CompressionScheme>,
     token_info: Option<(String, u64)>,
     token_refresher: Option<Arc<dyn TokenRefresher>>,
     custom_headers: Option<Arc<HeaderMap>>,
-) -> errors::Result<TranslatorConfig> {
-    // Intercept local:// to run a simulated CAS server in a specified directory.
-    // This is useful for testing and development.
-    if endpoint.starts_with("local://") {
-        let local_path = endpoint.strip_prefix("local://").unwrap();
-        let local_path = PathBuf::from(local_path);
-        std::fs::create_dir_all(&local_path)?;
-        return TranslatorConfig::local_config(local_path);
-    }
-
-    let cache_root_path = xet_cache_root();
-    info!("Using cache path {cache_root_path:?}.");
-
+) -> Result<TranslatorConfig> {
     let (token, token_expiration) = token_info.unzip();
     let auth_cfg = AuthConfig::maybe_new(token, token_expiration, token_refresher);
 
-    // Calculate a fingerprint of the current endpoint to make sure caches stay separated.
-    let endpoint_tag = {
-        let endpoint_prefix = endpoint
-            .chars()
-            .take(16)
-            .map(|c| if c.is_alphanumeric() { c } else { '_' })
-            .collect::<String>();
-
-        // If more gets added
-        let endpoint_hash = xet_core_structures::merklehash::compute_data_hash(endpoint.as_bytes()).base64();
-
-        format!("{endpoint_prefix}-{}", &endpoint_hash[..16])
+    let session = SessionContext {
+        endpoint,
+        auth: auth_cfg,
+        custom_headers,
+        repo_paths: vec!["".into()],
+        session_id: Some(Uuid::now_v7().to_string()),
     };
 
-    let cache_path = cache_root_path.join(endpoint_tag);
-    std::fs::create_dir_all(&cache_path)?;
-
-    let staging_root = cache_path.join("staging");
-    std::fs::create_dir_all(&staging_root)?;
-
-    let translator_config = TranslatorConfig {
-        data_config: DataConfig {
-            endpoint: Endpoint::Server(endpoint.clone()),
-            compression: xorb_compression,
-            auth: auth_cfg.clone(),
-            prefix: PREFIX_DEFAULT.into(),
-            staging_directory: None,
-            custom_headers,
-        },
-        shard_config: ShardConfig {
-            prefix: PREFIX_DEFAULT.into(),
-            cache_directory: cache_path.join("shard-cache"),
-            session_directory: staging_root.join("shard-session"),
-            global_dedup_policy: Default::default(),
-        },
-        repo_info: Some(RepoInfo {
-            repo_paths: vec!["".into()],
-        }),
-        session_id: Some(Ulid::new().to_string()),
-        progress_config: ProgressConfig { aggregate: true },
-    };
-
-    // Return the temp dir so that it's not dropped and thus the directory deleted.
-    Ok(translator_config)
-}
-
-#[instrument(skip_all, name = "data_client::upload_bytes", fields(session_id = tracing::field::Empty, num_files=file_contents.len()))]
-pub async fn upload_bytes_async(
-    file_contents: Vec<Vec<u8>>,
-    sha256_policies: Vec<Sha256Policy>,
-    endpoint: Option<String>,
-    token_info: Option<(String, u64)>,
-    token_refresher: Option<Arc<dyn TokenRefresher>>,
-    progress_updater: Option<Arc<dyn TrackingProgressUpdater>>,
-    custom_headers: Option<Arc<HeaderMap>>,
-) -> errors::Result<Vec<XetFileInfo>> {
-    if sha256_policies.len() != file_contents.len() {
-        return Err(DataProcessingError::ParameterError(format!(
-            "sha256_policies length ({}) must match file_contents length ({})",
-            sha256_policies.len(),
-            file_contents.len()
-        )));
-    }
-
-    let config = default_config(
-        endpoint.unwrap_or_else(|| xet_config().data.default_cas_endpoint.clone()),
-        None,
-        token_info,
-        token_refresher,
-        custom_headers,
-    )?;
-
-    Span::current().record("session_id", &config.session_id);
-
-    let semaphore = XetRuntime::current().common().file_ingestion_semaphore.clone();
-    let upload_session = FileUploadSession::new(config.into(), progress_updater).await?;
-    let clean_futures = file_contents.into_iter().zip(sha256_policies).map(|(blob, policy)| {
-        let upload_session = upload_session.clone();
-        async move { clean_bytes(upload_session, blob, None, policy).await.map(|(xf, _metrics)| xf) }
-            .instrument(info_span!("clean_task"))
-    });
-    let files = run_constrained_with_semaphore(clean_futures, semaphore).await?;
-
-    // Push the CAS blocks and flush the mdb to disk
-    let _metrics = upload_session.finalize().await?;
-
-    Ok(files)
-}
-
-// The sha256, if provided and valid, will be directly used in shard upload to avoid redundant computation.
-#[instrument(skip_all, name = "data_client::upload_files",
-    fields(session_id = tracing::field::Empty,
-    num_files=file_paths.len(),
-    new_bytes = tracing::field::Empty,
-    deduped_bytes = tracing::field::Empty,
-    defrag_prevented_dedup_bytes = tracing::field::Empty,
-    new_chunks = tracing::field::Empty,
-    deduped_chunks = tracing::field::Empty,
-    defrag_prevented_dedup_chunks = tracing::field::Empty
-    ))]
-pub async fn upload_async(
-    file_paths: Vec<String>,
-    sha256_policies: Vec<Sha256Policy>,
-    endpoint: Option<String>,
-    token_info: Option<(String, u64)>,
-    token_refresher: Option<Arc<dyn TokenRefresher>>,
-    progress_updater: Option<Arc<dyn TrackingProgressUpdater>>,
-    custom_headers: Option<Arc<HeaderMap>>,
-) -> errors::Result<Vec<XetFileInfo>> {
-    if sha256_policies.len() != file_paths.len() {
-        return Err(DataProcessingError::ParameterError(format!(
-            "sha256_policies length ({}) must match file_paths length ({})",
-            sha256_policies.len(),
-            file_paths.len()
-        )));
-    }
-
-    // chunk files
-    // produce Xorbs + Shards
-    // upload shards and xorbs
-    // for each file, return the filehash
-    let config = default_config(
-        endpoint.unwrap_or_else(|| xet_config().data.default_cas_endpoint.clone()),
-        None,
-        token_info,
-        token_refresher,
-        custom_headers,
-    )?;
-
-    let span = Span::current();
-
-    span.record("session_id", &config.session_id);
-
-    let upload_session = FileUploadSession::new(config.into(), progress_updater).await?;
-
-    let files_sha256_and_tracking_ids =
-        multizip((file_paths.into_iter(), sha256_policies.into_iter(), std::iter::repeat_with(Ulid::new)));
-
-    let ret = upload_session.upload_files(files_sha256_and_tracking_ids).await?;
-
-    // Push the CAS blocks and flush the mdb to disk
-    let metrics = upload_session.finalize().await?;
-
-    // Record dedup metrics.
-    span.record("new_bytes", metrics.new_bytes);
-    span.record("deduped_bytes", metrics.deduped_bytes);
-    span.record("defrag_prevented_dedup_bytes", metrics.defrag_prevented_dedup_bytes);
-    span.record("new_chunks", metrics.new_chunks);
-    span.record("deduped_chunks", metrics.deduped_chunks);
-    span.record("defrag_prevented_dedup_chunks", metrics.defrag_prevented_dedup_chunks);
-
-    Ok(ret)
-}
-
-#[instrument(skip_all, name = "data_client::download", fields(session_id = tracing::field::Empty, num_files=file_infos.len()))]
-pub async fn download_async(
-    file_infos: Vec<(XetFileInfo, String)>,
-    endpoint: Option<String>,
-    token_info: Option<(String, u64)>,
-    token_refresher: Option<Arc<dyn TokenRefresher>>,
-    progress_updaters: Option<Vec<Arc<dyn TrackingProgressUpdater>>>,
-    custom_headers: Option<Arc<HeaderMap>>,
-) -> errors::Result<Vec<String>> {
-    if let Some(updaters) = &progress_updaters
-        && updaters.len() != file_infos.len()
-    {
-        return Err(DataProcessingError::ParameterError("updaters are not same length as pointer_files".to_string()));
-    }
-    let config: Arc<TranslatorConfig> = default_config(
-        endpoint.unwrap_or_else(|| xet_config().data.default_cas_endpoint.clone()),
-        None,
-        token_info,
-        token_refresher,
-        custom_headers,
-    )?
-    .into();
-
-    Span::current().record("session_id", &config.session_id);
-
-    let updaters = match progress_updaters {
-        None => vec![None; file_infos.len()],
-        Some(updaters) => updaters.into_iter().map(Some).collect(),
-    };
-
-    let session = FileDownloadSession::new(config, None).await?;
-
-    let mut tasks = Vec::with_capacity(file_infos.len());
-
-    for ((file_info, file_path), updater) in file_infos.into_iter().zip(updaters) {
-        let session = session.clone();
-        tasks.push(tokio::spawn(
-            async move {
-                let semaphore = XetRuntime::current().common().file_download_semaphore.clone();
-                let _permit = semaphore.acquire().await?;
-
-                let path = PathBuf::from(&file_path);
-                match updater {
-                    Some(u) => session.download_file_with_updater(&file_info, &path, u).await?,
-                    None => session.download_file(&file_info, &path, Ulid::new()).await?,
-                };
-                errors::Result::Ok(file_path)
-            }
-            .instrument(info_span!("download_file")),
-        ));
-    }
-
-    let mut paths = Vec::with_capacity(tasks.len());
-    for task in tasks {
-        paths.push(task.await??);
-    }
-
-    Ok(paths)
+    TranslatorConfig::new(ctx, session)
 }
 
 #[instrument(skip_all, name = "clean_bytes", fields(bytes.len = bytes.len()))]
 pub async fn clean_bytes(
     processor: Arc<FileUploadSession>,
     bytes: Vec<u8>,
-    tracking_id: Option<Ulid>,
     sha256_policy: Sha256Policy,
-) -> errors::Result<(XetFileInfo, DeduplicationMetrics)> {
-    #[allow(clippy::unwrap_or_default)] // Ulid::default is Ulid::nil
-    let tracking_id = tracking_id.unwrap_or_else(Ulid::new);
-    let mut handle = processor
-        .start_clean(None, bytes.len() as u64, sha256_policy, tracking_id)
-        .await;
+) -> Result<(XetFileInfo, DeduplicationMetrics)> {
+    let (_id, mut handle) = processor.start_clean(None, Some(bytes.len() as u64), sha256_policy)?;
     handle.add_data(&bytes).await?;
     handle.finish().await
 }
@@ -280,21 +55,17 @@ pub async fn clean_file(
     processor: Arc<FileUploadSession>,
     filename: impl AsRef<Path>,
     sha256_policy: Sha256Policy,
-    tracking_id: Option<Ulid>,
-) -> errors::Result<(XetFileInfo, DeduplicationMetrics)> {
-    #[allow(clippy::unwrap_or_default)] // Ulid::default is Ulid::nil
-    let tracking_id = tracking_id.unwrap_or_else(Ulid::new);
+) -> Result<(XetFileInfo, DeduplicationMetrics)> {
     let mut reader = File::open(&filename)?;
 
     let filesize = reader.metadata()?.len();
     let span = Span::current();
     span.record("file.name", filename.as_ref().to_str());
     span.record("file.len", filesize);
-    let mut buffer = vec![0u8; u64::min(filesize, *xet_config().data.ingestion_block_size) as usize];
+    let mut buffer = vec![0u8; u64::min(filesize, *processor.ctx.config.data.ingestion_block_size) as usize];
 
-    let mut handle = processor
-        .start_clean(Some(filename.as_ref().to_string_lossy().into()), filesize, sha256_policy, tracking_id)
-        .await;
+    let (_id, mut handle) =
+        processor.start_clean(Some(filename.as_ref().to_string_lossy().into()), Some(filesize), sha256_policy)?;
 
     loop {
         let bytes = reader.read(&mut buffer)?;
@@ -329,7 +100,7 @@ pub async fn clean_file(
 /// - Verify that downloaded files are correctly reassembled
 /// - Check if a file needs to be uploaded (by comparing hashes)
 /// - Generate cache keys for local file operations
-fn hash_single_file(filename: String, buffer_size: usize) -> errors::Result<XetFileInfo> {
+fn hash_single_file(ctx: XetContext, filename: String, buffer_size: usize) -> Result<XetFileInfo> {
     let mut reader = File::open(&filename)?;
     let filesize = reader.metadata()?.len();
 
@@ -338,7 +109,7 @@ fn hash_single_file(filename: String, buffer_size: usize) -> errors::Result<XetF
     let mut chunk_hashes: Vec<(MerkleHash, u64)> = Vec::new();
 
     loop {
-        check_sigint_shutdown()?;
+        ctx.check_sigint_shutdown()?;
 
         let bytes_read = reader.read(&mut buffer)?;
         if bytes_read == 0 {
@@ -388,15 +159,17 @@ fn hash_single_file(filename: String, buffer_size: usize) -> errors::Result<XetF
 /// - No authentication or server connection required
 /// - Pure local computation
 #[instrument(skip_all, name = "data_client::hash_files", fields(num_files=file_paths.len()))]
-pub async fn hash_files_async(file_paths: Vec<String>) -> errors::Result<Vec<XetFileInfo>> {
-    let rt = XetRuntime::current();
-    let semaphore = rt.common().file_ingestion_semaphore.clone();
-    let buffer_size = *xet_config().data.ingestion_block_size as usize;
+pub async fn hash_files_async(ctx: &XetContext, file_paths: Vec<String>) -> Result<Vec<XetFileInfo>> {
+    let runtime = ctx.runtime.clone();
+    let semaphore = ctx.common.file_ingestion_semaphore.clone();
+    let buffer_size = *ctx.config.data.ingestion_block_size as usize;
 
     let hash_futures = file_paths.into_iter().map(|file_path| {
-        let rt = rt.clone();
+        let runtime = runtime.clone();
+        let ctx = ctx.clone();
         async move {
-            rt.spawn_blocking(move || hash_single_file(file_path, buffer_size))
+            runtime
+                .spawn_blocking(move || hash_single_file(ctx, file_path, buffer_size))
                 .await
                 .map_err(|e| std::io::Error::other(e.to_string()))?
         }
@@ -413,6 +186,7 @@ mod tests {
     use dirs::home_dir;
     use serial_test::serial;
     use tempfile::tempdir;
+    use xet_runtime::core::XetContext;
     use xet_runtime::utils::EnvVarGuard;
 
     use super::*;
@@ -424,11 +198,12 @@ mod tests {
         let _hf_home_guard = EnvVarGuard::set("HF_HOME", temp_dir.path().to_str().unwrap());
 
         let endpoint = "http://localhost:8080".to_string();
-        let result = default_config(endpoint, None, None, None, None);
+        let ctx = XetContext::default().unwrap();
+        let result = default_config(&ctx, endpoint, None, None, None);
 
         assert!(result.is_ok());
         let config = result.unwrap();
-        assert!(config.shard_config.cache_directory.starts_with(temp_dir.path()));
+        assert!(config.shard_cache_directory.starts_with(temp_dir.path()));
     }
 
     #[test]
@@ -441,11 +216,12 @@ mod tests {
         let hf_home_guard = EnvVarGuard::set("HF_HOME", temp_dir_hf_home.path().to_str().unwrap());
 
         let endpoint = "http://localhost:8080".to_string();
-        let result = default_config(endpoint, None, None, None, None);
+        let ctx = XetContext::default().unwrap();
+        let result = default_config(&ctx, endpoint, None, None, None);
 
         assert!(result.is_ok());
         let config = result.unwrap();
-        assert!(config.shard_config.cache_directory.starts_with(temp_dir_xet_cache.path()));
+        assert!(config.shard_cache_directory.starts_with(temp_dir_xet_cache.path()));
 
         drop(hf_xet_cache_guard);
         drop(hf_home_guard);
@@ -454,11 +230,12 @@ mod tests {
         let _hf_home_guard = EnvVarGuard::set("HF_HOME", temp_dir.path().to_str().unwrap());
 
         let endpoint = "http://localhost:8080".to_string();
-        let result = default_config(endpoint, None, None, None, None);
+        let ctx = XetContext::default().unwrap();
+        let result = default_config(&ctx, endpoint, None, None, None);
 
         assert!(result.is_ok());
         let config = result.unwrap();
-        assert!(config.shard_config.cache_directory.starts_with(temp_dir.path()));
+        assert!(config.shard_cache_directory.starts_with(temp_dir.path()));
     }
 
     #[test]
@@ -468,24 +245,26 @@ mod tests {
         let _hf_xet_cache_guard = EnvVarGuard::set("HF_XET_CACHE", temp_dir.path().to_str().unwrap());
 
         let endpoint = "http://localhost:8080".to_string();
-        let result = default_config(endpoint, None, None, None, None);
+        let ctx = XetContext::default().unwrap();
+        let result = default_config(&ctx, endpoint, None, None, None);
 
         assert!(result.is_ok());
         let config = result.unwrap();
-        assert!(config.shard_config.cache_directory.starts_with(temp_dir.path()));
+        assert!(config.shard_cache_directory.starts_with(temp_dir.path()));
     }
 
     #[test]
     #[serial(default_config_env)]
     fn test_default_config_without_env_vars() {
         let endpoint = "http://localhost:8080".to_string();
-        let result = default_config(endpoint, None, None, None, None);
+        let ctx = XetContext::default().unwrap();
+        let result = default_config(&ctx, endpoint, None, None, None);
 
         let expected = home_dir().unwrap().join(".cache").join("huggingface").join("xet");
 
         assert!(result.is_ok());
         let config = result.unwrap();
-        let test_cache_dir = &config.shard_config.cache_directory;
+        let test_cache_dir = &config.shard_cache_directory;
         assert!(
             test_cache_dir.starts_with(&expected),
             "cache dir = {test_cache_dir:?}; does not start with {expected:?}",
@@ -499,11 +278,12 @@ mod tests {
         std::fs::write(&file_path, b"").unwrap();
 
         let buffer_size = 8 * 1024 * 1024; // 8MB
-        let result = hash_single_file(file_path.to_str().unwrap().to_string(), buffer_size);
+        let ctx = XetContext::default().unwrap();
+        let result = hash_single_file(ctx, file_path.to_str().unwrap().to_string(), buffer_size);
         assert!(result.is_ok());
 
         let file_info = result.unwrap();
-        assert_eq!(file_info.file_size(), 0);
+        assert_eq!(file_info.file_size(), Some(0));
         assert!(!file_info.hash().is_empty());
     }
 
@@ -515,15 +295,17 @@ mod tests {
         std::fs::write(&file_path, content).unwrap();
 
         let buffer_size = 8 * 1024 * 1024; // 8MB
-        let result = hash_single_file(file_path.to_str().unwrap().to_string(), buffer_size);
+        let ctx = XetContext::default().unwrap();
+        let result = hash_single_file(ctx, file_path.to_str().unwrap().to_string(), buffer_size);
         assert!(result.is_ok());
 
         let file_info = result.unwrap();
-        assert_eq!(file_info.file_size(), content.len() as u64);
+        assert_eq!(file_info.file_size(), Some(content.len() as u64));
         assert!(!file_info.hash().is_empty());
     }
 
     #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
     async fn test_hash_determinism() {
         let temp_dir = tempdir().unwrap();
         let file_path = temp_dir.path().join("test.txt");
@@ -535,14 +317,15 @@ mod tests {
         std::fs::write(&file_path, &content).unwrap();
 
         let file_path_str = file_path.to_str().unwrap().to_string();
+        let ctx = XetContext::default().unwrap();
 
         // Hash with 8MB buffer size
-        let result1 = hash_single_file(file_path_str.clone(), 8 * 1024 * 1024);
+        let result1 = hash_single_file(ctx.clone(), file_path_str.clone(), 8 * 1024 * 1024);
         assert!(result1.is_ok());
         let file_info1 = result1.unwrap();
 
         // Hash with 4MB buffer size
-        let result2 = hash_single_file(file_path_str, 4 * 1024 * 1024);
+        let result2 = hash_single_file(ctx.clone(), file_path_str, 4 * 1024 * 1024);
         assert!(result2.is_ok());
         let file_info2 = result2.unwrap();
 
@@ -555,7 +338,8 @@ mod tests {
     #[tokio::test]
     async fn test_hash_file_not_found() {
         let buffer_size = 8 * 1024 * 1024; // 8MB
-        let result = hash_single_file("/nonexistent/file.txt".to_string(), buffer_size);
+        let ctx = XetContext::default().unwrap();
+        let result = hash_single_file(ctx, "/nonexistent/file.txt".to_string(), buffer_size);
         assert!(result.is_err());
     }
 
@@ -574,17 +358,19 @@ mod tests {
             file2_path.to_str().unwrap().to_string(),
         ];
 
-        let result = hash_files_async(file_paths).await;
+        let ctx = XetContext::default().unwrap();
+        let result = hash_files_async(&ctx, file_paths).await;
         assert!(result.is_ok());
 
         let file_infos = result.unwrap();
         assert_eq!(file_infos.len(), 2);
-        assert_eq!(file_infos[0].file_size(), 18);
-        assert_eq!(file_infos[1].file_size(), 19);
+        assert_eq!(file_infos[0].file_size(), Some(18));
+        assert_eq!(file_infos[1].file_size(), Some(19));
         assert_ne!(file_infos[0].hash(), file_infos[1].hash());
     }
 
     #[tokio::test]
+    #[cfg_attr(feature = "smoke-test", ignore)]
     async fn test_hash_file_size_multiple_of_buffer() {
         // Regression test for bug where final chunk wasn't produced when file size
         // is exactly a multiple of buffer_size. This test verifies that
@@ -598,21 +384,22 @@ mod tests {
         std::fs::write(&file_path, &content).unwrap();
 
         let file_path_str = file_path.to_str().unwrap().to_string();
+        let ctx = XetContext::default().unwrap();
 
         // Hash with 8MB buffer size - file is exactly 2x buffer size
-        let result1 = hash_single_file(file_path_str.clone(), 8 * 1024 * 1024);
+        let result1 = hash_single_file(ctx.clone(), file_path_str.clone(), 8 * 1024 * 1024);
         assert!(result1.is_ok());
         let file_info1 = result1.unwrap();
-        assert_eq!(file_info1.file_size(), file_size as u64);
+        assert_eq!(file_info1.file_size(), Some(file_size as u64));
         assert!(!file_info1.hash().is_empty());
 
         // Hash with 4MB buffer size - file is exactly 4x buffer size
-        let result2 = hash_single_file(file_path_str.clone(), 4 * 1024 * 1024);
+        let result2 = hash_single_file(ctx.clone(), file_path_str.clone(), 4 * 1024 * 1024);
         assert!(result2.is_ok());
         let file_info2 = result2.unwrap();
 
         // Hash with 2MB buffer size - file is exactly 8x buffer size
-        let result3 = hash_single_file(file_path_str, 2 * 1024 * 1024);
+        let result3 = hash_single_file(ctx, file_path_str, 2 * 1024 * 1024);
         assert!(result3.is_ok());
         let file_info3 = result3.unwrap();
 

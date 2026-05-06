@@ -49,6 +49,13 @@ class MergedPluginOptions:
         conceal_billing_data (Union[Unset, bool]): If set to True, pricing and components tab would be concealed.
         create_orders_on_resource_option_change (Union[Unset, bool]): If set to True, create orders when options of
             related resources are changed.
+        enable_resource_projects (Union[Unset, bool]): Enable sub-project management within resources.
+        resource_projects_limits_required (Union[Unset, bool]): If set to True, every limit-billing component declared
+            by the offering must have a value when creating or updating a resource project. Use this for backends that
+            reject projects without resource quotas (e.g. the rancher-keycloak-operator's project-level resourceQuota.limit
+            cap).
+        create_orders_on_resource_project_change (Union[Unset, bool]): If set to True, create orders when resource
+            projects are created, updated or deleted.
         can_restore_resource (Union[Unset, bool]): If set to True, resource can be restored.
         enable_provider_consumer_messaging (Union[Unset, bool]): If set to True, service providers can send messages
             with attachments to consumers on pending orders, and consumers can respond.
@@ -68,6 +75,8 @@ class MergedPluginOptions:
         snapshot_size_limit_gb (Union[Unset, int]): Default limit for snapshot size in GB
         lbaas_enabled (Union[Unset, bool]): If True, Octavia LBaaS (load balancers) is intended to be available for
             tenants from this offering.
+        usage_poll_interval_minutes (Union[Unset, int]): Interval in minutes between usage polling for this offering
+            (default: 60)
         heappe_cluster_id (Union[Unset, str]): HEAppE cluster id
         heappe_local_base_path (Union[Unset, str]): HEAppE local base path
         heappe_url (Union[Unset, str]): HEAppE url
@@ -120,17 +129,6 @@ class MergedPluginOptions:
             managed SLURM offerings. Default: False.
         auto_approve_marketplace_script (Union[Unset, bool]): If set to False, all orders require manual provider
             approval, including for service provider owners and staff Default: True.
-        keycloak_enabled (Union[Unset, bool]): If set to True, Keycloak group management is enabled for this offering.
-        keycloak_base_group (Union[Unset, str]): Root parent group in Keycloak under which offering groups are created.
-            Groups are organized as: {base_group}/{offering_slug}/{role_group}. If empty, offering groups are created at the
-            realm root.
-        keycloak_sync_frequency (Union[Unset, int]): Frequency in minutes for syncing Keycloak group memberships.
-        keycloak_group_name_template (Union[Unset, str]): Template for generating Keycloak group names. Uses $variable
-            syntax (e.g. $offering_uuid_$role_name). Allowed variables: offering_uuid, offering_name, offering_slug,
-            resource_uuid, resource_name, resource_slug, project_uuid, project_name, project_slug, organization_uuid,
-            organization_name, organization_slug, role_name, scope_id.
-        keycloak_username_label (Union[Unset, str]): Custom label for the username field when inviting external users
-            (e.g. 'Civil code', 'CUID'). If empty, defaults to 'Username'. Default: ''.
         highlight_backend_id_display (Union[Unset, bool]): Defines if backend_id should be shown more prominently by the
             UI Default: False.
         backend_id_display_label (Union[Unset, str]): Label used by UI for showing value of the backend_id Default:
@@ -159,6 +157,9 @@ class MergedPluginOptions:
     require_purchase_order_upload: Union[Unset, bool] = UNSET
     conceal_billing_data: Union[Unset, bool] = UNSET
     create_orders_on_resource_option_change: Union[Unset, bool] = UNSET
+    enable_resource_projects: Union[Unset, bool] = UNSET
+    resource_projects_limits_required: Union[Unset, bool] = UNSET
+    create_orders_on_resource_project_change: Union[Unset, bool] = UNSET
     can_restore_resource: Union[Unset, bool] = UNSET
     enable_provider_consumer_messaging: Union[Unset, bool] = UNSET
     notify_about_provider_consumer_messages: Union[Unset, bool] = UNSET
@@ -171,6 +172,7 @@ class MergedPluginOptions:
     storage_mode: Union[Unset, StorageModeEnum] = UNSET
     snapshot_size_limit_gb: Union[Unset, int] = UNSET
     lbaas_enabled: Union[Unset, bool] = UNSET
+    usage_poll_interval_minutes: Union[Unset, int] = UNSET
     heappe_cluster_id: Union[Unset, str] = UNSET
     heappe_local_base_path: Union[Unset, str] = UNSET
     heappe_url: Union[Unset, str] = UNSET
@@ -208,11 +210,6 @@ class MergedPluginOptions:
     enable_display_of_order_actions_for_service_provider: Union[Unset, bool] = True
     slurm_periodic_policy_enabled: Union[Unset, bool] = False
     auto_approve_marketplace_script: Union[Unset, bool] = True
-    keycloak_enabled: Union[Unset, bool] = UNSET
-    keycloak_base_group: Union[Unset, str] = UNSET
-    keycloak_sync_frequency: Union[Unset, int] = UNSET
-    keycloak_group_name_template: Union[Unset, str] = UNSET
-    keycloak_username_label: Union[Unset, str] = ""
     highlight_backend_id_display: Union[Unset, bool] = False
     backend_id_display_label: Union[Unset, str] = "Backend ID"
     disabled_resource_actions: Union[Unset, list[str]] = UNSET
@@ -259,6 +256,12 @@ class MergedPluginOptions:
 
         create_orders_on_resource_option_change = self.create_orders_on_resource_option_change
 
+        enable_resource_projects = self.enable_resource_projects
+
+        resource_projects_limits_required = self.resource_projects_limits_required
+
+        create_orders_on_resource_project_change = self.create_orders_on_resource_project_change
+
         can_restore_resource = self.can_restore_resource
 
         enable_provider_consumer_messaging = self.enable_provider_consumer_messaging
@@ -284,6 +287,8 @@ class MergedPluginOptions:
         snapshot_size_limit_gb = self.snapshot_size_limit_gb
 
         lbaas_enabled = self.lbaas_enabled
+
+        usage_poll_interval_minutes = self.usage_poll_interval_minutes
 
         heappe_cluster_id = self.heappe_cluster_id
 
@@ -369,16 +374,6 @@ class MergedPluginOptions:
 
         auto_approve_marketplace_script = self.auto_approve_marketplace_script
 
-        keycloak_enabled = self.keycloak_enabled
-
-        keycloak_base_group = self.keycloak_base_group
-
-        keycloak_sync_frequency = self.keycloak_sync_frequency
-
-        keycloak_group_name_template = self.keycloak_group_name_template
-
-        keycloak_username_label = self.keycloak_username_label
-
         highlight_backend_id_display = self.highlight_backend_id_display
 
         backend_id_display_label = self.backend_id_display_label
@@ -430,6 +425,12 @@ class MergedPluginOptions:
             field_dict["conceal_billing_data"] = conceal_billing_data
         if create_orders_on_resource_option_change is not UNSET:
             field_dict["create_orders_on_resource_option_change"] = create_orders_on_resource_option_change
+        if enable_resource_projects is not UNSET:
+            field_dict["enable_resource_projects"] = enable_resource_projects
+        if resource_projects_limits_required is not UNSET:
+            field_dict["resource_projects_limits_required"] = resource_projects_limits_required
+        if create_orders_on_resource_project_change is not UNSET:
+            field_dict["create_orders_on_resource_project_change"] = create_orders_on_resource_project_change
         if can_restore_resource is not UNSET:
             field_dict["can_restore_resource"] = can_restore_resource
         if enable_provider_consumer_messaging is not UNSET:
@@ -454,6 +455,8 @@ class MergedPluginOptions:
             field_dict["snapshot_size_limit_gb"] = snapshot_size_limit_gb
         if lbaas_enabled is not UNSET:
             field_dict["lbaas_enabled"] = lbaas_enabled
+        if usage_poll_interval_minutes is not UNSET:
+            field_dict["usage_poll_interval_minutes"] = usage_poll_interval_minutes
         if heappe_cluster_id is not UNSET:
             field_dict["heappe_cluster_id"] = heappe_cluster_id
         if heappe_local_base_path is not UNSET:
@@ -538,16 +541,6 @@ class MergedPluginOptions:
             field_dict["slurm_periodic_policy_enabled"] = slurm_periodic_policy_enabled
         if auto_approve_marketplace_script is not UNSET:
             field_dict["auto_approve_marketplace_script"] = auto_approve_marketplace_script
-        if keycloak_enabled is not UNSET:
-            field_dict["keycloak_enabled"] = keycloak_enabled
-        if keycloak_base_group is not UNSET:
-            field_dict["keycloak_base_group"] = keycloak_base_group
-        if keycloak_sync_frequency is not UNSET:
-            field_dict["keycloak_sync_frequency"] = keycloak_sync_frequency
-        if keycloak_group_name_template is not UNSET:
-            field_dict["keycloak_group_name_template"] = keycloak_group_name_template
-        if keycloak_username_label is not UNSET:
-            field_dict["keycloak_username_label"] = keycloak_username_label
         if highlight_backend_id_display is not UNSET:
             field_dict["highlight_backend_id_display"] = highlight_backend_id_display
         if backend_id_display_label is not UNSET:
@@ -600,6 +593,12 @@ class MergedPluginOptions:
 
         create_orders_on_resource_option_change = d.pop("create_orders_on_resource_option_change", UNSET)
 
+        enable_resource_projects = d.pop("enable_resource_projects", UNSET)
+
+        resource_projects_limits_required = d.pop("resource_projects_limits_required", UNSET)
+
+        create_orders_on_resource_project_change = d.pop("create_orders_on_resource_project_change", UNSET)
+
         can_restore_resource = d.pop("can_restore_resource", UNSET)
 
         enable_provider_consumer_messaging = d.pop("enable_provider_consumer_messaging", UNSET)
@@ -628,6 +627,8 @@ class MergedPluginOptions:
         snapshot_size_limit_gb = d.pop("snapshot_size_limit_gb", UNSET)
 
         lbaas_enabled = d.pop("lbaas_enabled", UNSET)
+
+        usage_poll_interval_minutes = d.pop("usage_poll_interval_minutes", UNSET)
 
         heappe_cluster_id = d.pop("heappe_cluster_id", UNSET)
 
@@ -736,16 +737,6 @@ class MergedPluginOptions:
 
         auto_approve_marketplace_script = d.pop("auto_approve_marketplace_script", UNSET)
 
-        keycloak_enabled = d.pop("keycloak_enabled", UNSET)
-
-        keycloak_base_group = d.pop("keycloak_base_group", UNSET)
-
-        keycloak_sync_frequency = d.pop("keycloak_sync_frequency", UNSET)
-
-        keycloak_group_name_template = d.pop("keycloak_group_name_template", UNSET)
-
-        keycloak_username_label = d.pop("keycloak_username_label", UNSET)
-
         highlight_backend_id_display = d.pop("highlight_backend_id_display", UNSET)
 
         backend_id_display_label = d.pop("backend_id_display_label", UNSET)
@@ -773,6 +764,9 @@ class MergedPluginOptions:
             require_purchase_order_upload=require_purchase_order_upload,
             conceal_billing_data=conceal_billing_data,
             create_orders_on_resource_option_change=create_orders_on_resource_option_change,
+            enable_resource_projects=enable_resource_projects,
+            resource_projects_limits_required=resource_projects_limits_required,
+            create_orders_on_resource_project_change=create_orders_on_resource_project_change,
             can_restore_resource=can_restore_resource,
             enable_provider_consumer_messaging=enable_provider_consumer_messaging,
             notify_about_provider_consumer_messages=notify_about_provider_consumer_messages,
@@ -785,6 +779,7 @@ class MergedPluginOptions:
             storage_mode=storage_mode,
             snapshot_size_limit_gb=snapshot_size_limit_gb,
             lbaas_enabled=lbaas_enabled,
+            usage_poll_interval_minutes=usage_poll_interval_minutes,
             heappe_cluster_id=heappe_cluster_id,
             heappe_local_base_path=heappe_local_base_path,
             heappe_url=heappe_url,
@@ -820,11 +815,6 @@ class MergedPluginOptions:
             enable_display_of_order_actions_for_service_provider=enable_display_of_order_actions_for_service_provider,
             slurm_periodic_policy_enabled=slurm_periodic_policy_enabled,
             auto_approve_marketplace_script=auto_approve_marketplace_script,
-            keycloak_enabled=keycloak_enabled,
-            keycloak_base_group=keycloak_base_group,
-            keycloak_sync_frequency=keycloak_sync_frequency,
-            keycloak_group_name_template=keycloak_group_name_template,
-            keycloak_username_label=keycloak_username_label,
             highlight_backend_id_display=highlight_backend_id_display,
             backend_id_display_label=backend_id_display_label,
             disabled_resource_actions=disabled_resource_actions,

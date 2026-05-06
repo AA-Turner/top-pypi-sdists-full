@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-bidi
-Version: 0.6.7
+Version: 0.6.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: nox ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'dev'
 Provides-Extra: dev
 License-File: LICENSE-THIRD-PARTY.yml
@@ -22,12 +23,13 @@ License-File: AUTHORS.rst
 Summary: Python Bidi layout wrapping the Rust crate unicode-bidi
 Keywords: bidi,unicode,layout
 Author-email: Meir Kriheli <mkriheli@gmail.com>
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
-Project-URL: Homepage, https://github.com/MeirKriheli/python-bidi
-Project-URL: Repository, https://github.com/MeirKriheli/python-bidi
-Project-URL: Documentation, https://python-bidi.readthedocs.io/en/latest/
-Project-URL: Issues, https://github.com/MeirKriheli/python-bidi/issues
 Project-URL: Changelog, https://github.com/MeirKriheli/python-bidi/blob/master/CHANGELOG.rst
+Project-URL: Documentation, https://python-bidi.readthedocs.io/en/latest/
+Project-URL: Homepage, https://github.com/MeirKriheli/python-bidi
+Project-URL: Issues, https://github.com/MeirKriheli/python-bidi/issues
+Project-URL: Repository, https://github.com/MeirKriheli/python-bidi
 
 ===============================
 Python BiDi
@@ -145,16 +147,26 @@ Examples::
 Installation
 -------------
 
-At the command line (assuming you're using some virtualenv)::
+From PyPI::
 
     pip install python-bidi
 
+Or with uv::
 
-Running tests
---------------
+    uv pip install python-bidi
 
-To run the tests::
 
-    pip install nox
+Development / running tests
+-----------------------------
+
+You need Rust (for ``maturin``), `uv <https://docs.astral.sh/uv/>`_, and a ``nox`` session backend of ``uv`` (nox reads this from ``noxfile.py``).
+
+From a clone, create the environment and run the test suite::
+
+    uv sync --extra dev
+    uv run pytest
+
+Or use nox (after ``uv sync --extra dev``, or install nox with ``uv tool install nox`` / ``pipx install nox``)::
+
     nox
 

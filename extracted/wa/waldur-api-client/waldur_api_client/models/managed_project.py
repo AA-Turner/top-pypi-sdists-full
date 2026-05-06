@@ -10,7 +10,7 @@ from dateutil.parser import isoparse
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.project import Project
+    from ..models.basic_project import BasicProject
     from ..models.project_template import ProjectTemplate
 
 
@@ -30,7 +30,7 @@ class ManagedProject:
         destination (str): The destination used to send instructions from the remote portal.
         details (Any): Details of the project as provided by the remote OpenPortal.
         project (str):
-        project_data (Project):
+        project_data (BasicProject):
         project_template (str):
         project_template_data (ProjectTemplate):
         review_comment (Union[None, Unset, str]): Optional comment provided during review
@@ -46,7 +46,7 @@ class ManagedProject:
     destination: str
     details: Any
     project: str
-    project_data: "Project"
+    project_data: "BasicProject"
     project_template: str
     project_template_data: "ProjectTemplate"
     review_comment: Union[None, Unset, str] = UNSET
@@ -121,7 +121,7 @@ class ManagedProject:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.project import Project
+        from ..models.basic_project import BasicProject
         from ..models.project_template import ProjectTemplate
 
         d = dict(src_dict)
@@ -156,7 +156,7 @@ class ManagedProject:
 
         project = d.pop("project")
 
-        project_data = Project.from_dict(d.pop("project_data"))
+        project_data = BasicProject.from_dict(d.pop("project_data"))
 
         project_template = d.pop("project_template")
 

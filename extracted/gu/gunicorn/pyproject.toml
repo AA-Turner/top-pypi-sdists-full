@@ -48,15 +48,13 @@ Changelog = "https://gunicorn.org/news/"
 
 [project.optional-dependencies]
 gevent = ["gevent>=24.10.1"]
-eventlet = ["eventlet>=0.40.3"]
 tornado = ["tornado>=6.5.0"]
 gthread = []
 setproctitle = ["setproctitle"]
 http2 = ["h2>=4.1.0"]
-fast = ["gunicorn_h1c>=0.6.3"]
+fast = ["gunicorn_h1c>=0.6.5"]
 testing = [
     "gevent>=24.10.1",
-    "eventlet>=0.40.3",
     "h2>=4.1.0",
     "coverage",
     "pytest",
@@ -82,11 +80,6 @@ testpaths = ["tests/"]
 addopts = "--assert=plain --cov=gunicorn --cov-report=xml"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-filterwarnings = [
-    # Eventlet patches select module, which breaks asyncio event loop cleanup
-    # This is expected behavior when testing eventlet worker
-    "ignore::pytest.PytestUnraisableExceptionWarning",
-]
 
 [tool.setuptools]
 zip-safe = false

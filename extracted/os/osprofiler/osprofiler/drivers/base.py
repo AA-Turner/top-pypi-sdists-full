@@ -15,6 +15,7 @@
 
 import datetime
 import logging
+from typing import Any
 from urllib import parse as urlparse
 
 from osprofiler import _utils
@@ -22,7 +23,7 @@ from osprofiler import _utils
 LOG = logging.getLogger(__name__)
 
 
-def get_driver(connection_string, *args, **kwargs):
+def get_driver(connection_string: str, *args: Any, **kwargs: Any) -> "Driver":
     """Create driver's instance according to specified connection string"""
     # NOTE(ayelistratov) Backward compatibility with old Messaging notation
     # Remove after patching all OS services
@@ -31,22 +32,30 @@ def get_driver(connection_string, *args, **kwargs):
         connection_string += "://"
 
     parsed_connection = urlparse.urlparse(connection_string)
-    LOG.debug("String %s looks like a connection string, trying it.",
-              connection_string)
+    LOG.debug(
+        "String %s looks like a connection string, trying it.",
+        connection_string,
+    )
 
     backend = parsed_connection.scheme
     # NOTE(toabctl): To be able to use the connection_string for as sqlalchemy
     # connection string, transform the backend to the correct driver
     # See https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls
-    if backend in ["mysql", "mysql+pymysql", "mysql+mysqldb",
-                   "postgresql", "postgresql+psycopg2"]:
+    if backend in [
+        "mysql",
+        "mysql+pymysql",
+        "mysql+mysqldb",
+        "postgresql",
+        "postgresql+psycopg2",
+    ]:
         backend = "sqlalchemy"
     for driver in _utils.itersubclasses(Driver):
         if backend == driver.get_name():
             return driver(connection_string, *args, **kwargs)
 
-    raise ValueError("Driver not found for connection string: "
-                     "%s" % connection_string)
+    raise ValueError(
+        f"Driver not found for connection string: {connection_string}"
+    )
 
 
 class Driver:
@@ -58,19 +67,25 @@ class Driver:
     and implemented by any class derived from this class.
     """
 
-    default_trace_fields = {"base_id", "timestamp"}
+    default_trace_fields: set[str] = {"base_id", "timestamp"}
 
-    def __init__(self, connection_str, project=None, service=None, host=None,
-                 **kwargs):
+    def __init__(
+        self,
+        connection_str: str,
+        project: str | None = None,
+        service: str | None = None,
+        host: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.connection_str = connection_str
         self.project = project
         self.service = service
         self.host = host
-        self.result = {}
-        self.started_at = None
-        self.finished_at = None
+        self.result: dict[str, Any] = {}
+        self.started_at: datetime.datetime | None = None
+        self.finished_at: datetime.datetime | None = None
         # Last trace started time
-        self.last_started_at = None
+        self.last_started_at: datetime.datetime | None = None
 
         profiler_config = kwargs.get("conf", {}).get("profiler", {})
         if hasattr(profiler_config, "filter_error_trace"):
@@ -78,7 +93,7 @@ class Driver:
         else:
             self.filter_error_trace = False
 
-    def notify(self, info, **kwargs):
+    def notify(self, info: dict[str, Any], **kwargs: Any) -> None:
         """This method will be called on each notifier.notify() call.
 
         To add new drivers you should, create new subclass of this class and
@@ -94,25 +109,29 @@ class Driver:
                       With parent_id and trace_id it's quite simple to build
                       tree of trace elements, which simplify analyze of trace.
         """
-        raise NotImplementedError("{}: This method is either not supported "
-                                  "or has to be overridden".format(
-                                      self.get_name()))
+        raise NotImplementedError(
+            f"{self.get_name()}: This method is either not supported "
+            "or has to be overridden"
+        )
 
-    def get_report(self, base_id):
+    def get_report(self, base_id: str) -> dict[str, Any]:
         """Forms and returns report composed from the stored notifications.
 
         :param base_id: Base id of trace elements.
         """
-        raise NotImplementedError("{}: This method is either not supported "
-                                  "or has to be overridden".format(
-                                      self.get_name()))
+        raise NotImplementedError(
+            f"{self.get_name()}: This method is either not supported "
+            "or has to be overridden"
+        )
 
     @classmethod
-    def get_name(cls):
+    def get_name(cls) -> str:
         """Returns backend specific name for the driver."""
         return cls.__name__
 
-    def list_traces(self, fields=None):
+    def list_traces(
+        self, fields: set[str] | None = None
+    ) -> list[dict[str, Any]]:
         """Query all traces from the storage.
 
         :param fields: Set of trace fields to return. Defaults to 'base_id'
@@ -120,35 +139,37 @@ class Driver:
         :returns: List of traces, where each trace is a dictionary containing
                   at least `base_id` and `timestamp`.
         """
-        raise NotImplementedError("{}: This method is either not supported "
-                                  "or has to be overridden".format(
-                                      self.get_name()))
+        raise NotImplementedError(
+            f"{self.get_name()}: This method is either not supported "
+            "or has to be overridden"
+        )
 
-    def list_error_traces(self):
+    def list_error_traces(self) -> list[dict[str, Any]]:
         """Query all error traces from the storage.
 
         :return List of traces, where each trace is a dictionary containing
                 `base_id` and `timestamp`.
         """
-        raise NotImplementedError("{}: This method is either not supported "
-                                  "or has to be overridden".format(
-                                      self.get_name()))
+        raise NotImplementedError(
+            f"{self.get_name()}: This method is either not supported "
+            "or has to be overridden"
+        )
 
     @staticmethod
-    def _build_tree(nodes):
+    def _build_tree(nodes: dict[str, Any]) -> list[dict[str, Any]]:
         """Builds the tree (forest) data structure based on the list of nodes.
 
-       Tree building works in O(n*log(n)).
+        Tree building works in O(n*log(n)).
 
-       :param nodes: dict of nodes, where each node is a dictionary with fields
-                     "parent_id", "trace_id", "info"
-       :returns: list of top level ("root") nodes in form of dictionaries,
-                 each containing the "info" and "children" fields, where
-                 "children" is the list of child nodes ("children" will be
-                 empty for leafs)
-       """
+        :param nodes: dict of nodes, where each node is a dictionary with
+                      fields "parent_id", "trace_id", "info"
+        :returns: list of top level ("root") nodes in form of dictionaries,
+                  each containing the "info" and "children" fields, where
+                  "children" is the list of child nodes ("children" will be
+                  empty for leafs)
+        """
 
-        tree = []
+        tree: list[dict[str, Any]] = []
 
         for trace_id in nodes:
             node = nodes[trace_id]
@@ -162,12 +183,22 @@ class Driver:
 
         for trace_id in nodes:
             nodes[trace_id]["children"].sort(
-                key=lambda x: x["info"]["started"])
+                key=lambda x: x["info"]["started"]
+            )
 
         return sorted(tree, key=lambda x: x["info"]["started"])
 
-    def _append_results(self, trace_id, parent_id, name, project, service,
-                        host, timestamp, raw_payload=None):
+    def _append_results(
+        self,
+        trace_id: str,
+        parent_id: str,
+        name: str,
+        project: str | None,
+        service: str | None,
+        host: str | None,
+        timestamp: str,
+        raw_payload: dict[str, Any] | None = None,
+    ) -> None:
         """Appends the notification to the dictionary of notifications.
 
         :param trace_id: UUID of current trace point
@@ -181,8 +212,7 @@ class Driver:
         :param raw_payload: raw notification without any filtering, with all
                             fields included
         """
-        timestamp = datetime.datetime.strptime(timestamp,
-                                               "%Y-%m-%dT%H:%M:%S.%f")
+        ts = datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f")
         if trace_id not in self.result:
             self.result[trace_id] = {
                 "info": {
@@ -195,40 +225,40 @@ class Driver:
                 "parent_id": parent_id,
             }
 
-        self.result[trace_id]["info"]["meta.raw_payload.%s"
-                                      % name] = raw_payload
+        self.result[trace_id]["info"][f"meta.raw_payload.{name}"] = raw_payload
 
         if name.endswith("stop"):
-            self.result[trace_id]["info"]["finished"] = timestamp
+            self.result[trace_id]["info"]["finished"] = ts
             self.result[trace_id]["info"]["exception"] = "None"
             if raw_payload and "info" in raw_payload:
                 exc = raw_payload["info"].get("etype", "None")
                 self.result[trace_id]["info"]["exception"] = exc
         else:
-            self.result[trace_id]["info"]["started"] = timestamp
-            if not self.last_started_at or self.last_started_at < timestamp:
-                self.last_started_at = timestamp
+            self.result[trace_id]["info"]["started"] = ts
+            if not self.last_started_at or self.last_started_at < ts:
+                self.last_started_at = ts
 
-        if not self.started_at or self.started_at > timestamp:
-            self.started_at = timestamp
+        if not self.started_at or self.started_at > ts:
+            self.started_at = ts
 
-        if not self.finished_at or self.finished_at < timestamp:
-            self.finished_at = timestamp
+        if not self.finished_at or self.finished_at < ts:
+            self.finished_at = ts
 
-    def _parse_results(self):
+    def _parse_results(self) -> dict[str, Any]:
         """Parses Driver's notifications placed by _append_results() .
 
         :returns: full profiling report
         """
 
-        def msec(dt):
+        def msec(dt: datetime.timedelta) -> int:
             # NOTE(boris-42): Unfortunately this is the simplest way that works
             # in py26 and py27
-            microsec = (dt.microseconds + (dt.seconds + dt.days * 24 * 3600)
-                        * 1e6)
+            microsec = (
+                dt.microseconds + (dt.seconds + dt.days * 24 * 3600) * 1e6
+            )
             return int(microsec / 1000.0)
 
-        stats = {}
+        stats: dict[str, Any] = {}
 
         for r in self.result.values():
             # NOTE(boris-42): We are not able to guarantee that the backend
@@ -241,18 +271,14 @@ class Driver:
 
             op_type = r["info"]["name"]
             op_started = msec(r["info"]["started"] - self.started_at)
-            op_finished = msec(r["info"]["finished"]
-                               - self.started_at)
+            op_finished = msec(r["info"]["finished"] - self.started_at)
             duration = op_finished - op_started
 
             r["info"]["started"] = op_started
             r["info"]["finished"] = op_finished
 
             if op_type not in stats:
-                stats[op_type] = {
-                    "count": 1,
-                    "duration": duration
-                }
+                stats[op_type] = {"count": 1, "duration": duration}
             else:
                 stats[op_type]["count"] += 1
                 stats[op_type]["duration"] += duration
@@ -261,13 +287,15 @@ class Driver:
             "info": {
                 "name": "total",
                 "started": 0,
-                "finished": msec(
-                    self.finished_at - self.started_at
-                ) if self.started_at else None,
+                "finished": msec(self.finished_at - self.started_at)
+                if self.started_at and self.finished_at
+                else None,
                 "last_trace_started": msec(
                     self.last_started_at - self.started_at
-                ) if self.started_at else None
+                )
+                if self.started_at and self.last_started_at
+                else None,
             },
             "children": self._build_tree(self.result),
-            "stats": stats
+            "stats": stats,
         }

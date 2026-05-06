@@ -50,8 +50,12 @@ class Window(Space):
         min_height: int | None = None,
         visible: bool = True,
     ):
+        # Vérifications
+        if __debug__:
+            expect(screen, (LogicalScreen, None))
+
         # Espace logique de référence
-        if expect(screen, (LogicalScreen, None)) is None:
+        if screen is None:
             screen = LogicalScreen(width, height)
         self._screen: LogicalScreen = screen
 
@@ -65,14 +69,14 @@ class Window(Space):
 
         # Fenêtre OS
         self._pyglet_window: PygletWindow = PygletWindow(
-            width=width,
-            height=height,
-            caption=caption,
-            fullscreen=fullscreen,
-            resizable=resizable,
-            vsync=vsync,
-            style=style,
-            visible=visible,
+            width = width,
+            height = height,
+            caption = caption,
+            fullscreen = fullscreen,
+            resizable = resizable,
+            vsync = vsync,
+            style = style,
+            visible = visible,
         )
 
         # Icon

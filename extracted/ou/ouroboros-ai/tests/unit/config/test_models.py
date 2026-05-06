@@ -22,6 +22,7 @@ from ouroboros.config.models import (
     ProviderCredentials,
     ResilienceConfig,
     RuntimeControlsConfig,
+    RuntimeProfileConfig,
     TierConfig,
     get_config_dir,
     get_default_config,
@@ -656,3 +657,37 @@ class TestGetConfigDir:
         config_dir = get_config_dir()
         assert config_dir.parent == Path.home()
         assert config_dir.name == ".ouroboros"
+
+
+class TestRuntimeProfileConfig:
+    def test_runtime_profile_backend_profile_accepts_future_values(self) -> None:
+        profile = RuntimeProfileConfig(backend_profile="future-worker")
+        assert profile.backend_profile == "future-worker"
+
+    def test_runtime_profile_backend_profile_strips_whitespace(self) -> None:
+        profile = RuntimeProfileConfig(backend_profile=" worker ")
+        assert profile.backend_profile == "worker"
+
+    def test_runtime_profile_backend_profile_rejects_empty_string(self) -> None:
+        with pytest.raises(ValueError) as exc_info:
+            RuntimeProfileConfig(backend_profile="   ")
+        assert "runtime_profile.backend_profile" in str(exc_info.value)
+
+    def test_runtime_profile_default_accepts_copilot_backends(self) -> None:
+        config = RuntimeProfileConfig(default="copilot", stages={"execute": "copilot_cli"})
+
+        assert config.default == "copilot"
+        assert config.stages == {"execute": "copilot_cli"}
+
+    def test_runtime_profile_default_accepts_kiro_backends(self) -> None:
+        assert RuntimeProfileConfig(default="kiro").default == "kiro"
+        assert RuntimeProfileConfig(default="kiro_cli").default == "kiro_cli"
+
+    def test_runtime_profile_stages_accept_kiro_backends(self) -> None:
+        profile = RuntimeProfileConfig(stages={"execute": "kiro", "reflect": "kiro_cli"})
+        assert profile.stages == {"execute": "kiro", "reflect": "kiro_cli"}
+
+    def test_orchestrator_runtime_profile_string_shorthand(self) -> None:
+        config = OrchestratorConfig(runtime_profile="worker")
+        assert config.runtime_profile is not None
+        assert config.runtime_profile.backend_profile == "worker"

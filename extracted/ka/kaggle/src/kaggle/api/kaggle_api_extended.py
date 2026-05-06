@@ -93,6 +93,29 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiGetEpisodeAgentLogsRequest,
     ApiListCompetitionPagesRequest,
     ApiListCompetitionPagesResponse,
+    ApiListCompetitionTopicsRequest,
+    ApiListCompetitionTopicsResponse,
+    ApiListTopicMessagesRequest,
+    ApiListTopicMessagesResponse,
+)
+from kagglesdk.discussions.types.discussions_api_service import (
+    ApiDiscussionComment,
+    ApiDiscussionForum,
+    ApiDiscussionTopic,
+    ApiGetTopicRequest,
+    ApiGetTopicResponse,
+    ApiListCommentsRequest,
+    ApiListCommentsResponse,
+    ApiListForumsRequest,
+    ApiListForumsResponse,
+    ApiListTopicsRequest,
+    ApiListTopicsResponse,
+)
+from kagglesdk.discussions.types.discussions_enums import (
+    CommentListSortBy,
+    TopicListCategory,
+    TopicListGroup,
+    TopicListSortBy,
 )
 from kagglesdk.competitions.types.competition_enums import (
     CompetitionListTab,
@@ -107,6 +130,7 @@ from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, Crop
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
     ApiListDatasetFilesRequest,
+    ApiGetDatasetRequest,
     ApiGetDatasetStatusRequest,
     ApiDownloadDatasetRequest,
     ApiCreateDatasetRequest,
@@ -180,6 +204,158 @@ from requests.models import Response
 from typing import Callable, cast, Dict, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
 
 T = TypeVar("T")
+
+BENCHMARKS_SYNTAX_REF = """\
+# kaggle-benchmarks Task Syntax Reference
+
+- Installation: `pip install kaggle-benchmarks`
+- [Quick Start](https://github.com/Kaggle/kaggle-benchmarks/blob/ci/quick_start.md)
+- [Cookbook](https://github.com/Kaggle/kaggle-benchmarks/blob/ci/cookbook.md)
+
+## Decorator & Signature
+
+```python
+@kbench.task(name="task_name", description="...", version=1)
+def my_task(llm, param1: str, param2: int) -> ReturnType:
+    ...
+```
+
+- First param is always `llm` (model under test).
+- Additional params passed via `.run()` or `.evaluate()`.
+- `name` defaults to function name; `description` defaults to docstring.
+- **Important:** The `name` is normalized to a URL-safe slug (e.g. `"My Task"` becomes `my-task`).
+  This slug must match the task name used with `kaggle b t push <task-slug> -f <file>`.
+
+## Return Type Annotations (controls leaderboard rendering)
+
+| Annotation | Meaning |
+|---|---|
+| `None` / omitted | Pass/Fail — graded solely by assertions |
+| `-> bool` | Binary pass/fail |
+| `-> int` / `-> float` | Numerical score |
+| `-> tuple[int, int]` | (passed, total) count |
+| `-> tuple[float, float]` | (value, confidence_interval) |
+| `-> dict` | Structured result dict |
+
+## LLM Interaction
+
+```python
+response = llm.prompt("question")                            # returns str
+obj = llm.prompt("question", schema=MyDataclass)             # structured output
+response = llm.prompt("q", image=images.from_url(url))       # with image
+response = llm.prompt("q", video=videos.from_url(yt_url))    # with video
+response = llm.prompt("q", audio=audios.from_path(path))     # with audio
+response = llm.prompt("q", tools=[my_func])                  # tool calling (needs api="genai")
+llm.send(msg)        # adds message without triggering response
+llm.respond()         # gets response continuing existing conversation
+kbench.user.send(x)   # adds user message (text/image/etc.) to chat history
+```
+
+## Chat Context Management
+
+```python
+with kbench.chats.new("name"):     # isolated chat context
+    response = llm.prompt("...")    # only this chat's history is sent
+```
+
+Use `kbench.chats.new()` in loops to avoid growing context.
+For multi-agent: `contexts.enter(chat=agent_chat)`
+
+## Accessing Models
+
+```python
+kbench.llm                              # default model placeholder
+kbench.judge_llm                        # judge model
+kbench.llms["google/gemini-2.5-flash"]  # specific model by name
+```
+
+## Assertions (always include `expectation=` for leaderboard display)
+
+```python
+kbench.assertions.assert_equal(expected, actual, expectation="...")
+kbench.assertions.assert_true(value, expectation="...")
+kbench.assertions.assert_false(value, expectation="...")
+kbench.assertions.assert_in(member, container, expectation="...")
+kbench.assertions.assert_not_in(member, container, expectation="...")
+kbench.assertions.assert_contains_regex(pattern, text, expectation="...")
+kbench.assertions.assert_not_contains_regex(pattern, text, expectation="...", flags=0)
+kbench.assertions.assert_empty(container, expectation="...")
+kbench.assertions.assert_not_empty(container, expectation="...")
+kbench.assertions.assert_fail(expectation="...")  # unconditional fail
+```
+
+## Custom Assertions
+
+```python
+from kaggle_benchmarks.assertions import assertion_handler, AssertionResult
+
+@assertion_handler()
+def assert_is_positive(value: float, expectation: str) -> AssertionResult:
+    return AssertionResult(passed=value > 0, expectation=expectation)
+```
+
+## Judge-Based Assessment
+
+```python
+report = kbench.assertions.assess_response_with_judge(
+    criteria=("criterion 1", "criterion 2"),
+    response_text=response,
+    judge_llm=kbench.judge_llm,
+    prompt_fn=optional_custom_fn,       # (criteria, response_text) -> str
+    output_schema=OptionalDataclass,
+)
+for r in report.results:
+    kbench.assertions.assert_true(r.passed, expectation=f"{r.criterion}: {r.reason}")
+```
+
+## Running Tasks
+
+`.run()` or `.evaluate()` MUST be called to generate a run file.
+Without invoking one of these, no `.run.json` is produced and nothing is recorded.
+
+```python
+# Single run:
+run = my_task.run(llm=kbench.llm, param1="val1", param2=42)
+
+# Dataset evaluation (runs task once per row in a DataFrame):
+runs = my_task.evaluate(
+    llm=[kbench.llm], evaluation_data=df,  # df columns map to task params
+    n_jobs=2, timeout=120,
+    stop_condition=lambda r: len(r) == df.shape[0],
+    max_attempts=50, retry_delay=15, remove_run_files=True,
+)
+results_df = runs.as_dataframe()
+```
+
+## Multimodal Content Factories
+
+```python
+from kaggle_benchmarks.content_types import images, videos, audios
+images.from_url(url) | images.from_path(p) | images.from_base64(b64, format="png")
+videos.from_url(youtube_url)
+audios.from_path(p) | audios.from_url(url) | audios.from_base64(b64, format="mp3")
+```
+
+## Token Usage Tracking
+
+```python
+with kbench.chats.new("chat") as chat:
+    llm.prompt("...")
+    chat.usage.input_tokens / .output_tokens / .input_tokens_cost_nanodollars
+```
+"""
+
+BENCHMARKS_EXAMPLE_TASK = """\
+# Syntax reference: kaggle_benchmarks_reference.md
+import kaggle_benchmarks as kbench
+
+@kbench.task(name="What is Kaggle?", description="Does the LLM know what Kaggle is?")
+def what_is_kaggle(llm) -> None:
+    response = llm.prompt("What is Kaggle?")
+    kbench.assertions.assert_in("platform", response.lower())
+
+what_is_kaggle.run(kbench.llm)
+"""
 
 
 class AuthMethod(Enum):
@@ -622,7 +798,7 @@ class KaggleApi:
 
     # Attributes
     competition_fields = ["ref", "deadline", "category", "reward", "teamCount", "userHasEntered"]
-    submission_fields = ["fileName", "date", "description", "status", "publicScore", "privateScore"]
+    submission_fields = ["ref", "fileName", "date", "description", "status", "publicScore", "privateScore"]
     competition_file_fields = ["name", "totalBytes", "creationDate"]
     competition_file_labels = ["name", "size", "creationDate"]
     competition_leaderboard_fields = ["teamId", "teamName", "submissionDate", "score"]
@@ -639,9 +815,26 @@ class KaggleApi:
     episode_fields = ["id", "createTime", "endTime", "state", "type"]
     episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
     competition_page_fields = ["name"]
+    competition_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
+    competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
+    valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
+    valid_comment_sort_by = ["hot", "new", "old", "top"]
 
-    def __init__(self, enable_oauth: bool = False):
-        self.enable_oauth = enable_oauth
+    # Forums / Discussions
+    forum_fields = ["id", "name", "subtitle"]
+    forum_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
+    forum_comment_fields = ["id", "authorName", "postDate", "votes", "content"]
+    valid_forum_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
+    valid_forum_topic_categories = [
+        "all",
+        "forums",
+        "competitions",
+        "datasets",
+        "competition_write_ups",
+        "models",
+        "benchmarks",
+    ]
+    valid_forum_topic_groups = ["all", "owned", "upvoted", "bookmarked", "my_activity", "drafts"]
 
     def _is_retriable(self, e: HTTPError) -> bool:
         if self._is_rate_limited(e):
@@ -759,20 +952,17 @@ class KaggleApi:
         Returns:
             None:
         """
-        if self.enable_oauth and self._authenticate_with_oauth_creds():
-            return
         if self._authenticate_with_access_token():
             return
         if self._authenticate_with_legacy_apikey():
             return
-        if self.enable_oauth:
-            print("You must authenticate before you can call the Kaggle API.")
-            print('Please run "kaggle auth login" to log in.')
-        else:
-            print("You must authenticate before you can call the Kaggle API.")
-            print(
-                "Follow the instructions to authenticate at: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
-            )
+        if self._authenticate_with_oauth_creds():
+            return
+        print("You must authenticate before you can call the Kaggle API.")
+        print('Please run "kaggle auth login" to log in via OAuth')
+        print(
+            "Or use one of the alternate ways to authenticate: https://github.com/Kaggle/kaggle-cli/blob/main/docs/README.md#authentication"
+        )
         exit(1)
 
     def _authenticate_with_legacy_apikey(self) -> bool:
@@ -1986,6 +2176,469 @@ class KaggleApi:
         else:
             print("No pages found")
 
+    def competition_list_topics(self, competition: str, sort_by: Optional[str] = None, page: Optional[int] = None):
+        """List discussion topics for a competition.
+
+        Args:
+            competition (str): The competition name.
+            sort_by (Optional[str]): Sort order; one of valid_topic_sort_by.
+            page (Optional[int]): Page number (1-based).
+
+        Returns:
+            ApiListCompetitionTopicsResponse: response with topics and total_count.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListCompetitionTopicsRequest()
+            request.competition_name = competition
+            if sort_by:
+                if sort_by not in self.valid_topic_sort_by:
+                    raise ValueError("Invalid sort_by specified. Valid options are " + str(self.valid_topic_sort_by))
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page is not None:
+                request.page = page
+            return kaggle.competitions.competition_api_client.list_competition_topics(request)
+
+    def competition_list_topics_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        sort_by=None,
+        page=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_list_topics."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+
+        if competition is None:
+            raise ValueError("No competition specified")
+
+        response = self.forums_list_topics(
+            forum_slug=competition,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def competition_list_topic_messages(
+        self,
+        competition: str,
+        topic_id: int,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+    ):
+        """List messages within a competition discussion topic.
+
+        Args:
+            competition (str): The competition name.
+            topic_id (int): The topic id.
+            sort_by (Optional[str]): Sort order; one of valid_comment_sort_by.
+            page_size (Optional[int]): Max top-level messages to return; -1 for all.
+
+        Returns:
+            ApiListTopicMessagesResponse: response with the messages tree.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListTopicMessagesRequest()
+            request.competition_name = competition
+            request.topic_id = topic_id
+            if sort_by:
+                if sort_by not in self.valid_comment_sort_by:
+                    raise ValueError("Invalid sort_by specified. Valid options are " + str(self.valid_comment_sort_by))
+                request.sort_by = CommentListSortBy["COMMENT_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            return kaggle.competitions.competition_api_client.list_topic_messages(request)
+
+    def competition_list_topic_messages_cli(
+        self,
+        competition=None,
+        topic_id=None,
+        competition_opt=None,
+        sort_by=None,
+        page_size=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_list_topic_messages."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+
+        if competition is None:
+            raise ValueError("No competition specified")
+        if topic_id is None:
+            raise ValueError("No topic_id specified")
+
+        response = self.competition_list_topic_messages(
+            competition, int(topic_id), sort_by=sort_by, page_size=page_size
+        )
+        messages = self._flatten_topic_messages(response.messages)
+        if messages:
+            fields = self.competition_topic_message_fields
+            if csv_display:
+                self.print_csv(messages, fields)
+            else:
+                self.print_table(messages, fields)
+        else:
+            print("No messages found")
+
+    def _flatten_topic_messages(self, messages, depth=0):
+        """Flatten the nested replies tree into a single list, preserving order."""
+        flat = []
+        for m in messages or []:
+            flat.append(m)
+            if getattr(m, "replies", None):
+                flat.extend(self._flatten_topic_messages(m.replies, depth + 1))
+        return flat
+
+    # ── Forums / Discussions ─────────────────────────────────────────────
+
+    def forums_list(self):
+        """List all top-level discussion forums on Kaggle.
+
+        Returns:
+            ApiListForumsResponse: response with a list of forums.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListForumsRequest()
+            return kaggle.discussions.discussion_api_client.list_forums(request)
+
+    def forums_list_cli(self, csv_display=False, quiet=False):
+        """CLI wrapper for forums_list."""
+        response = self.forums_list()
+        forums = response.forums
+        if forums:
+            fields = self.forum_fields
+            if csv_display:
+                self.print_csv(forums, fields)
+            else:
+                self.print_table(forums, fields)
+        else:
+            print("No forums found")
+
+    def forums_list_topics(
+        self,
+        forum_slug: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        group: Optional[str] = None,
+    ):
+        """List discussion topics, optionally filtered by forum.
+
+        Args:
+            forum_slug (Optional[str]): Forum slug to filter by (e.g. 'getting-started').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+            category (Optional[str]): Topic category filter; one of valid_forum_topic_categories.
+            group (Optional[str]): Topic group filter; one of valid_forum_topic_groups.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListTopicsRequest()
+            if forum_slug:
+                request.forum_slug = forum_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            if category:
+                if category not in self.valid_forum_topic_categories:
+                    raise ValueError(
+                        "Invalid category specified. Valid options are " + str(self.valid_forum_topic_categories)
+                    )
+                request.category = TopicListCategory["TOPIC_LIST_CATEGORY_" + category.upper()]
+            if group:
+                if group not in self.valid_forum_topic_groups:
+                    raise ValueError("Invalid group specified. Valid options are " + str(self.valid_forum_topic_groups))
+                request.group = TopicListGroup["TOPIC_LIST_GROUP_" + group.upper()]
+            return kaggle.discussions.discussion_api_client.list_topics(request)
+
+    def forums_list_topics_cli(
+        self,
+        forum=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        category=None,
+        group=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for forums_list_topics."""
+        response = self.forums_list_topics(
+            forum_slug=forum,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+            category=category,
+            group=group,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def forums_topic_show(
+        self,
+        topic_id: int,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ):
+        """Get a single discussion topic by ID, including its comments.
+
+        Args:
+            topic_id (int): The topic ID.
+            page_size (Optional[int]): Number of comments per page. If None, fetches all.
+            page_token (Optional[str]): Page token for comment pagination.
+
+        Returns:
+            tuple: (ApiDiscussionTopic, list[ApiDiscussionComment], str) — the topic,
+                comments, and next_page_token (empty string if no more pages).
+        """
+        with self.build_kaggle_client() as kaggle:
+            # Fetch the topic
+            get_request = ApiGetTopicRequest()
+            get_request.id = topic_id
+            topic_response = kaggle.discussions.discussion_api_client.get_topic(get_request)
+            topic = topic_response.topic
+
+            # Fetch comments
+            if page_size is not None:
+                # Single page requested
+                comments_request = ApiListCommentsRequest()
+                comments_request.topic_id = topic_id
+                comments_request.page_size = page_size
+                if page_token:
+                    comments_request.page_token = page_token
+                comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
+                return topic, comments_response.comments or [], comments_response.next_page_token or ""
+            else:
+                # Fetch all pages
+                all_comments: list = []
+                current_token: Optional[str] = page_token
+                while True:
+                    comments_request = ApiListCommentsRequest()
+                    comments_request.topic_id = topic_id
+                    if current_token:
+                        comments_request.page_token = current_token
+                    comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
+                    if comments_response.comments:
+                        all_comments.extend(comments_response.comments)
+                    next_token = comments_response.next_page_token
+                    if not next_token:
+                        break
+                    current_token = next_token
+
+                return topic, all_comments, ""
+
+    def forums_topic_show_cli(
+        self,
+        topic_ref=None,
+        topic_id_arg=None,
+        page_size=None,
+        page_token=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper for forums_topic_show.
+
+        topic_ref can be either 'forum-slug/topic-id' or just 'topic-id'.
+        topic_id_arg is the second positional arg when using 'forum-slug topic-id' form.
+        """
+        # Support both 'forum-slug/topic-id' and 'forum-slug topic-id' forms
+        if topic_id_arg is not None:
+            # Two separate positional args: forum-slug topic-id
+            topic_id = int(topic_id_arg)
+        elif topic_ref and "/" in topic_ref:
+            # Single arg with slash: forum-slug/topic-id
+            parts = topic_ref.rsplit("/", 1)
+            topic_id = int(parts[1])
+        else:
+            # Just a bare topic-id
+            if topic_ref is None:
+                raise ValueError("No topic specified. Usage: kaggle forums topics show <forum>/<topic-id>")
+            topic_id = int(topic_ref)
+
+        topic, comments, next_page_token = self.forums_topic_show(topic_id, page_size=page_size, page_token=page_token)
+
+        if topic is None:
+            print("Topic not found")
+            return
+
+        if csv_display:
+            # In CSV mode, print the topic then flat comments
+            self.print_csv([topic], self.forum_topic_fields)
+            flat = self._flatten_discussion_comments(comments)
+            if flat:
+                self.print_csv(flat, self.forum_comment_fields)
+        else:
+            # Pretty-print the topic header
+            print(f"Topic #{topic.id}: {topic.title}")
+            print(f"  Author: {topic.author_name}")
+            print(f"  Posted: {topic.post_date}")
+            print(f"  Votes: {topic.votes}  Comments: {topic.comment_count}")
+            if topic.content:
+                content = bleach.clean(topic.content, tags=[], strip=True).strip()
+                print(f"\n{content}")
+            print()
+
+            # Print comment tree
+            if comments:
+                print("Comments:")
+                self._print_comment_tree(comments)
+            elif not quiet:
+                print("No comments")
+
+        if not quiet and next_page_token:
+            print(f"Next page token: {next_page_token}")
+
+    def _print_comment_tree(self, comments, depth=0):
+        """Recursively print comments with indentation to show tree structure."""
+        indent = "  " * depth
+        for comment in comments or []:
+            author = getattr(comment, "author_name", "Unknown")
+            date = getattr(comment, "post_date", "")
+            votes = getattr(comment, "votes", 0)
+            content = getattr(comment, "content", "")
+            if content:
+                content = bleach.clean(content, tags=[], strip=True).strip()
+                # Truncate long content for display
+                if len(content) > 200:
+                    content = content[:197] + "..."
+
+            print(f"{indent}├─ {author} ({date}) [+{votes}]")
+            if content:
+                # Indent content lines
+                for line in content.split("\n"):
+                    print(f"{indent}│  {line}")
+
+            replies = getattr(comment, "replies", None)
+            if replies:
+                self._print_comment_tree(replies, depth + 1)
+
+    def _flatten_discussion_comments(self, comments, depth=0):
+        """Flatten nested discussion comments into a single list."""
+        flat = []
+        for c in comments or []:
+            flat.append(c)
+            if getattr(c, "replies", None):
+                flat.extend(self._flatten_discussion_comments(c.replies, depth + 1))
+        return flat
+
+    # ------------------------------------------------------------------
+    # Generic entity topics CLI wrappers
+    #
+    # These allow datasets, models, and benchmarks to reuse the forums
+    # discussion API by passing the entity ref as the forum slug.
+    # ------------------------------------------------------------------
+
+    def entity_list_topics_cli(
+        self,
+        entity_ref=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """Generic CLI wrapper that lists discussion topics for any entity.
+
+        Args:
+            entity_ref (str): The entity identifier used as the forum slug
+                (e.g. 'titanic', 'zillow/zecon', 'google/gemma').
+        """
+        if entity_ref is None:
+            raise ValueError("No entity specified")
+
+        response = self.forums_list_topics(
+            forum_slug=entity_ref,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def entity_topic_show_cli(
+        self,
+        entity_ref=None,
+        topic_ref=None,
+        topic_id_arg=None,
+        page_size=None,
+        page_token=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """Generic CLI wrapper that displays a discussion topic for any entity.
+
+        Delegates to forums_topic_show_cli with the same arguments.
+        """
+        self.forums_topic_show_cli(
+            topic_ref=topic_ref,
+            topic_id_arg=topic_id_arg,
+            page_size=page_size,
+            page_token=page_token,
+            csv_display=csv_display,
+            quiet=quiet,
+        )
+
     def dataset_list(
         self,
         sort_by: Optional[str] = None,
@@ -2365,17 +3018,45 @@ class KaggleApi:
         else:
             print("No files found")
 
-    def dataset_status(self, dataset: str) -> str:
+    _DATASET_STATUS_FIELDS = ("status", "current_version_number")
+
+    def dataset_status(self, dataset: str, format=None) -> str:
         """Gets the status of a dataset.
 
         Args:
             dataset (str): The string identifier of the dataset, in the format [owner]/[dataset-name].
+            format: optional output format. ``None`` (default) preserves the
+                original behavior and returns the status string. A value of
+                ``"json"`` returns a JSON-encoded object with both ``status``
+                and ``current_version_number``. ``gcloud``-style field
+                selection is supported, e.g. ``"json(current_version_number)"``
+                or ``"json(status,current_version_number)"``; only the APIs
+                required to populate the requested fields are called.
 
         Returns:
-            str: The status of the dataset.
+            str: The status of the dataset, or a JSON-encoded payload when a
+            ``format`` is requested.
         """
         if dataset is None:
             raise ValueError("A dataset must be specified")
+
+        if format is None:
+            # Back-compat: only the status field is needed and we return it as
+            # a plain string instead of JSON.
+            selected_fields = ["status"]
+        else:
+            format_name, fields = _parse_format(format)
+            if format_name != "json":
+                raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
+            if fields:
+                unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
+                if unknown:
+                    raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
+                selected_fields = list(fields)
+            else:
+                # No projection: include all fields.
+                selected_fields = list(self._DATASET_STATUS_FIELDS)
+
         if "/" in dataset:
             self.validate_dataset_string(dataset)
             dataset_urls = dataset.split("/")
@@ -2385,22 +3066,39 @@ class KaggleApi:
             owner_slug = self.get_config_value(self.CONFIG_NAME_USER) or ""
             dataset_slug = dataset
 
+        payload = {}
         with self.build_kaggle_client() as kaggle:
-            request = ApiGetDatasetStatusRequest()
-            request.owner_slug = owner_slug
-            request.dataset_slug = dataset_slug
-            response = kaggle.datasets.dataset_api_client.get_dataset_status(request)
-            return response.status.name.lower()
+            if "status" in selected_fields:
+                status_request = ApiGetDatasetStatusRequest()
+                status_request.owner_slug = owner_slug
+                status_request.dataset_slug = dataset_slug
+                status_response = kaggle.datasets.dataset_api_client.get_dataset_status(status_request)
+                payload["status"] = status_response.status.name.lower()
+            if "current_version_number" in selected_fields:
+                dataset_request = ApiGetDatasetRequest()
+                dataset_request.owner_slug = owner_slug
+                dataset_request.dataset_slug = dataset_slug
+                dataset_response = kaggle.datasets.dataset_api_client.get_dataset(dataset_request)
+                payload["current_version_number"] = dataset_response.current_version_number
 
-    def dataset_status_cli(self, dataset, dataset_opt=None):
+        if format is None:
+            return payload["status"]
+        return json.dumps({field: payload[field] for field in selected_fields})
+
+    def dataset_status_cli(self, dataset, dataset_opt=None, format=None):
         """A wrapper for client for dataset_status, with additional dataset_opt to
         get the status of a dataset from the API.
 
         Args:
             dataset_opt: an alternative to dataset
+            format: optional output format forwarded to ``dataset_status``.
+                ``None`` (default) keeps the historic plain-text output
+                containing only the status string; pass ``"json"`` (optionally
+                with field selection like ``"json(current_version_number)"``)
+                to receive a JSON payload.
         """
         dataset = dataset or dataset_opt
-        return self.dataset_status(dataset)
+        return self.dataset_status(dataset, format=format)
 
     def dataset_download_file(self, dataset, file_name, path=None, force=False, quiet=True, licenses=[]):
         """Download a single file for a dataset.
@@ -2991,7 +3689,8 @@ class KaggleApi:
             os.makedirs(outpath)
 
         # Get file metadata
-        size = int(response.headers["Content-Length"])
+        content_length = response.headers.get("Content-Length")
+        size = int(content_length) if content_length else None
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
             remote_date = datetime.now()
@@ -3022,18 +3721,20 @@ class KaggleApi:
                     size_read = os.path.getsize(outfile) if file_exists else 0
                     open_mode = "ab"
 
-                    if size_read >= size:
+                    if size is not None and size_read >= size:
                         if not quiet:
                             print("File already downloaded completely.")
                         return
 
                     if not quiet:
-                        if retry_count > 0:
-                            print(
-                                f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes ({size - size_read} bytes left)..."
-                            )
+                        if size is not None:
+                            remaining = f" ({size - size_read} bytes left)"
                         else:
-                            print(f"Resuming from {size_read} bytes ({size - size_read} bytes left)...")
+                            remaining = ""
+                        if retry_count > 0:
+                            print(f"Retry {retry_count}/{max_retries}: Resuming from {size_read} bytes{remaining}...")
+                        else:
+                            print(f"Resuming from {size_read} bytes{remaining}...")
 
                     # Request with Range header for resume, preserving authentication
                     retry_headers = original_headers.copy()
@@ -3082,13 +3783,14 @@ class KaggleApi:
 
                 os.utime(outfile, times=(remote_date_timestamp, remote_date_timestamp))
 
-                # Verify file size
-                final_size = os.path.getsize(outfile)
-                if final_size != size:
-                    error_msg = f"Downloaded file size ({final_size}) does not match expected size ({size})"
-                    if not quiet:
-                        print(f"\n{error_msg}")
-                    raise ValueError(error_msg)
+                # Verify file size (only when Content-Length was provided)
+                if size is not None:
+                    final_size = os.path.getsize(outfile)
+                    if final_size != size:
+                        error_msg = f"Downloaded file size ({final_size}) does not match expected size ({size})"
+                        if not quiet:
+                            print(f"\n{error_msg}")
+                        raise ValueError(error_msg)
 
                 # Success - exit retry loop
                 break
@@ -5764,13 +6466,15 @@ class KaggleApi:
     def sanitize_markdown(self, markdown: str) -> str:
         return bleach.clean(markdown)
 
-    def confirmation(self, action: str = ""):
+    def confirmation(self, action: str = "", default_to_yes: bool = False):
         if len(action):
             question = f"Are you sure you want to {action}?"
         else:
             question = "Are you sure?"
-        prompt = "[yes/no]"
+        prompt = "[Y/n]" if default_to_yes else "[yes/no]"
         options = {"yes": True, "y": True, "no": False, "n": False}
+        if default_to_yes:
+            options[""] = True
         while True:
             sys.stdout.write("{} {} ".format(question, prompt))
             choice = input().lower()
@@ -5812,6 +6516,9 @@ class KaggleApi:
         BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_RUNNING,
     }
 
+    _TASK_CREATION_COMPLETED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
+    _TASK_CREATION_ERRORED = BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
+
     # -- Static helpers --
 
     @staticmethod
@@ -5844,7 +6551,7 @@ class KaggleApi:
         while True:
             response = fetch_page(page_token)
             items.extend(get_items(response))
-            page_token = response.next_page_token or ""
+            page_token = getattr(response, "next_page_token", None) or ""
             if not page_token:
                 break
         return items
@@ -5870,11 +6577,13 @@ class KaggleApi:
         max_task_len = max((len(t.slug.task_slug) for t in tasks), default=40)
         max_task_len = max(max_task_len, 40)
 
-        print(f"{'Task':<{max_task_len}} {'Status':<20} {'Created':<20}")
-        print("-" * (max_task_len + 40))
+        print(f"{'Task':<{max_task_len}} {'Version':<10} {'Status':<20} {'Created':<20}")
+        print("-" * (max_task_len + 53))
         for t in tasks:
+            version = str(t.slug.version_number) if t.slug.version_number else "unset"
             print(
-                f"{t.slug.task_slug:<{max_task_len}} {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
+                f"{t.slug.task_slug:<{max_task_len}} {version:<10}"
+                f" {KaggleApi._clean_enum_str(t.creation_state):<20} {KaggleApi._format_time(t.create_time):<20}"
             )
 
     @staticmethod
@@ -5886,16 +6595,55 @@ class KaggleApi:
         sep = model_col + 15 + time_col + time_col
         print(f"{'Model':<{model_col}} {'Status':<15} {'Started':<{time_col}} {'Ended':<{time_col}}")
         print("-" * sep)
+        errors = []
         for r in runs:
-            error_suffix = ""
-            if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
-                error_suffix = f" | Error: {r.error_message}"
             slug = KaggleApi._short_model_slug(r.model_version_slug)
             print(
                 f"{slug:<{model_col}} {KaggleApi._clean_enum_str(r.state):<15} "
                 f"{KaggleApi._format_time(r.start_time):<{time_col}} {KaggleApi._format_time(r.end_time):<{time_col}}"
-                f"{error_suffix}"
             )
+            if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED and r.error_message:
+                errors.append((slug, r.error_message))
+
+        if errors:
+            print()
+            print(f"\033[1;31mErrors:\033[0m")
+            for slug, msg in errors:
+                print(f"\033[1;31m  [{slug}]\033[0m")
+                for line in msg.strip().splitlines():
+                    print(f"\033[31m    {line}\033[0m")
+
+    @staticmethod
+    def _strip_ipython_magics(source: str) -> str:
+        """Remove IPython/Jupyter magic lines so ast.parse() can handle them.
+
+        Replaces magic lines with blank lines to preserve line numbers for
+        accurate AST node positions.  Handles cell magics (%%cmd), line
+        magics (%cmd), and shell escapes (!cmd).
+
+        Note: jupytext's ``comment_magics`` only comments the magic line, not
+        the cell body, so non-Python content still breaks ``ast.parse()``.
+        """
+
+        def _to_blank_lines(m: re.Match) -> str:
+            """Replace matched content with the same number of newlines."""
+            return "\n" * m.group().count("\n")
+
+        # Cell magics: %%magic ... spanning to the next blank line or EOF.
+        source = re.sub(
+            r"^[ \t]*%%\w[^\n]*\n(?:[ \t]*\S[^\n]*\n)*",
+            _to_blank_lines,
+            source,
+            flags=re.MULTILINE,
+        )
+        # Line magics (%cmd ...) and shell escapes (!cmd ...).
+        source = re.sub(
+            r"^[ \t]*(?:%(?!%)|!)\w[^\n]*$",
+            _to_blank_lines,
+            source,
+            flags=re.MULTILINE,
+        )
+        return source
 
     @staticmethod
     def _get_task_names_from_file(file_content: str) -> List[str]:
@@ -5903,8 +6651,9 @@ class KaggleApi:
         import ast
 
         task_names: list[str] = []
+        cleaned = KaggleApi._strip_ipython_magics(file_content)
         try:
-            tree = ast.parse(file_content)
+            tree = ast.parse(cleaned)
         except SyntaxError:
             return []
 
@@ -5923,6 +6672,7 @@ class KaggleApi:
 
                 name = None
                 if isinstance(decorator, ast.Call):
+                    # Check keyword: @task(name="...")
                     name = next(
                         (
                             k.value.value
@@ -5931,6 +6681,9 @@ class KaggleApi:
                         ),
                         None,
                     )
+                    # Check first positional arg: @task("...")
+                    if name is None and decorator.args and isinstance(decorator.args[0], ast.Constant):
+                        name = decorator.args[0].value
 
                 task_names.append(str(name) if name else node.name.title().replace("_", " "))
 
@@ -5949,7 +6702,25 @@ class KaggleApi:
         task_slug = slugify(task)
         slugified_names = {slugify(n): n for n in task_names}
         if task_slug not in slugified_names:
-            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(task_names)}")
+            raise ValueError(f"Task '{task}' not found in file {file}. Found tasks: {', '.join(slugified_names)}")
+
+    @staticmethod
+    def _convert_py_to_notebook(source: str) -> str:
+        """Convert a percent-format .py file to .ipynb JSON string."""
+        import jupytext
+
+        notebook = jupytext.reads(source, fmt="py:percent")
+        notebook.metadata["kernelspec"] = {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3",
+        }
+        return jupytext.writes(notebook, fmt="ipynb")
+
+    @staticmethod
+    def _full_task_url(url: str) -> str:
+        """Ensure a task URL is absolute."""
+        return f"https://www.kaggle.com{url}" if url.startswith("/") else url
 
     # -- Instance helpers (API calls) --
 
@@ -5987,13 +6758,20 @@ class KaggleApi:
             request.page_token = page_token
             return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs(request)
 
-        runs = self._paginate(_fetch, lambda r: r.runs)
+        runs = self._paginate(_fetch, lambda r: r.runs or [])
 
         # Client-side filter as fallback since the server may ignore model_version_slugs.
         if models:
             model_set = set(models)
             runs = [
-                r for r in runs if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
+                r
+                for r in runs
+                if r.model_version_slug in model_set or r.model_version_slug.split("/")[-1] in model_set
+                # TODO(dolaameng): Remove this fallback once the server returns
+                # BenchmarkModelVersion.Slug (e.g. "claude-sonnet-4-6-default")
+                # instead of ModelProxySlug (e.g. "anthropic/claude-sonnet-4-6@default")
+                # in ApiBenchmarkTaskRun.model_version_slug.
+                or r.model_version_slug.split("/")[-1].replace("@", "-") in model_set
             ]
 
         return runs
@@ -6061,8 +6839,9 @@ class KaggleApi:
                 return
             elif state not in self._PENDING_CREATION_STATES:
                 error_msg = f"Task '{task}' creation failed with status: {self._clean_enum_str(state)}"
-                if hasattr(task_info, "error_message") and task_info.error_message:
-                    error_msg += f" Error: {task_info.error_message}"
+                error = getattr(task_info, "error", None) or getattr(task_info, "creation_error_message", None)
+                if error:
+                    error_msg += f" Error: {error}"
                 raise ValueError(error_msg)
 
             print(f"  Task status: {self._clean_enum_str(state)}...")
@@ -6083,12 +6862,16 @@ class KaggleApi:
             if all_runs and all(r.state in self._TERMINAL_RUN_STATES for r in all_runs):
                 print("All runs completed:")
                 for r in all_runs:
-                    label = (
-                        "COMPLETED"
-                        if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_COMPLETED
-                        else "ERRORED"
-                    )
-                    print(f"  {self._short_model_slug(r.model_version_slug)}: {label}")
+                    print(f"  {self._short_model_slug(r.model_version_slug)}: {self._clean_enum_str(r.state)}")
+
+                errored = [r for r in all_runs if r.state == BenchmarkTaskRunState.BENCHMARK_TASK_RUN_STATE_ERRORED]
+                if errored:
+                    details = []
+                    for r in errored:
+                        slug = self._short_model_slug(r.model_version_slug)
+                        msg = (getattr(r, "error_message", None) or "").strip() or "No error message"
+                        details.append(f"  [{slug}]\n    {msg}")
+                    raise ValueError(f"{len(errored)} run(s) failed:\n" + "\n".join(details))
                 return
 
             pending = sum(1 for r in all_runs if r.state not in self._TERMINAL_RUN_STATES)
@@ -6124,31 +6907,58 @@ class KaggleApi:
         print()
 
         if not no_confirm:
-            if not self.confirmation(f"write these environment variables to {env_file}"):
+            if not self.confirmation(f"write these environment variables to {env_file}", default_to_yes=True):
                 return
 
         with open(env_file, "a") as f:
+            f.write("\n")
             for key, value in env_vars.items():
                 f.write(f"{key}={value}\n")
 
         print(f"Environment variables have been written to {env_file}.")
 
+    def _write_benchmarks_example(self, example_file):
+        example_file = os.path.abspath(example_file)
+        if os.path.exists(example_file):
+            print(f"Example file already exists at {example_file}, skipping.")
+            return
+
+        with open(example_file, "w") as f:
+            f.write(BENCHMARKS_EXAMPLE_TASK)
+
+        print(f"Example benchmark task file has been written to {example_file}.")
+
+    def _write_benchmarks_reference(self, directory):
+        ref_file = os.path.join(os.path.abspath(directory), "kaggle_benchmarks_reference.md")
+        if os.path.exists(ref_file):
+            print(f"Reference file already exists at {ref_file}, skipping.")
+            return
+
+        with open(ref_file, "w") as f:
+            f.write(BENCHMARKS_SYNTAX_REF)
+
+        print(f"Syntax reference has been written to {ref_file}.")
+
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
         env_vars = self._fetch_model_proxy_env()
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
 
-    def benchmarks_init_cli(self, no_confirm=False, env_file=".env"):
+    def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
         env_vars = self._fetch_model_proxy_env()
         env_vars.update(
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",
                 "LLM_DEFAULT_EVAL": "google/gemini-3-flash-preview",
-                "LLMS_AVAILABLE": "google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview",
+                "LLMS_AVAILABLE": "anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5",
             }
         )
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
+        self._write_benchmarks_example(example_file)
+        self._write_benchmarks_reference(os.path.dirname(os.path.abspath(example_file)))
 
     def benchmarks_tasks_push_cli(self, task, file, wait=None, poll_interval=10):
+        if poll_interval is not None and poll_interval <= 0:
+            raise ValueError("--poll-interval must be a positive integer")
         if not os.path.isfile(file):
             raise ValueError(f"File {file} does not exist")
         if not file.endswith(".py"):
@@ -6156,69 +6966,63 @@ class KaggleApi:
 
         with open(file) as f:
             content = f.read()
-
         self._validate_task_in_file(task, file, content)
 
-        # Normalize the user-supplied task name into a URL-safe slug.
         task_slug = slugify(task)
         if task_slug != task:
             print(
-                f"\033[1mWarning: task name '{task}' was normalized to slug '{task_slug}'. "
-                f"Use '{task_slug}' in future commands.\033[0m\n",
+                f"\n\033[1;33m⚠ Warning: task name '{task}' was normalized to slug '{task_slug}'.\033[0m\n"
+                f"\033[33m  Use '{task_slug}' in future commands.\033[0m\n",
                 file=sys.stderr,
             )
 
-        # Convert .py file with percent delimiters to .ipynb
-        import jupytext
-
-        notebook = jupytext.reads(content, fmt="py:percent")
-        # Add kernelspec metadata so papermill can execute it on the server
-        notebook.metadata["kernelspec"] = {
-            "display_name": "Python 3",
-            "language": "python",
-            "name": "python3",
-        }
-        notebook_content = jupytext.writes(notebook, fmt="ipynb")
+        notebook_content = self._convert_py_to_notebook(content)
 
         with self.build_kaggle_client() as kaggle:
+            # If a previous push is still being created, wait or error.
             task_info = self._get_benchmark_task(task_slug, kaggle, allow_not_found=True)
             if task_info and task_info.creation_state in self._PENDING_CREATION_STATES:
-                raise ValueError(f"Task '{task_slug}' is currently being created (pending). Cannot push now.")
+                if wait is None:
+                    raise ValueError(
+                        f"Task '{task_slug}' is currently being created (pending). Cannot push now. "
+                        f"Use --wait to monitor the existing creation."
+                    )
+                print(f"Task '{task_slug}' is already being created. Waiting for it to finish...")
+                self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
+                print(f"Pushing new version of '{task_slug}'...")
 
             request = ApiCreateBenchmarkTaskRequest()
             request.slug = task_slug
             request.text = notebook_content
 
             response = kaggle.benchmarks.benchmark_tasks_api_client.create_benchmark_task(request)
-            error = getattr(response, "error_message", None) or getattr(response, "errorMessage", None)
+            error = getattr(response, "error", None)
             if error:
                 raise ValueError(f"Failed to push task: {error}")
+
+            url = self._full_task_url(response.url)
             print(f"Task '{task_slug}' pushed.")
-            url = response.url
-            if url.startswith("/"):
-                url = "https://www.kaggle.com" + url
             print(f"\033[1mTask URL: {url}\033[0m")
             print(f"To run this task against models, use: kaggle b t run {task_slug}")
 
-            if wait is not None:
+            if wait is None:
+                print(f"To check creation status, use: kaggle b t status {task_slug}")
+            else:
                 self._poll_task_creation(kaggle, task_slug, wait, poll_interval)
 
     def benchmarks_tasks_run_cli(self, task, model=None, wait=None, poll_interval=10):
+        if poll_interval is not None and poll_interval <= 0:
+            raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)
         task = slugify(task)
 
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
             task_info = self._get_benchmark_task(task, kaggle)
-            if (
-                task_info.creation_state
-                != BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_COMPLETED
-            ):
-                error_msg = f"Task '{task}' is not ready to run (status: {task_info.creation_state})."
-                if (
-                    task_info.creation_state
-                    == BenchmarkTaskVersionCreationState.BENCHMARK_TASK_VERSION_CREATION_STATE_ERRORED
-                ):
+            state = task_info.creation_state
+            if state != self._TASK_CREATION_COMPLETED:
+                error_msg = f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)})."
+                if state == self._TASK_CREATION_ERRORED:
                     error_msg += f" Task Info: {task_info}."
                 error_msg += " Only completed tasks can be run."
                 raise ValueError(error_msg)
@@ -6259,16 +7063,13 @@ class KaggleApi:
         if status:
             request.status_filter = status
 
-        all_tasks = []
         with self.build_kaggle_client() as kaggle:
-            while True:
-                response = kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
-                if response.tasks:
-                    all_tasks.extend(response.tasks)
-                if not getattr(response, "next_page_token", None):
-                    break
-                request.page_token = response.next_page_token
 
+            def _fetch(page_token):
+                request.page_token = page_token
+                return kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks(request)
+
+            all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
             self._print_task_table(all_tasks)
 
     def benchmarks_tasks_status_cli(self, task, model=None):
@@ -6276,13 +7077,13 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
             print(f"Task:     {task_info.slug.task_slug}")
+            version = task_info.slug.version_number or "unset"
+            print(f"Version:  {version}")
             print(f"Status:   {self._clean_enum_str(task_info.creation_state)}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
             url = getattr(task_info, "url", None)
             if url:
-                if url.startswith("/"):
-                    url = "https://www.kaggle.com" + url
-                print(f"\033[1mTask URL: {url}\033[0m")
+                print(f"\033[1mTask URL: {self._full_task_url(url)}\033[0m")
 
             runs = self._fetch_task_runs(kaggle, task, model)
 
@@ -6294,22 +7095,60 @@ class KaggleApi:
 
     def benchmarks_tasks_download_cli(self, task, model=None, output=None):
         task = slugify(task)
-        output = output or os.path.join(".", task, "output")
+        output = output or "."
 
         with self.build_kaggle_client() as kaggle:
+            task_info = self._get_benchmark_task(task, kaggle)
+            version = str(task_info.slug.version_number) if task_info.slug.version_number else "unset"
             runs = self._fetch_task_runs(kaggle, task, model)
 
-            for r in runs:
-                if r.state not in self._TERMINAL_RUN_STATES:
-                    continue
+            if not runs:
+                if isinstance(model, str):
+                    model_hint = f" for model '{model}'"
+                elif model:
+                    model_hint = f" for models {', '.join(model)}"
+                else:
+                    model_hint = ""
+                print(f"No runs found for task '{task}'{model_hint}.")
+                print(f"Use 'kaggle b t run {task}' to start one.")
+                return
+
+            downloadable = [r for r in runs if r.state in self._TERMINAL_RUN_STATES]
+            if not downloadable:
+                pending = len(runs)
+                print(f"No downloadable runs yet — {pending} run(s) still in progress.")
+                print(f"Use 'kaggle b t status {task}' to check progress.")
+                return
+
+            for r in downloadable:
                 dl_request = ApiDownloadBenchmarkTaskRunOutputRequest()
                 dl_request.run_id = r.id
                 slug = self._short_model_slug(r.model_version_slug)
+                # Hierarchical layout: {output}/{task}/{version}/{model}/{run_id}/
+                outdir = os.path.join(output, task, version, slug, str(r.id))
+
+                if os.path.isdir(outdir):
+                    print(f"Skipping {slug} (run {r.id}) — already downloaded to {outdir}")
+                    continue
+
                 print(f"Downloading output for run {r.id} ({slug})...")
                 response = kaggle.benchmarks.benchmark_tasks_api_client.download_benchmark_task_run_output(dl_request)
-                outfile = os.path.join(output, f"{slug}_{r.id}")
-                self.download_file(response, outfile, kaggle.http_client(), quiet=False)
-                print(f"Downloaded output for {slug} to {outfile}")
+                zipfile_path = outdir + ".zip"
+                self.download_file(response, zipfile_path, kaggle.http_client(), quiet=False)
+                # Extract the zip archive into the output directory.
+                # Note: extractall() is safe here because the zip originates from
+                # the trusted Kaggle server, not user-supplied input (zip-slip).
+                try:
+                    with zipfile.ZipFile(zipfile_path, "r") as zf:
+                        zf.extractall(outdir)
+                except zipfile.BadZipFile:
+                    print(
+                        f"Warning: Downloaded file for {slug} (run {r.id}) is not a valid zip archive. "
+                        f"The raw file has been kept at {zipfile_path}."
+                    )
+                    continue
+                os.remove(zipfile_path)
+                print(f"Downloaded output for {slug} to {outdir}")
 
     def benchmarks_tasks_models_cli(self):
         """List all available benchmark models."""
@@ -6387,3 +7226,30 @@ def attributes(obj):
 
 def print_attributes(obj):
     pprint(attributes(obj))
+
+
+def _parse_format(format_value):
+    """Parses a ``--format`` value modeled after gcloud.
+
+    Returns a tuple ``(format_name, fields)`` where ``fields`` is a list of
+    selected field names (empty when no projection was provided). Examples:
+
+    >>> _parse_format("json")
+    ('json', [])
+    >>> _parse_format("json(current_version_number)")
+    ('json', ['current_version_number'])
+    >>> _parse_format("json(status, current_version_number)")
+    ('json', ['status', 'current_version_number'])
+    """
+    if format_value is None:
+        return None, []
+    value = format_value.strip()
+    paren = value.find("(")
+    if paren == -1:
+        return value, []
+    if not value.endswith(")"):
+        raise ValueError(f"Malformed --format value: {format_value!r}")
+    name = value[:paren].strip()
+    inner = value[paren + 1 : -1]
+    fields = [f.strip() for f in inner.split(",") if f.strip()]
+    return name, fields

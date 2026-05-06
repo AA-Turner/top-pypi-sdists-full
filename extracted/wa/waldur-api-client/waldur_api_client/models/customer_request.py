@@ -66,6 +66,8 @@ class CustomerRequest:
         house_nr (Union[Unset, str]):
         apartment_nr (Union[Unset, str]):
         household (Union[Unset, str]):
+        project_slug_template (Union[None, Unset, str]): Template for project slugs. Supports: {customer_slug},
+            {project_name}, {year}, {month}, {counter}, {counter_padded}. Default: slugified project name
     """
 
     name: str
@@ -111,6 +113,7 @@ class CustomerRequest:
     house_nr: Union[Unset, str] = UNSET
     apartment_nr: Union[Unset, str] = UNSET
     household: Union[Unset, str] = UNSET
+    project_slug_template: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -241,6 +244,12 @@ class CustomerRequest:
 
         household = self.household
 
+        project_slug_template: Union[None, Unset, str]
+        if isinstance(self.project_slug_template, Unset):
+            project_slug_template = UNSET
+        else:
+            project_slug_template = self.project_slug_template
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -332,6 +341,8 @@ class CustomerRequest:
             field_dict["apartment_nr"] = apartment_nr
         if household is not UNSET:
             field_dict["household"] = household
+        if project_slug_template is not UNSET:
+            field_dict["project_slug_template"] = project_slug_template
 
         return field_dict
 
@@ -511,6 +522,15 @@ class CustomerRequest:
 
         household = d.pop("household", UNSET)
 
+        def _parse_project_slug_template(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        project_slug_template = _parse_project_slug_template(d.pop("project_slug_template", UNSET))
+
         customer_request = cls(
             name=name,
             backend_id=backend_id,
@@ -555,6 +575,7 @@ class CustomerRequest:
             house_nr=house_nr,
             apartment_nr=apartment_nr,
             household=household,
+            project_slug_template=project_slug_template,
         )
 
         customer_request.additional_properties = d

@@ -8,13 +8,19 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.order_uuid import OrderUUID
 from ...models.resource_update_limits_request import ResourceUpdateLimitsRequest
+from ...models.resource_update_limits_request_form import ResourceUpdateLimitsRequestForm
+from ...models.resource_update_limits_request_multipart import ResourceUpdateLimitsRequestMultipart
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
     *,
-    body: ResourceUpdateLimitsRequest,
+    body: Union[
+        ResourceUpdateLimitsRequest,
+        ResourceUpdateLimitsRequestForm,
+        ResourceUpdateLimitsRequestMultipart,
+    ],
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -23,9 +29,16 @@ def _get_kwargs(
         "url": f"/api/marketplace-resources/{uuid}/update_limits/",
     }
 
-    _kwargs["json"] = body.to_dict()
+    if isinstance(body, ResourceUpdateLimitsRequest):
+        _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+        headers["Content-Type"] = "application/json"
+    if isinstance(body, ResourceUpdateLimitsRequestForm):
+        _kwargs["data"] = body.to_dict()
+
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if isinstance(body, ResourceUpdateLimitsRequestMultipart):
+        _kwargs["files"] = body.to_multipart()
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -54,7 +67,11 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceUpdateLimitsRequest,
+    body: Union[
+        ResourceUpdateLimitsRequest,
+        ResourceUpdateLimitsRequestForm,
+        ResourceUpdateLimitsRequestMultipart,
+    ],
 ) -> Response[OrderUUID]:
     """Update resource limits
 
@@ -64,6 +81,8 @@ def sync_detailed(
     Args:
         uuid (UUID):
         body (ResourceUpdateLimitsRequest):
+        body (ResourceUpdateLimitsRequestForm):
+        body (ResourceUpdateLimitsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -89,7 +108,11 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceUpdateLimitsRequest,
+    body: Union[
+        ResourceUpdateLimitsRequest,
+        ResourceUpdateLimitsRequestForm,
+        ResourceUpdateLimitsRequestMultipart,
+    ],
 ) -> OrderUUID:
     """Update resource limits
 
@@ -99,6 +122,8 @@ def sync(
     Args:
         uuid (UUID):
         body (ResourceUpdateLimitsRequest):
+        body (ResourceUpdateLimitsRequestForm):
+        body (ResourceUpdateLimitsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -119,7 +144,11 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceUpdateLimitsRequest,
+    body: Union[
+        ResourceUpdateLimitsRequest,
+        ResourceUpdateLimitsRequestForm,
+        ResourceUpdateLimitsRequestMultipart,
+    ],
 ) -> Response[OrderUUID]:
     """Update resource limits
 
@@ -129,6 +158,8 @@ async def asyncio_detailed(
     Args:
         uuid (UUID):
         body (ResourceUpdateLimitsRequest):
+        body (ResourceUpdateLimitsRequestForm):
+        body (ResourceUpdateLimitsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -152,7 +183,11 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceUpdateLimitsRequest,
+    body: Union[
+        ResourceUpdateLimitsRequest,
+        ResourceUpdateLimitsRequestForm,
+        ResourceUpdateLimitsRequestMultipart,
+    ],
 ) -> OrderUUID:
     """Update resource limits
 
@@ -162,6 +197,8 @@ async def asyncio(
     Args:
         uuid (UUID):
         body (ResourceUpdateLimitsRequest):
+        body (ResourceUpdateLimitsRequestForm):
+        body (ResourceUpdateLimitsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

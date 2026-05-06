@@ -9,8 +9,11 @@ from ouroboros.config import (
     get_agent_runtime_backend,
     get_cli_path,
     get_codex_cli_path,
+    get_copilot_cli_path,
     get_hermes_cli_path,
+    get_kiro_cli_path,
     get_llm_backend,
+    get_runtime_profile,
 )
 from ouroboros.orchestrator.adapter import AgentRuntime, ClaudeAgentAdapter
 from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
@@ -19,11 +22,13 @@ from ouroboros.orchestrator.opencode_runtime import OpenCodeRuntime
 
 _CLAUDE_BACKENDS = {"claude", "claude_code"}
 _CODEX_BACKENDS = {"codex", "codex_cli"}
+_KIRO_BACKENDS = {"kiro", "kiro_cli"}
 _OPENCODE_BACKENDS = {"opencode", "opencode_cli"}
 _HERMES_BACKENDS = {"hermes", "hermes_cli"}
 _GEMINI_BACKENDS = {"gemini", "gemini_cli"}
+_COPILOT_BACKENDS = {"copilot", "copilot_cli"}
 
-_SUPPORTED_BACKENDS = ("claude", "codex", "opencode", "hermes", "gemini")
+_SUPPORTED_BACKENDS = ("claude", "codex", "opencode", "hermes", "gemini", "kiro", "copilot")
 
 
 def resolve_agent_runtime_backend(backend: str | None = None) -> str:
@@ -33,12 +38,16 @@ def resolve_agent_runtime_backend(backend: str | None = None) -> str:
         return "claude"
     if candidate in _CODEX_BACKENDS:
         return "codex"
+    if candidate in _KIRO_BACKENDS:
+        return "kiro"
     if candidate in _OPENCODE_BACKENDS:
         return "opencode"
     if candidate in _HERMES_BACKENDS:
         return "hermes"
     if candidate in _GEMINI_BACKENDS:
         return "gemini"
+    if candidate in _COPILOT_BACKENDS:
+        return "copilot"
 
     msg = (
         f"Unsupported orchestrator runtime backend: {candidate}. "
@@ -84,6 +93,7 @@ def create_agent_runtime(
     if resolved_backend == "codex":
         return CodexCliRuntime(
             cli_path=cli_path or get_codex_cli_path(),
+            runtime_profile=get_runtime_profile(),
             **runtime_kwargs,
         )
 
@@ -116,6 +126,23 @@ def create_agent_runtime(
 
         return GeminiCLIRuntime(
             cli_path=cli_path or get_gemini_cli_path(),
+            **runtime_kwargs,
+        )
+
+    if resolved_backend == "kiro":
+        from ouroboros.orchestrator.kiro_adapter import KiroAgentAdapter
+
+        return KiroAgentAdapter(
+            cli_path=cli_path or get_kiro_cli_path(),
+            **runtime_kwargs,
+        )
+
+    if resolved_backend == "copilot":
+        from ouroboros.orchestrator.copilot_cli_runtime import CopilotCliRuntime
+
+        return CopilotCliRuntime(
+            cli_path=cli_path or get_copilot_cli_path(),
+            runtime_profile=get_runtime_profile(),
             **runtime_kwargs,
         )
 

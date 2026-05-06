@@ -1932,20 +1932,7 @@ class GiteaCredentialsResponse(BaseModel):
         extra="allow",
     )
     username: Annotated[str, Field(title="Username")]
-    password: Annotated[str, Field(title="Password")]
-    org_name: Annotated[str, Field(title="Org Name")]
-    is_admin: Annotated[bool, Field(title="Is Admin")]
-
-
-class GiteaInfoResponse(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    username: Annotated[str, Field(title="Username")]
-    password: Annotated[str, Field(title="Password")]
-    org_name: Annotated[str, Field(title="Org Name")]
-    is_admin: Annotated[bool, Field(title="Is Admin")]
-    provisioned: Annotated[bool | None, Field(title="Provisioned")] = None
+    password: Annotated[str, Field(title="Password", description="Freshly-minted PAT, rotated on every request.")]
 
 
 class HeartbeatJobResult(BaseModel):

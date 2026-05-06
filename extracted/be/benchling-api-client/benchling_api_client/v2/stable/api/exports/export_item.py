@@ -77,7 +77,7 @@ def sync(
     json_body: ExportItemRequest,
 ) -> Optional[Union[AsyncTaskLink, BadRequestError]]:
     """This endpoint launches a [long-running task](#/Tasks/getTask) and returns the Task ID of the launched task.
-    The task response contains a link to download the exported item from Amazon S3. The download is a ZIP file that contains the exported PDFs.
+    The task response contains a link to download the exported item from Amazon S3. The download is a ZIP file that contains the exported content in the requested format (PDF or HTML).
     This endpoint is subject to throughput rate limiting. Due to the long running nature of these export requests, the endpoint may reject the request with an HTTP 429 error if the system is currently handling too many export requests simultaneously.
     Note that the rate limit is not a fixed limit based on number of requests per hour, but rather a dynamic limit based on current system load and complexity of the items being exported. If using this endpoint with a large number of requests, it is recommended to implement a backoff and retry strategy to handle HTTP 429 errors.
     """
@@ -110,7 +110,7 @@ async def asyncio(
     json_body: ExportItemRequest,
 ) -> Optional[Union[AsyncTaskLink, BadRequestError]]:
     """This endpoint launches a [long-running task](#/Tasks/getTask) and returns the Task ID of the launched task.
-    The task response contains a link to download the exported item from Amazon S3. The download is a ZIP file that contains the exported PDFs.
+    The task response contains a link to download the exported item from Amazon S3. The download is a ZIP file that contains the exported content in the requested format (PDF or HTML).
     This endpoint is subject to throughput rate limiting. Due to the long running nature of these export requests, the endpoint may reject the request with an HTTP 429 error if the system is currently handling too many export requests simultaneously.
     Note that the rate limit is not a fixed limit based on number of requests per hour, but rather a dynamic limit based on current system load and complexity of the items being exported. If using this endpoint with a large number of requests, it is recommended to implement a backoff and retry strategy to handle HTTP 429 errors.
     """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.34
+Version: 0.15.37
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -124,10 +124,12 @@ Provides-Extra: auth
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "auth"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "auth"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "auth"
+Requires-Dist: okta-client-python<1.0.0,>=0.2.0; extra == "auth"
 Provides-Extra: drmcp
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drmcp"
+Requires-Dist: okta-client-python<1.0.0,>=0.2.0; extra == "drmcp"
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "drmcp"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "drmcp"
 Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == "drmcp"
@@ -162,6 +164,7 @@ Provides-Extra: drtools
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "drtools"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drtools"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drtools"
+Requires-Dist: okta-client-python<1.0.0,>=0.2.0; extra == "drtools"
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "drtools"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "drtools"
 Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == "drtools"

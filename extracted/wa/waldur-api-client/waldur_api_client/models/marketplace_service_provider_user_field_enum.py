@@ -3,6 +3,7 @@ from enum import Enum
 
 class MarketplaceServiceProviderUserFieldEnum(str, Enum):
     ACTIVE_ISDS = "active_isds"
+    ADDRESS = "address"
     AFFILIATIONS = "affiliations"
     BIRTH_DATE = "birth_date"
     CIVIL_NUMBER = "civil_number"

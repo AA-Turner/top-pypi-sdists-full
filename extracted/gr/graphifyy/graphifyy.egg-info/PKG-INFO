@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.7.5
+Version: 0.7.7
 Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License: MIT License
         
@@ -108,7 +108,7 @@ Dynamic: license-file
 
 <p align="center">
   <a href="https://safishamsi.gumroad.com/l/qetvlo"><img src="https://img.shields.io/badge/Book-The%20Memory%20Layer-2ea44f?style=flat&logo=gitbook&logoColor=white" alt="The Memory Layer"/></a>
-  <a href="https://github.com/safishamsi/graphify/actions/workflows/ci.yml"><img src="https://github.com/safishamsi/graphify/actions/workflows/ci.yml/badge.svg?branch=v4" alt="CI"/></a>
+  <a href="https://github.com/safishamsi/graphify/actions/workflows/ci.yml"><img src="https://github.com/safishamsi/graphify/actions/workflows/ci.yml/badge.svg?branch=v7" alt="CI"/></a>
   <a href="https://pypi.org/project/graphifyy/"><img src="https://img.shields.io/pypi/v/graphifyy" alt="PyPI"/></a>
   <a href="https://pepy.tech/project/graphifyy"><img src="https://static.pepy.tech/badge/graphifyy" alt="Downloads"/></a>
   <a href="https://github.com/sponsors/safishamsi"><img src="https://img.shields.io/badge/sponsor-safishamsi-ea4aaa?logo=github-sponsors" alt="Sponsor"/></a>
@@ -321,7 +321,7 @@ The MCP server gives your assistant structured access: `query_graph`, `get_node`
 
 - **Code files** — processed locally via tree-sitter. Nothing leaves your machine.
 - **Video / audio** — transcribed locally with faster-whisper. Nothing leaves your machine.
-- **Docs, PDFs, images** — sent to your AI assistant for semantic extraction (via the `/graphify` skill, using whatever model your IDE session runs). Headless `graphify extract` requires `ANTHROPIC_API_KEY` or `MOONSHOT_API_KEY`.
+- **Docs, PDFs, images** — sent to your AI assistant for semantic extraction (via the `/graphify` skill, using whatever model your IDE session runs). Headless `graphify extract` requires `ANTHROPIC_API_KEY` (Claude), `MOONSHOT_API_KEY` (Kimi), or a running Ollama instance (`OLLAMA_BASE_URL`). The `--dedup-llm` flag uses the same key.
 - No telemetry, no usage tracking, no analytics.
 
 ---
@@ -373,12 +373,26 @@ graphify hermes install / uninstall
 graphify kiro install / uninstall
 graphify antigravity install / uninstall
 
+graphify extract ./docs                        # headless LLM extraction for CI (no IDE needed)
+graphify extract ./docs --backend claude       # explicit backend: claude (ANTHROPIC_API_KEY) or kimi (MOONSHOT_API_KEY)
+graphify extract ./docs --backend ollama       # local Ollama (set OLLAMA_BASE_URL / OLLAMA_MODEL)
+graphify extract ./docs --no-cluster           # raw extraction only, skip clustering
+graphify extract ./docs --dedup-llm            # LLM tiebreaker for ambiguous entity pairs (uses same API key)
+graphify extract ./docs --global --as myrepo   # extract and register into the cross-project global graph
+GRAPHIFY_MAX_OUTPUT_TOKENS=32768 graphify extract ./docs --backend claude  # raise output cap for dense corpora
+
+graphify global add graphify-out/graph.json myrepo   # register a project graph into ~/.graphify/global.json
+graphify global remove myrepo                         # remove a project from the global graph
+graphify global list                                  # show all registered repos + node/edge counts
+graphify global path                                  # print path to the global graph file
+
 graphify clone https://github.com/karpathy/nanoGPT
 graphify merge-graphs a.json b.json --out merged.json
 graphify watch ./src
 graphify check-update ./src
 graphify update ./src
 graphify cluster-only ./my-project
+graphify cluster-only ./my-project --graph path/to/graph.json  # custom graph location
 ```
 
 ---

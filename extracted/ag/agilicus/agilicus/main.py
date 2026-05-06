@@ -216,7 +216,7 @@ def env_completion(ctx, args, incomplete):
 
 
 def user_completion(ctx, args, incomplete):
-    _users = users.query(ctx)["users"]
+    _users = users.query(ctx)
     results = []
     for _user in _users:
         results.append(str(_user["email"]))
@@ -987,7 +987,7 @@ def list_sysgroups(ctx, organisation, org_id, **kwargs):
         org_by_name, org_name=organisation, org_id=org_id
     )
     users_groups = users.query_groups(ctx, org_id, type=["sysgroup"], **kwargs)
-    output_list_groups(ctx, users_groups["groups"], hide_members)
+    output_list_groups(ctx, users_groups, hide_members)
 
 
 @cli.command(name="add-group")

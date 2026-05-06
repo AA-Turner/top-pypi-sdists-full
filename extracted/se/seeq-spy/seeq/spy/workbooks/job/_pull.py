@@ -17,16 +17,17 @@ from seeq.spy._status import Status
 
 @Status.top_level_spy_function()
 def pull(
-    job_folder: Union[str, Path],
-    workbooks_df: Union[pd.DataFrame, str],
-    *,
-    resume: bool = True,
-    include_referenced_workbooks: bool = True,
-    include_rendered_content: bool = False,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        job_folder: Union[str, Path],
+        workbooks_df: Union[pd.DataFrame, str],
+        *,
+        resume: bool = True,
+        include_referenced_workbooks: bool = True,
+        include_rendered_content: bool = False,
+        verbose: bool = False,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> pd.DataFrame:
     """
     Pulls the definitions for each workbook specified by workbooks_df on to
@@ -61,6 +62,11 @@ def pull(
         each Topic Document with its HTML and images such that it can be loaded
         and viewed in a browser.
 
+    verbose : bool
+        If True, outputs verbose logs to "pull_log.txt" within the job folder.
+        Note that when status is provided, the verbose setting of the Status
+        object that is passed in takes precedence.
+
     errors : {'raise', 'catalog'}, default 'raise'
         If 'raise', any errors encountered will cause an exception. If
         'catalog', errors will be added to a 'Result' column in the status.df
@@ -89,7 +95,8 @@ def pull(
 
     # Jobs always write the log file, even if the user doesn't want verbose
     default_log_file = os.path.join(job_folder, 'pull_log.txt')
-    status.validate_verbose(None, default_log_file)
+    status.validate_verbose(verbose, default_log_file)
+    status.add_log_section_marker('] Pulling')
 
     util.safe_makedirs(job_folder, exist_ok=True)
 

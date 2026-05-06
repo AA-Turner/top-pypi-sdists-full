@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import socket
 import time
@@ -7,6 +8,7 @@ from pathlib import Path
 from filelock import FileLock
 
 from dbt_mcp.config.config_providers.admin_api import DefaultAdminApiConfigProvider
+from dbt_mcp.errors.common import MissingHostError
 from dbt_mcp.config.headers import TokenProvider
 from dbt_mcp.config.settings import (
     DbtMcpSettings,
@@ -183,11 +185,12 @@ async def get_dbt_platform_context(
 
 
 class CredentialsProvider:
-    def __init__(self, settings: "DbtMcpSettings") -> None:
+    def __init__(self, settings: DbtMcpSettings) -> None:
         self.settings = settings
         self.token_provider: TokenProvider | None = None
         self.authentication_method: AuthenticationMethod | None = None
         self.account_identifier: str | None = None
+        self.user_id: int | None = None
 
     async def _resolve_account_identifier(self) -> None:
         """Fetch and store the account identifier from the Admin API.
@@ -203,13 +206,33 @@ class CredentialsProvider:
         except Exception as e:
             logger.warning(f"Failed to fetch account identifier: {e}")
 
+    async def _resolve_user_id(self) -> None:
+        """Fetch and store the current user id.
+
+        Uses settings.dbt_user_id if already populated (e.g. by OAuth JWT);
+        otherwise falls back to the Admin API. Fails silently — user_id
+        remains None on error.
+        """
+        if self.settings.dbt_user_id is not None:
+            self.user_id = self.settings.dbt_user_id
+            return
+        if not self.settings.actual_host or not self.token_provider:
+            return
+        try:
+            admin_client = DbtAdminAPIClient(DefaultAdminApiConfigProvider(self))
+            user_data = await admin_client.get_current_user()
+            id_response = (user_data.get("user") or {}).get("id")
+            self.user_id = int(id_response) if id_response is not None else None
+        except Exception as e:
+            logger.warning(f"Failed to fetch user id: {e}")
+
     def _log_settings(self) -> None:
         settings = self.settings.model_dump()
         if settings.get("dbt_token") is not None:
             settings["dbt_token"] = "***redacted***"
         logger.info(f"Settings: {settings}")
 
-    async def get_credentials(self) -> "tuple[DbtMcpSettings, TokenProvider]":
+    async def get_credentials(self) -> tuple[DbtMcpSettings, TokenProvider]:
         if self.token_provider is not None:
             # If token provider is already set, just return the cached values
             return self.settings, self.token_provider
@@ -226,13 +249,22 @@ class CredentialsProvider:
                 dbt_profiles_dir=self.settings.dbt_profiles_dir
             )
             config_location = dbt_user_dir / "mcp.yml"
+            dbt_platform_context_manager = DbtPlatformContextManager(config_location)
+            existing_context = dbt_platform_context_manager.read_context()
+            if existing_context and not self.settings.actual_host:
+                if existing_context.dbt_host:
+                    self.settings.dbt_host = existing_context.dbt_host
+                if (
+                    existing_context.host_prefix
+                    and not self.settings.actual_host_prefix
+                ):
+                    self.settings.host_prefix = existing_context.host_prefix
             actual_host = self.settings.actual_host
             if not actual_host:
-                raise ValueError("DBT_HOST is a required environment variable")
+                raise MissingHostError("DBT_HOST is a required environment variable")
             dbt_platform_url = _build_dbt_platform_url(
                 actual_host, self.settings.actual_host_prefix
             )
-            dbt_platform_context_manager = DbtPlatformContextManager(config_location)
             dbt_platform_context = await get_dbt_platform_context(
                 dbt_platform_context_manager=dbt_platform_context_manager,
                 dbt_user_dir=dbt_user_dir,
@@ -255,6 +287,9 @@ class CredentialsProvider:
             self.settings.host_prefix = dbt_platform_context.host_prefix
             self.settings.dbt_project_ids = dbt_platform_context.selected_project_ids
             self.settings.dbt_host = self.settings.base_host
+            if isinstance(dbt_platform_context, DbtPlatformContext):
+                dbt_platform_context.dbt_host = self.settings.actual_host
+                dbt_platform_context_manager.write_context_to_file(dbt_platform_context)
             if not dbt_platform_context.decoded_access_token:
                 raise ValueError("No decoded access token found in OAuth context")
 
@@ -264,7 +299,10 @@ class CredentialsProvider:
                 context_manager=dbt_platform_context_manager,
             )
             self.token_provider = token_provider
-            await self._resolve_account_identifier()
+            await asyncio.gather(
+                self._resolve_account_identifier(),
+                self._resolve_user_id(),
+            )
 
             # Only validate CLI settings here — platform settings were already
             # checked at the top of get_credentials() and the OAuth flow has
@@ -300,7 +338,10 @@ class CredentialsProvider:
                 self.settings.host_prefix = fetched_prefix
                 self.settings.dbt_host = self.settings.base_host
                 logger.info(f"Fetched prefix {fetched_prefix} from dbt Platform.")
-        await self._resolve_account_identifier()
+        await asyncio.gather(
+            self._resolve_account_identifier(),
+            self._resolve_user_id(),
+        )
         validate_settings(self.settings)
         self.authentication_method = AuthenticationMethod.ENV_VAR
         self._log_settings()

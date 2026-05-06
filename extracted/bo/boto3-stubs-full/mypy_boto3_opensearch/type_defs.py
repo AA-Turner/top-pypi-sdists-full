@@ -738,6 +738,7 @@ class SoftwareUpdateOptionsTypeDef(TypedDict):
 class VPCOptionsTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    EgressEnabled: NotRequired[bool]
 
 
 class CreateIndexRequestTypeDef(TypedDict):
@@ -1000,6 +1001,7 @@ class VPCDerivedInfoTypeDef(TypedDict):
     SubnetIds: NotRequired[list[str]]
     AvailabilityZones: NotRequired[list[str]]
     SecurityGroupIds: NotRequired[list[str]]
+    EgressEnabled: NotRequired[bool]
 
 
 class ValidationFailureTypeDef(TypedDict):

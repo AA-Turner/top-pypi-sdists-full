@@ -14,7 +14,9 @@
 # under the License.
 from __future__ import annotations
 
+import asyncio
 import json
+import typing
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -36,6 +38,40 @@ def test_command_error_str_handles_non_utf8_stdout() -> None:
     # str(CommandError) must not raise — error paths depend on it.
     error = utils.CommandError(("git", "show", "abc"), 1, b"\xff\xfe broken")
     assert "failed to run `git show abc`" in str(error)
+
+
+async def test_run_command_forces_c_locale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Several call sites (fetch_notes_ref, read_reasons) match git error
+    # messages by English substring. Subprocesses must therefore run with
+    # LC_ALL=C/LANG=C regardless of the user's locale.
+    monkeypatch.setenv("LC_ALL", "fr_FR.UTF-8")
+    monkeypatch.setenv("LANG", "fr_FR.UTF-8")
+    monkeypatch.setenv("LANGUAGE", "fr")
+
+    captured_env: dict[str, str] = {}
+
+    async def fake_exec(
+        *args: str,  # noqa: ARG001
+        **kwargs: typing.Any,
+    ) -> typing.Any:
+        captured_env.update(kwargs["env"])
+
+        class _Proc:
+            returncode = 0
+
+            async def communicate(self) -> tuple[bytes, bytes]:
+                return b"ok", b""
+
+        return _Proc()
+
+    with mock.patch.object(asyncio, "create_subprocess_exec", fake_exec):
+        await utils.run_command("git", "status")
+
+    assert captured_env["LC_ALL"] == "C"
+    assert captured_env["LANG"] == "C"
+    assert captured_env["LANGUAGE"] == "C"
 
 
 @pytest.mark.usefixtures("_git_repo")
@@ -219,6 +255,18 @@ def test_get_mergify_http_client() -> None:
     assert client.headers["Authorization"] == "Bearer test-token"
     assert client.headers["Accept"] == "application/json"
     assert client.base_url == "https://api.mergify.com"
+
+
+def test_get_http_client_read_write_timeout_has_headroom() -> None:
+    # A flat 5s timeout previously aborted `stack push` whenever GitHub took
+    # longer than 5s to send PR create/update response headers; lock in the
+    # structured timeout so connect/pool stay short while read/write get
+    # enough headroom to absorb transient slowdowns.
+    client = utils.get_http_client("https://example.com")
+    assert client.timeout.connect == pytest.approx(5.0)
+    assert client.timeout.pool == pytest.approx(5.0)
+    assert client.timeout.read == pytest.approx(10.0)
+    assert client.timeout.write == pytest.approx(10.0)
 
 
 class TestCheckForStatus:

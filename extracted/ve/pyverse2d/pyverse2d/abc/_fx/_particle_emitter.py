@@ -4,6 +4,8 @@ from __future__ import annotations
 from ..._internal import expect, positive
 from ...math import Point
 
+from ._particle_modifier import ParticleModifier
+
 import numpy as np
 from abc import ABC, abstractmethod
 from numbers import Real
@@ -32,6 +34,7 @@ class ParticleEmitter(ABC):
         "_lifetimes", "_max_lifetimes",
         "_sizes", "_sizes_end",
         "_colors_start", "_colors_end",
+        "_modifiers",
     )
 
     _PARTICLE_CLS: ClassVar[Type[Particle]] = None
@@ -91,6 +94,9 @@ class ParticleEmitter(ABC):
         self._sizes_end = np.zeros(n, dtype=np.float32)
         self._colors_start = np.zeros((n, 4), dtype=np.float32)
         self._colors_end = np.zeros((n, 4), dtype=np.float32)
+        
+        # Modifiers
+        self._modifiers: list[ParticleModifier] = []
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -156,6 +162,10 @@ class ParticleEmitter(ABC):
     def is_active(self) -> bool:
         """Vérifie l'activité"""
         return self._active
+    
+    def is_alive(self) -> bool:
+        """Vérifie qu'au moins une particule soit générée"""
+        return bool(self._lifetimes.any())
 
     # ======================================== INTERFACE ========================================
     def start(self) -> None:
@@ -174,9 +184,70 @@ class ParticleEmitter(ABC):
         """Supprime toutes les particules vivantes"""
         self._lifetimes[:] = 0.0
 
+    # ======================================== MODIIFERS ========================================
+    def add_modifier(self, modifier: ParticleModifier) -> None:
+        """Ajoute un modifieur
+        
+        Args:
+            modifier: ``ParticleModifier``à ajouter
+        """
+        if __debug__:
+            expect(modifier, ParticleModifier)
+        self._modifiers.append(modifier)
+
+    def remove_modifier(self, modifier: ParticleModifier) -> None:
+        """Retire un modifieur
+
+        Args:
+            modifier: ``ParticleModifier`` à retirer
+        """
+        self._modifiers.remove(modifier)
+
+    def pop_modifier(self, index: int) -> ParticleModifier:
+        """Supprime un modifieur par indice
+
+        Args:
+            index: indice du ``ParticleModifier`` à supprimer
+
+        Returns:
+            ParticleModifier: le modifieur supprimé
+        """
+        return self._modifiers.pop(index)
+
+    def get_modifiers(self, modifier_type: Type[ParticleModifier] | None = None) -> list[ParticleModifier]:
+        """Renvoie la liste des modifiers *(lecture seule)*"""
+        if modifier_type is None:
+            return self._modifiers
+        return [modifier for modifier in self._modifiers if type(modifier) is modifier_type]
+    
+    def has_modifier(self, modifier_type: Type[ParticleModifier]) -> bool:
+        """Vérifie la présence d'un modifieur
+        
+        Args:
+            modifieur_type: type de modifieur
+        """
+        for modifier in self._modifiers:
+            if type(modifier) is modifier_type:
+                return True
+        return False
+    
+    def apply_modifiers(self, modifiers: list[ParticleModifier], dt: float) -> None:
+        """Applique une liste de modificateurs externes sur les particules vivantes"""
+        alive = self._lifetimes > 0.0
+        if not alive.any():
+            return
+        for modifier in modifiers:
+            modifier.apply(dt, alive, self._positions, self._velocities)
+
     # ======================================== LIFE CYCLE ========================================
-    def update(self, dt: float) -> None:
-        """Actualisation CPU du pool"""
+    def update(self, dt: float, modifiers: list[ParticleModifier] = None) -> None:
+        """Actualisation CPU du pool
+        
+        Args:
+            dt: delta-time
+            modifiers: ``ParticleModifier`` ponctuels
+        """
+        # Durée de vie
         if self._active and self._rate > 0.0:
             self._accumulator += self._rate * dt
             count = int(self._accumulator)
@@ -184,10 +255,21 @@ class ParticleEmitter(ABC):
                 self._accumulator -= count
                 self._spawn(count)
 
+        # Fin de vie
         alive = self._lifetimes > 0.0
         if not alive.any():
             return
+        
+        # Modifieurs externes
+        if modifiers:
+            for modifier in modifiers:
+                modifier.apply(dt, alive, self._positions, self._velocities)
+        
+        # Modifieurs internes
+        for modifier in self._modifiers:
+            modifier.apply(dt, alive, self._positions, self._velocities)
 
+        # Mise à jour des paramètres
         self._lifetimes[alive] -= dt
         self._positions[alive] += self._velocities[alive] * dt
         self._rotations[alive] += self._angular_velocities[alive] * dt

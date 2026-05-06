@@ -5,6 +5,7 @@ from decimal import Decimal
 from django import forms
 from django.db.models import Model
 from django.db.models.fields import BLANK_CHOICE_DASH
+from django.utils.choices import CallableChoiceIterator
 from django.utils.dateparse import parse_date, parse_datetime, parse_time
 from django.utils.encoding import force_str
 from django.utils.functional import cached_property
@@ -25,12 +26,6 @@ from wagtail.rich_text import (
 )
 
 from .base import Block
-
-try:
-    from django.utils.choices import CallableChoiceIterator
-except ImportError:
-    # DJANGO_VERSION < 5.0
-    from django.forms.fields import CallableChoiceIterator
 
 
 class FieldBlock(Block):
@@ -67,11 +62,20 @@ class FieldBlock(Block):
     def value_omitted_from_data(self, data, files, prefix):
         return self.field.widget.value_omitted_from_data(data, files, prefix)
 
+    def defer_required_validation(self):
+        super().defer_required_validation()
+        self._original_required = self.required
+        self.field.required = False or getattr(self.meta, "required_on_save", False)
+
     def clean(self, value):
         # We need an annoying value_for_form -> value_from_form round trip here to account for
         # the possibility that the form field is set up to validate a different value type to
         # the one this block works with natively
         return self.value_from_form(self.field.clean(self.value_for_form(value)))
+
+    def restore_deferred_validation(self):
+        self.field.required = self._original_required
+        super().restore_deferred_validation()
 
     @property
     def required(self):
@@ -597,6 +601,29 @@ class BaseChoiceBlock(FieldBlock):
         # descendant block type
         icon = "placeholder"
 
+    def normalize_choice(self, value):
+        """Given a choice value(can be list of values) coming from JSON deserialization,
+        it returns the value(s) converted to the original choice key type.
+        """
+
+        # Preserve None values
+        if value is None:
+            return None
+
+        text_value = force_str(value)
+
+        for key, label in self.field.choices:
+            if isinstance(label, (list, tuple)):
+                # Optgroup
+                for subkey, sublabel in label:
+                    if text_value == force_str(subkey):
+                        return subkey
+            else:
+                if text_value == force_str(key):
+                    return key
+
+        return value
+
 
 class ChoiceBlock(BaseChoiceBlock):
     def get_field(self, **kwargs):
@@ -607,6 +634,17 @@ class ChoiceBlock(BaseChoiceBlock):
         if blank_choice is None:
             blank_choice = not (self._default and self._required)
         return super()._get_callable_choices(choices, blank_choice=blank_choice)
+
+    def to_python(self, value):
+        return self.normalize_choice(value)
+
+    def clean(self, value):
+        value = super().clean(value)
+        return self.normalize_choice(value)
+
+    def normalize(self, value):
+        value = super().normalize(value)
+        return self.normalize_choice(value)
 
     def deconstruct(self):
         """
@@ -641,6 +679,29 @@ class MultipleChoiceBlock(BaseChoiceBlock):
     def _get_callable_choices(self, choices, blank_choice=False):
         """Override to default blank choice to False"""
         return super()._get_callable_choices(choices, blank_choice=blank_choice)
+
+    def to_python(self, value):
+        if value is None:
+            return value
+        if isinstance(value, (list, tuple)):
+            return [self.normalize_choice(v) for v in value]
+        return [self.normalize_choice(value)]
+
+    def clean(self, value):
+        value = super().clean(value)
+        if value is None:
+            return value
+        if isinstance(value, (list, tuple)):
+            return [self.normalize_choice(v) for v in value]
+        return self.normalize_choice(value)
+
+    def normalize(self, value):
+        value = super().normalize(value)
+        if value is None:
+            return value
+        if isinstance(value, (list, tuple)):
+            return [self.normalize_choice(v) for v in value]
+        return self.normalize_choice(value)
 
     def deconstruct(self):
         """

@@ -291,6 +291,63 @@ def _remove_sources(existing_doc: dict[str, t.Any], nodes: list[ResultNode]) -> 
     existing_doc["sources"] = keep_sources
 
 
+def _has_section_content(value: t.Any) -> bool:
+    """Return whether a YAML section still carries content worth preserving."""
+    if value is None:
+        return False
+    if isinstance(value, (str, bytes)):
+        return bool(value)
+    try:
+        return len(value) > 0
+    except TypeError:
+        return True
+
+
+def _has_remaining_superseded_content(
+    existing_doc: dict[str, t.Any],
+    original_doc: dict[str, t.Any],
+) -> bool:
+    """Return whether a superseded YAML file still has managed or preserved content."""
+    from dbt_osmosis.core.schema.parser import _partition_yaml_top_level_sections
+
+    managed_keys = set(existing_doc.keys()) - {"version"}
+    if any(_has_section_content(existing_doc.get(key)) for key in managed_keys):
+        return True
+
+    _, preserved_sections = _partition_yaml_top_level_sections(original_doc)
+    return bool(preserved_sections)
+
+
+def _get_original_yaml_for_superseded_file(
+    yaml_handler_lock: threading.Lock,
+    path: Path,
+) -> dict[str, t.Any]:
+    """Return unfiltered YAML content for superseded cleanup, reloading if cache was evicted."""
+    from dbt_osmosis.core.schema.reader import _YAML_BUFFER_CACHE_LOCK, _YAML_ORIGINAL_CACHE
+
+    with _YAML_BUFFER_CACHE_LOCK:
+        if path in _YAML_ORIGINAL_CACHE:
+            return t.cast("dict[str, t.Any]", _YAML_ORIGINAL_CACHE[path])
+
+    if not path.is_file():
+        return {}
+
+    import ruamel.yaml
+
+    with yaml_handler_lock:
+        unfiltered_handler = ruamel.yaml.YAML()
+        unfiltered_handler.preserve_quotes = True
+        original_content = unfiltered_handler.load(path)
+
+    original_data = t.cast(
+        "dict[str, t.Any]",
+        original_content if isinstance(original_content, dict) else {},
+    )
+    with _YAML_BUFFER_CACHE_LOCK:
+        _YAML_ORIGINAL_CACHE[path] = original_data
+    return original_data
+
+
 def apply_restructure_plan(
     context: YamlRefactorContextProtocol,
     plan: RestructureDeltaPlan,
@@ -317,11 +374,15 @@ def apply_restructure_plan(
 
     from dbt_osmosis.core.config import _reload_manifest
     from dbt_osmosis.core.schema.reader import (
-        _YAML_BUFFER_CACHE,
         _YAML_BUFFER_CACHE_LOCK,
+        _discard_yaml_caches,
         _read_yaml,
     )
     from dbt_osmosis.core.schema.writer import _write_yaml
+
+    starting_disk_mutations = getattr(context, "disk_mutation_count", 0)
+    written_file_tracker = getattr(context, "register_written_file", None)
+    register_disk_mutation = getattr(context, "register_disk_mutation", None)
 
     for op in plan.operations:
         logger.debug(":arrow_right: Applying restructure operation => %s", op)
@@ -342,7 +403,6 @@ def apply_restructure_plan(
             else:
                 output_doc[key] = val
 
-        _written_file_tracker = getattr(context, "register_written_file", None)
         _write_yaml(
             context.yaml_handler,
             context.yaml_handler_lock,
@@ -351,12 +411,22 @@ def apply_restructure_plan(
             context.settings.dry_run,
             context.register_mutations,
             context.settings.strip_eof_blank_lines,
-            written_file_tracker=_written_file_tracker,
+            written_file_tracker=written_file_tracker,
         )
 
         for path, nodes in op.superseded_paths.items():
+            if path.resolve() == op.file_path.resolve():
+                logger.debug(
+                    ":fast_forward: Skipping same-path superseded cleanup => %s",
+                    path,
+                )
+                continue
             if path.is_file():
                 existing_data = _read_yaml(context.yaml_handler, context.yaml_handler_lock, path)
+                original_data = _get_original_yaml_for_superseded_file(
+                    context.yaml_handler_lock,
+                    path,
+                )
 
                 if "models" in existing_data:
                     _remove_models(existing_data, nodes)
@@ -365,15 +435,15 @@ def apply_restructure_plan(
                 if "seeds" in existing_data:
                     _remove_seeds(existing_data, nodes)
 
-                keys = set(existing_data.keys()) - {"version"}
-                if all(len(existing_data.get(k, [])) == 0 for k in keys):
+                if not _has_remaining_superseded_content(existing_data, original_data):
                     if not context.settings.dry_run:
                         path.unlink(missing_ok=True)
                         if path.parent.exists() and not any(path.parent.iterdir()):
                             path.parent.rmdir()
                         with _YAML_BUFFER_CACHE_LOCK:
-                            if path in _YAML_BUFFER_CACHE:
-                                del _YAML_BUFFER_CACHE[path]
+                            _discard_yaml_caches(path)
+                        if callable(register_disk_mutation):
+                            register_disk_mutation()
                     context.register_mutations(1)
                     logger.info(":heavy_minus_sign: Superseded entire file => %s", path)
                 else:
@@ -385,7 +455,7 @@ def apply_restructure_plan(
                         context.settings.dry_run,
                         context.register_mutations,
                         context.settings.strip_eof_blank_lines,
-                        written_file_tracker=_written_file_tracker,
+                        written_file_tracker=written_file_tracker,
                     )
                     logger.info(
                         ":arrow_forward: Migrated doc from => %s to => %s",
@@ -393,9 +463,7 @@ def apply_restructure_plan(
                         op.file_path,
                     )
 
-    logger.info(
-        ":arrows_counterclockwise: Committing all restructure changes and reloading manifest.",
-    )
+    logger.info(":arrows_counterclockwise: Committing any buffered restructure changes.")
     from dbt_osmosis.core.schema.writer import commit_yamls
 
     commit_yamls(
@@ -404,6 +472,8 @@ def apply_restructure_plan(
         context.settings.dry_run,
         context.register_mutations,
         context.settings.strip_eof_blank_lines,
-        written_file_tracker=_written_file_tracker,
+        written_file_tracker=written_file_tracker,
     )
-    _reload_manifest(context.project)
+    if getattr(context, "disk_mutation_count", starting_disk_mutations) > starting_disk_mutations:
+        logger.info(":arrows_counterclockwise: Reloading the dbt project manifest.")
+        _reload_manifest(context.project)

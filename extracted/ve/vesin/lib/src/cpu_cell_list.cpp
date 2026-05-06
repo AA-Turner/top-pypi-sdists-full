@@ -3,7 +3,6 @@
 #include <cstring>
 
 #include <algorithm>
-#include <new>
 #include <numeric>
 #include <tuple>
 
@@ -303,15 +302,20 @@ void GrowableNeighborList::set_vector(size_t index, vesin::Vector vector) {
 }
 
 template <typename scalar_t, size_t N>
-static scalar_t (*alloc(scalar_t (*ptr)[N], size_t size, size_t new_size))[N] {
+using array_ptr = scalar_t (*)[N];
+
+template <typename scalar_t, size_t N>
+static array_ptr<scalar_t, N> alloc(array_ptr<scalar_t, N> ptr, size_t size, size_t new_size) {
     auto* new_ptr = reinterpret_cast<scalar_t(*)[N]>(std::realloc(ptr, new_size * sizeof(scalar_t[N])));
 
     if (new_ptr == nullptr) {
-        throw std::bad_alloc();
+        return nullptr;
     }
 
+#ifndef NDEBUG
     // initialize with a bit pattern that maps to NaN for double
     std::memset(new_ptr + size, 0b11111111, (new_size - size) * sizeof(scalar_t[N]));
+#endif
 
     return new_ptr;
 }
@@ -321,11 +325,13 @@ static scalar_t* alloc(scalar_t* ptr, size_t size, size_t new_size) {
     auto* new_ptr = reinterpret_cast<scalar_t*>(std::realloc(ptr, new_size * sizeof(scalar_t)));
 
     if (new_ptr == nullptr) {
-        throw std::bad_alloc();
+        return nullptr;
     }
 
+#ifndef NDEBUG
     // initialize with a bit pattern that maps to NaN for double
     std::memset(new_ptr + size, 0b11111111, (new_size - size) * sizeof(scalar_t));
+#endif
 
     return new_ptr;
 }
@@ -353,6 +359,19 @@ void GrowableNeighborList::grow() {
         new_vectors = alloc<double, 3>(neighbors.vectors, neighbors.length, new_size);
     }
 
+    if (
+        (new_pairs == nullptr) ||
+        (options.return_shifts && new_shifts == nullptr) ||
+        (options.return_distances && new_distances == nullptr) ||
+        (options.return_vectors && new_vectors == nullptr)
+    ) {
+        std::free(new_pairs);
+        std::free(new_shifts);
+        std::free(new_distances);
+        std::free(new_vectors);
+        throw std::runtime_error("could not allocate memory for growing neighbor list");
+    }
+
     this->neighbors.pairs = new_pairs;
     this->neighbors.shifts = new_shifts;
     this->neighbors.distances = new_distances;
@@ -362,21 +381,23 @@ void GrowableNeighborList::grow() {
 }
 
 void GrowableNeighborList::reset() {
-    // set all allocated data to zero
+#ifndef NDEBUG
     auto size = this->neighbors.length;
-    std::memset(this->neighbors.pairs, 0, size * sizeof(size_t[2]));
+    // set all allocated data to a bit pattern that maps to NaN for double
+    std::memset(this->neighbors.pairs, 0b11111111, size * sizeof(size_t[2]));
 
     if (this->neighbors.shifts != nullptr) {
-        std::memset(this->neighbors.shifts, 0, size * sizeof(int32_t[3]));
+        std::memset(this->neighbors.shifts, 0b11111111, size * sizeof(int32_t[3]));
     }
 
     if (this->neighbors.distances != nullptr) {
-        std::memset(this->neighbors.distances, 0, size * sizeof(double));
+        std::memset(this->neighbors.distances, 0b11111111, size * sizeof(double));
     }
 
     if (this->neighbors.vectors != nullptr) {
-        std::memset(this->neighbors.vectors, 0, size * sizeof(double[3]));
+        std::memset(this->neighbors.vectors, 0b11111111, size * sizeof(double[3]));
     }
+#endif
 
     // reset length (but keep the capacity where it's at)
     this->neighbors.length = 0;
@@ -425,92 +446,87 @@ void GrowableNeighborList::sort() {
             pairs(pairs_) {}
 
         bool operator()(int64_t a, int64_t b) const {
-            if (pairs[a][0] == pairs[b][0]) {
-                return pairs[a][1] < pairs[b][1];
-            } else {
-                return pairs[a][0] < pairs[b][0];
-            }
+            return pairs[a][0] < pairs[b][0];
         }
 
         size_t (*pairs)[2];
     };
 
-    std::sort(std::begin(indices), std::end(indices), compare_pairs(this->neighbors.pairs));
+    std::sort(
+        std::begin(indices),
+        std::end(indices),
+        compare_pairs(this->neighbors.pairs)
+    );
 
-    // step 2: permute all data according to the sorted indices.
-    int64_t cur = 0;
-    int64_t is_sorted_up_to = 0;
-    // data in `from` should go to `cur`
-    auto from = indices[cur];
+    // step 2: move all data according to the sorted indices.
+    auto* sorted_pairs = alloc<size_t, 2>(nullptr, 0, this->capacity);
 
-    size_t tmp_pair[2] = {0};
-    double tmp_distance = 0;
-    double tmp_vector[3] = {0};
-    int32_t tmp_shift[3] = {0};
+    int32_t (*sorted_shifts)[3] = nullptr;
+    if (options.return_shifts) {
+        sorted_shifts = alloc<int32_t, 3>(nullptr, 0, this->capacity);
+    }
 
-    while (cur < this->length()) {
-        // move data from `cur` to temporary
-        std::swap(tmp_pair, this->neighbors.pairs[cur]);
-        if (options.return_distances) {
-            std::swap(tmp_distance, this->neighbors.distances[cur]);
-        }
-        if (options.return_vectors) {
-            std::swap(tmp_vector, this->neighbors.vectors[cur]);
-        }
+    double* sorted_distances = nullptr;
+    if (options.return_distances) {
+        sorted_distances = alloc<double>(nullptr, 0, this->capacity);
+    }
+
+    double (*sorted_vectors)[3] = nullptr;
+    if (options.return_vectors) {
+        sorted_vectors = alloc<double, 3>(nullptr, 0, this->capacity);
+    }
+
+    if (
+        (sorted_pairs == nullptr) ||
+        (options.return_shifts && sorted_shifts == nullptr) ||
+        (options.return_distances && sorted_distances == nullptr) ||
+        (options.return_vectors && sorted_vectors == nullptr)
+    ) {
+        std::free(sorted_pairs);
+        std::free(sorted_shifts);
+        std::free(sorted_distances);
+        std::free(sorted_vectors);
+        throw std::runtime_error("could not allocate memory for sorting neighbor list");
+    }
+
+    for (size_t i = 0; i < this->neighbors.length; i++) {
+        auto from = static_cast<size_t>(indices[i]);
+        sorted_pairs[i][0] = this->neighbors.pairs[from][0];
+        sorted_pairs[i][1] = this->neighbors.pairs[from][1];
+
         if (options.return_shifts) {
-            std::swap(tmp_shift, this->neighbors.shifts[cur]);
+            sorted_shifts[i][0] = this->neighbors.shifts[from][0];
+            sorted_shifts[i][1] = this->neighbors.shifts[from][1];
+            sorted_shifts[i][2] = this->neighbors.shifts[from][2];
         }
 
-        from = indices[cur];
-        do {
-            if (from == cur) {
-                // permutation loop of a single entry, i.e. this value stayed
-                // where is already was
-                break;
-            }
-            // move data from `from` to `cur`
-            std::swap(this->neighbors.pairs[cur], this->neighbors.pairs[from]);
-            if (options.return_distances) {
-                std::swap(this->neighbors.distances[cur], this->neighbors.distances[from]);
-            }
-            if (options.return_vectors) {
-                std::swap(this->neighbors.vectors[cur], this->neighbors.vectors[from]);
-            }
-            if (options.return_shifts) {
-                std::swap(this->neighbors.shifts[cur], this->neighbors.shifts[from]);
-            }
-
-            // mark this spot as already visited
-            indices[cur] = -1;
-
-            // update the indices
-            cur = from;
-            from = indices[cur];
-        } while (indices[from] != -1);
-
-        // we found a full loop of permutation, we can put tmp into `cur`
-        std::swap(this->neighbors.pairs[cur], tmp_pair);
         if (options.return_distances) {
-            std::swap(this->neighbors.distances[cur], tmp_distance);
+            sorted_distances[i] = this->neighbors.distances[from];
         }
+
         if (options.return_vectors) {
-            std::swap(this->neighbors.vectors[cur], tmp_vector);
+            sorted_vectors[i][0] = this->neighbors.vectors[from][0];
+            sorted_vectors[i][1] = this->neighbors.vectors[from][1];
+            sorted_vectors[i][2] = this->neighbors.vectors[from][2];
         }
-        if (options.return_shifts) {
-            std::swap(this->neighbors.shifts[cur], tmp_shift);
-        }
+    }
 
-        indices[cur] = -1;
+    std::free(this->neighbors.pairs);
+    this->neighbors.pairs = sorted_pairs;
 
-        // look for the next loop of permutation
-        cur = is_sorted_up_to;
-        while (indices[cur] == -1) {
-            cur += 1;
-            is_sorted_up_to += 1;
-            if (cur == this->length()) {
-                break;
-            }
-        }
+    if (options.return_shifts) {
+        std::free(this->neighbors.shifts);
+        this->neighbors.shifts = sorted_shifts;
+    }
+
+    if (options.return_distances) {
+        std::free(this->neighbors.distances);
+        this->neighbors.distances = sorted_distances;
+    }
+
+    if (options.return_vectors) {
+        std::free(this->neighbors.vectors);
+        this->neighbors.vectors = sorted_vectors;
     }
 }
 

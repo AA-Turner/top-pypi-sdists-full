@@ -8,97 +8,95 @@
 #
 ######################################################################
 
-"""
-"""
+""" """
+
 from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
 
 from .errors import EngineError
 
-isa_errors = ('000', '001', '002', '003', '004', '005', '006', '007', '008',
-              '009', '010', '011', '012', '013', '014', '015', '016',
-              '017', '018', '019', '020', '021', '022', '023', '024',
-              '025', '026', '027', '028', '029', '030', '031')
-seg_errors = ('1', '2', '3', '4', '5', '6', '7', '8')
-ele_errors = ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')
+isa_errors = (
+    "000",
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "007",
+    "008",
+    "009",
+    "010",
+    "011",
+    "012",
+    "013",
+    "014",
+    "015",
+    "016",
+    "017",
+    "018",
+    "019",
+    "020",
+    "021",
+    "022",
+    "023",
+    "024",
+    "025",
+    "026",
+    "027",
+    "028",
+    "029",
+    "030",
+    "031",
+)
+seg_errors = ("1", "2", "3", "4", "5", "6", "7", "8")
+ele_errors = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
 
 
+@dataclass(slots=True, frozen=True)
 class ErrorItem:
-    """
-    Wrap an X12 validation error
-    """
-
     err_cde: str
     err_str: str
 
-    def __init__(self, err_type: str, err_cde: str, err_str: str) -> None:
-        """
-        :param err_type: At what level did the error occur
-        :type err_type: string
-        :param err_cde: Segment level error code
-        :type err_cde: string
-        :param err_str: Description of the error
-        :type err_str: string
-        """
-        self.err_cde = err_cde
-        self.err_str = err_str
 
-    def getErrCde(self) -> str:
-        return self.err_cde
-
-    def getErrStr(self) -> str:
-        return self.err_str
-
-
+@dataclass(slots=True, frozen=True)
 class ISAError(ErrorItem):
-    def __init__(self, err_cde: str, err_str: str) -> None:
-        ErrorItem.__init__(self, 'isa', err_cde, err_str)
+    def __post_init__(self) -> None:
         if self.err_cde not in isa_errors:
-            raise EngineError('Invalid ISA level error code "%s"' %
-                              (self.err_cde))
+            raise EngineError('Invalid ISA level error code "%s"' % (self.err_cde))
 
 
+@dataclass(slots=True, frozen=True)
 class SegError(ErrorItem):
+    err_val: str | None = None
+    src_line: int | None = None
+    # Walker-supplied context for errh.add_seg(map_node, seg_data, seg_count,
+    # cur_line=src_line, ls_id) before the err_handler tree attaches the
+    # error. None means the wrapper should leave the cursor where it was
+    # (used for "usage='N'" emissions that historically attach to the prior
+    # segment cursor).
+    map_node: Any = None
+    seg_data: Any = None
+    seg_count: int | None = None
+    ls_id: str | None = None
 
-    err_val: str | None
-
-    def __init__(self, err_cde: str, err_str: str, err_val: str | None = None) -> None:
-        ErrorItem.__init__(self, 'seg', err_cde, err_str)
-        self.err_val = err_val
+    def __post_init__(self) -> None:
         if self.err_cde not in seg_errors:
-            raise EngineError('Invalid segment level error code "%s"' %
-                              (self.err_cde))
-
-    def getErrVal(self) -> str | None:
-        return self.err_val
+            raise EngineError('Invalid segment level error code "%s"' % (self.err_cde))
 
 
+@dataclass(slots=True, frozen=True)
 class EleError(ErrorItem):
+    err_val: str | None = None
+    refdes: str | None = None
+    # map_node carries the element node ref for cursor materialization in the
+    # err_handler tree. None means the wrapper should leave the cursor where
+    # it was (used for composite-/seg-level errors that historically attach
+    # to the prior cursor).
+    map_node: Any = None
 
-    err_val: str | None
-    ele_idx: int | None
-    subele_idx: int | None
-
-    def __init__(
-        self,
-        err_cde: str,
-        err_str: str,
-        ele_idx: int | None,
-        subele_idx: int | None = None,
-        err_val: str | None = None,
-    ) -> None:
-        ErrorItem.__init__(self, 'ele', err_cde, err_str)
-        self.err_val = err_val
-        self.ele_idx = ele_idx
-        self.subele_idx = subele_idx
+    def __post_init__(self) -> None:
         if self.err_cde not in ele_errors:
-            raise EngineError('Invalid element level error code "%s"' %
-                              (self.err_cde))
-
-    def getErrVal(self) -> str | None:
-        return self.err_val
-
-    def getEleIdx(self) -> int | None:
-        return self.ele_idx
-
-    def getSubeleIdx(self) -> int | None:
-        return self.subele_idx
+            raise EngineError('Invalid element level error code "%s"' % (self.err_cde))

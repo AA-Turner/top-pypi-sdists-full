@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: trame-server
-Version: 3.10.0
+Version: 3.11.0
 Summary: Internal server side implementation of trame
 Author: Kitware Inc.
 License: Apache License 2.0
-Keywords: Python,Interactive,Web,Application,Framework
+License-File: LICENSE
+Keywords: Application,Framework,Interactive,Python,Web
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,17 +15,16 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: wslink<3,>=2.5
 Requires-Dist: more-itertools
+Requires-Dist: wslink<3,>=2.5
 Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-asyncio; extra == "dev"
-Requires-Dist: nox; extra == "dev"
-Dynamic: license-file
+Requires-Dist: nox; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: trame; extra == 'dev'
+Description-Content-Type: text/x-rst
 
 .. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-server
 

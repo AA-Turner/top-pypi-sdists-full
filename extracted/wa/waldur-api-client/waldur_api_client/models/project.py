@@ -13,6 +13,7 @@ from ..models.oecd_fos_2007_code_enum import OecdFos2007CodeEnum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.affiliated_organization import AffiliatedOrganization
     from ..models.nested_price_estimate import NestedPriceEstimate
     from ..models.project_marketplace_resource_count import ProjectMarketplaceResourceCount
 
@@ -69,6 +70,14 @@ class Project:
         user_email_patterns (Union[Unset, Any]):
         user_affiliations (Union[Unset, Any]):
         user_identity_sources (Union[Unset, Any]): List of allowed identity sources (identity providers).
+        affiliated_organizations (Union[Unset, list['AffiliatedOrganization']]):
+        science_sub_domain (Union[None, UUID, Unset]):
+        science_sub_domain_name (Union[Unset, str]):
+        science_sub_domain_code (Union[Unset, str]): Sub-domain code (e.g. '1.1'). Auto-derived from domain code if left
+            blank.
+        science_domain_uuid (Union[Unset, UUID]):
+        science_domain_name (Union[Unset, str]):
+        science_domain_code (Union[Unset, str]): Domain code (e.g. '1'). Auto-derived if left blank.
         project_credit (Union[None, Unset, float]):
         marketplace_resource_count (Union[Unset, ProjectMarketplaceResourceCount]):
         billing_price_estimate (Union[Unset, NestedPriceEstimate]):
@@ -112,6 +121,13 @@ class Project:
     user_email_patterns: Union[Unset, Any] = UNSET
     user_affiliations: Union[Unset, Any] = UNSET
     user_identity_sources: Union[Unset, Any] = UNSET
+    affiliated_organizations: Union[Unset, list["AffiliatedOrganization"]] = UNSET
+    science_sub_domain: Union[None, UUID, Unset] = UNSET
+    science_sub_domain_name: Union[Unset, str] = UNSET
+    science_sub_domain_code: Union[Unset, str] = UNSET
+    science_domain_uuid: Union[Unset, UUID] = UNSET
+    science_domain_name: Union[Unset, str] = UNSET
+    science_domain_code: Union[Unset, str] = UNSET
     project_credit: Union[None, Unset, float] = UNSET
     marketplace_resource_count: Union[Unset, "ProjectMarketplaceResourceCount"] = UNSET
     billing_price_estimate: Union[Unset, "NestedPriceEstimate"] = UNSET
@@ -268,6 +284,33 @@ class Project:
 
         user_identity_sources = self.user_identity_sources
 
+        affiliated_organizations: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.affiliated_organizations, Unset):
+            affiliated_organizations = []
+            for affiliated_organizations_item_data in self.affiliated_organizations:
+                affiliated_organizations_item = affiliated_organizations_item_data.to_dict()
+                affiliated_organizations.append(affiliated_organizations_item)
+
+        science_sub_domain: Union[None, Unset, str]
+        if isinstance(self.science_sub_domain, Unset):
+            science_sub_domain = UNSET
+        elif isinstance(self.science_sub_domain, UUID):
+            science_sub_domain = str(self.science_sub_domain)
+        else:
+            science_sub_domain = self.science_sub_domain
+
+        science_sub_domain_name = self.science_sub_domain_name
+
+        science_sub_domain_code = self.science_sub_domain_code
+
+        science_domain_uuid: Union[Unset, str] = UNSET
+        if not isinstance(self.science_domain_uuid, Unset):
+            science_domain_uuid = str(self.science_domain_uuid)
+
+        science_domain_name = self.science_domain_name
+
+        science_domain_code = self.science_domain_code
+
         project_credit: Union[None, Unset, float]
         if isinstance(self.project_credit, Unset):
             project_credit = UNSET
@@ -361,6 +404,20 @@ class Project:
             field_dict["user_affiliations"] = user_affiliations
         if user_identity_sources is not UNSET:
             field_dict["user_identity_sources"] = user_identity_sources
+        if affiliated_organizations is not UNSET:
+            field_dict["affiliated_organizations"] = affiliated_organizations
+        if science_sub_domain is not UNSET:
+            field_dict["science_sub_domain"] = science_sub_domain
+        if science_sub_domain_name is not UNSET:
+            field_dict["science_sub_domain_name"] = science_sub_domain_name
+        if science_sub_domain_code is not UNSET:
+            field_dict["science_sub_domain_code"] = science_sub_domain_code
+        if science_domain_uuid is not UNSET:
+            field_dict["science_domain_uuid"] = science_domain_uuid
+        if science_domain_name is not UNSET:
+            field_dict["science_domain_name"] = science_domain_name
+        if science_domain_code is not UNSET:
+            field_dict["science_domain_code"] = science_domain_code
         if project_credit is not UNSET:
             field_dict["project_credit"] = project_credit
         if marketplace_resource_count is not UNSET:
@@ -372,6 +429,7 @@ class Project:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.affiliated_organization import AffiliatedOrganization
         from ..models.nested_price_estimate import NestedPriceEstimate
         from ..models.project_marketplace_resource_count import ProjectMarketplaceResourceCount
 
@@ -619,6 +677,45 @@ class Project:
 
         user_identity_sources = d.pop("user_identity_sources", UNSET)
 
+        affiliated_organizations = []
+        _affiliated_organizations = d.pop("affiliated_organizations", UNSET)
+        for affiliated_organizations_item_data in _affiliated_organizations or []:
+            affiliated_organizations_item = AffiliatedOrganization.from_dict(affiliated_organizations_item_data)
+
+            affiliated_organizations.append(affiliated_organizations_item)
+
+        def _parse_science_sub_domain(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                science_sub_domain_type_0 = UUID(data)
+
+                return science_sub_domain_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        science_sub_domain = _parse_science_sub_domain(d.pop("science_sub_domain", UNSET))
+
+        science_sub_domain_name = d.pop("science_sub_domain_name", UNSET)
+
+        science_sub_domain_code = d.pop("science_sub_domain_code", UNSET)
+
+        _science_domain_uuid = d.pop("science_domain_uuid", UNSET)
+        science_domain_uuid: Union[Unset, UUID]
+        if isinstance(_science_domain_uuid, Unset):
+            science_domain_uuid = UNSET
+        else:
+            science_domain_uuid = UUID(_science_domain_uuid)
+
+        science_domain_name = d.pop("science_domain_name", UNSET)
+
+        science_domain_code = d.pop("science_domain_code", UNSET)
+
         def _parse_project_credit(data: object) -> Union[None, Unset, float]:
             if data is None:
                 return data
@@ -681,6 +778,13 @@ class Project:
             user_email_patterns=user_email_patterns,
             user_affiliations=user_affiliations,
             user_identity_sources=user_identity_sources,
+            affiliated_organizations=affiliated_organizations,
+            science_sub_domain=science_sub_domain,
+            science_sub_domain_name=science_sub_domain_name,
+            science_sub_domain_code=science_sub_domain_code,
+            science_domain_uuid=science_domain_uuid,
+            science_domain_name=science_domain_name,
+            science_domain_code=science_domain_code,
             project_credit=project_credit,
             marketplace_resource_count=marketplace_resource_count,
             billing_price_estimate=billing_price_estimate,

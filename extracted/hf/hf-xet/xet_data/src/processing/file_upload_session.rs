@@ -1,34 +1,33 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::mem::{swap, take};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use bytes::Bytes;
 use more_asserts::*;
 use tokio::sync::Mutex;
 use tokio::task::{JoinHandle, JoinSet};
 use tracing::{Instrument, Span, info_span, instrument};
-use ulid::Ulid;
 use xet_client::cas_client::{Client, ProgressCallback};
 use xet_core_structures::metadata_shard::file_structs::MDBFileInfo;
 use xet_core_structures::xorb_object::SerializedXorbObject;
-use xet_runtime::core::{XetRuntime, xet_config};
+use xet_runtime::core::XetContext;
+use xet_runtime::utils::UniqueId;
 
-use super::configurations::*;
-use super::errors::*;
+use super::XetFileInfo;
+use super::configurations::TranslatorConfig;
 use super::file_cleaner::{Sha256Policy, SingleFileCleaner};
 use super::remote_client_interface::create_remote_client;
 use super::shard_interface::SessionShardInterface;
-use super::{XetFileInfo, prometheus_metrics};
 use crate::deduplication::constants::{MAX_XORB_BYTES, MAX_XORB_CHUNKS};
 use crate::deduplication::{DataAggregator, DeduplicationMetrics, RawXorbData};
-use crate::progress_tracking::aggregator::AggregatingProgressUpdater;
+use crate::error::{DataError, Result};
 use crate::progress_tracking::upload_tracking::{CompletionTracker, FileXorbDependency};
-#[cfg(debug_assertions)] // Used here to verify the update accuracy
-use crate::progress_tracking::verification_wrapper::ProgressUpdaterVerificationWrapper;
-use crate::progress_tracking::{NoOpProgressUpdater, TrackingProgressUpdater};
+use crate::progress_tracking::{GroupProgress, GroupProgressReport, ItemProgressReport};
 
 /// Manages the translation of files between the
 /// MerkleDB / pointer file format and the materialized version.
@@ -37,18 +36,15 @@ use crate::progress_tracking::{NoOpProgressUpdater, TrackingProgressUpdater};
 /// that succeeds or fails as a unit;  i.e. all files get uploaded on finalization, and all shards
 /// and xorbs needed to reconstruct those files are properly uploaded and registered.
 pub struct FileUploadSession {
-    // The parts of this that manage the
+    pub(crate) ctx: XetContext,
     pub(crate) client: Arc<dyn Client + Send + Sync>,
     pub(crate) shard_interface: SessionShardInterface,
-
-    /// The configuration settings, if needed.
-    pub(crate) config: Arc<TranslatorConfig>,
 
     /// Tracking upload completion between xorbs and files.
     pub(crate) completion_tracker: Arc<CompletionTracker>,
 
-    /// Session aggregation
-    progress_aggregator: Option<Arc<AggregatingProgressUpdater>>,
+    /// Aggregate progress across all files in this upload session.
+    progress: Arc<GroupProgress>,
 
     /// Deduplicated data shared across files.
     current_session_data: Mutex<DataAggregator>,
@@ -59,109 +55,70 @@ pub struct FileUploadSession {
     /// Internal worker
     xorb_upload_tasks: Mutex<JoinSet<Result<()>>>,
 
-    #[cfg(debug_assertions)]
-    progress_verifier: Arc<ProgressUpdaterVerificationWrapper>,
+    /// Set to true after finalize() has been called.
+    finalized: AtomicBool,
 }
 
 // Constructors
 impl FileUploadSession {
-    pub async fn new(
-        config: Arc<TranslatorConfig>,
-        upload_progress_updater: Option<Arc<dyn TrackingProgressUpdater>>,
-    ) -> Result<Arc<FileUploadSession>> {
-        FileUploadSession::new_impl(config, upload_progress_updater, false).await
+    pub async fn new(config: Arc<TranslatorConfig>) -> Result<Arc<FileUploadSession>> {
+        FileUploadSession::new_impl(config, false).await
     }
 
-    pub async fn dry_run(
-        config: Arc<TranslatorConfig>,
-        upload_progress_updater: Option<Arc<dyn TrackingProgressUpdater>>,
-    ) -> Result<Arc<FileUploadSession>> {
-        FileUploadSession::new_impl(config, upload_progress_updater, true).await
+    pub async fn dry_run(config: Arc<TranslatorConfig>) -> Result<Arc<FileUploadSession>> {
+        FileUploadSession::new_impl(config, true).await
     }
 
-    async fn new_impl(
-        config: Arc<TranslatorConfig>,
-        upload_progress_updater: Option<Arc<dyn TrackingProgressUpdater>>,
-        dry_run: bool,
-    ) -> Result<Arc<FileUploadSession>> {
+    async fn new_impl(config: Arc<TranslatorConfig>, dry_run: bool) -> Result<Arc<FileUploadSession>> {
+        let ctx = config.ctx.clone();
         let session_id = config
+            .session
             .session_id
             .as_ref()
             .map(Cow::Borrowed)
-            .unwrap_or_else(|| Cow::Owned(Ulid::new().to_string()));
+            .unwrap_or_else(|| Cow::Owned(UniqueId::new().to_string()));
 
-        let (progress_updater, progress_aggregator): (Arc<dyn TrackingProgressUpdater>, Option<_>) = {
-            match upload_progress_updater {
-                Some(updater) => {
-                    let flush_interval = xet_config().data.progress_update_interval;
-                    if !flush_interval.is_zero() && config.progress_config.aggregate {
-                        let aggregator = AggregatingProgressUpdater::new(
-                            updater,
-                            flush_interval,
-                            xet_config().data.progress_update_speed_sampling_window,
-                        );
-                        (aggregator.clone(), Some(aggregator))
-                    } else {
-                        (updater, None)
-                    }
-                },
-                None => (Arc::new(NoOpProgressUpdater), None),
-            }
-        };
-
-        // When debug assertions are enabled, track all the progress updates for consistency
-        // and correctness.  This is checked at the end.
-        #[cfg(debug_assertions)]
-        let (progress_updater, progress_verification_tracker) = {
-            let updater = ProgressUpdaterVerificationWrapper::new(progress_updater);
-
-            (updater.clone() as Arc<dyn TrackingProgressUpdater>, updater)
-        };
-
-        let completion_tracker = Arc::new(CompletionTracker::new(progress_updater));
+        let progress = GroupProgress::with_speed_config(
+            ctx.config.data.progress_update_speed_sampling_window,
+            ctx.config.data.progress_update_speed_min_observations,
+        );
+        let completion_tracker = Arc::new(CompletionTracker::new(progress.clone()));
 
         let client = create_remote_client(&config, &session_id, dry_run).await?;
 
-        let shard_interface = SessionShardInterface::new(config.clone(), client.clone(), dry_run).await?;
+        let shard_interface = SessionShardInterface::new(&ctx, config.clone(), client.clone(), dry_run).await?;
 
         Ok(Arc::new(Self {
+            ctx,
             shard_interface,
             client,
-            config,
             completion_tracker,
-            progress_aggregator,
+            progress,
             current_session_data: Mutex::new(DataAggregator::default()),
             deduplication_metrics: Mutex::new(DeduplicationMetrics::default()),
             xorb_upload_tasks: Mutex::new(JoinSet::new()),
-
-            #[cfg(debug_assertions)]
-            progress_verifier: progress_verification_tracker,
+            finalized: AtomicBool::new(false),
         }))
     }
 
     pub async fn upload_files(
         self: &Arc<Self>,
-        files_sha256_and_tracking_ids: impl IntoIterator<Item = (impl AsRef<Path>, Sha256Policy, Ulid)> + Send,
+        files_and_sha256: impl IntoIterator<Item = (impl AsRef<Path>, Sha256Policy)> + Send,
     ) -> Result<Vec<XetFileInfo>> {
+        self.check_not_finalized()?;
         let mut cleaning_tasks: Vec<JoinHandle<_>> = vec![];
 
-        for (f, sha256, tracking_id) in files_sha256_and_tracking_ids.into_iter() {
+        for (f, sha256) in files_and_sha256.into_iter() {
             let file_path = f.as_ref().to_owned();
             let file_name: Arc<str> = Arc::from(file_path.to_string_lossy());
 
-            // Get the file size, and go ahead and register it in the completion tracker so that we know the whole
-            // repo size at the beginning.
             let file_size = std::fs::metadata(&file_path)?.len();
 
-            // Get a new file id for the completion tracking.  The size is not passed here;
-            // it will be discovered incrementally via increment_file_size in add_data_impl.
-            let file_id = self
-                .completion_tracker
-                .register_new_file(tracking_id, file_name.clone(), Some(file_size))
-                .await;
+            let updater = self.progress.new_item(UniqueId::new(), file_name.clone());
+            let file_id = self.completion_tracker.register_new_file(updater, Some(file_size));
 
-            // Now, spawn a task
-            let ingestion_concurrency_limiter = XetRuntime::current().common().file_ingestion_semaphore.clone();
+            let ingestion_concurrency_limiter = self.ctx.common.file_ingestion_semaphore.clone();
+            let ingestion_block_size = *self.ctx.config.data.ingestion_block_size;
             let session = self.clone();
 
             cleaning_tasks.push(tokio::spawn(async move {
@@ -190,7 +147,7 @@ impl FileUploadSession {
                     while bytes_read < file_size {
                         // Allocate a block of bytes, read into it.
                         let bytes_left = file_size - bytes_read;
-                        let n_bytes_read = (*xet_config().data.ingestion_block_size).min(bytes_left) as usize;
+                        let n_bytes_read = ingestion_block_size.min(bytes_left) as usize;
 
                         // Read in the data here; we are assuming the file doesn't change size
                         // on the disk while we are reading it.
@@ -211,7 +168,7 @@ impl FileUploadSession {
 
                         bytes_read += buffer.len() as u64;
 
-                        cleaner.add_data_impl(Bytes::from(buffer)).await?;
+                        cleaner.add_data_from_bytes(Bytes::from(buffer)).await?;
                     }
 
                     // Finish and return the result.
@@ -253,20 +210,94 @@ impl FileUploadSession {
     /// If a sha256 is provided via [`Sha256Policy::Provided`], the value will be directly
     /// used in shard upload to avoid redundant computation. [`Sha256Policy::Skip`] skips
     /// SHA-256 computation entirely and no metadata_ext is included in the shard.
-    pub async fn start_clean(
+    pub fn start_clean(
         self: &Arc<Self>,
         tracking_name: Option<Arc<str>>,
-        size: u64,
+        size: Option<u64>,
         sha256: Sha256Policy,
-        tracking_id: Ulid,
-    ) -> SingleFileCleaner {
-        // Get a new file id for the completion tracking
-        let file_id = self
-            .completion_tracker
-            .register_new_file(tracking_id, tracking_name.clone().unwrap_or_default(), Some(size))
-            .await;
+    ) -> Result<(UniqueId, SingleFileCleaner)> {
+        self.check_not_finalized()?;
+        let id = UniqueId::new();
+        let cleaner = self.start_clean_with_id(id, tracking_name, size, sha256);
+        Ok((id, cleaner))
+    }
 
+    fn start_clean_with_id(
+        self: &Arc<Self>,
+        id: UniqueId,
+        tracking_name: Option<Arc<str>>,
+        size: Option<u64>,
+        sha256: Sha256Policy,
+    ) -> SingleFileCleaner {
+        let updater = self.progress.new_item(id, tracking_name.clone().unwrap_or_default());
+        let file_id = self.completion_tracker.register_new_file(updater, size);
         SingleFileCleaner::new(tracking_name, file_id, sha256, self.clone())
+    }
+
+    /// Spawns a task that reads `file_path` and uploads it.
+    ///
+    /// Returns the tracking ID and a join handle for the spawned task.
+    pub async fn spawn_upload_from_path(
+        self: &Arc<Self>,
+        file_path: PathBuf,
+        sha256: Sha256Policy,
+    ) -> Result<(UniqueId, JoinHandle<Result<(XetFileInfo, DeduplicationMetrics)>>)> {
+        self.check_not_finalized()?;
+        let file_size = std::fs::metadata(&file_path)?.len();
+        let tracking_name: Arc<str> = Arc::from(file_path.to_string_lossy().as_ref());
+        let (id, cleaner) = self.start_clean(Some(tracking_name), Some(file_size), sha256)?;
+
+        let session = self.clone();
+        let runtime = self.ctx.runtime.clone();
+        let semaphore = self.ctx.common.file_ingestion_semaphore.clone();
+        let handle = runtime.spawn(async move {
+            let _permit = semaphore.acquire().await?;
+            Self::feed_file_to_cleaner(&session, cleaner, &file_path).await
+        });
+
+        Ok((id, handle))
+    }
+
+    /// Spawns a task that uploads `bytes` as a single file.
+    ///
+    /// Returns the tracking ID and a join handle for the spawned task.
+    pub async fn spawn_upload_bytes(
+        self: &Arc<Self>,
+        bytes: Vec<u8>,
+        sha256: Sha256Policy,
+        tracking_name: Option<Arc<str>>,
+    ) -> Result<(UniqueId, JoinHandle<Result<(XetFileInfo, DeduplicationMetrics)>>)> {
+        self.check_not_finalized()?;
+        let (id, mut cleaner) = self.start_clean(tracking_name, Some(bytes.len() as u64), sha256)?;
+
+        let runtime = self.ctx.runtime.clone();
+        let semaphore = self.ctx.common.file_ingestion_semaphore.clone();
+        let handle = runtime.spawn(async move {
+            let _permit = semaphore.acquire().await?;
+            cleaner.add_data(&bytes).await?;
+            cleaner.finish().await
+        });
+
+        Ok((id, handle))
+    }
+
+    async fn feed_file_to_cleaner(
+        _session: &Arc<Self>,
+        mut cleaner: SingleFileCleaner,
+        file_path: &Path,
+    ) -> Result<(XetFileInfo, DeduplicationMetrics)> {
+        let mut reader = File::open(file_path)?;
+        let filesize = reader.metadata()?.len();
+        let mut buffer = vec![0u8; u64::min(filesize, *_session.ctx.config.data.ingestion_block_size) as usize];
+
+        loop {
+            let n = reader.read(&mut buffer)?;
+            if n == 0 {
+                break;
+            }
+            cleaner.add_data(&buffer[..n]).await?;
+        }
+        cleaner.finish().await
     }
 
     /// Registers a new xorb for upload, returning true if the xorb was added to the upload queue and false
@@ -292,14 +323,11 @@ impl FileUploadSession {
         // In some circumstances, we can cut to instances of the same xorb, namely when there are two files
         // with the same starting data that get processed simultaneously.  When this happens, we only upload
         // the first one, returning early here.
-        let xorb_is_new = self
-            .completion_tracker
-            .register_new_xorb(xorb_hash, xorb.num_bytes() as u64)
-            .await;
+        let xorb_is_new = self.completion_tracker.register_new_xorb(xorb_hash, xorb.num_bytes() as u64);
 
         // Make sure we add in all the dependencies.  This should happen after the xorb is registered but before
         // we start the upload.
-        self.completion_tracker.register_dependencies(file_dependencies).await;
+        self.completion_tracker.register_dependencies(file_dependencies);
 
         if !xorb_is_new {
             return Ok(false);
@@ -308,7 +336,7 @@ impl FileUploadSession {
         // No need to process an empty xorb.  But check this after the session_xorbs tracker
         // to make sure the reporting is correct.
         if xorb.num_bytes() == 0 {
-            self.completion_tracker.register_xorb_upload_completion(xorb_hash).await;
+            self.completion_tracker.register_xorb_upload_completion(xorb_hash);
             return Ok(true);
         }
 
@@ -320,14 +348,23 @@ impl FileUploadSession {
 
         // Serialize the object; this can be relatively expensive, so run it on a compute thread.
         // XORBs are sent without footer - the server/client reconstructs it from chunk data.
-        let compression_scheme = self.config.data_config.compression;
-        let xorb_obj = XetRuntime::current()
-            .spawn_blocking(move || SerializedXorbObject::from_xorb(xorb, compression_scheme, false))
+        let runtime = self.ctx.runtime.clone();
+        let compression_policy = self.ctx.config.xorb.compression_policy.clone();
+        let compression_scheme_retest_interval = self.ctx.config.xorb.compression_scheme_retest_interval;
+        let xorb_obj = runtime
+            .spawn_blocking(move || {
+                SerializedXorbObject::from_xorb(
+                    xorb,
+                    false,
+                    compression_policy.as_str(),
+                    compression_scheme_retest_interval,
+                )
+            })
             .await??;
 
         let session = self.clone();
         let upload_permit = self.client.acquire_upload_permit().await?;
-        let cas_prefix = session.config.data_config.prefix.clone();
+        let cas_prefix = self.ctx.config.data.default_prefix.clone();
         let completion_tracker = self.completion_tracker.clone();
         let xorb_hash = xorb_obj.hash;
         let raw_num_bytes = xorb_obj.raw_num_bytes;
@@ -348,7 +385,7 @@ impl FileUploadSession {
                     .await?;
 
                 // Register that the xorb has been uploaded.
-                session.completion_tracker.register_xorb_upload_completion(xorb_hash).await;
+                session.completion_tracker.register_xorb_upload_completion(xorb_hash);
 
                 // Record the number of bytes uploaded.
                 session.deduplication_metrics.lock().await.xorb_bytes_uploaded += n_bytes_transmitted;
@@ -375,9 +412,30 @@ impl FileUploadSession {
         {
             let mut current_session_data = self.current_session_data.lock().await;
 
+            #[cfg(feature = "simulation")]
+            let xorb_cut_bytes = self
+                .ctx
+                .config
+                .xorb
+                .simulation_max_bytes
+                .map(|bs| (bs.as_u64() as usize).min(*MAX_XORB_BYTES))
+                .unwrap_or(*MAX_XORB_BYTES);
+            #[cfg(not(feature = "simulation"))]
+            let xorb_cut_bytes = *MAX_XORB_BYTES;
+            #[cfg(feature = "simulation")]
+            let xorb_cut_chunks = self
+                .ctx
+                .config
+                .xorb
+                .simulation_max_chunks
+                .unwrap_or(*MAX_XORB_CHUNKS)
+                .min(*MAX_XORB_CHUNKS);
+            #[cfg(not(feature = "simulation"))]
+            let xorb_cut_chunks = *MAX_XORB_CHUNKS;
+
             // Do we need to cut one of these to a xorb?
-            if current_session_data.num_bytes() + file_data.num_bytes() > *MAX_XORB_BYTES
-                || current_session_data.num_chunks() + file_data.num_chunks() > *MAX_XORB_CHUNKS
+            if current_session_data.num_bytes() + file_data.num_bytes() > xorb_cut_bytes
+                || current_session_data.num_chunks() + file_data.num_chunks() > xorb_cut_chunks
             {
                 // Cut the larger one as a xorb, uploading it and registering the files.
                 if current_session_data.num_bytes() > file_data.num_bytes() {
@@ -442,13 +500,20 @@ impl FileUploadSession {
     }
 
     /// Register a xorb dependencies that is given as part of the dedup process.
-    pub(crate) async fn register_xorb_dependencies(self: &Arc<Self>, xorb_dependencies: &[FileXorbDependency]) {
-        self.completion_tracker.register_dependencies(xorb_dependencies).await;
+    pub(crate) fn register_xorb_dependencies(self: &Arc<Self>, xorb_dependencies: &[FileXorbDependency]) {
+        self.completion_tracker.register_dependencies(xorb_dependencies);
     }
 
     /// Finalize everything.
     #[instrument(skip_all, name="FileUploadSession::finalize", fields(session.id))]
-    async fn finalize_impl(self: Arc<Self>, return_files: bool) -> Result<(DeduplicationMetrics, Vec<MDBFileInfo>)> {
+    async fn finalize_impl(
+        self: Arc<Self>,
+        return_files: bool,
+    ) -> Result<(DeduplicationMetrics, Vec<MDBFileInfo>, GroupProgressReport)> {
+        if self.finalized.swap(true, Ordering::AcqRel) {
+            return Err(DataError::InvalidOperation("FileUploadSession already finalized".to_string()));
+        }
+
         // Register the remaining xorbs for upload.
         let data_agg = take(&mut *self.current_session_data.lock().await);
         self.process_aggregated_data_as_xorb(data_agg).await?;
@@ -463,11 +528,6 @@ impl FileUploadSession {
             result??;
         }
 
-        // Now that all the tasks there are completed, there shouldn't be any other references to this session
-        // hanging around; i.e. the self in this session should be used as if it's consuming the class, as it
-        // effectively empties all the states.
-        debug_assert_eq!(Arc::strong_count(&self), 1);
-
         let all_file_info = if return_files {
             self.shard_interface.session_file_info_list().await?
         } else {
@@ -479,29 +539,14 @@ impl FileUploadSession {
         metrics.shard_bytes_uploaded = self.shard_interface.upload_and_register_session_shards().await?;
         metrics.total_bytes_uploaded = metrics.shard_bytes_uploaded + metrics.xorb_bytes_uploaded;
 
-        // Update the global counters
-        prometheus_metrics::FILTER_CAS_BYTES_PRODUCED.inc_by(metrics.new_bytes);
-        prometheus_metrics::FILTER_BYTES_CLEANED.inc_by(metrics.total_bytes);
-
         #[cfg(debug_assertions)]
         {
-            // Checks to make sure all the upload parts are complete.
-            self.completion_tracker.assert_complete().await;
-
-            // Checks that all the progress updates were received correctly.
-            self.progress_verifier.assert_complete().await;
+            self.completion_tracker.assert_complete();
+            self.progress.assert_complete();
         }
 
-        // Make sure all the updates have been flushed through.
-        self.completion_tracker.flush().await;
-
-        // Clear this out so the background aggregation session fully finishes.
-        if let Some(pa) = &self.progress_aggregator {
-            pa.finalize().await;
-            debug_assert!(pa.is_finished().await);
-        }
-
-        Ok((metrics, all_file_info))
+        let report = self.report();
+        Ok((metrics, all_file_info, report))
     }
 
     // Wait until everything currently in process is completed and uploaded, cutting a xorb for the remaining bit.
@@ -522,17 +567,44 @@ impl FileUploadSession {
             }
         }
 
-        self.completion_tracker.flush().await;
-
         Ok(())
+    }
+
+    fn check_not_finalized(&self) -> Result<()> {
+        if self.finalized.load(Ordering::Acquire) {
+            return Err(DataError::InvalidOperation("FileUploadSession already finalized".to_string()));
+        }
+        Ok(())
+    }
+
+    pub fn progress(&self) -> &Arc<GroupProgress> {
+        &self.progress
+    }
+
+    pub fn report(&self) -> GroupProgressReport {
+        self.progress.report()
+    }
+
+    pub fn item_report(&self, id: UniqueId) -> Option<ItemProgressReport> {
+        self.progress.item_report(id)
+    }
+
+    pub fn item_reports(&self) -> HashMap<UniqueId, ItemProgressReport> {
+        self.progress.item_reports()
     }
 
     pub async fn finalize(self: Arc<Self>) -> Result<DeduplicationMetrics> {
         Ok(self.finalize_impl(false).await?.0)
     }
 
+    pub async fn finalize_with_report(self: Arc<Self>) -> Result<(DeduplicationMetrics, GroupProgressReport)> {
+        let (metrics, _file_info, report) = self.finalize_impl(false).await?;
+        Ok((metrics, report))
+    }
+
     pub async fn finalize_with_file_info(self: Arc<Self>) -> Result<(DeduplicationMetrics, Vec<MDBFileInfo>)> {
-        self.finalize_impl(true).await
+        let (metrics, file_info, _report) = self.finalize_impl(true).await?;
+        Ok((metrics, file_info))
     }
 }
 
@@ -541,19 +613,10 @@ mod tests {
     use std::fs::{File, OpenOptions};
     use std::io::{Read, Write};
     use std::path::Path;
-    use std::sync::{Arc, OnceLock};
 
-    use xet_runtime::core::XetRuntime;
+    use xet_runtime::core::XetContext;
 
     use crate::processing::{FileDownloadSession, FileUploadSession, XetFileInfo};
-
-    /// Return a shared threadpool to be reused as needed.
-    fn get_threadpool() -> Arc<XetRuntime> {
-        static THREADPOOL: OnceLock<Arc<XetRuntime>> = OnceLock::new();
-        THREADPOOL
-            .get_or_init(|| XetRuntime::new().expect("Error starting multithreaded runtime."))
-            .clone()
-    }
 
     /// Cleans (converts) a regular file into a pointer file.
     ///
@@ -571,13 +634,14 @@ mod tests {
                 .unwrap(),
         );
 
-        let upload_session = FileUploadSession::new(TranslatorConfig::local_config(cas_path).unwrap().into(), None)
+        let ctx = XetContext::default().unwrap();
+        let upload_session = FileUploadSession::new(TranslatorConfig::local_config(&ctx, cas_path).unwrap().into())
             .await
             .unwrap();
 
-        let mut cleaner = upload_session
-            .start_clean(Some("test".into()), read_data.len() as u64, Sha256Policy::Compute, Ulid::new())
-            .await;
+        let (_id, mut cleaner) = upload_session
+            .start_clean(Some("test".into()), Some(read_data.len() as u64), Sha256Policy::Compute)
+            .unwrap();
 
         // Read blocks from the source file and hand them to the cleaning handle
         cleaner.add_data(&read_data[..]).await.unwrap();
@@ -602,10 +666,11 @@ mod tests {
 
         let xet_file = serde_json::from_str::<XetFileInfo>(&input).unwrap();
 
-        let config = TranslatorConfig::local_config(cas_path).unwrap();
+        let ctx = XetContext::default().unwrap();
+        let config = TranslatorConfig::local_config(&ctx, cas_path).unwrap();
         let session = FileDownloadSession::new(config.into(), None).await.unwrap();
 
-        session.download_file(&xet_file, output_path, Ulid::new()).await.unwrap();
+        let (_id, _n_bytes) = session.download_file(&xet_file, output_path).await.unwrap();
     }
 
     use std::fs::{read, write};
@@ -619,11 +684,10 @@ mod tests {
         let temp = tempdir().unwrap();
         let original_data = b"Hello, world!";
 
-        let runtime = get_threadpool();
+        let ctx = XetContext::default().unwrap();
 
-        runtime
-            .clone()
-            .external_run_async_task(async move {
+        ctx.runtime
+            .bridge_sync(async move {
                 let cas_path = temp.path().join("cas");
 
                 // 1. Write an original file in the temp directory
@@ -650,21 +714,21 @@ mod tests {
         let temp = tempdir().unwrap();
         let data = b"Hello, skip sha256!";
 
-        let runtime = get_threadpool();
+        let ctx = XetContext::default().unwrap();
 
-        runtime
-            .clone()
-            .external_run_async_task(async move {
+        ctx.runtime
+            .bridge_sync(async move {
                 let cas_path = temp.path().join("cas");
 
+                let session_ctx = XetContext::default().unwrap();
                 let upload_session =
-                    FileUploadSession::new(TranslatorConfig::local_config(&cas_path).unwrap().into(), None)
+                    FileUploadSession::new(TranslatorConfig::local_config(&session_ctx, &cas_path).unwrap().into())
                         .await
                         .unwrap();
 
-                let mut cleaner = upload_session
-                    .start_clean(Some("test".into()), data.len() as u64, Sha256Policy::Skip, Ulid::new())
-                    .await;
+                let (_id, mut cleaner) = upload_session
+                    .start_clean(Some("test".into()), Some(data.len() as u64), Sha256Policy::Skip)
+                    .unwrap();
                 cleaner.add_data(data).await.unwrap();
                 cleaner.finish().await.unwrap();
 

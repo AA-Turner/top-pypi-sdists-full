@@ -4,7 +4,7 @@ services:
       context: ../../..
       dockerfile: tests/docker/per_app_allocation/Dockerfile
     ports:
-      - "8001:8000"
+      - "28001:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
       interval: 1s

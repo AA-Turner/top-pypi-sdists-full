@@ -978,12 +978,24 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
             return {"result": json_compatible_result}
 
     def _summarize_tool_result(self, result: Any, max_length: int = 1200) -> str:
-        """Create a short, human-readable summary of a tool result."""
+        """Create a short, human-readable summary of a tool result.
+
+        Empty / None / `[]` / `{}` results are surfaced as the explicit
+        sentinel ``"returned no data"`` instead of the literal string
+        ``"None"``. Without this, Gemini-2.5-pro tends to treat a bare
+        ``None`` as ambiguous and reply with imperative-to-self meta
+        text ("If you have sufficient information, provide a final
+        answer…") rather than reporting the empty result.
+        """
 
         try:
+            if result is None:
+                return "returned no data"
             if isinstance(result, Exception):
                 summary = f"Error: {result}"
             elif isinstance(result, pd.DataFrame):
+                if result.empty:
+                    return "returned no data (empty DataFrame)"
                 preview = result.head(5)
                 summary = preview.to_string(index=True)
             elif hasattr(result, 'model_dump'):
@@ -991,6 +1003,8 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                     self._coerce_json_keys_to_str(result.model_dump())
                 )
             elif isinstance(result, (dict, list)):
+                if not result:
+                    return "returned no data (empty result)"
                 summary = self._json.dumps(
                     self._coerce_json_keys_to_str(result)
                 )
@@ -999,7 +1013,7 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         except Exception as exc:  # pylint: disable=broad-except
             summary = f"Unable to summarize result: {exc}"
 
-        summary = summary.strip() or "[empty result]"
+        summary = summary.strip() or "returned no data"
         if len(summary) > max_length:
             summary = summary[:max_length].rstrip() + "…"
         return summary
@@ -1010,26 +1024,28 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         tool_results,
         original_prompt: Optional[str] = None
     ) -> Optional[Part]:
-        """Build a textual summary of tool outputs for the model to read easily."""
+        """Disabled. Returns ``None`` so the next-turn payload only carries
+        the canonical ``function_response`` parts.
 
-        if not function_calls or not tool_results:
-            return None
+        Why: gemini-2.5-pro intermittently treats any extra text part appended
+        after the tool responses as a section-header cue and echoes a chunk
+        of it verbatim at the start of the visible answer. Both flavours
+        observed:
 
-        summary_lines = ["Tool execution summaries:"]
-        for fc, result in zip(function_calls, tool_results):
-            summary_lines.append(
-                f"- {fc.name}: {self._summarize_tool_result(result)}"
-            )
+        - ``Original Request: <prompt>`` → prompt-echo at the start of the
+          response.
+        - ``Tool execution summaries:\\n- <tool>: <truncated JSON>`` → a
+          slice of the JSON tool dump prefixed to the response.
 
-        if original_prompt:
-            summary_lines.append(f"Original Request: {original_prompt}")
+        The ``function_response`` parts already carry the tool output in the
+        format Gemini consumes natively (see SDK
+        ``tests/afc/test_generate_content_stream_afc_thoughts.py``), so the
+        textual summary is redundant.
 
-        summary_lines.append(
-            "Use the information above to continue reasoning. Call additional tools if needed to fully answer the request."
-        )
-
-        summary_text = "\n".join(summary_lines)
-        return Part(text=summary_text)
+        Both call sites guard against ``None`` (``if summary_part :=`` and
+        ``if summary_part:``), so no other code needs to change.
+        """
+        return None
 
     async def _handle_multiturn_function_calls(
         self,
@@ -1374,13 +1390,14 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                             f"Found proper function call: {part.function_call.name}"
                         )
 
-                    # Handle reasoning content types (ignore for function calling)
-                    # Check value is truthy: all Pydantic Part objects have these fields defined
-                    # even when None, so hasattr alone is not sufficient.
-                    elif (
-                        (hasattr(part, 'thought_signature') and part.thought_signature) or
-                        (hasattr(part, 'thought') and part.thought)
-                    ):
+                    # Skip reasoning/thought parts. Match the SDK contract
+                    # exactly (``google.genai`` v1.75 ``GenerateContentResponse._get_text``,
+                    # ``types.py:7993``): ``part.thought is True`` is the only
+                    # canonical thought marker. ``thought_signature`` is opaque
+                    # cross-turn metadata that legitimately appears on real
+                    # answer parts (see SDK test ``test_thought_signature_no_warning_in_text``)
+                    # and MUST NOT be used as a filter.
+                    elif part.thought is True:
                         self.logger.debug("Skipping reasoning/thought part during function extraction")
 
                     # Check for tool_code in text parts
@@ -1417,8 +1434,9 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, 'function_call') and part.function_call:
                         has_function_call = True
-                    if (hasattr(part, 'thought') and part.thought) or \
-                       (hasattr(part, 'thought_signature') and part.thought_signature):
+                    # Match SDK filter exactly (``types.py:7993``):
+                    # only ``part.thought is True`` marks a thought.
+                    if part.thought is True:
                         has_thought = True
         except Exception:
             pass
@@ -1448,18 +1466,16 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
                 text_parts = []
                 thought_parts_found = 0
 
-                # Extract text from each part, handling special cases
+                # Extract text from each part, handling special cases.
+                # Skip reasoning/thought parts using the SDK's canonical
+                # predicate only (``part.thought is True``, see
+                # ``google.genai`` v1.75 ``types.py:7993``).
+                # ``thought_signature`` is opaque cross-turn metadata that
+                # legitimately appears on real answer parts (SDK test
+                # ``test_thought_signature_no_warning_in_text``); using it as
+                # a filter silently drops valid output.
                 for part in response.candidates[0].content.parts:
-                    # Skip reasoning/thought parts — both `thought=True` (Gemini
-                    # 2.5/3 thinking trace) and `thought_signature` markers —
-                    # BEFORE looking at `part.text`. A thought part carries its
-                    # reasoning text in `part.text`, so without this guard the
-                    # model's internal monologue leaks into the user response.
-                    is_thought = (
-                        (hasattr(part, 'thought') and part.thought) or
-                        (hasattr(part, 'thought_signature') and part.thought_signature)
-                    )
-                    if is_thought:
+                    if part.thought is True:
                         thought_parts_found += 1
                         self.logger.debug("Skipping reasoning/thought part")
                         continue

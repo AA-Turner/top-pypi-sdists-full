@@ -40,7 +40,7 @@ class ElementExtractor:
     def extract_elements(self, page: Page) -> List[Dict[str, Any]]:
         elements = []
 
-        js_code = """
+        js_code = r"""
         () => {
             const elements = [];
             const selectors = [
@@ -283,11 +283,349 @@ def to_urls(u: Optional[Union[str, Iterable[str]]] = None) -> Optional[Iterable[
     return u
 
 
-def _prepare_script(script: str) -> str:
-    """Wrap bare `return` statements in an async IIFE for Playwright evaluate()."""
-    if "return " in script and not script.strip().startswith("("):
-        return f"(async () => {{ {script} }})()"
-    return script
+# JS helper that walks the agent's evaluate() result and drops references that
+# break JSON serialization downstream (window/self/document/parent are
+# self-referential; DOM nodes hold cycles via parentElement/childNodes).
+# Without this, scripts like `window.open(...)` return an object that crashes
+# the e2e harness with "ValueError: Circular reference detected" when it
+# json.dumps the agent step body.
+_SAFE_EVAL_WRAPPER = r"""
+async () => {
+  let __raw;
+  try {
+    __raw = await (async () => { __SCRIPT__ })();
+  } catch (e) {
+    return { __scriptError: e && typeof e.message === 'string' ? e.message : String(e) };
+  }
+
+  // Opções (com defaults razoáveis para automação de browser).
+  const __o = (typeof __opts !== 'undefined' && __opts) || {};
+  const MAX_DEPTH = typeof __o.maxDepth === 'number' && isFinite(__o.maxDepth)
+    ? Math.max(0, Math.min(__o.maxDepth, 500)) : 8;
+  const MAX_ARRAY = typeof __o.maxArrayLength === 'number' && isFinite(__o.maxArrayLength)
+    ? Math.max(0, __o.maxArrayLength) : 1000;
+  const MAX_KEYS = typeof __o.maxKeys === 'number' && isFinite(__o.maxKeys)
+    ? Math.max(0, __o.maxKeys) : 500;
+  const MAX_STRING = typeof __o.maxString === 'number' && isFinite(__o.maxString)
+    ? Math.max(0, __o.maxString) : 50000;
+  const includeNonEnumerable = !!__o.includeNonEnumerable;
+  const ancestors = new WeakMap();
+
+  const safeRead = (fn, fb) => { try { return fn(); } catch (e) { return fb; } };
+  const safeStr = (v, fb) => (typeof v === 'string' ? v : fb);
+  const safeNum = (v, fb) => (typeof v === 'number' && isFinite(v) ? v : fb);
+
+  const describeNode = (n) => {
+    const name = safeStr(safeRead(() => n.nodeName, ''), 'Node');
+    const id = safeStr(safeRead(() => n.id, ''), '');
+    const cls = safeStr(safeRead(() => n.className, ''), '');
+    let s = '<' + name.toLowerCase();
+    if (id) s += '#' + id;
+    if (cls && typeof cls === 'string') s += '.' + cls.split(/\s+/).filter(Boolean).join('.');
+    return s + '>';
+  };
+
+  const describeFn = (fn) => {
+    const name = safeStr(safeRead(() => fn.name, ''), 'anonymous') || 'anonymous';
+    const ctorName = safeStr(safeRead(() => fn.constructor && fn.constructor.name, ''), '');
+    let kind = 'Function';
+    if (ctorName === 'AsyncFunction') kind = 'AsyncFunction';
+    else if (ctorName === 'GeneratorFunction') kind = 'GeneratorFunction';
+    else if (ctorName === 'AsyncGeneratorFunction') kind = 'AsyncGeneratorFunction';
+    return '[' + kind + ': ' + name + ']';
+  };
+
+  const describeError = (err, depth, path, walk) => {
+    const out = {};
+    const rawName = safeRead(() => err.name, '');
+    out.__type = safeStr(rawName, '') || 'Error';
+    const rawMsg = safeRead(() => err.message, '');
+    out.message = typeof rawMsg === 'string' ? rawMsg : walk(rawMsg, depth + 1, path + '.message');
+    const stack = safeRead(() => err.stack, '');
+    if (typeof stack === 'string') out.stack = stack.length > MAX_STRING ? stack.slice(0, MAX_STRING) + '…' : stack;
+    if (safeRead(() => Object.prototype.hasOwnProperty.call(err, 'cause'), false)) {
+      out.cause = walk(safeRead(() => err.cause), depth + 1, path + '.cause');
+    }
+    const errs = safeRead(() => err.errors, undefined);
+    if (Array.isArray(errs)) {
+      out.errors = errs.slice(0, MAX_ARRAY).map((e, i) => walk(e, depth + 1, path + '.errors[' + i + ']'));
+    }
+    let ownKeys = [];
+    try { ownKeys = Object.getOwnPropertyNames(err); } catch (e) {}
+    const skip = { name: 1, message: 1, stack: 1, cause: 1, errors: 1 };
+    for (const key of ownKeys) {
+      if (skip[key] || key in out) continue;
+      out[key] = walk(safeRead(() => err[key], '[Unreadable]'), depth + 1, path + '.' + key);
+    }
+    let errSymKeys = [];
+    try { errSymKeys = Object.getOwnPropertySymbols(err); } catch (e) {}
+    for (const sym of errSymKeys) {
+      const k = sym.toString();
+      if (k in out) continue;
+      out[k] = walk(safeRead(() => err[sym], '[Unreadable]'), depth + 1, path + '.' + k);
+    }
+    return out;
+  };
+
+  const walk = (value, depth, path) => {
+    if (depth > MAX_DEPTH) return '[MaxDepth]';
+    if (value === null) return null;
+    if (value === undefined) return '[undefined]';
+    const t = typeof value;
+    if (t === 'string') return value.length > MAX_STRING ? value.slice(0, MAX_STRING) + '…' : value;
+    if (t === 'boolean') return value;
+    if (t === 'number') {
+      if (value !== value) return '[NaN]';
+      if (value === Infinity) return '[Infinity]';
+      if (value === -Infinity) return '[-Infinity]';
+      return value;
+    }
+    if (t === 'bigint') return value.toString() + 'n';
+    if (t === 'symbol') return value.toString();
+    if (t === 'function') {
+      let extras = [];
+      let extraSyms = [];
+      try {
+        const skip = { length: 1, name: 1, prototype: 1, arguments: 1, caller: 1 };
+        extras = Object.getOwnPropertyNames(value).filter((k) => !skip[k]);
+      } catch (e) {}
+      try { extraSyms = Object.getOwnPropertySymbols(value); } catch (e) {}
+      if (extras.length === 0 && extraSyms.length === 0) return describeFn(value);
+      const out = { __type: 'Function', __signature: describeFn(value) };
+      ancestors.set(value, path);
+      try {
+        for (const k of extras.slice(0, MAX_KEYS)) {
+          out[k] = walk(safeRead(() => value[k], '[Unreadable]'), depth + 1, path + '.' + k);
+        }
+        for (const s of extraSyms.slice(0, MAX_KEYS)) {
+          out[s.toString()] = walk(safeRead(() => value[s], '[Unreadable]'), depth + 1, path + '.' + s.toString());
+        }
+      } finally { ancestors.delete(value); }
+      return out;
+    }
+    if (t !== 'object') return String(value);
+
+    if (ancestors.has(value)) return '[Circular -> ' + (ancestors.get(value) || 'root') + ']';
+
+    // DOM / browser globals
+    if (typeof Node !== 'undefined' && safeRead(() => value instanceof Node, false)) return describeNode(value);
+    if (typeof Window !== 'undefined' && safeRead(() => value instanceof Window, false)) return '[Window]';
+    if (typeof Document !== 'undefined' && safeRead(() => value instanceof Document, false)) return '[Document]';
+    if (typeof Event !== 'undefined' && safeRead(() => value instanceof Event, false)) {
+      return { __type: safeStr(safeRead(() => value.constructor && value.constructor.name, ''), 'Event'), type: safeStr(safeRead(() => value.type, ''), '') };
+    }
+
+    if (safeRead(() => value instanceof Date, false)) {
+      const time = safeRead(() => value.getTime(), NaN);
+      if (time !== time) return '[Invalid Date]';
+      return safeStr(safeRead(() => value.toISOString(), ''), '[Invalid Date]');
+    }
+    if (safeRead(() => value instanceof RegExp, false)) {
+      return safeStr(safeRead(() => value.toString(), ''), '[RegExp]');
+    }
+    if (safeRead(() => value instanceof Error, false)) {
+      ancestors.set(value, path);
+      try { return describeError(value, depth, path, walk); }
+      finally { ancestors.delete(value); }
+    }
+    if (typeof URL !== 'undefined' && safeRead(() => value instanceof URL, false)) {
+      return safeStr(safeRead(() => value.toString(), ''), '[URL]');
+    }
+    if (safeRead(() => value instanceof Map, false)) {
+      ancestors.set(value, path);
+      const entries = [];
+      let truncated = 0;
+      try {
+        let i = 0;
+        for (const pair of value) {
+          if (i >= MAX_ARRAY) { truncated++; continue; }
+          const k = pair && safeRead(() => pair[0]);
+          const v = pair && safeRead(() => pair[1]);
+          entries.push([walk(k, depth + 1, path + '.<k:' + i + '>'), walk(v, depth + 1, path + '.<v:' + i + '>')]);
+          i++;
+        }
+      } catch (e) {}
+      ancestors.delete(value);
+      const out = { __type: 'Map', entries };
+      if (truncated) out.truncated = truncated;
+      return out;
+    }
+    if (safeRead(() => value instanceof Set, false)) {
+      ancestors.set(value, path);
+      const values = [];
+      let truncated = 0;
+      try {
+        let i = 0;
+        for (const v of value) {
+          if (i >= MAX_ARRAY) { truncated++; continue; }
+          values.push(walk(v, depth + 1, path + '.<i:' + i + '>'));
+          i++;
+        }
+      } catch (e) {}
+      ancestors.delete(value);
+      const out = { __type: 'Set', values };
+      if (truncated) out.truncated = truncated;
+      return out;
+    }
+    if (safeRead(() => value instanceof WeakMap, false)) return '[WeakMap]';
+    if (safeRead(() => value instanceof WeakSet, false)) return '[WeakSet]';
+    if (safeRead(() => value instanceof Promise, false)) return '[Promise]';
+    if (typeof WeakRef !== 'undefined' && safeRead(() => value instanceof WeakRef, false)) return '[WeakRef]';
+
+    if (typeof Blob !== 'undefined' && safeRead(() => value instanceof Blob, false)) {
+      return { __type: 'Blob', size: safeNum(safeRead(() => value.size, 0), 0), type: safeStr(safeRead(() => value.type, ''), '') };
+    }
+    if (typeof File !== 'undefined' && safeRead(() => value instanceof File, false)) {
+      return { __type: 'File', name: safeStr(safeRead(() => value.name, ''), ''), size: safeNum(safeRead(() => value.size, 0), 0), type: safeStr(safeRead(() => value.type, ''), '') };
+    }
+    if (typeof FormData !== 'undefined' && safeRead(() => value instanceof FormData, false)) {
+      const out = { __type: 'FormData', entries: [] };
+      try {
+        let i = 0;
+        for (const [k, v] of value.entries()) {
+          if (i++ >= MAX_ARRAY) break;
+          out.entries.push([k, walk(v, depth + 1, path + '.<fd:' + i + '>')]);
+        }
+      } catch (e) {}
+      return out;
+    }
+    if (typeof Headers !== 'undefined' && safeRead(() => value instanceof Headers, false)) {
+      const out = {};
+      try { for (const [k, v] of value.entries()) out[k] = v; } catch (e) {}
+      return { __type: 'Headers', values: out };
+    }
+    if (typeof URLSearchParams !== 'undefined' && safeRead(() => value instanceof URLSearchParams, false)) {
+      return safeStr(safeRead(() => value.toString(), ''), '[URLSearchParams]');
+    }
+
+    if (typeof Buffer !== 'undefined' && Buffer.isBuffer
+        && safeRead(() => Buffer.isBuffer(value), false)) {
+      return {
+        __type: 'Buffer',
+        base64: safeStr(safeRead(() => value.toString('base64'), ''), ''),
+        length: safeNum(safeRead(() => value.length, 0), 0),
+      };
+    }
+    if (safeRead(() => value instanceof DataView, false)) {
+      const byteLength = safeNum(safeRead(() => value.byteLength, 0), 0);
+      const cap = Math.min(byteLength, MAX_ARRAY);
+      const bytes = [];
+      for (let i = 0; i < cap; i++) bytes.push(safeRead(() => value.getUint8(i), 0));
+      const out = { __type: 'DataView', byteLength, byteOffset: safeNum(safeRead(() => value.byteOffset, 0), 0), bytes };
+      if (byteLength > cap) out.truncated = byteLength - cap;
+      return out;
+    }
+    if (safeRead(() => ArrayBuffer.isView(value), false)) {
+      const length = safeNum(safeRead(() => value.length, 0), 0);
+      const cap = Math.min(length, MAX_ARRAY);
+      const values = [];
+      for (let i = 0; i < cap; i++) values.push(walk(safeRead(() => value[i]), depth + 1, path + '[' + i + ']'));
+      const ctor = safeStr(safeRead(() => value.constructor && value.constructor.name, ''), 'TypedArray');
+      const out = { __type: ctor, length, values };
+      if (length > cap) out.truncated = length - cap;
+      return out;
+    }
+    if (safeRead(() => value instanceof ArrayBuffer, false)) {
+      return { __type: 'ArrayBuffer', byteLength: safeNum(safeRead(() => value.byteLength, 0), 0) };
+    }
+
+    // toJSON em objetos comuns (consistente com JSON.stringify). Aplicado
+    // depois dos branches especiais para que Date/Buffer/TypedArray/etc.
+    // mantenham seu tratamento dedicado.
+    const toJSON = safeRead(() => value.toJSON, undefined);
+    if (typeof toJSON === 'function') {
+      const replaced = safeRead(() => toJSON.call(value), value);
+      if (replaced !== value) return walk(replaced, depth, path);
+    }
+
+    const isArray = safeRead(() => Array.isArray(value), false);
+    ancestors.set(value, path);
+    try {
+      if (isArray) {
+        const length = safeNum(safeRead(() => value.length, 0), 0);
+        const cap = Math.min(length, MAX_ARRAY);
+        const arrCtor = safeStr(safeRead(() => value.constructor && value.constructor.name, ''), '');
+        if (arrCtor && arrCtor !== 'Array') {
+          const out = { __type: arrCtor, length, items: [] };
+          for (let i = 0; i < cap; i++) out.items.push(walk(safeRead(() => value[i]), depth + 1, path + '[' + i + ']'));
+          if (length > cap) out.truncated = length - cap;
+          return out;
+        }
+        const out = new Array(cap);
+        for (let i = 0; i < cap; i++) out[i] = walk(safeRead(() => value[i]), depth + 1, path + '[' + i + ']');
+        if (length > cap) out.push('[+' + (length - cap) + ' truncated]');
+        return out;
+      }
+
+      let keys = [];
+      try {
+        keys = includeNonEnumerable
+          ? Object.getOwnPropertyNames(value)
+          : Object.keys(value);
+      } catch (e) {}
+      let symKeys = [];
+      try {
+        const all = Object.getOwnPropertySymbols(value);
+        symKeys = includeNonEnumerable ? all : all.filter((s) => {
+          const d = safeRead(() => Object.getOwnPropertyDescriptor(value, s), null);
+          return d && d.enumerable;
+        });
+      } catch (e) {}
+
+      // Object.create(null) evita que escrever out['__proto__'] altere o prototype
+      // em vez de criar a propriedade.
+      const out = Object.create(null);
+      const userHasType = keys.indexOf('__type') !== -1;
+      const ctorName = safeStr(safeRead(() => value.constructor && value.constructor.name, ''), '');
+      if (!userHasType && ctorName && ctorName !== 'Object') out.__type = ctorName;
+
+      const cap = Math.min(keys.length, MAX_KEYS);
+      for (let i = 0; i < cap; i++) {
+        const k = keys[i];
+        out[k] = walk(safeRead(() => value[k], '[Unreadable]'), depth + 1, path + '.' + k);
+      }
+      if (keys.length > cap) out.__truncatedKeys = keys.length - cap;
+
+      const used = {};
+      for (const sym of symKeys.slice(0, MAX_KEYS)) {
+        let key = sym.toString();
+        if (Object.prototype.hasOwnProperty.call(out, key) || used[key]) {
+          let n = 2;
+          let cand = key + '#' + n;
+          while (Object.prototype.hasOwnProperty.call(out, cand) || used[cand]) cand = key + '#' + (++n);
+          key = cand;
+        }
+        used[key] = 1;
+        out[key] = walk(safeRead(() => value[sym], '[Unreadable]'), depth + 1, path + '.' + key);
+      }
+      return out;
+    } finally { ancestors.delete(value); }
+  };
+
+  try {
+    return walk(__raw, 0, 'root');
+  } catch (e) {
+    return { __unserializable: e && typeof e.message === 'string' ? e.message : 'unknown' };
+  }
+}
+"""
+
+
+def _wrap_for_safe_eval(script: str) -> str:
+    """Wrap a user script so its result is JSON-safe.
+
+    The script is injected verbatim into `(async () => { __SCRIPT__ })()`,
+    so the agent MUST use `return X;` to surface a value. Without `return`
+    the result is `undefined` (the script ran for side effects only).
+
+    We deliberately do not try to detect whether the snippet is a
+    statement or an expression — earlier heuristics flipped between
+    different wrappings depending on whitespace/semicolons (`42` vs `42;`
+    vs `let x = 42;`) and that produced silent, hard-to-trace bugs. A
+    strict contract surfaces clearly via the SyntaxError feedback in
+    `execute_javascript`.
+    """
+    return "(" + _SAFE_EVAL_WRAPPER.replace("__SCRIPT__", script) + ")()"
 
 
 def _is_target_closed(e: Exception) -> bool:
@@ -296,13 +634,19 @@ def _is_target_closed(e: Exception) -> bool:
 
 
 class BrowserTools(AgentTools):
+    """
+    Toolkit that gives an agent a headless Chromium browser via Playwright. The agent gets tools for navigation, clicking, filling forms, screenshotting, and extracting page content; optional flags add network, console, and WebSocket capture tools.
+    """
+
     urls: Optional[Iterable[str]]
     browser: playwright.sync_api.Browser
     pages: Dict[str, playwright.sync_api.Page]
     listen_network: bool
     listen_console: bool
+    listen_websocket: bool
     network_requests: Dict[str, List[playwright.sync_api.Request]]
     console_logs: Dict[str, List[playwright.sync_api.ConsoleMessage]]
+    websocket_frames: Dict[str, List[dict]]
     debug_mode: bool
     allow_close_page: bool
     headless: bool
@@ -312,11 +656,24 @@ class BrowserTools(AgentTools):
         url: Optional[Union[str, Iterable[str]]] = None,
         listen_network: bool = False,
         listen_console: bool = False,
+        listen_websocket: bool = False,
         debug_mode: bool = False,
         allow_close_page: bool = True,
         headless: bool = True,
         client_certificate: Optional[ClientCertificate] = None,
     ):
+        """
+        Build a BrowserTools toolkit, optionally scoped to specific URLs and with optional capture of network, console, and WebSocket activity.
+
+        Args:
+            url (Optional): Restrict navigation to one URL or a list of allowed URLs. `None` allows any URL. Defaults to None.
+            listen_network (bool): If True, capture all HTTP requests made by the page and expose `get_network_requests` to the agent. Defaults to False.
+            listen_console (bool): If True, capture browser console messages and expose `get_console_logs` to the agent. Defaults to False.
+            debug_mode (bool): If True, print verbose debug output for every browser action (navigation, clicks, fills, etc.). Useful for local development. Defaults to False.
+            allow_close_page (bool): If True, expose a `close_page` tool to the agent. Defaults to True.
+            headless (bool): Run Chromium in headless mode. Set to False to see the browser window during local development. Defaults to True.
+            client_certificate (Optional): Optional mTLS client certificate to present on requests, as a dict with keys `origin`, `pfx_base64`, and `passphrase`. Defaults to None.
+        """
         self.urls = to_urls(url)
         self.debug_mode = debug_mode
         self.allow_close_page = allow_close_page
@@ -367,8 +724,10 @@ class BrowserTools(AgentTools):
         self.pages = {}
         self.listen_network = listen_network
         self.listen_console = listen_console
+        self.listen_websocket = listen_websocket
         self.network_requests = {}
         self.console_logs = {}
+        self.websocket_frames = {}
         self._extracted_elements: Dict[str, List[Dict[str, Any]]] = {}
         self.extractor = ElementExtractor()
 
@@ -499,6 +858,57 @@ class BrowserTools(AgentTools):
                     self.console_logs[page_id].append(msg)
 
             page.on("console", on_console_message)
+
+        if self.listen_websocket:
+            # Playwright's WebSocket class does not expose a `.page`
+            # attribute, so we cannot look up the page from the ws
+            # object the way we do for Request/ConsoleMessage. Capture
+            # the page reference via closure instead.
+            captured_page = page
+
+            def on_websocket(ws: "playwright.sync_api.WebSocket"):
+                page_id = next(
+                    (pid for pid, p in self.pages.items() if p == captured_page),
+                    None,
+                )
+                if page_id is None:
+                    return
+                if page_id not in self.websocket_frames:
+                    self.websocket_frames[page_id] = []
+
+                ws_url = ws.url
+                bound_page_id = page_id
+
+                def record(direction: str):
+                    def cb(payload):
+                        # payload is str (text frame) or bytes (binary frame)
+                        if isinstance(payload, (bytes, bytearray)):
+                            self.websocket_frames[bound_page_id].append(
+                                {
+                                    "url": ws_url,
+                                    "direction": direction,
+                                    "binary": True,
+                                    "payload_b64": base64.b64encode(
+                                        bytes(payload)
+                                    ).decode("ascii"),
+                                }
+                            )
+                        else:
+                            self.websocket_frames[bound_page_id].append(
+                                {
+                                    "url": ws_url,
+                                    "direction": direction,
+                                    "binary": False,
+                                    "payload": payload,
+                                }
+                            )
+
+                    return cb
+
+                ws.on("framesent", record("sent"))
+                ws.on("framereceived", record("received"))
+
+            page.on("websocket", on_websocket)
 
     def navigate_to_url(
         self, url: str, page_id: Optional[str] = None
@@ -896,6 +1306,20 @@ class BrowserTools(AgentTools):
             )
         return result
 
+    def get_websocket_frames(self, page_id: str) -> Iterable[dict]:
+        """Get all captured WebSocket frames for a page. Requires listen_websocket=True on initialization. Returns a list of {url, direction, binary, payload|payload_b64} dicts in send/receive order. `direction` is "sent" or "received". Text frames carry `payload` (str); binary frames carry `payload_b64` (base64) and have `binary=True`."""
+        if self.debug_mode:
+            print(f"[DEBUG][BrowserTools.get_websocket_frames] page_id={page_id}")
+        self._get_page(page_id)
+
+        frames = self.websocket_frames.get(page_id, [])
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.get_websocket_frames] {len(frames)} frames for page {page_id}"
+            )
+
+        return list(frames)
+
     def get_console_logs(self, page_id: str) -> Iterable[dict]:
         """Get all captured console log messages for a page. Requires listen_console=True on initialization."""
         if self.debug_mode:
@@ -975,13 +1399,28 @@ class BrowserTools(AgentTools):
             raise ValueError(f"Page '{page_id}' does not exist.")
 
     def execute_javascript(self, page_id: str, script: str):
-        """Execute JavaScript code on the page and return the result. WARNING: JavaScript execution may change the DOM. After calling this, the cached page summary is invalidated — call get_page_summary before using any selectors from a previous summary."""
+        """Execute JavaScript code on the page and return the result.
+
+        The script runs inside `(async () => { ... })()`, so to return a
+        value you MUST use `return X;`. A script without `return` will
+        execute for its side effects but the result is `undefined`.
+
+        Examples:
+          - `return document.title;`
+          - `return Array.from(document.querySelectorAll('a')).map(a => a.href);`
+          - `return await fetch('/api').then(r => r.json());`
+          - `setInterval(fn, 50);`  // side-effect only, returns undefined
+
+        WARNING: JavaScript execution may change the DOM. After calling
+        this, the cached page summary is invalidated — call get_page_summary
+        before using any selectors from a previous summary.
+        """
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.execute_javascript] page_id={page_id}, script={script[:200]!r}"
             )
         page = self._get_page(page_id)
-        script = _prepare_script(script)
+        script = _wrap_for_safe_eval(script)
         try:
             result = page.evaluate(script)
         except PlaywrightTimeoutError:
@@ -996,7 +1435,9 @@ class BrowserTools(AgentTools):
             if "SyntaxError" in error_str:
                 raise ValueError(
                     f"JavaScript syntax error: {error_str}. "
-                    f"Check for invalid syntax. Do not use bare 'return' statements."
+                    f"The script runs inside `(async () => {{ ... }})()`; "
+                    f"use `return X;` to surface a value, or wrap multiple "
+                    f"statements as plain statements (no extra parentheses)."
                 )
             raise
         self._extracted_elements.pop(page_id, None)
@@ -1197,5 +1638,7 @@ class BrowserTools(AgentTools):
             tools.append(self.get_network_requests.__name__)
         if self.listen_console:
             tools.append(self.get_console_logs.__name__)
+        if self.listen_websocket:
+            tools.append(self.get_websocket_frames.__name__)
 
         return tools

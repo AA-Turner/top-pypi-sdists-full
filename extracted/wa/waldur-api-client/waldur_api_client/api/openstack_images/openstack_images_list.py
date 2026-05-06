@@ -13,6 +13,7 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -25,6 +26,8 @@ def _get_kwargs(
     tenant_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    params["is_rescue_image"] = is_rescue_image
 
     params["name"] = name
 
@@ -95,6 +98,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -111,6 +115,7 @@ def sync_detailed(
      Get a list of available VM instance images.
 
     Args:
+        is_rescue_image (Union[Unset, bool]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         offering_uuid (Union[Unset, UUID]):
@@ -131,6 +136,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        is_rescue_image=is_rescue_image,
         name=name,
         name_exact=name_exact,
         offering_uuid=offering_uuid,
@@ -153,6 +159,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -169,6 +176,7 @@ def sync(
      Get a list of available VM instance images.
 
     Args:
+        is_rescue_image (Union[Unset, bool]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         offering_uuid (Union[Unset, UUID]):
@@ -190,6 +198,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        is_rescue_image=is_rescue_image,
         name=name,
         name_exact=name_exact,
         offering_uuid=offering_uuid,
@@ -206,6 +215,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -222,6 +232,7 @@ async def asyncio_detailed(
      Get a list of available VM instance images.
 
     Args:
+        is_rescue_image (Union[Unset, bool]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         offering_uuid (Union[Unset, UUID]):
@@ -242,6 +253,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        is_rescue_image=is_rescue_image,
         name=name,
         name_exact=name_exact,
         offering_uuid=offering_uuid,
@@ -262,6 +274,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -278,6 +291,7 @@ async def asyncio(
      Get a list of available VM instance images.
 
     Args:
+        is_rescue_image (Union[Unset, bool]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         offering_uuid (Union[Unset, UUID]):
@@ -300,6 +314,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            is_rescue_image=is_rescue_image,
             name=name,
             name_exact=name_exact,
             offering_uuid=offering_uuid,
@@ -317,6 +332,7 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -334,6 +350,7 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        is_rescue_image (Union[Unset, bool]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         offering_uuid (Union[Unset, UUID]):
@@ -356,6 +373,7 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        is_rescue_image=is_rescue_image,
         name=name,
         name_exact=name_exact,
         offering_uuid=offering_uuid,
@@ -411,6 +429,7 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    is_rescue_image: Union[Unset, bool] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
@@ -428,6 +447,7 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        is_rescue_image (Union[Unset, bool]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         offering_uuid (Union[Unset, UUID]):
@@ -450,6 +470,7 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        is_rescue_image=is_rescue_image,
         name=name,
         name_exact=name_exact,
         offering_uuid=offering_uuid,

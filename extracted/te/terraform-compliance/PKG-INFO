@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: terraform_compliance
-Version: 1.14.1
+Version: 1.15.0
 Summary: BDD test framework for terraform
 Home-page: https://github.com/eerkunt/terraform-compliance
 Author: Emre Erkunt

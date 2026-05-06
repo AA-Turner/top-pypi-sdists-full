@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: waldur-api-client
-Version: 8.0.7
+Version: 8.0.8
 Summary: A client library for accessing Waldur API
 License: MIT
 License-File: LICENSE

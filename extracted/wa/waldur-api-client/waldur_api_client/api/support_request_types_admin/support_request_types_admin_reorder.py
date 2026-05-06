@@ -6,13 +6,13 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.request_type_admin import RequestTypeAdmin
-from ...models.request_type_admin_request import RequestTypeAdminRequest
+from ...models.request_type_reorder_request import RequestTypeReorderRequest
 from ...types import Response
 
 
 def _get_kwargs(
     *,
-    body: RequestTypeAdminRequest,
+    body: RequestTypeReorderRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -53,12 +53,12 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: RequestTypeAdminRequest,
+    body: RequestTypeReorderRequest,
 ) -> Response[RequestTypeAdmin]:
     """Bulk update order for multiple request types.
 
     Args:
-        body (RequestTypeAdminRequest):
+        body (RequestTypeReorderRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -82,12 +82,12 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: RequestTypeAdminRequest,
+    body: RequestTypeReorderRequest,
 ) -> RequestTypeAdmin:
     """Bulk update order for multiple request types.
 
     Args:
-        body (RequestTypeAdminRequest):
+        body (RequestTypeReorderRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -106,12 +106,12 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: RequestTypeAdminRequest,
+    body: RequestTypeReorderRequest,
 ) -> Response[RequestTypeAdmin]:
     """Bulk update order for multiple request types.
 
     Args:
-        body (RequestTypeAdminRequest):
+        body (RequestTypeReorderRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -133,12 +133,12 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: RequestTypeAdminRequest,
+    body: RequestTypeReorderRequest,
 ) -> RequestTypeAdmin:
     """Bulk update order for multiple request types.
 
     Args:
-        body (RequestTypeAdminRequest):
+        body (RequestTypeReorderRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

@@ -44,7 +44,7 @@ class RancherServiceCreate:
         state (CoreStates):
         created (datetime.datetime):
         modified (datetime.datetime):
-        access_url (Union[None, str]):
+        access_url (Union[None, list[str], str]):
         namespace_name (str):
         marketplace_offering_uuid (Union[None, str]):
         marketplace_offering_name (Union[None, str]):
@@ -88,7 +88,7 @@ class RancherServiceCreate:
     state: CoreStates
     created: datetime.datetime
     modified: datetime.datetime
-    access_url: Union[None, str]
+    access_url: Union[None, list[str], str]
     namespace_name: str
     marketplace_offering_uuid: Union[None, str]
     marketplace_offering_name: Union[None, str]
@@ -157,8 +157,12 @@ class RancherServiceCreate:
 
         modified = self.modified.isoformat()
 
-        access_url: Union[None, str]
-        access_url = self.access_url
+        access_url: Union[None, list[str], str]
+        if isinstance(self.access_url, list):
+            access_url = self.access_url
+
+        else:
+            access_url = self.access_url
 
         namespace_name = self.namespace_name
 
@@ -335,10 +339,18 @@ class RancherServiceCreate:
 
         modified = isoparse(d.pop("modified"))
 
-        def _parse_access_url(data: object) -> Union[None, str]:
+        def _parse_access_url(data: object) -> Union[None, list[str], str]:
             if data is None:
                 return data
-            return cast(Union[None, str], data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                access_url_type_0 = cast(list[str], data)
+
+                return access_url_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url"))
 

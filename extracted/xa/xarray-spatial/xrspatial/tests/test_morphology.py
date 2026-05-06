@@ -284,6 +284,30 @@ def test_closing_dask_equals_numpy():
     assert_numpy_equals_dask_numpy(numpy_agg, dask_agg, morph_closing, nan_edges=True)
 
 
+@dask_array_available
+@pytest.mark.parametrize("kernel", [
+    np.array([[1, 1, 1]], dtype=np.uint8),
+    np.array([[1], [1], [1]], dtype=np.uint8),
+])
+def test_erode_dask_1d_kernel_matches_numpy(kernel):
+    numpy_agg = create_test_raster(_DATA, backend='numpy')
+    dask_agg = create_test_raster(_DATA, backend='dask')
+    fn = partial(morph_erode, kernel=kernel)
+    assert_numpy_equals_dask_numpy(numpy_agg, dask_agg, fn, nan_edges=False)
+
+
+@dask_array_available
+@pytest.mark.parametrize("kernel", [
+    np.array([[1, 1, 1]], dtype=np.uint8),
+    np.array([[1], [1], [1]], dtype=np.uint8),
+])
+def test_dilate_dask_1d_kernel_matches_numpy(kernel):
+    numpy_agg = create_test_raster(_DATA, backend='numpy')
+    dask_agg = create_test_raster(_DATA, backend='dask')
+    fn = partial(morph_dilate, kernel=kernel)
+    assert_numpy_equals_dask_numpy(numpy_agg, dask_agg, fn, nan_edges=False)
+
+
 # ---------------------------------------------------------------------------
 # CuPy backend
 # ---------------------------------------------------------------------------
@@ -358,6 +382,104 @@ def test_erode_5x5_kernel():
 
     # 5x5 kernel: cell [2,2] should now see the pit too
     assert r5.data[2, 2] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Centre-zero kernels (issue #1397)
+# ---------------------------------------------------------------------------
+
+# Cross-with-hole: centre cell is excluded from the structuring element.
+_KERNEL_RING = np.array([
+    [1, 1, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+], dtype=np.uint8)
+
+
+def test_erode_excludes_centre_when_kernel_centre_zero():
+    """When kernel[centre]==0, the centre value must not contaminate erosion."""
+    data = np.full((5, 5), 5.0, dtype=np.float64)
+    data[2, 2] = 1.0  # centre lower than its neighbours
+    agg = create_test_raster(data)
+    result = morph_erode(agg, kernel=_KERNEL_RING, boundary='nearest')
+    # Centre is excluded; all 8 neighbours are 5.0, so min is 5.0.
+    assert result.data[2, 2] == 5.0
+
+
+def test_dilate_excludes_centre_when_kernel_centre_zero():
+    """When kernel[centre]==0, the centre value must not contaminate dilation."""
+    data = np.full((5, 5), 5.0, dtype=np.float64)
+    data[2, 2] = 100.0  # centre higher than its neighbours
+    agg = create_test_raster(data)
+    result = morph_dilate(agg, kernel=_KERNEL_RING, boundary='nearest')
+    assert result.data[2, 2] == 5.0
+
+
+def test_erode_centre_zero_nan_centre_does_not_propagate():
+    """A NaN at the centre must not propagate when kernel[centre]==0."""
+    data = np.full((5, 5), 5.0, dtype=np.float64)
+    data[2, 2] = np.nan
+    agg = create_test_raster(data)
+    result = morph_erode(agg, kernel=_KERNEL_RING, boundary='nearest')
+    # Centre NaN is excluded by kernel; neighbours are 5.0
+    assert result.data[2, 2] == 5.0
+
+
+def test_dilate_centre_zero_nan_centre_does_not_propagate():
+    data = np.full((5, 5), 5.0, dtype=np.float64)
+    data[2, 2] = np.nan
+    agg = create_test_raster(data)
+    result = morph_dilate(agg, kernel=_KERNEL_RING, boundary='nearest')
+    assert result.data[2, 2] == 5.0
+
+
+@dask_array_available
+def test_erode_centre_zero_dask_matches_numpy():
+    """Dask backend must agree with numpy for centre-zero kernels."""
+    data = np.full((10, 10), 5.0, dtype=np.float64)
+    data[5, 5] = 1.0
+    numpy_agg = create_test_raster(data, backend='numpy')
+    dask_agg = create_test_raster(data, backend='dask')
+    np_func = partial(morph_erode, kernel=_KERNEL_RING, boundary='nearest')
+    np_res = np_func(numpy_agg)
+    dk_res = np_func(dask_agg)
+    np.testing.assert_allclose(np_res.data, dk_res.data.compute())
+
+
+@dask_array_available
+def test_dilate_centre_zero_dask_matches_numpy():
+    data = np.full((10, 10), 5.0, dtype=np.float64)
+    data[5, 5] = 100.0
+    numpy_agg = create_test_raster(data, backend='numpy')
+    dask_agg = create_test_raster(data, backend='dask')
+    np_func = partial(morph_dilate, kernel=_KERNEL_RING, boundary='nearest')
+    np_res = np_func(numpy_agg)
+    dk_res = np_func(dask_agg)
+    np.testing.assert_allclose(np_res.data, dk_res.data.compute())
+
+
+@cuda_and_cupy_available
+def test_erode_centre_zero_cupy_matches_numpy():
+    data = np.full((10, 10), 5.0, dtype=np.float64)
+    data[5, 5] = 1.0
+    numpy_agg = create_test_raster(data, backend='numpy')
+    cupy_agg = create_test_raster(data, backend='cupy')
+    np_func = partial(morph_erode, kernel=_KERNEL_RING, boundary='nearest')
+    np_res = np_func(numpy_agg)
+    cp_res = np_func(cupy_agg)
+    np.testing.assert_allclose(np_res.data, cp_res.data.get())
+
+
+@cuda_and_cupy_available
+def test_dilate_centre_zero_cupy_matches_numpy():
+    data = np.full((10, 10), 5.0, dtype=np.float64)
+    data[5, 5] = 100.0
+    numpy_agg = create_test_raster(data, backend='numpy')
+    cupy_agg = create_test_raster(data, backend='cupy')
+    np_func = partial(morph_dilate, kernel=_KERNEL_RING, boundary='nearest')
+    np_res = np_func(numpy_agg)
+    cp_res = np_func(cupy_agg)
+    np.testing.assert_allclose(np_res.data, cp_res.data.get())
 
 
 # ---------------------------------------------------------------------------

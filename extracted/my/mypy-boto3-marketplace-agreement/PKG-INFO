@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-marketplace-agreement
-Version: 1.43.0
-Summary: Type annotations for boto3 AgreementService 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.4
+Summary: Type annotations for boto3 AgreementService 1.43.4 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 AgreementService 1.43.0](https://pypi.org/project/boto3/) compatible
+[boto3 AgreementService 1.43.4](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.4' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `AgreementService` service.
 4. Use provided commands to install generated packages.
@@ -341,18 +341,31 @@ from boto3.session import Session
 
 from mypy_boto3_marketplace_agreement import AgreementServiceClient
 from mypy_boto3_marketplace_agreement.paginator import (
+    GetAgreementEntitlementsPaginator,
+    GetAgreementTermsPaginator,
     ListAgreementCancellationRequestsPaginator,
+    ListAgreementChargesPaginator,
     ListAgreementInvoiceLineItemsPaginator,
     ListAgreementPaymentRequestsPaginator,
     ListBillingAdjustmentRequestsPaginator,
+    SearchAgreementsPaginator,
 )
 
 client: AgreementServiceClient = Session().client("marketplace-agreement")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+get_agreement_entitlements_paginator: GetAgreementEntitlementsPaginator = client.get_paginator(
+    "get_agreement_entitlements"
+)
+get_agreement_terms_paginator: GetAgreementTermsPaginator = client.get_paginator(
+    "get_agreement_terms"
+)
 list_agreement_cancellation_requests_paginator: ListAgreementCancellationRequestsPaginator = (
     client.get_paginator("list_agreement_cancellation_requests")
+)
+list_agreement_charges_paginator: ListAgreementChargesPaginator = client.get_paginator(
+    "list_agreement_charges"
 )
 list_agreement_invoice_line_items_paginator: ListAgreementInvoiceLineItemsPaginator = (
     client.get_paginator("list_agreement_invoice_line_items")
@@ -363,6 +376,7 @@ list_agreement_payment_requests_paginator: ListAgreementPaymentRequestsPaginator
 list_billing_adjustment_requests_paginator: ListBillingAdjustmentRequestsPaginator = (
     client.get_paginator("list_billing_adjustment_requests")
 )
+search_agreements_paginator: SearchAgreementsPaginator = client.get_paginator("search_agreements")
 ```
 
 <a id="literals"></a>
@@ -394,12 +408,14 @@ Full list of `AgreementService` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_marketplace_agreement.type_defs import ByolPricingTermTypeDef
+from mypy_boto3_marketplace_agreement.type_defs import (
+    AcceptAgreementCancellationRequestInputTypeDef,
+)
 
 
-def get_value() -> ByolPricingTermTypeDef:
+def get_value() -> AcceptAgreementCancellationRequestInputTypeDef:
     return {
-        "type": ...,
+        "agreementId": ...,
     }
 ```
 

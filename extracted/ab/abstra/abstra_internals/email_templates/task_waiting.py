@@ -10,11 +10,10 @@ from abstra_internals.repositories.project.project import (
 )
 
 template = """
-<p style="font-style: normal; font-weight: 700; font-size: 30px; line-height: 36px; color:#181818; margin-top:30px;">
+<p style="font-style: normal; font-weight: 700; font-size: 30px; line-height: 36px; color:#181818; margin:30px 0 40px;">
     {a_form_is_waiting}
 </p>
-<p style="margin-bottom: 40px; font-size: 16px;">New task</p>
-<a href="{stage_link}" style="text-decoration: none; padding: 8px 20px; border-radius: 6px; border: 1px solid transparent; background-color: #d14056; color: #FFF; box-shadow: 0 2px 0 rgba(255, 5, 5, 0.06); width: fit-content; font-size: 16px; font-family: system-ui;">
+<a href="{stage_link}" style="text-decoration: none;white-space: nowrap; padding: 10px 22px; border-radius: 6px; background-color: #d14056; color: #FFF; box-shadow: 0 2px 0 rgba(255, 5, 5, 0.06); font-size: 16px; font-family: system-ui;">
     {waiting_cta}
 </a>
 """

@@ -142,7 +142,7 @@ class Content(Item):
             asset_selection_id = item_map[self.definition['Asset Selection ID']]
 
         # Report has definitely already been pushed by this time
-        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+        if context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
             if self.report.id not in item_map:
                 raise SPyDependencyNotFound(f'{self.report} {not_found_text}')
             if self.definition['Worksheet ID'] not in item_map:
@@ -545,7 +545,7 @@ class DateRange(Item):
 
             condition_id = item_map[_common.get(self.definition, 'Condition ID')]
 
-        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+        if context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
             report_id = item_map[self.report.id]
         else:
             report_id = item_map.get(self.report.id, self.report.id)
@@ -679,7 +679,7 @@ class AssetSelection(Item):
             raise SPyDependencyNotFound(f'Asset {asset_id} not found in item_map.')
         map_asset_id = (item_map[asset_id] if asset_id else None)
 
-        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+        if context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
             report_id = item_map[self.report.id]
         else:
             report_id = item_map.get(self.report.id, self.report.id)

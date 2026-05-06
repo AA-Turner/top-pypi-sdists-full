@@ -94,6 +94,7 @@ def _is_port_available(host: str, port: int) -> bool:
     """Check if a port is available for binding."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((host, port))
             return True
         except OSError:
@@ -150,17 +151,11 @@ def _resolve_server_url(
 
 def _resolve_port(host: str, port: int | None) -> int:
     """Resolve the port to use for the server."""
-    if port is not None:
-        if not _is_port_available(host, port):
-            raise OSError(
-                f"Port {port} is already in use. Please specify a different port "
-                f"or omit the port argument to auto-discover an available one."
-            )
-        return port
-    if _is_port_available(host, DEFAULT_PORT):
-        return DEFAULT_PORT
+    requested = port if port is not None else DEFAULT_PORT
+    if _is_port_available(host, requested):
+        return requested
     found = _find_open_port(host)
-    logger.info(f"Default port {DEFAULT_PORT} is in use, using port {found} instead.")
+    logger.warning(f"Port {requested} is already in use, using port {found} instead.")
     return found
 
 
@@ -416,7 +411,7 @@ def main():
         "--port",
         type=int,
         default=None,
-        help="Port to bind the server to (default: 2024, auto-discovers if in use)",
+        help="Port to bind the server to (default: 2024; auto-discovers another port if the requested one is in use)",
     )
     parser.add_argument("--no-reload", action="store_true", help="Disable auto-reload")
     parser.add_argument(

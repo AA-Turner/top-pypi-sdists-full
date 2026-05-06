@@ -211,7 +211,7 @@ class TestAlpnProtocolMap:
 class TestAsyncWorkerAlpnHandshake:
     """Test that AsyncWorker performs handshake before ALPN check.
 
-    This is critical for gevent and eventlet workers where do_handshake_on_connect
+    This is critical for the gevent worker where do_handshake_on_connect
     may be False, causing ALPN negotiation to not complete until first I/O.
     """
 
@@ -353,76 +353,3 @@ class TestGeventWorkerAlpn:
         mock_super.assert_called_once()
 
 
-class TestEventletWorkerAlpn:
-    """Test ALPN handling in EventletWorker."""
-
-    @pytest.fixture
-    def eventlet_worker(self):
-        """Create an EventletWorker instance for testing."""
-        try:
-            import eventlet
-        except (ImportError, AttributeError):
-            pytest.skip("eventlet not available")
-
-        from gunicorn.workers.geventlet import EventletWorker
-
-        worker = EventletWorker.__new__(EventletWorker)
-        worker.cfg = mock.MagicMock()
-        worker.cfg.keepalive = 2
-        worker.cfg.do_handshake_on_connect = False
-        worker.cfg.http_protocols = ["h2", "h1"]
-        worker.cfg.is_ssl = True
-        worker.alive = True
-        worker.log = mock.MagicMock()
-        worker.wsgi = mock.MagicMock()
-        worker.nr = 0
-        worker.max_requests = 1000
-        worker.worker_connections = 1000
-
-        return worker
-
-    def test_eventlet_inherits_async_worker(self):
-        """Test that EventletWorker inherits from AsyncWorker."""
-        try:
-            import eventlet
-        except (ImportError, AttributeError):
-            pytest.skip("eventlet not available")
-
-        from gunicorn.workers.geventlet import EventletWorker
-        from gunicorn.workers.base_async import AsyncWorker
-
-        assert issubclass(EventletWorker, AsyncWorker)
-
-    def test_eventlet_handle_wraps_ssl_then_calls_super(self, eventlet_worker):
-        """Test that EventletWorker.handle() wraps SSL then calls super()."""
-        from gunicorn.workers import geventlet
-
-        mock_client = mock.MagicMock()
-        mock_wrapped = mock.MagicMock()
-        mock_listener = mock.MagicMock()
-
-        with mock.patch.object(geventlet, 'ssl_wrap_socket', return_value=mock_wrapped):
-            with mock.patch('gunicorn.workers.base_async.AsyncWorker.handle') as mock_super:
-                eventlet_worker.handle(mock_listener, mock_client, ('127.0.0.1', 8000))
-
-        # Verify super().handle() was called with the wrapped socket
-        mock_super.assert_called_once()
-        call_args = mock_super.call_args[0]
-        assert call_args[1] == mock_wrapped  # Second arg is the client socket
-
-    def test_eventlet_alpn_works_with_handshake_fix(self, eventlet_worker):
-        """Test that ALPN detection works after handshake fix for eventlet."""
-        from gunicorn.workers import geventlet
-
-        mock_ssl_socket = mock.Mock(spec=ssl.SSLSocket)
-        mock_ssl_socket.selected_alpn_protocol.return_value = "h2"
-        mock_listener = mock.MagicMock()
-
-        with mock.patch.object(geventlet, 'ssl_wrap_socket', return_value=mock_ssl_socket):
-            with mock.patch.object(eventlet_worker, 'handle_http2') as mock_h2:
-                eventlet_worker.handle(mock_listener, mock.MagicMock(), ('127.0.0.1', 8000))
-
-        # Verify handshake was called (by base_async.handle)
-        mock_ssl_socket.do_handshake.assert_called_once()
-        # Verify HTTP/2 handler was invoked
-        mock_h2.assert_called_once()

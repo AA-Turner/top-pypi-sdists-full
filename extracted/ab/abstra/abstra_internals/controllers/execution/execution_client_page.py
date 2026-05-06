@@ -39,7 +39,7 @@ class PageClient(ExecutionClient):
             self.conn.send(self.response)
             close_dto = contract.CloseDTO(exit_status="EXCEPTION", exception=e)
             self._send(contract.ExecutionEndedMessage(close_dto, self.production_mode))
-        except (BrokenPipeError, EOFError):
+        except (OSError, EOFError):
             pass
 
     def handle_success(self) -> None:
@@ -64,9 +64,9 @@ class PageClient(ExecutionClient):
                 self._send(
                     contract.ExecutionEndedMessage(close_dto, self.production_mode)
                 )
-            except (BrokenPipeError, EOFError):
+            except (OSError, EOFError):
                 pass
-        except (BrokenPipeError, EOFError):
+        except (OSError, EOFError):
             pass
 
     def send_stream_start(self, status: int, headers: Dict[str, str]) -> None:
@@ -104,5 +104,5 @@ class PageClient(ExecutionClient):
         str_data = serialize(msg.to_json())
         try:
             self.conn.send(str_data)
-        except (EOFError, BrokenPipeError):
+        except (OSError, EOFError):
             pass

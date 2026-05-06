@@ -1,10 +1,12 @@
 from collections.abc import Mapping
+from io import BytesIO
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..types import UNSET, Unset
+from .. import types
+from ..types import UNSET, File, Unset
 
 if TYPE_CHECKING:
     from ..models.resource_update_limits_request_limits import ResourceUpdateLimitsRequestLimits
@@ -19,10 +21,12 @@ class ResourceUpdateLimitsRequest:
     Attributes:
         limits (ResourceUpdateLimitsRequestLimits):
         request_comment (Union[None, Unset, str]):
+        attachment (Union[Unset, File]): Optional PDF attachment for the limit update request.
     """
 
     limits: "ResourceUpdateLimitsRequestLimits"
     request_comment: Union[None, Unset, str] = UNSET
+    attachment: Union[Unset, File] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -34,6 +38,10 @@ class ResourceUpdateLimitsRequest:
         else:
             request_comment = self.request_comment
 
+        attachment: Union[Unset, types.FileTypes] = UNSET
+        if not isinstance(self.attachment, Unset):
+            attachment = self.attachment.to_tuple()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -43,6 +51,8 @@ class ResourceUpdateLimitsRequest:
         )
         if request_comment is not UNSET:
             field_dict["request_comment"] = request_comment
+        if attachment is not UNSET:
+            field_dict["attachment"] = attachment
 
         return field_dict
 
@@ -62,9 +72,17 @@ class ResourceUpdateLimitsRequest:
 
         request_comment = _parse_request_comment(d.pop("request_comment", UNSET))
 
+        _attachment = d.pop("attachment", UNSET)
+        attachment: Union[Unset, File]
+        if isinstance(_attachment, Unset):
+            attachment = UNSET
+        else:
+            attachment = File(payload=BytesIO(_attachment))
+
         resource_update_limits_request = cls(
             limits=limits,
             request_comment=request_comment,
+            attachment=attachment,
         )
 
         resource_update_limits_request.additional_properties = d

@@ -18,6 +18,7 @@ class SeeqNames:
         self_organizing_map = 'SELF_ORGANIZING_MAP_TOOL_MODEL'
         isolation_forest = 'ISOLATION_FOREST_TOOL_MODEL'
         clustering = 'CLUSTERING_TOOL_MODEL'
+        operationalize_statistics = 'OPERATIONALIZE_STATISTICS_TOOL_MODEL'
     
     class ModelNames:
         principal_component_analysis = 'Principal Component Analysis'
@@ -25,6 +26,7 @@ class SeeqNames:
         self_organizing_map = 'Self-Organizing Map'
         isolation_forest = 'Isolation Forest'
         clustering = 'Clustering'
+        operationalize_statistics = 'Operationalize Statistics'
     
     class AnalysisViewType:
         trend = 'trend'
@@ -1510,6 +1512,7 @@ class SeeqNames:
         topics_accessed_last_week = 'Topics Accessed Last Week'
         workbooks_accessed_last_week = 'Workbooks Accessed Last Week'
         total_items_shared = 'Total Items Shared'
+        hosts_external_organization = 'Hosts External Organization'
         organization_folder_id = 'Folder ID'
         organization_user_group_id = 'User Group ID'
         source = 'Source'

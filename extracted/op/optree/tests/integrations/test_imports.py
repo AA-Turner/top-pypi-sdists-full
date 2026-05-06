@@ -1,4 +1,4 @@
-# Copyright 2022-2025 MetaOPT Team. All Rights Reserved.
+# Copyright 2022-2026 MetaOPT Team. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,18 @@ import optree
 
 
 def test_imports():
-    assert dir(optree.integrations) == ['SUBMODULES', 'jax', 'numpy', 'torch']
+    assert dir(optree.integrations) == ['SUBMODULES', 'attrs', 'jax', 'numpy', 'torch']
 
     with pytest.raises(AttributeError):
         optree.integrations.abc  # noqa: B018
+
+    try:
+        import attrs  # noqa: F401
+    except ImportError:
+        with pytest.raises(ImportError):
+            optree.integrations.attrs  # noqa: B018
+    else:
+        assert isinstance(optree.integrations.attrs, types.ModuleType)
 
     try:
         import jax  # noqa: F401

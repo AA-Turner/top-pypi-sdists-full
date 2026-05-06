@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 0.12.1
+Version: 0.12.2
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
 License-Expression: MIT
@@ -11,7 +11,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: typer<0.25,>=0.18.0
+Requires-Dist: typer<0.26,>=0.18.0
 Requires-Dist: pydantic<2.14.0,>=2.8.2
 Requires-Dist: pyyaml~=6.0.1
 Requires-Dist: requests<2.34,>=2.31
@@ -21,7 +21,6 @@ Requires-Dist: pytz>=2024.1
 Requires-Dist: python-multipart<1.0.0,>=0.0.20
 Requires-Dist: rich<16.0,>=13.7
 Requires-Dist: sqlglot<31.0.0,>=26.6.0
-Requires-Dist: setuptools>=60
 Requires-Dist: python-dotenv<2.0.0,>=1.0.0
 Requires-Dist: boto3<2.0.0,>=1.34.41
 Requires-Dist: Jinja2<4.0.0,>=3.1.5
@@ -29,6 +28,7 @@ Requires-Dist: jinja_partials<1.0.0,>=0.2.1
 Requires-Dist: datacontract-specification<2.0.0,>=1.2.3
 Requires-Dist: open-data-contract-standard<4.0.0,>=3.1.2
 Requires-Dist: deepdiff<10.0.0,>=6.0.0
+Requires-Dist: setuptools>=70
 Provides-Extra: avro
 Requires-Dist: avro==1.12.1; extra == "avro"
 Provides-Extra: bigquery
@@ -41,7 +41,7 @@ Provides-Extra: databricks
 Requires-Dist: soda-core-spark-df<3.6.0,>=3.3.20; extra == "databricks"
 Requires-Dist: soda-core-spark[databricks]<3.6.0,>=3.3.20; extra == "databricks"
 Requires-Dist: databricks-sql-connector<4.3.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.104.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.106.0; extra == "databricks"
 Requires-Dist: pyspark<5.0.0,>=3.5.0; extra == "databricks"
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg==0.11.1; extra == "iceberg"
@@ -51,12 +51,12 @@ Requires-Dist: soda-core-spark-df<3.6.0,>=3.3.20; extra == "kafka"
 Requires-Dist: pyspark<5.0.0,>=3.5.0; extra == "kafka"
 Provides-Extra: mysql
 Requires-Dist: soda-core-mysql<3.6.0,>=3.3.20; extra == "mysql"
-Requires-Dist: mysql-connector-python<10.0.0,>=8.0.30; extra == "mysql"
+Requires-Dist: mysql-connector-python<9.7.0,>=8.0.30; extra == "mysql"
 Provides-Extra: postgres
 Requires-Dist: soda-core-postgres<3.6.0,>=3.3.20; extra == "postgres"
 Provides-Extra: s3
 Requires-Dist: s3fs<2027.0.0,>=2025.2.0; extra == "s3"
-Requires-Dist: aiobotocore<3.5.0,>=2.17.0; extra == "s3"
+Requires-Dist: aiobotocore<3.6.0,>=2.17.0; extra == "s3"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[pandas]<4.5,>=3.6; extra == "snowflake"
 Requires-Dist: soda-core-snowflake<3.6.0,>=3.3.20; extra == "snowflake"
@@ -68,8 +68,8 @@ Provides-Extra: athena
 Requires-Dist: soda-core-athena<3.6.0,>=3.3.20; extra == "athena"
 Provides-Extra: trino
 Requires-Dist: soda-core-trino<3.6.0,>=3.3.20; extra == "trino"
-Provides-Extra: dbt
-Requires-Dist: dbt-core>=1.8.0; extra == "dbt"
+Provides-Extra: impala
+Requires-Dist: soda-core-impala<3.6.0,>=3.3.20; extra == "impala"
 Provides-Extra: dbml
 Requires-Dist: pydbml>=1.1.1; extra == "dbml"
 Provides-Extra: duckdb
@@ -80,12 +80,12 @@ Requires-Dist: pyarrow>=18.1.0; extra == "parquet"
 Provides-Extra: rdf
 Requires-Dist: rdflib==7.6.0; extra == "rdf"
 Provides-Extra: api
-Requires-Dist: fastapi==0.136.0; extra == "api"
+Requires-Dist: fastapi==0.136.1; extra == "api"
 Requires-Dist: uvicorn==0.44.0; extra == "api"
 Provides-Extra: protobuf
-Requires-Dist: grpcio-tools>=1.53; extra == "protobuf"
+Requires-Dist: protobuf<7.0,>=3.20; extra == "protobuf"
 Provides-Extra: all
-Requires-Dist: datacontract-cli[api,athena,bigquery,csv,databricks,dbml,dbt,duckdb,excel,iceberg,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,s3,snowflake,sqlserver,trino]; extra == "all"
+Requires-Dist: datacontract-cli[api,athena,bigquery,csv,databricks,dbml,duckdb,excel,iceberg,impala,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,s3,snowflake,sqlserver,trino]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: datacontract-cli[all]; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
@@ -97,7 +97,7 @@ Requires-Dist: pre-commit<4.6.0,>=3.7.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.3.13; extra == "dev"
-Requires-Dist: ruff==0.15.11; extra == "dev"
+Requires-Dist: ruff==0.15.12; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.14.2; extra == "dev"
 Requires-Dist: trino==0.337.0; extra == "dev"
 Dynamic: license-file
@@ -345,23 +345,25 @@ A list of available extras:
 | Amazon Athena           | `pip install datacontract-cli[athena]`     |
 | Avro Support            | `pip install datacontract-cli[avro]`       |
 | Google BigQuery         | `pip install datacontract-cli[bigquery]`   |
+| CSV                     | `pip install datacontract-cli[csv]`        |
 | Databricks Integration  | `pip install datacontract-cli[databricks]` |
+| DBML                    | `pip install datacontract-cli[dbml]`       |
 | DuckDB (local/S3/GCS/Azure file testing) | `pip install datacontract-cli[duckdb]` |
+| Excel                   | `pip install datacontract-cli[excel]`      |
 | Iceberg                 | `pip install datacontract-cli[iceberg]`    |
+| Impala                  | `pip install datacontract-cli[impala]`     |
 | Kafka Integration       | `pip install datacontract-cli[kafka]`      |
 | MySQL Integration       | `pip install datacontract-cli[mysql]`      |
+| Oracle                  | `pip install datacontract-cli[oracle]`     |
+| Parquet                 | `pip install datacontract-cli[parquet]`    |
 | PostgreSQL Integration  | `pip install datacontract-cli[postgres]`   |
+| protobuf                | `pip install datacontract-cli[protobuf]`   |
+| RDF                     | `pip install datacontract-cli[rdf]`        |
 | S3 Integration          | `pip install datacontract-cli[s3]`         |
 | Snowflake Integration   | `pip install datacontract-cli[snowflake]`  |
 | Microsoft SQL Server    | `pip install datacontract-cli[sqlserver]`  |
 | Trino                   | `pip install datacontract-cli[trino]`      |
-| Impala                  | `pip install datacontract-cli[impala]` 	   |
-| dbt                     | `pip install datacontract-cli[dbt]`        |
-| DBML                    | `pip install datacontract-cli[dbml]`       |
-| Parquet                 | `pip install datacontract-cli[parquet]`    |
-| RDF                     | `pip install datacontract-cli[rdf]`        |
 | API (run as web server) | `pip install datacontract-cli[api]`        |
-| protobuf                | `pip install datacontract-cli[protobuf]`   |
 
 
 ## Documentation
@@ -1972,7 +1974,17 @@ datacontract import csv --source "test.csv"
 <details markdown="1">
 <summary><strong>protobuf</strong></summary>
 
-Importing from protobuf File. Specify file in `source` parameter. 
+Importing from protobuf File. Specify file in `source` parameter.
+
+Requires the `protoc` compiler installed on the system. Install with:
+
+| Platform       | Command                              |
+|----------------|--------------------------------------|
+| macOS          | `brew install protobuf`              |
+| Debian/Ubuntu  | `sudo apt install protobuf-compiler` |
+| Fedora/RHEL    | `sudo dnf install protobuf-compiler` |
+| Arch           | `sudo pacman -S protobuf`            |
+| Windows        | `choco install protoc` (or [download a release](https://github.com/protocolbuffers/protobuf/releases)) |
 
 Example:
 

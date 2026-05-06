@@ -1,30 +1,20 @@
 Metadata-Version: 2.4
 Name: archinfo
-Version: 9.2.213
+Version: 9.2.214
 Summary: Classes with architecture-specific information useful to other projects.
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://api.angr.io/projects/archinfo/en/latest/
 Project-URL: Repository, https://github.com/angr/archinfo
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: backports-strenum>=1.2.8; python_version < "3.11"
-Provides-Extra: docs
-Requires-Dist: furo; extra == "docs"
-Requires-Dist: myst-parser; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Provides-Extra: pcode
 Requires-Dist: pypcode>=1.1; extra == "pcode"
-Provides-Extra: testing
-Requires-Dist: pytest; extra == "testing"
-Requires-Dist: pytest-xdist; extra == "testing"
 Dynamic: license-file
 
 # archinfo

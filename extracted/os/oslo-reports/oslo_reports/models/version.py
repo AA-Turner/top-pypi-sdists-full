@@ -34,10 +34,13 @@ class PackageModel(mwdv.ModelWithDefaultViews):
     :param str version: the product version
     """
 
-    def __init__(self, vendor, product, version):
-        super().__init__(
-            text_view=generic_text_views.KeyValueView()
-        )
+    def __init__(
+        self,
+        vendor: str | None,
+        product: str | None,
+        version: str | None,
+    ) -> None:
+        super().__init__(text_view=generic_text_views.KeyValueView())
 
         self['vendor'] = vendor
         self['product'] = product

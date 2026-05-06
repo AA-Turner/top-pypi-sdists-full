@@ -22,7 +22,6 @@ from osprofiler.tests import test
 
 
 class SqlalchemyTracingTestCase(test.TestCase):
-
     @mock.patch("osprofiler.sqlalchemy.profiler")
     def test_before_execute(self, mock_profiler):
         handler = sqlalchemy._before_cursor_execute("sql")
@@ -43,21 +42,17 @@ class SqlalchemyTracingTestCase(test.TestCase):
         cursor = mock.MagicMock()
         cursor._rows = (1,)
         handler(1, cursor, 2, 3, 4, 5)
-        info = {
-            "db": {
-                "result": str(cursor._rows)
-            }
-        }
+        info = {"db": {"result": str(cursor._rows)}}
         mock_profiler.stop.assert_called_once_with(info=info)
 
     @mock.patch("osprofiler.sqlalchemy.profiler")
     def test_handle_error(self, mock_profiler):
+        cause_exception = Exception("underlying cause")
         original_exception = Exception("error")
-        chained_exception = Exception("error and the reason")
+        original_exception.__cause__ = cause_exception
 
         sqlalchemy_exception_ctx = mock.MagicMock()
         sqlalchemy_exception_ctx.original_exception = original_exception
-        sqlalchemy_exception_ctx.chained_exception = chained_exception
 
         sqlalchemy.handle_error(sqlalchemy_exception_ctx)
         expected_info = {
@@ -65,16 +60,36 @@ class SqlalchemyTracingTestCase(test.TestCase):
             "message": "error",
             "db": {
                 "original_exception": str(original_exception),
-                "chained_exception": str(chained_exception),
-            }
+                "chained_exception": str(cause_exception),
+            },
+        }
+        mock_profiler.stop.assert_called_once_with(info=expected_info)
+
+    @mock.patch("osprofiler.sqlalchemy.profiler")
+    def test_handle_error_no_cause(self, mock_profiler):
+        original_exception = Exception("error")
+        original_exception.__cause__ = None
+
+        sqlalchemy_exception_ctx = mock.MagicMock()
+        sqlalchemy_exception_ctx.original_exception = original_exception
+
+        sqlalchemy.handle_error(sqlalchemy_exception_ctx)
+        expected_info = {
+            "etype": "Exception",
+            "message": "error",
+            "db": {
+                "original_exception": str(original_exception),
+                "chained_exception": "",
+            },
         }
         mock_profiler.stop.assert_called_once_with(info=expected_info)
 
     @mock.patch("osprofiler.sqlalchemy.handle_error")
     @mock.patch("osprofiler.sqlalchemy._before_cursor_execute")
     @mock.patch("osprofiler.sqlalchemy._after_cursor_execute")
-    def test_add_tracing(self, mock_after_exc, mock_before_exc,
-                         mock_handle_error):
+    def test_add_tracing(
+        self, mock_after_exc, mock_before_exc, mock_handle_error
+    ):
         sa = mock.MagicMock()
         engine = mock.MagicMock()
 
@@ -96,8 +111,9 @@ class SqlalchemyTracingTestCase(test.TestCase):
     @mock.patch("osprofiler.sqlalchemy.handle_error")
     @mock.patch("osprofiler.sqlalchemy._before_cursor_execute")
     @mock.patch("osprofiler.sqlalchemy._after_cursor_execute")
-    def test_wrap_session(self, mock_after_exc, mock_before_exc,
-                          mock_handle_error):
+    def test_wrap_session(
+        self, mock_after_exc, mock_before_exc, mock_handle_error
+    ):
         sa = mock.MagicMock()
 
         @contextlib.contextmanager
@@ -131,8 +147,9 @@ class SqlalchemyTracingTestCase(test.TestCase):
     @mock.patch("osprofiler.sqlalchemy._before_cursor_execute")
     @mock.patch("osprofiler.sqlalchemy._after_cursor_execute")
     @mock.patch("osprofiler.profiler")
-    def test_with_sql_result(self, mock_profiler, mock_after_exc,
-                             mock_before_exc, mock_handle_error):
+    def test_with_sql_result(
+        self, mock_profiler, mock_after_exc, mock_before_exc, mock_handle_error
+    ):
         sa = mock.MagicMock()
         engine = mock.MagicMock()
 
@@ -159,10 +176,10 @@ class SqlalchemyTracingTestCase(test.TestCase):
         sa = mock.MagicMock()
         engine = mock.MagicMock()
         sqlalchemy.add_tracing(sa, engine, "sql")
-        self.assertFalse(mock_after_exc.called)
-        self.assertFalse(mock_before_exc.called)
+        mock_after_exc.assert_not_called()
+        mock_before_exc.assert_not_called()
 
         sqlalchemy.enable()
         sqlalchemy.add_tracing(sa, engine, "sql")
-        self.assertTrue(mock_after_exc.called)
-        self.assertTrue(mock_before_exc.called)
+        mock_after_exc.assert_called()
+        mock_before_exc.assert_called()

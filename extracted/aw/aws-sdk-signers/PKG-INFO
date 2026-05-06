@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sdk-signers
-Version: 0.2.0
+Version: 0.3.0
 Summary: Standalone HTTP Request Signers for Amazon Web Services
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/aws-sdk-signers/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/aws-sdk-signers/

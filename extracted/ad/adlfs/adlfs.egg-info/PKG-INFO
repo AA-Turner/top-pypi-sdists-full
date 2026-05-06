@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adlfs
-Version: 2026.4.0
+Version: 2026.5.0
 Summary: Access Azure Blobs and Data Lake Storage (ADLS) Gen2 with fsspec and dask
 Maintainer-email: Greg Hayes <hayesgb@gmail.com>
 License: BSD
@@ -17,7 +17,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: azure-core<2.0.0,>=1.28.0
-Requires-Dist: azure-datalake-store<0.1,>=0.0.53
 Requires-Dist: azure-identity
 Requires-Dist: azure-storage-blob[aio]>=12.17.0
 Requires-Dist: fsspec>=2023.12.0

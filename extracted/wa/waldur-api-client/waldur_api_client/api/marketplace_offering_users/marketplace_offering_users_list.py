@@ -27,6 +27,7 @@ def _get_kwargs(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -85,6 +86,8 @@ def _get_kwargs(
     params["o"] = json_o
 
     params["offering"] = offering
+
+    params["offering_has_active_tos"] = offering_has_active_tos
 
     json_offering_slug: Union[Unset, list[str]] = UNSET
     if not isinstance(offering_slug, Unset):
@@ -183,6 +186,7 @@ def sync_detailed(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -212,6 +216,7 @@ def sync_detailed(
         modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
+        offering_has_active_tos (Union[Unset, bool]):
         offering_slug (Union[Unset, list[str]]):
         offering_uuid (Union[Unset, list[UUID]]):
         page (Union[Unset, int]):
@@ -242,6 +247,7 @@ def sync_detailed(
         modified_before=modified_before,
         o=o,
         offering=offering,
+        offering_has_active_tos=offering_has_active_tos,
         offering_slug=offering_slug,
         offering_uuid=offering_uuid,
         page=page,
@@ -274,6 +280,7 @@ def sync(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -303,6 +310,7 @@ def sync(
         modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
+        offering_has_active_tos (Union[Unset, bool]):
         offering_slug (Union[Unset, list[str]]):
         offering_uuid (Union[Unset, list[UUID]]):
         page (Union[Unset, int]):
@@ -334,6 +342,7 @@ def sync(
         modified_before=modified_before,
         o=o,
         offering=offering,
+        offering_has_active_tos=offering_has_active_tos,
         offering_slug=offering_slug,
         offering_uuid=offering_uuid,
         page=page,
@@ -360,6 +369,7 @@ async def asyncio_detailed(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -389,6 +399,7 @@ async def asyncio_detailed(
         modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
+        offering_has_active_tos (Union[Unset, bool]):
         offering_slug (Union[Unset, list[str]]):
         offering_uuid (Union[Unset, list[UUID]]):
         page (Union[Unset, int]):
@@ -419,6 +430,7 @@ async def asyncio_detailed(
         modified_before=modified_before,
         o=o,
         offering=offering,
+        offering_has_active_tos=offering_has_active_tos,
         offering_slug=offering_slug,
         offering_uuid=offering_uuid,
         page=page,
@@ -449,6 +461,7 @@ async def asyncio(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -478,6 +491,7 @@ async def asyncio(
         modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
+        offering_has_active_tos (Union[Unset, bool]):
         offering_slug (Union[Unset, list[str]]):
         offering_uuid (Union[Unset, list[UUID]]):
         page (Union[Unset, int]):
@@ -510,6 +524,7 @@ async def asyncio(
             modified_before=modified_before,
             o=o,
             offering=offering,
+            offering_has_active_tos=offering_has_active_tos,
             offering_slug=offering_slug,
             offering_uuid=offering_uuid,
             page=page,
@@ -537,6 +552,7 @@ def sync_all(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     parent_offering_uuid: Union[Unset, UUID] = UNSET,
@@ -564,6 +580,7 @@ def sync_all(
         modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
+        offering_has_active_tos (Union[Unset, bool]):
         offering_slug (Union[Unset, list[str]]):
         offering_uuid (Union[Unset, list[UUID]]):
         parent_offering_uuid (Union[Unset, UUID]):
@@ -596,6 +613,7 @@ def sync_all(
         modified_before=modified_before,
         o=o,
         offering=offering,
+        offering_has_active_tos=offering_has_active_tos,
         offering_slug=offering_slug,
         offering_uuid=offering_uuid,
         parent_offering_uuid=parent_offering_uuid,
@@ -661,6 +679,7 @@ async def asyncio_all(
     modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
+    offering_has_active_tos: Union[Unset, bool] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
     offering_uuid: Union[Unset, list[UUID]] = UNSET,
     parent_offering_uuid: Union[Unset, UUID] = UNSET,
@@ -688,6 +707,7 @@ async def asyncio_all(
         modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
+        offering_has_active_tos (Union[Unset, bool]):
         offering_slug (Union[Unset, list[str]]):
         offering_uuid (Union[Unset, list[UUID]]):
         parent_offering_uuid (Union[Unset, UUID]):
@@ -720,6 +740,7 @@ async def asyncio_all(
         modified_before=modified_before,
         o=o,
         offering=offering,
+        offering_has_active_tos=offering_has_active_tos,
         offering_slug=offering_slug,
         offering_uuid=offering_uuid,
         parent_offering_uuid=parent_offering_uuid,

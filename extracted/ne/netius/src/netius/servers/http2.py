@@ -355,7 +355,8 @@ class HTTP2Connection(http.HTTPConnection):
 
             def callback(connection):
                 self.close_stream(stream, final=final)
-                old_callback and old_callback(connection)
+                if old_callback:
+                    old_callback(connection)
 
         # runs the send headers operations that should send the headers list
         # to the other peer and returns the number of bytes sent
@@ -400,7 +401,8 @@ class HTTP2Connection(http.HTTPConnection):
 
             def callback(connection):
                 self.close_stream(stream, final=final)
-                old_callback and old_callback(connection)
+                if old_callback:
+                    old_callback(connection)
 
         # verifies if the current connection/stream is flushed meaning that it requires
         # a final chunk of data to be sent to the peer, if that's not the case there's
@@ -559,7 +561,8 @@ class HTTP2Connection(http.HTTPConnection):
 
             def callback(connection):
                 self.close()
-                old_callback and old_callback(connection)
+                if old_callback:
+                    old_callback(connection)
 
         message = netius.legacy.bytes(message)
         payload = struct.pack("!II", last_stream, error_code)
@@ -723,6 +726,22 @@ class HTTP2Connection(http.HTTPConnection):
 
     def set_settings(self, settings):
         self.settings_r.update(settings)
+
+        # propagates a peer-driven `SETTINGS_HEADER_TABLE_SIZE` change
+        # to the HPACK encoder so the dynamic table stays bounded by
+        # the value the peer is willing to accept (RFC 7541 §6.3); only
+        # touches an already-initialized encoder so connections that
+        # never send headers don't pay the lazy-init cost — the lazy
+        # property reads `settings_r` on first access anyway
+        if (
+            netius.common.http2.SETTINGS_HEADER_TABLE_SIZE in settings
+            and self.parser
+            and not self.legacy
+            and not self.parser._encoder == None
+        ):
+            self.parser._encoder.header_table_size = settings[
+                netius.common.http2.SETTINGS_HEADER_TABLE_SIZE
+            ]
 
     def close_stream(self, stream, final=False, flush=False, reset=False):
         if not self.parser._has_stream(stream):
@@ -1126,7 +1145,8 @@ class HTTP2Server(http.HTTPServer):
 
     def on_payload_http2(self, connection, parser):
         is_debug = self.is_debug()
-        is_debug and self._log_frame(connection, parser)
+        if self.is_debug:
+            self._log_frame(connection, parser)
 
     def on_frame_http2(self, connection, parser):
         pass
@@ -1169,7 +1189,8 @@ class HTTP2Server(http.HTTPServer):
 
     def on_send_http2(self, connection, parser, type, flags, payload, stream):
         is_debug = self.is_debug()
-        is_debug and self._log_send(connection, parser, type, flags, payload, stream)
+        if is_debug:
+            self._log_send(connection, parser, type, flags, payload, stream)
 
     def _has_h2(self):
         cls = self.__class__

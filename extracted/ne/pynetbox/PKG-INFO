@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynetbox
-Version: 7.6.1
+Version: 7.7.0
 Summary: NetBox API client library
 Home-page: https://github.com/netbox-community/pynetbox
 Author: Zach Moody, Arthur Hanson
@@ -40,6 +40,7 @@ Each pyNetBox Version listed below has been tested with its corresponding NetBox
 
 | NetBox Version | Plugin Version |
 |:--------------:|:--------------:|
+|      4.6       |     7.7.0      |
 |      4.5       |     7.6.1      |
 |      4.5       |     7.6.0      |
 |      4.4       |     7.5.0      |

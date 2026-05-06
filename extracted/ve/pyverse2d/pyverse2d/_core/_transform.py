@@ -21,6 +21,7 @@ class Transform:
     )
 
     def __init__(self, position: Point = (0.0, 0.0), anchor: Point = (0.5, 0.5), rotation: Real = 0.0, scale: Real = 1.0):
+        # Transtypage et vérifications
         position = Point(position)
         anchor = Point(anchor)
         rotation = float(rotation)
@@ -29,18 +30,16 @@ class Transform:
         if __debug__:
             different_from(scale, 0.0)
 
+        # Attributs publiques
         self._position: Point = position
         self._anchor: Point = anchor
         self._scale: float = scale
         self._rotation: float = rotation
+
+        # Attributs internes
         self._version: int = 0
 
     # ======================================== PROPERTIES ========================================
-    @property
-    def version(self) -> int:
-        """Version du transform — incrémentée à chaque mutation"""
-        return self._version
-
     @property
     def position(self) -> Point:
         """Position
@@ -150,6 +149,11 @@ class Transform:
             different_from(value, 0.0)
         self._scale = value
         self._version += 1
+
+    @property
+    def version(self) -> int:
+        """Version du transform *(lecture seule)*"""
+        return self._version
 
     # ======================================== INTERFACE ========================================
     def copy(self) -> Transform:

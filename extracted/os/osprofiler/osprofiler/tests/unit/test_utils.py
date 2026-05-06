@@ -25,7 +25,6 @@ from osprofiler.tests import test
 
 
 class UtilsTestCase(test.TestCase):
-
     def test_split(self):
         self.assertEqual([1, 2], utils.split([1, 2]))
         self.assertEqual(["A", "B"], utils.split("A, B"))
@@ -35,8 +34,9 @@ class UtilsTestCase(test.TestCase):
         self.assertRaises(TypeError, utils.split, 1)
 
     def test_binary_encode_and_decode(self):
-        self.assertEqual("text",
-                         utils.binary_decode(utils.binary_encode("text")))
+        self.assertEqual(
+            "text", utils.binary_decode(utils.binary_encode("text"))
+        )
 
     def test_binary_encode_invalid_type(self):
         self.assertRaises(TypeError, utils.binary_encode, 1234)
@@ -67,6 +67,7 @@ class UtilsTestCase(test.TestCase):
         packed_data, hmac_data = utils.signed_pack(data, hmac)
 
         process_data = utils.signed_unpack(packed_data, hmac_data, [hmac])
+        assert process_data is not None  # noqa: S101
         self.assertIn("hmac_key", process_data)
         process_data.pop("hmac_key")
         self.assertEqual(data, process_data)
@@ -77,6 +78,7 @@ class UtilsTestCase(test.TestCase):
         packed_data, hmac_data = utils.signed_pack(data, keys[-1])
 
         process_data = utils.signed_unpack(packed_data, hmac_data, keys)
+        assert process_data is not None  # noqa: S101
         self.assertEqual(keys[-1], process_data["hmac_key"])
 
     def test_signed_pack_unpack_many_wrong_keys(self):

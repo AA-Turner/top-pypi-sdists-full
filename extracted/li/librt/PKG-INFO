@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: librt
-Version: 0.9.0
+Version: 0.10.0
 Summary: Mypyc runtime library
 Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>, Ivan Levkivskyi <levkivskyi@gmail.com>
 License-Expression: MIT

@@ -29,7 +29,9 @@ def _page_sort_supported(list_function):
      - If it's not an enum, just tries the 'default', which is id.
     """
     # yes, the key here is a tuple or some reason
-    result = list(list_function.allowed_values.get(("page_sort",), {}).values())
+    result = hasattr(list_function, "allowed_values") and list(
+        list_function.allowed_values.get(("page_sort",), {}).values()
+    )
     if result:
         return True
     return False

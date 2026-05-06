@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.10.0
+Version: 4.11.0
 Summary: Open-source AI code security and static analysis for Python, TypeScript/JavaScript, Go, Java, PHP, and Rust. Finds dead code, secrets, vulnerabilities, and diff-aware regressions.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -41,6 +41,7 @@ Requires-Dist: tree-sitter-go>=0.23.0
 Requires-Dist: tree-sitter-java>=0.23.0
 Requires-Dist: tree-sitter-php>=0.24.1
 Requires-Dist: tree-sitter-rust>=0.24.2
+Requires-Dist: tomli>=2.0.1; python_version < "3.11"
 Requires-Dist: pyyaml
 Requires-Dist: networkx
 Requires-Dist: pyperclip
@@ -90,6 +91,7 @@ Dynamic: license-file
 [VS Code Extension](./editors/vscode/README.md) |
 [Real-World Results](./REAL_WORLD_RESULTS.md) |
 [Benchmarks](./BENCHMARK.md) |
+[Roadmap](./ROADMAP.md) |
 [Contributing](./CONTRIBUTING.md)
 
 **English** | [Chinese README](./README_CN.md)
@@ -335,6 +337,7 @@ metadata, and supports monorepo subprojects through `--scan-path`.
 | Benchmarks and methodology | [BENCHMARK.md](./BENCHMARK.md) |
 | Security policy | [SECURITY.md](./SECURITY.md) |
 | Release process | [RELEASE_WORKFLOW.md](./RELEASE_WORKFLOW.md) |
+| Contribution priorities | [ROADMAP.md](./ROADMAP.md) |
 | Contributing | [CONTRIBUTING.md](./CONTRIBUTING.md) |
 
 ## Common Questions
@@ -365,6 +368,7 @@ Use baselines, whitelists, inline suppressions, or runtime tracing. See the
 
 - Report security issues through [SECURITY.md](./SECURITY.md).
 - Open bugs and false-positive reports with minimal repros.
+- Check [ROADMAP.md](./ROADMAP.md) for useful contribution areas.
 - Read [CONTRIBUTING.md](./CONTRIBUTING.md) before sending a pull request.
 - See [QUALITY.md](./QUALITY.md) for project quality and gate expectations.
 - Join the [Discord](https://discord.gg/Ftn9t9tErf) for community support.

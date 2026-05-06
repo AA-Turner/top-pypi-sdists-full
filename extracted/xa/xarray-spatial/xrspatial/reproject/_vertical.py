@@ -202,6 +202,19 @@ def geoid_height(lon, lat, model='EGM96'):
     lon_arr = np.atleast_1d(np.asarray(lon, dtype=np.float64)).ravel()
     lat_arr = np.atleast_1d(np.asarray(lat, dtype=np.float64)).ravel()
 
+    if not np.isfinite(lon_arr).all():
+        raise ValueError(
+            "geoid_height(): lon contains non-finite values (NaN or Inf)."
+        )
+    if not np.isfinite(lat_arr).all():
+        raise ValueError(
+            "geoid_height(): lat contains non-finite values (NaN or Inf)."
+        )
+    if not ((lat_arr >= -90.0) & (lat_arr <= 90.0)).all():
+        raise ValueError(
+            "geoid_height(): lat must be in [-90, 90]."
+        )
+
     out = np.empty(lon_arr.shape[0], dtype=np.float64)
     _interp_geoid_batch(lon_arr, lat_arr, out, data, left, top,
                         res_x, res_y, h, w)
@@ -225,6 +238,11 @@ def geoid_height_raster(raster, model='EGM96'):
         Geoid undulation N in metres, same shape as input.
     """
     import xarray as xr
+
+    from xrspatial.utils import _validate_raster
+
+    _validate_raster(raster, func_name='geoid_height_raster',
+                     name='raster', ndim=(2, 3))
 
     data, left, top, res_x, res_y, h, w = _load_geoid(model)
 

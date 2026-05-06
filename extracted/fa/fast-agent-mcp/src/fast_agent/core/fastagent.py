@@ -173,6 +173,7 @@ class FastAgent(DecoratorMixin):
         quiet: bool = False,  # Add quiet parameter
         environment_dir: str | pathlib.Path | None = None,
         skills_directory: str | pathlib.Path | Sequence[str | pathlib.Path] | None = None,
+        noenv: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -304,6 +305,12 @@ class FastAgent(DecoratorMixin):
                 help="Watch AgentCard paths and reload when files change",
             )
             parser.add_argument(
+                "--noenv",
+                "--no-env",
+                action="store_true",
+                help="Disable fast-agent home/environment directory use",
+            )
+            parser.add_argument(
                 "--card-tool",
                 action="append",
                 dest="card_tools",
@@ -364,11 +371,19 @@ class FastAgent(DecoratorMixin):
         if self._programmatic_quiet:
             self.args.quiet = True
 
+        if noenv:
+            self.args.noenv = True
+        elif not hasattr(self.args, "noenv"):
+            self.args.noenv = False
+
         # Apply CLI environment directory if not already set programmatically
         if self._environment_dir_override is None and hasattr(self.args, "env") and self.args.env:
             self._environment_dir_override = self._normalize_environment_dir(self.args.env)
 
         if self._environment_dir_override is not None:
+            from fast_agent.constants import FAST_AGENT_RUNTIME_ENVIRONMENT
+
+            os.environ[FAST_AGENT_RUNTIME_ENVIRONMENT] = str(self._environment_dir_override)
             os.environ["ENVIRONMENT_DIR"] = str(self._environment_dir_override)
 
         # Apply CLI skills directory if not already set programmatically
@@ -411,6 +426,13 @@ class FastAgent(DecoratorMixin):
             if instance_settings is not None:
                 instance_settings._config_file = getattr(self, "_loaded_config_file", None)
                 instance_settings._secrets_file = getattr(self, "_loaded_secrets_file", None)
+                instance_settings._fast_agent_home = getattr(self, "_loaded_fast_agent_home", None)
+                instance_settings._fast_agent_home_source = getattr(
+                    self, "_loaded_fast_agent_home_source", None
+                )
+                instance_settings._fast_agent_noenv = bool(
+                    getattr(self, "_loaded_fast_agent_noenv", False)
+                )
             if instance_settings is not None:
                 config.update_global_settings(instance_settings)
 
@@ -501,9 +523,18 @@ class FastAgent(DecoratorMixin):
 
         try:
             # Use get_settings to load config - this handles all paths and secrets merging
-            settings = _config_module.get_settings(self.config_path)
+            settings = _config_module.get_settings(
+                self.config_path,
+                env_dir=self._environment_dir_override,
+                noenv=bool(getattr(self.args, "noenv", False)),
+            )
             self._loaded_config_file = settings._config_file if settings else None
             self._loaded_secrets_file = settings._secrets_file if settings else None
+            self._loaded_fast_agent_home = settings._fast_agent_home if settings else None
+            self._loaded_fast_agent_home_source = (
+                settings._fast_agent_home_source if settings else None
+            )
+            self._loaded_fast_agent_noenv = settings._fast_agent_noenv if settings else False
             # Convert to dict for backward compatibility
             self.config = settings.model_dump() if settings else {}
         finally:
@@ -512,9 +543,10 @@ class FastAgent(DecoratorMixin):
 
     def _is_acp_server_mode(self) -> bool:
         """Return True when this instance is serving the ACP transport."""
-        return bool(getattr(self.args, "server", False)) and getattr(
-            self.args, "transport", None
-        ) == "acp"
+        return (
+            bool(getattr(self.args, "server", False))
+            and getattr(self.args, "transport", None) == "acp"
+        )
 
     @property
     def context(self) -> Context:
@@ -1306,7 +1338,9 @@ class FastAgent(DecoratorMixin):
                     target_label = target
 
                 existing = effective_servers.get(resolved_name)
-                if existing is not None and not self._settings_equivalent(existing, resolved_settings):
+                if existing is not None and not self._settings_equivalent(
+                    existing, resolved_settings
+                ):
                     raise AgentConfigError(
                         (
                             f"Server name collision for '{resolved_name}' from mcp_connect "
@@ -1337,7 +1371,9 @@ class FastAgent(DecoratorMixin):
 
             base_servers = list(self._agent_declared_servers.get(name, []))
             self._agent_declared_servers[name] = base_servers
-            merged_servers = list(dict.fromkeys(base_servers + resolved_servers_by_agent.get(name, [])))
+            merged_servers = list(
+                dict.fromkeys(base_servers + resolved_servers_by_agent.get(name, []))
+            )
             config_obj.servers = merged_servers
 
         for name in list(self._agent_declared_servers.keys()):
@@ -1560,18 +1596,28 @@ class FastAgent(DecoratorMixin):
             tool_only_agents = {
                 name for name, data in self.agents.items() if data.get("tool_only", False)
             }
+            settings = config.get_settings()
+            plugin_command_base_path = (
+                Path(settings._config_file).parent if settings._config_file is not None else None
+            )
             if app_override is None:
                 app = AgentApp(
                     agents_map,
                     tool_only_agents=tool_only_agents,
                     card_collision_warnings=self._card_collision_warnings,
                     noenv_mode=runtime.noenv_mode,
+                    plugin_commands=settings.commands,
+                    plugin_command_base_path=plugin_command_base_path,
                 )
             else:
                 app_override.set_agents(
                     agents_map,
                     tool_only_agents=tool_only_agents,
                     card_collision_warnings=self._card_collision_warnings,
+                )
+                app_override.set_plugin_commands(
+                    settings.commands,
+                    base_path=plugin_command_base_path,
                 )
                 app_override.noenv_mode = runtime.noenv_mode
                 app = app_override
@@ -1757,7 +1803,9 @@ class FastAgent(DecoratorMixin):
     ) -> AgentRefreshResult:
         agents_to_hydrate = updated_agents if updated_agents is not None else agents
         hydration_result = self._hydrate_active_agents_from_session(agents_to_hydrate)
-        hydration = await hydration_result if inspect.isawaitable(hydration_result) else hydration_result
+        hydration = (
+            await hydration_result if inspect.isawaitable(hydration_result) else hydration_result
+        )
         if hydration is None:
             if updated_agents:
                 self._reload_updated_agent_file_histories(
@@ -1825,7 +1873,9 @@ class FastAgent(DecoratorMixin):
                 await agent.shutdown()
 
             old_agents = {
-                name: active_agents_local.get(name) for name in impacted if name in active_agents_local
+                name: active_agents_local.get(name)
+                for name in impacted
+                if name in active_agents_local
             }
 
             await self._rebuild_impacted_agents(
@@ -1844,7 +1894,9 @@ class FastAgent(DecoratorMixin):
 
             if impacted:
                 updated_agents = {
-                    name: active_agents_local[name] for name in impacted if name in active_agents_local
+                    name: active_agents_local[name]
+                    for name in impacted
+                    if name in active_agents_local
                 }
                 await self._finalize_updated_agents(updated_agents, state.runtime)
                 refresh_result = await self._refresh_result_from_session_restore(
@@ -2127,9 +2179,7 @@ class FastAgent(DecoratorMixin):
         app.set_attach_mcp_server_callback(attach_mcp_server)
         app.set_detach_mcp_server_callback(detach_mcp_server)
         app.set_list_attached_mcp_servers_callback(list_attached_mcp_servers)
-        app.set_list_configured_detached_mcp_servers_callback(
-            list_configured_detached_mcp_servers
-        )
+        app.set_list_configured_detached_mcp_servers_callback(list_configured_detached_mcp_servers)
 
     def _configure_wrapper_callbacks(
         self,
@@ -2342,7 +2392,9 @@ class FastAgent(DecoratorMixin):
     ) -> AgentProtocol:
         if agent_name and agent_name not in active_agents:
             available_agents = ", ".join(active_agents.keys())
-            print(f"\n\nError: Agent '{agent_name}' not found. Available agents: {available_agents}")
+            print(
+                f"\n\nError: Agent '{agent_name}' not found. Available agents: {available_agents}"
+            )
             raise SystemExit(1)
         return wrapper._agent(agent_name)
 
@@ -2739,13 +2791,13 @@ class FastAgent(DecoratorMixin):
             handle_error(
                 e,
                 "Server Configuration Error",
-                "Please check your 'fastagent.config.yaml' configuration file and add the missing server definitions.",
+                "Please check your 'fast-agent.yaml' configuration file and add the missing server definitions.",
             )
         elif isinstance(e, ProviderKeyError):
             handle_error(
                 e,
                 "Provider Configuration Error",
-                "Please check your 'fastagent.secrets.yaml' configuration file and ensure all required API keys are set.",
+                "Please check your 'fast-agent.secrets.yaml' configuration file and ensure all required API keys are set.",
             )
         elif isinstance(e, AgentConfigError):
             handle_error(
@@ -2763,7 +2815,7 @@ class FastAgent(DecoratorMixin):
             handle_error(
                 e,
                 "Model Configuration Error",
-                "Common models: gpt-5.1, kimi, sonnet, haiku. Set reasoning effort on supported models with gpt-5-mini?reasoning=high",
+                "Common models: gpt-5.5, kimi, sonnet, haiku. Set reasoning effort on supported models with gpt-5.4-mini?reasoning=high",
             )
         elif isinstance(e, CircularDependencyError):
             handle_error(

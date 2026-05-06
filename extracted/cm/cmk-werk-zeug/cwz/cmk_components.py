@@ -10,16 +10,17 @@
 # Insights we want to get:
 # - [x] what components do exist?
 # - [x] who's in charge of a component
+# - [x] what components am I owner for?
+# - [x] what files am I responsible for?
+# - [x] check OWNERS files with per-file only for `set noparent`
 # - [-] what files/directories belong to a component
-# - [ ] how do the provided ownership infos reflect the 'reality' reported by 'git blame'?
-# - [ ] what components am I owner for?
-# - [ ] what files am I responsible for?
-# - [ ] check OWNERS files with per-file only for `set noparent`
+# - [-] how do the provided ownership infos reflect the 'reality' reported by 'git blame'?
+# - [-] consistency checks
 # - [ ] check for redundant (nested) information
-# - [ ] consistency checks
 # - [ ] consequent naming (owners, leads, members)
 
 import asyncio
+import datetime
 import json
 import logging
 import sys
@@ -35,8 +36,9 @@ from typing import ClassVar, ParamSpec
 import vcr  # type: ignore[import-untyped]
 import yaml
 from aiohttp import ClientResponseError
-from rich import print as rich_print
 from rich import traceback
+from rich.console import Console
+from rich.status import Status
 from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -183,6 +185,13 @@ def parse_arguments(args: Sequence[str]) -> Args:  # noqa: PLR0915 - too many st
     )
     parser_validate_config.set_defaults(func=_fn_validate_config)
 
+    # check-plausibility
+    parser_check_plausibility = subparsers.add_parser(
+        "check-plausibility",
+        help="Looks for sparse, over-crowded or unrealistic components and responsibilities",
+    )
+    parser_check_plausibility.set_defaults(func=_fn_check_plausibility)
+
     # These have no help text -> don't show up in console help text (intentionally)
 
     parser_config = subparsers.add_parser("config")
@@ -215,7 +224,6 @@ class GerritObjectsEncoder(json.JSONEncoder):
 @with_gerrit_client()
 async def _fn_list(
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
     owners_client: CodeOwnersClient,
 ) -> None:
     """Do what a 'list' command is expected to do without further information.
@@ -233,10 +241,12 @@ async def _fn_list(
 @with_gerrit_client()
 async def _fn_info(  # noqa: C901 - too complex
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
+    status: Status,
     owners_client: CodeOwnersClient,
 ) -> None:
     """`info` command implementation"""
+    status.start()
+    status.update("gather code locations..")
     all_component_info = await owners_client.all_components_info(with_code_locations=True)
     if bad_keys := (set(cli_args.entities) - set(all_component_info)):
         raise FatalError(f"Unknown components: {', '.join(bad_keys)}")
@@ -246,6 +256,8 @@ async def _fn_info(  # noqa: C901 - too complex
         for component_id, component in all_component_info.items()
         if not cli_args.entities or component_id in cli_args.entities
     }
+    status.stop()
+
     if cli_args.mode == "json":
         json.dump(component_info, sys.stdout, cls=GerritObjectsEncoder, indent=2)
     else:  # script / rich
@@ -283,7 +295,6 @@ async def _fn_info(  # noqa: C901 - too complex
 @with_gerrit_client()
 async def _fn_component_owners_and_members(
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
     owners_client: CodeOwnersClient,
 ) -> None:
     """`members` command implementation"""
@@ -312,7 +323,7 @@ async def _fn_component_owners_and_members(
     else:  # script / rich
         for ci, component in enumerate(component_info.values()):
             if ci:
-                print()
+                rich_print()
             rich_print(
                 rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component.component_id}[/]]"
             )
@@ -327,17 +338,23 @@ async def _fn_component_owners_and_members(
 @with_gerrit_client()
 async def _fn_component_for_path(
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
+    status: Status,
     owners_client: CodeOwnersClient,
 ) -> None:
     """`component` command implementation"""
 
-    # fixme(frans): this is a hacky way to test if the given paths actually exist
-    try:
-        _path_types = {path: await path_type(path, owners_client) for path in cli_args.entities}
-    except FileNotFoundError as exc:
-        raise FatalError(str(exc)) from exc
+    status.start()
+    status.update("gather path types..")
 
+    if missing_paths := (
+        {f"/{path.lstrip('/').rstrip('/')}" for path in cli_args.entities}
+        - set(await owners_client.all_remote_paths())
+    ):
+        raise FatalError(
+            f"Not a valid path in {cli_args.project_name} @ {cli_args.branch}: {' '.join(missing_paths)}"
+        )
+
+    status.update("gather component details..")
     component_for_path = {
         path: await owners_client.component_for_path(path) for path in cli_args.entities
     }
@@ -351,11 +368,13 @@ async def _fn_component_for_path(
 @with_gerrit_client()
 async def _fn_component_paths(
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
+    status: Status,
     owners_client: CodeOwnersClient,
 ) -> None:
     """`paths` command implementation"""
 
+    status.start()
+    status.update("gather code locations..")
     all_component_info = await owners_client.all_components_info(with_code_locations=True)
     if bad_keys := (set(cli_args.entities) - set(all_component_info)):
         raise FatalError(f"Unknown components: {', '.join(bad_keys)}")
@@ -365,6 +384,7 @@ async def _fn_component_paths(
         for component_id, component in all_component_info.items()
         if not cli_args.entities or component_id in cli_args.entities
     }
+    status.stop()
 
     if cli_args.mode == "json":
         json.dump(
@@ -379,7 +399,7 @@ async def _fn_component_paths(
     else:  # script / rich
         for i, (component_id, component) in enumerate(component_info.items()):
             if i:
-                print()
+                rich_print()
             rich_print(
                 rf"[{STYLE_COMPONENT_NAME}]{component.name}[/] \[[{STYLE_COMPONENT_ID}]{component_id}[/]]"
             )
@@ -387,32 +407,23 @@ async def _fn_component_paths(
                 rich_print(f"  - [{STYLE_PATH}]{path}[/]")
 
 
-async def path_type(path: str, owners_client: CodeOwnersClient) -> str:
-    """Determine the type of a given path."""
-    try:
-        await owners_client._gerrit_client.repo_file_content(  # noqa: SLF001
-            path,
-            owners_client._project,  # noqa: SLF001
-            owners_client._branch,  # noqa: SLF001
-        )
-    except ClientResponseError:
-        return "path"
-    return "file"
-
-
 @with_gerrit_client()
 async def _fn_owners_for(
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
+    status: Status,
     owners_client: CodeOwnersClient,
 ) -> None:
     """`owners` command implementation"""
+    status.start()
+    status.update("gather code locations..")
 
-    # fixme(frans): this is a hacky way to test if the given paths actually exist
-    try:
-        _path_types = {path: await path_type(path, owners_client) for path in cli_args.entities}
-    except FileNotFoundError as exc:
-        raise FatalError(str(exc)) from exc
+    if missing_paths := (
+        {f"/{path.lstrip('/').rstrip('/')}" for path in cli_args.entities}
+        - set(await owners_client.all_remote_paths())
+    ):
+        raise FatalError(
+            f"Not a valid path in {cli_args.project_name} @ {cli_args.branch}: {' '.join(missing_paths)}"
+        )
 
     await owners_client._ensure_all_entries_loaded()  # noqa: SLF001
     owners_dict = {
@@ -425,6 +436,7 @@ async def _fn_owners_for(
         for path in cli_args.entities
         for entry, components, owners in (owners_client._query(path),)  # noqa: SLF001
     }
+    status.stop()
 
     if cli_args.mode == "json":
         json.dump(owners_dict, sys.stdout, cls=GerritObjectsEncoder, indent=2)
@@ -443,14 +455,18 @@ async def _fn_owners_for(
 
 @with_gerrit_client()
 async def _fn_my_responsibilities(
-    cli_args: Args,  # noqa: ARG001 Unused function argument
+    status: Status,
     gerrit_client: GerritClient,
     owners_client: CodeOwnersClient,
 ) -> None:
     """`my-responsibilities`/`me` command implementation"""
+    status.start()
+    status.update("gather code locations..")
+    components = (await owners_client.all_components_info(with_code_locations=True)).values()
+    status.stop()
 
     my_mail = (await gerrit_client.current_account()).email
-    for component in (await owners_client.all_components_info(with_code_locations=True)).values():
+    for component in components:
         if my_mail in (component.component_owner_email, *component.code_owners_email):
             rich_print(
                 f"* {'[bold sandy_brown]owner[/]' if component.component_owner_email == my_mail else '[sandy_brown]member[/]'}:"
@@ -481,7 +497,6 @@ async def _fn_all_code_owners_config_files(
 @with_gerrit_client()
 async def _fn_config(
     cli_args: Args,
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
     owners_client: CodeOwnersClient,
 ) -> None:
     """Display the project configuration related to code-owners"""
@@ -499,9 +514,8 @@ async def _fn_config(
 
 
 @with_gerrit_client()
-async def _fn_validate_config(  # noqa: C901 - too complex
-    cli_args: Args,  # noqa: ARG001 Unused function argument
-    gerrit_client: GerritClient,  # noqa: ARG001 Unused function argument
+async def _fn_validate_config(
+    status: Status,
     owners_client: CodeOwnersClient,
 ) -> None:
     """
@@ -515,19 +529,21 @@ async def _fn_validate_config(  # noqa: C901 - too complex
     # - member count
     # - code_location should not be empty
     """
+    status.start()
+    status.update("execute built-in config-check..")
     try:
         await owners_client.check_config()
     except ClientResponseError as exc:
         if not exc.status == 403:  # noqa: PLR2004 (magic value)
             raise
-        print("Can't validate config via Gerrit API due to permission issues", file=sys.stderr)
+        Console(stderr=True).print("Can't validate config via Gerrit API due to permission issues")
 
-    print("Load ownership and component data..")
+    status.update("load ownership and component data..")
     await owners_client._load_cached_state(mode="never")  # noqa: SLF001
     await owners_client._ensure_all_components_loaded()  # noqa: SLF001
     issues: list[str] = list(await owners_client._ensure_all_entries_loaded())  # noqa: SLF001
 
-    print("Check consistency..")
+    status.update("check OWNERS files consistency..")
     for per_file_path, entries in owners_client._cached.entries.items():  # noqa: SLF001
         for pattern, entry in entries.items():
             if not entry.noparent:
@@ -535,38 +551,136 @@ async def _fn_validate_config(  # noqa: C901 - too complex
 
     if issues:
         for issue in issues:
-            print(issue, file=sys.stderr)
+            Console(stderr=True).print(f"{issue}")
         raise SystemExit(1)
 
-    print("Check whether local path query returns same results as Gerrit API..")
-    all_file_paths = await owners_client.all_remote_files()
-    validated = set()
+    status.update("Check whether local path query returns same results as Gerrit API..")
+    paths_to_check = {
+        path for path in (await owners_client.all_remote_paths()) if not path.startswith("/.werks/")
+    }
 
-    for i, file_path in enumerate(all_file_paths):
-        for pi in range(len(split_path := file_path.split("/")), 0, -1):
-            if (composite_path := "/".join(split_path[:pi])) in validated:
-                continue
-            validated.add(composite_path)
+    for i, composite_path in enumerate(paths_to_check):
+        status.update(
+            f"{100 / len(paths_to_check) * i:.1f}% validate and compare {composite_path}.."
+        )
+        plugin_response = await owners_client.owners_for(composite_path or "/")
+        plugin_mails = sorted({a["email"] for a in plugin_response})
 
-            if composite_path.startswith("/.werks/"):
-                continue
+        _entry, components, mails = owners_client._query(composite_path)  # noqa: SLF001
 
-            plugin_response = await owners_client.owners_for(composite_path or "/")
-            plugin_mails = sorted({a["email"] for a in plugin_response})
+        log().info(f"{composite_path} {components} {len(list(mails))}")
 
-            _entry, components, mails = owners_client._query(composite_path)  # noqa: SLF001
+        if plugin_mails != sorted(mails):
+            log().warning(composite_path)
+            log().warning("  query:  %s", components)
+            log().warning("  query:  %s", sorted(mails))
+            log().warning("  plugin: %s", plugin_mails)
+            log().warning("  plugin: %s", plugin_response)
+            raise SystemExit(1)
 
-            log().info(
-                f"{i}/{len(all_file_paths)}: {composite_path} {components} {len(list(mails))}"
-            )
 
-            if plugin_mails != sorted(mails):
-                log().warning(composite_path)
-                log().warning("  query:  %s", components)
-                log().warning("  query:  %s", sorted(mails))
-                log().warning("  plugin: %s", plugin_mails)
-                log().warning("  plugin: %s", plugin_response)
-                raise SystemExit(1)
+@with_gerrit_client()
+async def _fn_check_plausibility(
+    cli_args: Args,
+    status: Status,
+    gerrit_client: GerritClient,
+    owners_client: CodeOwnersClient,
+) -> None:
+
+    status.update("check for plausibility issues..")
+    await owners_client._ensure_all_entries_loaded()  # noqa: SLF001
+    all_files = await owners_client.all_remote_files()
+    all_directories = {Path(p).parent for p in all_files}
+
+    # how many files in a folder?
+    # how many changes in last time?
+    # compare owners / git blame
+    # people with too much responsibility
+
+    count = 0
+    last_dir = None
+    cutoff_date = datetime.datetime.now(tz=datetime.UTC).date() - datetime.timedelta(days=60)
+    wrong_owners_style = "yellow"
+    matching_owners_style = "green"
+    missing_owners_style = "red"
+
+    rich_print(
+        f"{'Path':<65}"
+        # f"{'Entry':<40}"
+        f"{'Component':<42}"
+        f"{'Commits':<10}"
+        f"{'Owners':>10}"
+        f"{'Matching':>10}{'Wrong':>10}{'Missing':>10}"
+    )
+
+    for i, dir_path in enumerate(sorted(all_directories)):
+        status.update(f"{i} {dir_path}..")
+        dir_path_str = dir_path.as_posix()
+        entry, components, raw_owners_mails = owners_client._query(dir_path_str)  # noqa: SLF001
+        if last_dir and dir_path.is_relative_to(last_dir[0]) and entry == last_dir[1]:
+            # print(f"{dir_path_str} {entry}")
+            continue
+
+        last_dir = dir_path, entry
+
+        if not raw_owners_mails:
+            continue  # fixme(frans): suggest mails
+
+        count += 1
+        # commit_id, date, author, message, list of files affected)
+        log_data = await gerrit_client.get_log(
+            dir_path_str, cutoff_date, cli_args.project_name, cli_args.branch
+        )
+
+        owners_mails = {email.split("@")[0] for email in raw_owners_mails}
+
+        committer_emails = {email.split("@")[0] for _, _, email, _, _ in log_data}
+        if "lm" in committer_emails:
+            committer_emails.remove("lm")
+            committer_emails.add("lars.michelsen")
+
+        path_str = (
+            dir_path_str
+            if len(dir_path_str) < 60  # noqa: PLR2004 'magic value'
+            else f"{dir_path_str[: 60 // 2]}..{dir_path_str[-60 // 2 :]}"
+        )
+
+        wrong_owners_str = (
+            f"[{wrong_owners_style}]{' '.join(wrong_owners)}[/]"
+            if (wrong_owners := (committer_emails - owners_mails))
+            else ""
+        )
+        matching_owners_str = (
+            f"[{matching_owners_style}]{' '.join(matching_owners)}[/]"
+            if (matching_owners := (owners_mails & committer_emails))
+            else ""
+        )
+        missing_owners_str = (
+            f"[{missing_owners_style}]{' '.join(missing_owners)}[/]"
+            if (missing_owners := (owners_mails - committer_emails))
+            else ""
+        )
+
+        rich_print(
+            f"[{STYLE_PATH}]{path_str[1:]:<65}[/]"
+            # f"{entry!r:<40}"
+            f"[{STYLE_COMPONENT_ID}]{(components and components[0]) or '':42}[/]"
+            f"{len(log_data):>10}"
+            f"{len(owners_mails):>10}"
+            f"[{matching_owners_style}]{len(matching_owners):>10}[/]"
+            f"[{wrong_owners_style}]{len(wrong_owners):>10}[/]"
+            f"[{missing_owners_style}]{len(missing_owners):>10}[/]"
+        )
+
+        rich_print(f"{wrong_owners_str} {matching_owners_str} {missing_owners_str}")
+
+        # for commit_id, commit_date, author, message, paths in log_data:
+        #    print(f"  {commit_id[:8]} {commit_date} {author:20} {message.splitlines()[0]}")
+        # contributors_by_git_blame =
+        # print(f"  git blame contributors: {', '.join(contributors_by_git_blame)}")
+
+        if count > 10:  # noqa: PLR2004
+            break
 
 
 @with_gerrit_client()
@@ -589,13 +703,13 @@ async def _fn_stuff(
         owners_file_content = await gerrit_client.repo_file_content(
             owners_file, cli_args.project_name, cli_args.branch
         )
-        rich_print(owners_file, len(owners_file_content))
+        rich_print(f"{owners_file} {len(owners_file_content)}")
 
     log().debug("all_components_info..")
-    rich_print(await owners_client.all_components_info())
-    rich_print(await owners_client.component_for_path("mixed_component/core_part"))
-    rich_print(await owners_client.code_locations("core_component"))
-    rich_print(await owners_client.owners_for("mixed_component/core_part"))
+    rich_print(f"{await owners_client.all_components_info()}")
+    rich_print(f"{await owners_client.component_for_path('mixed_component/core_part')}")
+    rich_print(f"{await owners_client.code_locations('core_component')}")
+    rich_print(f"{await owners_client.owners_for('mixed_component/core_part')}")
 
 
 @with_gerrit_client(populate=False)
@@ -819,29 +933,33 @@ def main(args: None | Sequence[str] = None) -> int:
     """See main docstring"""
     traceback.install()
     cli_args = parse_arguments(args or sys.argv[1:])
+    status = None
 
     t1 = time.time()
 
     with ExitStack() as context:
+        if cli_args.func != _fn_tui:
+            status = context.enter_context(console.status(""))
+            status.stop()
+            setup_logging(log(), level=cli_args.log_level, show_name=20, show_funcname=30)
+            logging.getLogger("vcr.matchers").setLevel(logging.WARNING)
+
         if cli_args.vcr_cache_file:
             context.enter_context(
                 vcr.use_cassette(cli_args.vcr_cache_file, record_mode="new_episodes")
             )
 
-        if cli_args.func != _fn_tui:
-            setup_logging(log(), level=cli_args.log_level, show_name=20, show_funcname=30)
-            logging.getLogger("vcr.matchers").setLevel(logging.WARNING)
-
         with suppress(KeyboardInterrupt):
             log().debug("run %r", cli_args.func.__name__)
             try:
-                asyncio.run(cli_args.func(cli_args))
+                asyncio.run(cli_args.func(cli_args, status=status))
             except FatalError as exc:
-                rich_print(f"ERROR: {exc}", file=sys.stderr)
+                Console(stderr=True).print(f"ERROR: {exc}")
                 return 1
 
     if cli_args.func != _fn_tui:
         log().debug("took %.2fms", (time.time() - t1) * 1000)
+
     return 0
 
 
@@ -849,6 +967,13 @@ def log() -> logging.Logger:
     """Convenience function retrieves 'our' logger"""
     return logging.getLogger("trickkiste.cmk-components")
 
+
+def rich_print(*args: None | str) -> None:
+    """Does what you'd expect from print()"""
+    console.print(*args)
+
+
+console = Console()
 
 if __name__ == "__main__":
     raise SystemExit(main())

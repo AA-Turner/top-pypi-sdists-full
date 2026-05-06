@@ -11,11 +11,12 @@ use xet_client::cas_types::FileRange;
 use xet_core_structures::ExpWeightedMovingAvg;
 use xet_core_structures::merklehash::MerkleHash;
 use xet_runtime::config::ReconstructionConfig;
+use xet_runtime::core::XetContext;
 
 use super::super::FileReconstructionError;
 use super::super::error::Result;
 use super::file_term::{FileTerm, retrieve_file_term_block};
-use crate::progress_tracking::download_tracking::DownloadTaskUpdater;
+use crate::progress_tracking::ItemProgressUpdater;
 
 type RawFetchedFileTerms = Result<Option<(Vec<FileTerm>, u64, u64)>>;
 
@@ -23,6 +24,7 @@ type RawFetchedFileTerms = Result<Option<(Vec<FileTerm>, u64, u64)>>;
 /// Prefetches reconstruction blocks ahead of consumption based on observed completion rates
 /// to minimize download latency while controlling memory usage.
 pub struct ReconstructionTermManager {
+    ctx: XetContext,
     config: Arc<ReconstructionConfig>,
     client: Arc<dyn Client>,
     file_hash: MerkleHash,
@@ -33,18 +35,19 @@ pub struct ReconstructionTermManager {
     current_active_byte_position: u64,
     prefetch_queue: VecDeque<JoinHandle<RawFetchedFileTerms>>,
     completion_rate_estimator: ExpWeightedMovingAvg,
-    progress_updater: Option<Arc<DownloadTaskUpdater>>,
+    progress_updater: Option<Arc<ItemProgressUpdater>>,
     total_bytes_reported: u64,
     total_transfer_bytes_reported: u64,
 }
 
 impl ReconstructionTermManager {
     pub async fn new(
+        ctx: XetContext,
         config: Arc<ReconstructionConfig>,
         client: Arc<dyn Client>,
         file_hash: MerkleHash,
         file_byte_range: FileRange,
-        progress_updater: Option<Arc<DownloadTaskUpdater>>,
+        progress_updater: Option<Arc<ItemProgressUpdater>>,
     ) -> Result<Self> {
         let completion_rate_estimator =
             ExpWeightedMovingAvg::new_count_decay(config.completion_rate_estimator_half_life);
@@ -52,6 +55,7 @@ impl ReconstructionTermManager {
         let requested_byte_range = file_byte_range;
 
         let mut s = Self {
+            ctx,
             config,
             client,
             file_hash,
@@ -123,6 +127,17 @@ impl ReconstructionTermManager {
             .map_err(|e| FileReconstructionError::InternalError(format!("Join error: {e}")))??;
 
         if let Some((file_terms, new_bytes, new_transfer_bytes)) = maybe_next_block {
+            // Extract the download domain from the first file term's URL.
+            let domain = file_terms
+                .first()
+                .and_then(|t| t.url_info.xorb_block_retrieval_urls.try_read().ok())
+                .and_then(|urls| {
+                    urls.1
+                        .first()
+                        .and_then(|(url, _)| url::Url::parse(url).ok())
+                        .and_then(|u| u.host_str().map(str::to_owned))
+                });
+
             // Calculate the byte range of this block from the file terms.
             let block_start = file_terms.first().map(|t| t.byte_range.start).unwrap_or(0);
             let block_end = file_terms.last().map(|t| t.byte_range.end).unwrap_or(0);
@@ -135,6 +150,7 @@ impl ReconstructionTermManager {
 
             info!(
                 file_hash = %self.file_hash,
+                domain = domain.as_deref().unwrap_or("unknown"),
                 block_start = block_start,
                 block_end = block_end,
                 block_size = file_terms.len(),
@@ -154,6 +170,10 @@ impl ReconstructionTermManager {
             // We've completed the iteration, so record the final byte position.
             self.known_final_byte_position
                 .store(self.prefetched_byte_position, Ordering::Relaxed);
+
+            if let Some(progress_updater) = &self.progress_updater {
+                progress_updater.update_item_size(self.total_bytes_reported, true);
+            }
 
             info!(
                 file_hash = %self.file_hash,
@@ -265,9 +285,10 @@ impl ReconstructionTermManager {
         let known_final_byte_position = self.known_final_byte_position.clone();
         let client = self.client.clone();
         let file_hash = self.file_hash;
+        let runtime = self.ctx.clone();
 
         let jh = tokio::task::spawn(async move {
-            let result = retrieve_file_term_block(client, file_hash, prefetch_block_range).await;
+            let result = retrieve_file_term_block(&runtime, client, file_hash, prefetch_block_range).await;
 
             // See if we're done with the file.
             if let Ok(Some((ref returned_range, transfer_bytes, ref file_terms))) = result {

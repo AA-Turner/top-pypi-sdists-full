@@ -4,11 +4,10 @@ description = "Command Line Tool for Backblaze B2"
 authors = [
     { name = "Backblaze Inc", email = "support@backblaze.com" },
 ]
-dynamic = []
-requires-python = ">=3.9"
-keywords = [
-    "backblaze b2 cloud storage",
-]
+dynamic = ["version"]
+requires-python = ">=3.10"
+keywords = ["backblaze b2 cloud storage"]
+license = {text = "MIT"}
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -16,7 +15,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -26,7 +24,7 @@ classifiers = [
 dependencies = [
     "argcomplete>=3.5.2,<4",
     "arrow>=1.0.2,<2.0.0",
-    "b2sdk>=2.10.3,<3",
+    "b2sdk>=2.12.0,<3",
     "docutils>=0.18.1,<0.22",
     "idna~=3.4; platform_system == 'Java'",
     "rst2ansi==0.1.5",
@@ -34,29 +32,64 @@ dependencies = [
     "tqdm>=4.65.0,<5",
     "platformdirs>=3.11.0,<5",
 ]
-version = "4.6.0"
-
-[project.license]
-text = "MIT"
 
 [project.optional-dependencies]
-doc = [
-    "sadisplay>=0.4.9",
-    "sphinx>=7.2,<8",
-    "sphinx-argparse",
-    "sphinx-autobuild",
-    "sphinx-rtd-theme>=1.3,<2",
-    "sphinxcontrib-plantuml",
+full = [
+    "pydantic>=2.0.1,<3"
 ]
 license = [
-    "pip>=23.1.0",
+    "pip>=26.1",
     "pip-licenses~=5.0",
     "pipdeptree>=2.9,<3",
     "prettytable~=3.9",
 ]
-full = [
-    "pydantic>=2.0.1,<3",
+
+[dependency-groups]
+nox = [
+    "nox>=2025.11.12",
 ]
+doc = [
+    "sadisplay>=0.4.9",
+    "sphinx>=7.2,<8",
+    "sphinx-argparse<0.5",
+    "sphinx-autobuild",
+    "sphinx-rtd-theme>=1.3,<2",
+    "sphinxcontrib-plantuml",
+]
+format = [
+    "ruff~=0.8.4",
+]
+lint = [
+    "ruff~=0.8.4",
+    "pytest>=9.0.3,<10",
+    "tenacity>=9.1.4,<10",
+    "liccheck>=0.9.2",
+    "setuptools>=60,<80",  # required by liccheck
+]
+release = [
+    "towncrier==23.11.0",
+]
+test = [
+    "coverage>=7.13.5,<8",
+    "pexpect>=4.9.0,<5",
+    "pytest>=9.0.3,<10",
+    "pytest-cov>=7.1.0,<8",
+    "pytest-forked>=1.6.0,<2",
+    "pytest-xdist>=3.8.0,<4",
+    "pytest-watcher>=0.6.3,<1",
+    "tenacity>=9.1.4,<10",
+    "more-itertools>=11.0.2,<12",
+]
+bundle = [
+    "pyinstaller>=6.15,<7",
+    "pyinstaller-hooks-contrib>=2023.6",
+    "patchelf-wrapper==1.2.0; platform_system == \"Linux\"",
+    "staticx~=0.14.1; platform_system == \"Linux\"",
+    "setuptools>=60,<80; platform_system == \"Linux\"",  # required by non-isolated Linux bundle builds
+]
+
+[tool.uv]
+no-build-isolation-package = ["patchelf-wrapper", "staticx"]
 
 [project.urls]
 Homepage = "https://github.com/Backblaze/B2_Command_Line_Tool"
@@ -67,10 +100,14 @@ b2v3 = "b2._internal.b2v3.__main__:main"
 b2v4 = "b2._internal.b2v4.__main__:main"
 
 [build-system]
-requires = [
-    "pdm-backend",
-]
-build-backend = "pdm.backend"
+requires = ["hatchling>=1.24.2", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["b2"]
 
 [tool.liccheck]
 authorized_licenses = [
@@ -111,55 +148,27 @@ unauthorized_licences = [
     "gpl",
 ]
 dependencies = true
-optional_dependencies = [
-    "doc",
-    "full",
-    "license",
-]
+optional_dependencies = ["full"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-select = [
-    "E",
-    "F",
-    "I",
-    "UP",
-]
+# TODO add D
+select = ["E", "F", "I", "UP"]
+# TODO: remove E501 once docstrings are formatted
 ignore = [
-    "D100",
-    "D105",
-    "D107",
-    "D200",
-    "D202",
-    "D203",
-    "D205",
-    "D212",
-    "D400",
-    "D401",
-    "D415",
-    "D101",
-    "D102",
-    "D103",
-    "D104",
-    "E501",
+    "D100", "D105", "D107", "D200", "D202", "D203", "D205", "D212", "D400", "D401", "D415",
+    "D101", "D102", "D103", "D104", # TODO remove once we have docstring for all public methods
+    "E501", # TODO: remove E501 once docstrings are formatted
     "UP031",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = [
-    "F401",
-]
-"test/**" = [
-    "D",
-    "F403",
-    "F405",
-]
-"b2/console_tool.py" = [
-    "E402",
-]
+"__init__.py" = ["F401"]
+"test/**" = ["D", "F403", "F405"]
+"b2/console_tool.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "single"
@@ -168,71 +177,41 @@ quote-style = "single"
 directory = "changelog.d"
 filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
-underlines = [
-    "",
-    "",
-    "",
-]
+underlines = ["", "", ""]
 title_format = "## [{version}](https://github.com/Backblaze/B2_Command_Line_Tool/releases/tag/v{version}) - {project_date}"
 issue_format = "[#{issue}](https://github.com/Backblaze/B2_Command_Line_Tool/issues/{issue})"
-type = [
-    { directory = "removed", name = "Removed", showcontent = true },
-    { directory = "changed", name = "Changed", showcontent = true },
-    { directory = "fixed", name = "Fixed", showcontent = true },
-    { directory = "deprecated", name = "Deprecated", showcontent = true },
-    { directory = "added", name = "Added", showcontent = true },
-    { directory = "doc", name = "Doc", showcontent = true },
-    { directory = "infrastructure", name = "Infrastructure", showcontent = true },
-]
 
-[tool.pdm]
-distribution = "true"
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
 
-[tool.pdm.build]
-includes = [
-    "b2",
-]
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
 
-[tool.pdm.version]
-source = "scm"
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
 
-[tool.pdm.scripts]
-assert_prod_python = "pdm run python -c 'import sys; assert sys.version_info >= (3, 11)'"
-lock_prod_no_cross_platform = "pdm lock --lockfile pdm.prod.lock --group full --group test --strategy no_cross_platform"
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
 
-[tool.pdm.scripts.lock_bundle]
-composite = [
-    "assert_prod_python",
-    "lock_prod_no_cross_platform",
-]
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
 
-[tool.pdm.dev-dependencies]
-format = [
-    "ruff~=0.8.4",
-]
-lint = [
-    "ruff~=0.8.4",
-    "pytest==8.3.3",
-    "liccheck>=0.9.2",
-    "setuptools>=60,<80",
-]
-release = [
-    "towncrier==23.11.0",
-]
-test = [
-    "coverage==7.2.7",
-    "pexpect==4.9.0",
-    "pytest==8.3.3",
-    "pytest-cov==3.0.0",
-    "pytest-forked==1.6.0",
-    "pytest-xdist==2.5.0",
-    "pytest-watcher==0.4.3",
-    "tenacity>=8.2.3,<9",
-    "more-itertools==8.13.0",
-]
-bundle = [
-    "pyinstaller<6,>=5.13; python_version < \"3.13\"",
-    "pyinstaller-hooks-contrib>=2023.6",
-    "patchelf-wrapper==1.2.0; platform_system == \"Linux\"",
-    "staticx~=0.14.1; platform_system == \"Linux\"",
-]
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Doc"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "infrastructure"
+name = "Infrastructure"
+showcontent = true

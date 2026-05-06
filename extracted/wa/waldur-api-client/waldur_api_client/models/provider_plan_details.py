@@ -37,7 +37,7 @@ class ProviderPlanDetails:
         quotas (ProviderPlanDetailsQuotas):
         resources_count (int):
         plan_type (str):
-        minimal_price (float):
+        minimal_price (str):
         description (Union[Unset, str]):
         article_code (Union[Unset, str]):
         max_amount (Union[None, Unset, int]): Maximum number of plans that could be active. Plan is disabled when
@@ -62,7 +62,7 @@ class ProviderPlanDetails:
     quotas: "ProviderPlanDetailsQuotas"
     resources_count: int
     plan_type: str
-    minimal_price: float
+    minimal_price: str
     description: Union[Unset, str] = UNSET
     article_code: Union[Unset, str] = UNSET
     max_amount: Union[None, Unset, int] = UNSET

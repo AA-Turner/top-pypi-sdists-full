@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyasic
-Version: 0.78.12
+Version: 0.79.0
 Summary: A simplified and standardized interface for Bitcoin ASICs.
 License: Apache 2.0
 License-File: LICENSE.txt

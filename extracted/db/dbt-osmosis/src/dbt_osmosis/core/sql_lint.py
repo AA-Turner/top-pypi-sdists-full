@@ -11,11 +11,14 @@ import re
 import typing as t
 from dataclasses import dataclass, field
 from enum import Enum
+from types import SimpleNamespace
 
+from dbt.artifacts.resources.types import NodeType
 from sqlglot import exp, parse
 from sqlglot.dialects import Dialect
 
 from dbt_osmosis.core import logger
+from dbt_osmosis.core.node_filters import _iter_candidate_nodes
 
 if t.TYPE_CHECKING:
     from dbt_osmosis.core.config import DbtProjectContext
@@ -512,11 +515,12 @@ class SQLLinter:
         disabled_rules: list[str] | None,
     ) -> list[LintRule]:
         """Filter the list of rules based on enabled/disabled lists."""
+        rules = self._all_rules
         if enabled_rules is not None:
-            return [r for r in self._all_rules if r.rule_id in enabled_rules]
+            rules = [r for r in rules if r.rule_id in enabled_rules]
         if disabled_rules is not None:
-            return [r for r in self._all_rules if r.rule_id not in disabled_rules]
-        return self._all_rules
+            rules = [r for r in rules if r.rule_id not in disabled_rules]
+        return rules
 
     def add_rule(self, rule: LintRule) -> None:
         """Add a custom rule to the linter."""
@@ -573,6 +577,51 @@ class SQLLinter:
 
         return result
 
+    def _lint_dbt_sql(
+        self,
+        context: DbtProjectContext,
+        raw_sql: str,
+    ) -> LintResult:
+        """Compile dbt SQL before linting so Jinja and refs are resolved truthfully."""
+        from dbt_osmosis.core.sql_operations import compile_sql_code
+
+        try:
+            compiled_node = compile_sql_code(context, raw_sql)
+        except Exception as e:
+            logger.debug(":warning: SQL compilation failed: %s", e)
+            return LintResult(
+                violations=[
+                    LintViolation(
+                        rule_id="compile-error",
+                        message=f"Failed to compile SQL: {e}",
+                        level=LintLevel.ERROR,
+                    )
+                ],
+                sql=raw_sql,
+            )
+
+        compiled_sql = compiled_node.compiled_code or compiled_node.raw_code or raw_sql
+        return self.lint(raw_sql, compiled_sql)
+
+    def _iter_model_nodes(
+        self,
+        context: DbtProjectContext,
+        fqn_filter: list[str] | None = None,
+    ) -> t.Iterator[t.Any]:
+        """Yield only project model nodes that should participate in model/project linting."""
+        selector_context = SimpleNamespace(
+            project=context,
+            settings=SimpleNamespace(
+                include_external=False,
+                models=[],
+                fqn=fqn_filter or [],
+            ),
+        )
+        for _, node in _iter_candidate_nodes(selector_context):
+            if getattr(node, "resource_type", None) != NodeType.Model:
+                continue
+            yield node
+
     def lint_model(
         self,
         context: DbtProjectContext,
@@ -589,7 +638,7 @@ class SQLLinter:
         """
         # Find the model in the manifest
         model = None
-        for node in context.manifest.nodes.values():
+        for node in self._iter_model_nodes(context):
             if node.name == model_name:
                 model = node
                 break
@@ -605,11 +654,19 @@ class SQLLinter:
                 ]
             )
 
-        # Lint both raw and compiled SQL
-        raw_sql = model.raw_code or ""
-        compiled_sql = getattr(model, "compiled_code", None) or ""
+        raw_sql = getattr(model, "raw_code", "") or getattr(model, "raw_sql", "")
+        if not raw_sql:
+            return LintResult(
+                violations=[
+                    LintViolation(
+                        rule_id="model-sql-not-found",
+                        message=f"Model '{model_name}' does not have SQL to lint",
+                        level=LintLevel.ERROR,
+                    )
+                ],
+            )
 
-        return self.lint(raw_sql, compiled_sql)
+        return self._lint_dbt_sql(context, raw_sql)
 
     def lint_project(
         self,
@@ -627,20 +684,12 @@ class SQLLinter:
         """
         results: dict[str, LintResult] = {}
 
-        for node in context.manifest.nodes.values():
-            # Skip non-model nodes
-            if not hasattr(node, "raw_code") or not node.raw_code:
+        for node in self._iter_model_nodes(context, fqn_filter=fqn_filter):
+            raw_sql = getattr(node, "raw_code", "") or getattr(node, "raw_sql", "")
+            if not raw_sql:
                 continue
 
-            # Apply FQN filter if provided
-            if fqn_filter:
-                node_fqn = ".".join(node.fqn) if hasattr(node, "fqn") else ""
-                if not any(pattern in node_fqn for pattern in fqn_filter):
-                    continue
-
-            # Lint the model
-            compiled_sql = getattr(node, "compiled_code", None) or ""
-            result = self.lint(node.raw_code or "", compiled_sql)
+            result = self._lint_dbt_sql(context, raw_sql)
             results[node.name] = result
 
         return results
@@ -651,6 +700,7 @@ def lint_sql_code(
     raw_sql: str,
     dialect: str | None = None,
     rules: list[str] | None = None,
+    disabled_rules: list[str] | None = None,
 ) -> LintResult:
     """Convenience function to lint SQL code.
 
@@ -659,6 +709,7 @@ def lint_sql_code(
         raw_sql: Raw SQL code to lint
         dialect: Optional SQL dialect
         rules: Optional list of rule IDs to enable
+        disabled_rules: Optional list of rule IDs to disable after enabling rules
 
     Returns:
         LintResult containing all violations
@@ -668,16 +719,6 @@ def lint_sql_code(
         dialect = context.adapter.type()
 
     # Create linter with dialect
-    linter = SQLLinter(dialect=dialect, enabled_rules=rules)
+    linter = SQLLinter(dialect=dialect, enabled_rules=rules, disabled_rules=disabled_rules)
 
-    # Compile SQL first to handle Jinja
-    from dbt_osmosis.core.sql_operations import compile_sql_code
-
-    try:
-        compiled_node = compile_sql_code(context, raw_sql)
-        compiled_sql = compiled_node.compiled_code or raw_sql
-    except Exception as e:
-        logger.debug(":warning: SQL compilation failed: %s", e)
-        compiled_sql = None
-
-    return linter.lint(raw_sql, compiled_sql)
+    return linter._lint_dbt_sql(context, raw_sql)

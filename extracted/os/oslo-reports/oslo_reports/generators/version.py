@@ -20,6 +20,8 @@ generators for generating the model in
 :mod:`oslo_reports.models.version`.
 """
 
+from typing import Any
+
 from oslo_reports.models import version as vm
 
 
@@ -36,10 +38,10 @@ class PackageReportGenerator:
     :param version_object: the version information object
     """
 
-    def __init__(self, version_obj):
+    def __init__(self, version_obj: Any) -> None:
         self.version_obj = version_obj
 
-    def __call__(self):
+    def __call__(self) -> vm.PackageModel:
         if hasattr(self.version_obj, "vendor_string"):
             vendor_string = self.version_obj.vendor_string()
         else:
@@ -51,10 +53,12 @@ class PackageReportGenerator:
             product_string = None
 
         if hasattr(self.version_obj, "version_string_with_package"):
-            version_string_with_package = self.version_obj.\
-                version_string_with_package()
+            version_string_with_package = (
+                self.version_obj.version_string_with_package()
+            )
         else:
             version_string_with_package = None
 
-        return vm.PackageModel(vendor_string, product_string,
-                               version_string_with_package)
+        return vm.PackageModel(
+            vendor_string, product_string, version_string_with_package
+        )

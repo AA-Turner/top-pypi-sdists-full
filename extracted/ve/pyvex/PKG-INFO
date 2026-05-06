@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvex
-Version: 9.2.213
+Version: 9.2.214
 Summary: A Python interface to libVEX and VEX IR
 License-Expression: BSD-2-Clause AND GPL-2.0-only
 License-File: LICENSE
@@ -9,25 +9,16 @@ License-File: vex/LICENSE.GPL
 License-File: vex/LICENSE.README
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://api.angr.io/projects/pyvex/en/latest/
 Project-URL: Repository, https://github.com/angr/pyvex
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Requires-Dist: bitstring
 Requires-Dist: cffi>=1.0.3; implementation_name == "cpython"
-Provides-Extra: docs
-Requires-Dist: furo; extra == "docs"
-Requires-Dist: myst-parser; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Provides-Extra: fuzzing
 Requires-Dist: atheris>=2.3.0; extra == "fuzzing"
-Provides-Extra: testing
-Requires-Dist: pytest; extra == "testing"
-Requires-Dist: pytest-xdist; extra == "testing"
 Description-Content-Type: text/markdown
 
 # PyVEX

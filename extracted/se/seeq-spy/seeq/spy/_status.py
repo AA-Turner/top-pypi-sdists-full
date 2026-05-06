@@ -86,6 +86,7 @@ class Status:
         self._log_filename = None
         self._log_file_handle = None
         self._log_ipython_queue = _common.DropOldestQueue(maxlen=self.VERBOSE_LOG_HTML_MAX_LINES)
+        self._log_section_markers = list()
         self.set_verbose(verbose, log_filename)
 
         self._df = pd.DataFrame()
@@ -561,8 +562,12 @@ class Status:
         else:
             return html
 
+    def add_log_section_marker(self, fragment: str):
+        self._log_section_markers.append(fragment)
+
     def get_grep_errors_command(self):
-        return f'grep -E "^ERROR|] Pushing" "{self._log_filename}"'
+        section_markers_str = ''.join([f'|{fragment}' for fragment in self._log_section_markers])
+        return f'grep -E "^ERROR{section_markers_str}" "{self._log_filename}"'
 
     def _construct_log_html(self, style: str) -> str:
         """

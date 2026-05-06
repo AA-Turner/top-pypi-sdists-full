@@ -585,6 +585,9 @@ def test_defend_command_json_output_prints_empty_report(tmp_path):
     payload = json.loads(mock_print.call_args.args[0])
     assert payload["summary"]["integrations_found"] == 0
     assert payload["summary"]["score_pct"] == 100
+    assert payload["owasp_framework"] == "llm"
+    assert payload["owasp_version"] == "2025"
+    assert "LLM01" in payload["owasp_coverage"]
     assert payload["ops_score"]["rating"] == "EXCELLENT"
 
 
@@ -617,7 +620,27 @@ def test_defend_command_json_output_writes_empty_report_file(tmp_path):
     payload = json.loads(output_file.read_text(encoding="utf-8"))
     assert payload["summary"]["integrations_found"] == 0
     assert payload["summary"]["score_pct"] == 100
+    assert payload["owasp_framework"] == "llm"
+    assert payload["owasp_version"] == "2025"
+    assert "LLM01" in payload["owasp_coverage"]
     assert payload["ops_score"]["rating"] == "EXCELLENT"
+
+
+def test_defend_command_rejects_invalid_owasp_version(tmp_path):
+    target = tmp_path / "repo"
+    target.mkdir()
+    console = Mock()
+
+    from skylos.commands.defend_cmd import run_defend_command
+
+    exit_code = run_defend_command(
+        [str(target), "--owasp-version", "2026"],
+        console_factory=lambda: console,
+        progress_factory=lambda *args, **kwargs: _progress_ctx(),
+    )
+
+    assert exit_code == 1
+    assert "Unsupported OWASP version" in console.print.call_args.args[0]
 
 
 def test_defend_command_json_upload_formats_once(tmp_path):
@@ -737,6 +760,40 @@ def test_cicd_gate_command_reads_input_and_returns_gate_exit(tmp_path):
     assert exit_code == 0
     assert mock_gate.call_args.kwargs["strict"] is True
     assert mock_gate.call_args.kwargs["result"]["project_root"] == str(tmp_path)
+
+
+def test_cicd_review_command_passes_evidence_cards_flag(tmp_path, monkeypatch):
+    results_path = tmp_path / "results.json"
+    results_path.write_text(json.dumps({"project_root": str(tmp_path), "danger": []}))
+    defense_path = tmp_path / "defense.json"
+    defense_path.write_text(json.dumps({"findings": []}))
+    monkeypatch.chdir(tmp_path)
+    from skylos.commands.cicd_cmd import run_cicd_command
+
+    with patch("skylos.cicd.review.run_pr_review") as mock_review:
+        exit_code = run_cicd_command(
+            [
+                "review",
+                "--input",
+                str(results_path),
+                "--pr",
+                "12",
+                "--repo",
+                "owner/repo",
+                "--evidence-cards",
+                "--defense-input",
+                defense_path.name,
+            ],
+            console_factory=lambda: Mock(),
+            load_config_func=lambda path: {},
+            run_gate_interaction_func=Mock(),
+            emit_github_annotations_func=Mock(),
+        )
+
+    assert exit_code == 0
+    assert mock_review.call_args.kwargs["evidence_cards"] is True
+    assert mock_review.call_args.kwargs["defense_report"] == {"findings": []}
+    assert mock_review.call_args.kwargs["pr_number"] == 12
 
 
 def test_cli_guardrail_static_json_output_passthrough(monkeypatch):

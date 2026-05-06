@@ -1,11 +1,15 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.call_applicant_visibility_config_request import CallApplicantVisibilityConfigRequest
+
 
 T = TypeVar("T", bound="PatchedProtectedCallRequest")
 
@@ -39,6 +43,7 @@ class PatchedProtectedCallRequest:
             one.
         user_assurance_levels (Union[Unset, Any]): List of required assurance URIs (REFEDS). User must have ALL of
             these.
+        applicant_visibility_config (Union['CallApplicantVisibilityConfigRequest', None, Unset]):
     """
 
     slug: Union[Unset, str] = UNSET
@@ -59,9 +64,12 @@ class PatchedProtectedCallRequest:
     user_nationalities: Union[Unset, Any] = UNSET
     user_organization_types: Union[Unset, Any] = UNSET
     user_assurance_levels: Union[Unset, Any] = UNSET
+    applicant_visibility_config: Union["CallApplicantVisibilityConfigRequest", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.call_applicant_visibility_config_request import CallApplicantVisibilityConfigRequest
+
         slug = self.slug
 
         name = self.name
@@ -120,6 +128,14 @@ class PatchedProtectedCallRequest:
 
         user_assurance_levels = self.user_assurance_levels
 
+        applicant_visibility_config: Union[None, Unset, dict[str, Any]]
+        if isinstance(self.applicant_visibility_config, Unset):
+            applicant_visibility_config = UNSET
+        elif isinstance(self.applicant_visibility_config, CallApplicantVisibilityConfigRequest):
+            applicant_visibility_config = self.applicant_visibility_config.to_dict()
+        else:
+            applicant_visibility_config = self.applicant_visibility_config
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -159,11 +175,15 @@ class PatchedProtectedCallRequest:
             field_dict["user_organization_types"] = user_organization_types
         if user_assurance_levels is not UNSET:
             field_dict["user_assurance_levels"] = user_assurance_levels
+        if applicant_visibility_config is not UNSET:
+            field_dict["applicant_visibility_config"] = applicant_visibility_config
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.call_applicant_visibility_config_request import CallApplicantVisibilityConfigRequest
+
         d = dict(src_dict)
         slug = d.pop("slug", UNSET)
 
@@ -244,6 +264,25 @@ class PatchedProtectedCallRequest:
 
         user_assurance_levels = d.pop("user_assurance_levels", UNSET)
 
+        def _parse_applicant_visibility_config(
+            data: object,
+        ) -> Union["CallApplicantVisibilityConfigRequest", None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                applicant_visibility_config_type_1 = CallApplicantVisibilityConfigRequest.from_dict(data)
+
+                return applicant_visibility_config_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union["CallApplicantVisibilityConfigRequest", None, Unset], data)
+
+        applicant_visibility_config = _parse_applicant_visibility_config(d.pop("applicant_visibility_config", UNSET))
+
         patched_protected_call_request = cls(
             slug=slug,
             name=name,
@@ -263,6 +302,7 @@ class PatchedProtectedCallRequest:
             user_nationalities=user_nationalities,
             user_organization_types=user_organization_types,
             user_assurance_levels=user_assurance_levels,
+            applicant_visibility_config=applicant_visibility_config,
         )
 
         patched_protected_call_request.additional_properties = d

@@ -78,6 +78,11 @@ from skylos.rules.quality.logic import (
     BroadExceptionRule,
     MissingNetworkTimeoutRule,
 )
+from skylos.rules.quality.practices import (
+    FrameworkPracticeRule,
+    TypeAnnotationPracticeRule,
+)
+from skylos.rules.quality.policy import analyze_repo_policy
 from skylos.rules.quality.phantom_refs import scan_repo_phantom_security_references
 from skylos.rules.vibe_dictionary import build_vibe_dictionary
 from skylos.rules.quality.performance import PerformanceRule
@@ -192,6 +197,8 @@ _LINTER_RULE_NODE_TYPES = {
         *_TRY_NODE_TYPES,
     ),
     PerformanceRule: (ast.Call, ast.For),
+    TypeAnnotationPracticeRule: (ast.Module,),
+    FrameworkPracticeRule: (ast.Module,),
     DangerousCallsRule: (ast.Module, ast.Import, ast.ImportFrom, ast.Assign, ast.Call),
 }
 
@@ -1556,7 +1563,9 @@ class Skylos:
                     try:
                         from skylos.architecture import get_architecture_findings
 
-                        dep_graph = dict(circular_rule._analyzer.dependencies)
+                        dep_graph = dict(
+                            circular_rule._analyzer.architecture_dependencies
+                        )
                         mod_files = dict(circular_rule._analyzer.modules)
 
                         mod_trees = {}
@@ -1706,6 +1715,7 @@ class Skylos:
 
         project_cfg = load_config(project_root)
         project_ignore = set(project_cfg.get("ignore", []))
+        requested_changed_files = changed_files
 
         try:
             from skylos.pyproject_entrypoints import extract_entrypoints
@@ -2265,15 +2275,17 @@ class Skylos:
                     )
 
                     injection_candidates = list(files)
+                    injection_root = Path(
+                        path[0] if isinstance(path, (list, tuple)) else path
+                    ).resolve()
+                    if injection_root.is_file():
+                        injection_root = injection_root.parent
                     if changed_files is not None:
                         injection_candidates = [Path(f) for f in changed_files]
                     else:
                         seen_injection_files = {
                             str(Path(f).resolve()) for f in injection_candidates
                         }
-                        injection_root = Path(
-                            path[0] if isinstance(path, (list, tuple)) else path
-                        ).resolve()
                         if injection_root.is_dir():
                             for dirpath, dirnames, filenames in os.walk(injection_root):
                                 dirnames[:] = [
@@ -2292,7 +2304,11 @@ class Skylos:
                                     seen_injection_files.add(fkey)
                                     injection_candidates.append(fpath)
                     for f in injection_candidates:
-                        inj_hits = _injection_scan_file(f)
+                        try:
+                            scan_path = Path(f).resolve().relative_to(injection_root)
+                        except ValueError:
+                            scan_path = None
+                        inj_hits = _injection_scan_file(f, scan_path=scan_path)
                         if inj_hits:
                             all_dangers.extend(inj_hits)
                 except Exception:
@@ -2369,6 +2385,18 @@ class Skylos:
                                 unsuppressed_findings.append(finding)
                             phantom_findings = unsuppressed_findings
                             all_quality.extend(phantom_findings)
+            except Exception:
+                if os.getenv("SKYLOS_DEBUG"):
+                    logger.error(traceback.format_exc())
+
+            try:
+                policy_findings = analyze_repo_policy(
+                    root,
+                    project_cfg,
+                    changed_files=requested_changed_files,
+                )
+                if policy_findings:
+                    all_quality.extend(policy_findings)
             except Exception:
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error(traceback.format_exc())
@@ -2739,6 +2767,10 @@ def proc_file(
                 q_rules.append(CBORule())
             if "SKY-Q702" not in cfg["ignore"]:
                 q_rules.append(LCOMRule())
+            if "SKY-T101" not in cfg["ignore"] or "SKY-T102" not in cfg["ignore"]:
+                q_rules.append(TypeAnnotationPracticeRule())
+            if "SKY-F101" not in cfg["ignore"] or "SKY-F102" not in cfg["ignore"]:
+                q_rules.append(FrameworkPracticeRule())
 
             if "SKY-U001" not in cfg["ignore"]:
                 q_rules.append(UnreachableCodeRule())
@@ -2786,7 +2818,9 @@ def proc_file(
             _set_linter_node_types(q_rules)
             linter_q = LinterVisitor(q_rules, str(file))
             linter_q.visit(tree)
-            quality_findings = linter_q.findings
+            quality_findings = [
+                f for f in linter_q.findings if f.get("rule_id") not in cfg["ignore"]
+            ]
 
             if os.getenv("SKYLOS_DEBUG"):
                 custom_hits = [

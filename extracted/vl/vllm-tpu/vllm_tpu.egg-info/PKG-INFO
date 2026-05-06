@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm-tpu
-Version: 0.18.0
+Version: 0.19.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -28,7 +28,7 @@ Requires-Dist: requests>=2.26.0
 Requires-Dist: tqdm
 Requires-Dist: blake3
 Requires-Dist: py-cpuinfo
-Requires-Dist: transformers<5,>=4.56.0
+Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,!=5.4.*,!=5.5.0,>=4.56.0
 Requires-Dist: tokenizers>=0.21.1
 Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6
 Requires-Dist: fastapi[standard]>=0.115.0
@@ -40,7 +40,7 @@ Requires-Dist: pillow
 Requires-Dist: prometheus-fastapi-instrumentator>=7.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer==0.11.3
-Requires-Dist: llguidance<1.4.0,>=1.3.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "s390x" or platform_machine == "ppc64le"
+Requires-Dist: llguidance<1.4.0,>=1.3.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le"
 Requires-Dist: outlines_core==0.2.11
 Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
@@ -51,13 +51,15 @@ Requires-Dist: partial-json-parser
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.17.0
-Requires-Dist: mistral_common[image]>=1.10.0
+Requires-Dist: mistral_common[image]>=1.11.0
+Requires-Dist: av
 Requires-Dist: opencv-python-headless>=4.13.0
+Requires-Dist: soundfile
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
 Requires-Dist: setuptools<81.0.0,>=77.0.3; python_version > "3.11"
 Requires-Dist: einops
-Requires-Dist: compressed-tensors==0.14.0.1
+Requires-Dist: compressed-tensors==0.15.0.1
 Requires-Dist: depyf==0.20.0
 Requires-Dist: cloudpickle
 Requires-Dist: watchfiles
@@ -84,7 +86,7 @@ Requires-Dist: ray[default]
 Requires-Dist: ray[data]
 Requires-Dist: setuptools==78.1.0
 Requires-Dist: nixl==0.3.0
-Requires-Dist: tpu-inference==0.18.0
+Requires-Dist: tpu-inference==0.19.0
 Provides-Extra: zen
 Requires-Dist: zentorch; extra == "zen"
 Provides-Extra: bench
@@ -103,17 +105,12 @@ Requires-Dist: instanttensor>=0.1.5; extra == "instanttensor"
 Provides-Extra: runai
 Requires-Dist: runai-model-streamer[azure,gcs,s3]>=0.15.7; extra == "runai"
 Provides-Extra: audio
-Requires-Dist: av; extra == "audio"
-Requires-Dist: resampy; extra == "audio"
 Requires-Dist: scipy; extra == "audio"
-Requires-Dist: soundfile; extra == "audio"
 Requires-Dist: mistral_common[audio]; extra == "audio"
 Provides-Extra: video
 Provides-Extra: flashinfer
-Provides-Extra: petit-kernel
-Requires-Dist: petit-kernel; extra == "petit-kernel"
 Provides-Extra: helion
-Requires-Dist: helion==0.3.2; extra == "helion"
+Requires-Dist: helion==1.0.0; extra == "helion"
 Provides-Extra: grpc
 Requires-Dist: smg-grpc-servicer[vllm]>=0.5.0; extra == "grpc"
 Provides-Extra: otel
@@ -150,46 +147,53 @@ For events, please visit [vllm.ai/events](https://vllm.ai/events) to join us.
 
 vLLM is a fast and easy-to-use library for LLM inference and serving.
 
-Originally developed in the [Sky Computing Lab](https://sky.cs.berkeley.edu) at UC Berkeley, vLLM has evolved into a community-driven project with contributions from both academia and industry.
+Originally developed in the [Sky Computing Lab](https://sky.cs.berkeley.edu) at UC Berkeley, vLLM has grown into one of the most active open-source AI projects built and maintained by a diverse community of many dozens of academic institutions and companies from over 2000 contributors.
 
 vLLM is fast with:
 
 - State-of-the-art serving throughput
 - Efficient management of attention key and value memory with [**PagedAttention**](https://blog.vllm.ai/2023/06/20/vllm.html)
-- Continuous batching of incoming requests
-- Fast model execution with CUDA/HIP graph
-- Quantizations: [GPTQ](https://arxiv.org/abs/2210.17323), [AWQ](https://arxiv.org/abs/2306.00978), [AutoRound](https://arxiv.org/abs/2309.05516), INT4, INT8, and FP8
-- Optimized CUDA kernels, including integration with FlashAttention and FlashInfer
-- Speculative decoding
-- Chunked prefill
+- Continuous batching of incoming requests, chunked prefill, prefix caching
+- Fast and flexible model execution with piecewise and full CUDA/HIP graphs
+- Quantization: FP8, MXFP8/MXFP4, NVFP4, INT8, INT4, GPTQ/AWQ, GGUF, compressed-tensors, ModelOpt, TorchAO, and [more](https://docs.vllm.ai/en/latest/features/quantization/index.html)
+- Optimized attention kernels including FlashAttention, FlashInfer, TRTLLM-GEN, FlashMLA, and Triton
+- Optimized GEMM/MoE kernels for various precisions using CUTLASS, TRTLLM-GEN, CuTeDSL
+- Speculative decoding including n-gram, suffix, EAGLE, DFlash
+- Automatic kernel generation and graph-level transformations using torch.compile
+- Disaggregated prefill, decode, and encode
 
 vLLM is flexible and easy to use with:
 
 - Seamless integration with popular Hugging Face models
 - High-throughput serving with various decoding algorithms, including *parallel sampling*, *beam search*, and more
-- Tensor, pipeline, data and expert parallelism support for distributed inference
+- Tensor, pipeline, data, expert, and context parallelism for distributed inference
 - Streaming outputs
-- OpenAI-compatible API server
-- Support for NVIDIA GPUs, AMD CPUs and GPUs, Intel CPUs and GPUs, PowerPC CPUs, Arm CPUs, and TPU. Additionally, support for diverse hardware plugins such as Intel Gaudi, IBM Spyre and Huawei Ascend.
-- Prefix caching support
-- Multi-LoRA support
+- Generation of structured outputs using xgrammar or guidance
+- Tool calling and reasoning parsers
+- OpenAI-compatible API server, plus Anthropic Messages API and gRPC support
+- Efficient multi-LoRA support for dense and MoE layers
+- Support for NVIDIA GPUs, AMD GPUs, and x86/ARM/PowerPC CPUs. Additionally, diverse hardware plugins such as Google TPUs, Intel Gaudi, IBM Spyre, Huawei Ascend, Rebellions NPU, Apple Silicon, MetaX GPU, and more.
 
-vLLM seamlessly supports most popular open-source models on HuggingFace, including:
+vLLM seamlessly supports 200+ model architectures on HuggingFace, including:
 
-- Transformer-like LLMs (e.g., Llama)
-- Mixture-of-Expert LLMs (e.g., Mixtral, Deepseek-V2 and V3)
-- Embedding Models (e.g., E5-Mistral)
-- Multi-modal LLMs (e.g., LLaVA)
+- Decoder-only LLMs (e.g., Llama, Qwen, Gemma)
+- Mixture-of-Expert LLMs (e.g., Mixtral, DeepSeek-V3, Qwen-MoE, GPT-OSS)
+- Hybrid attention and state-space models (e.g., Mamba, Qwen3.5)
+- Multi-modal models (e.g., LLaVA, Qwen-VL, Pixtral)
+- Embedding and retrieval models (e.g., E5-Mistral, GTE, ColBERT)
+- Reward and classification models (e.g., Qwen-Math)
 
 Find the full list of supported models [here](https://docs.vllm.ai/en/latest/models/supported_models.html).
 
 ## Getting Started
 
-Install vLLM with `pip` or [from source](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html#build-wheel-from-source):
+Install vLLM with [`uv`](https://docs.astral.sh/uv/) (recommended) or `pip`:
 
 ```bash
-pip install vllm
+uv pip install vllm
 ```
+
+Or [build from source](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html#build-wheel-from-source) for development.
 
 Visit our [documentation](https://docs.vllm.ai/en/latest/) to learn more.
 

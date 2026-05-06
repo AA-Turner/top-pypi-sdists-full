@@ -620,21 +620,6 @@ class Plato:
 
     # Gitea-related methods for hub commands
 
-    async def get_gitea_info(self) -> dict[str, Any]:
-        """Get the current user's Gitea info (auto-provisions if needed).
-
-        Returns:
-            Dict[str, Any]: User's Gitea information including username and org_name.
-
-        Raises:
-            aiohttp.ClientError: If the API request fails.
-            PlatoClientError: If user doesn't have admin access.
-        """
-        headers = {"X-API-Key": self.api_key}
-        async with self.http_session.get(f"{self.base_url}/gitea/my-info", headers=headers) as response:
-            await self._handle_response_error(response)
-            return await response.json()
-
     async def list_gitea_simulators(self) -> list[dict[str, Any]]:
         """Get simulators that user has access to view repos for.
 
@@ -670,10 +655,10 @@ class Plato:
             return await response.json()
 
     async def get_gitea_credentials(self) -> dict[str, Any]:
-        """Get Gitea admin credentials for the organization.
+        """Get per-user Gitea credentials. Mints a fresh PAT on every call, revoking the previous one.
 
         Returns:
-            Dict[str, Any]: Gitea credentials including username and password.
+            Dict[str, Any]: Gitea credentials with 'username' and 'password' (PAT).
 
         Raises:
             aiohttp.ClientError: If the API request fails.

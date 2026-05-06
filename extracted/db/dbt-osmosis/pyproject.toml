@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dbt-osmosis"
-version = "1.3.0"
+version = "1.4.0"
 description = "A dbt utility for managing YAML to make developing with dbt more delightful."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -29,30 +29,39 @@ dependencies = [
   "ruamel.yaml>=0.17,<0.19",
   "rich>=10",
   "pluggy>=1.5.0,<2",
-  "mysql-mimic>=2.5.7",
+  "PyYAML>=6.0",
+  "sqlglot>=28,<29",
   "rapidfuzz>=3.0.0",
 ]
 
 [project.optional-dependencies]
 workbench = [
-  "streamlit>=1.20.0,<1.42.0",
+  "streamlit>=1.45.0,<2.0",
   "streamlit-ace~=0.1.1",
   "ydata-profiling>=4.17.0",
+  "ipython>=8,<9",
   "feedparser~=6.0.12",
   "streamlit-elements-fluence>=0.1.4",
-  "dbt-duckdb>=1.8.0",
-  "setuptools>=70",
+  "setuptools>=70,<81",
 ]
 
 openai = ["openai~=1.58.1"]
 
+azure = ["azure-identity>=1.19,<2"]
+
+duckdb = ["dbt-duckdb>=1,<2"]
+
+proxy = ["mysql-mimic>=2.5.7"]
+
 dev = [
-  "ruff~=0.8.4",
-  "pytest~=8.3.4",
+  "basedpyright~=1.38.4",
+  "ruff==0.8.6",
+  "pytest>=8.3.4,<9.1.0",
   "pytest-cov~=6.0",
   "hypothesis",
   "mutmut",
   "pre-commit>3.0.0,<5",
+  "tomli>=2; python_version < \"3.11\"",
   "dbt-duckdb>=1,<2",
 ]
 
@@ -61,18 +70,6 @@ dev = [
 
 [tool.uv]
 override-dependencies = ["protobuf>=5.0,<6.0"]
-
-[tool.black]
-line-length = 100
-target-version = ["py310", "py311", "py312", "py313"]
-preview = true
-
-[tool.isort]
-color_output = true
-line_length = 100
-profile = "black"
-src_paths = ["src"]
-include_trailing_comma = true
 
 [tool.ruff]
 line-length = 100
@@ -95,8 +92,9 @@ reportUnknownMemberType = false
 reportUnknownArgumentType = false
 reportUnknownParameterType = false
 reportOptionalMemberAccess = false
-reportAttributeAccessIssue = false
+reportAttributeAccessIssue = true
 reportPrivateImportUsage = false
+reportImportCycles = false
 reportUnsupportedDunderAll = false
 
 [tool.pytest.ini_options]
@@ -110,7 +108,8 @@ addopts = [
     "-ra",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
+    "default::DeprecationWarning:dbt",
+    "default::DeprecationWarning:dbt_osmosis",
 ]
 
 [tool.coverage.run]
@@ -140,7 +139,13 @@ skip_covered = false
 
 [dependency-groups]
 dev = [
-    "dbt-duckdb>=1.10.0",
-    "openai>=1.58.1",
-    "pytest>=8.3.5",
+  "basedpyright~=1.38.4",
+  "ruff==0.8.6",
+  "pytest>=8.3.4,<9.1.0",
+  "pytest-cov~=6.0",
+  "hypothesis",
+  "mutmut",
+  "pre-commit>3.0.0,<5",
+  "tomli>=2; python_version < \"3.11\"",
+  "dbt-duckdb>=1,<2",
 ]

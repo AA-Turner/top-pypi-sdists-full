@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from collections import abc
+from collections.abc import Mapping
 import re
 
 from oslotest import base
@@ -71,28 +71,33 @@ class TestBaseModel(base.BaseTestCase):
         def generate_model_with_submodel():
             base_m = basic_generator()
             tv = TmpView()
-            base_m['submodel'] = base_model.ReportModel(data={'c': [1, 2, 3]},
-                                                        attached_view=tv)
+            base_m['submodel'] = base_model.ReportModel(
+                data={'c': [1, 2, 3]}, attached_view=tv
+            )
             return base_m
 
-        self.assertEqual(BasicView()(generate_model_with_submodel()),
-                         'int: 1;string: value;submodel: {len: 3};')
+        self.assertEqual(
+            BasicView()(generate_model_with_submodel()),
+            'int: 1;string: value;submodel: {len: 3};',
+        )
 
     def test_str_throws_error_with_no_attached_view(self):
         model = base_model.ReportModel(data={'c': [1, 2, 3]})
-        self.assertRaisesRegex(Exception,
-                               'Cannot stringify model: no attached view',
-                               str, model)
+        self.assertRaisesRegex(
+            Exception, 'Cannot stringify model: no attached view', str, model
+        )
 
     def test_str_returns_string_with_attached_view(self):
-        model = base_model.ReportModel(data={'a': 1, 'b': 2},
-                                       attached_view=BasicView())
+        model = base_model.ReportModel(
+            data={'a': 1, 'b': 2}, attached_view=BasicView()
+        )
 
         self.assertEqual(str(model), 'a: 1;b: 2;')
 
     def test_model_repr(self):
-        model1 = base_model.ReportModel(data={'a': 1, 'b': 2},
-                                        attached_view=BasicView())
+        model1 = base_model.ReportModel(
+            data={'a': 1, 'b': 2}, attached_view=BasicView()
+        )
 
         model2 = base_model.ReportModel(data={'a': 1, 'b': 2})
 
@@ -118,7 +123,7 @@ class TestBaseModel(base.BaseTestCase):
         self.assertEqual('0: a;1: b;', str(model))
 
     def test_immutable_mappings_produce_mutable_models(self):
-        class SomeImmutableMapping(abc.Mapping):
+        class SomeImmutableMapping(Mapping[str, int]):
             def __init__(self):
                 self.data = {'a': 2, 'b': 4, 'c': 8}
 

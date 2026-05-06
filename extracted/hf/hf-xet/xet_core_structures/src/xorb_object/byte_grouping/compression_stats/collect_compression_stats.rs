@@ -9,11 +9,10 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
-use anyhow::Result;
 use clap::Parser;
 use csv::Writer;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task::JoinSet;
 use xet_core_structures::xorb_object::serialize_chunk;
@@ -73,19 +72,15 @@ fn kl_divergence(pv: &[f64], qv: &[f64]) -> f64 {
 }
 
 fn lz4_compress_size(data: &[u8]) -> usize {
-    serialize_chunk(
-        data,
-        &mut std::io::Empty::default(),
-        Some(xet_core_structures::xorb_object::CompressionScheme::LZ4),
-    )
-    .unwrap()
+    serialize_chunk(data, &mut std::io::Empty::default(), xet_core_structures::xorb_object::CompressionScheme::LZ4)
+        .unwrap()
 }
 
 fn bg4_lz4_compress_size(data: &[u8]) -> usize {
     serialize_chunk(
         data,
         &mut std::io::Empty::default(),
-        Some(xet_core_structures::xorb_object::CompressionScheme::ByteGrouping4LZ4),
+        xet_core_structures::xorb_object::CompressionScheme::ByteGrouping4LZ4,
     )
     .unwrap()
 }
@@ -165,7 +160,7 @@ async fn main() {
 
 #[cfg(not(target_family = "wasm"))]
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse command-line arguments
     let args = Args::parse();
 

@@ -143,6 +143,16 @@ def test_help_examples_use_valid_arena_mission(args: list[str], expected: str) -
     assert "arena.battle" not in normalized_stdout
 
 
+def test_play_help_uses_working_starter_policy() -> None:
+    result = runner.invoke(main_module.app, ["play", "--help"])
+    normalized_stdout = _normalize_cli_text(result.stdout)
+
+    assert result.exit_code == 0, result.output
+    assert "cogames play -m arena -c 4 -p starter" in normalized_stdout
+    assert "baseline" not in normalized_stdout
+    assert "cogames missions" not in normalized_stdout
+
+
 def test_make_policy_examples_use_valid_arena_mission(tmp_path) -> None:
     scripted_path = tmp_path / "my_scripted_policy.py"
     scripted = runner.invoke(
@@ -176,6 +186,18 @@ def test_make_policy_examples_use_valid_arena_mission(tmp_path) -> None:
     assert "Ship: cogames ship -p class=amongthem_policy.AmongThemPolicy" in amongthem.stdout
     assert "Score: cogames leaderboard <season> --policy $USER-amongthem-practice" in amongthem.stdout
     assert "Walkthrough: cogames docs amongthem_policy" in amongthem.stdout
+
+
+def test_make_policy_rejects_unimportable_output_stem(tmp_path) -> None:
+    output_path = tmp_path / "my-scripted-policy.py"
+    result = runner.invoke(
+        main_module.app,
+        ["tutorial", "make-policy", "--scripted", "-o", str(output_path)],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "is not importable as a Python module" in result.stdout
+    assert not output_path.exists()
 
 
 def test_amongthem_policy_walkthrough_is_packaged() -> None:

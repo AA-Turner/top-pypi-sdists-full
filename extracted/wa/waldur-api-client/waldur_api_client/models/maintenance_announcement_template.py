@@ -9,7 +9,7 @@ from ..models.maintenance_type_enum import MaintenanceTypeEnum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.maintenance_announcement_offering import MaintenanceAnnouncementOffering
+    from ..models.maintenance_announcement_offering_template import MaintenanceAnnouncementOfferingTemplate
 
 
 T = TypeVar("T", bound="MaintenanceAnnouncementTemplate")
@@ -23,7 +23,7 @@ class MaintenanceAnnouncementTemplate:
         uuid (UUID):
         name (str):
         service_provider (str): Service provider announcing the maintenance
-        affected_offerings (list['MaintenanceAnnouncementOffering']):
+        affected_offerings (list['MaintenanceAnnouncementOfferingTemplate']):
         message (Union[Unset, str]):
         maintenance_type (Union[Unset, MaintenanceTypeEnum]):
     """
@@ -32,7 +32,7 @@ class MaintenanceAnnouncementTemplate:
     uuid: UUID
     name: str
     service_provider: str
-    affected_offerings: list["MaintenanceAnnouncementOffering"]
+    affected_offerings: list["MaintenanceAnnouncementOfferingTemplate"]
     message: Union[Unset, str] = UNSET
     maintenance_type: Union[Unset, MaintenanceTypeEnum] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -77,7 +77,7 @@ class MaintenanceAnnouncementTemplate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.maintenance_announcement_offering import MaintenanceAnnouncementOffering
+        from ..models.maintenance_announcement_offering_template import MaintenanceAnnouncementOfferingTemplate
 
         d = dict(src_dict)
         url = d.pop("url")
@@ -91,7 +91,7 @@ class MaintenanceAnnouncementTemplate:
         affected_offerings = []
         _affected_offerings = d.pop("affected_offerings")
         for affected_offerings_item_data in _affected_offerings:
-            affected_offerings_item = MaintenanceAnnouncementOffering.from_dict(affected_offerings_item_data)
+            affected_offerings_item = MaintenanceAnnouncementOfferingTemplate.from_dict(affected_offerings_item_data)
 
             affected_offerings.append(affected_offerings_item)
 

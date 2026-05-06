@@ -35,6 +35,8 @@ SPECIFIER_PATTERN = re.compile(
 _MAX_VERSION_PARTS: Final[int] = 3
 _SINGLE_DIGIT_MAX: Final[int] = 9
 
+KNOWN_IMPLEMENTATIONS: Final[tuple[str, ...]] = ("python", "cpython", "pypy", "graalpy")
+
 SpecifierSet = SimpleSpecifierSet
 Version = SimpleVersion
 InvalidSpecifier = ValueError
@@ -111,7 +113,9 @@ class PythonSpec:
     :param path: filesystem path to a specific interpreter, or ``None``.
     :param free_threaded: whether a free-threaded build is required, or ``None`` for any.
     :param machine: required ISA (e.g. ``"arm64"``), or ``None`` for any.
-    :param version_specifier: PEP 440 version constraints, or ``None``.
+    :param version_specifier:
+        `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_
+        constraints, or ``None``.
     """
 
     def __init__(  # noqa: PLR0913, PLR0917
@@ -145,7 +149,7 @@ class PythonSpec:
         Parse a string specification into a :class:`PythonSpec`.
 
         :param string_spec: an interpreter spec — an absolute path, a version string, an implementation prefix,
-            or a PEP 440 specifier.
+            or a `version specifier <https://packaging.python.org/en/latest/specifications/version-specifiers/>`_.
         """
         if pathlib.Path(string_spec).is_absolute():
             return cls(string_spec, None, None, None, None, None, string_spec)
@@ -155,16 +159,23 @@ class PythonSpec:
             return result
         return cls(string_spec, None, None, None, None, None, string_spec)
 
-    def generate_re(self, *, windows: bool) -> re.Pattern:
+    def generate_re(self, *, windows: bool, all_implementations: bool = False) -> re.Pattern:
         """
         Generate a regular expression for matching interpreter filenames.
 
         :param windows: if ``True``, require a ``.exe`` suffix.
+        :param all_implementations: when ``True`` and the spec does not constrain the implementation, match every
+            filename in :data:`KNOWN_IMPLEMENTATIONS` instead of only ``python``. Used by enumeration APIs.
         """
         version = r"{}(\.{}(\.{})?)?".format(
             *(r"\d+" if v is None else v for v in (self.major, self.minor, self.micro)),
         )
-        impl = "python" if self.implementation is None else f"python|{re.escape(self.implementation)}"
+        if self.implementation is not None:
+            impl = f"python|{re.escape(self.implementation)}"
+        elif all_implementations:
+            impl = "|".join(re.escape(i) for i in KNOWN_IMPLEMENTATIONS)
+        else:
+            impl = "python"
         mod = "t?" if self.free_threaded else ""
         suffix = r"\.exe" if windows else ""
         version_conditional = "?" if windows or self.major is None else ""
@@ -254,6 +265,7 @@ class PythonSpec:
 
 
 __all__ = [
+    "KNOWN_IMPLEMENTATIONS",
     "InvalidSpecifier",
     "InvalidVersion",
     "PythonSpec",

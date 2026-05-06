@@ -398,12 +398,7 @@ class Item:
         else:
             definition = Item._dict_from_item_search_preview(item_search_preview)
             if item_search_preview.datasource is not None:
-                if item_search_preview.datasource.id in session.datasource_output_cache:
-                    datasource = session.datasource_output_cache[item_search_preview.datasource.id]
-                else:
-                    datasources_api = DatasourcesApi(session.client)
-                    datasource = datasources_api.get_datasource(id=item_search_preview.datasource.id)
-                    session.datasource_output_cache[datasource.id] = datasource
+                datasource = session.get_datasource(item_search_preview.datasource.id)
 
                 # ItemSearchPreviewV1 will incorrectly capitalize 'Datasource ID' sometimes -- namely the Tree File
                 # datasource. So we always use the ID from the DatasourceOutputV1 object.

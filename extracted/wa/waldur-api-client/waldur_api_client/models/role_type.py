@@ -8,6 +8,8 @@ class RoleType(str, Enum):
     OFFERING = "offering"
     PROJECT = "project"
     PROPOSAL = "proposal"
+    RESOURCE = "resource"
+    RESOURCE_PROJECT = "resource_project"
     SERVICE_PROVIDER = "service_provider"
 
     def __str__(self) -> str:

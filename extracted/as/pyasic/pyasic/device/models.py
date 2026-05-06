@@ -343,8 +343,11 @@ class WhatsminerModels(MinerModelType):
     M56SVJ40 = "M56S VJ40"
     M56VH30 = "M56 VH30"
     M59VH30 = "M59 VH30"
+    M60SPlusPlusVLA0 = "M60S++ VLA0"
+    M60SPlusPlusVLB0 = "M60S++ VLB0"
     M60SPlusPlusVL30 = "M60S++ VL30"
     M60SPlusPlusVL40 = "M60S++ VL40"
+    M60SPlusPlusVL80 = "M60S++ VL80"
     M60SPlusVK30 = "M60S+ VK30"
     M60SPlusVK40 = "M60S+ VK40"
     M60SPlusVK50 = "M60S+ VK50"
@@ -579,6 +582,13 @@ class ElphapexModels(MinerModelType):
         return self.value
 
 
+class FluminerModels(MinerModelType):
+    T3 = "T3"
+
+    def __str__(self):
+        return self.value
+
+
 class MinerModel:
     ANTMINER = AntminerModels
     WHATSMINER = WhatsminerModels
@@ -594,3 +604,4 @@ class MinerModel:
     VOLCMINER = VolcMinerModels
     ELPHAPEX = ElphapexModels
     BRAIINS = BraiinsModels
+    FLUMINER = FluminerModels

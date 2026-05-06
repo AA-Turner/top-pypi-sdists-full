@@ -36,6 +36,7 @@ class MarketplaceServiceProviderUser:
         gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
         place_of_birth (Union[Unset, str]):
+        address (Union[Unset, str]):
         country_of_residence (Union[Unset, str]):
         nationality (Union[Unset, str]): Primary citizenship (ISO 3166-1 alpha-2 code)
         nationalities (Union[Unset, Any]): List of all citizenships (ISO 3166-1 alpha-2 codes)
@@ -66,6 +67,7 @@ class MarketplaceServiceProviderUser:
     gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
     place_of_birth: Union[Unset, str] = UNSET
+    address: Union[Unset, str] = UNSET
     country_of_residence: Union[Unset, str] = UNSET
     nationality: Union[Unset, str] = UNSET
     nationalities: Union[Unset, Any] = UNSET
@@ -121,6 +123,8 @@ class MarketplaceServiceProviderUser:
         personal_title = self.personal_title
 
         place_of_birth = self.place_of_birth
+
+        address = self.address
 
         country_of_residence = self.country_of_residence
 
@@ -189,6 +193,8 @@ class MarketplaceServiceProviderUser:
             field_dict["personal_title"] = personal_title
         if place_of_birth is not UNSET:
             field_dict["place_of_birth"] = place_of_birth
+        if address is not UNSET:
+            field_dict["address"] = address
         if country_of_residence is not UNSET:
             field_dict["country_of_residence"] = country_of_residence
         if nationality is not UNSET:
@@ -277,6 +283,8 @@ class MarketplaceServiceProviderUser:
 
         place_of_birth = d.pop("place_of_birth", UNSET)
 
+        address = d.pop("address", UNSET)
+
         country_of_residence = d.pop("country_of_residence", UNSET)
 
         nationality = d.pop("nationality", UNSET)
@@ -338,6 +346,7 @@ class MarketplaceServiceProviderUser:
             gender=gender,
             personal_title=personal_title,
             place_of_birth=place_of_birth,
+            address=address,
             country_of_residence=country_of_residence,
             nationality=nationality,
             nationalities=nationalities,

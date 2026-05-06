@@ -33,6 +33,89 @@ from xrspatial.dataset_support import supports_dataset
 
 
 # =====================================================================
+# Memory guards
+# =====================================================================
+#
+# CPU peak working set per pixel for ``_sink_cpu``:
+#   labels  : float64 -> 8
+#   queue_r : int64   -> 8
+#   queue_c : int64   -> 8
+# Total ~24 bytes/pixel.  The caller-provided ``flow_dir`` array already
+# lives in RAM before the kernel runs and is not double-counted here.
+_BYTES_PER_PIXEL = 24
+
+# GPU peak working set per pixel for ``_sink_cupy``:
+#   labels : float64 -> 8
+# Total ~8 bytes/pixel.  ``flow_dir_data`` already lives on the device
+# before the kernel runs and is not double-counted here.
+_GPU_BYTES_PER_PIXEL = 8
+
+
+def _available_memory_bytes():
+    """Best-effort estimate of available host memory in bytes."""
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if line.startswith('MemAvailable:'):
+                    return int(line.split()[1]) * 1024  # kB -> bytes
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        import psutil
+        return psutil.virtual_memory().available
+    except (ImportError, AttributeError):
+        pass
+    return 2 * 1024 ** 3
+
+
+def _available_gpu_memory_bytes():
+    """Best-effort estimate of free GPU memory in bytes.
+
+    Returns 0 if CuPy / CUDA is unavailable or the query fails -- callers
+    use that as a sentinel meaning "no GPU info, skip the guard".
+    """
+    try:
+        import cupy as _cp
+        free, _total = _cp.cuda.runtime.memGetInfo()
+        return int(free)
+    except Exception:
+        return 0
+
+
+def _check_memory(height, width):
+    """Raise MemoryError if the BFS kernel would exceed 50% of RAM."""
+    required = int(height) * int(width) * _BYTES_PER_PIXEL
+    available = _available_memory_bytes()
+    if required > 0.5 * available:
+        raise MemoryError(
+            f"sink_d8 on a {height}x{width} grid requires "
+            f"~{required / 1e9:.1f} GB of working memory but only "
+            f"~{available / 1e9:.1f} GB is available.  Use a "
+            f"dask-backed DataArray for out-of-core processing."
+        )
+
+
+def _check_gpu_memory(height, width):
+    """Raise MemoryError if the CuPy kernel would exceed 50% of free GPU RAM.
+
+    Skips the check (returns silently) when ``_available_gpu_memory_bytes``
+    cannot determine the free memory -- e.g. on hosts without CUDA, where
+    the kernel will fail at the cupy.asarray boundary anyway.
+    """
+    available = _available_gpu_memory_bytes()
+    if available <= 0:
+        return
+    required = int(height) * int(width) * _GPU_BYTES_PER_PIXEL
+    if required > 0.5 * available:
+        raise MemoryError(
+            f"sink_d8 on a {height}x{width} grid requires "
+            f"~{required / 1e9:.1f} GB of GPU working memory but only "
+            f"~{available / 1e9:.1f} GB is free on the active device.  "
+            f"Use a dask+cupy DataArray for out-of-core processing."
+        )
+
+
+# =====================================================================
 # CPU kernel
 # =====================================================================
 
@@ -189,6 +272,156 @@ def _run_numpy(data):
     return _sink_cpu(data.astype(np.float64), h, w, 0, 0, w)
 
 
+# =====================================================================
+# Cross-tile union-find for dask CCL
+# =====================================================================
+#
+# Per-tile CCL produces globally unique IDs but does not merge
+# components that span tile boundaries.  After the per-tile pass we
+# walk each shared edge, record an equivalence whenever two adjacent
+# boundary cells are both sinks, then union and remap labels.
+
+def _uf_find(parent, x):
+    """Path-halving find on a dict-backed union-find."""
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _uf_union(parent, a, b):
+    """Union two label roots; smaller root wins so labels stay deterministic."""
+    ra = _uf_find(parent, a)
+    rb = _uf_find(parent, b)
+    if ra == rb:
+        return
+    if ra < rb:
+        parent[rb] = ra
+    else:
+        parent[ra] = rb
+
+
+def _collect_boundary_equivalences(labels_np):
+    """Return a list of (label_a, label_b) pairs from interior tile edges.
+
+    *labels_np* is the materialized numpy result of the per-tile CCL pass.
+    We scan every interior row/column boundary plus the two diagonal
+    pairs (NE/SW and NW/SE) so 8-connectivity is preserved across tiles.
+
+    Pairs where either side is NaN or 0 are skipped.  Pairs with the
+    same label on both sides are skipped too.
+    """
+    pairs = []
+
+    def _scan(a, b):
+        # a and b are matched-shape slices; record (la, lb) where both
+        # are sink labels (non-NaN, non-zero).
+        if a.size == 0:
+            return
+        valid = ~(np.isnan(a) | np.isnan(b))
+        if not valid.any():
+            return
+        am = a[valid]
+        bm = b[valid]
+        diff = am != bm
+        if not diff.any():
+            return
+        la = am[diff].astype(np.int64)
+        lb = bm[diff].astype(np.int64)
+        for i in range(la.size):
+            pairs.append((int(la[i]), int(lb[i])))
+
+    # Vertical neighbors (up-down): every row boundary
+    _scan(labels_np[:-1, :], labels_np[1:, :])
+    # Horizontal neighbors (left-right)
+    _scan(labels_np[:, :-1], labels_np[:, 1:])
+    # Diagonal NW-SE
+    _scan(labels_np[:-1, :-1], labels_np[1:, 1:])
+    # Diagonal NE-SW
+    _scan(labels_np[:-1, 1:], labels_np[1:, :-1])
+    return pairs
+
+
+def _build_label_remap(labels_np):
+    """Build a {label: root_label} mapping for cross-tile sink merges.
+
+    Only labels whose root differs from themselves end up in the dict;
+    callers can short-circuit when the result is empty.
+    """
+    pairs = _collect_boundary_equivalences(labels_np)
+    if not pairs:
+        return {}
+
+    parent = {}
+    for a, b in pairs:
+        if a not in parent:
+            parent[a] = a
+        if b not in parent:
+            parent[b] = b
+        _uf_union(parent, a, b)
+
+    remap = {}
+    for label in list(parent):
+        root = _uf_find(parent, label)
+        if root != label:
+            remap[label] = root
+    return remap
+
+
+def _apply_label_remap(block, remap_keys, remap_vals):
+    """Replace each label in *block* with its root from the remap arrays."""
+    if remap_keys.size == 0:
+        return block
+    out = block.copy()
+    # np.searchsorted gives O(N log K) lookup which beats a Python dict
+    # in the inner loop and is easy to vectorize.
+    flat = out.ravel()
+    valid = ~np.isnan(flat)
+    if not valid.any():
+        return out
+    vals = flat[valid].astype(np.int64)
+    idx = np.searchsorted(remap_keys, vals)
+    in_range = idx < remap_keys.size
+    hits = np.zeros_like(vals, dtype=bool)
+    hits[in_range] = remap_keys[idx[in_range]] == vals[in_range]
+    if hits.any():
+        new_vals = vals.astype(np.float64)
+        new_vals[hits] = remap_vals[idx[hits]].astype(np.float64)
+        flat[valid] = new_vals
+        out = flat.reshape(block.shape)
+    return out
+
+
+def _merge_cross_tile_labels(labels_da):
+    """Merge sink labels across tile boundaries.
+
+    Materializes the per-tile CCL result so we can scan all boundaries,
+    runs union-find, and applies the remap lazily via map_blocks.
+    """
+    # Materialize once to scan boundaries.  CCL is fundamentally a global
+    # operation so we can't avoid touching every cell; the per-tile pass
+    # already streamed.
+    labels_np = labels_da.compute()
+    remap = _build_label_remap(labels_np)
+    if not remap:
+        # Nothing to merge — wrap the materialized result back into dask
+        # so the caller still gets a dask array with the original chunks.
+        return da.from_array(labels_np, chunks=labels_da.chunks)
+
+    keys = np.array(sorted(remap), dtype=np.int64)
+    vals = np.array([remap[k] for k in keys], dtype=np.int64)
+
+    def _remap_block(block, _keys=keys, _vals=vals):
+        return _apply_label_remap(block, _keys, _vals)
+
+    merged = da.from_array(labels_np, chunks=labels_da.chunks)
+    return merged.map_blocks(
+        _remap_block,
+        dtype=np.float64,
+        meta=np.array((), dtype=np.float64),
+    )
+
+
 def _run_dask_numpy(data):
     total_w = data.shape[1]
 
@@ -201,11 +434,13 @@ def _run_dask_numpy(data):
         return _sink_cpu(np.asarray(block, dtype=np.float64),
                          h, w, row_off, col_off, total_w)
 
-    return da.map_blocks(
+    per_tile = da.map_blocks(
         _tile_fn, data,
         dtype=np.float64,
         meta=np.array((), dtype=np.float64),
     )
+
+    return _merge_cross_tile_labels(per_tile)
 
 
 def _run_dask_cupy(data):
@@ -255,9 +490,11 @@ def sink_d8(flow_dir: xr.DataArray,
     data = flow_dir.data
 
     if isinstance(data, np.ndarray):
+        _check_memory(*data.shape)
         out = _run_numpy(data)
 
     elif has_cuda_and_cupy() and is_cupy_array(data):
+        _check_gpu_memory(*data.shape)
         out = _sink_cupy(data)
 
     elif has_cuda_and_cupy() and is_dask_cupy(flow_dir):

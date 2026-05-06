@@ -177,7 +177,7 @@ impl ReportFormatter<PubGrubPackage, Range<Version>, UnavailableReason>
         let mut terms_vec: Vec<_> = terms.iter().collect();
         // We avoid relying on hashmap iteration order here by always sorting
         // by package first.
-        terms_vec.sort_by(|&(pkg1, _), &(pkg2, _)| pkg1.cmp(pkg2));
+        terms_vec.sort_by_key(|&(package, _)| package);
         match terms_vec.as_slice() {
             [] => "the requirements are unsatisfiable".into(),
             [(root, _)] if matches!(&**(*root), PubGrubPackageInner::Root(_)) => {
@@ -515,7 +515,7 @@ impl PubGrubReportFormatter<'_> {
                 let external1 = self.format_external(external1);
                 let external2 = self.format_external(external2);
 
-                format!("{}and {}", padded("", &external1, " "), &external2,)
+                format!("{}and {}", padded("", &external1, " "), &external2)
             }
         }
     }
@@ -1016,11 +1016,10 @@ impl PubGrubReportFormatter<'_> {
 
         // Add hints due to the package being entirely unavailable.
         match unavailable_packages.get(name) {
-            Some(UnavailablePackage::NoIndex) => {
-                if no_find_links {
-                    hints.insert(PubGrubHint::NoIndex);
-                }
+            Some(UnavailablePackage::NoIndex) if no_find_links => {
+                hints.insert(PubGrubHint::NoIndex);
             }
+            Some(UnavailablePackage::NoIndex) => {}
             Some(UnavailablePackage::Offline) => {
                 hints.insert(PubGrubHint::Offline);
             }
@@ -1158,7 +1157,9 @@ impl PubGrubReportFormatter<'_> {
 
             let is_pre2 = match end {
                 Bound::Included(version) => version.any_prerelease(),
-                Bound::Excluded(version) => version.any_prerelease(),
+                Bound::Excluded(version) => {
+                    version.any_prerelease() && !is_compatible_release_upper_bound(version)
+                }
                 Bound::Unbounded => false,
             };
             if is_pre2 {
@@ -1208,6 +1209,14 @@ impl PubGrubReportFormatter<'_> {
             }
         }
     }
+}
+
+/// Return `true` for the excluded `.dev0` upper bounds used to desugar compatible releases.
+///
+/// For example, `~=3.6` becomes `>=3.6,<4.dev0`. The `<4.dev0` boundary preserves PEP 440's
+/// ordering semantics, but it does not mean the user requested pre-releases.
+fn is_compatible_release_upper_bound(version: &Version) -> bool {
+    version.dev() == Some(0) && !version.is_pre() && !version.is_post() && !version.is_local()
 }
 
 #[derive(Debug, Clone)]

@@ -7,7 +7,7 @@ use itertools::Itertools;
 use prek_consts::CONFIG_FILENAMES;
 
 use crate::cli::reporter::HookRunReporter;
-use crate::cli::run::{CollectOptions, FileFilter, collect_files};
+use crate::cli::run::{CollectOptions, FileTagCache, ProjectFiles, collect_files};
 use crate::config::{self, FilePattern, HookOptions, Language, MetaHook};
 use crate::hook::Hook;
 use crate::store::Store;
@@ -53,8 +53,7 @@ impl MetaHook {
     pub(crate) fn from_id(id: &str) -> Result<Self, ()> {
         let hook_id = MetaHooks::from_str(id).map_err(|_| ())?;
         let config_file_glob =
-            FilePattern::new_glob(CONFIG_FILENAMES.iter().map(ToString::to_string).collect())
-                .unwrap();
+            FilePattern::glob(CONFIG_FILENAMES.iter().map(ToString::to_string).collect()).unwrap();
 
         Ok(match hook_id {
             MetaHooks::CheckHooksApply => MetaHook {
@@ -102,12 +101,13 @@ pub(crate) async fn check_hooks_apply(
 
     let mut code = 0;
     let mut output = Vec::new();
+    let mut tag_cache = FileTagCache::default();
 
     for filename in filenames {
         let path = relative_path.join(filename);
         let mut project = Project::from_config_file(path.into(), None)?;
         project.with_relative_path(relative_path.to_path_buf());
-        let filter = FileFilter::for_project(input.iter(), &project, None);
+        let project_files = ProjectFiles::for_project(input.iter(), &project, None);
 
         let project_hooks = project
             .init_hooks(store, None)
@@ -119,7 +119,7 @@ pub(crate) async fn check_hooks_apply(
                 continue;
             }
 
-            let filenames = filter.for_hook(&project_hook);
+            let filenames = project_files.for_hook(&project_hook, &mut tag_cache);
 
             if filenames.is_empty() {
                 code = 1;
@@ -146,17 +146,13 @@ fn excludes_any(
     }
 
     files.iter().any(|f| {
-        let Some(f) = f.as_ref().to_str() else {
-            return false; // Skip files that cannot be converted to a string
-        };
-
         if let Some(pattern) = &include {
-            if !pattern.is_match(f) {
+            if !pattern.is_match(f.as_ref()) {
                 return false;
             }
         }
         if let Some(pattern) = &exclude {
-            if !pattern.is_match(f) {
+            if !pattern.is_match(f.as_ref()) {
                 return false;
             }
         }
@@ -173,7 +169,7 @@ pub(crate) async fn check_useless_excludes(
     // `collect_files` returns paths relative to the hook's project root.
     // The meta hook itself runs from the workspace root, so we build both:
     // - `input_project`: for matching `files`/`exclude` patterns (project-relative)
-    // - `input_workspace`: for `FileFilter` (workspace-relative)
+    // - `input_workspace`: for `ProjectFiles` (workspace-relative)
     let input_project = collect_files(hook.work_dir(), CollectOptions::all_files()).await?;
     let input_workspace: Vec<_> = input_project
         .iter()
@@ -182,6 +178,7 @@ pub(crate) async fn check_useless_excludes(
 
     let mut code = 0;
     let mut output = Vec::new();
+    let mut tag_cache = FileTagCache::default();
 
     for filename in filenames {
         let path = relative_path.join(filename);
@@ -202,7 +199,7 @@ pub(crate) async fn check_useless_excludes(
             )?;
         }
 
-        let filter = FileFilter::for_project(input_workspace.iter(), &project, None);
+        let project_files = ProjectFiles::for_project(input_workspace.iter(), &project, None);
 
         for repo in &config.repos {
             let hooks_iter: Box<dyn Iterator<Item = (&String, &HookOptions)>> = match repo {
@@ -213,10 +210,11 @@ pub(crate) async fn check_useless_excludes(
             };
 
             for (hook_id, opts) in hooks_iter {
-                let filtered_files = filter.by_type(
+                let filtered_files = project_files.by_type(
                     opts.types.as_ref(),
                     opts.types_or.as_ref(),
                     opts.exclude_types.as_ref(),
+                    &mut tag_cache,
                 );
 
                 // `filtered_files` is workspace-relative (it includes the project prefix).
@@ -271,7 +269,7 @@ mod tests {
     use prek_consts::{PRE_COMMIT_CONFIG_YAML, PRE_COMMIT_CONFIG_YML, PREK_TOML};
 
     fn regex_pattern(pattern: &str) -> FilePattern {
-        FilePattern::new_regex(pattern).unwrap()
+        FilePattern::regex(pattern).unwrap()
     }
 
     #[test]
@@ -299,15 +297,15 @@ mod tests {
     fn meta_hook_patterns_cover_config_files() {
         let apply = MetaHook::from_id("check-hooks-apply").expect("known meta hook");
         let apply_files = apply.options.files.as_ref().expect("files should be set");
-        assert!(apply_files.is_match(PRE_COMMIT_CONFIG_YAML));
-        assert!(apply_files.is_match(PRE_COMMIT_CONFIG_YML));
-        assert!(apply_files.is_match(PREK_TOML));
+        assert!(apply_files.is_match(Path::new(PRE_COMMIT_CONFIG_YAML)));
+        assert!(apply_files.is_match(Path::new(PRE_COMMIT_CONFIG_YML)));
+        assert!(apply_files.is_match(Path::new(PREK_TOML)));
 
         let useless = MetaHook::from_id("check-useless-excludes").expect("known meta hook");
         let useless_files = useless.options.files.as_ref().expect("files should be set");
-        assert!(useless_files.is_match(PRE_COMMIT_CONFIG_YAML));
-        assert!(useless_files.is_match(PRE_COMMIT_CONFIG_YML));
-        assert!(useless_files.is_match(PREK_TOML));
+        assert!(useless_files.is_match(Path::new(PRE_COMMIT_CONFIG_YAML)));
+        assert!(useless_files.is_match(Path::new(PRE_COMMIT_CONFIG_YML)));
+        assert!(useless_files.is_match(Path::new(PREK_TOML)));
 
         let identity = MetaHook::from_id("identity").expect("known meta hook");
         assert!(identity.options.files.is_none());

@@ -18,7 +18,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from ..config.types import DEFAULT_HEALTH_CHECK_TIMEOUT
+from ..config import DEFAULT_HEALTH_CHECK_TIMEOUT
 from ..debug import META as _DBG_META, INPUTS_OUTPUTS as _DBG_IO, VRAM as _DBG_VRAM
 
 _DEBUG = _DBG_META  # backward compat -- all metadata debug logging uses META category
@@ -316,13 +316,9 @@ def fetch_metadata(
             env_root = python.parent if sys.platform == "win32" else python.parent.parent
             env_name = env_root.name
             workspace_dir = env_root.parent.parent.parent  # strip envs/<name> and .pixi
-            try:
-                from ..packages.pixi import ensure_pixi
-                pixi_path = ensure_pixi(log=lambda m: None)
-            except Exception:
-                pixi_path = "pixi"
+            from ..packages.pixi import PIXI
             cmd = [
-                str(pixi_path), "run", "--as-is",
+                PIXI, "run", "--as-is",
                 "--manifest-path", str(workspace_dir / "pixi.toml"),
                 "-e", env_name,
                 "python", script_file, str(working_dir), package_name,

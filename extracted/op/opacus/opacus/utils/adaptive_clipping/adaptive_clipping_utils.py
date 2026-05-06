@@ -13,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Union
+
 import torch
 from opacus.distributed import DifferentiallyPrivateDistributedDataParallel as DPDDP
-from opacus.grad_sample import GradSampleModule
+from opacus.grad_sample import GradSampleHooksFastGradientClipping, GradSampleModule
 from opacus.grad_sample.grad_sample_module_fast_gradient_clipping import (
     GradSampleModuleFastGradientClipping,
 )
@@ -37,7 +39,9 @@ class DPTensorFastGradientAdaptiveClipping(DPTensorFastGradientClipping):
 
     def __init__(
         self,
-        module: GradSampleModuleFastGradientClipping,
+        module: Union[
+            GradSampleModuleFastGradientClipping, GradSampleHooksFastGradientClipping
+        ],
         optimizer: DPOptimizerFastGradientClipping,
         loss_per_sample: torch.Tensor,
         loss_reduction: str = "mean",
@@ -50,7 +54,7 @@ class DPTensorFastGradientAdaptiveClipping(DPTensorFastGradientClipping):
         """
 
         Args:
-            module: the module to train
+            module: the (GradSample) module to train or hooks handling object
             optimizer: the optimizer used to train the module
             loss_per_sample: loss on each sample in the mini-batch of size [batch_size, 1]
             target_unclipped_quantile: target quantile for unclipped gradients, between 0 and 1
@@ -95,10 +99,13 @@ class DPTensorFastGradientAdaptiveClipping(DPTensorFastGradientClipping):
             per_sample_norms
         )
 
-        # update max grad norm and noise multiplier
+        # update max grad norm and adjusted noise multiplier for noise generation
+        # Note: We set _adjusted_noise_multiplier instead of noise_multiplier to preserve
+        # the original noise_multiplier for correct privacy accounting (see Theorem 1 in
+        # https://arxiv.org/pdf/1905.03871.pdf)
         self.module.max_grad_norm = new_max_grad_norm
         self.optimizer.max_grad_norm = new_max_grad_norm
-        self.optimizer.noise_multiplier = new_noise_multiplier
+        self.optimizer._adjusted_noise_multiplier = new_noise_multiplier
 
         # get the loss rescaling coefficients using the updated max_grad_norm
         coeff = torch.where(
@@ -207,14 +214,14 @@ class DPLossFastGradientAdaptiveClipping(DPLossFastGradientClipping):
         self.clipbound_learning_rate = clipbound_learning_rate
         self.initial_noise_multiplier = initial_noise_multiplier
 
-    def __call__(self, input, target) -> DPTensorFastGradientAdaptiveClipping:
+    def __call__(self, *args, **kwargs) -> DPTensorFastGradientAdaptiveClipping:
         """
         Redefining the forward function to compute per-sample loss and wrap it in DPTensorFastGradientAdaptiveClipping
         """
 
         loss_per_sample = self.criterion(
-            input,
-            target,
+            *args,
+            **kwargs,
         )
         return DPTensorFastGradientAdaptiveClipping(
             self.module,
@@ -237,7 +244,7 @@ class PrivacyEngineAdaptiveClipping(PrivacyEngine):
     def _prepare_criterion(
         self,
         *,
-        module: GradSampleModule,
+        module: Union[GradSampleModule, GradSampleHooksFastGradientClipping],
         optimizer: DPOptimizerFastGradientClipping,
         criterion=torch.nn.CrossEntropyLoss(),
         loss_reduction: str = "mean",
@@ -249,7 +256,7 @@ class PrivacyEngineAdaptiveClipping(PrivacyEngine):
     ) -> DPLossFastGradientAdaptiveClipping:
         """
         Args:
-            module: the module to train
+            module: the (GradSample) module to train or hooks handling object
             optimizer: the optimizer used to train the module
             criterion: the loss function used to train the module
             loss_reduction: "mean" or "sum", indicates if the loss reduction (for aggregating the gradients)

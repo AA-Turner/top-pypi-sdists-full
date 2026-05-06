@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tempora
-Version: 5.8.1
+Version: 5.9.0
 Summary: Objects and routines pertaining to date and time (tempora)
 Author-email: "Jason R. Coombs" <jaraco@jaraco.com>
 License-Expression: MIT
@@ -9,11 +9,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: jaraco.functools>=1.20
+Requires-Dist: jaraco.functools>=4.2
 Requires-Dist: python-dateutil
+Requires-Dist: jaraco.context
+Requires-Dist: more_itertools
+Requires-Dist: jaraco.collections>=5.2.1
 Provides-Extra: test
 Requires-Dist: pytest!=8.1.*,>=6; extra == "test"
 Requires-Dist: pytest-freezer; extra == "test"
@@ -27,14 +30,14 @@ Requires-Dist: furo; extra == "doc"
 Requires-Dist: sphinx-lint; extra == "doc"
 Requires-Dist: jaraco.tidelift>=1.4; extra == "doc"
 Provides-Extra: check
-Requires-Dist: pytest-checkdocs>=2.4; extra == "check"
+Requires-Dist: pytest-checkdocs>=2.14; extra == "check"
 Requires-Dist: pytest-ruff>=0.2.1; sys_platform != "cygwin" and extra == "check"
 Provides-Extra: cover
 Requires-Dist: pytest-cov; extra == "cover"
 Provides-Extra: enabler
-Requires-Dist: pytest-enabler>=2.2; extra == "enabler"
+Requires-Dist: pytest-enabler>=3.4; extra == "enabler"
 Provides-Extra: type
-Requires-Dist: pytest-mypy; extra == "type"
+Requires-Dist: pytest-mypy>=1.0.1; platform_python_implementation != "PyPy" and extra == "type"
 Requires-Dist: types-python-dateutil; extra == "type"
 Dynamic: license-file
 
@@ -54,7 +57,7 @@ Dynamic: license-file
 .. image:: https://readthedocs.org/projects/tempora/badge/?version=latest
    :target: https://tempora.readthedocs.io/en/latest/?badge=latest
 
-.. image:: https://img.shields.io/badge/skeleton-2025-informational
+.. image:: https://img.shields.io/badge/skeleton-2026-informational
    :target: https://blog.jaraco.com/skeleton
 
 .. image:: https://tidelift.com/badges/package/pypi/tempora

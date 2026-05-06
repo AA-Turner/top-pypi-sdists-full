@@ -78,6 +78,28 @@ class TestSubprocessCLITransport:
         assert "--system-prompt" in cmd
         assert cmd[cmd.index("--system-prompt") + 1] == ""
 
+    def test_build_command_include_hook_events(self):
+        """Test that include_hook_events emits the --include-hook-events flag."""
+        transport = SubprocessCLITransport(
+            prompt="Hello", options=make_options(include_hook_events=True)
+        )
+        cmd = transport._build_command()
+        assert "--include-hook-events" in cmd
+
+        transport_off = SubprocessCLITransport(prompt="Hello", options=make_options())
+        cmd_off = transport_off._build_command()
+        assert "--include-hook-events" not in cmd_off
+
+    def test_build_command_strict_mcp_config(self):
+        """Test that --strict-mcp-config is emitted only when enabled."""
+        transport = SubprocessCLITransport(
+            prompt="test", options=make_options(strict_mcp_config=True)
+        )
+        assert "--strict-mcp-config" in transport._build_command()
+
+        transport = SubprocessCLITransport(prompt="test", options=make_options())
+        assert "--strict-mcp-config" not in transport._build_command()
+
     def test_cli_path_accepts_pathlib_path(self):
         """Test that cli_path accepts pathlib.Path objects."""
         from pathlib import Path
@@ -90,6 +112,16 @@ class TestSubprocessCLITransport:
 
         # Path object is converted to string, compare with str(path)
         assert transport._cli_path == str(path)
+
+    def test_build_command_with_effort_xhigh(self):
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=make_options(effort="xhigh"),
+        )
+
+        cmd = transport._build_command()
+        assert "--effort" in cmd
+        assert cmd[cmd.index("--effort") + 1] == "xhigh"
 
     def test_build_command_with_system_prompt_string(self):
         """Test building CLI command with system prompt as string."""
@@ -2036,5 +2068,36 @@ class TestSubprocessCLITransport:
 
                 # No warning for a current version
                 mock_logger.warning.assert_not_called()
+
+        anyio.run(_test)
+
+
+class TestAtexitChildCleanup:
+    """Tests for the atexit handler that terminates orphaned CLI subprocesses."""
+
+    def test_kill_active_children_terminates_process(self) -> None:
+        import sys
+
+        from claude_agent_sdk._internal.transport import subprocess_cli
+
+        async def _test() -> None:
+            proc = await anyio.open_process(
+                [sys.executable, "-c", "import time; time.sleep(30)"]
+            )
+            subprocess_cli._ACTIVE_CHILDREN.add(proc)
+            try:
+                assert proc.returncode is None
+
+                subprocess_cli._kill_active_children()
+
+                assert not subprocess_cli._ACTIVE_CHILDREN
+                with anyio.fail_after(5):
+                    await proc.wait()
+                assert proc.returncode is not None
+            finally:
+                subprocess_cli._ACTIVE_CHILDREN.discard(proc)
+                if proc.returncode is None:
+                    proc.kill()
+                    await proc.wait()
 
         anyio.run(_test)

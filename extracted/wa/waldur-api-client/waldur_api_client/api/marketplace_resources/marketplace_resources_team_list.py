@@ -7,16 +7,25 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.project_user import ProjectUser
-from ...types import Response
+from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
 
 
 def _get_kwargs(
     uuid: UUID,
+    *,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+
+    params["has_consent"] = has_consent
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": f"/api/marketplace-resources/{uuid}/team/",
+        "params": params,
     }
 
     return _kwargs
@@ -52,6 +61,7 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> Response[list["ProjectUser"]]:
     """Get resource team
 
@@ -60,6 +70,7 @@ def sync_detailed(
 
     Args:
         uuid (UUID):
+        has_consent (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -71,6 +82,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        has_consent=has_consent,
     )
 
     response = client.get_httpx_client().request(
@@ -84,6 +96,7 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> list["ProjectUser"]:
     """Get resource team
 
@@ -92,6 +105,7 @@ def sync(
 
     Args:
         uuid (UUID):
+        has_consent (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -104,6 +118,7 @@ def sync(
     return sync_detailed(
         uuid=uuid,
         client=client,
+        has_consent=has_consent,
     ).parsed
 
 
@@ -111,6 +126,7 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> Response[list["ProjectUser"]]:
     """Get resource team
 
@@ -119,6 +135,7 @@ async def asyncio_detailed(
 
     Args:
         uuid (UUID):
+        has_consent (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -130,6 +147,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        has_consent=has_consent,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -141,6 +159,7 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> list["ProjectUser"]:
     """Get resource team
 
@@ -149,6 +168,7 @@ async def asyncio(
 
     Args:
         uuid (UUID):
+        has_consent (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -162,6 +182,7 @@ async def asyncio(
         await asyncio_detailed(
             uuid=uuid,
             client=client,
+            has_consent=has_consent,
         )
     ).parsed
 
@@ -170,6 +191,7 @@ def sync_all(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> list["ProjectUser"]:
     """Get All Pages
 
@@ -180,6 +202,7 @@ def sync_all(
 
     Args:
         uuid (UUID):
+        has_consent (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -195,6 +218,7 @@ def sync_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         uuid=uuid,
+        has_consent=has_consent,
     )
 
     # Set page_size to maximum
@@ -243,6 +267,7 @@ async def asyncio_all(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    has_consent: Union[Unset, bool] = UNSET,
 ) -> list["ProjectUser"]:
     """Get All Pages (Async)
 
@@ -253,6 +278,7 @@ async def asyncio_all(
 
     Args:
         uuid (UUID):
+        has_consent (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -268,6 +294,7 @@ async def asyncio_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         uuid=uuid,
+        has_consent=has_consent,
     )
 
     # Set page_size to maximum

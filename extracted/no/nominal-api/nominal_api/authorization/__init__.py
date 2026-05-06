@@ -16,8 +16,11 @@ from .._impl import (
     authorization_GetUserOrgsRequest as GetUserOrgsRequest,
     authorization_GetUserOrgsResponse as GetUserOrgsResponse,
     authorization_InternalApiKeyService as InternalApiKeyService,
+    authorization_InternalSandboxTokenService as InternalSandboxTokenService,
     authorization_IsEmailAllowedRequest as IsEmailAllowedRequest,
     authorization_IsEmailAllowedResponse as IsEmailAllowedResponse,
+    authorization_IssueSandboxTokenRequest as IssueSandboxTokenRequest,
+    authorization_IssueSandboxTokenResponse as IssueSandboxTokenResponse,
     authorization_ListApiKeyRequest as ListApiKeyRequest,
     authorization_ListApiKeyResponse as ListApiKeyResponse,
     authorization_OktaRegistrationEventData as OktaRegistrationEventData,
@@ -49,6 +52,8 @@ __all__ = [
     'GetUserOrgsResponse',
     'IsEmailAllowedRequest',
     'IsEmailAllowedResponse',
+    'IssueSandboxTokenRequest',
+    'IssueSandboxTokenResponse',
     'ListApiKeyRequest',
     'ListApiKeyResponse',
     'OktaRegistrationEventData',
@@ -63,5 +68,6 @@ __all__ = [
     'RegisterInWorkspaceRequest',
     'AuthorizationService',
     'InternalApiKeyService',
+    'InternalSandboxTokenService',
 ]
 

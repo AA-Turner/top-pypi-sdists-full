@@ -789,6 +789,7 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
             uuids = self.settings.get("uuids") or {}
             seed = uuids.get("uuid")
         self.set_app(seed=seed)
+        self.set_user_agent()
         if reset:
             self.set_uuids({})
         return True

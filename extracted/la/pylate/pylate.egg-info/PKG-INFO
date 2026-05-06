@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylate
-Version: 1.4.0
+Version: 1.5.0
 Summary: A library for training and retrieval with ColBERT.
 Author: LightOn
 License-Expression: MIT
@@ -8,15 +8,14 @@ Project-URL: Homepage, https://github.com/lightonai/pylate.git
 Project-URL: Documentation, https://lightonai.github.io/pylate/
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sentence-transformers==5.1.1
+Requires-Dist: sentence-transformers==5.3.0
 Requires-Dist: datasets>=2.20.0
 Requires-Dist: accelerate>=0.31.0
-Requires-Dist: sqlitedict>=2.1.0
 Requires-Dist: pandas>=2.2.1
-Requires-Dist: transformers<=4.56.2,>=4.41.0
+Requires-Dist: transformers<=5.3.0,>=4.41.0
 Requires-Dist: ujson==5.10.0
 Requires-Dist: ninja==1.11.1.4
 Requires-Dist: fastkmeans==0.5.0
@@ -46,6 +45,10 @@ Requires-Dist: uvicorn>=0.30.6; extra == "api"
 Requires-Dist: batched>=0.1.2; extra == "api"
 Provides-Extra: voyager
 Requires-Dist: voyager>=2.0.9; extra == "voyager"
+Provides-Extra: scann
+Requires-Dist: scann>=1.4.2; extra == "scann"
+Provides-Extra: warp
+Requires-Dist: xtr-warp-rs==2.0.2.*; extra == "warp"
 Dynamic: license-file
 
 <div align="center">
@@ -458,6 +461,8 @@ Sample Output:
     ],
 ]
 ```
+
+Also note that a [WARP](https://github.com/pau-mensa/xtr-warp-rs) backend is also available via `indexes.WARP` (install with `pip install "pylate[warp]"`). WARP is an index to be used with [XTR-trained models](https://lightonai.github.io/pylate/documentation/training/#xtr-training) and might not work well with every model. It uses approximations that make retrieval faster and cheaper but can degrade performance on models that were not trained for them; see the [retrieval documentation](https://lightonai.github.io/pylate/documentation/retrieval/#xtr-retrieval) for the model compatibility notes and a concrete example.
 
 &nbsp;
 

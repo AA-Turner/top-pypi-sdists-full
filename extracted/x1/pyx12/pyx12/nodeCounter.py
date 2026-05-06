@@ -11,11 +11,13 @@
 """
 Loop and segment counter
 """
+
 from __future__ import annotations
+
 from collections import OrderedDict
-from typing import Mapping
+from collections.abc import Mapping
+
 import pyx12.path
-from .decorators import dump_args
 
 
 class NodeCounter:
@@ -36,7 +38,7 @@ class NodeCounter:
         for k, v in initialCounts.items():
             self._dict[NodeCounter.makeX12Path(k)] = v
 
-    #@dump_args
+    # @dump_args
     def reset_to_node(self, xpath: str | pyx12.path.X12Path) -> None:
         """
         Pop to node, deleting all child counts
@@ -47,7 +49,7 @@ class NodeCounter:
         for k in child_keys:
             del self._dict[k]
 
-    #@dump_args
+    # @dump_args
     def increment(self, xpath: str | pyx12.path.X12Path) -> None:
         """
         Increment path count
@@ -58,7 +60,7 @@ class NodeCounter:
         else:
             self._dict[k] = 1
 
-    #@dump_args
+    # @dump_args
     def setCount(self, xpath: str | pyx12.path.X12Path, ct: int) -> None:
         """
         Set path count

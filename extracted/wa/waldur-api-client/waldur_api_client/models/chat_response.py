@@ -17,13 +17,10 @@ T = TypeVar("T", bound="ChatResponse")
 class ChatResponse:
     """
     Attributes:
-        k (Union[Unset, str]): Component key (e.g. 'markdown', 'code', 'table', 'vm_order').
+        k (Union[Unset, str]): Component key (e.g. 'markdown', 'code', 'vm_order', 'resource_list').
         c (Union[Unset, str]): Content payload.
         t (Union[Unset, str]): Tag or language for dynamic blocks.
         e (Union[Unset, str]): Error message.
-        h (Union[Unset, list[Any]]): Table headers.
-        r (Union[Unset, list[Any]]): Table rows.
-        n (Union[Unset, int]): Total row count.
         m (Union[Unset, ChatResponseM]): System metadata (thread_uuid, message UUIDs).
         w (Union[Unset, str]): PII detection warning message.
         status (Union[Unset, str]): vm_order status: 'form' | 'project_form' | 'preview' | 'success' | 'error'.
@@ -33,7 +30,7 @@ class ChatResponse:
         content (Union[Unset, str]): Intro text or form instructions.
         project (Union[Unset, str]): Project name.
         organization (Union[Unset, str]): Organization/customer name.
-        project_uuid (Union[Unset, str]): Project UUID.
+        project_uuid (Union[Unset, str]): Project UUID. Present when k='vm_order' or k='resource_list'.
         order_id (Union[Unset, str]): Order UUID (present on success).
         message (Union[Unset, str]): Success message (present on success).
         error (Union[Unset, str]): Error detail (present on error).
@@ -44,15 +41,19 @@ class ChatResponse:
             status='project_form'.
         offerings (Union[Unset, list[Any]]): Available offering options [{uuid, name}]. Present when
             status='offering_form'.
+        network (Union[Unset, str]): Network name (e.g. 'default'). Present when status='preview'.
+        ssh_key_name (Union[Unset, str]): SSH key name. Present when status='preview'.
+        system_volume_size (Union[Unset, int]): System volume size in GB. Present when status='preview'.
+        customer_uuid (Union[Unset, str]): Customer/organization UUID filter hint. Present when k='resource_list'.
+        category_uuid (Union[Unset, str]): Category UUID filter hint. Present when k='resource_list'.
+        state (Union[Unset, list[Any]]): State display name filters (e.g. ['OK', 'Erred']). Present when
+            k='resource_list'.
     """
 
     k: Union[Unset, str] = UNSET
     c: Union[Unset, str] = UNSET
     t: Union[Unset, str] = UNSET
     e: Union[Unset, str] = UNSET
-    h: Union[Unset, list[Any]] = UNSET
-    r: Union[Unset, list[Any]] = UNSET
-    n: Union[Unset, int] = UNSET
     m: Union[Unset, "ChatResponseM"] = UNSET
     w: Union[Unset, str] = UNSET
     status: Union[Unset, str] = UNSET
@@ -70,6 +71,12 @@ class ChatResponse:
     images: Union[Unset, list[Any]] = UNSET
     projects: Union[Unset, list[Any]] = UNSET
     offerings: Union[Unset, list[Any]] = UNSET
+    network: Union[Unset, str] = UNSET
+    ssh_key_name: Union[Unset, str] = UNSET
+    system_volume_size: Union[Unset, int] = UNSET
+    customer_uuid: Union[Unset, str] = UNSET
+    category_uuid: Union[Unset, str] = UNSET
+    state: Union[Unset, list[Any]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -80,16 +87,6 @@ class ChatResponse:
         t = self.t
 
         e = self.e
-
-        h: Union[Unset, list[Any]] = UNSET
-        if not isinstance(self.h, Unset):
-            h = self.h
-
-        r: Union[Unset, list[Any]] = UNSET
-        if not isinstance(self.r, Unset):
-            r = self.r
-
-        n = self.n
 
         m: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.m, Unset):
@@ -135,6 +132,20 @@ class ChatResponse:
         if not isinstance(self.offerings, Unset):
             offerings = self.offerings
 
+        network = self.network
+
+        ssh_key_name = self.ssh_key_name
+
+        system_volume_size = self.system_volume_size
+
+        customer_uuid = self.customer_uuid
+
+        category_uuid = self.category_uuid
+
+        state: Union[Unset, list[Any]] = UNSET
+        if not isinstance(self.state, Unset):
+            state = self.state
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -146,12 +157,6 @@ class ChatResponse:
             field_dict["t"] = t
         if e is not UNSET:
             field_dict["e"] = e
-        if h is not UNSET:
-            field_dict["h"] = h
-        if r is not UNSET:
-            field_dict["r"] = r
-        if n is not UNSET:
-            field_dict["n"] = n
         if m is not UNSET:
             field_dict["m"] = m
         if w is not UNSET:
@@ -186,6 +191,18 @@ class ChatResponse:
             field_dict["projects"] = projects
         if offerings is not UNSET:
             field_dict["offerings"] = offerings
+        if network is not UNSET:
+            field_dict["network"] = network
+        if ssh_key_name is not UNSET:
+            field_dict["ssh_key_name"] = ssh_key_name
+        if system_volume_size is not UNSET:
+            field_dict["system_volume_size"] = system_volume_size
+        if customer_uuid is not UNSET:
+            field_dict["customer_uuid"] = customer_uuid
+        if category_uuid is not UNSET:
+            field_dict["category_uuid"] = category_uuid
+        if state is not UNSET:
+            field_dict["state"] = state
 
         return field_dict
 
@@ -201,12 +218,6 @@ class ChatResponse:
         t = d.pop("t", UNSET)
 
         e = d.pop("e", UNSET)
-
-        h = cast(list[Any], d.pop("h", UNSET))
-
-        r = cast(list[Any], d.pop("r", UNSET))
-
-        n = d.pop("n", UNSET)
 
         _m = d.pop("m", UNSET)
         m: Union[Unset, ChatResponseM]
@@ -247,14 +258,23 @@ class ChatResponse:
 
         offerings = cast(list[Any], d.pop("offerings", UNSET))
 
+        network = d.pop("network", UNSET)
+
+        ssh_key_name = d.pop("ssh_key_name", UNSET)
+
+        system_volume_size = d.pop("system_volume_size", UNSET)
+
+        customer_uuid = d.pop("customer_uuid", UNSET)
+
+        category_uuid = d.pop("category_uuid", UNSET)
+
+        state = cast(list[Any], d.pop("state", UNSET))
+
         chat_response = cls(
             k=k,
             c=c,
             t=t,
             e=e,
-            h=h,
-            r=r,
-            n=n,
             m=m,
             w=w,
             status=status,
@@ -272,6 +292,12 @@ class ChatResponse:
             images=images,
             projects=projects,
             offerings=offerings,
+            network=network,
+            ssh_key_name=ssh_key_name,
+            system_volume_size=system_volume_size,
+            customer_uuid=customer_uuid,
+            category_uuid=category_uuid,
+            state=state,
         )
 
         chat_response.additional_properties = d

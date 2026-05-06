@@ -14,18 +14,18 @@ T = TypeVar("T", bound="ResourceMissingUsage")
 class ResourceMissingUsage:
     """
     Attributes:
-        uuid (UUID): UUID of the resource
-        name (str): Name of the resource
-        state (str): Current state of the resource
-        created (datetime.datetime): Creation date of the resource
-        offering_name (str): Name of the offering
-        offering_uuid (UUID): UUID of the offering
-        provider_name (str): Name of the service provider
-        provider_uuid (UUID): UUID of the service provider
-        customer_name (str): Name of the customer organization
-        customer_uuid (UUID): UUID of the customer organization
-        project_name (str): Name of the project
-        project_uuid (UUID): UUID of the project
+        uuid (UUID):
+        name (str):
+        state (str):
+        created (datetime.datetime):
+        offering_name (str):
+        offering_uuid (UUID):
+        provider_name (str):
+        provider_uuid (UUID):
+        customer_name (str):
+        customer_uuid (UUID):
+        project_name (str):
+        project_uuid (UUID):
         last_usage_date (Union[None, datetime.datetime]): Date of the last usage report
         days_since_last_report (Union[None, int]): Number of days since last usage report
     """

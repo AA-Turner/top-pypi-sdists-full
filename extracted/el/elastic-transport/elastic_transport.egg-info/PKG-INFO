@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elastic-transport
-Version: 9.2.1
+Version: 9.4.0
 Summary: Transport classes and utilities shared among Python Elastic client libraries
 Home-page: https://github.com/elastic/elastic-transport-python
 Author: Elastic Client Library Maintainers
@@ -25,7 +25,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: urllib3<3,>=1.26.2
+Requires-Dist: urllib3<3,>=2
 Requires-Dist: certifi
 Requires-Dist: sniffio
 Provides-Extra: develop

@@ -21,9 +21,12 @@ class OpenStackImage:
         name (str):
         settings (str):
         backend_id (str):
+        is_rescue_image (bool):
         min_disk (Union[Unset, int]): Minimum disk size in MiB
         min_ram (Union[Unset, int]): Minimum memory size in MiB
         backend_created_at (Union[None, Unset, datetime.datetime]):
+        hw_rescue_device (Union[Unset, str]): Glance hw_rescue_device property (cdrom/disk/floppy).
+        hw_rescue_bus (Union[Unset, str]): Glance hw_rescue_bus property (scsi/virtio/ide/usb).
     """
 
     url: str
@@ -31,9 +34,12 @@ class OpenStackImage:
     name: str
     settings: str
     backend_id: str
+    is_rescue_image: bool
     min_disk: Union[Unset, int] = UNSET
     min_ram: Union[Unset, int] = UNSET
     backend_created_at: Union[None, Unset, datetime.datetime] = UNSET
+    hw_rescue_device: Union[Unset, str] = UNSET
+    hw_rescue_bus: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,6 +53,8 @@ class OpenStackImage:
 
         backend_id = self.backend_id
 
+        is_rescue_image = self.is_rescue_image
+
         min_disk = self.min_disk
 
         min_ram = self.min_ram
@@ -59,6 +67,10 @@ class OpenStackImage:
         else:
             backend_created_at = self.backend_created_at
 
+        hw_rescue_device = self.hw_rescue_device
+
+        hw_rescue_bus = self.hw_rescue_bus
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -68,6 +80,7 @@ class OpenStackImage:
                 "name": name,
                 "settings": settings,
                 "backend_id": backend_id,
+                "is_rescue_image": is_rescue_image,
             }
         )
         if min_disk is not UNSET:
@@ -76,6 +89,10 @@ class OpenStackImage:
             field_dict["min_ram"] = min_ram
         if backend_created_at is not UNSET:
             field_dict["backend_created_at"] = backend_created_at
+        if hw_rescue_device is not UNSET:
+            field_dict["hw_rescue_device"] = hw_rescue_device
+        if hw_rescue_bus is not UNSET:
+            field_dict["hw_rescue_bus"] = hw_rescue_bus
 
         return field_dict
 
@@ -91,6 +108,8 @@ class OpenStackImage:
         settings = d.pop("settings")
 
         backend_id = d.pop("backend_id")
+
+        is_rescue_image = d.pop("is_rescue_image")
 
         min_disk = d.pop("min_disk", UNSET)
 
@@ -113,15 +132,22 @@ class OpenStackImage:
 
         backend_created_at = _parse_backend_created_at(d.pop("backend_created_at", UNSET))
 
+        hw_rescue_device = d.pop("hw_rescue_device", UNSET)
+
+        hw_rescue_bus = d.pop("hw_rescue_bus", UNSET)
+
         open_stack_image = cls(
             url=url,
             uuid=uuid,
             name=name,
             settings=settings,
             backend_id=backend_id,
+            is_rescue_image=is_rescue_image,
             min_disk=min_disk,
             min_ram=min_ram,
             backend_created_at=backend_created_at,
+            hw_rescue_device=hw_rescue_device,
+            hw_rescue_bus=hw_rescue_bus,
         )
 
         open_stack_image.additional_properties = d

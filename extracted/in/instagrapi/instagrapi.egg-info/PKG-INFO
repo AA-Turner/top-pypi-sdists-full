@@ -1,11 +1,14 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.5.11
+Version: 2.5.13
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
-Project-URL: Homepage, https://github.com/subzeroid/instagrapi
+Project-URL: Homepage, https://instagrapi.com
 Project-URL: Repository, https://github.com/subzeroid/instagrapi
+Project-URL: Documentation, https://subzeroid.github.io/instagrapi/
+Project-URL: Issues, https://github.com/subzeroid/instagrapi/issues
+Project-URL: Guides, https://instagrapi.com/guides/
 Keywords: instagram private api,instagram-private-api,instagram api,instagram-api,instagram,instagram-scraper,instagram-client,instagram-stories,instagram-feed,instagram-reels,instagram-insights,downloader,uploader,videos,photos,albums,igtv,reels,stories,pictures,instagram-user-photos,instagram-photos,instagram-metadata,instagram-downloader,instagram-uploader,instagram-note
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -18,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests==2.33.0
+Requires-Dist: requests==2.33.1
 Requires-Dist: PySocks==1.7.1
 Requires-Dist: pydantic==2.13.3
 Requires-Dist: moviepy==1.0.3
@@ -26,8 +29,8 @@ Requires-Dist: pycryptodomex==3.23.0
 Provides-Extra: test
 Requires-Dist: flake8==7.3.0; extra == "test"
 Requires-Dist: Pillow==12.2.0; extra == "test"
-Requires-Dist: isort==7.0.0; extra == "test"
-Requires-Dist: bandit==1.8.6; extra == "test"
+Requires-Dist: isort==8.0.1; extra == "test"
+Requires-Dist: bandit==1.9.4; extra == "test"
 Requires-Dist: mike==2.2.0; extra == "test"
 Requires-Dist: setuptools==82.0.1; extra == "test"
 Requires-Dist: markdown-include==0.8.1; extra == "test"
@@ -38,6 +41,8 @@ Requires-Dist: pytest==9.0.3; extra == "test"
 Dynamic: license-file
 
 # instagrapi
+
+> ⚠️ **Telegram support group moved to https://t.me/aiograpi_support** — the previous `@instagrapi` group has been restricted by Meta and is no longer maintained.
 
 [![PyPI](https://img.shields.io/pypi/v/instagrapi)](https://pypi.org/project/instagrapi/)
 [![Python](https://img.shields.io/pypi/pyversions/instagrapi)](https://pypi.org/project/instagrapi/)
@@ -175,10 +180,15 @@ cl.delete_note(note.id)
 * Works with users, media, comments, locations, hashtags, collections, notes, direct messages, and insights
 * Supports story building with mentions, hashtags, link stickers, and media stickers
 * Includes helpers for current location search and notes flows
+* App-side discovery surfaces: `chaining`, `fetch_suggestion_details`, `discover_recommended_accounts_for_category_v1`, `user_stream_*`, `user_web_profile_info_v1`
+* v2 search SERPs: `fbsearch_accounts_v2`, `fbsearch_reels_v2`, `fbsearch_topsearch_v2`, `fbsearch_typehead`
+* Alternative media-info path (`media_info_v2`) for ad-tagged / sponsored media that the canonical endpoint refuses
 
 Anonymous/public web paths are best treated as opportunistic rather than guaranteed. Instagram can change or restrict them independently of the library, so production-grade workflows should prefer authenticated sessions.
 
 ## Documentation And Support
+
+API reference and full usage guide live at [subzeroid.github.io/instagrapi](https://subzeroid.github.io/instagrapi/):
 
 * [Documentation index](https://subzeroid.github.io/instagrapi/)
 * [Getting Started](https://subzeroid.github.io/instagrapi/getting-started.html)
@@ -187,9 +197,29 @@ Anonymous/public web paths are best treated as opportunistic rather than guarant
 * [Best Practices](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html) for sessions, proxies, and anti-abuse handling
 * [Handle Exceptions](https://subzeroid.github.io/instagrapi/usage-guide/handle_exception.html) for centralizing `429`, challenge, and relogin logic
 * [GitHub Discussions](https://github.com/subzeroid/instagrapi/discussions)
-* [Support chat in Telegram](https://t.me/instagrapi)
+* Support chat in Telegram: https://t.me/aiograpi_support — the previous `@instagrapi` group was restricted by Meta and is no longer maintained
 
 For other languages, consider [instagrapi-rest](https://github.com/subzeroid/instagrapi-rest). For async Python, see [aiograpi](https://github.com/subzeroid/aiograpi).
+
+## Tutorials
+
+Hands-on guides for real instagrapi work — login flows, sessions, proxies, scraping, posting, error handling — live at [instagrapi.com/guides](https://instagrapi.com/guides/):
+
+* [Instagram Private API in Python](https://instagrapi.com/guides/instagram-private-api-python/) — pillar walkthrough: login, sessions, fetching, posting
+* [2FA and `challenge_required`](https://instagrapi.com/guides/instagrapi-2fa-challenge/)
+* [Session persistence: file, Redis, and Postgres patterns](https://instagrapi.com/guides/instagrapi-session-persistence/)
+* [Configuring proxies (HTTP, SOCKS5, residential)](https://instagrapi.com/guides/instagrapi-proxy-setup/)
+* [Instagram scraper in Python: a working setup](https://instagrapi.com/guides/instagram-scraper-python/)
+* [Upload a photo from Python](https://instagrapi.com/guides/instagrapi-upload-photo-python/)
+* [Download Instagram stories](https://instagrapi.com/guides/instagrapi-download-stories-python/)
+* [Common errors reference](https://instagrapi.com/guides/errors/) — `challenge_required`, `login_required`, `please_wait_a_few_minutes`, `feedback_required`, `proxy_address_is_blocked`
+* [Framework integrations](https://instagrapi.com/guides/integrations/) — Django, FastAPI, Celery, Docker, AWS Lambda
+
+Comparing instagrapi to other tools:
+
+* [instagrapi vs Instaloader](https://instagrapi.com/compare/instaloader/) — download-only vs authenticated automation
+* [instagrapi vs aiograpi](https://instagrapi.com/guides/instagrapi-vs-aiograpi/) — sync or async
+* [Instagram API libraries by language](https://instagrapi.com/guides/instagram-api-libraries-by-language/) — what's actually maintained in 2026
 
 
 <details>

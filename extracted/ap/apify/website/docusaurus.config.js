@@ -44,7 +44,7 @@ module.exports = {
     scripts: ['/js/custom.js', ...(config.scripts ?? [])],
     githubHost: 'github.com',
     future: {
-        experimental_faster: {
+        faster: {
             // ssgWorkerThreads: true,
             swcJsLoader: true,
             swcJsMinimizer: true,
@@ -68,6 +68,7 @@ module.exports = {
             '@apify/docs-theme',
             {
                 changelogFromRoot: true,
+                changelogDisplayedSidebar: 'sidebar',
                 subNavbar: {
                     title: 'SDK for Python',
                     items: [

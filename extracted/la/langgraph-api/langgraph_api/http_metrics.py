@@ -84,6 +84,7 @@ class HTTPMetricsCollector:
         project_id: str | None,
         revision_id: str | None,
         format: str = "prometheus",
+        deployment_type: str = "",
     ) -> dict | list[str]:
         if format == "json":
             return {
@@ -117,7 +118,7 @@ class HTTPMetricsCollector:
 
             for (method, path, status), count in self._request_counts.items():
                 metrics.append(
-                    f'lg_api_http_requests_total{{project_id="{project_id}", revision_id="{revision_id}", method="{method}", path="{path}", status="{status}"}} {count}'
+                    f'lg_api_http_requests_total{{project_id="{project_id}", revision_id="{revision_id}", deployment_type="{deployment_type}", method="{method}", path="{path}", status="{status}"}} {count}'
                 )
 
         # Histogram metrics
@@ -135,13 +136,13 @@ class HTTPMetricsCollector:
                     acc += bucket_count
                     bucket_label = self._histogram_bucket_labels[i]
                     metrics.append(
-                        f'lg_api_http_requests_latency_seconds_bucket{{project_id="{project_id}", revision_id="{revision_id}", method="{method}", path="{path}", le="{bucket_label}"}} {acc}'
+                        f'lg_api_http_requests_latency_seconds_bucket{{project_id="{project_id}", revision_id="{revision_id}", deployment_type="{deployment_type}", method="{method}", path="{path}", le="{bucket_label}"}} {acc}'
                     )
 
                 metrics.extend(
                     [
-                        f'lg_api_http_requests_latency_seconds_sum{{project_id="{project_id}", revision_id="{revision_id}", method="{method}", path="{path}"}} {hist_data["sum"]:.6f}',
-                        f'lg_api_http_requests_latency_seconds_count{{project_id="{project_id}", revision_id="{revision_id}", method="{method}", path="{path}"}} {hist_data["count"]}',
+                        f'lg_api_http_requests_latency_seconds_sum{{project_id="{project_id}", revision_id="{revision_id}", deployment_type="{deployment_type}", method="{method}", path="{path}"}} {hist_data["sum"]:.6f}',
+                        f'lg_api_http_requests_latency_seconds_count{{project_id="{project_id}", revision_id="{revision_id}", deployment_type="{deployment_type}", method="{method}", path="{path}"}} {hist_data["count"]}',
                     ]
                 )
 

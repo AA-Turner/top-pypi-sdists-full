@@ -63,6 +63,7 @@ class ResourceFieldEnum(str, Enum):
     PROJECT_EFFECTIVE_END_DATE = "project_effective_end_date"
     PROJECT_END_DATE = "project_end_date"
     PROJECT_END_DATE_REQUESTED_BY = "project_end_date_requested_by"
+    PROJECT_IS_IN_GRACE_PERIOD = "project_is_in_grace_period"
     PROJECT_NAME = "project_name"
     PROJECT_SLUG = "project_slug"
     PROJECT_UUID = "project_uuid"

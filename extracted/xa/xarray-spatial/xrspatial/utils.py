@@ -63,7 +63,9 @@ def _validate_raster(
     ndim : int, tuple of int, or None
         Allowed number of dimensions.  ``None`` skips the check.
     numeric : bool
-        If True, require a numeric dtype (int or float).
+        If True, require a real numeric dtype (integer or float).
+        Complex dtypes are rejected because xrspatial operations
+        assume real-valued raster data.
     integer_only : bool
         If True, require an integer dtype specifically.
 
@@ -97,10 +99,13 @@ def _validate_raster(
                     f"got {agg.dtype}"
                 )
         else:
-            if not np.issubdtype(agg.dtype, np.number):
+            if (
+                not np.issubdtype(agg.dtype, np.number)
+                or np.issubdtype(agg.dtype, np.complexfloating)
+            ):
                 raise ValueError(
-                    f"{func_name}(): `{name}` must have a numeric dtype "
-                    f"(integer or float), got {agg.dtype}"
+                    f"{func_name}(): `{name}` must have a real numeric "
+                    f"dtype (integer or float), got {agg.dtype}"
                 )
 
 
@@ -337,6 +342,23 @@ class ArrayTypeFunctionMapping(object):
             raise TypeError("Unsupported Array Type: {}".format(type(arr)))
 
 
+def _classify_backend(arr):
+    """Classify a DataArray's backing storage into one of four buckets that
+    line up with ``ArrayTypeFunctionMapping``: ``"numpy"``, ``"cupy"``,
+    ``"dask+numpy"``, or ``"dask+cupy"``. Returns ``"unknown"`` for anything
+    else so the caller can surface a clear error."""
+    data = arr.data
+    if has_dask_array() and isinstance(data, da.Array):
+        if is_cupy_backed(arr):
+            return "dask+cupy"
+        return "dask+numpy"
+    if is_cupy_array(data):
+        return "cupy"
+    if isinstance(data, np.ndarray):
+        return "numpy"
+    return "unknown"
+
+
 def validate_arrays(*arrays):
     if len(arrays) < 2:
         raise ValueError(
@@ -344,13 +366,20 @@ def validate_arrays(*arrays):
         )
 
     first_array = arrays[0]
+    first_backend = _classify_backend(first_array)
     for i in range(1, len(arrays)):
 
         if not first_array.data.shape == arrays[i].data.shape:
             raise ValueError("input arrays must have equal shapes")
 
-        if not isinstance(first_array.data, type(arrays[i].data)):
-            raise ValueError("input arrays must have same type")
+        other_backend = _classify_backend(arrays[i])
+        if first_backend != other_backend:
+            raise ValueError(
+                "input arrays must share the same backend; got "
+                "'{}' (array 0) and '{}' (array {})".format(
+                    first_backend, other_backend, i
+                )
+            )
 
     # ensure dask chunksizes of all arrays are the same
     if has_dask_array() and isinstance(first_array.data, da.Array):

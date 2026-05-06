@@ -58,9 +58,11 @@ class OrderDetails:
         cost (Union[None, Unset, str]):
         state (Union[Unset, OrderState]):
         output (Union[Unset, str]):
+        output_updated_at (Union[None, Unset, datetime.datetime]):
         marketplace_resource_uuid (Union[Unset, UUID]):
         error_message (Union[Unset, str]):
         error_traceback (Union[Unset, str]):
+        error_updated_at (Union[None, Unset, datetime.datetime]):
         callback_url (Union[None, Unset, str]):
         completed_at (Union[None, Unset, datetime.datetime]):
         request_comment (Union[None, Unset, str]):
@@ -151,9 +153,11 @@ class OrderDetails:
     cost: Union[None, Unset, str] = UNSET
     state: Union[Unset, OrderState] = UNSET
     output: Union[Unset, str] = UNSET
+    output_updated_at: Union[None, Unset, datetime.datetime] = UNSET
     marketplace_resource_uuid: Union[Unset, UUID] = UNSET
     error_message: Union[Unset, str] = UNSET
     error_traceback: Union[Unset, str] = UNSET
+    error_updated_at: Union[None, Unset, datetime.datetime] = UNSET
     callback_url: Union[None, Unset, str] = UNSET
     completed_at: Union[None, Unset, datetime.datetime] = UNSET
     request_comment: Union[None, Unset, str] = UNSET
@@ -324,6 +328,14 @@ class OrderDetails:
 
         output = self.output
 
+        output_updated_at: Union[None, Unset, str]
+        if isinstance(self.output_updated_at, Unset):
+            output_updated_at = UNSET
+        elif isinstance(self.output_updated_at, datetime.datetime):
+            output_updated_at = self.output_updated_at.isoformat()
+        else:
+            output_updated_at = self.output_updated_at
+
         marketplace_resource_uuid: Union[Unset, str] = UNSET
         if not isinstance(self.marketplace_resource_uuid, Unset):
             marketplace_resource_uuid = str(self.marketplace_resource_uuid)
@@ -331,6 +343,14 @@ class OrderDetails:
         error_message = self.error_message
 
         error_traceback = self.error_traceback
+
+        error_updated_at: Union[None, Unset, str]
+        if isinstance(self.error_updated_at, Unset):
+            error_updated_at = UNSET
+        elif isinstance(self.error_updated_at, datetime.datetime):
+            error_updated_at = self.error_updated_at.isoformat()
+        else:
+            error_updated_at = self.error_updated_at
 
         callback_url: Union[None, Unset, str]
         if isinstance(self.callback_url, Unset):
@@ -627,12 +647,16 @@ class OrderDetails:
             field_dict["state"] = state
         if output is not UNSET:
             field_dict["output"] = output
+        if output_updated_at is not UNSET:
+            field_dict["output_updated_at"] = output_updated_at
         if marketplace_resource_uuid is not UNSET:
             field_dict["marketplace_resource_uuid"] = marketplace_resource_uuid
         if error_message is not UNSET:
             field_dict["error_message"] = error_message
         if error_traceback is not UNSET:
             field_dict["error_traceback"] = error_traceback
+        if error_updated_at is not UNSET:
+            field_dict["error_updated_at"] = error_updated_at
         if callback_url is not UNSET:
             field_dict["callback_url"] = callback_url
         if completed_at is not UNSET:
@@ -919,6 +943,23 @@ class OrderDetails:
 
         output = d.pop("output", UNSET)
 
+        def _parse_output_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                output_updated_at_type_0 = isoparse(data)
+
+                return output_updated_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        output_updated_at = _parse_output_updated_at(d.pop("output_updated_at", UNSET))
+
         _marketplace_resource_uuid = d.pop("marketplace_resource_uuid", UNSET)
         marketplace_resource_uuid: Union[Unset, UUID]
         if isinstance(_marketplace_resource_uuid, Unset):
@@ -929,6 +970,23 @@ class OrderDetails:
         error_message = d.pop("error_message", UNSET)
 
         error_traceback = d.pop("error_traceback", UNSET)
+
+        def _parse_error_updated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                error_updated_at_type_0 = isoparse(data)
+
+                return error_updated_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        error_updated_at = _parse_error_updated_at(d.pop("error_updated_at", UNSET))
 
         def _parse_callback_url(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -1332,9 +1390,11 @@ class OrderDetails:
             cost=cost,
             state=state,
             output=output,
+            output_updated_at=output_updated_at,
             marketplace_resource_uuid=marketplace_resource_uuid,
             error_message=error_message,
             error_traceback=error_traceback,
+            error_updated_at=error_updated_at,
             callback_url=callback_url,
             completed_at=completed_at,
             request_comment=request_comment,

@@ -35,8 +35,8 @@ class ProjectEstimatedCostPolicy:
         affected_resources_count (int):
         limit_cost (int):
         period_name (str):
-        project_credit (Union[None, float]):
-        customer_credit (Union[None, float]):
+        project_credit (Union[None, str]):
+        customer_credit (Union[None, str]):
         billing_price_estimate (NestedPriceEstimate):
         options (Union[Unset, Any]): Fields for saving actions extra data. Keys are name of actions.
         period (Union[Unset, PolicyPeriodEnum]):
@@ -56,8 +56,8 @@ class ProjectEstimatedCostPolicy:
     affected_resources_count: int
     limit_cost: int
     period_name: str
-    project_credit: Union[None, float]
-    customer_credit: Union[None, float]
+    project_credit: Union[None, str]
+    customer_credit: Union[None, str]
     billing_price_estimate: "NestedPriceEstimate"
     options: Union[Unset, Any] = UNSET
     period: Union[Unset, PolicyPeriodEnum] = UNSET
@@ -92,10 +92,10 @@ class ProjectEstimatedCostPolicy:
 
         period_name = self.period_name
 
-        project_credit: Union[None, float]
+        project_credit: Union[None, str]
         project_credit = self.project_credit
 
-        customer_credit: Union[None, float]
+        customer_credit: Union[None, str]
         customer_credit = self.customer_credit
 
         billing_price_estimate = self.billing_price_estimate.to_dict()
@@ -169,17 +169,17 @@ class ProjectEstimatedCostPolicy:
 
         period_name = d.pop("period_name")
 
-        def _parse_project_credit(data: object) -> Union[None, float]:
+        def _parse_project_credit(data: object) -> Union[None, str]:
             if data is None:
                 return data
-            return cast(Union[None, float], data)
+            return cast(Union[None, str], data)
 
         project_credit = _parse_project_credit(d.pop("project_credit"))
 
-        def _parse_customer_credit(data: object) -> Union[None, float]:
+        def _parse_customer_credit(data: object) -> Union[None, str]:
             if data is None:
                 return data
-            return cast(Union[None, float], data)
+            return cast(Union[None, str], data)
 
         customer_credit = _parse_customer_credit(d.pop("customer_credit"))
 

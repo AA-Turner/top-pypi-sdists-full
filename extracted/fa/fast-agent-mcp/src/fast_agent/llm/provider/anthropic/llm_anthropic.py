@@ -4,7 +4,6 @@ import hashlib
 import inspect
 import json
 import os
-from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +32,7 @@ from opentelemetry.semconv._incubating.attributes import (
 )
 from opentelemetry.semconv_ai import LLMRequestTypeValues, SpanAttributes
 from opentelemetry.trace import Span, Status, StatusCode
+from pydantic import BaseModel
 
 from fast_agent.constants import (
     ANTHROPIC_ASSISTANT_RAW_CONTENT,
@@ -98,6 +98,7 @@ from fast_agent.llm.reasoning_effort import (
 )
 from fast_agent.llm.stream_types import StreamChunk
 from fast_agent.llm.structured_output_mode import StructuredOutputMode
+from fast_agent.llm.structured_schema import sanitize_structured_output_schema
 from fast_agent.llm.task_budget import (
     format_task_budget_tokens,
     parse_task_budget_tokens,
@@ -383,35 +384,14 @@ def _save_stream_chunk(filename_base: Path | None, chunk: Any) -> None:
         logger.debug(f"Failed to save stream chunk: {e}")
 
 
+def _transform_anthropic_schema(schema: type[BaseModel] | dict[str, Any]) -> dict[str, Any]:
+    """Return an Anthropic-compatible schema using the SDK's schema transformer."""
+    return transform_schema(schema)
+
+
 def _ensure_additional_properties_false(schema: dict[str, Any]) -> dict[str, Any]:
     """Ensure object schemas use Anthropic-compatible additionalProperties=false."""
-    result = deepcopy(schema)
-
-    def visit(node: Any) -> None:
-        if isinstance(node, dict):
-            if node.get("type") == "object" and node.get("additionalProperties") is not False:
-                node["additionalProperties"] = False
-
-            for key, value in node.items():
-                if key in {"properties", "$defs", "definitions", "patternProperties"}:
-                    if isinstance(value, dict):
-                        for child in value.values():
-                            visit(child)
-                    continue
-                if key in {"items", "anyOf", "oneOf", "allOf"}:
-                    if isinstance(value, list):
-                        for child in value:
-                            visit(child)
-                    else:
-                        visit(value)
-                    continue
-                visit(value)
-        elif isinstance(node, list):
-            for item in node:
-                visit(item)
-
-    visit(result)
-    return result
+    return sanitize_structured_output_schema(schema, additional_properties_false=True)
 
 
 class AnthropicLLM(FastAgentLLM[MessageParam, Message]):
@@ -898,6 +878,25 @@ class AnthropicLLM(FastAgentLLM[MessageParam, Message]):
             return "tool_use"
         return "tool_use"
 
+    def _resolve_structured_tool_policy(
+        self,
+        request_params: RequestParams,
+    ) -> Literal["always", "defer", "no_tools"]:
+        if request_params.structured_tool_policy != "auto":
+            return request_params.structured_tool_policy
+
+        model_name = request_params.model or self.default_request_params.model or self._model_name
+        if model_name:
+            structured_mode = self._resolve_structured_output_mode(
+                model_name,
+                None,
+                request_params.structured_schema,
+            )
+            if structured_mode == "tool_use":
+                return "no_tools"
+
+        return super()._resolve_structured_tool_policy(request_params)
+
     def _is_auto_tool_use_structured_fallback(
         self,
         model: str,
@@ -922,14 +921,11 @@ class AnthropicLLM(FastAgentLLM[MessageParam, Message]):
         structured_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if structured_schema is not None:
-            schema = structured_schema
+            schema = _transform_anthropic_schema(structured_schema)
         elif structured_model is not None:
-            try:
-                schema = transform_schema(structured_model)
-            except Exception:
-                schema = structured_model.model_json_schema()
+            schema = _transform_anthropic_schema(cast("type[BaseModel]", structured_model))
         else:
-            schema = {"type": "object"}
+            schema = _transform_anthropic_schema({"type": "object"})
         schema = _ensure_additional_properties_false(schema)
         return {"type": "json_schema", "schema": schema}
 
@@ -962,17 +958,14 @@ class AnthropicLLM(FastAgentLLM[MessageParam, Message]):
                 )
             schema: dict[str, object]
             if structured_schema is not None:
-                schema = cast(
-                    "dict[str, object]",
-                    _ensure_additional_properties_false(structured_schema),
-                )
+                schema = cast("dict[str, object]", _transform_anthropic_schema(structured_schema))
             elif structured_model is not None:
                 schema = cast(
                     "dict[str, object]",
-                    _ensure_additional_properties_false(structured_model.model_json_schema()),
+                    _transform_anthropic_schema(cast("type[BaseModel]", structured_model)),
                 )
             else:
-                schema = {"type": "object"}
+                schema = cast("dict[str, object]", _transform_anthropic_schema({"type": "object"}))
             return [
                 ToolParam(
                     name=STRUCTURED_OUTPUT_TOOL_NAME,
@@ -2293,9 +2286,7 @@ class AnthropicLLM(FastAgentLLM[MessageParam, Message]):
         request_params: RequestParams,
         tools: list[Tool] | None = None,
     ) -> tuple[list[PromptMessageExtended], RequestParams]:
-        if not request_params.structured_schema or not tools:
-            return messages, request_params
-        if any(message.tool_results for message in messages):
+        if not self._should_suppress_structured_schema_for_tools(messages, request_params, tools):
             return messages, request_params
         return messages, request_params.model_copy(update={"structured_schema": None})
 

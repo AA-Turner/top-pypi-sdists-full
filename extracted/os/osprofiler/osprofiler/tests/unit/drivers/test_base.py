@@ -18,7 +18,6 @@ from osprofiler.tests import test
 
 
 class NotifierBaseTestCase(test.TestCase):
-
     def test_factory(self):
 
         class A(base.Driver):
@@ -26,15 +25,14 @@ class NotifierBaseTestCase(test.TestCase):
             def get_name(cls):
                 return "a"
 
-            def notify(self, a):
+            def notify(self, a):  # type: ignore[override]
                 return a
 
-        self.assertEqual(10, base.get_driver("a://").notify(10))
+        self.assertEqual(10, base.get_driver("a://").notify(10))  # type: ignore[arg-type, func-returns-value]
 
     def test_factory_with_args(self):
 
         class B(base.Driver):
-
             def __init__(self, c_str, a, b=10):
                 self.a = a
                 self.b = b
@@ -43,15 +41,17 @@ class NotifierBaseTestCase(test.TestCase):
             def get_name(cls):
                 return "b"
 
-            def notify(self, c):
+            def notify(self, c):  # type: ignore[override]
                 return self.a + self.b + c
 
-        self.assertEqual(22, base.get_driver("b://", 5, b=7).notify(10))
+        self.assertEqual(22, base.get_driver("b://", 5, b=7).notify(10))  # type: ignore[arg-type, func-returns-value]
 
     def test_driver_not_found(self):
-        self.assertRaises(ValueError, base.get_driver,
-                          "Driver not found for connection string: "
-                          "nonexisting://")
+        self.assertRaises(
+            ValueError,
+            base.get_driver,
+            "Driver not found for connection string: nonexisting://",
+        )
 
     def test_build_empty_tree(self):
         class C(base.Driver):
@@ -73,12 +73,21 @@ class NotifierBaseTestCase(test.TestCase):
             "21": {"parent_id": "2", "trace_id": "21", "info": {"started": 6}},
             "22": {"parent_id": "2", "trace_id": "22", "info": {"started": 7}},
             "11": {"parent_id": "1", "trace_id": "11", "info": {"started": 1}},
-            "113": {"parent_id": "11", "trace_id": "113",
-                    "info": {"started": 3}},
-            "112": {"parent_id": "11", "trace_id": "112",
-                    "info": {"started": 2}},
-            "114": {"parent_id": "11", "trace_id": "114",
-                    "info": {"started": 5}}
+            "113": {
+                "parent_id": "11",
+                "trace_id": "113",
+                "info": {"started": 3},
+            },
+            "112": {
+                "parent_id": "11",
+                "trace_id": "112",
+                "info": {"started": 2},
+            },
+            "114": {
+                "parent_id": "11",
+                "trace_id": "114",
+                "info": {"started": 5},
+            },
         }
 
         expected_output = [
@@ -92,28 +101,49 @@ class NotifierBaseTestCase(test.TestCase):
                         "trace_id": "11",
                         "info": {"started": 1},
                         "children": [
-                            {"parent_id": "11", "trace_id": "112",
-                             "info": {"started": 2}, "children": []},
-                            {"parent_id": "11", "trace_id": "113",
-                             "info": {"started": 3}, "children": []},
-                            {"parent_id": "11", "trace_id": "114",
-                             "info": {"started": 5}, "children": []}
-                        ]
+                            {
+                                "parent_id": "11",
+                                "trace_id": "112",
+                                "info": {"started": 2},
+                                "children": [],
+                            },
+                            {
+                                "parent_id": "11",
+                                "trace_id": "113",
+                                "info": {"started": 3},
+                                "children": [],
+                            },
+                            {
+                                "parent_id": "11",
+                                "trace_id": "114",
+                                "info": {"started": 5},
+                                "children": [],
+                            },
+                        ],
                     }
-                ]
+                ],
             },
             {
                 "parent_id": "0",
                 "trace_id": "2",
                 "info": {"started": 1},
                 "children": [
-                    {"parent_id": "2", "trace_id": "21",
-                     "info": {"started": 6}, "children": []},
-                    {"parent_id": "2", "trace_id": "22",
-                     "info": {"started": 7}, "children": []}
-                ]
-            }
+                    {
+                        "parent_id": "2",
+                        "trace_id": "21",
+                        "info": {"started": 6},
+                        "children": [],
+                    },
+                    {
+                        "parent_id": "2",
+                        "trace_id": "22",
+                        "info": {"started": 7},
+                        "children": [],
+                    },
+                ],
+            },
         ]
 
         self.assertEqual(
-            expected_output, base.get_driver("d://")._build_tree(test_input))
+            expected_output, base.get_driver("d://")._build_tree(test_input)
+        )

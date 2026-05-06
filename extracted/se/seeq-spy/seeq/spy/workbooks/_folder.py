@@ -155,35 +155,9 @@ class Folder(ItemWithOwnerAndAcl):
             if home_folder is None:
                 # User hasn't logged in yet, so their home folder doesn't exist
                 # Create a dummy folder to trigger home folder creation, then archive it
-                if not context.dry_run:
-                    temp_folder_name = f'__temp_folder_for_home_creation__'
-                    status.log(f'User folder does not exist for {owner_id}, creating it')
-                    dummy_folder_input = FolderInputV1()
-                    dummy_folder_input.name = temp_folder_name
-                    dummy_folder_input.owner_id = owner_id
-                    dummy_folder_input.parent_folder_id = None
-
-                    dummy_folder = safely(lambda: folders_api.create_folder(body=dummy_folder_input),
-                                          action_description=f'create temporary folder for home folder creation',
-                                          status=status)
-
-                    if dummy_folder is not None:
-                        try:
-                            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=False),
-                                   action_description=f'archive temporary folder {dummy_folder.id}',
-                                   status=status)
-                        finally:
-                            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=True),
-                                   action_description=f'delete temporary folder {dummy_folder.id}',
-                                   status=status)
-
-                    # Clear cache and try again
-                    session.clear_user_folder_cache()
-                    home_folder = session.get_user_folder(owner_id)
-                    if home_folder is None:
-                        raise SPyRuntimeError(f'Could not find or create user folder for {owner}')
-                else:
-                    status.log(f'[Dry Run] Would create user folder for {owner_id}')
+                home_folder = create_user_folder_if_necessary(context, owner_id)
+                if not context.dry_run and home_folder is None:
+                    raise SPyRuntimeError(f'Could not find or create user folder for {owner}')
 
             if home_folder is not None:
                 item_map[self.id] = home_folder.id
@@ -254,7 +228,7 @@ class Folder(ItemWithOwnerAndAcl):
         if folder_output is not None:
             item_map[self.id] = folder_output.id
 
-            if context.access_control:
+            if context.current_params.access_control:
                 self._push_acl(context, folder_output.id, item_map)
 
         return folder_output
@@ -264,3 +238,39 @@ def check_for_reserved_folder_name(folder_name: str):
     if folder_name in SYNTHETIC_FOLDERS:
         raise SPyValueError(f'Folder name "{folder_name}" is reserved and cannot be used for a real folder. '
                             f'Please choose a different name.')
+
+
+def create_user_folder_if_necessary(context: WorkbookPushContext, user_id: str) -> Optional[FolderOutputV1]:
+    user_folder = context.session.get_user_folder(user_id)
+    if user_folder is not None:
+        return user_folder
+
+    if context.dry_run:
+        context.status.log(f'[Dry Run] User folder does not exist for {user_id}, would create it')
+        return None
+
+    temp_folder_name = f'__temp_folder_for_home_creation__'
+    context.status.log(f'User folder does not exist for {user_id}, creating it')
+    dummy_folder_input = FolderInputV1()
+    dummy_folder_input.name = temp_folder_name
+    dummy_folder_input.owner_id = user_id
+    dummy_folder_input.parent_folder_id = None
+
+    items_api = ItemsApi(context.session.client)
+    folders_api = FoldersApi(context.session.client)
+    dummy_folder = safely(lambda: folders_api.create_folder(body=dummy_folder_input),
+                          action_description=f'create temporary folder for home folder creation',
+                          status=context.status)
+
+    if dummy_folder is not None:
+        try:
+            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=False),
+                   action_description=f'archive temporary folder {dummy_folder.id}',
+                   status=context.status)
+        finally:
+            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=True),
+                   action_description=f'delete temporary folder {dummy_folder.id}',
+                   status=context.status)
+
+    context.session.clear_user_folder_cache()
+    return context.session.get_user_folder(user_id)

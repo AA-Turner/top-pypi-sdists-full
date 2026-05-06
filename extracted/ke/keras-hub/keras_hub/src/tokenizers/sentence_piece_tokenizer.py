@@ -11,7 +11,6 @@ from keras_hub.src.utils.tensor_utils import convert_to_ragged_batch
 from keras_hub.src.utils.tensor_utils import is_int_dtype
 from keras_hub.src.utils.tensor_utils import is_string_dtype
 from keras_hub.src.utils.tensor_utils import preprocessing_function
-from keras_hub.src.utils.tensor_utils import tensor_to_list
 
 try:
     import tensorflow as tf
@@ -21,6 +20,10 @@ try:
     import tensorflow_text as tf_text
 except ImportError:
     tf_text = None
+try:
+    import sentencepiece as spm
+except ImportError:
+    spm = None
 
 VOCAB_FILENAME = "vocabulary.spm"
 
@@ -133,6 +136,10 @@ class SentencePieceTokenizer(tokenizer.Tokenizer):
         if proto is None:
             self.proto = None
             self._sentence_piece = None
+            self._vocabulary = None
+            self._vocabulary_size = None
+            self._token_to_id_map = None
+            self._unk_token_id = None
             return
 
         if isinstance(proto, str):
@@ -178,21 +185,35 @@ class SentencePieceTokenizer(tokenizer.Tokenizer):
         # Keras cannot serialize a bytestring, so we base64 encode the model
         # byte array as a string for saving.
         self.proto = proto_bytes
+        # Use native sentencepiece to extract vocabulary metadata.
+        # This avoids TF ops (.numpy()), making this code safe in
+        # any execution context.
+        if spm is None:
+            raise ImportError(
+                "SentencePieceTokenizer requires the `sentencepiece` package. "
+                "Please install it with `pip install sentencepiece`."
+            )
+        sp = spm.SentencePieceProcessor()
+        sp.LoadFromSerializedProto(proto_bytes)
+        self._vocabulary_size = sp.vocab_size()
+        self._vocabulary = list(
+            sp.IdToPiece(list(range(self._vocabulary_size)))
+        )
+        self._token_to_id_map = {
+            token: id for id, token in enumerate(self._vocabulary)
+        }
+        self._unk_token_id = sp.unk_id()
         self._update_special_token_ids()
 
     def vocabulary_size(self):
         """Get the integer size of the tokenizer vocabulary."""
         self._check_vocabulary()
-        return int(self._sentence_piece.vocab_size().numpy())
+        return self._vocabulary_size
 
     def get_vocabulary(self):
         """Get the tokenizer vocabulary."""
         self._check_vocabulary()
-        return tensor_to_list(
-            self._sentence_piece.id_to_string(
-                tf.range(int(self._sentence_piece.vocab_size().numpy()))
-            )
-        )
+        return list(self._vocabulary)
 
     def id_to_token(self, id):
         """Convert an integer id to a string token."""
@@ -202,12 +223,18 @@ class SentencePieceTokenizer(tokenizer.Tokenizer):
                 f"`id` must be in range [0, {self.vocabulary_size() - 1}]. "
                 f"Received: {id}"
             )
-        return tensor_to_list(self._sentence_piece.id_to_string(id))
+        return self._vocabulary[id]
 
     def token_to_id(self, token):
         """Convert a string token to an integer id."""
         self._check_vocabulary()
-        return int(self._sentence_piece.string_to_id(token).numpy())
+        if hasattr(token, "numpy"):
+            token = token.numpy()
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
+        # Return unk_id for unknown tokens, matching the original
+        # SentencePiece `string_to_id()` behavior.
+        return self._token_to_id_map.get(token, self._unk_token_id)
 
     def get_config(self):
         config = super().get_config()
@@ -235,12 +262,6 @@ class SentencePieceTokenizer(tokenizer.Tokenizer):
         unbatched = inputs.shape.rank == 0
         if unbatched:
             inputs = tf.expand_dims(inputs, 0)
-
-        if self._sentence_piece is None:
-            raise ValueError(
-                "No vocabulary has been set for SentencePieceTokenizer. Make "
-                "sure to pass a `vocabulary` argument when creating the layer."
-            )
 
         tokens = self._sentence_piece.tokenize(inputs)
 

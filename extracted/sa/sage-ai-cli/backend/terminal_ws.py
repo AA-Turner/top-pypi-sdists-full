@@ -395,40 +395,49 @@ def _require_terminal_auth(
     production_mode: bool,
     valid_tokens: set[str] | None = None
 ) -> bool:
-    """Require authentication for terminal WebSocket in production mode.
+    """Require authentication for terminal WebSocket.
 
-    In development/demo mode, terminal is accessible without auth.
-    In production mode, requires valid admin token.
+    Accepts either:
+    - A valid Firebase ID token (any logged-in SAGE user)
+    - The admin_token secret (legacy / admin access)
 
-    Args:
-        token: The provided authentication token
-        production_mode: Whether running in production mode
-        valid_tokens: Set of valid tokens to check against (for testing)
-
-    Returns:
-        True if authorized, False otherwise
+    In development mode, allows unauthenticated access.
     """
     from backend.config import settings
 
-    # If test mode with valid_tokens provided, use that
+    # Test mode override
     if valid_tokens is not None:
         return token in valid_tokens
 
-    # In development/demo mode, allow unauthenticated access
-    # This enables the WebGL terminal demo on the website
+    # Development mode — open access for local testing
     if not production_mode:
         return True
 
-    # Production mode: require authentication
     if not token:
         return False
 
-    expected = settings.admin_token.strip()
-    if not expected:
-        # Fail closed if no admin token configured in production
-        return False
+    # 1. Try Firebase ID token (standard user auth, same as all other endpoints)
+    try:
+        import os, httpx, time
 
-    return token == expected
+        _FIREBASE_API_KEY = os.environ.get("VITE_FIREBASE_API_KEY", "")
+        if _FIREBASE_API_KEY:
+            r = httpx.post(
+                f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={_FIREBASE_API_KEY}",
+                json={"idToken": token},
+                timeout=8,
+            )
+            if r.is_success and r.json().get("users"):
+                return True
+    except Exception:
+        pass
+
+    # 2. Fall back to admin_token secret
+    expected = (settings.admin_token or "").strip()
+    if expected and token == expected:
+        return True
+
+    return False
 
 
 def _check_terminal_rate_limit(client_ip: str) -> tuple[bool, str]:
@@ -589,37 +598,46 @@ async def terminal_websocket_handler(websocket: WebSocket):
         session = TerminalSession(websocket)
 
     try:
-        update_result = await asyncio.to_thread(cli_updater.ensure_latest)
-        if update_result.updated:
-            await websocket.send_json({
-                "type": "update_applied",
-                "info": {
-                    "current_version": update_result.current,
-                    "latest_version": update_result.latest,
-                    "message": update_result.message,
-                },
-            })
-        elif update_result.attempted and not update_result.ok:
-            await websocket.send_json({
-                "type": "update_failed",
-                "info": {
-                    "current_version": update_result.current,
-                    "latest_version": update_result.latest,
-                    "message": update_result.message,
-                },
-            })
-
-        # Check for updates and notify client (only for real terminal)
+        # Auto-update only makes sense for a real local PTY terminal (the user's
+        # machine). For simulated/Cloud Run sessions we skip it — running
+        # `pip install --upgrade` on the server from a WebSocket handler is
+        # slow, dangerous, and the user can't benefit from it anyway.
         if not use_simulated:
-            version_info = cli_updater.check_for_update()
-            if version_info.update_available:
-                await websocket.send_json({
-                    "type": "update_available",
-                    "info": {
-                        "current_version": version_info.current,
-                        "latest_version": version_info.latest,
-                    },
-                })
+            try:
+                update_result = await asyncio.wait_for(
+                    asyncio.to_thread(cli_updater.ensure_latest),
+                    timeout=15,
+                )
+                if update_result.updated:
+                    await websocket.send_json({
+                        "type": "update_applied",
+                        "info": {
+                            "current_version": update_result.current,
+                            "latest_version": update_result.latest,
+                            "message": update_result.message,
+                        },
+                    })
+                elif update_result.attempted and not update_result.ok:
+                    await websocket.send_json({
+                        "type": "update_failed",
+                        "info": {
+                            "current_version": update_result.current,
+                            "latest_version": update_result.latest,
+                            "message": update_result.message,
+                        },
+                    })
+
+                version_info = cli_updater.check_for_update()
+                if version_info.update_available:
+                    await websocket.send_json({
+                        "type": "update_available",
+                        "info": {
+                            "current_version": version_info.current,
+                            "latest_version": version_info.latest,
+                        },
+                    })
+            except (asyncio.TimeoutError, Exception) as e:
+                logger.debug("Update check skipped: %s", e)
 
         # Start terminal session
         try:

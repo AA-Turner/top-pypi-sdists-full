@@ -41,7 +41,6 @@ def _get_kwargs(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -129,11 +128,6 @@ def _get_kwargs(
 
     params["type"] = type_
 
-    json_uuid: Union[Unset, str] = UNSET
-    if not isinstance(uuid, Unset):
-        json_uuid = str(uuid)
-    params["uuid"] = json_uuid
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -202,7 +196,6 @@ def sync_detailed(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["OpenStackNetwork"]]:
     """List networks
 
@@ -235,7 +228,6 @@ def sync_detailed(
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         type_ (Union[Unset, str]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -272,7 +264,6 @@ def sync_detailed(
         tenant=tenant,
         tenant_uuid=tenant_uuid,
         type_=type_,
-        uuid=uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -311,7 +302,6 @@ def sync(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["OpenStackNetwork"]:
     """List networks
 
@@ -344,7 +334,6 @@ def sync(
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         type_ (Union[Unset, str]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -382,7 +371,6 @@ def sync(
         tenant=tenant,
         tenant_uuid=tenant_uuid,
         type_=type_,
-        uuid=uuid,
     ).parsed
 
 
@@ -415,7 +403,6 @@ async def asyncio_detailed(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["OpenStackNetwork"]]:
     """List networks
 
@@ -448,7 +435,6 @@ async def asyncio_detailed(
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         type_ (Union[Unset, str]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -485,7 +471,6 @@ async def asyncio_detailed(
         tenant=tenant,
         tenant_uuid=tenant_uuid,
         type_=type_,
-        uuid=uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -522,7 +507,6 @@ async def asyncio(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["OpenStackNetwork"]:
     """List networks
 
@@ -555,7 +539,6 @@ async def asyncio(
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         type_ (Union[Unset, str]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -594,7 +577,6 @@ async def asyncio(
             tenant=tenant,
             tenant_uuid=tenant_uuid,
             type_=type_,
-            uuid=uuid,
         )
     ).parsed
 
@@ -626,7 +608,6 @@ def sync_all(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["OpenStackNetwork"]:
     """Get All Pages
 
@@ -660,7 +641,6 @@ def sync_all(
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         type_ (Union[Unset, str]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -699,7 +679,6 @@ def sync_all(
         tenant=tenant,
         tenant_uuid=tenant_uuid,
         type_=type_,
-        uuid=uuid,
     )
 
     # Set page_size to maximum
@@ -771,7 +750,6 @@ async def asyncio_all(
     tenant: Union[Unset, str] = UNSET,
     tenant_uuid: Union[Unset, UUID] = UNSET,
     type_: Union[Unset, str] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["OpenStackNetwork"]:
     """Get All Pages (Async)
 
@@ -805,7 +783,6 @@ async def asyncio_all(
         tenant (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         type_ (Union[Unset, str]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -844,7 +821,6 @@ async def asyncio_all(
         tenant=tenant,
         tenant_uuid=tenant_uuid,
         type_=type_,
-        uuid=uuid,
     )
 
     # Set page_size to maximum

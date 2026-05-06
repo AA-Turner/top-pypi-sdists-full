@@ -52,7 +52,10 @@ CLOUD_API_ENDPOINT = os.getenv("CLOUD_API_ENDPOINT") or select_cloud_api_endpoin
 
 CLOUD_API_CLI_URL = f"{CLOUD_API_ENDPOINT}/cli"
 
-CLOUD_API_PROD_SHARED_TOKEN = os.getenv("ABSTRA_CLOUD_API_SHARED_TOKEN", "shared")
+_DEFAULT_DEV_SHARED_TOKEN = "shared-token-for-development-only"
+CLOUD_API_PROD_SHARED_TOKEN = os.getenv(
+    "ABSTRA_CLOUD_API_SHARED_TOKEN", _DEFAULT_DEV_SHARED_TOKEN
+)
 CLOUD_API_PROD_HEADERS = {"shared-token": CLOUD_API_PROD_SHARED_TOKEN}
 CLOUD_API_PROD_URL = f"{CLOUD_API_ENDPOINT}/apps"
 
@@ -77,6 +80,17 @@ WAITING_ROOM_URL = os.getenv("ABSTRA_WAITING_ROOM_URL") or ""
 IS_PRODUCTION = os.getenv("ABSTRA_ENVIRONMENT") == "production"
 IS_DEVELOPMENT = not IS_PRODUCTION
 EDITOR_MODE = os.getenv("ABSTRA_EDITOR_MODE") or "local"
+
+# WEB EDITOR HEARTBEAT (used to decide if the shared EFS storage of a
+# web-editor pod can be safely cleaned on startup — see
+# services/web_editor_heartbeat.py)
+# Defaults: write every 15 min (900 s); consider stale after 3 days (259200 s).
+WEB_EDITOR_HEARTBEAT_INTERVAL_SECONDS = int(
+    os.getenv("ABSTRA_WEB_EDITOR_HEARTBEAT_INTERVAL_SECONDS", 900)
+)
+WEB_EDITOR_HEARTBEAT_STALENESS_SECONDS = int(
+    os.getenv("ABSTRA_WEB_EDITOR_HEARTBEAT_STALENESS_SECONDS", 259200)
+)
 
 # FORMS CONFIG
 SHOW_WATERMARK = os.getenv("ABSTRA_SHOW_WATERMARK", "false") == "true"

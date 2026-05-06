@@ -47,8 +47,9 @@ class CodebaseEventController:
         cls, filepath: Path, event: FSEventType, content: Optional[str]
     ):
         absolute_root_path = Settings.root_path.resolve()
+        absolute_filepath = filepath.resolve()
         message = AbstraLibApiEditorCodebaseEventsMessage(
-            filepath=str(filepath.relative_to(absolute_root_path)),
+            filepath=str(absolute_filepath.relative_to(absolute_root_path)),
             event=event,
             content=content,
         )
@@ -65,6 +66,19 @@ class CodebaseEventController:
 
         for listener in failed:
             cls.unregister(listener)
+
+    @classmethod
+    def notify_requirements_changed(cls) -> None:
+        """Synthesize a 'requirements.txt changed' event so UI subscribers
+        (e.g. RequirementsEditor) refresh after pip install/uninstall —
+        which don't modify requirements.txt themselves and so wouldn't
+        trigger the file watcher.
+
+        We send content=None to match how FileWatcher emits: subscribers
+        only use filepath/event to decide whether to refetch.
+        """
+        path = Settings.root_path / "requirements.txt"
+        cls.broadcast_changes(path, "changed", None)
 
     def __init__(self, repositories: Repositories):
         self.repositories = repositories

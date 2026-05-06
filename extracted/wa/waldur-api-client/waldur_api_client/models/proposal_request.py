@@ -24,6 +24,7 @@ class ProposalRequest:
         project_has_civilian_purpose (Union[Unset, bool]):
         duration_in_days (Union[None, Unset, int]): Duration in days after provisioning of resources.
         oecd_fos_2007_code (Union[BlankEnum, None, OecdFos2007CodeEnum, Unset]):
+        science_sub_domain (Union[None, UUID, Unset]):
     """
 
     name: str
@@ -34,6 +35,7 @@ class ProposalRequest:
     project_has_civilian_purpose: Union[Unset, bool] = UNSET
     duration_in_days: Union[None, Unset, int] = UNSET
     oecd_fos_2007_code: Union[BlankEnum, None, OecdFos2007CodeEnum, Unset] = UNSET
+    science_sub_domain: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -65,6 +67,14 @@ class ProposalRequest:
         else:
             oecd_fos_2007_code = self.oecd_fos_2007_code
 
+        science_sub_domain: Union[None, Unset, str]
+        if isinstance(self.science_sub_domain, Unset):
+            science_sub_domain = UNSET
+        elif isinstance(self.science_sub_domain, UUID):
+            science_sub_domain = str(self.science_sub_domain)
+        else:
+            science_sub_domain = self.science_sub_domain
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -85,6 +95,8 @@ class ProposalRequest:
             field_dict["duration_in_days"] = duration_in_days
         if oecd_fos_2007_code is not UNSET:
             field_dict["oecd_fos_2007_code"] = oecd_fos_2007_code
+        if science_sub_domain is not UNSET:
+            field_dict["science_sub_domain"] = science_sub_domain
 
         return field_dict
 
@@ -137,6 +149,23 @@ class ProposalRequest:
 
         oecd_fos_2007_code = _parse_oecd_fos_2007_code(d.pop("oecd_fos_2007_code", UNSET))
 
+        def _parse_science_sub_domain(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                science_sub_domain_type_0 = UUID(data)
+
+                return science_sub_domain_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        science_sub_domain = _parse_science_sub_domain(d.pop("science_sub_domain", UNSET))
+
         proposal_request = cls(
             name=name,
             round_uuid=round_uuid,
@@ -146,6 +175,7 @@ class ProposalRequest:
             project_has_civilian_purpose=project_has_civilian_purpose,
             duration_in_days=duration_in_days,
             oecd_fos_2007_code=oecd_fos_2007_code,
+            science_sub_domain=science_sub_domain,
         )
 
         proposal_request.additional_properties = d

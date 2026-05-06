@@ -6,7 +6,7 @@ from abstra_internals.repositories.linter.rules import run_after_package_install
 from abstra_internals.services.requirements import (
     RequirementsRepository,
     create_requirement,
-    uninstall_requirement,
+    iter_uninstall_requirement,
 )
 from abstra_internals.usage import editor_usage
 
@@ -45,9 +45,7 @@ def get_editor_bp(controller: MainController):
     @bp.post("/install")
     def _install_requirements():
         requirements = RequirementsRepository.load()
-        streamer = requirements.install()
-        if streamer is None:
-            flask.abort(403)
+        streamer = requirements.iter_install()
 
         return flask.Response(
             _with_post_install_linters(streamer, controller),
@@ -57,9 +55,7 @@ def get_editor_bp(controller: MainController):
     @bp.post("/<name>/uninstall")
     def _uninstall_requirement(name: str):
         req = create_requirement(name)
-        streamer = uninstall_requirement(req)
-        if streamer is None:
-            flask.abort(403)
+        streamer = iter_uninstall_requirement(req)
         reqs = RequirementsRepository.load()
         reqs.delete(name)
         RequirementsRepository.save(reqs)

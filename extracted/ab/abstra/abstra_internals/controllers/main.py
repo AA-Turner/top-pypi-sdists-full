@@ -83,6 +83,7 @@ from abstra_internals.templates import (
     new_page_code,
     new_script_code,
 )
+from abstra_internals.utils.datetime import to_utc_iso_string
 from abstra_internals.utils.file import path2module
 from abstra_internals.utils.file_search import (
     find_files_by_glob,
@@ -2347,7 +2348,101 @@ class MainController:
     def get_executions(self, filter: ExecutionFilter):
         return self.execution_repository.list(filter)
 
+    def list_executions(
+        self,
+        status: Optional[str] = None,
+        stage_id: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict:
+        """
+        List recent executions in the editor.
+
+        Returns a slim summary of executions, optionally filtered by status
+        and/or stage. Useful for finding the id of a running execution to
+        inspect logs, fetch tasks, or stop it.
+
+        Args:
+            status (Optional[str]): Filter by execution status. One of
+                "running", "failed", "finished", "abandoned". If None,
+                executions of any status are returned.
+            stage_id (Optional[str]): Filter by the stage that produced the
+                execution. If None, executions from any stage are returned.
+            limit (int): Maximum number of executions to return. Defaults to 20.
+            offset (int): Number of executions to skip (for pagination).
+                Defaults to 0.
+
+        Returns:
+            dict: Dictionary containing:
+                - executions (list[dict]): Slim execution summaries, each with:
+                    - id (str): Execution id
+                    - stage_id (str): Id of the stage that produced it
+                    - status (str): Current execution status
+                    - created_at (str): UTC ISO timestamp of when it started
+                    - updated_at (Optional[str]): UTC ISO timestamp of the
+                      last status change, if any
+                - total_count (int): Total number of executions matching the
+                  filter (independent of limit/offset)
+
+        Example:
+            ```python
+            controller = MainController(repositories)
+
+            # All currently running executions
+            controller.list_executions(status="running")
+
+            # Last 50 executions for a given stage
+            controller.list_executions(stage_id="stage-123", limit=50)
+            ```
+
+        Copywritings:
+            List recent executions
+            Listing recent executions...
+        """
+        filter = ExecutionFilter(
+            status=status,
+            stage_id=stage_id,
+            limit=limit,
+            offset=offset,
+        )
+        response = self.execution_repository.list(filter)
+        return {
+            "executions": [
+                {
+                    "id": execution.id,
+                    "stage_id": execution.stage_id,
+                    "status": execution.status,
+                    "created_at": to_utc_iso_string(execution.created_at),
+                    "updated_at": (
+                        to_utc_iso_string(execution.updated_at)
+                        if execution.updated_at is not None
+                        else None
+                    ),
+                }
+                for execution in response.executions
+            ],
+            "total_count": response.total_count,
+        }
+
     def stop_execution(self, execution_id: str):
+        """
+        Stop a currently running execution by its ID.
+
+        This method terminates an in-progress stage execution. Locally, it
+        sends SIGTERM to the worker process (escalating to SIGKILL if the
+        process does not exit within ~2 seconds). In the web editor, it
+        publishes a control message to the worker to stop the execution.
+
+        Args:
+            execution_id (str): Unique identifier of the execution to stop.
+
+        Returns:
+            None: The execution will be stopped asynchronously.
+
+        Copywritings:
+            Stop a running execution
+            Stopping a running execution...
+        """
         self.execution_repository.stop_execution(execution_id)
 
     def get_execution_logs(self, id: str):
@@ -2757,8 +2852,8 @@ class MainController:
                         return False, None
 
                     from abstra_internals.agents.tools.browser import (
-                        _prepare_script,
                         _slim_element,
+                        _wrap_for_safe_eval,
                     )
 
                     if name == "get_html":
@@ -2790,7 +2885,7 @@ class MainController:
 
                     if name == "execute_javascript":
                         script = a[1] if len(a) > 1 else kw.get("script", "")
-                        return True, frame.evaluate(_prepare_script(script))
+                        return True, frame.evaluate(_wrap_for_safe_eval(script))
 
                     if name == "get_text":
                         selector = a[1] if len(a) > 1 else kw.get("selector", "")
@@ -3135,30 +3230,20 @@ class MainController:
         RequirementsRepository.save(requirements)
 
         # install the package
-        install_generator = requirements.install()
-        if install_generator is None:
-            return {
-                "status": "error",
-                "message": "Installation not allowed in this environment",
-                "requirements": requirements.to_dict(),
-            }
-
-        # output
-        installation_output = []
         try:
-            for output_line in install_generator:
-                installation_output.append(output_line)
-                if output_line == "__ABSTRA_STREAM_ERROR__":
-                    return {
-                        "status": "error",
-                        "message": f"Failed to install {name}",
-                        "output": installation_output,
-                        "requirements": requirements.to_dict(),
-                    }
+            installation_output = requirements.install()
         except Exception as e:
             return {
                 "status": "error",
                 "message": f"Installation failed: {e!s}",
+                "output": [],
+                "requirements": requirements.to_dict(),
+            }
+
+        if "__ABSTRA_STREAM_ERROR__" in installation_output:
+            return {
+                "status": "error",
+                "message": f"Failed to install {name}",
                 "output": installation_output,
                 "requirements": requirements.to_dict(),
             }

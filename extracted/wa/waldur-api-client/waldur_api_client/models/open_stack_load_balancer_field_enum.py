@@ -47,6 +47,7 @@ class OpenStackLoadBalancerFieldEnum(str, Enum):
     UUID = "uuid"
     VIP_ADDRESS = "vip_address"
     VIP_PORT = "vip_port"
+    VIP_SECURITY_GROUPS = "vip_security_groups"
     VIP_SUBNET = "vip_subnet"
 
     def __str__(self) -> str:

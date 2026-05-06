@@ -21,6 +21,7 @@ from seeq.spy._errors import *
 
 SEEQ_SDK_RETRY_TIMEOUT_IN_SECONDS_ENV_VAR_NAME = 'SEEQ_SDK_RETRY_TIMEOUT_IN_SECONDS'
 DEFAULT_REQUESTS_TIMEOUT = 90
+SAAS_AUTH_DATASOURCES = ['Seeq Saas Admin']
 
 
 @dataclass(repr=False)
@@ -39,7 +40,6 @@ class Session:
     >>> spy.login(url='https://server1.seeq.site', username='mark', password='markpassword', session=session1)
     >>> spy.login(url='https://server2.seeq.site', username='alex', password='alexpassword', session=session2)
     """
-    datasource_output_cache: dict
     _options: Options = None
     client_configuration: ClientConfiguration = None
     _client: Optional[ApiClient] = None
@@ -47,10 +47,12 @@ class Session:
     _public_url: Optional[str] = None
     _private_url: Optional[str] = None
     _server_version: Optional[str] = None
+    _datasources: Optional[Dict[str, DatasourceOutputV1]] = None
     _user_folders: Optional[Dict[str, FolderOutputV1]] = None
     supported_units: Optional[set] = None
     corporate_folder: Optional[FolderOutputV1] = None
     my_folder: Optional[FolderOutputV1] = None
+    _directories: Optional[Dict[str, DatasourceOutputV1]] = None
     auth_providers: Optional[List[DatasourceOutputV1]] = None
     https_verify_ssl: bool = True
     https_key_file: Optional[str] = None
@@ -59,7 +61,7 @@ class Session:
     def __init__(self, options: Options = None, client_configuration: ClientConfiguration = None):
         self.client_configuration = client_configuration if client_configuration is not None else ClientConfiguration()
         self.options = options if options is not None else Options(self.client_configuration)
-        self.datasource_output_cache = dict()
+        self._datasources = dict()
 
         # We have this mechanism so that test_run_notebooks() is able to increase the timeout for the child kernels
         if Session.get_global_sdk_retry_timeout_in_seconds() is not None:
@@ -148,6 +150,22 @@ class Session:
         else:
             return None
 
+    def populate_directories(self, client: ApiClient):
+        auth_api = AuthApi(client)
+        try:
+            auth_providers_output = auth_api.get_auth_providers(include_auth_provider_ids=SAAS_AUTH_DATASOURCES)
+        except TypeError:
+            # Older versions of Seeq SDK don't have the "include_auth_provider_ids" parameter
+            auth_providers_output = auth_api.get_auth_providers()
+        self.auth_providers = auth_providers_output.auth_providers
+        self._directories = {ds.name: ds for ds in self.auth_providers}
+
+    @property
+    def directories(self) -> Optional[Dict[str, DatasourceOutputV1]]:
+        if self._directories is None and self._client is not None:
+            self.populate_directories(self._client)
+        return self._directories
+
     def clear(self):
         """
         Re-initializes the object to a "logged out" state. Note that this
@@ -161,11 +179,12 @@ class Session:
         self.supported_units = None
         self.corporate_folder = None
         self.my_folder = None
+        self._directories = None
         self.auth_providers = None
-        self.datasource_output_cache = dict()
         self.https_verify_ssl = True
         self.https_key_file = None
         self.https_cert_file = None
+        self._datasources = dict()
         self._user_folders = None
 
     # Prior to the advent of Session objects, the spy.client, spy.user and spy.server_version module-level variables
@@ -390,6 +409,19 @@ class Session:
 
         self.client.set_default_header('x-sq-origin-url', value)
         self.client.set_default_header('Referer', value)
+
+    def clear_datasource_cache(self):
+        self._datasources = dict()
+
+    def get_datasource(self, _id: str) -> DatasourceOutputV1:
+        if not self.client:
+            raise SPyRuntimeError('get_datasource() requires logged in session')
+
+        if _id not in self._datasources:
+            datasources_api = DatasourcesApi(self.client)
+            self._datasources[_id] = datasources_api.get_datasource(id=_id)
+
+        return self._datasources[_id]
 
     def clear_user_folder_cache(self):
         self._user_folders = None

@@ -36,7 +36,6 @@ def _get_kwargs(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -111,11 +110,6 @@ def _get_kwargs(
 
     params["state"] = json_state
 
-    json_uuid: Union[Unset, str] = UNSET
-    if not isinstance(uuid, Unset):
-        json_uuid = str(uuid)
-    params["uuid"] = json_uuid
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -177,7 +171,6 @@ def sync_detailed(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Allocation"]]:
     """
     Args:
@@ -202,7 +195,6 @@ def sync_detailed(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -234,7 +226,6 @@ def sync_detailed(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -268,7 +259,6 @@ def sync(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["Allocation"]:
     """
     Args:
@@ -293,7 +283,6 @@ def sync(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -326,7 +315,6 @@ def sync(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
     ).parsed
 
 
@@ -354,7 +342,6 @@ async def asyncio_detailed(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Allocation"]]:
     """
     Args:
@@ -379,7 +366,6 @@ async def asyncio_detailed(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -411,7 +397,6 @@ async def asyncio_detailed(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -443,7 +428,6 @@ async def asyncio(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["Allocation"]:
     """
     Args:
@@ -468,7 +452,6 @@ async def asyncio(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -502,7 +485,6 @@ async def asyncio(
             service_settings_name=service_settings_name,
             service_settings_uuid=service_settings_uuid,
             state=state,
-            uuid=uuid,
         )
     ).parsed
 
@@ -529,7 +511,6 @@ def sync_all(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["Allocation"]:
     """Get All Pages
 
@@ -558,7 +539,6 @@ def sync_all(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -592,7 +572,6 @@ def sync_all(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
     )
 
     # Set page_size to maximum
@@ -659,7 +638,6 @@ async def asyncio_all(
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
-    uuid: Union[Unset, UUID] = UNSET,
 ) -> list["Allocation"]:
     """Get All Pages (Async)
 
@@ -688,7 +666,6 @@ async def asyncio_all(
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
-        uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -722,7 +699,6 @@ async def asyncio_all(
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
-        uuid=uuid,
     )
 
     # Set page_size to maximum

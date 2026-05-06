@@ -9,10 +9,11 @@ use std::future::Future;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use xet_core_structures::merklehash::MerkleHash;
 
-use super::super::error::CasClientError;
 use super::{ClientTestingUtils, DirectAccessClient};
 use crate::cas_types::FileRange;
+use crate::error::ClientError;
 
 /// Runs all common Client trait tests using a factory that creates fresh clients.
 pub async fn test_client_functionality<Fut>(factory: impl Fn() -> Fut)
@@ -36,6 +37,11 @@ where
     test_get_file_data_with_ranges(factory().await).await;
     test_get_file_size(factory().await).await;
     test_global_dedup(factory().await).await;
+    test_v2_reconstruction_basic(factory().await).await;
+    test_v2_reconstruction_ranges(factory().await).await;
+    test_v2_reconstruction_matches_v1(factory().await).await;
+    test_v2_max_ranges_per_fetch(factory().await).await;
+    test_v2_url_encoding(factory().await).await;
 }
 
 /// Tests that adjacent chunk ranges from the same xorb are merged into a single fetch_info.
@@ -43,7 +49,7 @@ pub async fn test_reconstruction_merges_adjacent_ranges(client: Arc<dyn DirectAc
     let term_spec = &[(1, (0, 2)), (1, (2, 4))];
     let file = client.upload_random_file(term_spec, 2048).await.unwrap();
 
-    let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
     assert_eq!(reconstruction.terms.len(), 2);
     assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -59,7 +65,7 @@ pub async fn test_reconstruction_with_multiple_xorbs(client: Arc<dyn DirectAcces
     let term_spec = &[(1, (0, 3)), (2, (0, 2)), (1, (3, 5))];
     let file = client.upload_random_file(term_spec, 2048).await.unwrap();
 
-    let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
     assert_eq!(reconstruction.terms.len(), 3);
     assert_eq!(reconstruction.fetch_info.len(), 2);
 }
@@ -73,7 +79,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (0, 3)), (1, (1, 4))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 2);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -89,7 +95,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (0, 5)), (1, (1, 3))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 2);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -105,7 +111,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (0, 2)), (1, (1, 4)), (1, (3, 6))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 3);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -121,7 +127,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (0, 2)), (1, (4, 6))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 2);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -139,7 +145,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (0, 3)), (1, (3, 5))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 2);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -155,7 +161,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (2, 5)), (1, (2, 5)), (1, (2, 5))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 3);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -171,7 +177,7 @@ pub async fn test_reconstruction_overlapping_range_merging(client: Arc<dyn Direc
         let term_spec = &[(1, (0, 3)), (1, (2, 4)), (1, (6, 8)), (1, (7, 10))];
         let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 4);
         assert_eq!(reconstruction.fetch_info.len(), 1);
 
@@ -191,12 +197,12 @@ pub async fn test_range_requests(client: Arc<dyn DirectAccessClient>) {
     let file = client.upload_random_file(term_spec, 2048).await.unwrap();
 
     // Calculate total file size from terms
-    let reconstruction_full = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction_full = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
     let total_file_size: u64 = reconstruction_full.terms.iter().map(|t| t.unpacked_length as u64).sum();
 
     // Partial out-of-range truncates
     let response = client
-        .get_reconstruction(&file.file_hash, Some(FileRange::new(total_file_size / 2, total_file_size + 1000)))
+        .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(total_file_size / 2, total_file_size + 1000)))
         .await
         .unwrap()
         .unwrap();
@@ -205,19 +211,19 @@ pub async fn test_range_requests(client: Arc<dyn DirectAccessClient>) {
 
     // Entire range out of bounds returns Ok(None) (like RemoteClient's 416 handling)
     let result = client
-        .get_reconstruction(&file.file_hash, Some(FileRange::new(total_file_size + 100, total_file_size + 1000)))
+        .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(total_file_size + 100, total_file_size + 1000)))
         .await;
     assert!(result.unwrap().is_none());
 
     // Start equals file size returns Ok(None)
     let result = client
-        .get_reconstruction(&file.file_hash, Some(FileRange::new(total_file_size, total_file_size + 100)))
+        .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(total_file_size, total_file_size + 100)))
         .await;
     assert!(result.unwrap().is_none());
 
     // Valid range within bounds succeeds
     let response = client
-        .get_reconstruction(&file.file_hash, Some(FileRange::new(0, total_file_size / 2)))
+        .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(0, total_file_size / 2)))
         .await
         .unwrap()
         .unwrap();
@@ -226,7 +232,7 @@ pub async fn test_range_requests(client: Arc<dyn DirectAccessClient>) {
 
     // End exactly at file size succeeds
     let response = client
-        .get_reconstruction(&file.file_hash, Some(FileRange::new(0, total_file_size)))
+        .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(0, total_file_size)))
         .await
         .unwrap()
         .unwrap();
@@ -239,7 +245,7 @@ pub async fn test_upload_configurations(client: Arc<dyn DirectAccessClient>) {
     // Test 1: Single segment with 3 chunks
     {
         let file = client.upload_random_file(&[(1, (0, 3))], 2048).await.unwrap();
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 1);
     }
 
@@ -248,7 +254,7 @@ pub async fn test_upload_configurations(client: Arc<dyn DirectAccessClient>) {
         let term_spec = &[(1, (0, 2)), (1, (2, 4)), (1, (4, 6))];
         let file = client.upload_random_file(term_spec, 2048).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 3);
         assert_eq!(reconstruction.fetch_info.len(), 1);
     }
@@ -258,7 +264,7 @@ pub async fn test_upload_configurations(client: Arc<dyn DirectAccessClient>) {
         let term_spec = &[(1, (0, 3)), (2, (0, 2)), (3, (0, 4))];
         let file = client.upload_random_file(term_spec, 2048).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 3);
         assert_eq!(reconstruction.fetch_info.len(), 3);
     }
@@ -268,7 +274,7 @@ pub async fn test_upload_configurations(client: Arc<dyn DirectAccessClient>) {
         let term_spec = &[(1, (0, 3)), (1, (1, 4)), (1, (2, 5))];
         let file = client.upload_random_file(term_spec, 2048).await.unwrap();
 
-        let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+        let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
         assert_eq!(reconstruction.terms.len(), 3);
         assert_eq!(reconstruction.fetch_info.len(), 1);
     }
@@ -280,7 +286,7 @@ pub async fn test_chunk_boundary_shrinking(client: Arc<dyn DirectAccessClient>) 
     let term_spec = &[(1, (0, 5))];
     let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-    let reconstruction_full = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction_full = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
     let total_file_size: u64 = reconstruction_full.terms.iter().map(|t| t.unpacked_length as u64).sum();
     assert_eq!(total_file_size, (5 * chunk_size) as u64);
 
@@ -289,7 +295,7 @@ pub async fn test_chunk_boundary_shrinking(client: Arc<dyn DirectAccessClient>) 
         let start = chunk_size as u64 + 500;
         let end = total_file_size;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -305,7 +311,7 @@ pub async fn test_chunk_boundary_shrinking(client: Arc<dyn DirectAccessClient>) 
         let start = (chunk_size * 2) as u64;
         let end = total_file_size;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -321,7 +327,7 @@ pub async fn test_chunk_boundary_shrinking(client: Arc<dyn DirectAccessClient>) 
         let start = 0u64;
         let end = (chunk_size * 2) as u64 + 500;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -337,7 +343,7 @@ pub async fn test_chunk_boundary_shrinking(client: Arc<dyn DirectAccessClient>) 
         let start = (chunk_size * 2) as u64 + 100;
         let end = (chunk_size * 2) as u64 + 500;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -353,7 +359,7 @@ pub async fn test_chunk_boundary_shrinking(client: Arc<dyn DirectAccessClient>) 
         let start = chunk_size as u64 - 100;
         let end = chunk_size as u64 + 100;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -371,7 +377,7 @@ pub async fn test_chunk_boundary_multiple_segments(client: Arc<dyn DirectAccessC
     let term_spec = &[(1, (0, 4)), (2, (0, 4))];
     let file = client.upload_random_file(term_spec, chunk_size).await.unwrap();
 
-    let reconstruction_full = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction_full = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
     let total_file_size: u64 = reconstruction_full.terms.iter().map(|t| t.unpacked_length as u64).sum();
     assert_eq!(total_file_size, (8 * chunk_size) as u64);
 
@@ -380,7 +386,7 @@ pub async fn test_chunk_boundary_multiple_segments(client: Arc<dyn DirectAccessC
         let start = chunk_size as u64 + 500;
         let end = total_file_size;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -398,7 +404,7 @@ pub async fn test_chunk_boundary_multiple_segments(client: Arc<dyn DirectAccessC
         let start = chunk_size as u64;
         let end = (chunk_size * 3) as u64;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -415,7 +421,7 @@ pub async fn test_chunk_boundary_multiple_segments(client: Arc<dyn DirectAccessC
         let start = xorb1_size + chunk_size as u64;
         let end = xorb1_size + (chunk_size * 3) as u64;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -432,7 +438,7 @@ pub async fn test_chunk_boundary_multiple_segments(client: Arc<dyn DirectAccessC
         let start = (chunk_size * 2) as u64;
         let end = xorb1_size + (chunk_size * 2) as u64 + 500;
         let response = client
-            .get_reconstruction(&file.file_hash, Some(FileRange::new(start, end)))
+            .get_reconstruction_v1(&file.file_hash, Some(FileRange::new(start, end)))
             .await
             .unwrap()
             .unwrap();
@@ -530,44 +536,28 @@ pub async fn test_missing_xorb(client: Arc<dyn DirectAccessClient>) {
 
     // get_full_xorb should return XORBNotFound
     let result = client.get_full_xorb(&fake_hash).await;
-    assert!(matches!(result, Err(CasClientError::XORBNotFound(_))));
+    assert!(matches!(result, Err(ClientError::XORBNotFound(_))));
 
     // xorb_length should return XORBNotFound
     let result = client.xorb_length(&fake_hash).await;
-    assert!(matches!(result, Err(CasClientError::XORBNotFound(_))));
+    assert!(matches!(result, Err(ClientError::XORBNotFound(_))));
 
     // get_xorb_ranges should return XORBNotFound
     let result = client.get_xorb_ranges(&fake_hash, vec![(0, 1)]).await;
-    assert!(matches!(result, Err(CasClientError::XORBNotFound(_))));
+    assert!(matches!(result, Err(ClientError::XORBNotFound(_))));
 }
 
-/// Tests list_xorbs and delete_xorb operations.
+/// Tests list_xorbs operations.
 pub async fn test_xorb_list_and_delete(client: Arc<dyn DirectAccessClient>) {
-    // Initially should be empty
     let initial_list = client.list_xorbs().await.unwrap();
     assert!(initial_list.is_empty());
 
-    // Upload a file which creates xorbs
     let file = client.upload_random_file(&[(1, (0, 2))], 2048).await.unwrap();
     let xorb_hash = file.term_xorb_hash(0).unwrap();
 
-    // Now should have one xorb
     let list = client.list_xorbs().await.unwrap();
     assert_eq!(list.len(), 1);
     assert!(list.contains(&xorb_hash));
-
-    // Delete the xorb
-    client.delete_xorb(&xorb_hash).await;
-
-    // Should be empty again
-    let final_list = client.list_xorbs().await.unwrap();
-    assert!(final_list.is_empty());
-
-    // xorb should no longer exist
-    assert!(!client.xorb_exists(&xorb_hash).await.unwrap());
-
-    // Deleting non-existent xorb should not fail
-    client.delete_xorb(&xorb_hash).await;
 }
 
 /// Tests get_file_data returns correct data.
@@ -615,13 +605,13 @@ pub async fn test_get_file_data_with_ranges(client: Arc<dyn DirectAccessClient>)
     let result = client
         .get_file_data(&file.file_hash, Some(FileRange::new(file_size + 100, file_size + 1000)))
         .await;
-    assert!(matches!(result.unwrap_err(), CasClientError::InvalidRange));
+    assert!(matches!(result.unwrap_err(), ClientError::InvalidRange));
 
     // Start equals file size returns error
     let result = client
         .get_file_data(&file.file_hash, Some(FileRange::new(file_size, file_size + 100)))
         .await;
-    assert!(matches!(result.unwrap_err(), CasClientError::InvalidRange));
+    assert!(matches!(result.unwrap_err(), ClientError::InvalidRange));
 }
 
 /// Tests get_file_size returns correct size.
@@ -672,7 +662,8 @@ pub async fn test_global_dedup(client: Arc<dyn DirectAccessClient>) {
         .unwrap();
 
     // Verify the returned shard can be loaded and contains the expected data
-    let sf = MDBShardFile::write_out_from_reader(shard_dir_2.clone(), &mut Cursor::new(&new_shard)).unwrap();
+    let sfc = xet_core_structures::metadata_shard::new_shard_file_cache();
+    let sf = MDBShardFile::write_out_from_reader(shard_dir_2.clone(), &mut Cursor::new(&new_shard), &sfc).unwrap();
 
     // Verify the shard has the same dedup hashes (the content matches semantically)
     let returned_dedup_hashes = MDBShardInfo::filter_cas_chunks_for_global_dedup(&mut Cursor::new(&new_shard)).unwrap();
@@ -688,6 +679,229 @@ pub async fn test_global_dedup(client: Arc<dyn DirectAccessClient>) {
     // in a different hash. The semantic correctness is verified above by checking that
     // the dedup hashes match.
     let _ = shard_hash; // Acknowledge we have it but don't assert path equality
+}
+
+/// Runs all global dedup shard expiration tests. Must be called from a
+/// `#[tokio::test(start_paused = true)]` context.
+pub async fn test_global_dedup_shard_expiration_functionality<Fut>(factory: impl Fn() -> Fut)
+where
+    Fut: Future<Output = Arc<dyn DirectAccessClient>>,
+{
+    test_global_dedup_shard_expiration_strips_file_data(factory().await).await;
+    test_global_dedup_shard_expiration_sets_expiry(factory().await).await;
+    test_global_dedup_shard_expiration_rounds_up_subsecond(factory().await).await;
+    test_global_dedup_shard_always_returned(factory().await).await;
+    test_global_dedup_shard_no_expiration_returns_full(factory().await).await;
+}
+
+/// Helper: uploads a shard and returns the dedup-eligible chunk hashes.
+async fn upload_shard_and_get_dedup_hashes(client: &Arc<dyn DirectAccessClient>) -> Vec<MerkleHash> {
+    use xet_core_structures::metadata_shard::MDBShardInfo;
+    use xet_core_structures::metadata_shard::shard_format::test_routines::gen_random_shard_with_xorb_references;
+
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+    let shard_dir = tmp_dir.path().join("shard");
+    std::fs::create_dir_all(&shard_dir).unwrap();
+
+    let shard_in = gen_random_shard_with_xorb_references(0, &[16; 8], &[2; 20], true, true).unwrap();
+    let shard_path = shard_in.write_to_directory(&shard_dir, None).unwrap();
+
+    let permit = client.acquire_upload_permit().await.unwrap();
+    client
+        .upload_shard(std::fs::read(&shard_path).unwrap().into(), permit)
+        .await
+        .unwrap();
+
+    let dedup_hashes =
+        MDBShardInfo::filter_cas_chunks_for_global_dedup(&mut std::fs::File::open(&shard_path).unwrap()).unwrap();
+    assert_ne!(dedup_hashes.len(), 0);
+    dedup_hashes
+}
+
+/// Tests that when expiration is set, returned shards have file data stripped.
+async fn test_global_dedup_shard_expiration_strips_file_data(client: Arc<dyn DirectAccessClient>) {
+    use std::io::Cursor;
+
+    use xet_core_structures::metadata_shard::streaming_shard::MDBMinimalShard;
+
+    client.set_global_dedup_shard_expiration(Some(tokio::time::Duration::from_secs(300)));
+
+    let dedup_hashes = upload_shard_and_get_dedup_hashes(&client).await;
+
+    let shard_bytes = client
+        .query_for_global_dedup_shard("default", &dedup_hashes[0])
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mut reader = Cursor::new(&shard_bytes);
+    let minimal_shard = MDBMinimalShard::from_reader(&mut reader, true, true).unwrap();
+
+    assert_eq!(minimal_shard.num_files(), 0);
+    assert_ne!(minimal_shard.num_xorb(), 0);
+
+    let returned_dedup_hashes = minimal_shard.global_dedup_eligible_chunks();
+    for hash in &dedup_hashes {
+        assert!(returned_dedup_hashes.contains(hash));
+    }
+}
+
+/// Tests that when expiration is set, the returned shard footer has a non-zero expiry.
+async fn test_global_dedup_shard_expiration_sets_expiry(client: Arc<dyn DirectAccessClient>) {
+    use std::io::Cursor;
+
+    use xet_core_structures::metadata_shard::MDBShardInfo;
+
+    client.set_global_dedup_shard_expiration(Some(tokio::time::Duration::from_secs(300)));
+
+    let dedup_hashes = upload_shard_and_get_dedup_hashes(&client).await;
+
+    let shard_bytes = client
+        .query_for_global_dedup_shard("default", &dedup_hashes[0])
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mut reader = Cursor::new(&shard_bytes);
+    let shard_info = MDBShardInfo::load_from_reader(&mut reader).unwrap();
+
+    let now_epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    assert_ne!(shard_info.metadata.shard_key_expiry, 0);
+    assert!(shard_info.metadata.shard_key_expiry > now_epoch);
+    assert!(shard_info.metadata.shard_key_expiry <= now_epoch + 300 + 5);
+}
+
+/// Tests that sub-second durations round up to one second instead of disabling expiration.
+async fn test_global_dedup_shard_expiration_rounds_up_subsecond(client: Arc<dyn DirectAccessClient>) {
+    client.set_global_dedup_shard_expiration(Some(tokio::time::Duration::from_millis(1)));
+
+    let dedup_hashes = upload_shard_and_get_dedup_hashes(&client).await;
+    let now_epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let shard_bytes = client
+        .query_for_global_dedup_shard("default", &dedup_hashes[0])
+        .await
+        .unwrap()
+        .unwrap();
+
+    let shard_info =
+        xet_core_structures::metadata_shard::MDBShardInfo::load_from_reader(&mut std::io::Cursor::new(&shard_bytes))
+            .unwrap();
+    assert!(shard_info.metadata.shard_key_expiry > now_epoch);
+    assert!(shard_info.metadata.shard_key_expiry <= now_epoch + 3);
+
+    let minimal_shard = xet_core_structures::metadata_shard::streaming_shard::MDBMinimalShard::from_reader(
+        &mut std::io::Cursor::new(&shard_bytes),
+        true,
+        true,
+    )
+    .unwrap();
+    assert_eq!(minimal_shard.num_files(), 0);
+    assert_ne!(minimal_shard.num_xorb(), 0);
+}
+
+/// After upload, global dedup shard queries still return the shard; footer `shard_key_expiry` is
+/// computed from wall-clock `SystemTime::now()` at query time plus the configured duration (not upload time).
+async fn test_global_dedup_shard_always_returned(client: Arc<dyn DirectAccessClient>) {
+    use std::io::Cursor;
+
+    use xet_core_structures::metadata_shard::MDBShardInfo;
+
+    client.set_global_dedup_shard_expiration(Some(tokio::time::Duration::from_secs(5)));
+
+    let dedup_hashes = upload_shard_and_get_dedup_hashes(&client).await;
+
+    let result = client.query_for_global_dedup_shard("default", &dedup_hashes[0]).await.unwrap();
+    assert!(result.is_some());
+
+    let shard_bytes = client
+        .query_for_global_dedup_shard("default", &dedup_hashes[0])
+        .await
+        .unwrap()
+        .unwrap();
+
+    let now_epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let shard_info = MDBShardInfo::load_from_reader(&mut Cursor::new(&shard_bytes)).unwrap();
+    assert_ne!(shard_info.metadata.shard_key_expiry, 0);
+    assert!(shard_info.metadata.shard_key_expiry >= now_epoch + 4);
+    assert!(shard_info.metadata.shard_key_expiry <= now_epoch + 6);
+}
+
+/// Tests that without expiration set, the full shard is returned (with file data).
+async fn test_global_dedup_shard_no_expiration_returns_full(client: Arc<dyn DirectAccessClient>) {
+    use std::io::Cursor;
+
+    use xet_core_structures::metadata_shard::streaming_shard::MDBMinimalShard;
+
+    let dedup_hashes = upload_shard_and_get_dedup_hashes(&client).await;
+
+    let shard_bytes = client
+        .query_for_global_dedup_shard("default", &dedup_hashes[0])
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mut reader = Cursor::new(&shard_bytes);
+    let minimal_shard = MDBMinimalShard::from_reader(&mut reader, true, true).unwrap();
+
+    assert_ne!(minimal_shard.num_files(), 0);
+    assert_ne!(minimal_shard.num_xorb(), 0);
+}
+
+/// Runs a short stress test of concurrent dedup-shard queries while toggling expiration settings.
+pub async fn test_global_dedup_shard_expiration_stress<Fut>(factory: impl Fn() -> Fut)
+where
+    Fut: Future<Output = Arc<dyn DirectAccessClient>>,
+{
+    let client = factory().await;
+    let dedup_hashes = upload_shard_and_get_dedup_hashes(&client).await;
+    let first_hash = dedup_hashes[0];
+
+    let mut tasks = tokio::task::JoinSet::new();
+    let start_time = std::time::Instant::now();
+
+    for worker_id in 0..12usize {
+        let client = client.clone();
+        tasks.spawn(async move {
+            for iteration in 0..50usize {
+                match (worker_id + iteration) % 3 {
+                    0 => client.set_global_dedup_shard_expiration(None),
+                    1 => client.set_global_dedup_shard_expiration(Some(tokio::time::Duration::from_millis(1))),
+                    _ => client.set_global_dedup_shard_expiration(Some(tokio::time::Duration::from_secs(2))),
+                }
+
+                let shard_bytes = client
+                    .query_for_global_dedup_shard("default", &first_hash)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let minimal_shard = xet_core_structures::metadata_shard::streaming_shard::MDBMinimalShard::from_reader(
+                    &mut std::io::Cursor::new(&shard_bytes),
+                    true,
+                    true,
+                )
+                .unwrap();
+                assert_ne!(minimal_shard.num_xorb(), 0);
+            }
+        });
+    }
+
+    while let Some(result) = tasks.join_next().await {
+        result.unwrap();
+    }
+
+    assert!(start_time.elapsed() < std::time::Duration::from_secs(10));
 }
 
 /// Runs all URL expiration tests. Must be called from a `#[tokio::test(start_paused = true)]` context.
@@ -712,7 +926,7 @@ async fn test_url_expiration_within_window(client: Arc<dyn DirectAccessClient>) 
 
     // Upload a file and get reconstruction info (which creates URLs with current timestamp)
     let file = client.upload_random_file(&[(1, (0, 3))], 2048).await.unwrap();
-    let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
 
     // Get the fetch_info for the first term's xorb
     let xorb_hash = file.terms[0].xorb_hash;
@@ -738,7 +952,7 @@ async fn test_url_expiration_after_window(client: Arc<dyn DirectAccessClient>) {
 
     // Upload a file and get reconstruction info (which creates URLs with current timestamp)
     let file = client.upload_random_file(&[(1, (0, 3))], 2048).await.unwrap();
-    let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
 
     // Get the fetch_info for the first term's xorb
     let xorb_hash = file.terms[0].xorb_hash;
@@ -751,7 +965,7 @@ async fn test_url_expiration_after_window(client: Arc<dyn DirectAccessClient>) {
     // The fetch should fail with expiration error
     let result = client.fetch_term_data(xorb_hash, fetch_info).await;
     assert!(result.is_err(), "URL should be expired after expiration window");
-    assert!(matches!(result.unwrap_err(), CasClientError::PresignedUrlExpirationError));
+    assert!(matches!(result.unwrap_err(), ClientError::PresignedUrlExpirationError));
 }
 
 /// Tests that default URL expiration is effectively infinite.
@@ -764,7 +978,7 @@ async fn test_url_expiration_default_infinite(client: Arc<dyn DirectAccessClient
 
     // Upload a file and get reconstruction info
     let file = client.upload_random_file(&[(1, (0, 3))], 2048).await.unwrap();
-    let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
 
     // Get the fetch_info for the first term's xorb
     let xorb_hash = file.terms[0].xorb_hash;
@@ -790,7 +1004,7 @@ async fn test_url_expiration_exact_boundary(client: Arc<dyn DirectAccessClient>)
 
     // Upload a file and get reconstruction info
     let file = client.upload_random_file(&[(1, (0, 3))], 2048).await.unwrap();
-    let reconstruction = client.get_reconstruction(&file.file_hash, None).await.unwrap().unwrap();
+    let reconstruction = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
 
     // Get the fetch_info for the first term's xorb
     let xorb_hash = file.terms[0].xorb_hash;
@@ -808,7 +1022,7 @@ async fn test_url_expiration_exact_boundary(client: Arc<dyn DirectAccessClient>)
 
     let result = client.fetch_term_data(xorb_hash, fetch_info).await;
     assert!(result.is_err(), "URL should be expired past boundary");
-    assert!(matches!(result.unwrap_err(), CasClientError::PresignedUrlExpirationError));
+    assert!(matches!(result.unwrap_err(), ClientError::PresignedUrlExpirationError));
 }
 
 // =============================================================================
@@ -915,4 +1129,191 @@ async fn test_api_delay_can_be_disabled(client: Arc<dyn DirectAccessClient>) {
         elapsed < Duration::from_millis(10),
         "Delay should not be applied after disabling: elapsed={elapsed:?}"
     );
+}
+
+// ===== V2 Reconstruction Tests =====
+
+/// Tests basic V2 reconstruction response structure.
+async fn test_v2_reconstruction_basic(client: Arc<dyn DirectAccessClient>) {
+    let term_spec = &[(1, (0, 5))];
+    let file = client.upload_random_file(term_spec, 2048).await.unwrap();
+
+    let response = client.get_reconstruction_v2(&file.file_hash, None).await.unwrap().unwrap();
+
+    assert!(!response.terms.is_empty());
+    assert!(!response.xorbs.is_empty());
+    assert_eq!(response.offset_into_first_range, 0);
+
+    for term in &response.terms {
+        let xorb_descriptor = response.xorbs.get(&term.hash).expect("xorb descriptor missing for term");
+        assert!(!xorb_descriptor.is_empty());
+        for fetch in xorb_descriptor {
+            assert!(!fetch.url.is_empty());
+            assert!(!fetch.ranges.is_empty());
+            for range in &fetch.ranges {
+                assert!(range.bytes.start < range.bytes.end);
+                assert!(range.chunks.start < range.chunks.end);
+            }
+        }
+    }
+}
+
+/// Tests V2 reconstruction with byte range queries.
+async fn test_v2_reconstruction_ranges(client: Arc<dyn DirectAccessClient>) {
+    let term_spec = &[(1, (0, 3)), (2, (0, 3)), (1, (3, 6))];
+    let file = client.upload_random_file(term_spec, 2048).await.unwrap();
+
+    let file_size = file.data.len() as u64;
+
+    // Partial range
+    let range = FileRange::new(file_size / 4, file_size * 3 / 4);
+    let response = client
+        .get_reconstruction_v2(&file.file_hash, Some(range))
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(!response.terms.is_empty());
+    assert!(!response.xorbs.is_empty());
+
+    // Out-of-range query returns None
+    let out_of_range = FileRange::new(file_size + 100, file_size + 200);
+    let none_result = client.get_reconstruction_v2(&file.file_hash, Some(out_of_range)).await.unwrap();
+    assert!(none_result.is_none());
+}
+
+/// Tests that V2 reconstruction terms match V1 terms and offsets.
+async fn test_v2_reconstruction_matches_v1(client: Arc<dyn DirectAccessClient>) {
+    let term_spec = &[(1, (0, 3)), (2, (0, 2)), (1, (3, 5))];
+    let file = client.upload_random_file(term_spec, 2048).await.unwrap();
+
+    let v1 = client.get_reconstruction_v1(&file.file_hash, None).await.unwrap().unwrap();
+    let v2 = client.get_reconstruction_v2(&file.file_hash, None).await.unwrap().unwrap();
+
+    assert_eq!(v1.offset_into_first_range, v2.offset_into_first_range);
+    assert_eq!(v1.terms.len(), v2.terms.len());
+    for (t1, t2) in v1.terms.iter().zip(v2.terms.iter()) {
+        assert_eq!(t1.hash, t2.hash);
+        assert_eq!(t1.range, t2.range);
+        assert_eq!(t1.unpacked_length, t2.unpacked_length);
+    }
+
+    // Both should have the same xorb hashes
+    let mut v1_xorb_hashes: Vec<_> = v1.fetch_info.keys().map(|h| h.to_string()).collect();
+    let mut v2_xorb_hashes: Vec<_> = v2.xorbs.keys().map(|h| h.to_string()).collect();
+    v1_xorb_hashes.sort();
+    v2_xorb_hashes.sort();
+    assert_eq!(v1_xorb_hashes, v2_xorb_hashes);
+
+    // Check range with partial file
+    let file_size = file.data.len() as u64;
+    let range = FileRange::new(file_size / 4, file_size * 3 / 4);
+    let v1r = client
+        .get_reconstruction_v1(&file.file_hash, Some(range))
+        .await
+        .unwrap()
+        .unwrap();
+    let v2r = client
+        .get_reconstruction_v2(&file.file_hash, Some(range))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(v1r.offset_into_first_range, v2r.offset_into_first_range);
+    assert_eq!(v1r.terms.len(), v2r.terms.len());
+}
+
+/// Tests that max_ranges_per_fetch correctly splits multi-range fetch entries.
+async fn test_v2_max_ranges_per_fetch(client: Arc<dyn DirectAccessClient>) {
+    // Use a file with many non-contiguous segments from the same xorb,
+    // interleaved with another xorb to prevent merging.
+    let term_spec = &[
+        (1, (0, 2)),
+        (2, (0, 1)),
+        (1, (2, 4)),
+        (2, (1, 2)),
+        (1, (4, 6)),
+        (2, (2, 3)),
+        (1, (6, 8)),
+    ];
+    let file = client.upload_random_file(term_spec, 512).await.unwrap();
+
+    // Without limit, xorb 1 should have all its ranges in a single fetch
+    let response_unlimited = client.get_reconstruction_v2(&file.file_hash, None).await.unwrap().unwrap();
+
+    // Find xorb 1's descriptor
+    let xorb1_hash = &file.terms[0].xorb_hash;
+    let hex_hash: crate::cas_types::HexMerkleHash = (*xorb1_hash).into();
+    let desc_unlimited = response_unlimited.xorbs.get(&hex_hash).unwrap();
+
+    // Now set max_ranges_per_fetch to 2
+    client.set_max_ranges_per_fetch(2);
+
+    let response_limited = client.get_reconstruction_v2(&file.file_hash, None).await.unwrap().unwrap();
+
+    let desc_limited = response_limited.xorbs.get(&hex_hash).unwrap();
+
+    // With a limit of 2, the number of fetch entries should be >= the unlimited count
+    assert!(
+        desc_limited.len() >= desc_unlimited.len(),
+        "Limited ({}) should have at least as many fetch entries as unlimited ({})",
+        desc_limited.len(),
+        desc_unlimited.len()
+    );
+
+    // Each fetch entry should have at most 2 ranges
+    for fetch in desc_limited {
+        assert!(fetch.ranges.len() <= 2, "Expected at most 2 ranges per fetch, got {}", fetch.ranges.len());
+    }
+
+    // Total ranges across all fetches should equal the unlimited total
+    let total_unlimited: usize = desc_unlimited.iter().map(|f| f.ranges.len()).sum();
+    let total_limited: usize = desc_limited.iter().map(|f| f.ranges.len()).sum();
+    assert_eq!(total_unlimited, total_limited, "Total ranges should be preserved");
+
+    // Reset for other tests
+    client.set_max_ranges_per_fetch(usize::MAX);
+}
+
+/// Tests that V2 URLs are valid base64 and decode correctly.
+/// When going through a server, URLs are HTTP; when direct, they're base64.
+async fn test_v2_url_encoding(client: Arc<dyn DirectAccessClient>) {
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
+    let term_spec = &[(1, (0, 3))];
+    let file = client.upload_random_file(term_spec, 2048).await.unwrap();
+
+    let response = client.get_reconstruction_v2(&file.file_hash, None).await.unwrap().unwrap();
+
+    for fetch_entries in response.xorbs.values() {
+        for fetch in fetch_entries {
+            assert!(!fetch.url.is_empty(), "URL should not be empty");
+
+            if fetch.url.starts_with("http://") || fetch.url.starts_with("https://") {
+                // Server-transformed URL: should point to fetch_term
+                assert!(fetch.url.contains("/fetch_term"), "HTTP URL should contain /fetch_term: {}", fetch.url);
+            } else {
+                // Direct client URL: should be valid base64
+                let decoded = URL_SAFE_NO_PAD.decode(&fetch.url);
+                assert!(decoded.is_ok(), "URL should be valid base64: {}", fetch.url);
+
+                let payload = String::from_utf8(decoded.unwrap()).unwrap();
+                let parts: Vec<&str> = payload.splitn(3, ':').collect();
+                assert_eq!(parts.len(), 3, "Payload should have 3 colon-separated parts");
+
+                let hash = xet_core_structures::merklehash::MerkleHash::from_hex(parts[0]);
+                assert!(hash.is_ok(), "Hash part should be valid hex");
+
+                let ts: std::result::Result<u64, _> = parts[1].parse();
+                assert!(ts.is_ok(), "Timestamp should be a valid u64");
+
+                for range_str in parts[2].split(',').filter(|s| !s.is_empty()) {
+                    let range_parts: Vec<&str> = range_str.split('-').collect();
+                    assert_eq!(range_parts.len(), 2, "Each range should be start-end");
+                    assert!(range_parts[0].parse::<u64>().is_ok());
+                    assert!(range_parts[1].parse::<u64>().is_ok());
+                }
+            }
+        }
+    }
 }

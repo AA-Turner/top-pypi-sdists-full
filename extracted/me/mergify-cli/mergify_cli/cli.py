@@ -27,7 +27,6 @@ from mergify_cli import console
 from mergify_cli import console_error
 from mergify_cli import utils
 from mergify_cli.ci import cli as ci_cli_mod
-from mergify_cli.config import cli as config_cli_mod
 from mergify_cli.dym import DYMGroup
 from mergify_cli.exit_codes import ExitCode
 from mergify_cli.freeze import cli as freeze_cli_mod
@@ -54,7 +53,6 @@ def cli(
 
 cli.add_command(stack_cli_mod.stack)
 cli.add_command(ci_cli_mod.ci)
-cli.add_command(config_cli_mod.config)
 cli.add_command(freeze_cli_mod.freeze)
 cli.add_command(queue_cli_mod.queue)
 
@@ -89,17 +87,21 @@ def main() -> None:
             raise SystemExit(ExitCode.MERGIFY_API_ERROR) from None
         raise SystemExit(ExitCode.GITHUB_API_ERROR) from None
     except httpx.RequestError as e:
-        url = str(e.request.url)
+        if str(e.request.url).startswith(utils.get_mergify_api_url()):
+            service = "Mergify"
+            exit_code = ExitCode.MERGIFY_API_ERROR
+        else:
+            service = "GitHub"
+            exit_code = ExitCode.GITHUB_API_ERROR
+
         if isinstance(e, httpx.TimeoutException):
             console_error(
-                f"timed out contacting {url}. "
-                "Check your network connection or try again later.",
+                f"{service} did not respond in time. "
+                "The request was aborted — please retry.",
             )
         else:
-            console_error(f"network error contacting {url}: {e}")
-        if url.startswith(utils.get_mergify_api_url()):
-            raise SystemExit(ExitCode.MERGIFY_API_ERROR) from None
-        raise SystemExit(ExitCode.GITHUB_API_ERROR) from None
+            console_error(f"could not reach {service}: {e}")
+        raise SystemExit(exit_code) from None
     except utils.CommandError as e:
         console.print(f"error: {e}", style="red")
         raise SystemExit(ExitCode.GENERIC_ERROR) from None

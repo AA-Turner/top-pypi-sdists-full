@@ -1,22 +1,22 @@
-# pylint: disable=too-many-lines
-from .argument_aware_command_invocation_dumper import (
-    ArgumentAwareCommandInvocationDumper,
-)
+from gersemi.argument_schema import ArgumentSchema
+from gersemi.dumper import Dumper
 
 
-class SetProperty(ArgumentAwareCommandInvocationDumper):
-    options = ["GLOBAL", "APPEND", "APPEND_STRING"]
-    multi_value_keywords = [
-        "TARGET",
-        "SOURCE",
-        "INSTALL",
-        "TEST",
-        "CACHE",
-        "PROPERTY",
-        "TARGET_DIRECTORIES",
-        "DIRECTORY",
-        "FILE_SET",
-    ]
+class SetProperty(Dumper):
+    schema = ArgumentSchema(
+        options=["GLOBAL", "APPEND", "APPEND_STRING"],
+        multi_value_keywords=[
+            "TARGET",
+            "SOURCE",
+            "INSTALL",
+            "TEST",
+            "CACHE",
+            "PROPERTY",
+            "TARGET_DIRECTORIES",
+            "DIRECTORY",
+            "FILE_SET",
+        ],
+    )
     _keyword_formatters = {"PROPERTY": "_format_property"}
 
     def _format_property(self, args):

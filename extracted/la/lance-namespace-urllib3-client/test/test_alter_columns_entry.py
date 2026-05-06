@@ -46,12 +46,18 @@ class TestAlterColumnsEntry(unittest.TestCase):
                     image = '', 
                     udf = '', 
                     udf_name = '', 
-                    udf_version = '', )
+                    udf_version = '', 
+                    udf_backend = '', 
+                    auto_backfill = True, 
+                    manifest = '', 
+                    manifest_checksum = '', 
+                    field_metadata = {
+                        'key' : ''
+                        }, )
             )
         else:
             return AlterColumnsEntry(
                 path = '',
-                data_type = lance_namespace_urllib3_client.models.data_type.data_type(),
         )
         """
 

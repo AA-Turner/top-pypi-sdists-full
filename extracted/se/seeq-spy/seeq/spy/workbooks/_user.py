@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from typing import List, Optional, Dict, Union
 
@@ -35,12 +36,15 @@ class ItemWithOwnerAndAcl(Item):
             if _common.get(self, 'Owner'):
                 try:
                     owner_id = Identity.find_identity(context, self['Owner'], item_map=item_map)
-                except SPyDependencyNotFound:
+                except SPyDependencyNotFound as e:
+                    context.status.log(str(e))
+
                     # If we can't map the original owner to an identity on the target server, we have to abort the
                     # push and tell the user not to supply spy.workbooks.ORIGINAL_OWNER.
                     raise SPyRuntimeError(
-                        f'Original owner "{self["Owner"]["Username"]}" does not exist on the target server and '
-                        'was not mapped via Datasource Maps. Cannot push with owner=spy.workbooks.ORIGINAL_OWNER'
+                        f'Original owner "{self["Owner"]["Username"]}" [{self["Owner"].get("Email", "Unknown Email")}] '
+                        'does not exist on the target server and was not mapped via Datasource Maps. '
+                        'Cannot push with owner=spy.workbooks.ORIGINAL_OWNER'
                     )
             else:
                 # There is no original owner so make it the current user as a placeholder
@@ -48,7 +52,17 @@ class ItemWithOwnerAndAcl(Item):
         elif owner == FORCE_ME_AS_OWNER:
             owner_id = session.user.id
         else:
-            raise SPyValueError('Invalid owner: %s' % owner)
+            matches = Identity.search(context.session, {'Type': 'User', 'Username': owner})
+            if len(matches) == 0:
+                raise SPyRuntimeError(
+                    f'Could not find owner username "{owner}"')
+            elif len(matches) > 1:
+                raise SPyRuntimeError(
+                    f'Multiple matches found for owner username "{owner}":\n' +
+                    '\n'.join([f'ID {match.id}: {match.name} [{match.datasource.name}]' for match in matches]) +
+                    "\nSpecify the user's ID directly to disambiguate.")
+            else:
+                owner_id = matches[0].id
 
         if current_owner_id is None or current_owner_id == owner_id:
             requires_admin = False
@@ -128,7 +142,7 @@ class ItemWithOwnerAndAcl(Item):
     def _push_acl(self, context: WorkbookPushContext, pushed_id, item_map: ItemMap):
         session = context.session
         status = context.status
-        replace, strict = ItemWithOwnerAndAcl.parse_access_control_str(context.access_control)
+        replace, strict = ItemWithOwnerAndAcl.parse_access_control_str(context.current_params.access_control)
 
         if 'Access Control' not in self:
             status.log(f'No Access Control to push for item {pushed_id}')
@@ -144,7 +158,8 @@ class ItemWithOwnerAndAcl(Item):
         for acl_to_push in self['Access Control']:
             try:
                 identity_id = Identity.find_identity(context, acl_to_push['Identity'], item_map)
-            except SPyDependencyNotFound:
+            except SPyDependencyNotFound as e:
+                status.log(str(e), level=logging.ERROR if strict else logging.WARN)
                 if strict:
                     raise
 
@@ -255,6 +270,47 @@ class Identity(StoredItem):
 
         return pushed_identity.id
 
+    @staticmethod
+    def search(session: Session, acl_row: Union[dict, pd.Series]):
+        matches = list()
+        query = _common.get(acl_row, 'Username') if _common.present(acl_row, 'Username') else \
+            _common.get(acl_row, 'Name')
+
+        users_api = UsersApi(session.client)
+        identities = users_api.autocomplete_users_and_groups(query=query, limit=100000)
+
+        for identity in identities.items:  # type: IdentityPreviewV1
+            if (_common.present(acl_row, 'Name') and
+                    Identity._insensitive_not_equal(identity.name, _common.get(acl_row, 'Name'))):
+                continue
+
+            if (_common.present(acl_row, 'Username') and
+                    Identity._insensitive_not_equal(identity.username, _common.get(acl_row, 'Username'))):
+                continue
+
+            if (_common.present(acl_row, 'Type') and
+                    Identity._insensitive_not_equal(identity.type, _common.get(acl_row, 'Type'))):
+                continue
+
+            if (_common.present(acl_row, 'Directory') and
+                    Identity._insensitive_not_equal(identity.datasource.name, _common.get(acl_row, 'Directory'))):
+                continue
+
+            matches.append(identity)
+
+        return matches
+
+    @staticmethod
+    def _insensitive_not_equal(a: Optional[str], b: Optional[str]):
+        if a is None and b is None:
+            return False
+        elif a is not None and b is None:
+            return True
+        elif a is None and b is not None:
+            return True
+        else:
+            return a.lower() != b.lower()
+
     def pull_datasource(self, session: Session, identity: Union[UserOutputV1, UserGroupOutputV1, IdentityPreviewV1]):
         if isinstance(identity, IdentityPreviewV1):
             datasource_preview: DatasourcePreviewV1 = identity.datasource
@@ -311,16 +367,26 @@ class User(Identity):
         if user_output is None:
             return None
 
-        item = User({
+        user_dict = {
             'ID': user_output.id,
             'Type': user_output.type,
+            'Datasource Name': user_output.datasource_name,
             'Name': user_output.name,
             'Username': user_output.username,
             'First Name': user_output.first_name,
             'Last Name': user_output.last_name,
             'Email': user_output.email,
             'Is Admin': user_output.is_admin
-        })
+        }
+
+        if user_output.datasource_name in session.directories:
+            datasource_output = session.directories[user_output.datasource_name]
+            user_dict.update({
+                'Datasource Class': datasource_output.datasource_class,
+                'Datasource ID': datasource_output.datasource_id
+            })
+
+        item = User(user_dict)
 
         item.pull_datasource(session, user_output)
         return item

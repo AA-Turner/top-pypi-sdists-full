@@ -47,7 +47,7 @@ class OpenStackListener:
         created (Union[Unset, datetime.datetime]):
         modified (Union[Unset, datetime.datetime]):
         backend_id (Union[None, Unset, str]): Listener ID in Octavia
-        access_url (Union[None, Unset, str]):
+        access_url (Union[None, Unset, list[str], str]):
         load_balancer (Union[Unset, str]): Load balancer this listener belongs to
         load_balancer_name (Union[Unset, str]):
         load_balancer_uuid (Union[Unset, UUID]):
@@ -94,7 +94,7 @@ class OpenStackListener:
     created: Union[Unset, datetime.datetime] = UNSET
     modified: Union[Unset, datetime.datetime] = UNSET
     backend_id: Union[None, Unset, str] = UNSET
-    access_url: Union[None, Unset, str] = UNSET
+    access_url: Union[None, Unset, list[str], str] = UNSET
     load_balancer: Union[Unset, str] = UNSET
     load_balancer_name: Union[Unset, str] = UNSET
     load_balancer_uuid: Union[Unset, UUID] = UNSET
@@ -189,9 +189,12 @@ class OpenStackListener:
         else:
             backend_id = self.backend_id
 
-        access_url: Union[None, Unset, str]
+        access_url: Union[None, Unset, list[str], str]
         if isinstance(self.access_url, Unset):
             access_url = UNSET
+        elif isinstance(self.access_url, list):
+            access_url = self.access_url
+
         else:
             access_url = self.access_url
 
@@ -478,12 +481,20 @@ class OpenStackListener:
 
         backend_id = _parse_backend_id(d.pop("backend_id", UNSET))
 
-        def _parse_access_url(data: object) -> Union[None, Unset, str]:
+        def _parse_access_url(data: object) -> Union[None, Unset, list[str], str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                access_url_type_0 = cast(list[str], data)
+
+                return access_url_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url", UNSET))
 

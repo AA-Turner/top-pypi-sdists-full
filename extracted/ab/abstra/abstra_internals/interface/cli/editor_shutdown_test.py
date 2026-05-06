@@ -150,6 +150,7 @@ class TestSigtermRegistersShutdown(unittest.TestCase):
     @patch("abstra_internals.interface.cli.editor.get_local_app")
     @patch("abstra_internals.interface.cli.editor.make_server")
     @patch("abstra_internals.interface.cli.editor.SignalHandlers")
+    @patch("abstra_internals.interface.cli.editor.WebEditorHeartbeat")
     @patch("abstra_internals.interface.cli.editor.EDITOR_MODE", "web")
     @patch("abstra_internals.interface.cli.editor.RABBITMQ_CONNECTION_URI", None)
     @patch("abstra_internals.interface.cli.editor.WORKER_LOG_TO_QUEUE", False)
@@ -167,6 +168,7 @@ class TestSigtermRegistersShutdown(unittest.TestCase):
         _dotenv,
         _serve_message,
         _check_version,
+        _heartbeat,
         mock_signal_handlers,
         mock_make_server,
         _get_local_app,

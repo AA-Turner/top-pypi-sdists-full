@@ -6,7 +6,7 @@ from unittest import mock
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.core import management
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, tag
 from django.test.utils import override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -1098,6 +1098,7 @@ class TestPageListing(WagtailTestUtils, TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+@tag("transaction")
 class TestPageListingSearch(WagtailTestUtils, TransactionTestCase):
     fixtures = ["demosite.json"]
 
@@ -1917,3 +1918,20 @@ class TestPageViewSetSubclassing(PagesAPIViewSet):
             self.get_queryset().model,
             models.BlogEntryPage,
         )
+
+
+class TestAPIDetailQueryCount(WagtailTestUtils, TestCase):
+    fixtures = ["test.json"]
+
+    def setUp(self):
+        self.user = self.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+        )
+        self.client.force_login(self.user)
+
+    def test_detail_view_does_not_duplicate_queries(self):
+        with self.assertNumQueries(16):
+            response = self.client.get("/api/main/pages/2/")
+            self.assertEqual(response.status_code, 200)

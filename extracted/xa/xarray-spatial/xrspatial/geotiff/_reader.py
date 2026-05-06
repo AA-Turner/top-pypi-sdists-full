@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import math
 import mmap
+import os as _os_module
 import threading
 import urllib.request
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -45,28 +48,55 @@ def _check_dimensions(width, height, samples, max_pixels):
 # Data source abstraction
 # ---------------------------------------------------------------------------
 
+#: Soft cap on the number of mmap entries the reader keeps open at once.
+#: When the cache size exceeds this, the least-recently-used *idle* entry
+#: (refcount 0) is closed. In-use entries are never evicted. Override via
+#: the ``XRSPATIAL_GEOTIFF_MMAP_CACHE_SIZE`` environment variable.
+_DEFAULT_MMAP_CACHE_SIZE = 32
+
+
+def _mmap_cache_size_from_env() -> int:
+    """Read the cache size cap from the environment, falling back to the default."""
+    raw = _os_module.environ.get('XRSPATIAL_GEOTIFF_MMAP_CACHE_SIZE')
+    if raw is None:
+        return _DEFAULT_MMAP_CACHE_SIZE
+    try:
+        val = int(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_MMAP_CACHE_SIZE
+    return max(1, val)
+
+
 class _MmapCache:
-    """Thread-safe, reference-counted mmap cache.
+    """Thread-safe, reference-counted, bounded LRU mmap cache.
 
     Multiple threads reading the same file share a single read-only mmap.
-    The mmap is closed when the last reference is released.
+    The cache keeps idle (refcount 0) mmaps around so repeated opens of the
+    same file avoid the cost of re-mapping. When the number of entries
+    exceeds the cap (default 32, or ``XRSPATIAL_GEOTIFF_MMAP_CACHE_SIZE``),
+    the least-recently-used *idle* entry is evicted. Entries with active
+    references are never evicted.
+
     mmap slicing on a read-only mapping is thread-safe (no seek involved).
     """
 
-    def __init__(self):
+    def __init__(self, max_size: int | None = None):
         self._lock = threading.Lock()
-        # path -> (fh, mm, refcount)
-        self._entries: dict[str, tuple] = {}
+        # path -> [fh, mm, size, refcount] (list so we can mutate in place)
+        # OrderedDict gives LRU semantics via move_to_end on access.
+        self._entries: OrderedDict[str, list] = OrderedDict()
+        self._max_size = (max_size if max_size is not None
+                          else _mmap_cache_size_from_env())
 
     def acquire(self, path: str):
         """Get or create a read-only mmap for *path*. Returns (mm, size)."""
-        import os
-        real = os.path.realpath(path)
+        real = _os_module.path.realpath(path)
         with self._lock:
-            if real in self._entries:
-                fh, mm, size, rc = self._entries[real]
-                self._entries[real] = (fh, mm, size, rc + 1)
-                return mm, size
+            entry = self._entries.get(real)
+            if entry is not None:
+                entry[3] += 1
+                self._entries.move_to_end(real)
+                return entry[1], entry[2]
 
             fh = open(real, 'rb')
             fh.seek(0, 2)
@@ -76,26 +106,56 @@ class _MmapCache:
                 mm = mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ)
             else:
                 mm = None
-            self._entries[real] = (fh, mm, size, 1)
+            self._entries[real] = [fh, mm, size, 1]
+            self._evict_locked()
             return mm, size
 
     def release(self, path: str):
-        """Decrement the reference count; close the mmap when it hits zero."""
-        import os
-        real = os.path.realpath(path)
+        """Decrement the reference count.
+
+        When the count hits zero the entry stays cached (keyed by realpath)
+        until LRU eviction or :meth:`clear` is called.
+        """
+        real = _os_module.path.realpath(path)
         with self._lock:
             entry = self._entries.get(real)
             if entry is None:
                 return
-            fh, mm, size, rc = entry
-            rc -= 1
-            if rc <= 0:
-                del self._entries[real]
+            entry[3] -= 1
+            if entry[3] <= 0:
+                # Idle but still cached; mark LRU position.
+                self._entries.move_to_end(real)
+                self._evict_locked()
+
+    def _evict_locked(self):
+        """Drop oldest *idle* entries until the cache is at or below the cap."""
+        if len(self._entries) <= self._max_size:
+            return
+        # Walk from the front (oldest); only close idle (refcount 0) entries.
+        # An in-use entry can still happen to be at the front if the same
+        # file was acquired long ago and held; skip it.
+        to_drop = []
+        for key, entry in list(self._entries.items()):
+            if len(self._entries) - len(to_drop) <= self._max_size:
+                break
+            if entry[3] <= 0:
+                to_drop.append(key)
+        for key in to_drop:
+            entry = self._entries.pop(key)
+            _, mm, _, _ = entry
+            if mm is not None:
+                mm.close()
+            entry[0].close()
+
+    def clear(self):
+        """Close and drop all idle entries (used by tests)."""
+        with self._lock:
+            for key in [k for k, v in self._entries.items() if v[3] <= 0]:
+                entry = self._entries.pop(key)
+                _, mm, _, _ = entry
                 if mm is not None:
                     mm.close()
-                fh.close()
-            else:
-                self._entries[real] = (fh, mm, size, rc)
+                entry[0].close()
 
 
 # Module-level cache shared across all reads
@@ -176,6 +236,39 @@ class _HTTPSource:
         )
         with urllib.request.urlopen(req) as resp:
             return resp.read()
+
+    def read_ranges(
+        self,
+        ranges: list[tuple[int, int]],
+        max_workers: int = 8,
+    ) -> list[bytes]:
+        """Fetch multiple ranges concurrently using a thread pool.
+
+        Each ``(start, length)`` pair is fetched with its own range request,
+        but requests run in parallel so total wall time is bounded by the
+        slowest worker rather than ``len(ranges) * RTT``.
+
+        Returns the bytes for each range in input order.
+        """
+        if not ranges:
+            return []
+        if len(ranges) == 1:
+            start, length = ranges[0]
+            return [self.read_range(start, length)]
+
+        workers = min(max_workers, len(ranges))
+        results: list[bytes | None] = [None] * len(ranges)
+
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            future_to_idx = {
+                ex.submit(self.read_range, start, length): i
+                for i, (start, length) in enumerate(ranges)
+            }
+            for fut in future_to_idx:
+                idx = future_to_idx[fut]
+                results[idx] = fut.result()
+
+        return results  # type: ignore[return-value]
 
     def read_all(self) -> bytes:
         if self._pool is not None:
@@ -300,6 +393,21 @@ def _decode_strip_or_tile(data_slice, compression, width, height, samples,
 
     chunk = decompress(data_slice, compression, expected,
                        width=width, height=height, samples=samples)
+
+    # Validate the decompressed byte count.  A truncated deflate stream or a
+    # buggy compressor can produce fewer or more bytes than expected.  Without
+    # this check the downstream reshape raises an opaque "cannot reshape array
+    # of size N into shape (h, w)" that hides which tile/strip broke.  Edge
+    # tiles in a valid TIFF still decompress to the full tile_height x
+    # tile_width (the caller slices the top-left region), so this only fires
+    # on genuine corruption.
+    if chunk.size != expected:
+        raise ValueError(
+            f"Decompressed tile/strip size mismatch: expected {expected} "
+            f"bytes for a {width} x {height} x {samples} block "
+            f"(bps={bps}, compression={compression}), got {chunk.size}. "
+            f"The TIFF data is likely truncated or corrupt."
+        )
 
     if pred in (2, 3) and not is_sub_byte:
         if not chunk.flags.writeable:
@@ -550,9 +658,14 @@ def _read_tiles(data: bytes, ifd: IFD, header: TIFFHeader,
                     continue
                 tile_jobs.append((band_idx, tr, tc, tile_idx, tile_samples))
 
-    # Decode tiles -- parallel for compressed, sequential for uncompressed
+    # Decode tiles in parallel when the work per tile is large enough to
+    # outweigh the thread-pool overhead. Uncompressed multi-tile reads also
+    # benefit because numpy frombuffer + slice copies aren't free at large
+    # tile sizes. Threshold (~64K decoded pixels per tile) was picked to
+    # avoid pool overhead on small 64x64 / 128x128 tile reads.
     n_tiles = len(tile_jobs)
-    use_parallel = (compression != 1 and n_tiles > 4)  # 1 = COMPRESSION_NONE
+    tile_pixels = tw * th
+    use_parallel = (n_tiles > 1 and tile_pixels > 64 * 1024)
 
     def _decode_one(job):
         band_idx, tr, tc, tile_idx, tile_samples = job
@@ -610,6 +723,11 @@ def _read_cog_http(url: str, overview_level: int | None = None,
                    max_pixels: int = MAX_PIXELS_DEFAULT,
                    ) -> tuple[np.ndarray, GeoInfo]:
     """Read a COG via HTTP range requests.
+
+    Tile fetches run concurrently through a small thread pool so that the
+    total wall time is bounded by the slowest tile request rather than
+    ``num_tiles * RTT``. The pool size can be overridden with the
+    ``XRSPATIAL_COG_HTTP_WORKERS`` environment variable (default 8).
 
     Parameters
     ----------
@@ -695,31 +813,47 @@ def _read_cog_http(url: str, overview_level: int | None = None,
     else:
         result = np.empty((height, width), dtype=dtype)
 
+    # Pass 1: collect every tile's range and where it lands in the output.
+    # Empty tiles (byte_count == 0) and any tile_idx beyond the offsets
+    # array are skipped here so the fetch list stays exactly aligned with
+    # the placements list.
+    fetch_ranges: list[tuple[int, int]] = []
+    placements: list[tuple[int, int]] = []  # (tr, tc) per fetched tile
     for tr in range(tiles_down):
         for tc in range(tiles_across):
             tile_idx = tr * tiles_across + tc
             if tile_idx >= len(offsets):
                 continue
-
             off = offsets[tile_idx]
             bc = byte_counts[tile_idx]
             if bc == 0:
                 continue
+            fetch_ranges.append((off, bc))
+            placements.append((tr, tc))
 
-            tile_data = source.read_range(off, bc)
-            tile_pixels = _decode_strip_or_tile(
-                tile_data, compression, tw, th, samples,
-                bps, bytes_per_sample, is_sub_byte, dtype, pred,
-                byte_order=header.byte_order)
+    # Pass 2: fetch all tile bytes in parallel. Worker pool size is tunable
+    # via XRSPATIAL_COG_HTTP_WORKERS so users on very slow links can dial
+    # it up without code changes.
+    try:
+        workers = max(1, int(_os_module.environ.get('XRSPATIAL_COG_HTTP_WORKERS', '8')))
+    except ValueError:
+        workers = 8
+    tile_bytes_list = source.read_ranges(fetch_ranges, max_workers=workers)
 
-            # Place tile
-            y0 = tr * th
-            x0 = tc * tw
-            y1 = min(y0 + th, height)
-            x1 = min(x0 + tw, width)
-            actual_h = y1 - y0
-            actual_w = x1 - x0
-            result[y0:y1, x0:x1] = tile_pixels[:actual_h, :actual_w]
+    # Pass 3: decode each tile and place it.
+    for (tr, tc), tile_data in zip(placements, tile_bytes_list):
+        tile_pixels = _decode_strip_or_tile(
+            tile_data, compression, tw, th, samples,
+            bps, bytes_per_sample, is_sub_byte, dtype, pred,
+            byte_order=header.byte_order)
+
+        y0 = tr * th
+        x0 = tc * tw
+        y1 = min(y0 + th, height)
+        x1 = min(x0 + tw, width)
+        actual_h = y1 - y0
+        actual_w = x1 - x0
+        result[y0:y1, x0:x1] = tile_pixels[:actual_h, :actual_w]
 
     source.close()
     return result, geo_info

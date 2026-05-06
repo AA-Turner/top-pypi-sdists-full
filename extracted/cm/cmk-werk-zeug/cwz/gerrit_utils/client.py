@@ -12,6 +12,7 @@ conditions defined in the file COPYING, which is part of this source code packag
 import asyncio
 import base64
 import getpass
+import inspect
 import json
 import logging
 import netrc
@@ -32,7 +33,7 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import suppress
-from datetime import datetime
+from datetime import date, datetime
 from fnmatch import fnmatch
 from functools import wraps
 from pathlib import Path
@@ -43,7 +44,16 @@ from urllib.parse import quote, urljoin, urlparse
 import aiohttp
 import secretstorage
 from aiohttp import ClientResponse
-from pydantic import BaseModel, ConfigDict, Field, Json, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    Json,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+from rich.status import Status
 
 ReturnT = TypeVar("ReturnT")
 
@@ -250,6 +260,78 @@ class GerritClient:
             )
         )["revision"]
 
+    async def get_log(
+        self, file_path: str, since: datetime | date, project: str, branch: str
+    ) -> Sequence[tuple[str, datetime, str, str, Sequence[Path]]]:
+        """Returns git log output for a path since a given date.
+
+        Args:
+            file_path: Path to the file in the repository
+            since: Date from which to start the log
+            project: Project name
+            branch: Branch name
+
+        Returns:
+            Sequence of tuples containing (commit_id, date, author, message, list of files affected)
+
+        """
+
+        class GerritCommitPerson(GerritBase):
+            name: str
+            email: str
+            time: datetime
+
+            @field_validator("time", mode="before")
+            @classmethod
+            def parse_time(cls, v: object) -> datetime:
+                return datetime.strptime(str(v), "%a %b %d %H:%M:%S %Y %z").replace(tzinfo=None)
+
+        class GerritCommit(GerritBase):
+            tree: str
+            parents: list[str]
+            author: GerritCommitPerson
+            committer: GerritCommitPerson
+            message: str
+            commit: str
+
+        # fixme (frans): cache
+
+        ref = branch if "refs/" in branch else f"refs/heads/{branch}"
+        endpoint = f"a/plugins/gitiles/{quote(project, safe='')}/+log/{quote(ref, safe='')}"
+        if file_path:
+            endpoint += f"/{quote(file_path.lstrip('/'), safe='')}"
+
+        results: list[tuple[str, datetime, str, str, Sequence[Path]]] = []
+        cursor: None | str = None
+        since_dt = (
+            datetime.combine(since, datetime.min.time()) if isinstance(since, date) else since
+        )
+
+        while True:
+            response: dict[str, Any] = await self.get(
+                endpoint, params={"format": "JSON", "s": cursor}
+            )
+            logs = [GerritCommit.model_validate(raw) for raw in response.get("log", [])]
+
+            done = False
+            for commit in logs:
+                if commit.committer.time < since_dt:
+                    done = True
+                    break
+                results.append(
+                    (
+                        commit.commit,
+                        commit.committer.time,
+                        commit.author.email,
+                        commit.message.strip(),
+                        [],
+                    )
+                )
+            if done or not (cursor := response.get("next")):
+                break
+
+        return results
+
     async def repo_file_content(self, file_path: str, project: str, branch: str) -> str:
         """Get the content of a file from Gerrit.
 
@@ -274,9 +356,15 @@ class GerritClient:
                         f"File not found in {project}@{branch}: {file_path}"
                     ) from exc
                 raise
-            self._cached_file_contents[file_path, project, branch] = base64.b64decode(
-                raw_response
-            ).decode("utf-8")
+            response_bytes = base64.b64decode(raw_response)
+            try:
+                self._cached_file_contents[file_path, project, branch] = response_bytes.decode(
+                    "utf-8"
+                )
+            except UnicodeDecodeError:
+                self._cached_file_contents[file_path, project, branch] = response_bytes.decode(
+                    "latin-1"
+                )
         return self._cached_file_contents[file_path, project, branch]
 
     async def list_files(self, project: str, branch: str) -> Sequence[str]:
@@ -431,6 +519,17 @@ class CodeOwnersClient:
                 self._project, self._branch
             )
         return self._cached.all_remote_files
+
+    async def all_remote_paths(self) -> Sequence[str]:
+        all_file_paths = await self.all_remote_files()
+        return sorted(
+            {
+                "/".join(split_path[:pi])
+                for file_path in all_file_paths
+                for split_path in (file_path.split("/"),)
+                for pi in range(len(split_path), 0, -1)
+            }
+        )
 
     async def all_code_owners_config_files(self) -> Sequence[str]:
         """Get list of code owners configuration files using the official endpoint.
@@ -872,29 +971,48 @@ def apply_code_owner_cli_args(parser: ArgumentParser) -> ArgumentParser:
 def with_gerrit_client(
     *, populate: bool = True
 ) -> Callable[
-    [Callable[[Args, GerritClient, CodeOwnersClient], Coroutine[Any, Any, ReturnT]]],
-    Callable[[Args], Coroutine[Any, Any, ReturnT]],
+    [Callable[..., Coroutine[Any, Any, ReturnT]]],
+    Callable[..., Coroutine[Any, Any, ReturnT]],
 ]:
     """Provides an entrypoint function with a GerritClient and a CodeOwnersClient instance"""
 
     def decorator(
-        func: Callable[[Args, GerritClient, CodeOwnersClient], Coroutine[Any, Any, ReturnT]],
-    ) -> Callable[[Args], Coroutine[Any, Any, ReturnT]]:
+        func: Callable[..., Coroutine[Any, Any, ReturnT]],
+    ) -> Callable[..., Coroutine[Any, Any, ReturnT]]:
+        func_params = set(inspect.signature(func).parameters)
+
         @wraps(func)
-        async def _with_gerrit_client(cli_args: Args) -> ReturnT:
+        async def _with_gerrit_client(cli_args: Args, status: Status, **kwargs: object) -> ReturnT:
             gerrit_url, username, password = select_credentials(cli_args)
 
             log().debug("authenticate on %s using username=%s", gerrit_url, username)
+            status.start()
+            status.update(f"authenticate at {gerrit_url}..")
             async with GerritClient(gerrit_url, username, password) as gerrit_client:
                 async with CodeOwnersClient(
                     gerrit_client, cli_args.project_name, branch=cli_args.branch
                 ) as owners_client:
                     if populate:
-                        log().debug("initialize_data()")
+                        cache_mode_hint = (
+                            "- use --cache-mode=always for faster repeated calls"
+                            if cli_args.cache_mode == "auto"
+                            else ""
+                        )
+                        status.update(
+                            f"populate code-owners data (cache-mode is {cli_args.cache_mode!r}{cache_mode_hint}).."
+                        )
                         await owners_client.initialize_data(cache_mode=cli_args.cache_mode)
 
+                    available: dict[str, Any] = {
+                        "cli_args": cli_args,
+                        "status": status,
+                        "gerrit_client": gerrit_client,
+                        "owners_client": owners_client,
+                        **kwargs,
+                    }
                     log().debug("call %s", func.__name__)
-                    return await func(cli_args, gerrit_client, owners_client)
+                    status.stop()
+                    return await func(**{k: v for k, v in available.items() if k in func_params})
 
         return _with_gerrit_client
 

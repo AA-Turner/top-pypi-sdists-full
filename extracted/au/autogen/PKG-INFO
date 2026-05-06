@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: autogen
-Version: 0.12.2
+Version: 0.12.3
 Summary: Alias package for ag2
 Home-page: https://github.com/ag2ai/ag2
 Author: Chi Wang & Qingyun Wu
@@ -175,7 +175,7 @@ For a step-by-step walk through of AG2 concepts and code, see [Basic Concepts](h
 
 ### Installation
 
-AG2 requires **Python version >= 3.10, < 3.14**. AG2 is available via `ag2` (or its alias `autogen`) on PyPI.
+AG2 requires **Python version >= 3.10**. AG2 is available via `ag2` (or its alias `autogen`) on PyPI.
 
 **Windows/Linux:**
 ```bash

@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from ..models.nested_endpoint import NestedEndpoint
     from ..models.nested_offering_file import NestedOfferingFile
     from ..models.nested_partition import NestedPartition
-    from ..models.nested_role import NestedRole
     from ..models.nested_screenshot import NestedScreenshot
     from ..models.nested_software_catalog import NestedSoftwareCatalog
     from ..models.nested_tag import NestedTag
@@ -52,7 +51,6 @@ class Offering:
         endpoints (Union[Unset, list['NestedEndpoint']]):
         software_catalogs (Union[Unset, list['NestedSoftwareCatalog']]):
         partitions (Union[Unset, list['NestedPartition']]):
-        roles (Union[Unset, list['NestedRole']]):
         customer (Union[None, Unset, str]):
         customer_uuid (Union[None, UUID, Unset]):
         customer_name (Union[None, Unset, str]):
@@ -80,7 +78,7 @@ class Offering:
         billable (Union[Unset, bool]): Purchase and usage is invoiced.
         scope (Union[Unset, str]):
         scope_uuid (Union[None, UUID, Unset]):
-        scope_name (Union[None, UUID, Unset]):
+        scope_name (Union[None, Unset, str]):
         scope_state (Union[CoreStates, None, Unset]):
         scope_error_message (Union[None, Unset, str]):
         files (Union[Unset, list['NestedOfferingFile']]):
@@ -107,6 +105,8 @@ class Offering:
             Returns 'limit_only', 'usage_only', or 'mixed'.
         effective_available_limits (Union[Unset, list[str]]):
         compliance_checklist (Union[None, Unset, str]):
+        profile_uuid (Union[None, UUID, Unset]):
+        profile_name (Union[None, Unset, str]):
         user_has_consent (Union[Unset, bool]):
         is_accessible (Union[Unset, bool]):
         googlecalendar (Union[Unset, GoogleCalendar]):
@@ -126,7 +126,6 @@ class Offering:
     endpoints: Union[Unset, list["NestedEndpoint"]] = UNSET
     software_catalogs: Union[Unset, list["NestedSoftwareCatalog"]] = UNSET
     partitions: Union[Unset, list["NestedPartition"]] = UNSET
-    roles: Union[Unset, list["NestedRole"]] = UNSET
     customer: Union[None, Unset, str] = UNSET
     customer_uuid: Union[None, UUID, Unset] = UNSET
     customer_name: Union[None, Unset, str] = UNSET
@@ -154,7 +153,7 @@ class Offering:
     billable: Union[Unset, bool] = UNSET
     scope: Union[Unset, str] = UNSET
     scope_uuid: Union[None, UUID, Unset] = UNSET
-    scope_name: Union[None, UUID, Unset] = UNSET
+    scope_name: Union[None, Unset, str] = UNSET
     scope_state: Union[CoreStates, None, Unset] = UNSET
     scope_error_message: Union[None, Unset, str] = UNSET
     files: Union[Unset, list["NestedOfferingFile"]] = UNSET
@@ -180,6 +179,8 @@ class Offering:
     billing_type_classification: Union[Unset, str] = UNSET
     effective_available_limits: Union[Unset, list[str]] = UNSET
     compliance_checklist: Union[None, Unset, str] = UNSET
+    profile_uuid: Union[None, UUID, Unset] = UNSET
+    profile_name: Union[None, Unset, str] = UNSET
     user_has_consent: Union[Unset, bool] = UNSET
     is_accessible: Union[Unset, bool] = UNSET
     googlecalendar: Union[Unset, "GoogleCalendar"] = UNSET
@@ -232,13 +233,6 @@ class Offering:
             for partitions_item_data in self.partitions:
                 partitions_item = partitions_item_data.to_dict()
                 partitions.append(partitions_item)
-
-        roles: Union[Unset, list[dict[str, Any]]] = UNSET
-        if not isinstance(self.roles, Unset):
-            roles = []
-            for roles_item_data in self.roles:
-                roles_item = roles_item_data.to_dict()
-                roles.append(roles_item)
 
         customer: Union[None, Unset, str]
         if isinstance(self.customer, Unset):
@@ -362,8 +356,6 @@ class Offering:
         scope_name: Union[None, Unset, str]
         if isinstance(self.scope_name, Unset):
             scope_name = UNSET
-        elif isinstance(self.scope_name, UUID):
-            scope_name = str(self.scope_name)
         else:
             scope_name = self.scope_name
 
@@ -497,6 +489,20 @@ class Offering:
         else:
             compliance_checklist = self.compliance_checklist
 
+        profile_uuid: Union[None, Unset, str]
+        if isinstance(self.profile_uuid, Unset):
+            profile_uuid = UNSET
+        elif isinstance(self.profile_uuid, UUID):
+            profile_uuid = str(self.profile_uuid)
+        else:
+            profile_uuid = self.profile_uuid
+
+        profile_name: Union[None, Unset, str]
+        if isinstance(self.profile_name, Unset):
+            profile_name = UNSET
+        else:
+            profile_name = self.profile_name
+
         user_has_consent = self.user_has_consent
 
         is_accessible = self.is_accessible
@@ -536,8 +542,6 @@ class Offering:
             field_dict["software_catalogs"] = software_catalogs
         if partitions is not UNSET:
             field_dict["partitions"] = partitions
-        if roles is not UNSET:
-            field_dict["roles"] = roles
         if customer is not UNSET:
             field_dict["customer"] = customer
         if customer_uuid is not UNSET:
@@ -644,6 +648,10 @@ class Offering:
             field_dict["effective_available_limits"] = effective_available_limits
         if compliance_checklist is not UNSET:
             field_dict["compliance_checklist"] = compliance_checklist
+        if profile_uuid is not UNSET:
+            field_dict["profile_uuid"] = profile_uuid
+        if profile_name is not UNSET:
+            field_dict["profile_name"] = profile_name
         if user_has_consent is not UNSET:
             field_dict["user_has_consent"] = user_has_consent
         if is_accessible is not UNSET:
@@ -661,7 +669,6 @@ class Offering:
         from ..models.nested_endpoint import NestedEndpoint
         from ..models.nested_offering_file import NestedOfferingFile
         from ..models.nested_partition import NestedPartition
-        from ..models.nested_role import NestedRole
         from ..models.nested_screenshot import NestedScreenshot
         from ..models.nested_software_catalog import NestedSoftwareCatalog
         from ..models.nested_tag import NestedTag
@@ -724,13 +731,6 @@ class Offering:
             partitions_item = NestedPartition.from_dict(partitions_item_data)
 
             partitions.append(partitions_item)
-
-        roles = []
-        _roles = d.pop("roles", UNSET)
-        for roles_item_data in _roles or []:
-            roles_item = NestedRole.from_dict(roles_item_data)
-
-            roles.append(roles_item)
 
         def _parse_customer(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -911,20 +911,12 @@ class Offering:
 
         scope_uuid = _parse_scope_uuid(d.pop("scope_uuid", UNSET))
 
-        def _parse_scope_name(data: object) -> Union[None, UUID, Unset]:
+        def _parse_scope_name(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                scope_name_type_0 = UUID(data)
-
-                return scope_name_type_0
-            except:  # noqa: E722
-                pass
-            return cast(Union[None, UUID, Unset], data)
+            return cast(Union[None, Unset, str], data)
 
         scope_name = _parse_scope_name(d.pop("scope_name", UNSET))
 
@@ -1115,6 +1107,32 @@ class Offering:
 
         compliance_checklist = _parse_compliance_checklist(d.pop("compliance_checklist", UNSET))
 
+        def _parse_profile_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                profile_uuid_type_0 = UUID(data)
+
+                return profile_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        profile_uuid = _parse_profile_uuid(d.pop("profile_uuid", UNSET))
+
+        def _parse_profile_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        profile_name = _parse_profile_name(d.pop("profile_name", UNSET))
+
         user_has_consent = d.pop("user_has_consent", UNSET)
 
         is_accessible = d.pop("is_accessible", UNSET)
@@ -1141,7 +1159,6 @@ class Offering:
             endpoints=endpoints,
             software_catalogs=software_catalogs,
             partitions=partitions,
-            roles=roles,
             customer=customer,
             customer_uuid=customer_uuid,
             customer_name=customer_name,
@@ -1195,6 +1212,8 @@ class Offering:
             billing_type_classification=billing_type_classification,
             effective_available_limits=effective_available_limits,
             compliance_checklist=compliance_checklist,
+            profile_uuid=profile_uuid,
+            profile_name=profile_name,
             user_has_consent=user_has_consent,
             is_accessible=is_accessible,
             googlecalendar=googlecalendar,

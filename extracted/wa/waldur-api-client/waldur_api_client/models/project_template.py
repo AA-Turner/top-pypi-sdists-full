@@ -8,9 +8,9 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.customer import Customer
+    from ..models.basic_customer import BasicCustomer
     from ..models.project_template_role_mapping_data import ProjectTemplateRoleMappingData
-    from ..models.provider_offering_details import ProviderOfferingDetails
+    from ..models.resource_offering import ResourceOffering
 
 
 T = TypeVar("T", bound="ProjectTemplate")
@@ -23,12 +23,12 @@ class ProjectTemplate:
         uuid (UUID):
         name (str):
         provider (str):
-        provider_data (Customer):
+        provider_data (BasicCustomer):
         portal (str):
         customer (str):
-        customer_data (Customer):
+        customer_data (BasicCustomer):
         offerings (list[str]):
-        offerings_data (list['ProviderOfferingDetails']):
+        offerings_data (list['ResourceOffering']):
         role_mapping_data (ProjectTemplateRoleMappingData): Serialize the role mapping dictionary returned by
             get_role_mapping()
         offering (Union[None, Unset, str]): The offering for which this template applies.
@@ -49,12 +49,12 @@ class ProjectTemplate:
     uuid: UUID
     name: str
     provider: str
-    provider_data: "Customer"
+    provider_data: "BasicCustomer"
     portal: str
     customer: str
-    customer_data: "Customer"
+    customer_data: "BasicCustomer"
     offerings: list[str]
-    offerings_data: list["ProviderOfferingDetails"]
+    offerings_data: list["ResourceOffering"]
     role_mapping_data: "ProjectTemplateRoleMappingData"
     offering: Union[None, Unset, str] = UNSET
     key: Union[None, Unset, str] = UNSET
@@ -158,9 +158,9 @@ class ProjectTemplate:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.customer import Customer
+        from ..models.basic_customer import BasicCustomer
         from ..models.project_template_role_mapping_data import ProjectTemplateRoleMappingData
-        from ..models.provider_offering_details import ProviderOfferingDetails
+        from ..models.resource_offering import ResourceOffering
 
         d = dict(src_dict)
         uuid = UUID(d.pop("uuid"))
@@ -169,20 +169,20 @@ class ProjectTemplate:
 
         provider = d.pop("provider")
 
-        provider_data = Customer.from_dict(d.pop("provider_data"))
+        provider_data = BasicCustomer.from_dict(d.pop("provider_data"))
 
         portal = d.pop("portal")
 
         customer = d.pop("customer")
 
-        customer_data = Customer.from_dict(d.pop("customer_data"))
+        customer_data = BasicCustomer.from_dict(d.pop("customer_data"))
 
         offerings = cast(list[str], d.pop("offerings"))
 
         offerings_data = []
         _offerings_data = d.pop("offerings_data")
         for offerings_data_item_data in _offerings_data:
-            offerings_data_item = ProviderOfferingDetails.from_dict(offerings_data_item_data)
+            offerings_data_item = ResourceOffering.from_dict(offerings_data_item_data)
 
             offerings_data.append(offerings_data_item)
 

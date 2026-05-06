@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opacus
-Version: 1.5.4
+Version: 1.6.0
 Summary: Train PyTorch models with Differential Privacy
 Home-page: https://opacus.ai
 Author: The Opacus Team
@@ -19,7 +19,7 @@ Requires-Python: >=3.7.5
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.15
-Requires-Dist: torch>=2.0
+Requires-Dist: torch>=2.6.0
 Requires-Dist: scipy>=1.2
 Requires-Dist: opt-einsum>=3.3.0
 Provides-Extra: dev
@@ -155,6 +155,7 @@ training models with privacy and using various Opacus features.
 - [Opacus Guide: Introduction to advanced features](https://github.com/pytorch/opacus/blob/main/tutorials/intro_to_advanced_features.ipynb)
 - [Opacus Guide: Grad samplers](https://github.com/pytorch/opacus/blob/main/tutorials/guide_to_grad_sampler.ipynb)
 - [Opacus Guide: Module Validator and Fixer](https://github.com/pytorch/opacus/blob/main/tutorials/guide_to_module_validator.ipynb)
+- [Opacus Guide: Training with Non-Wrapping Mode](https://github.com/pytorch/opacus/blob/main/tutorials/non_wrapping_mode.ipynb)
 
 ## Technical report and citation
 

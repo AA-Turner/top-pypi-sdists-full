@@ -44,11 +44,11 @@ class ResponseCreateParamsBase(TypedDict, total=False):
     full conversation turn. A plain string is equivalent to a single user message.
     """
 
-    model: Required[Union[str, Literal["gpt-oss-120b"]]]
+    model: Required[Union[str, Literal["gpt-oss-120b", "MiniMax-M2.5", "MiniMax-M2.7"]]]
     """The model ID to use (e.g.
 
     gpt-oss-120b). See available
-    [models](https://docs.sambanova.ai/cloud/docs/get-started/supported-models)
+    [models](https://docs.sambanova.ai/docs/en/models/sambacloud-models)
     """
 
     background: Optional[bool]

@@ -13,12 +13,23 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from typing import Any
+
+from oslo_config import cfg
+
 from osprofiler import notifier
 from osprofiler import requests
 from osprofiler import web
 
 
-def init_from_conf(conf, context, project, service, host, **kwargs):
+def init_from_conf(
+    conf: cfg.ConfigOpts,
+    context: Any,
+    project: str,
+    service: str,
+    host: str,
+    **kwargs: Any,
+) -> None:
     """Initialize notifier from service configuration
 
     :param conf: service configuration
@@ -37,7 +48,8 @@ def init_from_conf(conf, context, project, service, host, **kwargs):
         service=service,
         host=host,
         conf=conf,
-        **kwargs)
+        **kwargs,
+    )
     notifier.set(_notifier)
     web.enable(conf.profiler.hmac_keys)
     if conf.profiler.trace_requests:

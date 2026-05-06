@@ -9,12 +9,23 @@ from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from shutil import move
 from tempfile import mkdtemp
-from typing import Dict, List, Literal, Mapping, Optional, Set, Tuple
+from typing import (
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+)
 
 from importlib_metadata import packages_distributions
 from packaging.requirements import Requirement
 from pip._internal.cli.main import main as pip_main
 
+from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.services.pypi_cache import PyPIVerificationCache
@@ -23,6 +34,45 @@ from abstra_internals.utils.ast_cache import ASTCache
 from abstra_internals.utils.format import pip_name
 
 install_lock = threading.Lock()
+
+
+class RequirementsChangeNotifier:
+    """Pub/sub for requirements install/uninstall events.
+    Decouples this service from controllers/UI: listeners (e.g. UI
+    notification) subscribe at bootstrap instead of services importing them.
+    """
+
+    _listeners: List[Callable[[], None]] = []
+    _lock = threading.Lock()
+
+    @classmethod
+    def register(cls, listener: Callable[[], None]) -> None:
+        with cls._lock:
+            cls._listeners.append(listener)
+
+    @classmethod
+    def unregister(cls, listener: Callable[[], None]) -> None:
+        with cls._lock:
+            try:
+                cls._listeners.remove(listener)
+            except ValueError:
+                pass
+
+    @classmethod
+    def clear(cls) -> None:
+        """Intended for tests."""
+        with cls._lock:
+            cls._listeners.clear()
+
+    @classmethod
+    def notify(cls) -> None:
+        with cls._lock:
+            listeners = list(cls._listeners)
+        for listener in listeners:
+            try:
+                listener()
+            except Exception as e:
+                AbstraLogger.error(f"requirements change callback failed: {e}")
 
 
 class _PackagesDistributionsCache:
@@ -724,8 +774,13 @@ def create_requirement(name: str, version: Optional[str] = None) -> Requirement:
         return Requirement(name)
 
 
-def uninstall_requirement(req: Requirement):
-    """Uninstall a requirement package."""
+def iter_uninstall_requirement(req: Requirement) -> Iterator[str]:
+    """Uninstall a requirement package, yielding each line of pip output.
+
+    Use this when you need to stream output in real time (e.g. an SSE HTTP
+    response). If you don't need streaming, use uninstall_requirement() —
+    it returns the full output as a list and is simpler to consume.
+    """
     installed_version = get_installed_version(req.name)
     if not installed_version:
         return
@@ -736,6 +791,16 @@ def uninstall_requirement(req: Requirement):
         yield from __uninstall_from_lib(req)
     _PackagesDistributionsCache.invalidate()
     _TransitiveDependenciesCache.invalidate()
+    RequirementsChangeNotifier.notify()
+
+
+def uninstall_requirement(req: Requirement) -> List[str]:
+    """Uninstall a requirement package and return the full pip output as a list of lines.
+
+    Convenience wrapper around iter_uninstall_requirement() for callers that
+    don't need real-time streaming.
+    """
+    return list(iter_uninstall_requirement(req))
 
 
 def __uninstall_from_standalone(req: Requirement):
@@ -1070,13 +1135,28 @@ class Requirements:
                 else:
                     yield "Installation finished successfully\n\n"
 
-    def install(self):
+    def iter_install(self) -> Iterator[str]:
+        """Install all requirements, yielding each line of pip output as it is produced.
+
+        Use this when you need to stream output in real time (e.g. an SSE HTTP
+        response). If you don't need streaming, use install() — it returns the
+        full output as a list and is simpler to consume.
+        """
         if os.getenv("ABSTRA_RUNNING_IN_BUNDLED_APP"):
             yield from self.__install_from_standalone()
         else:
             yield from self.__install_from_lib()
         _PackagesDistributionsCache.invalidate()
         _TransitiveDependenciesCache.invalidate()
+        RequirementsChangeNotifier.notify()
+
+    def install(self) -> List[str]:
+        """Install all requirements and return the full pip output as a list of lines.
+
+        Convenience wrapper around iter_install() for callers that don't need
+        real-time streaming.
+        """
+        return list(self.iter_install())
 
 
 @dataclass

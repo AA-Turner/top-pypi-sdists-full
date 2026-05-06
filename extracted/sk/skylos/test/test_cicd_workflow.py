@@ -24,6 +24,10 @@ def test_workflow_has_all_steps():
     assert "Quality Gate" in step_names
     assert "GitHub Annotations" in step_names
     assert "PR Review Comments" in step_names
+    quality_gate = next(s for s in steps if s.get("name") == "Quality Gate")
+    assert "--advisory" in quality_gate["run"]
+    pr_review = next(s for s in steps if s.get("name") == "PR Review Comments")
+    assert "--evidence-cards" in pr_review["run"]
 
 
 def test_workflow_triggers():
@@ -139,6 +143,7 @@ def test_workflow_scan_path_is_monorepo_aware():
     content = generate_workflow(scan_path="apps/api", use_upload=True, use_defend=True)
     assert "skylos apps/api" in content
     assert "skylos defend apps/api" in content
+    assert "--defense-input defense-results.json" in content
 
 
 def test_workflow_prefixes_leading_dash_scan_path():

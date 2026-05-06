@@ -11,7 +11,6 @@ import argparse
 import importlib
 import os
 import re
-import shutil
 import threading
 import time
 import typing as t
@@ -23,8 +22,7 @@ from types import ModuleType
 # Type imports for compatibility
 from dbt.adapters.base.impl import BaseAdapter
 from dbt.contracts.graph.manifest import Manifest
-from dbt.mp_context import get_mp_context
-from dbt.parser.models import ModelParser
+from dbt.contracts.graph.nodes import ModelNode
 
 # Import from dbt-core-interface instead of internal dbt modules
 from dbt_core_interface import DbtConfiguration as InterfaceDbtConfiguration
@@ -52,15 +50,54 @@ except (ImportError, AttributeError):
 # Regex to extract version number from manifest schema URL
 # Matches "/v12.json" at the end of "https://schemas.getdbt.com/dbt/manifest/v12.json"
 _SCHEMA_VERSION_RE = re.compile(r"/v(\d+)(?:\.json)?$")
+_KNOWN_FUSION_MANIFEST_SCHEMA_VERSIONS = {20}
+
+
+def _set_project_manifest(project: InterfaceDbtProject, manifest: Manifest) -> None:
+    """Replace a dbt-core-interface project manifest through a narrow shim.
+
+    dbt-core-interface exposes ``DbtProject.manifest`` as read-only in supported
+    versions. Until it provides a public mutation API, isolate the private
+    storage write here so compatibility debt is explicit and easy to audit.
+    """
+    manifest_property = getattr(type(project), "manifest", None)
+    if isinstance(manifest_property, property) and manifest_property.fset is not None:
+        manifest_property.fset(project, manifest)
+        return
+
+    object.__setattr__(project, "_DbtProject__manifest", manifest)
+
+
+def _cleanup_stale_adapter(registered_adapter: object, adapter_type: str) -> None:
+    """Release connections held by a stale adapter before rebinding the factory.
+
+    dbt adapter implementations do not expose one stable cleanup method across
+    supported versions. Prefer the modern ``cleanup_connections`` method when it
+    exists, but fall back to ``close_all_connections`` for older adapters.
+    """
+    cleanup = getattr(registered_adapter, "cleanup_connections", None)
+    if callable(cleanup):
+        cleanup()
+        return
+
+    close_all = getattr(registered_adapter, "close_all_connections", None)
+    if callable(close_all):
+        close_all()
+        return
+
+    logger.debug(
+        ":information_source: Stale adapter '%s' exposes no known cleanup hook; rebinding directly",
+        adapter_type,
+    )
 
 
 def _detect_fusion_manifest(project_dir: str) -> bool:
     """Check if the target directory contains a manifest produced by dbt Fusion.
 
-    dbt Fusion is a standalone Rust-based engine that produces manifests with a
-    schema version higher than dbt-core's (currently v20 vs v12). When teams run
-    both dbt-core and Fusion side by side, this detection ensures dbt-osmosis
-    outputs Fusion-compatible YAML even if the installed dbt-core is older.
+    dbt Fusion is a standalone Rust-based engine with known manifest evidence
+    distinct from dbt-core's manifest schema history. When teams run both
+    dbt-core and Fusion side by side, this detection ensures dbt-osmosis outputs
+    Fusion-compatible YAML even if the installed dbt-core is older.
 
     The check reads the existing manifest.json before osmosis re-parses the
     project, since parsing via dbt-core would overwrite it with a v12 manifest.
@@ -69,14 +106,12 @@ def _detect_fusion_manifest(project_dir: str) -> bool:
         project_dir: Path to the dbt project root.
 
     Returns:
-        True if a Fusion manifest (schema version > 12) is detected.
+        True if an existing manifest proves the project was last parsed by dbt Fusion.
     """
     manifest_path = Path(project_dir) / "target" / "manifest.json"
     if not manifest_path.exists():
-        # No existing manifest — also check for Fusion binary on PATH
-        if shutil.which("dbt-fusion") or shutil.which("dbtf"):
-            logger.debug(":rocket: dbt Fusion binary found on PATH")
-            return True
+        # PATH contents are not project evidence: a globally installed Fusion binary
+        # does not mean this project was parsed with Fusion.
         return False
 
     try:
@@ -89,15 +124,20 @@ def _detect_fusion_manifest(project_dir: str) -> bool:
         match = _SCHEMA_VERSION_RE.search(schema_version)
         if match:
             version_num = int(match.group(1))
-            # dbt-core currently produces v12 manifests; higher versions indicate
-            # a different engine such as dbt Fusion (which produces v20+).
-            if version_num > 12:
+            if version_num in _KNOWN_FUSION_MANIFEST_SCHEMA_VERSIONS:
                 logger.info(
                     ":rocket: Fusion manifest detected (schema v%d) at %s",
                     version_num,
                     manifest_path,
                 )
                 return True
+            if version_num > 12:
+                logger.debug(
+                    ":information_source: Manifest schema v%d at %s is not known Fusion evidence; %s",
+                    version_num,
+                    manifest_path,
+                    "leaving fusion_compat auto-detection to dbt version or explicit override",
+                )
     except Exception as e:
         logger.debug(":information_source: Could not check manifest for Fusion: %s", e)
 
@@ -134,17 +174,31 @@ def discover_project_dir() -> str:
     return str(cwd.resolve())
 
 
-def discover_profiles_dir() -> str:
-    """Return the directory containing a profiles.yml if found, else ~/.dbt. Checks DBT_PROFILES_DIR first if set."""
+def discover_profiles_dir(project_dir: str | os.PathLike[str] | None = None) -> str:
+    """Return the directory containing a profiles.yml if found, else ~/.dbt.
+
+    Search order:
+    1. DBT_PROFILES_DIR when set to a valid directory
+    2. The current working directory
+    3. The provided or discovered dbt project root
+    4. ~/.dbt
+    """
     if "DBT_PROFILES_DIR" in os.environ:
         profiles_dir = Path(os.environ["DBT_PROFILES_DIR"])
         if profiles_dir.is_dir():
             logger.info(":mag: DBT_PROFILES_DIR detected => %s", profiles_dir)
             return str(profiles_dir.resolve())
         logger.warning(":warning: DBT_PROFILES_DIR %s is not a valid directory.", profiles_dir)
-    if (Path.cwd() / "profiles.yml").exists():
+    cwd = Path.cwd().resolve()
+    if (cwd / "profiles.yml").exists():
         logger.info(":mag: Found profiles.yml in current directory.")
-        return str(Path.cwd().resolve())
+        return str(cwd)
+    resolved_project_dir = (
+        Path(project_dir).resolve() if project_dir is not None else Path(discover_project_dir())
+    )
+    if resolved_project_dir != cwd and (resolved_project_dir / "profiles.yml").exists():
+        logger.info(":mag: Found profiles.yml in project root => %s", resolved_project_dir)
+        return str(resolved_project_dir)
     home_profiles = str(Path.home() / ".dbt")
     logger.info(":mag: Defaulting to => %s", home_profiles)
     return home_profiles
@@ -278,8 +332,8 @@ class DbtProjectContext:
     is_fusion_manifest: bool = field(init=False, repr=False)
     """Whether a dbt Fusion manifest was detected in the target directory.
 
-    dbt Fusion is a standalone Rust-based engine that produces manifests with
-    schema version > 12 (e.g., v20). When True, fusion_compat should be enabled
+    dbt Fusion is a standalone Rust-based engine with known manifest evidence
+    (for example schema v20). When True, fusion_compat should be enabled
     regardless of the installed dbt-core version, since the project is being
     actively built with Fusion.
     """
@@ -394,9 +448,8 @@ class DbtProjectContext:
 
         This allows manifest reloading while maintaining the same DbtProject instance.
         """
-        # We need to update the internal manifest in DbtProject
-        # DbtProject doesn't expose a setter, so we set it on the object
-        object.__setattr__(self._project, "_DbtProject__manifest", value)
+        assert self._project is not None, "DbtProjectContext not initialized"
+        _set_project_manifest(self._project, value)
 
     @property
     def sql_parser(self):
@@ -493,7 +546,7 @@ def _add_cross_project_references(
                     if node_access != "protected":
                         if node.get("resource_type") == "model":
                             try:
-                                loomnodes.append(ModelParser.parse_from_dict(None, node))  # pyright: ignore[reportArgumentType]
+                                loomnodes.append(ModelNode.from_dict(node))
                             except Exception as e:
                                 logger.warning(
                                     ":warning: Failed to parse node %s from dbt loom: %s",
@@ -508,72 +561,49 @@ def _add_cross_project_references(
     return manifest
 
 
-def _patch_adapter_factory_registration() -> None:
-    """Monkey-patch dbt-core-interface to register adapters in FACTORY.adapters.
+def _bind_project_adapter(project: InterfaceDbtProject) -> None:
+    """Bind the current project adapter into dbt's global adapter registry.
 
-    The dbt-core-interface's create_adapter() method sets self.runtime_config.adapter
-    but doesn't call FACTORY.register_adapter(). This causes KeyError when dbt parsers
-    try to get the adapter via get_adapter(config) because FACTORY.lookup_adapter()
-    looks in FACTORY.adapters, not runtime_config.adapter.
-
-    This monkey-patch wraps DbtProject.create_adapter to register the adapter in FACTORY
-    immediately after creation.
+    dbt-core-interface is responsible for creating the live adapter instance.
+    dbt parser code still resolves adapters via the global AdapterFactory, so
+    bootstrap must ensure that registry points at the adapter owned by the
+    current project context instead of any stale adapter from a previous run.
     """
     from dbt.adapters.factory import FACTORY
-    from dbt_core_interface import DbtProject
 
-    original_create_adapter = DbtProject.create_adapter
+    adapter_type = project.runtime_config.credentials.type
+    project_adapter = getattr(project.runtime_config, "adapter", None)
 
-    def patched_create_adapter(self, replace: bool = False, verify_connectivity: bool = True):
-        """Wrapper that ensures the adapter is registered in FACTORY.adapters."""
-        # Call the original create_adapter
-        adapter = original_create_adapter(
-            self,
-            replace=replace,
-            verify_connectivity=verify_connectivity,
+    if project_adapter is None:
+        raise RuntimeError(
+            f"dbt-core-interface did not initialize adapter '{adapter_type}' during project bootstrap.",
         )
 
-        # Register the adapter in FACTORY.adapters if not already registered
-        adapter_type = self.runtime_config.credentials.type
-        if adapter_type not in FACTORY.adapters:
-            FACTORY.adapters[adapter_type] = adapter  # type: ignore
+    registered_adapter = FACTORY.adapters.get(adapter_type)
+    if registered_adapter is project_adapter:
+        return
+
+    if registered_adapter is not None:
+        try:
+            _cleanup_stale_adapter(registered_adapter, adapter_type)
+        except Exception as e:
             logger.debug(
-                f":wrench: Registered adapter '{adapter_type}' in FACTORY.adapters (monkey-patch)",
+                ":information_source: Could not clean up stale adapter '%s' before rebinding: %s",
+                adapter_type,
+                e,
             )
 
-        return adapter
+    FACTORY.adapters[adapter_type] = project_adapter
 
-    # Apply the monkey-patch
-    DbtProject.create_adapter = patched_create_adapter
-
-
-def _ensure_adapter_loaded(config: DbtConfiguration) -> None:
-    """Ensure the dbt adapter plugin is loaded before creating the DbtProject.
-
-    This is necessary because dbt-core-interface's DbtProject initialization calls
-    RuntimeConfig.from_args() which needs the adapter to be registered in the factory.
-    Without loading the plugin first, a KeyError will be raised for the adapter type.
-
-    Args:
-        config: The dbt project configuration
-
-    """
-    try:
-        # Apply the monkey-patch to ensure adapters are registered in FACTORY.adapters
-        _patch_adapter_factory_registration()
-
-        from dbt.adapters.factory import FACTORY
-
-        adapter_type = getattr(config, "adapter_type", None)  # pyright: ignore[reportAttributeAccessIssue]
-
-        if adapter_type and adapter_type not in FACTORY.plugins:
-            logger.info(f":wrench: Loading dbt adapter plugin for '{adapter_type}'...")
-            FACTORY.load_plugin(adapter_type)
-            logger.info(f":white_check_mark: Successfully loaded adapter plugin '{adapter_type}'")
-    except Exception as e:
-        logger.debug(
-            f":information_source: Could not pre-load adapter plugin: {e}. "
-            "This is OK - the adapter will be loaded on-demand.",
+    if registered_adapter is None:
+        logger.info(
+            ":white_check_mark: Registered project adapter '%s' in FACTORY.adapters",
+            adapter_type,
+        )
+    else:
+        logger.info(
+            ":white_check_mark: Rebound FACTORY.adapters['%s'] to the current project adapter",
+            adapter_type,
         )
 
 
@@ -597,36 +627,12 @@ def create_dbt_project_context(config: DbtConfiguration) -> DbtProjectContext:
     # both dbt Fusion and dbt-core to get fusion_compat=True automatically.
     is_fusion = _detect_fusion_manifest(config.project_dir)
 
-    # Ensure the adapter plugin is loaded before creating the DbtProject
-    # This is necessary because RuntimeConfig.from_args() needs the adapter
-    # to be registered in the factory, and load_plugin needs to be called
-    # before that happens.
-    _ensure_adapter_loaded(config)
-
     # Create the interface config
     interface_config = config.to_interface_config()
 
     # Create DbtProject instance (this loads the manifest)
     project = InterfaceDbtProject.from_config(interface_config)
-
-    # Workaround: Ensure the adapter is registered in FACTORY.adapters
-    # The dbt-core-interface's create_adapter() sets self.runtime_config.adapter
-    # but doesn't call FACTORY.register_adapter(). This causes issues when
-    # dbt parsers try to get the adapter via get_adapter(config) because
-    # FACTORY.lookup_adapter() looks in FACTORY.adapters, not runtime_config.adapter.
-    # We register the adapter here to ensure parsers can find it.
-    try:
-        from dbt.adapters.factory import FACTORY
-
-        adapter_type = project.runtime_config.credentials.type
-        if adapter_type not in FACTORY.adapters:
-            FACTORY.register_adapter(
-                project.runtime_config,  # pyright: ignore[reportArgumentType]
-                get_mp_context(),  # pyright: ignore[reportArgumentType]
-            )
-            logger.info(f":white_check_mark: Registered adapter '{adapter_type}' in factory")
-    except Exception as e:
-        logger.debug(f":information_source: Could not register adapter in factory: {e}")
+    _bind_project_adapter(project)
 
     # Handle dbt-loom cross-project references if available
     try:
@@ -642,8 +648,7 @@ def create_dbt_project_context(config: DbtConfiguration) -> DbtProjectContext:
                 dbt_loom,
                 project.project_name,
             )
-            # Update the manifest in the project
-            project.manifest = manifest
+            _set_project_manifest(project, manifest)
         except Exception as e:
             logger.warning(":warning: Failed to add cross-project references from dbt_loom: %s", e)
 

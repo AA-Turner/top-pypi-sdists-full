@@ -1,8 +1,4 @@
-"""Pytest configuration for tests/core directory.
-
-This module ensures the demo_duckdb manifest exists before running tests
-that depend on it (e.g., test_real_manifest_contains_customers).
-"""
+"""Pytest configuration for tests/core directory."""
 
 from __future__ import annotations
 
@@ -10,51 +6,41 @@ from pathlib import Path
 
 import pytest
 
+from tests.support import create_temp_project_copy, run_dbt_command
 
-def _ensure_manifest_exists() -> None:
-    """Ensure demo_duckdb/target/manifest.json exists by running dbt parse if needed.
 
-    This is a lightweight alternative to the full dbt run seed+run pipeline.
-    dbt parse generates the manifest without executing any SQL.
-    """
-    manifest_path = Path("demo_duckdb/target/manifest.json")
-
-    if manifest_path.exists():
-        return
-
-    from dbt.cli.main import dbtRunner
+def _build_isolated_demo_manifest(
+    temp_dir: Path,
+    source_dir: Path = Path("demo_duckdb"),
+    target: str = "test",
+) -> Path:
+    """Parse the demo project in an isolated copy and return its manifest path."""
+    project_dir = create_temp_project_copy(source_dir, temp_dir)
+    manifest_path = project_dir / "target" / "manifest.json"
 
     print("\n" + "=" * 60)
-    print("Manifest not found - running dbt parse to generate it")
+    print(f"Parsing isolated demo manifest in {project_dir}")
     print("=" * 60)
 
-    result = dbtRunner().invoke([
+    run_dbt_command([
         "parse",
         "--project-dir",
-        "demo_duckdb",
+        str(project_dir),
         "--profiles-dir",
-        "demo_duckdb",
+        str(project_dir),
+        "--target",
+        target,
     ])
 
-    if result.success:
-        print(f"✓ Manifest generated at {manifest_path}")
-    else:
-        raise RuntimeError(
-            f"dbt parse failed: {result.exception if hasattr(result, 'exception') else 'Unknown error'}",
-        )
+    if not manifest_path.exists():
+        raise RuntimeError(f"Manifest file not created at {manifest_path}")
 
+    print(f"✓ Isolated manifest generated at {manifest_path}")
     print("=" * 60 + "\n")
+    return manifest_path
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_demo_manifest() -> None:
-    """Session-scoped fixture that ensures demo_duckdb manifest exists.
-
-    This fixture runs automatically (autouse=True) before any tests in this
-    directory (tests/core/). It checks if demo_duckdb/target/manifest.json
-    exists and runs dbt parse if it doesn't.
-
-    This is a lightweight operation that only runs once per test session.
-    The manifest is cached in the source tree for subsequent test runs.
-    """
-    _ensure_manifest_exists()
+@pytest.fixture(scope="session")
+def demo_manifest_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Session-scoped manifest path built from a temp demo project copy."""
+    return _build_isolated_demo_manifest(tmp_path_factory.mktemp("demo_manifest"))

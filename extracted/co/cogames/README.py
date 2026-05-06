@@ -5,7 +5,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.19.0
 #   kernelspec:
 #     display_name: .venv
 #     language: python
@@ -266,7 +266,7 @@
 #
 # To specify a `MISSION`, you can:
 #
-# - Use a mission name from the registry given by `cogames missions` (e.g. `training_facility_1`).
+# - Use a built-in mission name (e.g. `training_facility_1`).
 # - Use a path to a mission configuration file (e.g. `path/to/mission.yaml`).
 #
 # To specify a `POLICY`, use one of two formats:
@@ -329,6 +329,9 @@ def build_command_groups_from_cli():
         group_name = group_info.name
         if not group_name or getattr(group_info, "hidden", False):
             continue
+        group_panel = getattr(group_info, "rich_help_panel", None)
+        if isinstance(group_panel, typer.models.DefaultPlaceholder):
+            group_panel = None
         sub_app = group_info.typer_instance
         if sub_app:
             for sub_cmd_info in sub_app.registered_commands:
@@ -336,6 +339,8 @@ def build_command_groups_from_cli():
                     continue
                 panel = getattr(sub_cmd_info, "rich_help_panel", None)
                 if panel is None or isinstance(panel, typer.models.DefaultPlaceholder):
+                    panel = group_panel
+                if panel is None:
                     continue
                 sub_name = sub_cmd_info.name or (sub_cmd_info.callback.__name__ if sub_cmd_info.callback else None)
                 if sub_name:

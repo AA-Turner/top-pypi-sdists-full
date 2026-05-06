@@ -11,6 +11,7 @@ from ..models.call_states import CallStates
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.call_applicant_visibility_config import CallApplicantVisibilityConfig
     from ..models.call_document import CallDocument
     from ..models.call_resource_template import CallResourceTemplate
     from ..models.nested_requested_offering import NestedRequestedOffering
@@ -65,6 +66,7 @@ class ProtectedCall:
             one.
         user_assurance_levels (Union[Unset, Any]): List of required assurance URIs (REFEDS). User must have ALL of
             these.
+        applicant_visibility_config (Union['CallApplicantVisibilityConfig', None, Unset]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -101,9 +103,12 @@ class ProtectedCall:
     user_nationalities: Union[Unset, Any] = UNSET
     user_organization_types: Union[Unset, Any] = UNSET
     user_assurance_levels: Union[Unset, Any] = UNSET
+    applicant_visibility_config: Union["CallApplicantVisibilityConfig", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.call_applicant_visibility_config import CallApplicantVisibilityConfig
+
         url = self.url
 
         uuid: Union[Unset, str] = UNSET
@@ -228,6 +233,14 @@ class ProtectedCall:
 
         user_assurance_levels = self.user_assurance_levels
 
+        applicant_visibility_config: Union[None, Unset, dict[str, Any]]
+        if isinstance(self.applicant_visibility_config, Unset):
+            applicant_visibility_config = UNSET
+        elif isinstance(self.applicant_visibility_config, CallApplicantVisibilityConfig):
+            applicant_visibility_config = self.applicant_visibility_config.to_dict()
+        else:
+            applicant_visibility_config = self.applicant_visibility_config
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -299,11 +312,14 @@ class ProtectedCall:
             field_dict["user_organization_types"] = user_organization_types
         if user_assurance_levels is not UNSET:
             field_dict["user_assurance_levels"] = user_assurance_levels
+        if applicant_visibility_config is not UNSET:
+            field_dict["applicant_visibility_config"] = applicant_visibility_config
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.call_applicant_visibility_config import CallApplicantVisibilityConfig
         from ..models.call_document import CallDocument
         from ..models.call_resource_template import CallResourceTemplate
         from ..models.nested_requested_offering import NestedRequestedOffering
@@ -476,6 +492,23 @@ class ProtectedCall:
 
         user_assurance_levels = d.pop("user_assurance_levels", UNSET)
 
+        def _parse_applicant_visibility_config(data: object) -> Union["CallApplicantVisibilityConfig", None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                applicant_visibility_config_type_1 = CallApplicantVisibilityConfig.from_dict(data)
+
+                return applicant_visibility_config_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union["CallApplicantVisibilityConfig", None, Unset], data)
+
+        applicant_visibility_config = _parse_applicant_visibility_config(d.pop("applicant_visibility_config", UNSET))
+
         protected_call = cls(
             url=url,
             uuid=uuid,
@@ -511,6 +544,7 @@ class ProtectedCall:
             user_nationalities=user_nationalities,
             user_organization_types=user_organization_types,
             user_assurance_levels=user_assurance_levels,
+            applicant_visibility_config=applicant_visibility_config,
         )
 
         protected_call.additional_properties = d

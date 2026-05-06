@@ -1,10 +1,13 @@
 # pyright: reportMissingImports=false
 import argparse
 import decimal
+import html
 import os
 import pathlib
 import sys
 import typing as t
+import urllib.parse
+import urllib.request
 from collections import OrderedDict
 from datetime import date, datetime
 from textwrap import dedent
@@ -20,18 +23,14 @@ from dbt_common.context import set_invocation_context
 from streamlit import session_state as state
 from streamlit_elements_fluence import elements, event, sync
 
-from dbt_osmosis.core.osmosis import (
+from dbt_osmosis.core.config import (
     DbtConfiguration,
-    _reload_manifest,  # pyright: ignore[reportPrivateUsage]
-    compile_sql_code,
+    DbtProjectContext as DbtProject,
     create_dbt_project_context,
     discover_profiles_dir,
     discover_project_dir,
-    execute_sql_code,
 )
-from dbt_osmosis.core.osmosis import (
-    DbtProjectContext as DbtProject,
-)
+from dbt_osmosis.core.sql_operations import compile_sql_code, execute_sql_code
 from dbt_osmosis.workbench.components.ai_assistant import AIAssistant
 from dbt_osmosis.workbench.components.dashboard import Dashboard
 from dbt_osmosis.workbench.components.editor import Editor
@@ -46,6 +45,21 @@ st.set_page_config(page_title="dbt-osmosis Workbench", page_icon="🌊", layout=
 default_prompt = (
     "-- This is a scratch model\n-- it will not persist if you jump to another model\n-- you can"
     " use this to test your dbt SQL queries\n\nselect 1 as id, 'hello' as name"
+)
+HACKER_NEWS_RSS_URL = "https://news.ycombinator.com/rss"
+FEED_REQUEST_TIMEOUT_SECONDS = 3.0
+# Maximum RSS response bytes read from the external feed before failing closed.
+FEED_RESPONSE_MAX_BYTES = 1_000_000
+_FEED_DISABLED_HTML = (
+    '<div style="padding: 10px 5px; color: #616161;">'
+    "External Hacker News feed disabled. Launch with "
+    "<code>dbt-osmosis workbench --enable-external-feed</code> to opt in."
+    "</div>"
+)
+_FEED_UNAVAILABLE_HTML = (
+    '<div style="padding: 10px 5px; color: #616161;">'
+    "Hacker News feed unavailable. The workbench is still ready to use."
+    "</div>"
 )
 
 
@@ -111,6 +125,95 @@ def _get_demo_query() -> str:
     """)
 
 
+def _is_http_url(url: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _safe_url(value: t.Any) -> str | None:
+    url = str(value or "").strip()
+    if not _is_http_url(url):
+        return None
+    return html.escape(url, quote=True)
+
+
+def _entry_value(entry: t.Any, key: str) -> str:
+    if hasattr(entry, "get"):
+        value = entry.get(key, "")
+    else:
+        value = getattr(entry, key, "")
+    return str(value or "")
+
+
+def _fetch_feed_bytes(feed_url: str, timeout_seconds: float) -> bytes:
+    if not _is_http_url(feed_url):
+        raise ValueError("Feed URL must use http or https")
+    with urllib.request.urlopen(feed_url, timeout=timeout_seconds) as response:
+        feed_bytes = response.read(FEED_RESPONSE_MAX_BYTES + 1)
+    if len(feed_bytes) > FEED_RESPONSE_MAX_BYTES:
+        raise ValueError("Feed response exceeds maximum size")
+    return feed_bytes
+
+
+def _entry_html(entry: t.Any) -> str:
+    title = html.escape(_entry_value(entry, "title") or "Untitled", quote=True)
+    published = html.escape(_entry_value(entry, "published"), quote=True)
+    link = _safe_url(_entry_value(entry, "link"))
+    comments = _safe_url(_entry_value(entry, "comments"))
+    title_html = (
+        f'<a href="{link}" target="_blank" rel="noopener noreferrer" '
+        'style="font-size: 16px; font-weight: bold; color: #FF4136; text-decoration: none;">'
+        f"{title}</a>"
+        if link
+        else f'<span style="font-size: 16px; font-weight: bold; color: #FF4136;">{title}</span>'
+    )
+    comments_html = (
+        '<span style="color: #FF4136;">|</span> '
+        f'<a href="{comments}" target="_blank" rel="noopener noreferrer" '
+        'style="color: #FF4136; text-decoration: none;">Comments</a>'
+        if comments
+        else ""
+    )
+    return dedent(
+        f"""
+        <div style="padding: 10px 5px 10px 5px; border-bottom: 1px solid #e0e0e0;">
+            {title_html}
+            <div style="font-size: 12px; color: #9e9e9e; padding-top: 3px;">{published}
+            {comments_html}
+            </div>
+        </div>
+        """
+    )
+
+
+def build_feed_html(
+    *,
+    enable_external_feed: bool,
+    feed_url: str = HACKER_NEWS_RSS_URL,
+    timeout_seconds: float = FEED_REQUEST_TIMEOUT_SECONDS,
+    fetcher: t.Callable[[str, float], bytes] = _fetch_feed_bytes,
+    parser: t.Callable[[bytes], t.Any] | None = None,
+) -> str:
+    if not enable_external_feed:
+        return _FEED_DISABLED_HTML
+
+    try:
+        feed_bytes = fetcher(feed_url, timeout_seconds)
+        parse_feed = parser or feedparser.parse
+        parsed_feed = parse_feed(feed_bytes)
+        if getattr(parsed_feed, "bozo", False):
+            return _FEED_UNAVAILABLE_HTML
+        entries = getattr(parsed_feed, "entries", [])
+        feed_html = [_entry_html(entry) for entry in entries]
+    except Exception:
+        return _FEED_UNAVAILABLE_HTML
+
+    return "".join(feed_html) or _FEED_UNAVAILABLE_HTML
+
+
 def _parse_args() -> dict[str, t.Any]:
     """Parse command line arguments for the dbt-osmosis workbench.
 
@@ -133,21 +236,111 @@ def _parse_args() -> dict[str, t.Any]:
         parser = argparse.ArgumentParser(description="dbt osmosis workbench")
         _ = parser.add_argument("--profiles-dir", help="dbt profile directory")
         _ = parser.add_argument("--project-dir", help="dbt project directory")
+        _ = parser.add_argument(
+            "--enable-external-feed",
+            action="store_true",
+            help="Opt in to fetching the external Hacker News RSS feed",
+        )
         args = vars(parser.parse_args(sys.argv[1:]))
     except Exception:
         args = {}
     return args
 
 
+def _project_config_for_target(ctx: DbtProject, target_name: str) -> DbtConfiguration:
+    base_config = getattr(ctx, "config", None)
+    runtime_cfg = getattr(ctx, "runtime_cfg", None)
+
+    project_dir = getattr(base_config, "project_dir", None) or getattr(
+        runtime_cfg, "project_root", None
+    )
+    if not project_dir:
+        project_dir = discover_project_dir()
+
+    profiles_dir = getattr(base_config, "profiles_dir", None) or discover_profiles_dir(project_dir)
+    vars_value = getattr(base_config, "vars", {})
+
+    return DbtConfiguration(
+        project_dir=str(project_dir),
+        profiles_dir=str(profiles_dir),
+        target=target_name,
+        profile=getattr(base_config, "profile", None) or getattr(runtime_cfg, "profile_name", None),
+        threads=getattr(base_config, "threads", None),
+        vars=vars_value if isinstance(vars_value, dict) else {},
+        quiet=getattr(base_config, "quiet", True),
+        disable_introspection=getattr(base_config, "disable_introspection", False),
+    )
+
+
+def _model_nodes_for_context(ctx: DbtProject) -> list[t.Any]:
+    model_nodes: list[t.Any] = []
+    for node in ctx.manifest.nodes.values():
+        if node.resource_type == "model" and node.package_name == ctx.runtime_cfg.project_name:
+            model_nodes.append(node)
+    return model_nodes
+
+
+def _call_connection_cleanup(target: t.Any, method_name: str) -> None:
+    method = getattr(target, method_name, None)
+    if callable(method):
+        try:
+            method()
+        except Exception as e:
+            print(f"Could not run adapter cleanup method {method_name}: {e}")
+
+
+def _close_context_connections(ctx: DbtProject) -> None:
+    close = getattr(ctx, "close", None)
+    if callable(close):
+        try:
+            close()
+            return
+        except Exception as e:
+            print(f"Could not close previous dbt context: {e}")
+
+    adapter = getattr(ctx, "adapter", None)
+    connections = getattr(adapter, "connections", None)
+    if connections is None:
+        return
+    for method_name in (
+        "release",
+        "cleanup_all",
+        "close_all_connections",
+        "clear_thread_connection",
+    ):
+        _call_connection_cleanup(connections, method_name)
+
+
 def change_target() -> None:
     """Change the target profile"""
     set_invocation_context(get_env())
     ctx: DbtProject = state.app.ctx
-    if ctx.runtime_cfg.target_name != state.app.target_name:
-        print(f"Changing target to {state.app.target_name}")
-        ctx.runtime_cfg.target_name = state.app.target_name
-        _reload_manifest(ctx)
-        state.app.compiled_query = compile(state.app.query)
+    current_target = ctx.runtime_cfg.target_name
+    requested_target = getattr(state, "target_name", state.app.target_name)
+    if current_target == requested_target:
+        state.app.target_name = current_target
+        return
+
+    print(f"Changing target to {requested_target}")
+    try:
+        new_ctx = create_dbt_project_context(
+            config=_project_config_for_target(ctx, requested_target),
+        )
+    except Exception as e:
+        state.app.ctx = ctx
+        state.app.target_name = current_target
+        state.target_name = current_target
+        message = f"Failed to change dbt target to {requested_target!r}: {e}"
+        st.error(message)
+        print(message)
+        return
+
+    state.app.ctx = new_ctx
+    state.app.target_name = new_ctx.runtime_cfg.target_name
+    state.target_name = state.app.target_name
+    state.app.model_nodes = _model_nodes_for_context(new_ctx)
+    state.app.compiled_query = compile(state.app.query)
+    _close_context_connections(ctx)
 
 
 def inject_model() -> None:
@@ -337,34 +530,11 @@ def main():
         app.editor.tabs[EditorTab.SQL]["content"] = app.query
         app.compiled_query = compile(app.query) if app.query else ""
 
-        model_nodes: list[t.Any] = []
-        for node in app.ctx.manifest.nodes.values():
-            if (
-                node.resource_type == "model"
-                and node.package_name == app.ctx.runtime_cfg.project_name
-            ):
-                model_nodes.append(node)
-        app.model_nodes = model_nodes
+        app.model_nodes = _model_nodes_for_context(app.ctx)
 
         app.editor.update_content("SQL", app.query)
 
-        hackernews_rss = t.cast("t.Any", feedparser.parse("https://news.ycombinator.com/rss"))
-        feed_html = []
-        for entry in hackernews_rss.entries:
-            feed_html.append(
-                dedent(
-                    f"""
-                <div style="padding: 10px 5px 10px 5px; border-bottom: 1px solid #e0e0e0;">
-                    <a href="{entry.link}" target="_blank" style="font-size: 16px; font-weight: bold; color: #FF4136; text-decoration: none;">{entry.title}</a>
-                    <div style="font-size: 12px; color: #9e9e9e; padding-top: 3px;">{entry.published}
-                    <span style="color: #FF4136;">|</span>
-                    <a href="{entry.comments}" target="_blank" style="color: #FF4136; text-decoration: none;">Comments</a>
-                    </div>
-                </div>
-            """,
-                ),
-            )
-        app.feed_html = "".join(t.cast("list[str]", feed_html))
+        app.feed_html = build_feed_html(enable_external_feed=bool(args.get("enable_external_feed")))
     else:
         app = state.app
 

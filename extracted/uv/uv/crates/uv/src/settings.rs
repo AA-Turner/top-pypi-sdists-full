@@ -163,17 +163,17 @@ pub(crate) fn resolve_color(args: &GlobalArgs) -> ColorChoice {
         // If `--no-color` is passed explicitly, disable color output.
         ColorChoice::Never
     } else if std::env::var_os(EnvVars::NO_COLOR)
-        .filter(|v| !v.is_empty())
-        .is_some()
+        .as_ref()
+        .is_some_and(|v| !v.is_empty())
     {
         // If the `NO_COLOR` is set, disable color output.
         ColorChoice::Never
     } else if std::env::var_os(EnvVars::FORCE_COLOR)
-        .filter(|v| !v.is_empty())
-        .is_some()
+        .as_ref()
+        .is_some_and(|v| !v.is_empty())
         || std::env::var_os(EnvVars::CLICOLOR_FORCE)
-            .filter(|v| !v.is_empty())
-            .is_some()
+            .as_ref()
+            .is_some_and(|v| !v.is_empty())
     {
         // If `FORCE_COLOR` or `CLICOLOR_FORCE` is set, always enable color output.
         ColorChoice::Always
@@ -292,6 +292,30 @@ impl NetworkSettings {
         } else {
             Connectivity::Online
         };
+
+        if args.native_tls {
+            warn_user_once!(
+                "The `--native-tls` flag is deprecated and will be removed in a future release. Use `--system-certs` instead."
+            );
+        }
+        if args.no_native_tls {
+            warn_user_once!(
+                "The `--no-native-tls` flag is deprecated and will be removed in a future release. Use `--no-system-certs` instead."
+            );
+        }
+        if environment.native_tls.value.is_some() {
+            warn_user_once!(
+                "The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead."
+            );
+        }
+        if workspace
+            .and_then(|workspace| workspace.globals.native_tls)
+            .is_some()
+        {
+            warn_user_once!(
+                "The `native-tls` setting is deprecated and will be removed in a future release. Use `system-certs` instead."
+            );
+        }
 
         // Resolve whether to use system certificates.
         //

@@ -44,7 +44,24 @@ def _geo_to_coords(geo_info, height: int, width: int) -> dict:
     centers are at origin + 0.5*pixel_size.
     For PixelIsPoint: origin (tiepoint) is already the center of pixel (0,0),
     so no half-pixel offset is needed.
+
+    Returned coords are pixel-center values in either raster type, matching
+    xarray convention. The raw GeoTransform (origin and pixel size) is
+    preserved separately on the DataArray as a rasterio-style 6-tuple in
+    ``attrs['transform']``: ``(pixel_width, 0, origin_x, 0, pixel_height,
+    origin_y)``. ``to_geotiff`` prefers that attr over recomputing the
+    transform from the coord arrays, which avoids float drift on
+    fractional-precision rasters.
+
+    When the file carries no GeoTIFF tags (``has_georef=False``), fall back
+    to integer pixel coordinates 0..N-1 instead of inventing fractional
+    values from the default unit transform.
     """
+    if not getattr(geo_info, 'has_georef', True):
+        return {
+            'y': np.arange(height, dtype=np.int64),
+            'x': np.arange(width, dtype=np.int64),
+        }
     t = geo_info.transform
     if geo_info.raster_type == RASTER_PIXEL_IS_POINT:
         # Tiepoint is pixel center -- no offset needed
@@ -55,6 +72,54 @@ def _geo_to_coords(geo_info, height: int, width: int) -> dict:
         x = np.arange(width, dtype=np.float64) * t.pixel_width + t.origin_x + t.pixel_width * 0.5
         y = np.arange(height, dtype=np.float64) * t.pixel_height + t.origin_y + t.pixel_height * 0.5
     return {'y': y, 'x': x}
+
+
+def _transform_tuple(geo_info) -> tuple | None:
+    """Return the rasterio-style 6-tuple for a GeoInfo's transform.
+
+    Format: ``(pixel_width, 0.0, origin_x, 0.0, pixel_height, origin_y)``.
+
+    This matches ``rasterio.Affine.to_gdal()``-adjacent ordering used by
+    rioxarray's ``rio.transform()`` output. Storing the tuple on the
+    DataArray lets ``to_geotiff`` reproduce the source GeoTransform
+    byte-for-byte, side-stepping float drift in the y/x coord arrays.
+    """
+    if geo_info is None:
+        return None
+    t = geo_info.transform
+    if t is None:
+        return None
+    return (
+        float(t.pixel_width), 0.0, float(t.origin_x),
+        0.0, float(t.pixel_height), float(t.origin_y),
+    )
+
+
+def _transform_from_attr(attr_val) -> 'GeoTransform | None':
+    """Build a GeoTransform from an ``attrs['transform']`` value.
+
+    Accepts a 6-tuple ``(a, b, c, d, e, f)`` (rasterio Affine ordering;
+    ``b`` and ``d`` are ignored, only axis-aligned affines round-trip),
+    a 6-tuple GDAL ordering ``(c, a, b, f, d, e)`` is NOT accepted, or
+    a ``GeoTransform`` instance. Returns None for anything else.
+    """
+    if attr_val is None:
+        return None
+    if isinstance(attr_val, GeoTransform):
+        return attr_val
+    try:
+        seq = tuple(attr_val)
+    except TypeError:
+        return None
+    if len(seq) != 6:
+        return None
+    try:
+        a, _b, c, _d, e, f = (float(x) for x in seq)
+    except (TypeError, ValueError):
+        return None
+    return GeoTransform(
+        origin_x=c, origin_y=f, pixel_width=a, pixel_height=e,
+    )
 
 
 def _validate_dtype_cast(source_dtype, target_dtype):
@@ -226,6 +291,29 @@ def open_geotiff(source: str, *, dtype=None, window=None,
     -------
     xr.DataArray
         NumPy, Dask, CuPy, or Dask+CuPy backed depending on options.
+
+    Notes
+    -----
+    The CRS is stored as an int EPSG code in ``attrs['crs']`` whenever the
+    file's GeoKeys carry a recognized EPSG. Files whose CRS can only be
+    expressed as WKT keep the WKT in ``attrs['crs_wkt']`` and leave
+    ``attrs['crs']`` unset. ``to_geotiff`` accepts either an int EPSG or a
+    WKT string in ``attrs['crs']`` for backward compatibility.
+
+    The file's GeoTransform is also surfaced as ``attrs['transform']``,
+    a rasterio-style 6-tuple
+    ``(pixel_width, 0, origin_x, 0, pixel_height, origin_y)``. ``to_geotiff``
+    uses this attr verbatim when present, falling back to recomputing the
+    transform from the y/x coord arrays only when it is missing. The attr
+    is what makes write -> read -> write -> read round-trips bit-stable for
+    rasters with fractional pixel sizes or origins.
+
+    Integer rasters with a nodata sentinel are silently promoted to
+    ``float64`` with NaN replacing the sentinel so downstream NaN-aware
+    code works uniformly. Pass ``dtype=...`` to keep the source dtype
+    (the cast will fail with ``ValueError`` for float-to-int because that
+    is lossy in a way users rarely intend; cast explicitly after read if
+    you need it).
     """
     # VRT files
     if source.lower().endswith('.vrt'):
@@ -282,6 +370,22 @@ def open_geotiff(source: str, *, dtype=None, window=None,
     if geo_info.raster_type == RASTER_PIXEL_IS_POINT:
         attrs['raster_type'] = 'point'
 
+    # Preserve the source GeoTransform verbatim. For a windowed read the
+    # origin shifts to the window's top-left pixel so the transform stays
+    # consistent with the returned y/x coords.
+    src_t = geo_info.transform
+    if src_t is not None:
+        if window is not None:
+            r0, c0, _r1, _c1 = window
+            origin_x_w = float(src_t.origin_x) + c0 * float(src_t.pixel_width)
+            origin_y_w = float(src_t.origin_y) + r0 * float(src_t.pixel_height)
+            attrs['transform'] = (
+                float(src_t.pixel_width), 0.0, origin_x_w,
+                0.0, float(src_t.pixel_height), origin_y_w,
+            )
+        else:
+            attrs['transform'] = _transform_tuple(geo_info)
+
     # CRS description fields
     if geo_info.crs_name is not None:
         attrs['crs_name'] = geo_info.crs_name
@@ -317,6 +421,15 @@ def open_geotiff(source: str, *, dtype=None, window=None,
     if geo_info.extra_tags is not None:
         attrs['extra_tags'] = geo_info.extra_tags
 
+    # Friendly accessors for a few common pass-through tags. The raw
+    # entry stays in attrs['extra_tags'] so the writer can re-emit the
+    # exact bytes; users who tweak these convenience attrs can rely on
+    # to_geotiff to fold the new value into extra_tags before write.
+    if geo_info.image_description is not None:
+        attrs['image_description'] = geo_info.image_description
+    if geo_info.extra_samples is not None:
+        attrs['extra_samples'] = geo_info.extra_samples
+
     # Resolution / DPI metadata
     if geo_info.x_resolution is not None:
         attrs['x_resolution'] = geo_info.x_resolution
@@ -327,7 +440,10 @@ def open_geotiff(source: str, *, dtype=None, window=None,
         attrs['resolution_unit'] = _unit_names.get(
             geo_info.resolution_unit, str(geo_info.resolution_unit))
 
-    # Attach palette colormap for indexed-color TIFFs
+    # Attach palette colormap for indexed-color TIFFs. The normalized
+    # RGBA triples drive matplotlib display; the raw uint16 ColorMap
+    # tag value lives in attrs['extra_tags'] for round-trip and is
+    # exposed here as attrs['colormap'] for convenience.
     if geo_info.colormap is not None:
         try:
             from matplotlib.colors import ListedColormap
@@ -337,6 +453,13 @@ def open_geotiff(source: str, *, dtype=None, window=None,
         except ImportError:
             # matplotlib not available -- store raw RGBA tuples only
             attrs['colormap_rgba'] = geo_info.colormap
+
+    # Raw uint16 ColorMap tag value (3 * 2**bps entries, R-then-G-then-B)
+    if geo_info.extra_tags is not None:
+        for _tag_id, _tt, _tc, _tv in geo_info.extra_tags:
+            if _tag_id == 320:  # TAG_COLORMAP
+                attrs['colormap'] = _tv
+                break
 
     # Apply nodata mask: replace nodata sentinel values with NaN
     nodata = geo_info.nodata
@@ -398,6 +521,63 @@ _LEVEL_RANGES = {
     'lz4': (0, 16),
 }
 
+# Names accepted by ``compression=`` in :func:`to_geotiff`.  Kept in sync with
+# ``_compression_tag`` in ``_writer.py``.  Validated up-front so users see a
+# friendly error rather than the deeper traceback from ``_compression_tag``.
+_VALID_COMPRESSIONS = (
+    'none', 'deflate', 'lzw', 'jpeg', 'packbits', 'zstd', 'lz4',
+    'jpeg2000', 'j2k', 'lerc',
+)
+
+
+# TIFF type ids needed when synthesizing extra_tags entries from attrs.
+_TIFF_BYTE = 1
+_TIFF_ASCII = 2
+_TIFF_SHORT = 3
+
+
+def _merge_friendly_extra_tags(extra_tags_list, attrs: dict) -> list | None:
+    """Combine ``attrs['extra_tags']`` with friendly tag attrs.
+
+    Synthesizes ``(tag_id, type_id, count, value)`` entries from
+    ``attrs['image_description']`` (270, ASCII),
+    ``attrs['extra_samples']`` (338, SHORT) and ``attrs['colormap']``
+    (320, SHORT). An entry already present in ``extra_tags`` wins, so
+    a verbatim round-trip stays byte-identical.
+    """
+    existing = list(extra_tags_list) if extra_tags_list else []
+    seen_ids = {t[0] for t in existing}
+
+    img_desc = attrs.get('image_description')
+    if img_desc is not None and 270 not in seen_ids:
+        s = str(img_desc)
+        existing.append((270, _TIFF_ASCII, len(s) + 1, s))
+        seen_ids.add(270)
+
+    extra_samples = attrs.get('extra_samples')
+    if extra_samples is not None and 338 not in seen_ids:
+        try:
+            vals = tuple(int(x) for x in extra_samples)
+        except (TypeError, ValueError):
+            vals = None
+        if vals:
+            value = vals if len(vals) > 1 else vals[0]
+            existing.append((338, _TIFF_SHORT, len(vals), value))
+            seen_ids.add(338)
+
+    colormap = attrs.get('colormap')
+    if colormap is not None and 320 not in seen_ids:
+        try:
+            cmap_vals = tuple(int(x) for x in colormap)
+        except (TypeError, ValueError):
+            cmap_vals = None
+        if cmap_vals:
+            value = cmap_vals if len(cmap_vals) > 1 else cmap_vals[0]
+            existing.append((320, _TIFF_SHORT, len(cmap_vals), value))
+            seen_ids.add(320)
+
+    return existing or None
+
 
 def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
                crs: int | str | None = None,
@@ -411,7 +591,8 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
                overview_levels: list[int] | None = None,
                overview_resampling: str = 'mean',
                bigtiff: bool | None = None,
-               gpu: bool | None = None) -> None:
+               gpu: bool | None = None,
+               streaming_buffer_bytes: int = 256 * 1024 * 1024) -> None:
     """Write data as a GeoTIFF or Cloud Optimized GeoTIFF.
 
     Dask-backed DataArrays are written in streaming mode: one tile-row
@@ -452,12 +633,17 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
     tiled : bool
         Use tiled layout (default True).
     tile_size : int
-        Tile size in pixels (default 256).
+        Tile size in pixels (default 256). Ignored when ``tiled=False``;
+        a warning is emitted if a non-default value is passed alongside
+        strip mode.
     predictor : bool or int
-        TIFF predictor. ``False``/``0``/``1`` -> none, ``True``/``2`` ->
-        horizontal differencing (good for integer data), ``3`` ->
-        floating-point predictor (float dtypes only; typically gives
-        better deflate/zstd ratios on float data than predictor 2).
+        TIFF predictor. Accepted values:
+
+        * ``False``, ``0``, or ``1`` -> no predictor.
+        * ``True`` or ``2`` -> horizontal differencing (good for integer
+          data; ``True`` and ``2`` are exactly equivalent).
+        * ``3`` -> floating-point predictor (float dtypes only; typically
+          gives better deflate/zstd ratios on float data than predictor 2).
     cog : bool
         Write as Cloud Optimized GeoTIFF.
     overview_levels : list[int] or None
@@ -467,7 +653,33 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
         'min', 'max', 'median', 'mode', or 'cubic'.
     gpu : bool or None
         Force GPU compression. None (default) auto-detects CuPy data.
+    streaming_buffer_bytes : int
+        Soft cap on bytes materialised per dask compute call when
+        streaming a dask-backed DataArray. Defaults to 256 MB. Wide
+        rasters whose tile-row exceeds this budget are split into
+        horizontal segments. Ignored for numpy / CuPy / COG paths.
     """
+    # Up-front validation: catch bad compression names before they reach
+    # any of the deeper write paths (streaming, GPU, VRT, COG) where the
+    # error surfaces from _compression_tag with a less obvious traceback.
+    if isinstance(compression, str):
+        if compression.lower() not in _VALID_COMPRESSIONS:
+            raise ValueError(
+                f"Unknown compression {compression!r}. "
+                f"Valid options: {list(_VALID_COMPRESSIONS)}.")
+
+    # tile_size only applies to tiled output; warn if the caller passed a
+    # non-default size alongside strip mode (it would otherwise be silently
+    # ignored).
+    if not tiled and tile_size != 256:
+        import warnings
+        warnings.warn(
+            f"tile_size={tile_size} is ignored when tiled=False "
+            "(strip layout). Pass tiled=True to use tile_size, or drop "
+            "tile_size to silence this warning.",
+            stacklevel=2,
+        )
+
     # VRT tiled output
     if path.lower().endswith('.vrt'):
         if cog:
@@ -524,7 +736,13 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
     if isinstance(data, xr.DataArray):
         raw = data.data
 
-        # Extract metadata from DataArray attrs (no materialisation needed)
+        # Extract metadata from DataArray attrs (no materialisation needed).
+        # Prefer attrs['transform'] (from open_geotiff) over the coord-derived
+        # transform: that path is bit-stable across round-trips, while
+        # _coords_to_transform can drift on fractional pixel sizes because
+        # x[1] - x[0] is computed in float64 from already-rounded coords.
+        if geo_transform is None:
+            geo_transform = _transform_from_attr(data.attrs.get('transform'))
         if geo_transform is None:
             geo_transform = _coords_to_transform(data)
         if epsg is None and crs is None:
@@ -552,6 +770,12 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
                 from ._geotags import _build_gdal_metadata_xml
                 gdal_meta_xml = _build_gdal_metadata_xml(gdal_meta_dict)
         extra_tags_list = data.attrs.get('extra_tags')
+        # Fold friendly attrs into extra_tags so a user-edited
+        # attrs['image_description'] / ['extra_samples'] / ['colormap']
+        # actually reaches the file. Existing entries with the same tag id
+        # win, which keeps verbatim round-trips byte-stable.
+        extra_tags_list = _merge_friendly_extra_tags(
+            extra_tags_list, data.attrs)
         x_res = data.attrs.get('x_resolution')
         y_res = data.attrs.get('y_resolution')
         unit_str = data.attrs.get('resolution_unit')
@@ -599,6 +823,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray, path: str, *,
                 gdal_metadata_xml=gdal_meta_xml,
                 extra_tags=extra_tags_list,
                 bigtiff=bigtiff,
+                streaming_buffer_bytes=streaming_buffer_bytes,
             )
             return
 
@@ -771,7 +996,9 @@ def _write_vrt_tiled(data, vrt_path, *, crs=None, nodata=None,
                         wkt_fallback = wkt
         if nodata is None:
             nodata = data.attrs.get('nodata')
-        geo_transform = _coords_to_transform(data)
+        geo_transform = _transform_from_attr(data.attrs.get('transform'))
+        if geo_transform is None:
+            geo_transform = _coords_to_transform(data)
     else:
         raw = data
 
@@ -900,7 +1127,11 @@ def read_geotiff_dask(source: str, *, dtype=None, chunks: int | tuple = 512,
     """
     import dask.array as da
 
-    # VRT files: delegate to read_vrt which handles chunks
+    # ``read_geotiff`` already routes ``.vrt`` to ``read_vrt`` before
+    # reaching here, so this branch is only hit when ``read_geotiff_dask``
+    # is called directly with a VRT path. Keep it as a defensive fallback
+    # rather than letting the windowed-read path try to parse VRT XML as
+    # TIFF bytes. ``read_vrt`` is the single source of truth for VRT.
     if source.lower().endswith('.vrt'):
         return read_vrt(source, dtype=dtype, name=name, chunks=chunks)
 
@@ -935,6 +1166,9 @@ def read_geotiff_dask(source: str, *, dtype=None, chunks: int | tuple = 512,
         attrs['raster_type'] = 'point'
     if nodata is not None:
         attrs['nodata'] = nodata
+    transform_tuple = _transform_tuple(geo_info)
+    if transform_tuple is not None:
+        attrs['transform'] = transform_tuple
 
     if isinstance(chunks, int):
         ch_h = ch_w = chunks
@@ -944,23 +1178,24 @@ def read_geotiff_dask(source: str, *, dtype=None, chunks: int | tuple = 512,
     # Graph-size guard. Each chunk becomes a delayed task whose Python graph
     # entry retains ~1KB. At very large chunk counts the graph itself OOMs
     # the driver before any read executes (30TB at chunks=256 => ~500M tasks
-    # => ~500GB graph on host). Auto-scale chunks up to cap total task count.
-    _MAX_DASK_CHUNKS = 1_000_000
+    # => ~500GB graph on host). Refuse anything past the cap and ask the
+    # caller to pick a chunk size, rather than silently rescaling -- the
+    # rescaled chunks may not align with the user's downstream pipeline.
+    _MAX_DASK_CHUNKS = 50_000
     n_chunks = ((full_h + ch_h - 1) // ch_h) * ((full_w + ch_w - 1) // ch_w)
     if n_chunks > _MAX_DASK_CHUNKS:
         import math
         scale = math.sqrt(n_chunks / _MAX_DASK_CHUNKS)
-        new_ch_h = int(math.ceil(ch_h * scale))
-        new_ch_w = int(math.ceil(ch_w * scale))
-        import warnings
-        warnings.warn(
-            f"read_geotiff_dask: requested chunks=({ch_h}, {ch_w}) on a "
-            f"{full_h}x{full_w} image would produce {n_chunks} dask tasks, "
-            f"exceeding the {_MAX_DASK_CHUNKS}-task cap. Auto-scaling to "
-            f"chunks=({new_ch_h}, {new_ch_w}).",
-            stacklevel=2,
+        suggested_h = int(math.ceil(ch_h * scale))
+        suggested_w = int(math.ceil(ch_w * scale))
+        raise ValueError(
+            f"read_geotiff_dask: chunks=({ch_h}, {ch_w}) on a "
+            f"{full_h}x{full_w} image would produce {n_chunks:,} dask "
+            f"tasks, exceeding the {_MAX_DASK_CHUNKS:,}-task cap. Pass a "
+            f"larger chunks=... value explicitly (e.g. chunks="
+            f"({suggested_h}, {suggested_w}) keeps the task count under "
+            "the cap)."
         )
-        ch_h, ch_w = new_ch_h, new_ch_w
 
     # Build dask array from delayed windowed reads
     rows = list(range(0, full_h, ch_h))
@@ -1114,6 +1349,9 @@ def read_geotiff_gpu(source: str, *,
             attrs = {}
             if geo_info.crs_epsg is not None:
                 attrs['crs'] = geo_info.crs_epsg
+            t_tuple = _transform_tuple(geo_info)
+            if t_tuple is not None:
+                attrs['transform'] = t_tuple
             if dtype is not None:
                 target = np.dtype(dtype)
                 _validate_dtype_cast(np.dtype(str(arr_gpu.dtype)), target)
@@ -1201,6 +1439,9 @@ def read_geotiff_gpu(source: str, *,
         attrs['crs'] = geo_info.crs_epsg
     if geo_info.crs_wkt is not None:
         attrs['crs_wkt'] = geo_info.crs_wkt
+    t_tuple = _transform_tuple(geo_info)
+    if t_tuple is not None:
+        attrs['transform'] = t_tuple
 
     if arr_gpu.ndim == 3:
         dims = ['y', 'x', 'band']
@@ -1355,12 +1596,14 @@ def write_geotiff_gpu(data, path: str, *,
     # Full resolution
     parts = [_gpu_compress_to_part(arr, width, height, samples)]
 
-    # Overview generation
+    # Overview generation -- mirrors the CPU writer's 8-level cap.
     if cog:
         if overview_levels is None:
+            from ._writer import _MAX_OVERVIEW_LEVELS
             overview_levels = []
             oh, ow = height, width
-            while oh > tile_size and ow > tile_size:
+            while (oh > tile_size and ow > tile_size and
+                   len(overview_levels) < _MAX_OVERVIEW_LEVELS):
                 oh //= 2
                 ow //= 2
                 if oh > 0 and ow > 0:
@@ -1415,6 +1658,14 @@ def read_vrt(source: str, *, dtype=None, window=None,
     -------
     xr.DataArray
         NumPy, Dask, CuPy, or Dask+CuPy backed depending on options.
+
+    Notes
+    -----
+    Like ``open_geotiff``, the CRS lands as an int EPSG in
+    ``attrs['crs']`` when the VRT's WKT resolves to a known EPSG code.
+    Otherwise ``attrs['crs']`` stays unset and ``attrs['crs_wkt']`` carries
+    the original WKT. The source GeoTransform is preserved as a
+    rasterio-style 6-tuple in ``attrs['transform']``.
     """
     from ._vrt import read_vrt as _read_vrt_internal
 
@@ -1467,6 +1718,24 @@ def read_vrt(source: str, *, dtype=None, window=None,
         if nodata is not None:
             attrs['nodata'] = nodata
 
+    # Surface the source GeoTransform in the same rasterio ordering used
+    # by open_geotiff: (pixel_width, 0, origin_x, 0, pixel_height, origin_y).
+    # vrt.geo_transform is GDAL ordering, so reorder. For a windowed read
+    # the origin shifts by (col_offset * res_x, row_offset * res_y).
+    if gt is not None:
+        if window is not None:
+            r0w, c0w, _r1w, _c1w = window
+            r0w = max(0, r0w)
+            c0w = max(0, c0w)
+        else:
+            r0w = c0w = 0
+        origin_x_out = float(origin_x) + c0w * float(res_x)
+        origin_y_out = float(origin_y) + r0w * float(res_y)
+        attrs['transform'] = (
+            float(res_x), 0.0, origin_x_out,
+            0.0, float(res_y), origin_y_out,
+        )
+
     # Transfer to GPU if requested
     if gpu:
         import cupy
@@ -1505,13 +1774,23 @@ def write_vrt(vrt_path: str, source_files: list[str], **kwargs) -> str:
         Output .vrt file path.
     source_files : list of str
         Paths to the source GeoTIFF files.
-    **kwargs
-        relative, crs_wkt, nodata -- see _vrt.write_vrt.
+    relative : bool, optional
+        Store source paths relative to the VRT file (default True).
+    crs_wkt : str or None, optional
+        CRS as a WKT string. If None, the CRS is taken from the first
+        source GeoTIFF.
+    nodata : float or None, optional
+        NoData value. If None, taken from the first source GeoTIFF.
 
     Returns
     -------
     str
         Path to the written VRT file.
+
+    Notes
+    -----
+    Only the keyword arguments listed above are accepted. Passing any
+    other keyword raises ``TypeError`` from the underlying writer.
     """
     from ._vrt import write_vrt as _write_vrt_internal
     return _write_vrt_internal(vrt_path, source_files, **kwargs)

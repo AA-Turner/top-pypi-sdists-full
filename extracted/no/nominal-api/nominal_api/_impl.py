@@ -3913,6 +3913,56 @@ authorization_InternalApiKeyService.__qualname__ = "InternalApiKeyService"
 authorization_InternalApiKeyService.__module__ = "nominal_api.authorization"
 
 
+class authorization_InternalSandboxTokenService(Service):
+    """Cluster-internal endpoint that mints short-lived access tokens for a
+preconfigured sandbox workspace + sandbox user. The intended caller is an
+in-cluster integration test Job; access is gated by a shared-secret header
+and a NetworkPolicy that restricts the source pods.
+
+This service must not be exposed via the public ingress.
+    """
+
+    def issue_sandbox_token(self, request: "authorization_IssueSandboxTokenRequest", shared_secret: str) -> "authorization_IssueSandboxTokenResponse":
+        """Issue a Nominal-signed bearer token bound to the configured sandbox
+user + org. The TTL is capped at 1 hour server-side regardless of the
+requested value. The shared-secret header must match the value
+configured on gatekeeper or the call is rejected.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Nominal-Sandbox-Shared-Secret': _conjure_encoder.default(shared_secret),
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/sandbox-token-internal/v1/issue'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), authorization_IssueSandboxTokenResponse, self._return_none_for_unknown_union_types)
+
+
+authorization_InternalSandboxTokenService.__name__ = "InternalSandboxTokenService"
+authorization_InternalSandboxTokenService.__qualname__ = "InternalSandboxTokenService"
+authorization_InternalSandboxTokenService.__module__ = "nominal_api.authorization"
+
+
 class authorization_IsEmailAllowedRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -3957,6 +4007,84 @@ class authorization_IsEmailAllowedResponse(ConjureBeanType):
 authorization_IsEmailAllowedResponse.__name__ = "IsEmailAllowedResponse"
 authorization_IsEmailAllowedResponse.__qualname__ = "IsEmailAllowedResponse"
 authorization_IsEmailAllowedResponse.__module__ = "nominal_api.authorization"
+
+
+class authorization_IssueSandboxTokenRequest(ConjureBeanType):
+    """Request a short-lived bearer token for the sandbox workspace configured on
+the gatekeeper service. Intended for in-cluster integration test runners.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requested_ttl_seconds': ConjureFieldDefinition('requestedTtlSeconds', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_requested_ttl_seconds']
+
+    def __init__(self, requested_ttl_seconds: Optional[int] = None) -> None:
+        self._requested_ttl_seconds = requested_ttl_seconds
+
+    @builtins.property
+    def requested_ttl_seconds(self) -> Optional[int]:
+        """Desired token lifetime in seconds. Capped server-side at 3600 (1h).
+Omit to use the server default (the cap). Non-positive values are
+rejected with SandboxTokenUnavailable rather than silently
+upgraded to the cap.
+        """
+        return self._requested_ttl_seconds
+
+
+authorization_IssueSandboxTokenRequest.__name__ = "IssueSandboxTokenRequest"
+authorization_IssueSandboxTokenRequest.__qualname__ = "IssueSandboxTokenRequest"
+authorization_IssueSandboxTokenRequest.__module__ = "nominal_api.authorization"
+
+
+class authorization_IssueSandboxTokenResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'access_token': ConjureFieldDefinition('accessToken', str),
+            'expires_at_seconds': ConjureFieldDefinition('expiresAtSeconds', int),
+            'user_uuid': ConjureFieldDefinition('userUuid', str),
+            'org_uuid': ConjureFieldDefinition('orgUuid', str),
+            'workspace_rid': ConjureFieldDefinition('workspaceRid', api_rids_WorkspaceRid)
+        }
+
+    __slots__: List[str] = ['_access_token', '_expires_at_seconds', '_user_uuid', '_org_uuid', '_workspace_rid']
+
+    def __init__(self, access_token: str, expires_at_seconds: int, org_uuid: str, user_uuid: str, workspace_rid: str) -> None:
+        self._access_token = access_token
+        self._expires_at_seconds = expires_at_seconds
+        self._user_uuid = user_uuid
+        self._org_uuid = org_uuid
+        self._workspace_rid = workspace_rid
+
+    @builtins.property
+    def access_token(self) -> str:
+        return self._access_token
+
+    @builtins.property
+    def expires_at_seconds(self) -> int:
+        return self._expires_at_seconds
+
+    @builtins.property
+    def user_uuid(self) -> str:
+        return self._user_uuid
+
+    @builtins.property
+    def org_uuid(self) -> str:
+        return self._org_uuid
+
+    @builtins.property
+    def workspace_rid(self) -> str:
+        return self._workspace_rid
+
+
+authorization_IssueSandboxTokenResponse.__name__ = "IssueSandboxTokenResponse"
+authorization_IssueSandboxTokenResponse.__qualname__ = "IssueSandboxTokenResponse"
+authorization_IssueSandboxTokenResponse.__module__ = "nominal_api.authorization"
 
 
 class authorization_ListApiKeyRequest(ConjureBeanType):
@@ -30918,6 +31046,351 @@ scout_catalog_WeakTimestampType.__qualname__ = "WeakTimestampType"
 scout_catalog_WeakTimestampType.__module__ = "nominal_api.scout_catalog"
 
 
+class scout_channel_api_BatchGetLocatorDelimitersEntry(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'scope': ConjureFieldDefinition('scope', scout_channel_api_ChannelSearchDataFrame),
+            'context': ConjureFieldDefinition('context', scout_compute_api_Context)
+        }
+
+    __slots__: List[str] = ['_scope', '_context']
+
+    def __init__(self, context: "scout_compute_api_Context", scope: "scout_channel_api_ChannelSearchDataFrame") -> None:
+        self._scope = scope
+        self._context = context
+
+    @builtins.property
+    def scope(self) -> "scout_channel_api_ChannelSearchDataFrame":
+        return self._scope
+
+    @builtins.property
+    def context(self) -> "scout_compute_api_Context":
+        return self._context
+
+
+scout_channel_api_BatchGetLocatorDelimitersEntry.__name__ = "BatchGetLocatorDelimitersEntry"
+scout_channel_api_BatchGetLocatorDelimitersEntry.__qualname__ = "BatchGetLocatorDelimitersEntry"
+scout_channel_api_BatchGetLocatorDelimitersEntry.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchGetLocatorDelimitersRequest(ConjureBeanType):
+    """Batched form of `getLocatorDelimiters`. The map key of `requests` can be an arbitrary string
+identifier. It will be returned in the response as part of `BatchedLocatorWithDelimiter`.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', Dict[str, scout_channel_api_BatchGetLocatorDelimitersEntry]),
+            'time_range': ConjureFieldDefinition('timeRange', api_Range)
+        }
+
+    __slots__: List[str] = ['_requests', '_time_range']
+
+    def __init__(self, requests: Dict[str, "scout_channel_api_BatchGetLocatorDelimitersEntry"], time_range: "api_Range") -> None:
+        self._requests = requests
+        self._time_range = time_range
+
+    @builtins.property
+    def requests(self) -> Dict[str, "scout_channel_api_BatchGetLocatorDelimitersEntry"]:
+        return self._requests
+
+    @builtins.property
+    def time_range(self) -> "api_Range":
+        return self._time_range
+
+
+scout_channel_api_BatchGetLocatorDelimitersRequest.__name__ = "BatchGetLocatorDelimitersRequest"
+scout_channel_api_BatchGetLocatorDelimitersRequest.__qualname__ = "BatchGetLocatorDelimitersRequest"
+scout_channel_api_BatchGetLocatorDelimitersRequest.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchGetLocatorDelimitersResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locators': ConjureFieldDefinition('locators', List[scout_channel_api_BatchedLocatorWithDelimiter])
+        }
+
+    __slots__: List[str] = ['_locators']
+
+    def __init__(self, locators: List["scout_channel_api_BatchedLocatorWithDelimiter"]) -> None:
+        self._locators = locators
+
+    @builtins.property
+    def locators(self) -> List["scout_channel_api_BatchedLocatorWithDelimiter"]:
+        return self._locators
+
+
+scout_channel_api_BatchGetLocatorDelimitersResponse.__name__ = "BatchGetLocatorDelimitersResponse"
+scout_channel_api_BatchGetLocatorDelimitersResponse.__qualname__ = "BatchGetLocatorDelimitersResponse"
+scout_channel_api_BatchGetLocatorDelimitersResponse.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchSearchChannelsEntry(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'scope': ConjureFieldDefinition('scope', scout_channel_api_ChannelSearchDataFrame),
+            'context': ConjureFieldDefinition('context', scout_compute_api_Context)
+        }
+
+    __slots__: List[str] = ['_scope', '_context']
+
+    def __init__(self, context: "scout_compute_api_Context", scope: "scout_channel_api_ChannelSearchDataFrame") -> None:
+        self._scope = scope
+        self._context = context
+
+    @builtins.property
+    def scope(self) -> "scout_channel_api_ChannelSearchDataFrame":
+        return self._scope
+
+    @builtins.property
+    def context(self) -> "scout_compute_api_Context":
+        return self._context
+
+
+scout_channel_api_BatchSearchChannelsEntry.__name__ = "BatchSearchChannelsEntry"
+scout_channel_api_BatchSearchChannelsEntry.__qualname__ = "BatchSearchChannelsEntry"
+scout_channel_api_BatchSearchChannelsEntry.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchSearchChannelsRequest(ConjureBeanType):
+    """Batched form of `searchChannels`. The map key of `requests` can be an arbitrary string
+identifier. It will be returned in the response as part of `BatchedLocator`.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', Dict[str, scout_channel_api_BatchSearchChannelsEntry]),
+            'query': ConjureFieldDefinition('query', scout_channel_api_ChannelSearchQuery),
+            'time_range': ConjureFieldDefinition('timeRange', api_Range),
+            'max_result_channels': ConjureFieldDefinition('maxResultChannels', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_requests', '_query', '_time_range', '_max_result_channels']
+
+    def __init__(self, query: "scout_channel_api_ChannelSearchQuery", requests: Dict[str, "scout_channel_api_BatchSearchChannelsEntry"], time_range: "api_Range", max_result_channels: Optional[int] = None) -> None:
+        self._requests = requests
+        self._query = query
+        self._time_range = time_range
+        self._max_result_channels = max_result_channels
+
+    @builtins.property
+    def requests(self) -> Dict[str, "scout_channel_api_BatchSearchChannelsEntry"]:
+        return self._requests
+
+    @builtins.property
+    def query(self) -> "scout_channel_api_ChannelSearchQuery":
+        return self._query
+
+    @builtins.property
+    def time_range(self) -> "api_Range":
+        """Time filter applied to the search. Only channels with data within this time range will be returned.
+A shorter time range will improve performance!
+        """
+        return self._time_range
+
+    @builtins.property
+    def max_result_channels(self) -> Optional[int]:
+        """Global cap on the merged channel result list. Defaults to 1000. Capped at 1000.
+        """
+        return self._max_result_channels
+
+
+scout_channel_api_BatchSearchChannelsRequest.__name__ = "BatchSearchChannelsRequest"
+scout_channel_api_BatchSearchChannelsRequest.__qualname__ = "BatchSearchChannelsRequest"
+scout_channel_api_BatchSearchChannelsRequest.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchSearchChannelsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'all_expanded_locators': ConjureFieldDefinition('allExpandedLocators', List[scout_channel_api_BatchedLocator]),
+            'results': ConjureFieldDefinition('results', List[scout_channel_api_BatchedChannelEntry])
+        }
+
+    __slots__: List[str] = ['_all_expanded_locators', '_results']
+
+    def __init__(self, all_expanded_locators: List["scout_channel_api_BatchedLocator"], results: List["scout_channel_api_BatchedChannelEntry"]) -> None:
+        self._all_expanded_locators = all_expanded_locators
+        self._results = results
+
+    @builtins.property
+    def all_expanded_locators(self) -> List["scout_channel_api_BatchedLocator"]:
+        """All locators expanded from the union of entry scopes in the batch, independent of
+which channels exist within them.
+        """
+        return self._all_expanded_locators
+
+    @builtins.property
+    def results(self) -> List["scout_channel_api_BatchedChannelEntry"]:
+        """Channels matching the shared query, ordered by global relevance score (descending)
+from the underlying search. Each entry's `locatorMetadata` covers all locators across
+all entries where the channel exists; locators are tagged with the set of entry ids
+that expanded to them.
+        """
+        return self._results
+
+
+scout_channel_api_BatchSearchChannelsResponse.__name__ = "BatchSearchChannelsResponse"
+scout_channel_api_BatchSearchChannelsResponse.__qualname__ = "BatchSearchChannelsResponse"
+scout_channel_api_BatchSearchChannelsResponse.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchedChannelEntry(ConjureBeanType):
+    """A channel (by name) found in one or more locators across the batch. `locatorMetadata`
+has one entry per locator the channel exists in.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', api_Channel),
+            'locator_metadata': ConjureFieldDefinition('locatorMetadata', List[scout_channel_api_BatchedLocatorChannelMetadata])
+        }
+
+    __slots__: List[str] = ['_name', '_locator_metadata']
+
+    def __init__(self, locator_metadata: List["scout_channel_api_BatchedLocatorChannelMetadata"], name: str) -> None:
+        self._name = name
+        self._locator_metadata = locator_metadata
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def locator_metadata(self) -> List["scout_channel_api_BatchedLocatorChannelMetadata"]:
+        return self._locator_metadata
+
+
+scout_channel_api_BatchedChannelEntry.__name__ = "BatchedChannelEntry"
+scout_channel_api_BatchedChannelEntry.__qualname__ = "BatchedChannelEntry"
+scout_channel_api_BatchedChannelEntry.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchedLocator(ConjureBeanType):
+    """A `Locator` annotated with the set of request ids whose batched-request scope expanded
+to it.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locator': ConjureFieldDefinition('locator', scout_channel_api_Locator),
+            'request_ids': ConjureFieldDefinition('requestIds', List[str])
+        }
+
+    __slots__: List[str] = ['_locator', '_request_ids']
+
+    def __init__(self, locator: "scout_channel_api_Locator", request_ids: List[str]) -> None:
+        self._locator = locator
+        self._request_ids = request_ids
+
+    @builtins.property
+    def locator(self) -> "scout_channel_api_Locator":
+        return self._locator
+
+    @builtins.property
+    def request_ids(self) -> List[str]:
+        return self._request_ids
+
+
+scout_channel_api_BatchedLocator.__name__ = "BatchedLocator"
+scout_channel_api_BatchedLocator.__qualname__ = "BatchedLocator"
+scout_channel_api_BatchedLocator.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchedLocatorChannelMetadata(ConjureBeanType):
+    """Per-locator channel metadata for batched responses. Same shape as
+`LocatorChannelMetadata` but with the locator wrapped to carry request-id provenance.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locator': ConjureFieldDefinition('locator', scout_channel_api_BatchedLocator),
+            'unit': ConjureFieldDefinition('unit', OptionalTypeWrapper[api_Unit]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'data_type': ConjureFieldDefinition('dataType', OptionalTypeWrapper[api_SeriesDataType]),
+            'series_id': ConjureFieldDefinition('seriesId', datasource_api_SeriesMetadataRidOrLogicalSeriesRid)
+        }
+
+    __slots__: List[str] = ['_locator', '_unit', '_description', '_data_type', '_series_id']
+
+    def __init__(self, locator: "scout_channel_api_BatchedLocator", series_id: "datasource_api_SeriesMetadataRidOrLogicalSeriesRid", data_type: Optional["api_SeriesDataType"] = None, description: Optional[str] = None, unit: Optional[str] = None) -> None:
+        self._locator = locator
+        self._unit = unit
+        self._description = description
+        self._data_type = data_type
+        self._series_id = series_id
+
+    @builtins.property
+    def locator(self) -> "scout_channel_api_BatchedLocator":
+        return self._locator
+
+    @builtins.property
+    def unit(self) -> Optional[str]:
+        return self._unit
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def data_type(self) -> Optional["api_SeriesDataType"]:
+        return self._data_type
+
+    @builtins.property
+    def series_id(self) -> "datasource_api_SeriesMetadataRidOrLogicalSeriesRid":
+        return self._series_id
+
+
+scout_channel_api_BatchedLocatorChannelMetadata.__name__ = "BatchedLocatorChannelMetadata"
+scout_channel_api_BatchedLocatorChannelMetadata.__qualname__ = "BatchedLocatorChannelMetadata"
+scout_channel_api_BatchedLocatorChannelMetadata.__module__ = "nominal_api.scout_channel_api"
+
+
+class scout_channel_api_BatchedLocatorWithDelimiter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'locator': ConjureFieldDefinition('locator', scout_channel_api_BatchedLocator),
+            'delimiter': ConjureFieldDefinition('delimiter', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_locator', '_delimiter']
+
+    def __init__(self, locator: "scout_channel_api_BatchedLocator", delimiter: Optional[str] = None) -> None:
+        self._locator = locator
+        self._delimiter = delimiter
+
+    @builtins.property
+    def locator(self) -> "scout_channel_api_BatchedLocator":
+        return self._locator
+
+    @builtins.property
+    def delimiter(self) -> Optional[str]:
+        """Absent when the locator's data source has no indexed prefix tree
+(callers should fall back to flat search for those locators).
+        """
+        return self._delimiter
+
+
+scout_channel_api_BatchedLocatorWithDelimiter.__name__ = "BatchedLocatorWithDelimiter"
+scout_channel_api_BatchedLocatorWithDelimiter.__qualname__ = "BatchedLocatorWithDelimiter"
+scout_channel_api_BatchedLocatorWithDelimiter.__module__ = "nominal_api.scout_channel_api"
+
+
 class scout_channel_api_ChannelChildEntry(ConjureUnionType):
     _channel: Optional["scout_channel_api_ChannelEntry"] = None
     _prefix: Optional["scout_channel_api_PrefixEntry"] = None
@@ -31379,6 +31852,71 @@ with the set of locators in which they exist.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_channel_api_SearchChannelsResponse, self._return_none_for_unknown_union_types)
 
+    def batch_get_locator_delimiters(self, auth_header: str, request: "scout_channel_api_BatchGetLocatorDelimitersRequest") -> "scout_channel_api_BatchGetLocatorDelimitersResponse":
+        """Batched form of `getLocatorDelimiters`.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/channels/v1/delimiters/batch'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_channel_api_BatchGetLocatorDelimitersResponse, self._return_none_for_unknown_union_types)
+
+    def batch_search_channels(self, auth_header: str, request: "scout_channel_api_BatchSearchChannelsRequest") -> "scout_channel_api_BatchSearchChannelsResponse":
+        """Batched form of `searchChannels`. The channel search is performed across the 
+union of all entry scopes and so is the limit and top-n selection by relevance.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/channels/v1/search/batch'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_channel_api_BatchSearchChannelsResponse, self._return_none_for_unknown_union_types)
+
 
 scout_channel_api_ChannelSearchService.__name__ = "ChannelSearchService"
 scout_channel_api_ChannelSearchService.__qualname__ = "ChannelSearchService"
@@ -31768,6 +32306,9 @@ only exists in a subset of locators.
 
     @builtins.property
     def results(self) -> List["scout_channel_api_ChannelEntry"]:
+        """Channels matching the query, ordered by global relevance score (descending) from the
+underlying search.
+        """
         return self._results
 
 
@@ -35298,14 +35839,16 @@ class scout_chartdefinition_api_Geo3dDefinitionV1(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'plots': ConjureFieldDefinition('plots', List[scout_chartdefinition_api_GeoPlot3d]),
-            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str])
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'spatial_plots': ConjureFieldDefinition('spatialPlots', OptionalTypeWrapper[List[scout_chartdefinition_api_GeoPlot3dSpatial]])
         }
 
-    __slots__: List[str] = ['_plots', '_title']
+    __slots__: List[str] = ['_plots', '_title', '_spatial_plots']
 
-    def __init__(self, plots: List["scout_chartdefinition_api_GeoPlot3d"], title: Optional[str] = None) -> None:
+    def __init__(self, plots: List["scout_chartdefinition_api_GeoPlot3d"], spatial_plots: Optional[List["scout_chartdefinition_api_GeoPlot3dSpatial"]] = None, title: Optional[str] = None) -> None:
         self._plots = plots
         self._title = title
+        self._spatial_plots = spatial_plots
 
     @builtins.property
     def plots(self) -> List["scout_chartdefinition_api_GeoPlot3d"]:
@@ -35314,6 +35857,12 @@ class scout_chartdefinition_api_Geo3dDefinitionV1(ConjureBeanType):
     @builtins.property
     def title(self) -> Optional[str]:
         return self._title
+
+    @builtins.property
+    def spatial_plots(self) -> Optional[List["scout_chartdefinition_api_GeoPlot3dSpatial"]]:
+        """Spatial dataset or channel plots in the 3D viewport.
+        """
+        return self._spatial_plots
 
 
 scout_chartdefinition_api_Geo3dDefinitionV1.__name__ = "Geo3dDefinitionV1"
@@ -36443,6 +36992,58 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
 scout_chartdefinition_api_GeoPlot3d.__name__ = "GeoPlot3d"
 scout_chartdefinition_api_GeoPlot3d.__qualname__ = "GeoPlot3d"
 scout_chartdefinition_api_GeoPlot3d.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_GeoPlot3dSpatial(ConjureBeanType):
+    """3D plot for a spatial dataset or channel (point cloud, BVH mesh, etc.) loaded by RID.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'plot_id': ConjureFieldDefinition('plotId', str),
+            'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
+            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
+            'spatial_rid': ConjureFieldDefinition('spatialRid', api_rids_SpatialRid),
+            'coloring': ConjureFieldDefinition('coloring', OptionalTypeWrapper[scout_chartdefinition_api_SpatialColoring])
+        }
+
+    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_spatial_rid', '_coloring']
+
+    def __init__(self, plot_id: str, spatial_rid: str, coloring: Optional["scout_chartdefinition_api_SpatialColoring"] = None, enabled: Optional[bool] = None, label: Optional[str] = None) -> None:
+        self._plot_id = plot_id
+        self._enabled = enabled
+        self._label = label
+        self._spatial_rid = spatial_rid
+        self._coloring = coloring
+
+    @builtins.property
+    def plot_id(self) -> str:
+        return self._plot_id
+
+    @builtins.property
+    def enabled(self) -> Optional[bool]:
+        return self._enabled
+
+    @builtins.property
+    def label(self) -> Optional[str]:
+        return self._label
+
+    @builtins.property
+    def spatial_rid(self) -> str:
+        return self._spatial_rid
+
+    @builtins.property
+    def coloring(self) -> Optional["scout_chartdefinition_api_SpatialColoring"]:
+        """How to color the asset. If omitted, renderers use a +Z direction ramp with colormap
+VIRIDIS and default bounds (`SpatialColoringGeometryAxis` with axis { x: 0, y: 0, z: 1 }).
+        """
+        return self._coloring
+
+
+scout_chartdefinition_api_GeoPlot3dSpatial.__name__ = "GeoPlot3dSpatial"
+scout_chartdefinition_api_GeoPlot3dSpatial.__qualname__ = "GeoPlot3dSpatial"
+scout_chartdefinition_api_GeoPlot3dSpatial.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_GeoPlot3dVisualizationOptions(ConjureBeanType):
@@ -39324,6 +39925,162 @@ class scout_chartdefinition_api_SecondaryVariableOptionsVisitor:
 scout_chartdefinition_api_SecondaryVariableOptionsVisitor.__name__ = "SecondaryVariableOptionsVisitor"
 scout_chartdefinition_api_SecondaryVariableOptionsVisitor.__qualname__ = "SecondaryVariableOptionsVisitor"
 scout_chartdefinition_api_SecondaryVariableOptionsVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SpatialColorMap(ConjureEnumType):
+    """Named perceptually uniform scales (matplotlib-style set plus TURBO).
+    """
+
+    MAGMA = 'MAGMA'
+    '''MAGMA'''
+    INFERNO = 'INFERNO'
+    '''INFERNO'''
+    PLASMA = 'PLASMA'
+    '''PLASMA'''
+    VIRIDIS = 'VIRIDIS'
+    '''VIRIDIS'''
+    CIVIDIS = 'CIVIDIS'
+    '''CIVIDIS'''
+    TURBO = 'TURBO'
+    '''TURBO'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_chartdefinition_api_SpatialColorMap.__name__ = "SpatialColorMap"
+scout_chartdefinition_api_SpatialColorMap.__qualname__ = "SpatialColorMap"
+scout_chartdefinition_api_SpatialColorMap.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SpatialColoring(ConjureUnionType):
+    """How to color spatial geometry for display.
+    """
+    _geometry_axis: Optional["scout_chartdefinition_api_SpatialColoringGeometryAxis"] = None
+    _solid: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'geometry_axis': ConjureFieldDefinition('geometryAxis', scout_chartdefinition_api_SpatialColoringGeometryAxis),
+            'solid': ConjureFieldDefinition('solid', scout_api_HexColor)
+        }
+
+    def __init__(
+            self,
+            geometry_axis: Optional["scout_chartdefinition_api_SpatialColoringGeometryAxis"] = None,
+            solid: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (geometry_axis is not None) + (solid is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if geometry_axis is not None:
+                self._geometry_axis = geometry_axis
+                self._type = 'geometryAxis'
+            if solid is not None:
+                self._solid = solid
+                self._type = 'solid'
+
+        elif type_of_union == 'geometryAxis':
+            if geometry_axis is None:
+                raise ValueError('a union value must not be None')
+            self._geometry_axis = geometry_axis
+            self._type = 'geometryAxis'
+        elif type_of_union == 'solid':
+            if solid is None:
+                raise ValueError('a union value must not be None')
+            self._solid = solid
+            self._type = 'solid'
+
+    @builtins.property
+    def geometry_axis(self) -> Optional["scout_chartdefinition_api_SpatialColoringGeometryAxis"]:
+        return self._geometry_axis
+
+    @builtins.property
+    def solid(self) -> Optional[str]:
+        """Single solid color for all points (hex).
+        """
+        return self._solid
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_SpatialColoringVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_SpatialColoringVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'geometryAxis' and self.geometry_axis is not None:
+            return visitor._geometry_axis(self.geometry_axis)
+        if self._type == 'solid' and self.solid is not None:
+            return visitor._solid(self.solid)
+
+
+scout_chartdefinition_api_SpatialColoring.__name__ = "SpatialColoring"
+scout_chartdefinition_api_SpatialColoring.__qualname__ = "SpatialColoring"
+scout_chartdefinition_api_SpatialColoring.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SpatialColoringVisitor:
+
+    @abstractmethod
+    def _geometry_axis(self, geometry_axis: "scout_chartdefinition_api_SpatialColoringGeometryAxis") -> Any:
+        pass
+
+    @abstractmethod
+    def _solid(self, solid: str) -> Any:
+        pass
+
+
+scout_chartdefinition_api_SpatialColoringVisitor.__name__ = "SpatialColoringVisitor"
+scout_chartdefinition_api_SpatialColoringVisitor.__qualname__ = "SpatialColoringVisitor"
+scout_chartdefinition_api_SpatialColoringVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_SpatialColoringGeometryAxis(ConjureBeanType):
+    """Color by world-space position along an axis direction using a named colormap.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'axis': ConjureFieldDefinition('axis', scout_chartdefinition_api_Vec3d),
+            'colormap': ConjureFieldDefinition('colormap', scout_chartdefinition_api_SpatialColorMap),
+            'data_min': ConjureFieldDefinition('dataMin', OptionalTypeWrapper[float]),
+            'data_max': ConjureFieldDefinition('dataMax', OptionalTypeWrapper[float])
+        }
+
+    __slots__: List[str] = ['_axis', '_colormap', '_data_min', '_data_max']
+
+    def __init__(self, axis: "scout_chartdefinition_api_Vec3d", colormap: "scout_chartdefinition_api_SpatialColorMap", data_max: Optional[float] = None, data_min: Optional[float] = None) -> None:
+        self._axis = axis
+        self._colormap = colormap
+        self._data_min = data_min
+        self._data_max = data_max
+
+    @builtins.property
+    def axis(self) -> "scout_chartdefinition_api_Vec3d":
+        return self._axis
+
+    @builtins.property
+    def colormap(self) -> "scout_chartdefinition_api_SpatialColorMap":
+        return self._colormap
+
+    @builtins.property
+    def data_min(self) -> Optional[float]:
+        """Color ramp lower bound; omit for renderer default.
+        """
+        return self._data_min
+
+    @builtins.property
+    def data_max(self) -> Optional[float]:
+        """Color ramp upper bound; omit for renderer default.
+        """
+        return self._data_max
+
+
+scout_chartdefinition_api_SpatialColoringGeometryAxis.__name__ = "SpatialColoringGeometryAxis"
+scout_chartdefinition_api_SpatialColoringGeometryAxis.__qualname__ = "SpatialColoringGeometryAxis"
+scout_chartdefinition_api_SpatialColoringGeometryAxis.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_SpatialDecimation(ConjureBeanType):
@@ -42234,6 +42991,43 @@ class scout_chartdefinition_api_VariableStaticOrChannelVisitor:
 scout_chartdefinition_api_VariableStaticOrChannelVisitor.__name__ = "VariableStaticOrChannelVisitor"
 scout_chartdefinition_api_VariableStaticOrChannelVisitor.__qualname__ = "VariableStaticOrChannelVisitor"
 scout_chartdefinition_api_VariableStaticOrChannelVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Vec3d(ConjureBeanType):
+    """A three-dimensional Cartesian vector.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', float),
+            'y': ConjureFieldDefinition('y', float),
+            'z': ConjureFieldDefinition('z', float)
+        }
+
+    __slots__: List[str] = ['_x', '_y', '_z']
+
+    def __init__(self, x: float, y: float, z: float) -> None:
+        self._x = x
+        self._y = y
+        self._z = z
+
+    @builtins.property
+    def x(self) -> float:
+        return self._x
+
+    @builtins.property
+    def y(self) -> float:
+        return self._y
+
+    @builtins.property
+    def z(self) -> float:
+        return self._z
+
+
+scout_chartdefinition_api_Vec3d.__name__ = "Vec3d"
+scout_chartdefinition_api_Vec3d.__qualname__ = "Vec3d"
+scout_chartdefinition_api_Vec3d.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_VideoPanelDataSource(ConjureBeanType):
@@ -103373,6 +104167,35 @@ scout_run_api_SortKeyVisitor.__qualname__ = "SortKeyVisitor"
 scout_run_api_SortKeyVisitor.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_run_api_SortKeyWithDirection(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sort_key': ConjureFieldDefinition('sortKey', scout_run_api_SortKey),
+            'is_descending': ConjureFieldDefinition('isDescending', bool)
+        }
+
+    __slots__: List[str] = ['_sort_key', '_is_descending']
+
+    def __init__(self, is_descending: bool, sort_key: "scout_run_api_SortKey") -> None:
+        self._sort_key = sort_key
+        self._is_descending = is_descending
+
+    @builtins.property
+    def sort_key(self) -> "scout_run_api_SortKey":
+        return self._sort_key
+
+    @builtins.property
+    def is_descending(self) -> bool:
+        return self._is_descending
+
+
+scout_run_api_SortKeyWithDirection.__name__ = "SortKeyWithDirection"
+scout_run_api_SortKeyWithDirection.__qualname__ = "SortKeyWithDirection"
+scout_run_api_SortKeyWithDirection.__module__ = "nominal_api.scout_run_api"
+
+
 class scout_run_api_SortOptions(ConjureBeanType):
 
     @builtins.classmethod
@@ -103380,15 +104203,17 @@ class scout_run_api_SortOptions(ConjureBeanType):
         return {
             'is_descending': ConjureFieldDefinition('isDescending', bool),
             'field': ConjureFieldDefinition('field', OptionalTypeWrapper[scout_run_api_SortField]),
-            'sort_key': ConjureFieldDefinition('sortKey', OptionalTypeWrapper[scout_run_api_SortKey])
+            'sort_key': ConjureFieldDefinition('sortKey', OptionalTypeWrapper[scout_run_api_SortKey]),
+            'additional_sort_keys': ConjureFieldDefinition('additionalSortKeys', OptionalTypeWrapper[List[scout_run_api_SortKeyWithDirection]])
         }
 
-    __slots__: List[str] = ['_is_descending', '_field', '_sort_key']
+    __slots__: List[str] = ['_is_descending', '_field', '_sort_key', '_additional_sort_keys']
 
-    def __init__(self, is_descending: bool, field: Optional["scout_run_api_SortField"] = None, sort_key: Optional["scout_run_api_SortKey"] = None) -> None:
+    def __init__(self, is_descending: bool, additional_sort_keys: Optional[List["scout_run_api_SortKeyWithDirection"]] = None, field: Optional["scout_run_api_SortField"] = None, sort_key: Optional["scout_run_api_SortKey"] = None) -> None:
         self._is_descending = is_descending
         self._field = field
         self._sort_key = sort_key
+        self._additional_sort_keys = additional_sort_keys
 
     @builtins.property
     def is_descending(self) -> bool:
@@ -103403,6 +104228,13 @@ class scout_run_api_SortOptions(ConjureBeanType):
         """Field to sort by. Includes both field and property-based sorting.
         """
         return self._sort_key
+
+    @builtins.property
+    def additional_sort_keys(self) -> Optional[List["scout_run_api_SortKeyWithDirection"]]:
+        """Optional secondary sort keys for tiebreaking. Applied in order after the primary sortKey.
+Each entry specifies its own sort key and direction. If empty or absent, ties are broken by UUID only.
+        """
+        return self._additional_sort_keys
 
 
 scout_run_api_SortOptions.__name__ = "SortOptions"

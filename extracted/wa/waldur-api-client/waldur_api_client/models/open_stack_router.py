@@ -50,13 +50,20 @@ class OpenStackRouter:
         created (Union[Unset, datetime.datetime]):
         modified (Union[Unset, datetime.datetime]):
         backend_id (Union[None, Unset, str]): Router ID in OpenStack
-        access_url (Union[None, Unset, str]):
+        access_url (Union[None, Unset, list[str], str]):
         tenant (Union[Unset, str]): OpenStack tenant this router belongs to
         tenant_name (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         routes (Union[Unset, list['OpenStackStaticRoute']]):
         fixed_ips (Union[Unset, list['OpenStackFixedIp']]):
         ports (Union[Unset, list['OpenStackNestedPort']]):
+        external_network_id (Union[Unset, str]): Backend ID of the external network used as gateway
+        external_network_uuid (Union[None, UUID, Unset]):
+        external_network_name (Union[None, Unset, str]):
+        has_external_gateway (Union[Unset, bool]):
+        enable_snat (Union[None, Unset, bool]): Whether SNAT is enabled on the external gateway. None means OpenStack
+            default (True).
+        external_fixed_ips (Union[Unset, Any]):
         marketplace_offering_uuid (Union[None, Unset, str]):
         marketplace_offering_name (Union[None, Unset, str]):
         marketplace_offering_type (Union[None, Unset, str]):
@@ -96,13 +103,19 @@ class OpenStackRouter:
     created: Union[Unset, datetime.datetime] = UNSET
     modified: Union[Unset, datetime.datetime] = UNSET
     backend_id: Union[None, Unset, str] = UNSET
-    access_url: Union[None, Unset, str] = UNSET
+    access_url: Union[None, Unset, list[str], str] = UNSET
     tenant: Union[Unset, str] = UNSET
     tenant_name: Union[Unset, str] = UNSET
     tenant_uuid: Union[Unset, UUID] = UNSET
     routes: Union[Unset, list["OpenStackStaticRoute"]] = UNSET
     fixed_ips: Union[Unset, list["OpenStackFixedIp"]] = UNSET
     ports: Union[Unset, list["OpenStackNestedPort"]] = UNSET
+    external_network_id: Union[Unset, str] = UNSET
+    external_network_uuid: Union[None, UUID, Unset] = UNSET
+    external_network_name: Union[None, Unset, str] = UNSET
+    has_external_gateway: Union[Unset, bool] = UNSET
+    enable_snat: Union[None, Unset, bool] = UNSET
+    external_fixed_ips: Union[Unset, Any] = UNSET
     marketplace_offering_uuid: Union[None, Unset, str] = UNSET
     marketplace_offering_name: Union[None, Unset, str] = UNSET
     marketplace_offering_type: Union[None, Unset, str] = UNSET
@@ -190,9 +203,12 @@ class OpenStackRouter:
         else:
             backend_id = self.backend_id
 
-        access_url: Union[None, Unset, str]
+        access_url: Union[None, Unset, list[str], str]
         if isinstance(self.access_url, Unset):
             access_url = UNSET
+        elif isinstance(self.access_url, list):
+            access_url = self.access_url
+
         else:
             access_url = self.access_url
 
@@ -224,6 +240,32 @@ class OpenStackRouter:
             for ports_item_data in self.ports:
                 ports_item = ports_item_data.to_dict()
                 ports.append(ports_item)
+
+        external_network_id = self.external_network_id
+
+        external_network_uuid: Union[None, Unset, str]
+        if isinstance(self.external_network_uuid, Unset):
+            external_network_uuid = UNSET
+        elif isinstance(self.external_network_uuid, UUID):
+            external_network_uuid = str(self.external_network_uuid)
+        else:
+            external_network_uuid = self.external_network_uuid
+
+        external_network_name: Union[None, Unset, str]
+        if isinstance(self.external_network_name, Unset):
+            external_network_name = UNSET
+        else:
+            external_network_name = self.external_network_name
+
+        has_external_gateway = self.has_external_gateway
+
+        enable_snat: Union[None, Unset, bool]
+        if isinstance(self.enable_snat, Unset):
+            enable_snat = UNSET
+        else:
+            enable_snat = self.enable_snat
+
+        external_fixed_ips = self.external_fixed_ips
 
         marketplace_offering_uuid: Union[None, Unset, str]
         if isinstance(self.marketplace_offering_uuid, Unset):
@@ -367,6 +409,18 @@ class OpenStackRouter:
             field_dict["fixed_ips"] = fixed_ips
         if ports is not UNSET:
             field_dict["ports"] = ports
+        if external_network_id is not UNSET:
+            field_dict["external_network_id"] = external_network_id
+        if external_network_uuid is not UNSET:
+            field_dict["external_network_uuid"] = external_network_uuid
+        if external_network_name is not UNSET:
+            field_dict["external_network_name"] = external_network_name
+        if has_external_gateway is not UNSET:
+            field_dict["has_external_gateway"] = has_external_gateway
+        if enable_snat is not UNSET:
+            field_dict["enable_snat"] = enable_snat
+        if external_fixed_ips is not UNSET:
+            field_dict["external_fixed_ips"] = external_fixed_ips
         if marketplace_offering_uuid is not UNSET:
             field_dict["marketplace_offering_uuid"] = marketplace_offering_uuid
         if marketplace_offering_name is not UNSET:
@@ -494,12 +548,20 @@ class OpenStackRouter:
 
         backend_id = _parse_backend_id(d.pop("backend_id", UNSET))
 
-        def _parse_access_url(data: object) -> Union[None, Unset, str]:
+        def _parse_access_url(data: object) -> Union[None, Unset, list[str], str]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                access_url_type_0 = cast(list[str], data)
+
+                return access_url_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url", UNSET))
 
@@ -534,6 +596,47 @@ class OpenStackRouter:
             ports_item = OpenStackNestedPort.from_dict(ports_item_data)
 
             ports.append(ports_item)
+
+        external_network_id = d.pop("external_network_id", UNSET)
+
+        def _parse_external_network_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                external_network_uuid_type_0 = UUID(data)
+
+                return external_network_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        external_network_uuid = _parse_external_network_uuid(d.pop("external_network_uuid", UNSET))
+
+        def _parse_external_network_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        external_network_name = _parse_external_network_name(d.pop("external_network_name", UNSET))
+
+        has_external_gateway = d.pop("has_external_gateway", UNSET)
+
+        def _parse_enable_snat(data: object) -> Union[None, Unset, bool]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, bool], data)
+
+        enable_snat = _parse_enable_snat(d.pop("enable_snat", UNSET))
+
+        external_fixed_ips = d.pop("external_fixed_ips", UNSET)
 
         def _parse_marketplace_offering_uuid(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -697,6 +800,12 @@ class OpenStackRouter:
             routes=routes,
             fixed_ips=fixed_ips,
             ports=ports,
+            external_network_id=external_network_id,
+            external_network_uuid=external_network_uuid,
+            external_network_name=external_network_name,
+            has_external_gateway=has_external_gateway,
+            enable_snat=enable_snat,
+            external_fixed_ips=external_fixed_ips,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,
             marketplace_offering_type=marketplace_offering_type,

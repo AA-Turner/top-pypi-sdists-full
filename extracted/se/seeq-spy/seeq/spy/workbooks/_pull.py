@@ -121,6 +121,8 @@ def pull(
         Seeq servers at the same time or with different credentials.
 
     """
+    status.add_log_section_marker('] Pulling')
+
     workbooks = WorkbookList(do_pull(workbooks_df, status=status, session=session,
                                      include_referenced_workbooks=include_referenced_workbooks,
                                      include_inventory=include_inventory, include_annotations=include_annotations,

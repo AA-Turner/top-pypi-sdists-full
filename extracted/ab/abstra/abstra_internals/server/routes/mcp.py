@@ -41,6 +41,8 @@ def get_editor_bp(main_controller: MainController):
             requires_approval(main_controller.delete_stage),
             main_controller.get_execution_logs,
             main_controller.get_execution_tasks,
+            main_controller.list_executions,
+            requires_approval(main_controller.stop_execution),
             main_controller.list_all_stages,
             main_controller.get_stage,
             requires_approval(main_controller.update_stage),
