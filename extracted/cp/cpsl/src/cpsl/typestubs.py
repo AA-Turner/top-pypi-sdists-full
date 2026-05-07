@@ -220,11 +220,20 @@ declare module "@capsule/page" {
     pageSize?: number;
     sort?: { field: string; dir?: "asc" | "desc" };
     filter?: Record<string, unknown>;
+    scope?: "app" | "user" | "owner" | "session";
+  }
+
+  interface CollectionColumn {
+    key: string;
+    type?: "text" | "number" | "currency" | "date" | "link" | "file" | "email" | "status" | "tags" | "boolean";
+    label?: string;
+    format?: string;
   }
 
   interface CollectionResult<T = unknown> {
     data: T[];
     total: number;
+    columns: (string | CollectionColumn)[];
     page: number;
     totalPages: number;
     loading: boolean;

@@ -1,5 +1,6 @@
 # ======================================== IMPORTS ========================================
 from ._context import ContextManager
+
 from ._time import TimeManager
 from ._coordinates import CoordinatesManager
 from ._event import EventManager
@@ -12,6 +13,7 @@ from ._audio import AudioManager
 # ======================================== EXPORTS ========================================
 __all__ = [
     "ContextManager",
+
     "TimeManager",
     "CoordinatesManager",
     "EventManager",

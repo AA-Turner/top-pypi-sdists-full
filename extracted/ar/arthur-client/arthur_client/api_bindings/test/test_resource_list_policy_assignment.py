@@ -68,7 +68,7 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                                             id = '', ), )
                                     ], ), 
                             attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ), 
-                        compliance_job = arthur_client.api_bindings.models.job.Job(
+                        metrics_calc_job = arthur_client.api_bindings.models.job.Job(
                             id = '', 
                             kind = 'metrics_calculation', 
                             job_spec = null, 
@@ -101,6 +101,27 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                             nonce = '', 
                             memory_requirements_mb = 56, 
                             job_priority = 100, ), 
+                        alerts_check_job = arthur_client.api_bindings.models.job.Job(
+                            id = '', 
+                            kind = 'metrics_calculation', 
+                            job_spec = null, 
+                            state = 'queued', 
+                            project_id = '', 
+                            data_plane_id = '', 
+                            queued_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            ready_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            started_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            finished_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            duration_sec = 56, 
+                            error_count = 56, 
+                            trigger_type = 'user', 
+                            schedule_id = '', 
+                            attempts = 56, 
+                            max_attempts = 56, 
+                            nonce = '', 
+                            memory_requirements_mb = 56, 
+                            job_priority = 100, ), 
+                        compliance_job = , 
                         last_violation_notified_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
@@ -144,7 +165,7 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                                             id = '', ), )
                                     ], ), 
                             attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ), 
-                        compliance_job = arthur_client.api_bindings.models.job.Job(
+                        metrics_calc_job = arthur_client.api_bindings.models.job.Job(
                             id = '', 
                             kind = 'metrics_calculation', 
                             job_spec = null, 
@@ -177,6 +198,27 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                             nonce = '', 
                             memory_requirements_mb = 56, 
                             job_priority = 100, ), 
+                        alerts_check_job = arthur_client.api_bindings.models.job.Job(
+                            id = '', 
+                            kind = 'metrics_calculation', 
+                            job_spec = null, 
+                            state = 'queued', 
+                            project_id = '', 
+                            data_plane_id = '', 
+                            queued_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            ready_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            started_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            finished_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            duration_sec = 56, 
+                            error_count = 56, 
+                            trigger_type = 'user', 
+                            schedule_id = '', 
+                            attempts = 56, 
+                            max_attempts = 56, 
+                            nonce = '', 
+                            memory_requirements_mb = 56, 
+                            job_priority = 100, ), 
+                        compliance_job = , 
                         last_violation_notified_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(

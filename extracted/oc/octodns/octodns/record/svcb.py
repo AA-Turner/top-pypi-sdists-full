@@ -10,9 +10,10 @@ from ipaddress import AddressValueError, IPv4Address, IPv6Address
 from ..equality import EqualityTupleMixin
 from ..idna import idna_encode
 from .base import Record, ValuesMixin, unquote
-from .chunked import _ChunkedValue
+from .chunked import _ChunkedValue, chunked_value_validator
 from .rr import RrParseError
-from .target import validate_target_fqdn
+from .target import _check_target_format, _check_target_trailing_dot
+from .validator import ValueValidator
 
 SUPPORTED_PARAMS = {}
 
@@ -38,9 +39,9 @@ def validate_svcparam_alpn(svcparamvalue):
     reasons = validate_list('alpn', svcparamvalue)
     if len(reasons) != 0:
         return reasons
-    for alpn in svcparamvalue:
-        reasons += _ChunkedValue.validate(alpn, 'SVCB')
-    return reasons
+    return chunked_value_validator.validate(
+        _ChunkedValue, svcparamvalue, 'SVCB'
+    )
 
 
 def validate_svcparam_iphint(ip_version, svcparamvalue):
@@ -140,7 +141,79 @@ SUPPORTED_PARAMS = {
 }
 
 
-class SvcbValue(EqualityTupleMixin, dict):
+class SvcbValueValidator(ValueValidator):
+    '''
+    Validates SVCB/HTTPS rdata per RFC 9460: ``svcpriority`` in
+    [0, 65535], ``targetname`` is a valid FQDN, and each SvcParam is
+    either a recognized key (validated by its per-key helper) or a
+    properly-formed ``keyNNN`` number. Also rejects SvcParams on
+    AliasMode (``svcpriority`` == 0) records.
+    '''
+
+    def validate(self, value_cls, data, _type):
+        reasons = []
+        for value in data:
+            svcpriority = -1
+            if 'svcpriority' not in value:
+                reasons.append('missing svcpriority')
+            else:
+                try:
+                    svcpriority = int(value.get('svcpriority', 0))
+                    if svcpriority < 0 or svcpriority > 65535:
+                        reasons.append(f'invalid priority ' f'"{svcpriority}"')
+                except ValueError:
+                    reasons.append(f'invalid priority "{value["svcpriority"]}"')
+
+            reasons += _check_target_format(
+                value.get('targetname'), _type, 'targetname'
+            )
+
+            if 'svcparams' in value:
+                svcparams = value.get('svcparams', dict())
+                if svcpriority == 0 and len(svcparams) != 0:
+                    reasons.append('svcparams set on AliasMode SVCB record')
+                for svcparamkey, svcparamvalue in svcparams.items():
+                    # XXX: Should we test for keys existing when set in 'mandatory'?
+                    if svcparamkey.startswith('key'):
+                        reasons += validate_svckey_number(svcparamkey)
+                        continue
+                    if (
+                        svcparamkey not in SUPPORTED_PARAMS.keys()
+                        and not svcparamkey.startswith('key')
+                    ):
+                        reasons.append(f'Unknown SvcParam {svcparamkey}')
+                        continue
+                    if SUPPORTED_PARAMS[svcparamkey].get('has_arg', True):
+                        reasons += SUPPORTED_PARAMS[svcparamkey]['validate'](
+                            svcparamvalue
+                        )
+                    if (
+                        not SUPPORTED_PARAMS[svcparamkey].get('has_arg', True)
+                        and svcparamvalue is not None
+                    ):
+                        reasons.append(
+                            f'SvcParam {svcparamkey} has value when it should not'
+                        )
+
+        return reasons
+
+
+class _SvcbValueBase(EqualityTupleMixin, dict):
+    @classmethod
+    def _schema(cls):
+        return {
+            'type': 'object',
+            'required': ['svcpriority', 'targetname'],
+            'properties': {
+                'svcpriority': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 65535,
+                },
+                'targetname': {'type': 'string'},
+                'svcparams': {'type': 'object', 'additionalProperties': True},
+            },
+        }
 
     @classmethod
     def parse_rdata_text(cls, value):
@@ -176,54 +249,6 @@ class SvcbValue(EqualityTupleMixin, dict):
             'targetname': targetname,
             'svcparams': params,
         }
-
-    @classmethod
-    def validate(cls, data, _type):
-        reasons = []
-        for value in data:
-            svcpriority = -1
-            if 'svcpriority' not in value:
-                reasons.append('missing svcpriority')
-            else:
-                try:
-                    svcpriority = int(value.get('svcpriority', 0))
-                    if svcpriority < 0 or svcpriority > 65535:
-                        reasons.append(f'invalid priority ' f'"{svcpriority}"')
-                except ValueError:
-                    reasons.append(f'invalid priority "{value["svcpriority"]}"')
-
-            reasons += validate_target_fqdn(
-                value.get('targetname'), _type, 'targetname'
-            )
-
-            if 'svcparams' in value:
-                svcparams = value.get('svcparams', dict())
-                if svcpriority == 0 and len(svcparams) != 0:
-                    reasons.append('svcparams set on AliasMode SVCB record')
-                for svcparamkey, svcparamvalue in svcparams.items():
-                    # XXX: Should we test for keys existing when set in 'mandatory'?
-                    if svcparamkey.startswith('key'):
-                        reasons += validate_svckey_number(svcparamkey)
-                        continue
-                    if (
-                        svcparamkey not in SUPPORTED_PARAMS.keys()
-                        and not svcparamkey.startswith('key')
-                    ):
-                        reasons.append(f'Unknown SvcParam {svcparamkey}')
-                        continue
-                    if SUPPORTED_PARAMS[svcparamkey].get('has_arg', True):
-                        reasons += SUPPORTED_PARAMS[svcparamkey]['validate'](
-                            svcparamvalue
-                        )
-                    if (
-                        not SUPPORTED_PARAMS[svcparamkey].get('has_arg', True)
-                        and svcparamvalue is not None
-                    ):
-                        reasons.append(
-                            f'SvcParam {svcparamkey} has value when it should not'
-                        )
-
-        return reasons
 
     @classmethod
     def process(cls, values):
@@ -303,7 +328,42 @@ class SvcbValue(EqualityTupleMixin, dict):
         return f"'{self.rdata_text}'"
 
 
+class SvcbValueBestPracticeValidator(ValueValidator):
+    '''
+    Checks that the SVCB/HTTPS ``targetname`` field ends with a trailing
+    ``.`` (fully-qualified name).
+
+    Enabled as part of the ``best-practice`` validator set::
+
+      manager:
+        enabled:
+          - best-practice
+    '''
+
+    def validate(self, value_cls, data, _type):
+        reasons = []
+        for value in data:
+            reasons += _check_target_trailing_dot(
+                value.get('targetname'), _type, 'targetname'
+            )
+        return reasons
+
+
+class SvcbValue(_SvcbValueBase):
+    VALIDATORS = [
+        SvcbValueValidator('svcb-value-rfc', sets={'legacy', 'strict'}),
+        SvcbValueBestPracticeValidator(
+            'svcb-value-best-practice', sets={'best-practice'}
+        ),
+    ]
+
+
 class SvcbRecord(ValuesMixin, Record):
+    REFERENCES = (
+        'https://datatracker.ietf.org/doc/html/rfc9460',
+        'https://datatracker.ietf.org/doc/html/rfc9461',
+        'https://datatracker.ietf.org/doc/html/rfc9462',
+    )
     _type = 'SVCB'
     _value_type = SvcbValue
 

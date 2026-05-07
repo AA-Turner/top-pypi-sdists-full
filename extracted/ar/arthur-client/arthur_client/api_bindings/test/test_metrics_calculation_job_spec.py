@@ -38,7 +38,8 @@ class TestMetricsCalculationJobSpec(unittest.TestCase):
                 job_type = 'metrics_calculation',
                 scope_model_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
+                end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                policy_assignment_id = ''
             )
         else:
             return MetricsCalculationJobSpec(

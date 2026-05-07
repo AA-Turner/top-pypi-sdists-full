@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from .._internal import profile_section
 from ..abc import Manager
 
 from ._context import ContextManager
@@ -11,20 +12,10 @@ from typing import Any, Callable, TypeAlias, Type, ClassVar
 class Listener:
     """Représente un listener d'entrée utilisateur"""
     __slots__ = (
-        "callback",
-        "args", "kwargs",
-        "up",
-        "condition",
-        "once",
-        "repeat",
-        "priority",
-        "give_key",
-        "exclude",
-        "any_of",
-        "keys",
-        "_enabled",
-        "_active",
-        "_remove_fn",
+        "callback", "args", "kwargs",
+        "up", "condition", "once", "repeat", "priority", "give_key", "exclude",
+        "any_of", "keys",
+        "_enabled", "_active", "_remove_fn",
     )
 
     def __init__(
@@ -102,7 +93,7 @@ class InputsManager(Manager):
         "_triggered_combos",
     )
 
-    _ID: str = "inputs"
+    _ID: ClassVar[str] = "inputs"
 
     Input: TypeAlias = int
     Listener: ClassVar[Type[Listener]] = Listener
@@ -125,6 +116,7 @@ class InputsManager(Manager):
         self._ctx.event.on_mouse_release.subscribe(self._on_mouse_release)
 
     # ======================================== LISTENERS ========================================
+    @profile_section("manager.inputs.add_listener")
     def add_listener(
             self,
             key: Input,
@@ -185,6 +177,7 @@ class InputsManager(Manager):
                 if l.callback == callback:
                     l.invalidate()
 
+    @profile_section("manager.inputs.when_any")
     def when_any(
             self,
             callback: Callable,
@@ -225,6 +218,7 @@ class InputsManager(Manager):
         self._insert_by_priority(self._any_listeners, listener)
         return listener
 
+    @profile_section("manager.inputs.when_any_of")
     def when_any_of(
             self,
             keys: list[Input],
@@ -269,6 +263,7 @@ class InputsManager(Manager):
         self._insert_by_priority(self._any_of_listeners, listener)
         return listener
 
+    @profile_section("manager.inputs.when_all_of")
     def when_all_of(
             self,
             keys: list[Input],
@@ -307,6 +302,7 @@ class InputsManager(Manager):
         self._insert_by_priority(self._all_of_listeners, listener)
         return listener
 
+    @profile_section("manager.inputs.remove_callback")
     def remove_callback(self, callback: Callable) -> None:
         """Supprime un callback de tous les types de listeners
 
@@ -331,6 +327,7 @@ class InputsManager(Manager):
                 l.invalidate()
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.inputs.update")
     def update(self, dt: float) -> None:
         """Actualisation
 
@@ -373,6 +370,7 @@ class InputsManager(Manager):
                     listener._fire()
                     self._triggered_combos.add(combo_key)
 
+    @profile_section("manager.inputs.flush")
     def flush(self) -> None:
         """Nettoie les états courants"""
         # Nettoie les combos qui ne sont plus maintenus

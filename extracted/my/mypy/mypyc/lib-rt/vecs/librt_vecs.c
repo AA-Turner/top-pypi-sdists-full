@@ -96,29 +96,34 @@ typedef struct {
 
 static PyObject *vec_generic_alias_call(PyObject *self, PyObject *args, PyObject *kw)
 {
-    static char *kwlist[] = {"", NULL};
+    static char *kwlist[] = {"", "capacity", NULL};
     PyObject *init = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, kw, "|O:vec", kwlist, &init)) {
+    int64_t cap = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "|OL:vec", kwlist, &init, &cap)) {
+        return NULL;
+    }
+    if (cap < 0) {
+        PyErr_SetString(PyExc_ValueError, "capacity must not be negative");
         return NULL;
     }
     VecGenericAlias *p = (VecGenericAlias *)self;
     if (p->depth == 0) {
         if (init == NULL) {
-            VecT vec = VecT_New(0, 0, p->item_type);
+            VecT vec = VecT_New(0, cap, p->item_type);
             if (VEC_IS_ERROR(vec))
                 return NULL;
             return VecT_Box(vec, p->item_type);
         } else {
-            return VecT_FromIterable(p->item_type, init);
+            return VecT_FromIterable(p->item_type, init, cap);
         }
     } else {
         if (init == NULL) {
-            VecNested vec = VecNested_New(0, 0, p->item_type, p->depth);
+            VecNested vec = VecNested_New(0, cap, p->item_type, p->depth);
             if (VEC_IS_ERROR(vec))
                 return NULL;
             return VecNested_Box(vec);
         } else {
-            return VecNested_FromIterable(p->item_type, p->depth, init);
+            return VecNested_FromIterable(p->item_type, p->depth, init, cap);
         }
     }
 }
@@ -871,6 +876,78 @@ static PyObject *vec_pop(PyObject *self, PyObject *args)
     return res;
 }
 
+static PyObject *vec_extend(PyObject *self, PyObject *args)
+{
+    PyObject *vec;
+    PyObject *iterable;
+
+    if (!PyArg_ParseTuple(args, "OO:extend", &vec, &iterable))
+        return NULL;
+
+    if (VecI64_Check(vec)) {
+        VecI64 v = ((VecI64Object *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecI64_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecI64_Box(v);
+    } else if (VecU8_Check(vec)) {
+        VecU8 v = ((VecU8Object *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecU8_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecU8_Box(v);
+    } else if (VecFloat_Check(vec)) {
+        VecFloat v = ((VecFloatObject *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecFloat_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecFloat_Box(v);
+    } else if (VecI32_Check(vec)) {
+        VecI32 v = ((VecI32Object *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecI32_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecI32_Box(v);
+    } else if (VecI16_Check(vec)) {
+        VecI16 v = ((VecI16Object *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecI16_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecI16_Box(v);
+    } else if (VecBool_Check(vec)) {
+        VecBool v = ((VecBoolObject *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecBool_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecBool_Box(v);
+    } else if (VecT_Check(vec)) {
+        VecT v = ((VecTObject *)vec)->vec;
+        size_t item_type = v.buf->item_type;
+        VEC_INCREF(v);
+        v = VecT_Extend(v, iterable, item_type);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecT_Box(v, item_type);
+    } else if (VecNested_Check(vec)) {
+        VecNested v = ((VecNestedObject *)vec)->vec;
+        VEC_INCREF(v);
+        v = VecNested_Extend(v, iterable);
+        if (VEC_IS_ERROR(v))
+            return NULL;
+        return VecNested_Box(v);
+    } else {
+        PyErr_Format(PyExc_TypeError, "vec argument expected, got %.100s",
+                     Py_TYPE(vec)->tp_name);
+        return NULL;
+    }
+}
+
 // Return the base VecType for isinstance checks
 static PyTypeObject *get_vec_type(void) {
     return &VecType;
@@ -895,6 +972,7 @@ static PyMethodDef VecsMethods[] = {
     {"append",  vec_append, METH_VARARGS, "Append a value to the end of a vec"},
     {"remove",  vec_remove, METH_VARARGS, "Remove first occurrence of value from a vec"},
     {"pop",  vec_pop, METH_VARARGS, "Remove and return vec item at index (default last)"},
+    {"extend",  vec_extend, METH_VARARGS, "Extend a vec with items from an iterable"},
 #endif
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
@@ -950,35 +1028,51 @@ librt_vecs_module_exec(PyObject *m)
         return -1;
     if (PyType_Ready(&VecTBufType) < 0)
         return -1;
+    if (PyType_Ready(&VecTIterType) < 0)
+        return -1;
 
     if (PyType_Ready(&VecNestedType) < 0)
         return -1;
     if (PyType_Ready(&VecNestedBufType) < 0)
+        return -1;
+    if (PyType_Ready(&VecNestedIterType) < 0)
         return -1;
 
     if (PyType_Ready(&VecI64Type) < 0)
         return -1;
     if (PyType_Ready(&VecI64BufType) < 0)
         return -1;
+    if (PyType_Ready(&VecI64IterType) < 0)
+        return -1;
     if (PyType_Ready(&VecI32Type) < 0)
         return -1;
     if (PyType_Ready(&VecI32BufType) < 0)
+        return -1;
+    if (PyType_Ready(&VecI32IterType) < 0)
         return -1;
     if (PyType_Ready(&VecI16Type) < 0)
         return -1;
     if (PyType_Ready(&VecI16BufType) < 0)
         return -1;
+    if (PyType_Ready(&VecI16IterType) < 0)
+        return -1;
     if (PyType_Ready(&VecU8Type) < 0)
         return -1;
     if (PyType_Ready(&VecU8BufType) < 0)
+        return -1;
+    if (PyType_Ready(&VecU8IterType) < 0)
         return -1;
     if (PyType_Ready(&VecFloatType) < 0)
         return -1;
     if (PyType_Ready(&VecFloatBufType) < 0)
         return -1;
+    if (PyType_Ready(&VecFloatIterType) < 0)
+        return -1;
     if (PyType_Ready(&VecBoolType) < 0)
         return -1;
     if (PyType_Ready(&VecBoolBufType) < 0)
+        return -1;
+    if (PyType_Ready(&VecBoolIterType) < 0)
         return -1;
 
     Py_INCREF(&VecType);

@@ -277,6 +277,7 @@ import aws_cdk.aws_iam as iam
 # stack: cdk.Stack
 # role: iam.IRole
 # script: glue.Code
+# extra_python_file: glue.Code
 
 glue.PythonShellJob(stack, "PythonShellJob",
     job_name="PythonShellJobCustomName",
@@ -285,6 +286,7 @@ glue.PythonShellJob(stack, "PythonShellJob",
     max_capacity=glue.MaxCapacity.DPU_1,
     role=role,
     script=script,
+    extra_python_files=[extra_python_file],
     glue_version=glue.GlueVersion.V2_0,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
@@ -6787,6 +6789,7 @@ class MaxCapacity(enum.Enum):
         # stack: cdk.Stack
         # role: iam.IRole
         # script: glue.Code
+        # extra_python_file: glue.Code
         
         glue.PythonShellJob(stack, "PythonShellJob",
             job_name="PythonShellJobCustomName",
@@ -6795,6 +6798,7 @@ class MaxCapacity(enum.Enum):
             max_capacity=glue.MaxCapacity.DPU_1,
             role=role,
             script=script,
+            extra_python_files=[extra_python_file],
             glue_version=glue.GlueVersion.V2_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_type=glue.WorkerType.G_2X,
@@ -7398,6 +7402,7 @@ class PredicateLogical(enum.Enum):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "extra_python_files": "extraPythonFiles",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
         "max_capacity": "maxCapacity",
         "python_version": "pythonVersion",
@@ -7423,6 +7428,7 @@ class PythonShellJobProps(JobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         worker_type: typing.Optional["WorkerType"] = None,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         max_capacity: typing.Optional["MaxCapacity"] = None,
         python_version: typing.Optional["PythonVersion"] = None,
@@ -7445,6 +7451,7 @@ class PythonShellJobProps(JobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
         :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
         :param python_version: (experimental) Python Version The version of Python to use to execute this job. Default: 3.9 for Shell Jobs
@@ -7482,6 +7489,7 @@ class PythonShellJobProps(JobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument extra_python_files", value=extra_python_files, expected_type=type_hints["extra_python_files"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
             check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
             check_type(argname="argument python_version", value=python_version, expected_type=type_hints["python_version"])
@@ -7517,6 +7525,8 @@ class PythonShellJobProps(JobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if extra_python_files is not None:
+            self._values["extra_python_files"] = extra_python_files
         if job_run_queuing_enabled is not None:
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
         if max_capacity is not None:
@@ -7719,6 +7729,21 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
+    def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
+        '''(experimental) Additional Python files that AWS Glue adds to the Python path before executing your script.
+
+        Only individual files are supported, directories are not supported.
+        Equivalent to the ``--extra-py-files`` job argument.
+
+        :default: - no extra Python files
+
+        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
+        :stability: experimental
+        '''
+        result = self._values.get("extra_python_files")
+        return typing.cast(typing.Optional[typing.List["Code"]], result)
+
+    @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
 
@@ -7783,6 +7808,7 @@ class PythonVersion(enum.Enum):
         # stack: cdk.Stack
         # role: iam.IRole
         # script: glue.Code
+        # extra_python_file: glue.Code
         
         glue.PythonShellJob(stack, "PythonShellJob",
             job_name="PythonShellJobCustomName",
@@ -7791,6 +7817,7 @@ class PythonVersion(enum.Enum):
             max_capacity=glue.MaxCapacity.DPU_1,
             role=role,
             script=script,
+            extra_python_files=[extra_python_file],
             glue_version=glue.GlueVersion.V2_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
             worker_type=glue.WorkerType.G_2X,
@@ -15399,6 +15426,7 @@ class PythonShellJob(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         max_capacity: typing.Optional["MaxCapacity"] = None,
         python_version: typing.Optional["PythonVersion"] = None,
@@ -15423,6 +15451,7 @@ class PythonShellJob(
 
         :param scope: -
         :param id: -
+        :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
         :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
         :param python_version: (experimental) Python Version The version of Python to use to execute this job. Default: 3.9 for Shell Jobs
@@ -15450,6 +15479,7 @@ class PythonShellJob(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PythonShellJobProps(
+            extra_python_files=extra_python_files,
             job_run_queuing_enabled=job_run_queuing_enabled,
             max_capacity=max_capacity,
             python_version=python_version,
@@ -21033,6 +21063,7 @@ def _typecheckingstub__92a5b134cff0782ae2081737ca265c082c41e163672815acc2d80960f
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     max_capacity: typing.Optional[MaxCapacity] = None,
     python_version: typing.Optional[PythonVersion] = None,
@@ -21893,6 +21924,7 @@ def _typecheckingstub__cf957fffa6063a485485a9901ecfb6eddf77eb6d14270f51d1e144b76
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     max_capacity: typing.Optional[MaxCapacity] = None,
     python_version: typing.Optional[PythonVersion] = None,

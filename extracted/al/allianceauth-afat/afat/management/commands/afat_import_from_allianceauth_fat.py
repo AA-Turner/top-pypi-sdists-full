@@ -2,6 +2,9 @@
 Import FAT data from alliance auth fat module
 """
 
+# Third Party
+from eve_sde.models import ItemType, SolarSystem
+
 # Django
 from django.apps import apps
 from django.core.management.base import BaseCommand
@@ -116,15 +119,35 @@ class Command(BaseCommand):
             for aa_fat in aa_fats:
                 self.stdout.write(msg=f"Importing FATs for FAT link ID '{aa_fat.id}'.")
 
-                afat_fat = AFat()
+                try:
+                    ship_type = ItemType.objects.filter(published=True).get(
+                        name_en=aa_fat.shiptype
+                    )
+                    solar_system = SolarSystem.objects.get(name_en=aa_fat.system)
 
-                afat_fat.id = aa_fat.id
-                afat_fat.system = aa_fat.system
-                afat_fat.shiptype = aa_fat.shiptype
-                afat_fat.character_id = aa_fat.character_id
-                afat_fat.fatlink_id = aa_fat.fatlink_id
+                    afat_fat = AFat()
 
-                afat_fat.save()
+                    afat_fat.id = aa_fat.id
+                    afat_fat.solar_system = solar_system
+                    afat_fat.ship = ship_type
+                    afat_fat.character_id = aa_fat.character_id
+                    afat_fat.fatlink_id = aa_fat.fatlink_id
+
+                    afat_fat.save()
+                except ItemType.DoesNotExist:
+                    self.stdout.write(
+                        msg=self.style.WARNING(
+                            f"Could not find ItemType with name '{aa_fat.shiptype}' "
+                            f"for FAT with ID {aa_fat.id}. Skipping this FAT record."
+                        )
+                    )
+                except SolarSystem.DoesNotExist:
+                    self.stdout.write(
+                        msg=self.style.WARNING(
+                            f"Could not find SolarSystem with name '{aa_fat.system}' "
+                            f"for FAT with ID {aa_fat.id}. Skipping this FAT record."
+                        )
+                    )
 
             self.stdout.write(
                 msg=self.style.SUCCESS(

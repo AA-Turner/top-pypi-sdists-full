@@ -6,6 +6,7 @@ The models
 from typing import Any, ClassVar
 
 # Third Party
+from eve_sde.models import ItemType, SolarSystem
 from solo.models import SingletonModel
 
 # Django
@@ -18,19 +19,10 @@ from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
 from allianceauth.eveonline.models import EveCharacter
+from allianceauth.framework.api.user import get_sentinel_user
 
 # Alliance Auth AFAT
 from afat.managers import FatLinkManager, FatManager
-
-
-def get_sentinel_user() -> User:
-    """
-    Get user or create the sentinel user
-
-    :return:
-    """
-
-    return User.objects.get_or_create(username="deleted")[0]
 
 
 def get_hash_on_save() -> str:
@@ -321,17 +313,33 @@ class Fat(models.Model):
         to=FatLink,
         related_name="afat_fats",
         on_delete=models.CASCADE,
-        help_text=_("The FAT link the character registered at"),
+        help_text=_("The FAT link the character registered with"),
     )
 
     system = models.CharField(
         max_length=100, null=True, help_text=_("The system the character is in")
     )
 
+    solar_system = models.ForeignKey(
+        to=SolarSystem,
+        null=True,
+        related_name="+",
+        on_delete=models.CASCADE,
+        help_text=_("The system the character is in"),
+    )
+
     shiptype = models.CharField(
         max_length=100,
         null=True,
         db_index=True,
+        help_text=_("The ship the character was flying"),
+    )
+
+    ship = models.ForeignKey(
+        to=ItemType,
+        null=True,
+        related_name="+",
+        on_delete=models.CASCADE,
         help_text=_("The ship the character was flying"),
     )
 

@@ -59,8 +59,11 @@ def instrument_system_metrics(
         attrs["plato.job.id"] = job_id
     resource = Resource.create(attrs)
 
+    # Route the batch by header so chronos doesn't have to peek into the
+    # OTLP payload to recover the session id (see useplato/plato#2962).
     exporter = OTLPMetricExporter(
         endpoint=f"{otlp_endpoint.rstrip('/')}/v1/metrics",
+        headers={"X-Plato-Session-Id": session_id},
     )
     reader = PeriodicExportingMetricReader(
         exporter,

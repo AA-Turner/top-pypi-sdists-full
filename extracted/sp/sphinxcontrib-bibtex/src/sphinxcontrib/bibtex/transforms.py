@@ -14,7 +14,7 @@ from pybtex.plugin import find_plugin
 from sphinx.transforms.post_transforms import SphinxPostTransform
 from sphinx.util.logging import getLogger
 
-from .directives import BibliographyKey
+from .directives import BibliographyKey, BibliographyValue
 from .nodes import bibliography as bibliography_node
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ class BibliographyTransform(SphinxPostTransform):
     default_priority = 5
     backend = find_plugin("pybtex.backends", "docutils")()
 
-    def run(self, **kwargs):
+    def run(self, **kwargs) -> None:
         """Transform each
         :class:`~sphinxcontrib.bibtex.nodes.bibliography` node into a
         list of citations.
@@ -62,13 +62,14 @@ class BibliographyTransform(SphinxPostTransform):
             # reminder: env.docname may be equal to 'index' instead of
             # bibnode['docname'] in post-transform phase (e.g. latex builder)
             bib_key = BibliographyKey(docname=bibnode["docname"], id_=bibnode["ids"][0])
-            bibliography = domain.bibliographies[bib_key]
+            bibliography: BibliographyValue = domain.bibliographies[bib_key]
             citations = [
                 citation
                 for citation in domain.citations
                 if citation.bibliography_key == bib_key
             ]
             # create citation nodes for all references
+            nodes: docutils.nodes.Element
             if bibliography.list_ == "enumerated":
                 nodes = docutils.nodes.enumerated_list()
                 nodes["enumtype"] = bibliography.enumtype
@@ -80,7 +81,7 @@ class BibliographyTransform(SphinxPostTransform):
             elif bibliography.list_ == "bullet":
                 nodes = docutils.nodes.bullet_list()
             else:  # "citation"
-                nodes = []
+                nodes = docutils.nodes.container()
             for citation in citations:
                 citation_node = bibliography.citation_nodes[citation.key]
                 if bibliography.list_ in {"enumerated", "bullet"}:
@@ -106,8 +107,6 @@ class BibliographyTransform(SphinxPostTransform):
                 if bibliography.list_ == "enumerated":
                     env.temp_data["bibtex_enum_count"] += 1
             if citations:
-                final_node = domain.bibliography_header.deepcopy()
-                final_node += nodes
-                bibnode.replace_self(final_node)
+                bibnode.replace_self(nodes)
             else:
                 bibnode.replace_self(docutils.nodes.target())

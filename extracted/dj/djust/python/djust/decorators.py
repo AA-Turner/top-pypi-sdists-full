@@ -8,6 +8,7 @@ event handlers, reactive state, and computed properties.
 import asyncio
 import functools
 import logging
+import threading
 import warnings
 from typing import Callable, Any, TypeVar, Union, cast, List, Optional
 
@@ -516,11 +517,48 @@ def is_server_function(func: Any) -> bool:
     return bool(getattr(func, "_djust_decorators", {}).get("server_function"))
 
 
-def reactive(func: Callable) -> property:
+class _ReactiveProperty:
+    """Descriptor for @reactive properties with __set_name__ validation (#1287).
+
+    Validates at class-definition time that the host class has an ``update()``
+    method, rather than silently no-opping at runtime when it doesn't.
+    """
+
+    def __init__(self, fget, fset=None):
+        self.fget = fget
+        self.fset = fset
+
+    def __set_name__(self, owner, name):
+        if not hasattr(owner, "update"):
+            raise TypeError(
+                f"@reactive property '{name}' on {owner.__name__} requires "
+                f"the host class to have an 'update()' method (typically "
+                f"inherited from LiveView)."
+            )
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return self.fget(obj)
+
+    def __set__(self, obj, value):
+        if self.fset is None:
+            raise AttributeError("can't set attribute")
+        old_value = self.fget(obj)
+        self.fset(obj, value)
+        if old_value != value:
+            obj.update()
+
+    def setter(self, fset):
+        return type(self)(self.fget, fset)
+
+
+def reactive(func: Callable):
     """
     Create a reactive property that triggers re-render on change.
 
-    Usage:
+    Usage::
+
         class MyView(LiveView):
             @reactive
             def count(self):
@@ -529,22 +567,22 @@ def reactive(func: Callable) -> property:
             @count.setter
             def count(self, value):
                 self._count = value
+
+    The host class must have an ``update()`` method (inherited from
+    ``LiveView``).  A ``TypeError`` is raised at class-definition time if
+    it doesn't, rather than silently no-opping at runtime.
     """
-    # Create internal property name
     internal_name = f"_{func.__name__}_reactive"
 
     def _getter(self):
         return getattr(self, internal_name, None)
 
     def _setter(self, value):
-        old_value = getattr(self, internal_name, None)
         setattr(self, internal_name, value)
 
-        # Trigger update if value changed
-        if old_value != value and hasattr(self, "update"):
-            self.update()
-
-    return property(_getter, _setter)
+    prop = _ReactiveProperty(_getter, _setter)
+    prop.__doc__ = func.__doc__
+    return prop
 
 
 def state(default: Any = None):
@@ -679,13 +717,17 @@ def computed(*deps):
 
         @functools.wraps(func)
         def _inner(self):
-            cache = self.__dict__.setdefault("_djust_computed_cache", {})
-            deps_seen = self.__dict__.setdefault("_djust_computed_deps", {})
-            current = _fingerprint(self)
-            if deps_seen.get(attr_name) != current or attr_name not in cache:
-                cache[attr_name] = func(self)
-                deps_seen[attr_name] = current
-            return cache[attr_name]
+            lock = self.__dict__.get("_djust_computed_lock")
+            if lock is None:
+                lock = self.__dict__.setdefault("_djust_computed_lock", threading.Lock())
+            with lock:
+                cache = self.__dict__.setdefault("_djust_computed_cache", {})
+                deps_seen = self.__dict__.setdefault("_djust_computed_deps", {})
+                current = _fingerprint(self)
+                if deps_seen.get(attr_name) != current or attr_name not in cache:
+                    cache[attr_name] = func(self)
+                    deps_seen[attr_name] = current
+                return cache[attr_name]
 
         prop = _ComputedProperty(_inner)
         prop._is_computed = True
@@ -967,6 +1009,12 @@ def background(func: F) -> F:
                 if error:
                     self.error = f"Generation failed: {error}"
 
+    **Return values are discarded.**  The handler's return value is not
+    captured — ``start_async()`` discards it.  Mutate ``self.<attr>`` to
+    surface results to templates, or combine with ``@action`` for
+    ``_action_state`` tracking (the ``@action`` decorator populates
+    ``_action_state[name]`` with ``{pending, error, result}``).
+
     The @background decorator can be combined with other decorators:
         @event_handler
         @debounce(wait=0.5)
@@ -974,6 +1022,23 @@ def background(func: F) -> F:
         def auto_save(self, **kwargs):
             # Debounced and runs in background
             self.save_draft()
+
+    Combining ``@background`` and ``@action``:
+        @event_handler
+        @background
+        @action
+        def slow_op(self, **kwargs):
+            ...
+
+    When combined, ``@action`` catches ``Exception`` and records it in
+    ``self._action_state[name]["error"]`` (does **not** re-raise — see
+    @action docs).  Because ``@action`` never re-raises, ``@background``'s
+    ``start_async`` never sees the exception — ``handle_async_result`` is
+    called with ``error=None`` even when the handler body raised.  The
+    error signal is ``_action_state[name]["error"]``, NOT
+    ``handle_async_result``'s ``error`` parameter.  Checks that only
+    inspect ``handle_async_result`` for errors will miss ``@action``
+    failures.
     """
 
     if asyncio.iscoroutinefunction(func):

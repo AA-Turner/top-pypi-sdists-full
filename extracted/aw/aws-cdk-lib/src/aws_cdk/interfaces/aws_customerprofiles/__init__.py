@@ -103,6 +103,71 @@ class CalculatedAttributeDefinitionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.DomainObjectTypeReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_name": "domainName", "object_type_name": "objectTypeName"},
+)
+class DomainObjectTypeReference:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        object_type_name: builtins.str,
+    ) -> None:
+        '''A reference to a DomainObjectType resource.
+
+        :param domain_name: The DomainName of the DomainObjectType resource.
+        :param object_type_name: The ObjectTypeName of the DomainObjectType resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_customerprofiles as interfaces_customerprofiles
+            
+            domain_object_type_reference = interfaces_customerprofiles.DomainObjectTypeReference(
+                domain_name="domainName",
+                object_type_name="objectTypeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f3e71ba7f93ac45d9f086fdb183490a2cf37929f784dbd03e381f61157bfac8)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "object_type_name": object_type_name,
+        }
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The DomainName of the DomainObjectType resource.'''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_type_name(self) -> builtins.str:
+        '''The ObjectTypeName of the DomainObjectType resource.'''
+        result = self._values.get("object_type_name")
+        assert result is not None, "Required property 'object_type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainObjectTypeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.DomainReference",
     jsii_struct_bases=[],
     name_mapping={"domain_name": "domainName"},
@@ -349,6 +414,53 @@ class _ICalculatedAttributeDefinitionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICalculatedAttributeDefinitionRef).__jsii_proxy_class__ = lambda : _ICalculatedAttributeDefinitionRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IDomainObjectTypeRef"
+)
+class IDomainObjectTypeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainObjectType.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainObjectTypeRef")
+    def domain_object_type_ref(self) -> "DomainObjectTypeReference":
+        '''(experimental) A reference to a DomainObjectType resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainObjectTypeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainObjectType.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_customerprofiles.IDomainObjectTypeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainObjectTypeRef")
+    def domain_object_type_ref(self) -> "DomainObjectTypeReference":
+        '''(experimental) A reference to a DomainObjectType resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DomainObjectTypeReference", jsii.get(self, "domainObjectTypeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainObjectTypeRef).__jsii_proxy_class__ = lambda : _IDomainObjectTypeRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IDomainRef")
@@ -965,10 +1077,12 @@ class SegmentDefinitionReference:
 
 __all__ = [
     "CalculatedAttributeDefinitionReference",
+    "DomainObjectTypeReference",
     "DomainReference",
     "EventStreamReference",
     "EventTriggerReference",
     "ICalculatedAttributeDefinitionRef",
+    "IDomainObjectTypeRef",
     "IDomainRef",
     "IEventStreamRef",
     "IEventTriggerRef",
@@ -988,6 +1102,14 @@ def _typecheckingstub__69c9f928479930b4b44080f25dd85b476623eec3824c3289937082946
     *,
     calculated_attribute_name: builtins.str,
     domain_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f3e71ba7f93ac45d9f086fdb183490a2cf37929f784dbd03e381f61157bfac8(
+    *,
+    domain_name: builtins.str,
+    object_type_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1050,5 +1172,5 @@ def _typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d
     """Type checking stubs"""
     pass
 
-for cls in [ICalculatedAttributeDefinitionRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderRef, ISegmentDefinitionRef]:
+for cls in [ICalculatedAttributeDefinitionRef, IDomainObjectTypeRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderRef, ISegmentDefinitionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

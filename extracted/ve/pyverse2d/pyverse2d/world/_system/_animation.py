@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._internal import profile_section
 from ...abc import System
 
 from .._world import World
@@ -25,6 +26,7 @@ class AnimationSystem(System):
         return f"AnimationSystem()"
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.animation.update")
     def update(self, world: World, dt: float) -> None:
         """Mise à jour des animations
 

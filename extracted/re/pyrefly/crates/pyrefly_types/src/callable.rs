@@ -75,6 +75,25 @@ impl Callable {
         }
     }
 
+    pub fn contains_callable_residual(&self) -> bool {
+        let check = |t: &Type| matches!(t, Type::CallableResidual(_));
+        if self.ret.any(check) {
+            return true;
+        }
+        match &self.params {
+            Params::List(params) => params.items().iter().any(|p| p.as_type().any(check)),
+            Params::ParamSpec(prefix, p) => {
+                prefix.iter().any(|pp| {
+                    let ty = match pp {
+                        PrefixParam::PosOnly(_, ty, _) | PrefixParam::Pos(_, ty, _) => ty,
+                    };
+                    ty.any(check)
+                }) || p.any(check)
+            }
+            Params::Ellipsis | Params::Materialization => false,
+        }
+    }
+
     /// Returns true if this callable carries no real type information: all
     /// parameters and the return type are `Any(Implicit)` (i.e. Unknown).
     pub fn is_fully_unknown(&self) -> bool {
@@ -487,17 +506,21 @@ pub struct FuncMetadata {
 }
 
 impl FuncMetadata {
-    pub fn def(module: Module, cls: Class, func: Name, def_index: Option<FuncDefIndex>) -> Self {
+    pub fn def(module: &Module, cls: Option<&Class>, name: Name) -> Self {
         Self {
             kind: FunctionKind::Def(Arc::new(FuncId {
-                module,
-                cls: Some(cls),
-                name: func,
-                def_index,
+                module: module.dupe(),
+                cls: cls.map(Dupe::dupe),
+                name,
+                def_index: None,
                 outer_funcs: None,
             })),
             flags: FuncFlags::default(),
         }
+    }
+
+    pub fn method(cls: &Class, name: Name) -> Self {
+        Self::def(cls.module(), Some(cls), name)
     }
 }
 
@@ -561,6 +584,23 @@ pub struct PropertyMetadata {
     pub getter: Type,
     pub setter: Option<Type>,
     pub has_deleter: bool,
+}
+
+impl PropertyMetadata {
+    /// Build a PropertyMetadata that stores sanitized (metadata-free) copies of getter/setter.
+    pub fn from_components(
+        role: PropertyRole,
+        getter: &Type,
+        setter: Option<&Type>,
+        has_deleter: bool,
+    ) -> Self {
+        Self {
+            role,
+            getter: getter.without_property_metadata(),
+            setter: setter.map(|s| s.without_property_metadata()),
+            has_deleter,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]

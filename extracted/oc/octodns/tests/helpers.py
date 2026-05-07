@@ -2,6 +2,7 @@
 #
 #
 
+from contextlib import contextmanager
 from logging import getLogger
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -9,7 +10,31 @@ from tempfile import mkdtemp
 from octodns.processor.base import BaseProcessor
 from octodns.provider.base import BaseProvider
 from octodns.provider.yaml import YamlProvider
+from octodns.record import Record
+from octodns.record.validator import RecordValidator, ValueValidator
 from octodns.secret.base import BaseSecrets
+
+
+@contextmanager
+def validators_snapshot():
+    reg = Record.validators
+    configured_snap = reg.configured
+    active_record_snap = {k: dict(v) for k, v in reg.active_record.items()}
+    active_value_snap = {k: dict(v) for k, v in reg.active_value.items()}
+    avail_record_snap = {k: dict(v) for k, v in reg.available_record.items()}
+    avail_value_snap = {k: dict(v) for k, v in reg.available_value.items()}
+    try:
+        yield
+    finally:
+        reg.configured = configured_snap
+        reg.active_record.clear()
+        reg.active_record.update(active_record_snap)
+        reg.active_value.clear()
+        reg.active_value.update(active_value_snap)
+        reg.available_record.clear()
+        reg.available_record.update(avail_record_snap)
+        reg.available_value.clear()
+        reg.available_value.update(avail_value_snap)
 
 
 class SimpleSource(object):
@@ -135,6 +160,30 @@ class CountingProcessor(BaseProcessor):
     def process_source_zone(self, zone, sources, lenient=False):
         self.count += len(zone.records)
         return zone
+
+
+class TestRecordValidator(RecordValidator):
+    def __init__(self, id, min_ttl=None, **kwargs):
+        super().__init__(id, **kwargs)
+        self.min_ttl = min_ttl
+
+    def validate(self, record_cls, name, fqdn, data):
+        if self.min_ttl and data.get('ttl', 0) < self.min_ttl:
+            return [f'ttl must be at least {self.min_ttl}']
+        return []
+
+
+class TestValueValidator(ValueValidator):
+    def __init__(self, id, **kwargs):
+        super().__init__(id, **kwargs)
+
+    def validate(self, value_cls, data, _type):
+        return []
+
+
+class NotAValidator:
+    def __init__(self, id):
+        self.id = id
 
 
 class DummySecrets(BaseSecrets):

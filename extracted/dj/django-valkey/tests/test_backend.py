@@ -227,6 +227,12 @@ class TestDjangoValkeyCache:
         res = cache.add("other_key", "New value")
         assert res is True
 
+    def test_get_or_set(self, cache: ValkeyCache):
+        assert cache.get("something new", None) is None
+        cache.get_or_set("something new", "b")
+        assert cache.get("something new", None) == "b"
+        assert cache.get_or_set("something new", "b") == "b"
+
     def test_get_many(self, cache: ValkeyCache):
         cache.set("a", 1)
         cache.set("b", 2)

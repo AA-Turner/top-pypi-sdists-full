@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "djust"
-version = "0.9.2"
+version = "0.9.4"
 description = "Phoenix LiveView-style reactive components for Django with Rust-powered performance. Real-time UI updates over WebSocket, no JavaScript build step required."
 authors = [{name = "djust contributors"}]
 readme = "README.md"
@@ -45,11 +45,17 @@ dependencies = [
     "msgpack>=1.0.0,<2",
     "markdown>=3.0,<4",
     "nh3>=0.2,<1",
+    # `djust deploy` is a first-class CLI command, so click + requests are
+    # base deps rather than gated behind a `[deploy]` extra. Both are tiny
+    # and ubiquitous; the `deploy` extra below is kept as a no-op alias for
+    # back-compat with installers that already pin `djust[deploy]`.
+    "click>=8.0,<9",
+    "requests>=2.28,<3",
 ]
 
 [project.optional-dependencies]
 redis = [
-    "redis>=5.0.0,<7",
+    "redis>=5.0.0,<8",
 ]
 compression = [
     "zstandard>=0.22.0,<1",  # zstd compression for state backend
@@ -65,17 +71,14 @@ performance = [
 auth = []  # No extra deps beyond djust core
 tenants = []  # No extra deps beyond djust core; use [tenants-redis] / [tenants-postgres] for backend-specific
 tenants-redis = [
-    "redis>=5.0.0,<7",
+    "redis>=5.0.0,<8",
 ]
 tenants-postgres = [
     "psycopg[binary]>=3.1,<4",
 ]
 theming = []  # No extra deps beyond djust core
 admin = []  # No extra deps beyond djust core
-deploy = [
-    "click>=8.0,<9",
-    "requests>=2.28,<3",
-]
+deploy = []  # Back-compat alias; click + requests now ship as base deps for `djust deploy`
 components = [
     "markdown>=3.0,<4",
     "nh3>=0.2,<1",
@@ -106,7 +109,7 @@ dev = [
     "ruff>=0.1,<1",
     "mypy>=1.0,<2",
     "uvicorn[standard]>=0.30.0,<1",
-    "redis>=5.0.0,<7",
+    "redis>=5.0.0,<8",
     "watchdog>=3.0.0,<7",  # File system monitoring for hot reload
     "zstandard>=0.22.0,<1",  # Compression support
     "orjson>=3.11.6,<4",

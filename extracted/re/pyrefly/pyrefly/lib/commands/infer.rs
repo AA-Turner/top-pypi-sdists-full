@@ -289,7 +289,8 @@ impl InferArgs {
             .set_check_unannotated_defs_if_unset(true);
         self.config_override
             .set_infer_return_types_if_unset(InferReturnTypes::Checked);
-        let (files_to_check, config_finder) = self.files.resolve(self.config_override, wrapper)?;
+        let (files_to_check, config_finder, _) =
+            self.files.resolve(self.config_override, wrapper)?;
         Self::run_inner(files_to_check, config_finder, self.flags, thread_count)
     }
 

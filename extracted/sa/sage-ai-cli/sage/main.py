@@ -7498,16 +7498,12 @@ def _execute_command_and_verify(command: str) -> tuple[str, int]:
     """
     import subprocess
 
-    # Execute the command
+    from sage.core.commands import run_shell
+
+    # Execute the command — run_shell prefers Git Bash / WSL on Windows so
+    # POSIX idioms work the same as on Linux/macOS.
     try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            stdin=subprocess.DEVNULL,
-        )
+        result = run_shell(command, timeout=300)
         output = result.stdout + result.stderr
         exit_code = result.returncode
     except subprocess.TimeoutExpired:
@@ -7721,17 +7717,10 @@ def _read_file(file_path: str) -> str:
 
 def _run_shell_command_helper(command: str) -> tuple[str, int]:
     """Run a command and return (output, exit_code)."""
-    import subprocess
+    from sage.core.commands import run_shell
 
     try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            stdin=subprocess.DEVNULL,
-        )
+        result = run_shell(command, timeout=300)
         return result.stdout + result.stderr, result.returncode
     except Exception as e:
         return str(e), 1
@@ -14477,8 +14466,8 @@ def sms_unregister(
 
 @sms_app.command("test")
 def sms_test() -> None:
-    """Verify bridge connectivity and send a test message via all linked channels."""
-    from sage.core.sms_bridge import SMSConfig, _send_imessage
+    """Verify bridge connectivity and trigger a test announcement to all contacts."""
+    from sage.core.sms_bridge import SMSConfig
 
     cfg = SMSConfig.load()
     if cfg is None:
@@ -14487,29 +14476,49 @@ def sms_test() -> None:
 
     try:
         be = _sms_backend()
-        # Sync provider emails as contacts first
         added = be.sync_provider_contacts()
         if added:
             for a in added:
                 renderer.console.print(f"  [dim]Auto-registered {a['provider']} contact: {a['email']}[/dim]")
         contacts = be.contact_emails()
-        providers = be.get_linked_providers()
+
+        # Pre-flight: check that the bridge is actually running. iMessage and
+        # KDE Connect delivery require the WebSocket to be open; without it,
+        # the announce will succeed via email but silently report 0 for both
+        # phone-delivery counts, which looks like a bug rather than the real
+        # cause (no bridge running).
+        ps = be.poller_status()
+        online_now = ps.get("online_computers", [])
+        if not online_now:
+            renderer.warning(
+                "Bridge not running on this account — only email delivery will fire.\n"
+                "Run `sage sms start` (in another terminal) BEFORE `sage sms test` "
+                "to exercise iMessage and KDE Connect."
+            )
+
+        # Trigger a real announcement — backend fans out to email + iMessage +
+        # KDE Connect for every configured contact and returns by-method counts.
+        result = be.announce(cfg.computer_name)
     except RuntimeError as exc:
         renderer.error(str(exc)); raise typer.Exit(1)
 
     renderer.success(f"Backend connection OK  [{cfg.computer_name}]")
 
-    # iMessage test (macOS only)
-    apple = next((p for p in providers if p.get("provider_id") == "apple.com" and p.get("email")), None)
-    if apple:
-        msg = (
-            f"🧪 [{cfg.computer_name}] SAGE test message.\n"
-            f"If you received this, iMessage delivery is working."
+    by_method = result.get("by_method", {}) if isinstance(result, dict) else {}
+    n_email      = by_method.get("email", 0)
+    n_imessage   = by_method.get("imessage", 0)
+    n_kde        = by_method.get("kdeconnect", 0)
+    n_skipped    = by_method.get("skipped_untagged", 0)
+
+    renderer.console.print("\n[bold]Test announcement delivery:[/bold]")
+    renderer.console.print(f"  📧 Email:        [{('green' if n_email else 'dim')}]{n_email}[/]")
+    renderer.console.print(f"  💬 iMessage:     [{('green' if n_imessage else 'dim')}]{n_imessage}[/]")
+    renderer.console.print(f"  📱 KDE Connect:  [{('green' if n_kde else 'dim')}]{n_kde}[/]")
+    if n_skipped:
+        renderer.console.print(
+            f"  [yellow]⚠ {n_skipped} phone contact(s) had no device tag — re-add with "
+            f"--device apple|android to enable iMessage/KDE Connect delivery.[/yellow]"
         )
-        if _send_imessage(apple["email"], msg):
-            renderer.success(f"iMessage sent → {apple['email']}")
-        else:
-            renderer.warning(f"iMessage failed — ensure Messages app is open and signed in")
 
     if not contacts:
         renderer.warning("No contacts registered. Run: sage sms contacts add <phone-or-email>")
@@ -14519,8 +14528,189 @@ def sms_test() -> None:
     for addr in contacts:
         renderer.console.print(f"  [cyan]{addr}[/cyan]")
     renderer.console.print(
-        f"\n[dim]Email [bold]messages@sageworksai.com[/bold] from any of the above to send a task.[/dim]\n"
+        f"\n[dim]Email [bold]messages@sageworksai.com[/bold] from any of the above, "
+        "or text from a tagged phone, to send a task.[/dim]\n"
+        "[dim]Run [bold]sage sms diagnose[/bold] if anything's missing.[/dim]\n"
     )
+
+
+@sms_app.command("diagnose")
+def sms_diagnose() -> None:
+    """Run health checks across the bridge — auth, WS, contacts, native delivery paths.
+
+    Prints a green/yellow/red status for each capability so you can see at a
+    glance whether SMS, iMessage, KDE Connect, and the bridge inbox are all
+    wired up correctly.
+    """
+    import platform
+    import shutil as _sh
+    from sage.core.sms_bridge import (
+        SMSConfig, _find_kdeconnect_cli, _send_imessage,
+    )
+    from sage.core.cli_auth import load_auth, _jwt_exp
+    import time as _time
+
+    OK   = "[bold green]✓[/bold green]"
+    WARN = "[bold yellow]![/bold yellow]"
+    BAD  = "[bold red]✗[/bold red]"
+
+    def line(mark: str, msg: str, hint: str = "") -> None:
+        renderer.console.print(f"  {mark} {msg}")
+        if hint:
+            renderer.console.print(f"      [dim]{hint}[/dim]")
+
+    renderer.console.print("\n[bold]SAGE Message Bridge — Diagnostics[/bold]\n")
+    renderer.console.print(
+        "[dim]Tip: SAGE receives [bold]email[/bold] (not SMS) at messages@sageworksai.com.[/dim]\n"
+        "[dim]Send from your phone's email app (Gmail / Apple Mail) — texting that[/dim]\n"
+        "[dim]address only works on a few carriers and silently fails on most.[/dim]\n"
+    )
+
+    # ── 1. Auth + token freshness ──────────────────────────────────────────────
+    auth = load_auth()
+    if not auth:
+        line(BAD, "Not logged in", "Run: sage login")
+        return
+    jwt_exp = _jwt_exp(auth.get("id_token", ""))
+    seconds_left = int(jwt_exp - _time.time()) if jwt_exp else 0
+    if seconds_left > 60:
+        line(OK, f"Logged in as {auth.get('email')}  (token: {seconds_left}s left)")
+    elif auth.get("refresh_token"):
+        line(WARN, f"Token near expiry ({seconds_left}s) — auto-refresh on next call")
+    else:
+        line(BAD, "Token expired and no refresh token", "Run: sage login")
+
+    # ── 2. Backend connectivity + contacts ─────────────────────────────────────
+    try:
+        be = _sms_backend()
+        contacts = be.list_contacts()
+        line(OK, f"Backend reachable  ({len(contacts)} contact(s) registered)")
+    except Exception as exc:
+        line(BAD, f"Backend connection failed: {exc}", "Check internet, then: sage login")
+        return
+
+    # ── 3. Bridge config ───────────────────────────────────────────────────────
+    cfg = SMSConfig.load()
+    if cfg:
+        line(OK, f"Bridge config: {cfg.computer_name}  →  {cfg.working_dir}")
+    else:
+        line(WARN, "No bridge config", "Run: sage sms setup")
+
+    # ── 4. Contact health ──────────────────────────────────────────────────────
+    phone_contacts = [c for c in contacts if c.get("email", "").startswith("phone:")]
+    untagged = [c for c in phone_contacts if not c.get("device_type")]
+    if untagged:
+        line(WARN,
+             f"{len(untagged)} phone contact(s) have no device tag — "
+             "fallbacks (iMessage/KDE Connect) will not fire",
+             "Re-add with --device apple|android, or remove + re-add")
+        for c in untagged[:5]:
+            renderer.console.print(f"        • {c.get('display', c.get('email'))}")
+    else:
+        line(OK, f"All phone contacts tagged ({len(phone_contacts)} total)")
+
+    # ── 5. Native delivery paths ───────────────────────────────────────────────
+    has_apple = any(c.get("device_type") == "apple" for c in phone_contacts)
+    has_android = any(c.get("device_type") == "android" for c in phone_contacts)
+
+    # Apple → iMessage (only meaningful on macOS)
+    if has_apple:
+        if platform.system() == "Darwin":
+            # Verify Messages.app is installed and AppleScript is reachable
+            applescript_ok = bool(_sh.which("osascript"))
+            messages_app   = os.path.exists("/System/Applications/Messages.app") or \
+                             os.path.exists("/Applications/Messages.app")
+            if applescript_ok and messages_app:
+                line(OK, "iMessage path: macOS Messages.app + osascript ready")
+            else:
+                line(BAD, "iMessage path broken on this Mac",
+                     "Open Messages.app, sign into iCloud, enable iMessage in Settings → Messages")
+        else:
+            line(WARN, "iMessage requires macOS — Apple-tagged contacts won't deliver from this OS",
+                 "Run a SAGE bridge on a Mac, or remove --device apple from those contacts")
+
+    # Android → KDE Connect (any OS). Two-step check: CLI installed AND
+    # daemon responsive. The Mac App Store build of KDE Connect ships with
+    # a broken DBus registration so `--send-sms` silently fails even when
+    # `--list-devices` shows a paired phone — we surface that explicitly.
+    if has_android:
+        from sage.core.sms_bridge import _find_kdeconnect_cli, _kdeconnectd_running
+        kdc = _find_kdeconnect_cli()
+        if not kdc:
+            line(BAD, "KDE Connect not installed",
+                 "macOS: Mac App Store 'KDE Connect'  |  "
+                 "Linux: apt install kdeconnect  |  "
+                 "Windows: Microsoft Store 'KDE Connect'")
+        else:
+            daemon_ok, reason = _kdeconnectd_running()
+            if not daemon_ok:
+                if platform.system() == "Darwin":
+                    line(BAD, f"KDE Connect daemon NOT running ({reason}) — SMS will SILENTLY FAIL",
+                         "The Mac App Store KDE Connect has broken DBus on most setups. "
+                         "Workaround: open Messages.app for iMessage, or run a Linux bridge for KDE Connect.")
+                else:
+                    line(BAD, f"KDE Connect daemon NOT running ({reason})",
+                         "Start kdeconnectd: `kdeconnectd &` or open the KDE Connect GUI")
+            else:
+                try:
+                    import subprocess as _sp
+                    r = _sp.run([kdc, "--list-devices", "--id-only"],
+                                capture_output=True, text=True, timeout=5)
+                    paired = [d for d in (r.stdout or "").splitlines() if d.strip()]
+                    if paired:
+                        line(OK, f"KDE Connect: {len(paired)} paired device(s), daemon healthy")
+                    else:
+                        line(BAD, "KDE Connect daemon up but no paired Android phone",
+                             "Open KDE Connect, scan from your phone, accept pairing")
+                except Exception as exc:
+                    line(WARN, f"KDE Connect probe failed: {exc}")
+
+    if not phone_contacts:
+        line(WARN, "No phone contacts registered",
+             "sage sms contacts add <phone> --device apple|android")
+
+    # ── 6. Backend IMAP poller health ──────────────────────────────────────────
+    try:
+        ps = be.poller_status()
+        if ps.get("error"):
+            line(WARN, f"Couldn't reach backend poller status: {ps['error']}")
+        elif not ps.get("imap_connected"):
+            err = ps.get("last_error") or "unknown"
+            line(BAD, f"Backend IMAP poller is DISCONNECTED  (last error: {err})",
+                 "The bridge inbox can't receive mail right now — contact support if this persists")
+        else:
+            connected_at = ps.get("imap_connected_at")
+            uptime = int(_time.time() - connected_at) if connected_at else 0
+            stats = (f"processed={ps.get('messages_processed', 0)} "
+                     f"dispatched={ps.get('tasks_dispatched', 0)} "
+                     f"uptime={uptime}s")
+            line(OK, f"Backend IMAP poller connected  ({stats})")
+            last_msg = ps.get("last_message_at")
+            if last_msg:
+                ago = int(_time.time() - last_msg)
+                line(OK, f"Last inbound message: {ago}s ago  (from: {ps.get('last_message_from','?')})")
+            online = ps.get("online_computers", [])
+            if online:
+                line(OK, f"Online CLIs (server view): {', '.join(online)}")
+            else:
+                line(WARN, "Backend sees no online CLIs for this account",
+                     "Ensure `sage sms start` is running on at least one computer")
+    except Exception as exc:
+        line(WARN, f"Couldn't query backend poller: {exc}")
+
+    # ── 7. Bridge process ──────────────────────────────────────────────────────
+    from sage.core.sms_bridge import SMS_PID_FILE
+    if SMS_PID_FILE.exists():
+        try:
+            pid = int(SMS_PID_FILE.read_text().strip())
+            os.kill(pid, 0)  # signal 0: probe
+            line(OK, f"Bridge daemon running  (pid {pid})")
+        except (ValueError, ProcessLookupError, PermissionError):
+            line(WARN, "Bridge PID file stale", "Run: sage sms start")
+    else:
+        line(WARN, "Bridge daemon not running", "Run: sage sms start")
+
+    renderer.console.print()
 
 
 # ── sage sms contacts subgroup ─────────────────────────────────────────────────
@@ -14543,13 +14733,29 @@ def sms_contacts_list() -> None:
 
     renderer.console.print(f"\n[bold]Authorized contacts ({len(contacts)}):[/bold]\n")
     for c in contacts:
-        display = c.get("display") or c.get("email", "")
-        stored  = c.get("email", "")
-        label_  = c.get("label", "")
+        display  = c.get("display") or c.get("email", "")
+        stored   = c.get("email", "")
+        label_   = c.get("label", "")
+        provider = c.get("provider", "")
+        device   = (c.get("device_type") or "").lower()
+        # Show a short provider tag so Google + Apple with the same email
+        # are visually distinct in the list.
+        provider_tag = ""
+        if provider == "google.com":
+            provider_tag = "[bold blue][Google][/bold blue] "
+        elif provider == "apple.com":
+            provider_tag = "[bold]\\[Apple][/bold] "
+        # Device tag shows which fallback path SAGE will use for phone contacts
+        device_tag = ""
+        if device == "apple":
+            device_tag = "  [bold]\\[iPhone → iMessage][/bold]"
+        elif device == "android":
+            device_tag = "  [bold green]\\[Android → KDE Connect][/bold green]"
         if stored.startswith("phone:"):
-            renderer.console.print(f"  [cyan]{display}[/cyan]  [dim]{label_}  (any carrier)[/dim]")
+            suffix = device_tag or "  [dim](no device tag — fallbacks disabled)[/dim]"
+            renderer.console.print(f"  {provider_tag}[cyan]{display}[/cyan]  [dim]{label_}[/dim]{suffix}")
         else:
-            renderer.console.print(f"  [cyan]{display}[/cyan]  [dim]{label_}[/dim]")
+            renderer.console.print(f"  {provider_tag}[cyan]{display}[/cyan]  [dim]{label_}[/dim]")
     renderer.console.print()
 
 
@@ -14557,18 +14763,59 @@ def sms_contacts_list() -> None:
 def sms_contacts_add(
     email: Annotated[str, typer.Argument(help="Email address OR phone number (e.g. 4085553210)")],
     label: Annotated[str, typer.Option("--label", "-l", help='Label, e.g. "My iPhone"')] = "",
+    device: Annotated[
+        str,
+        typer.Option(
+            "--device", "-d",
+            help='Phone OS for SMS fallback routing: "apple" or "android". Prompts if not given for phone numbers.',
+        ),
+    ] = "",
 ) -> None:
-    """Add an authorized contact — accepts email addresses or phone numbers."""
+    """Add an authorized contact — accepts email addresses or phone numbers.
+
+    For phone numbers, SAGE prompts whether the phone is Apple or Android so
+    the SMS-bounce fallback can pick the right delivery path:
+      - apple   → iMessage from this Mac (when Apple ID is linked)
+      - android → KDE Connect SMS via paired Android phone
+    """
+    import re as _re
+    raw = email.strip()
+    is_phone = bool(_re.match(r"^[\+\d\s\-\(\)]+$", raw)) and len(_re.sub(r"\D", "", raw)) >= 7
+
+    device_clean = device.strip().lower() if device else ""
+    if is_phone and device_clean not in ("apple", "android"):
+        renderer.console.print(
+            "\n[bold]Is this phone iPhone (Apple) or Android?[/bold] "
+            "[dim](Used for SMS fallback when carriers block email-to-SMS.)[/dim]"
+        )
+        try:
+            answer = renderer.console.input("  → apple / android: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            renderer.console.print()
+            raise typer.Exit(1)
+        if answer in ("a", "apple", "iphone", "ios"):
+            device_clean = "apple"
+        elif answer in ("g", "android", "google"):
+            device_clean = "android"
+        else:
+            renderer.error("Please answer 'apple' or 'android'.")
+            raise typer.Exit(1)
+
     try:
-        result = _sms_backend().add_contact(email.strip(), label)
+        result = _sms_backend().add_contact(raw, label, device_clean if is_phone else "")
         stored  = result.get("email", "")
         display = result.get("display") or stored
         lbl     = result.get("label", "")
+        dev     = result.get("device_type", "")
         if stored.startswith("phone:"):
-            renderer.success(f"Added: {display}  ({lbl})")
+            tag = ""
+            if dev == "apple":
+                tag = " [bold blue][Apple — iMessage fallback][/bold blue]"
+            elif dev == "android":
+                tag = " [bold green][Android — KDE Connect fallback][/bold green]"
+            renderer.success(f"Added: {display}  ({lbl}){tag}")
             renderer.console.print(
-                "  [dim]Matches texts from any carrier "
-                f"(AT&T, Verizon, T-Mobile, etc.)[/dim]"
+                "  [dim]Matches texts from any carrier (Verizon, T-Mobile, AT&T, etc.)[/dim]"
             )
         else:
             renderer.success(f"Added: {display}  ({lbl})")
@@ -14582,10 +14829,25 @@ def sms_contacts_add(
 def sms_contacts_remove(
     email: Annotated[str, typer.Argument(help="Email address or phone number to remove")],
 ) -> None:
-    """Remove an authorized contact — they will no longer be able to control SAGE."""
+    """Remove an authorized contact — they will no longer be able to control SAGE.
+
+    Phone numbers can be passed in any common format and will be normalized
+    before being sent (e.g. "+1 (408) 507-3140", "408-507-3140", "4085073140"
+    all match the same contact).
+    """
     import httpx as _httpx
+    import re as _re
+
+    # Normalize phone-shaped input to bare 10 digits so the URL is deterministic
+    # and the server sees a clean canonical value.
+    raw = email.strip()
+    digits = _re.sub(r"\D", "", raw)
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    target = digits if len(digits) == 10 else raw.lower()
+
     try:
-        _sms_backend().remove_contact(email.strip().lower())
+        _sms_backend().remove_contact(target)
         renderer.success(f"Removed: {email}")
     except RuntimeError as exc:
         renderer.error(str(exc)); raise typer.Exit(1)

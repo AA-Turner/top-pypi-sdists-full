@@ -1608,14 +1608,12 @@ def execute_tool_call(call: ToolCall) -> ToolResult:
     elif call.tool_type in (ToolType.RUN, ToolType.BASH, ToolType.SHELL):
         command = call.arguments.get("command", "")
         try:
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=120,
-                stdin=subprocess.DEVNULL,
-            )
+            # Route through run_shell so Windows users get bash semantics
+            # (Git Bash / WSL) instead of cmd.exe — the agent emits POSIX
+            # idioms that cmd.exe can't parse.
+            from sage.core.commands import run_shell
+
+            result = run_shell(command, timeout=120)
             return ToolResult(
                 tool_type=call.tool_type,
                 status=ToolStatus.SUCCESS if result.returncode == 0 else ToolStatus.ERROR,

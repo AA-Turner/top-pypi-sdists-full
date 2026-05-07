@@ -746,6 +746,28 @@ class PdfDocument:
         chunk_bytes = doc.extract_pages_to_bytes(list(chunk))
         """
 
+    def extract_page_ranges_to_bytes(self, ranges: list[tuple[int, int]]) -> list[bytes]:
+        """
+        Extract several non-overlapping page ranges in one call. Each range is
+        `(start, end)` interpreted as `[start, end)`. Returns a list of `bytes`
+        objects, one per range, in the same order.
+
+        Example::
+
+        doc = PdfDocument.from_bytes(pdf_bytes)
+        n = doc.page_count()
+        ranges = [(i, min(i + 3000, n)) for i in range(0, n, 3000)]
+        chunks = doc.extract_page_ranges_to_bytes(ranges)
+        """
+
+    def select_pages(self, pages: list[int]) -> None:
+        """
+        Restrict this document to the listed pages, in the order given.
+        Equivalent to PyMuPDF's `doc.select(page_list)`.
+        Subsequent `save_to_bytes()` / `save()` produces a PDF containing only
+        the selected pages, with garbage-collected resources.
+        """
+
     def delete_page(self, index: int) -> None:
         """Delete a page by index (0-based)."""
 

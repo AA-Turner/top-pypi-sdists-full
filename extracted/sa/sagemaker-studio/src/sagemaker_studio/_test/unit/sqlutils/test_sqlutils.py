@@ -410,3 +410,351 @@ class TestSqlutils(unittest.TestCase):
         self.assertEqual(results[1].result, mock_spark_df2)
         self.assertEqual(results[0].status, "success")
         self.assertEqual(results[1].status, "success")
+
+    # --- Athena context injection ---
+
+    @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    @patch("sagemaker_studio.sqlutils.get_engine")
+    def test_sql_athena_injects_catalog_and_schema(self, mock_get_engine, mock_executor, mock_ctx):
+        """When Athena query has catalog+database, they are passed as kwargs"""
+        mock_engine = Mock()
+        mock_engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
+        mock_get_engine.return_value = mock_engine
+        mock_ctx.return_value = {"catalog": "my_cat", "database": "my_db"}
+        mock_exec_result = Mock()
+        mock_exec_result.result = "df"
+        mock_executor.return_value.execute.return_value = iter([mock_exec_result])
+
+        sqlutils.sql("SELECT 1", connection_id="c1")
+        mock_ctx.assert_called_once()
+
+    @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
+    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
+    @patch("sagemaker_studio.sqlutils.get_engine")
+    def test_sql_stream_athena_injects_catalog_and_schema(
+        self, mock_get_engine, mock_executor, mock_ctx
+    ):
+        """sql_stream with Athena also calls _apply_athena_context"""
+        mock_engine = Mock()
+        mock_engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
+        mock_get_engine.return_value = mock_engine
+        mock_ctx.return_value = {"catalog": "cat1", "database": "db1"}
+        mock_executor.return_value.execute.return_value = iter([])
+
+        list(sqlutils.sql_stream("SELECT 1", connection_id="c1"))
+        mock_ctx.assert_called_once()
+
+    # --- _ensure_spark ---
+
+    def test_ensure_spark_import_error(self):
+        """_ensure_spark raises RuntimeError when IPython is not installed"""
+        with patch.dict("sys.modules", {"IPython": None}):
+            with self.assertRaises(RuntimeError) as cm:
+                sqlutils._ensure_spark()
+            self.assertIn("IPython not available", str(cm.exception))
+
+    def test_ensure_spark_ipython_none(self):
+        """_ensure_spark raises when get_ipython returns None"""
+        mock_module = Mock()
+        mock_module.get_ipython = Mock(return_value=None)
+        with patch.dict("sys.modules", {"IPython": mock_module}):
+            with self.assertRaises(RuntimeError) as cm:
+                sqlutils._ensure_spark()
+            self.assertIn("IPython kernel not available", str(cm.exception))
+
+    def test_ensure_spark_no_spark_in_ns(self):
+        """_ensure_spark raises when spark not in user_ns"""
+        mock_ipython = Mock()
+        mock_ipython.user_ns = {}
+        mock_module = Mock()
+        mock_module.get_ipython = Mock(return_value=mock_ipython)
+        with patch.dict("sys.modules", {"IPython": mock_module}):
+            with self.assertRaises(RuntimeError) as cm:
+                sqlutils._ensure_spark()
+            self.assertIn("Spark session not initialized", str(cm.exception))
+
+    def test_ensure_spark_success(self):
+        """_ensure_spark returns spark when available"""
+        mock_spark = Mock()
+        mock_ipython = Mock()
+        mock_ipython.user_ns = {"spark": mock_spark}
+        mock_module = Mock()
+        mock_module.get_ipython = Mock(return_value=mock_ipython)
+        with patch.dict("sys.modules", {"IPython": mock_module}):
+            result = sqlutils._ensure_spark()
+        self.assertEqual(result, mock_spark)
+
+    # --- _is_spark_connection ---
+
+    def test_is_spark_connection_none(self):
+        self.assertFalse(sqlutils._is_spark_connection(None))
+
+    def test_is_spark_connection_empty(self):
+        self.assertFalse(sqlutils._is_spark_connection({}))
+
+    def test_is_spark_connection_spark(self):
+        self.assertTrue(sqlutils._is_spark_connection({"type": "spark"}))
+
+    def test_is_spark_connection_unknown_type_raises(self):
+        with self.assertRaises(ValueError):
+            sqlutils._is_spark_connection({"type": "mysql"})
+
+    # --- _apply_athena_context ---
+
+    @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
+    def test_apply_athena_context_injects_kwargs(self, mock_ctx):
+        mock_ctx.return_value = {"catalog": "cat", "database": "db"}
+        kwargs = {}
+        sqlutils._apply_athena_context("SELECT 1", kwargs)
+        self.assertEqual(kwargs["catalog_name"], "cat")
+        self.assertEqual(kwargs["schema_name"], "db")
+
+    @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
+    def test_apply_athena_context_skips_if_already_set(self, mock_ctx):
+        kwargs = {"catalog_name": "existing", "schema_name": "existing"}
+        sqlutils._apply_athena_context("SELECT 1", kwargs)
+        mock_ctx.assert_not_called()
+        self.assertEqual(kwargs["catalog_name"], "existing")
+
+    @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
+    def test_apply_athena_context_no_context_found(self, mock_ctx):
+        mock_ctx.return_value = {"catalog": None, "database": None}
+        kwargs = {}
+        sqlutils._apply_athena_context("SELECT 1", kwargs)
+        self.assertNotIn("catalog_name", kwargs)
+
+    # --- get_engine returns None ---
+
+    def test_get_engine_no_params_returns_none(self):
+        self.assertIsNone(sqlutils.get_engine())
+
+    # --- sql_stream returns generator (no dataframe_name) ---
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    def test_sql_stream_returns_generator(self, mock_ensure_spark):
+        """sql_stream returns the raw generator"""
+        mock_spark = Mock()
+        mock_spark.sql.return_value = Mock()
+        mock_ensure_spark.return_value = mock_spark
+
+        result = sqlutils.sql_stream("SELECT 1", connection={"type": "spark"})
+
+        import types
+
+        self.assertIsInstance(result, types.GeneratorType)
+
+    # --- sql_stream_with_display tests ---
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._materialise_stream")
+    def test_sql_stream_with_display_calls_materialise(self, mock_materialise, mock_ensure_spark):
+        """sql_stream_with_display delegates to sql_stream then _materialise_stream"""
+        mock_spark = Mock()
+        mock_spark.sql.return_value = Mock()
+        mock_ensure_spark.return_value = mock_spark
+
+        sqlutils.sql_stream_with_display(
+            "SELECT 1", dataframe_name="df", connection={"type": "spark"}
+        )
+
+        mock_materialise.assert_called_once()
+        args = mock_materialise.call_args
+        self.assertEqual(args[0][1], "df")
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    def test_sql_stream_with_display_assigns_namespace(self, mock_ensure_spark):
+        """sql_stream_with_display materialises results into IPython namespace"""
+
+        mock_spark = Mock()
+        df0 = DataFrame({"a": [1]})
+        df1 = DataFrame({"b": [2]})
+        mock_spark.sql.side_effect = [df0, df1]
+        mock_ensure_spark.return_value = mock_spark
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        with patch.dict("sys.modules", modules):
+            sqlutils.sql_stream_with_display(
+                "SELECT 1; SELECT 2", dataframe_name="df", connection={"type": "spark"}
+            )
+
+        self.assertIs(mock_ip.user_ns["df_0"], df0)
+        self.assertIs(mock_ip.user_ns["df_1"], df1)
+        self.assertIsInstance(mock_ip.user_ns["df"], list)
+        self.assertEqual(len(mock_ip.user_ns["df"]), 2)
+        self.assertEqual(mock_display.call_count, 2)
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    def test_sql_stream_with_display_single_result(self, mock_ensure_spark):
+        """sql_stream_with_display with single result assigns directly (no indexed vars)"""
+        mock_spark = Mock()
+        df0 = DataFrame({"a": [1]})
+        mock_spark.sql.return_value = df0
+        mock_ensure_spark.return_value = mock_spark
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        with patch.dict("sys.modules", modules):
+            sqlutils.sql_stream_with_display(
+                "SELECT 1", dataframe_name="df", connection={"type": "spark"}
+            )
+
+        self.assertNotIn("df_0", mock_ip.user_ns)
+        self.assertIs(mock_ip.user_ns["df"], df0)
+        mock_display.assert_called_once_with(df0)
+
+    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    def test_sql_stream_with_display_raises_on_error(self, mock_ensure_spark):
+        """sql_stream_with_display raises exception on error result"""
+        mock_spark = Mock()
+        mock_spark.sql.side_effect = Exception("syntax error")
+        mock_ensure_spark.return_value = mock_spark
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        with patch.dict("sys.modules", modules):
+            with self.assertRaises(Exception) as cm:
+                sqlutils.sql_stream_with_display(
+                    "BAD SQL", dataframe_name="df", connection={"type": "spark"}
+                )
+
+        self.assertIn("syntax error", str(cm.exception))
+
+    def _mock_ipython_modules(self):
+        """Create mock IPython modules for _materialise_stream tests.
+
+        Returns (mock_ip, mock_display, modules_dict) where modules_dict
+        should be passed to patch.dict("sys.modules", ...).
+        """
+        mock_ip = Mock()
+        mock_ip.user_ns = {}
+
+        mock_ipython_mod = Mock()
+        mock_ipython_mod.get_ipython = Mock(return_value=mock_ip)
+
+        mock_display_func = Mock()
+        mock_display_mod = Mock()
+        mock_display_mod.display = mock_display_func
+
+        modules = {
+            "IPython": mock_ipython_mod,
+            "IPython.display": mock_display_mod,
+        }
+        return mock_ip, mock_display_func, modules
+
+    def test_materialise_stream_all_success_multiple(self):
+        """Multiple successful results: indexed vars + list variable assigned"""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        df0 = DataFrame({"a": [1]})
+        df1 = DataFrame({"b": [2]})
+        stream = [
+            ExecutionResult(0, "SELECT 1", "SELECT", result=df0, status="success"),
+            ExecutionResult(1, "SELECT 2", "SELECT", result=df1, status="success"),
+        ]
+
+        with patch.dict("sys.modules", modules):
+            sqlutils._materialise_stream(iter(stream), "df")
+
+        # Indexed vars assigned
+        self.assertIs(mock_ip.user_ns["df_0"], df0)
+        self.assertIs(mock_ip.user_ns["df_1"], df1)
+        # Main var is a list
+        self.assertIsInstance(mock_ip.user_ns["df"], list)
+        self.assertEqual(len(mock_ip.user_ns["df"]), 2)
+        self.assertIs(mock_ip.user_ns["df"][0], df0)
+        self.assertIs(mock_ip.user_ns["df"][1], df1)
+        # display called for each result
+        self.assertEqual(mock_display.call_count, 2)
+
+    def test_materialise_stream_single_success(self):
+        """Single successful result: no indexed vars, main var = single result"""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        df0 = DataFrame({"a": [1]})
+        stream = [
+            ExecutionResult(0, "SELECT 1", "SELECT", result=df0, status="success"),
+        ]
+
+        with patch.dict("sys.modules", modules):
+            sqlutils._materialise_stream(iter(stream), "df")
+
+        # No indexed vars for single result
+        self.assertNotIn("df_0", mock_ip.user_ns)
+        # Main var is the single result directly
+        self.assertIs(mock_ip.user_ns["df"], df0)
+        mock_display.assert_called_once_with(df0)
+
+    def test_materialise_stream_error_with_partial_results(self):
+        """Error after some successes: partial indexed vars saved, then raises"""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        df0 = DataFrame({"a": [1]})
+        stream = [
+            ExecutionResult(0, "SELECT 1", "SELECT", result=df0, status="success"),
+            ExecutionResult(1, "BAD SQL", "UNKNOWN", error="syntax error", status="error"),
+        ]
+
+        with patch.dict("sys.modules", modules):
+            with self.assertRaises(Exception) as cm:
+                sqlutils._materialise_stream(iter(stream), "df")
+
+        self.assertIn("syntax error", str(cm.exception))
+        # Partial result saved for debugging
+        self.assertIs(mock_ip.user_ns["df_0"], df0)
+        # Main var NOT assigned on error
+        self.assertNotIn("df", mock_ip.user_ns)
+
+    def test_materialise_stream_single_error_no_results(self):
+        """Single error with no prior successes: nothing saved, raises"""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        stream = [
+            ExecutionResult(0, "BAD SQL", "UNKNOWN", error="table not found", status="error"),
+        ]
+
+        with patch.dict("sys.modules", modules):
+            with self.assertRaises(Exception) as cm:
+                sqlutils._materialise_stream(iter(stream), "df")
+
+        self.assertIn("table not found", str(cm.exception))
+        # Nothing saved
+        self.assertNotIn("df_0", mock_ip.user_ns)
+        self.assertNotIn("df", mock_ip.user_ns)
+        mock_display.assert_not_called()
+
+    def test_materialise_stream_error_wraps_string(self):
+        """When result.error is a string, it is wrapped in Exception"""
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        stream = [
+            ExecutionResult(0, "BAD SQL", "UNKNOWN", error="some error string", status="error"),
+        ]
+
+        with patch.dict("sys.modules", modules):
+            with self.assertRaises(Exception) as cm:
+                sqlutils._materialise_stream(iter(stream), "df")
+
+        self.assertNotIsInstance(cm.exception, RuntimeError)
+        self.assertIn("some error string", str(cm.exception))
+
+    def test_materialise_stream_empty_results(self):
+        """Empty stream: nothing assigned to namespace"""
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        with patch.dict("sys.modules", modules):
+            sqlutils._materialise_stream(iter([]), "df")
+
+        self.assertNotIn("df", mock_ip.user_ns)
+        mock_display.assert_not_called()

@@ -1,0 +1,126 @@
+import json
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from cpsl.constants import CollectionDecl, Column
+from cpsl.clients.capsule import (
+    CollectionSchema,
+    FindResponse,
+    GetCollectionSchemaResponse,
+    UpsertCollectionSchemaResponse,
+)
+from cpsl.db import Collection, CollectionManager, CollectionRef, reset_active_identity, set_active_identity
+from cpsl.session import UserInfo
+
+
+class FakeDataStub:
+    def __init__(self):
+        self.schemas = {}
+        self.last_find = None
+
+    def _key(self, schema_or_req):
+        return (
+            schema_or_req.app_id if hasattr(schema_or_req, "app_id") else "",
+            schema_or_req.name,
+            schema_or_req.scope,
+            schema_or_req.user_id,
+            schema_or_req.owner_id,
+            schema_or_req.session_id,
+        )
+
+    def get_collection_schema(self, req):
+        schema = self.schemas.get(self._key(req))
+        return GetCollectionSchemaResponse(found=schema is not None, schema=schema)
+
+    def upsert_collection_schema(self, req):
+        schema = req.schema
+        self.schemas[(req.app_id, schema.name, schema.scope, schema.user_id, schema.owner_id, schema.session_id)] = schema
+        return UpsertCollectionSchemaResponse(schema=schema)
+
+    def find(self, req):
+        self.last_find = req
+        return FindResponse(documents_json=[])
+
+
+class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_dynamic_collection_columns_round_trip(self):
+        stub = FakeDataStub()
+        manager = CollectionManager(
+            stub,
+            "app-1",
+            collection_scopes={"leads": "owner"},
+            user_id="u1",
+            owner_id="org:o1",
+        )
+
+        leads = await manager.get("leads")
+        columns = await leads.set_columns([
+            "name",
+            Column("score", type="number", label="Lead Score"),
+        ])
+
+        self.assertEqual([c.key for c in columns], ["name", "score"])
+        self.assertEqual([c.key for c in await leads.list_columns()], ["name", "score"])
+
+        await leads.add_column("status")
+        self.assertEqual([c.key for c in await leads.list_columns()], ["name", "score", "status"])
+
+        await leads.remove_column("name")
+        self.assertEqual([c.key for c in await leads.list_columns()], ["score", "status"])
+
+    async def test_dynamic_collection_scope_filter_applies_to_rows(self):
+        stub = FakeDataStub()
+        manager = CollectionManager(stub, "app-1", user_id="u1", owner_id="org:o1")
+
+        leads = await manager.get("leads", scope="owner")
+        await leads.find({"status": "open"})
+
+        self.assertEqual(json.loads(stub.last_find.filter_json), {"_team_id": "org:o1", "status": "open"})
+
+    async def test_dynamic_collection_requires_scope_without_static_declaration(self):
+        manager = CollectionManager(FakeDataStub(), "app-1")
+
+        with self.assertRaisesRegex(ValueError, "scope is required"):
+            await manager.get("leads")
+
+    async def test_dynamic_collection_rejects_conflicting_static_scope(self):
+        manager = CollectionManager(FakeDataStub(), "app-1", collection_scopes={"leads": "user"})
+
+        with self.assertRaisesRegex(ValueError, "statically declared"):
+            await manager.get("leads", scope="owner")
+
+    async def test_collection_ref_lists_static_columns_before_binding(self):
+        ref = CollectionRef(
+            "notes",
+            CollectionDecl(name="notes", columns=(Column("title"), Column("body")), scope="app"),
+        )
+
+        self.assertEqual([c.key for c in await ref.list_columns()], ["title", "body"])
+
+    async def test_collection_ref_schema_helpers_use_decl_scope(self):
+        stub = FakeDataStub()
+        ref = CollectionRef(
+            "notes",
+            CollectionDecl(name="notes", columns=(Column("title"),), scope="owner"),
+        )
+        ref._bound = Collection(stub, "app-1", "notes")
+        token = set_active_identity(type("Identity", (), {
+            "id": "",
+            "user": UserInfo(id="u1", org_id="org_1"),
+        })())
+        try:
+            columns = await ref.add_column("body")
+        finally:
+            reset_active_identity(token)
+
+        self.assertEqual([c.key for c in columns], ["title", "body"])
+        schema = next(iter(stub.schemas.values()))
+        self.assertEqual(schema.scope, "owner")
+        self.assertEqual(schema.owner_id, "org:org_1")
+
+
+if __name__ == "__main__":
+    unittest.main()

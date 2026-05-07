@@ -10339,7 +10339,7 @@ class CfnFlowSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowVpcInterfaceRef_d5bcec46)
+@jsii.implements(_IInspectable_c2943556, _IFlowVpcInterfaceRef_d5bcec46, _ITaggableV2_4e6798f8)
 class CfnFlowVpcInterface(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10365,6 +10365,7 @@ class CfnFlowVpcInterface(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_mediaconnect as mediaconnect
@@ -10374,7 +10375,13 @@ class CfnFlowVpcInterface(
             name="name",
             role_arn="roleArn",
             security_group_ids=["securityGroupIds"],
-            subnet_id="subnetId"
+            subnet_id="subnetId",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -10388,6 +10395,7 @@ class CfnFlowVpcInterface(
         role_arn: builtins.str,
         security_group_ids: typing.Sequence[builtins.str],
         subnet_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::FlowVpcInterface``.
 
@@ -10398,6 +10406,7 @@ class CfnFlowVpcInterface(
         :param role_arn: The Amazon Resource Name (ARN) of the role that you created when you set up MediaConnect as a trusted service.
         :param security_group_ids: A virtual firewall to control inbound and outbound traffic.
         :param subnet_id: The subnet IDs that you want to use for your VPC interface. A range of IP addresses in your VPC. When you create your VPC, you specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. This is the primary CIDR block for your VPC. When you create a subnet for your VPC, you specify the CIDR block for the subnet, which is a subset of the VPC CIDR block. The subnets that you use across all VPC interfaces on the flow must be in the same Availability Zone as the flow.
+        :param tags: Key-value pairs that can be used to tag and organize this VPC network interface.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbdfc221c828cffa79a57d6d84dccb050776de58319678209806d7b3bc310582)
@@ -10409,6 +10418,7 @@ class CfnFlowVpcInterface(
             role_arn=role_arn,
             security_group_ids=security_group_ids,
             subnet_id=subnet_id,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -10463,6 +10473,12 @@ class CfnFlowVpcInterface(
         :cloudformationAttribute: NetworkInterfaceIds
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrNetworkInterfaceIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -10545,6 +10561,19 @@ class CfnFlowVpcInterface(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this VPC network interface.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b14898260fc48c84c1553f87a750c29ee21320a91fe595d73c465cbc49346fdf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowVpcInterfaceProps",
@@ -10555,6 +10584,7 @@ class CfnFlowVpcInterface(
         "role_arn": "roleArn",
         "security_group_ids": "securityGroupIds",
         "subnet_id": "subnetId",
+        "tags": "tags",
     },
 )
 class CfnFlowVpcInterfaceProps:
@@ -10566,6 +10596,7 @@ class CfnFlowVpcInterfaceProps:
         role_arn: builtins.str,
         security_group_ids: typing.Sequence[builtins.str],
         subnet_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowVpcInterface``.
 
@@ -10574,12 +10605,14 @@ class CfnFlowVpcInterfaceProps:
         :param role_arn: The Amazon Resource Name (ARN) of the role that you created when you set up MediaConnect as a trusted service.
         :param security_group_ids: A virtual firewall to control inbound and outbound traffic.
         :param subnet_id: The subnet IDs that you want to use for your VPC interface. A range of IP addresses in your VPC. When you create your VPC, you specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. This is the primary CIDR block for your VPC. When you create a subnet for your VPC, you specify the CIDR block for the subnet, which is a subset of the VPC CIDR block. The subnets that you use across all VPC interfaces on the flow must be in the same Availability Zone as the flow.
+        :param tags: Key-value pairs that can be used to tag and organize this VPC network interface.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_mediaconnect as mediaconnect
@@ -10589,7 +10622,13 @@ class CfnFlowVpcInterfaceProps:
                 name="name",
                 role_arn="roleArn",
                 security_group_ids=["securityGroupIds"],
-                subnet_id="subnetId"
+                subnet_id="subnetId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -10599,6 +10638,7 @@ class CfnFlowVpcInterfaceProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "flow_arn": flow_arn,
             "name": name,
@@ -10606,6 +10646,8 @@ class CfnFlowVpcInterfaceProps:
             "security_group_ids": security_group_ids,
             "subnet_id": subnet_id,
         }
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def flow_arn(self) -> builtins.str:
@@ -10660,6 +10702,15 @@ class CfnFlowVpcInterfaceProps:
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this VPC network interface.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18817,6 +18868,7 @@ def _typecheckingstub__dbdfc221c828cffa79a57d6d84dccb050776de58319678209806d7b3b
     role_arn: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18869,6 +18921,12 @@ def _typecheckingstub__21ff66cbd4857ab742f4461a355254e9a8da4cf04f8543fbb07ab7e6b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b14898260fc48c84c1553f87a750c29ee21320a91fe595d73c465cbc49346fdf(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410(
     *,
     flow_arn: builtins.str,
@@ -18876,6 +18934,7 @@ def _typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf
     role_arn: builtins.str,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

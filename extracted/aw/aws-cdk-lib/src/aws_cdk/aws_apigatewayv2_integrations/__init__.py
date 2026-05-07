@@ -290,15 +290,19 @@ http_api.add_routes(
 
 You can configure the custom parameter mappings of the EventBridge integration using the `parameterMapping` property of the `HttpEventBridgeIntegration` object.
 
-By default, the integration expects the request body to contain `Detail`, `DetailType`, and `Source` fields.
+By default, the integration expects the request body to contain `Detail`, `DetailType`, and `Source` fields. The `EventBusName` is automatically included from `eventBusRef` in all cases, even when a custom `parameterMapping` is provided (unless explicitly overridden). This ensures consistency and eliminates redundant configuration.
+
+The default parameter mapping is as follows:
 
 ```python
 import aws_cdk.aws_events as events
 # bus: events.IEventBus
 
 
-apigwv2.ParameterMapping().custom("Detail", "$request.body.Detail").custom("DetailType", "$request.body.DetailType").custom("Source", "$request.body.Source")
+apigwv2.ParameterMapping().custom("Detail", "$request.body.Detail").custom("DetailType", "$request.body.DetailType").custom("Source", "$request.body.Source").custom("EventBusName", bus.event_bus_name)
 ```
+
+When providing a custom `parameterMapping`, you don't need to include `EventBusName` - it will be automatically added from `eventBusRef`:
 
 ### Private Integration
 
@@ -781,7 +785,7 @@ class HttpEventBridgeIntegration(
         '''
         :param id: id of the underlying integration construct.
         :param event_bus_ref: EventBridge event bus that integrates with API Gateway.
-        :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. When not provided, a default mapping will be used that expects the incoming request body to contain the fields ``Detail``, ``DetailType``, and ``Source``. Default: - set ``Detail`` to ``$request.body.Detail``, ``DetailType`` to ``$request.body.DetailType``, and ``Source`` to ``$request.body.Source``.
+        :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. When not provided, a default mapping will be used that expects the incoming request body to contain the fields ``Detail``, ``DetailType``, and ``Source``. The ``EventBusName`` is automatically included from ``eventBusRef`` in all cases, even when a custom ``parameterMapping`` is provided (unless explicitly overridden). This ensures consistency and eliminates redundant configuration. Default: - set ``Detail`` to ``$request.body.Detail``, ``DetailType`` to ``$request.body.DetailType``, ``Source`` to ``$request.body.Source``, and ``EventBusName`` to the event bus name from ``eventBusRef``.
         :param subtype: The subtype of the HTTP integration. Only subtypes starting with EVENTBRIDGE_ can be specified. Default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
         '''
         if __debug__:
@@ -832,7 +836,7 @@ class HttpEventBridgeIntegrationProps:
         '''Properties to initialize ``HttpEventBridgeIntegration``.
 
         :param event_bus_ref: EventBridge event bus that integrates with API Gateway.
-        :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. When not provided, a default mapping will be used that expects the incoming request body to contain the fields ``Detail``, ``DetailType``, and ``Source``. Default: - set ``Detail`` to ``$request.body.Detail``, ``DetailType`` to ``$request.body.DetailType``, and ``Source`` to ``$request.body.Source``.
+        :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. When not provided, a default mapping will be used that expects the incoming request body to contain the fields ``Detail``, ``DetailType``, and ``Source``. The ``EventBusName`` is automatically included from ``eventBusRef`` in all cases, even when a custom ``parameterMapping`` is provided (unless explicitly overridden). This ensures consistency and eliminates redundant configuration. Default: - set ``Detail`` to ``$request.body.Detail``, ``DetailType`` to ``$request.body.DetailType``, ``Source`` to ``$request.body.Source``, and ``EventBusName`` to the event bus name from ``eventBusRef``.
         :param subtype: The subtype of the HTTP integration. Only subtypes starting with EVENTBRIDGE_ can be specified. Default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
 
         :exampleMetadata: infused
@@ -895,10 +899,15 @@ class HttpEventBridgeIntegrationProps:
         incoming request body to contain the fields ``Detail``, ``DetailType``, and
         ``Source``.
 
+        The ``EventBusName`` is automatically included from ``eventBusRef`` in all cases,
+        even when a custom ``parameterMapping`` is provided (unless explicitly overridden).
+        This ensures consistency and eliminates redundant configuration.
+
         :default:
 
         - set ``Detail`` to ``$request.body.Detail``,
-        ``DetailType`` to ``$request.body.DetailType``, and ``Source`` to ``$request.body.Source``.
+        ``DetailType`` to ``$request.body.DetailType``, ``Source`` to ``$request.body.Source``,
+        and ``EventBusName`` to the event bus name from ``eventBusRef``.
 
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-aws-services-reference.html
         '''

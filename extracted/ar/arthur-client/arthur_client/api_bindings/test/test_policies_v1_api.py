@@ -215,6 +215,13 @@ class TestPoliciesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_update_assignment_job_chain(self) -> None:
+        """Test case for update_assignment_job_chain
+
+        Update Assignment Job Chain
+        """
+        pass
+
     def test_update_policy(self) -> None:
         """Test case for update_policy
 

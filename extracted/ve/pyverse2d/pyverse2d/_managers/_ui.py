@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from .._internal import profile_section
 from ..abc import Manager
 
 from ._context import ContextManager
@@ -71,6 +72,7 @@ class UiManager(Manager):
         return True
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.ui.update")
     def update(self, dt: float) -> None:
         """Actualisation
         
@@ -79,6 +81,7 @@ class UiManager(Manager):
         """
         pass
 
+    @profile_section("manager.ui.flush")
     def flush(self) -> None:
         """Nettoyage"""
         self._hovered = None

@@ -2,45 +2,25 @@
 #
 #
 
+import re
 from logging import getLogger
 
 from ..deprecation import deprecated
 from ..equality import EqualityTupleMixin
 from .base import Record, ValuesMixin
 from .rr import RrParseError
+from .validator import ValueValidator
 
 
-class DsValue(EqualityTupleMixin, dict):
-    # https://www.rfc-editor.org/rfc/rfc4034.html#section-5.1
-    log = getLogger('DsValue')
+class DsValueValidator(ValueValidator):
+    '''
+    Validates DS rdata. Supports both the current field names
+    (``key_tag``, ``algorithm``, ``digest_type``, ``digest``) and the
+    deprecated legacy field names (``flags``, ``protocol``,
+    ``algorithm``, ``public_key``), which will be removed in 2.0.
+    '''
 
-    @classmethod
-    def parse_rdata_text(cls, value):
-        try:
-            key_tag, algorithm, digest_type, digest = value.split(' ')
-        except ValueError:
-            raise RrParseError()
-        try:
-            key_tag = int(key_tag)
-        except ValueError:
-            pass
-        try:
-            algorithm = int(algorithm)
-        except ValueError:
-            pass
-        try:
-            digest_type = int(digest_type)
-        except ValueError:
-            pass
-        return {
-            'key_tag': key_tag,
-            'algorithm': algorithm,
-            'digest_type': digest_type,
-            'digest': digest,
-        }
-
-    @classmethod
-    def validate(cls, data, _type):
+    def validate(self, value_cls, data, _type):
         if not isinstance(data, (list, tuple)):
             data = (data,)
         reasons = []
@@ -99,6 +79,185 @@ class DsValue(EqualityTupleMixin, dict):
                     reasons.append('missing digest')
         return reasons
 
+
+class DsValueRfcValidator(ValueValidator):
+    '''
+    Strict DS rdata validator per RFC 4034 §5.1, RFC 4509, and RFC 6605.
+
+    - ``key_tag`` must be in [0, 65535] (uint16).
+    - ``algorithm`` must be in [0, 255] (uint8).
+    - ``digest_type`` must be in [0, 255] (uint8).
+    - ``digest`` must be a valid hexadecimal string.
+    - For known digest types, the digest length is enforced:
+      type 1 (SHA-1) = 40 hex chars, type 2 (SHA-256) = 64 hex chars,
+      type 4 (SHA-384) = 96 hex chars.
+
+    The deprecated legacy field names (``flags``, ``protocol``,
+    ``public_key``) are not accepted in strict mode.
+
+    Enabled as part of the ``strict`` validator set::
+
+      manager:
+        enabled:
+          - strict
+    '''
+
+    _hex_re = re.compile(r'^[0-9a-fA-F]+$')
+    _digest_type_lengths = {1: 40, 2: 64, 4: 96}
+
+    def validate(self, value_cls, data, _type):
+        if not isinstance(data, (list, tuple)):
+            data = (data,)
+        reasons = []
+        for value in data:
+            digest_type = None
+            for field, max_val in (
+                ('key_tag', 65535),
+                ('algorithm', 255),
+                ('digest_type', 255),
+            ):
+                if field not in value:
+                    reasons.append(f'missing {field}')
+                else:
+                    try:
+                        int_val = int(value[field])
+                        if not 0 <= int_val <= max_val:
+                            reasons.append(
+                                f'invalid {field} "{int_val}"; must be 0-{max_val}'
+                            )
+                        elif field == 'digest_type':
+                            digest_type = int_val
+                    except (ValueError, TypeError):
+                        reasons.append(f'invalid {field} "{value[field]}"')
+
+            if 'digest' not in value:
+                reasons.append('missing digest')
+            else:
+                digest = value['digest']
+                if not digest or not self._hex_re.match(str(digest)):
+                    reasons.append(f'invalid digest "{digest}"; must be hex')
+                elif digest_type in self._digest_type_lengths:
+                    expected = self._digest_type_lengths[digest_type]
+                    if len(str(digest)) != expected:
+                        reasons.append(
+                            f'digest must be {expected} hex characters for digest_type {digest_type}'
+                        )
+        return reasons
+
+
+class DsValueBestPracticeValidator(ValueValidator):
+    '''
+    Checks DS records against deprecated algorithms and digest types per
+    RFC 8624.
+
+    - ``digest_type`` 1 (SHA-1) is NOT RECOMMENDED (§3.3); use
+      digest_type 2 (SHA-256).
+    - Signing ``algorithm`` values 1 (RSA/MD5), 3 (DSA/SHA1),
+      5 (RSA/SHA-1), 6 (DSA-NSEC3-SHA1), and 7 (RSASHA1-NSEC3-SHA1)
+      are deprecated (§3.1).
+
+    Enabled as part of the ``best-practice`` validator set::
+
+      manager:
+        enabled:
+          - best-practice
+    '''
+
+    _deprecated_algorithms = {
+        1: 'RSA/MD5',
+        3: 'DSA/SHA1',
+        5: 'RSA/SHA-1',
+        6: 'DSA-NSEC3-SHA1',
+        7: 'RSASHA1-NSEC3-SHA1',
+    }
+
+    def validate(self, value_cls, data, _type):
+        reasons = []
+        for value in data:
+            if 'public_key' in value or 'flags' in value:
+                continue
+            try:
+                algorithm = int(value['algorithm'])
+                if algorithm in self._deprecated_algorithms:
+                    name = self._deprecated_algorithms[algorithm]
+                    reasons.append(
+                        f'DS algorithm {algorithm} ({name}) is deprecated per RFC 8624'
+                    )
+            except (KeyError, ValueError, TypeError):
+                pass
+            try:
+                digest_type = int(value['digest_type'])
+                if digest_type == 1:
+                    reasons.append(
+                        'DS digest_type 1 (SHA-1) is not recommended per RFC 8624; '
+                        'use digest_type 2 (SHA-256)'
+                    )
+            except (KeyError, ValueError, TypeError):
+                pass
+        return reasons
+
+
+class DsValue(EqualityTupleMixin, dict):
+    # https://www.rfc-editor.org/rfc/rfc4034.html#section-5.1
+    log = getLogger('DsValue')
+
+    VALIDATORS = [
+        DsValueValidator('ds-value', sets={'legacy'}),
+        DsValueRfcValidator('ds-value-rfc', sets={'strict'}),
+        DsValueBestPracticeValidator(
+            'ds-value-best-practice', sets={'best-practice'}
+        ),
+    ]
+
+    @classmethod
+    def _schema(cls):
+        return {
+            'type': 'object',
+            'anyOf': [
+                {'required': ['key_tag', 'algorithm', 'digest_type', 'digest']},
+                # deprecated legacy form kept valid until 2.0
+                {'required': ['flags', 'protocol', 'algorithm', 'public_key']},
+            ],
+            'properties': {
+                'key_tag': {'type': 'integer', 'minimum': 0, 'maximum': 65535},
+                'algorithm': {'type': 'integer', 'minimum': 0, 'maximum': 255},
+                'digest_type': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 255,
+                },
+                'digest': {'type': 'string'},
+                'flags': {'type': 'integer'},
+                'protocol': {'type': 'integer'},
+                'public_key': {'type': 'string'},
+            },
+        }
+
+    @classmethod
+    def parse_rdata_text(cls, value):
+        try:
+            key_tag, algorithm, digest_type, digest = value.split(' ')
+        except ValueError:
+            raise RrParseError()
+        try:
+            key_tag = int(key_tag)
+        except ValueError:
+            pass
+        try:
+            algorithm = int(algorithm)
+        except ValueError:
+            pass
+        try:
+            digest_type = int(digest_type)
+        except ValueError:
+            pass
+        return {
+            'key_tag': key_tag,
+            'algorithm': algorithm,
+            'digest_type': digest_type,
+            'digest': digest,
+        }
+
     @classmethod
     def process(cls, values):
         return [cls(v) for v in values]
@@ -111,14 +270,14 @@ class DsValue(EqualityTupleMixin, dict):
                 'key_tag': int(value['flags']),
                 'algorithm': int(value['protocol']),
                 'digest_type': int(value['algorithm']),
-                'digest': value['public_key'],
+                'digest': str(value['public_key']).lower(),
             }
         else:
             init = {
                 'key_tag': int(value['key_tag']),
                 'algorithm': int(value['algorithm']),
                 'digest_type': int(value['digest_type']),
-                'digest': value['digest'],
+                'digest': str(value['digest']).lower(),
             }
         super().__init__(init)
 
@@ -181,6 +340,15 @@ class DsValue(EqualityTupleMixin, dict):
 
 
 class DsRecord(ValuesMixin, Record):
+    REFERENCES = (
+        'https://datatracker.ietf.org/doc/html/rfc4034',
+        'https://datatracker.ietf.org/doc/html/rfc4035',
+        'https://datatracker.ietf.org/doc/html/rfc4509',
+        'https://datatracker.ietf.org/doc/html/rfc6605',
+        'https://datatracker.ietf.org/doc/html/rfc6840',
+        'https://datatracker.ietf.org/doc/html/rfc8080',
+        'https://datatracker.ietf.org/doc/html/rfc8624',
+    )
     _type = 'DS'
     _value_type = DsValue
 

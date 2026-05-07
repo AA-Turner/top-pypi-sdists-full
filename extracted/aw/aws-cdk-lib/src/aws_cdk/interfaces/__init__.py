@@ -239,6 +239,7 @@ __all__ = [
     "aws_ce",
     "aws_certificatemanager",
     "aws_chatbot",
+    "aws_chime",
     "aws_cleanrooms",
     "aws_cleanroomsml",
     "aws_cloud9",
@@ -527,6 +528,7 @@ from . import aws_cassandra
 from . import aws_ce
 from . import aws_certificatemanager
 from . import aws_chatbot
+from . import aws_chime
 from . import aws_cleanrooms
 from . import aws_cleanroomsml
 from . import aws_cloud9

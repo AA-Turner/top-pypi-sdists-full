@@ -254,7 +254,7 @@ async def integracao_contabil_generica(
         ).wrapper_object()
         combobox.click_input()
 
-        await worker_sleep(10)
+        await worker_sleep(80)
 
         console.print("Verificar se existem lotes")
         try:

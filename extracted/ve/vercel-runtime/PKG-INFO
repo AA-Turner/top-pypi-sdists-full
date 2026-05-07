@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vercel-runtime
-Version: 0.13.1
+Version: 0.13.2
 License-Expression: Apache-2.0
 License-File: src/vercel_runtime/_vendor/__init__.py
 License-File: src/vercel_runtime/_vendor/click/LICENSE.txt

@@ -6,25 +6,18 @@ from ..equality import EqualityTupleMixin
 from ..idna import idna_encode
 from .base import Record, ValuesMixin, unquote
 from .rr import RrParseError
-from .target import validate_target_fqdn
+from .target import _check_target_format, _check_target_trailing_dot
+from .validator import ValueValidator
 
 
-class MxValue(EqualityTupleMixin, dict):
-    @classmethod
-    def parse_rdata_text(cls, value):
-        try:
-            preference, exchange = value.split(' ')
-        except ValueError:
-            raise RrParseError()
-        try:
-            preference = int(preference)
-        except ValueError:
-            pass
-        exchange = unquote(exchange)
-        return {'preference': preference, 'exchange': exchange}
+class MxValueValidator(ValueValidator):
+    '''
+    Validates MX rdata: an integer-parsable ``preference`` (or legacy
+    ``priority`` alias) and a valid ``exchange`` FQDN (or legacy
+    ``value`` alias).
+    '''
 
-    @classmethod
-    def validate(cls, data, _type):
+    def validate(self, value_cls, data, _type):
         reasons = []
         for value in data:
             try:
@@ -39,10 +32,135 @@ class MxValue(EqualityTupleMixin, dict):
             exchange = None
             try:
                 exchange = value.get('exchange') or value['value']
-                reasons += validate_target_fqdn(exchange, _type, 'exchange')
+                reasons += _check_target_format(exchange, _type, 'exchange')
             except KeyError:
                 reasons.append('missing exchange')
         return reasons
+
+
+class MxValueRfcValidator(ValueValidator):
+    '''
+    Strict MX rdata validator per RFC 5321 and RFC 7505.
+
+    - ``preference`` must be in [0, 65535].
+    - When ``exchange`` is ``"."``, ``preference`` must be 0 (null MX
+      per RFC 7505 §3).
+    - When ``exchange`` is not ``"."``, it must be a valid FQDN.
+
+    Enabled as part of the ``strict`` validator set::
+
+      manager:
+        enabled:
+          - strict
+    '''
+
+    def validate(self, value_cls, data, _type):
+        reasons = []
+        for value in data:
+            preference = None
+            if 'preference' in value or 'priority' in value:
+                raw = value.get('preference', value.get('priority'))
+                try:
+                    preference = int(raw)
+                    if not 0 <= preference <= 65535:
+                        reasons.append(
+                            f'preference "{preference}" out of range 0-65535'
+                        )
+                except (ValueError, TypeError):
+                    reasons.append(f'invalid preference "{raw}"')
+            else:
+                reasons.append('missing preference')
+
+            exchange = value.get('exchange') or value.get('value')
+            if not exchange:
+                reasons.append('missing exchange')
+            elif exchange == '.':
+                if preference is not None and preference != 0:
+                    reasons.append(
+                        'preference must be 0 for null MX (exchange ".")'
+                    )
+            else:
+                reasons += _check_target_format(exchange, _type, 'exchange')
+        return reasons
+
+
+class MxValueBestPracticeValidator(ValueValidator):
+    '''
+    Checks that the MX ``exchange`` field ends with a trailing ``.``
+    (fully-qualified name).  Without the trailing dot resolvers may
+    append the host search domain, causing extra lookups.
+
+    Enabled as part of the ``best-practice`` validator set::
+
+      manager:
+        enabled:
+          - best-practice
+    '''
+
+    def validate(self, value_cls, data, _type):
+        reasons = []
+        for value in data:
+            exchange = value.get('exchange') or value.get('value')
+            if exchange:
+                reasons += _check_target_trailing_dot(
+                    exchange, _type, 'exchange'
+                )
+        return reasons
+
+
+class MxValue(EqualityTupleMixin, dict):
+    VALIDATORS = [
+        MxValueValidator('mx-value', sets={'legacy'}),
+        MxValueRfcValidator('mx-value-rfc', sets={'strict'}),
+        MxValueBestPracticeValidator(
+            'mx-value-best-practice', sets={'best-practice'}
+        ),
+    ]
+
+    @classmethod
+    def _schema(cls):
+        return {
+            'type': 'object',
+            'properties': {
+                'preference': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 65535,
+                },
+                # legacy alias for preference
+                'priority': {'type': 'integer', 'minimum': 0, 'maximum': 65535},
+                'exchange': {'type': 'string'},
+                # legacy alias for exchange
+                'value': {'type': 'string'},
+            },
+            'allOf': [
+                {
+                    'anyOf': [
+                        {'required': ['preference']},
+                        {'required': ['priority']},
+                    ]
+                },
+                {
+                    'anyOf': [
+                        {'required': ['exchange']},
+                        {'required': ['value']},
+                    ]
+                },
+            ],
+        }
+
+    @classmethod
+    def parse_rdata_text(cls, value):
+        try:
+            preference, exchange = value.split(' ')
+        except ValueError:
+            raise RrParseError()
+        try:
+            preference = int(preference)
+        except ValueError:
+            pass
+        exchange = unquote(exchange)
+        return {'preference': preference, 'exchange': exchange}
 
     @classmethod
     def process(cls, values):
@@ -105,6 +223,11 @@ class MxValue(EqualityTupleMixin, dict):
 
 
 class MxRecord(ValuesMixin, Record):
+    REFERENCES = (
+        'https://datatracker.ietf.org/doc/html/rfc1035',
+        'https://datatracker.ietf.org/doc/html/rfc5321',
+        'https://datatracker.ietf.org/doc/html/rfc7505',
+    )
     _type = 'MX'
     _value_type = MxValue
 

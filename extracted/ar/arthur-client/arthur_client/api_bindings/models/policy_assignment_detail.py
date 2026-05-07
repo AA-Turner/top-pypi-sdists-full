@@ -40,9 +40,11 @@ class PolicyAssignmentDetail(BaseModel):
     applied_by_user_id: Optional[StrictStr] = None
     enforcement_starts_at: datetime = Field(description="When enforcement starts.")
     compliance_status: ComplianceStatusDetail = Field(description="Current compliance status.")
+    metrics_calc_job: Optional[Job] = None
+    alerts_check_job: Optional[Job] = None
     compliance_job: Optional[Job] = None
     last_violation_notified_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy", "model", "applied_at", "applied_by_user_id", "enforcement_starts_at", "compliance_status", "compliance_job", "last_violation_notified_at"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy", "model", "applied_at", "applied_by_user_id", "enforcement_starts_at", "compliance_status", "metrics_calc_job", "alerts_check_job", "compliance_job", "last_violation_notified_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +94,12 @@ class PolicyAssignmentDetail(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of compliance_status
         if self.compliance_status:
             _dict['compliance_status'] = self.compliance_status.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of metrics_calc_job
+        if self.metrics_calc_job:
+            _dict['metrics_calc_job'] = self.metrics_calc_job.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of alerts_check_job
+        if self.alerts_check_job:
+            _dict['alerts_check_job'] = self.alerts_check_job.to_dict()
         # override the default output from pydantic by calling `to_dict()` of compliance_job
         if self.compliance_job:
             _dict['compliance_job'] = self.compliance_job.to_dict()
@@ -99,6 +107,16 @@ class PolicyAssignmentDetail(BaseModel):
         # and model_fields_set contains the field
         if self.applied_by_user_id is None and "applied_by_user_id" in self.model_fields_set:
             _dict['applied_by_user_id'] = None
+
+        # set to None if metrics_calc_job (nullable) is None
+        # and model_fields_set contains the field
+        if self.metrics_calc_job is None and "metrics_calc_job" in self.model_fields_set:
+            _dict['metrics_calc_job'] = None
+
+        # set to None if alerts_check_job (nullable) is None
+        # and model_fields_set contains the field
+        if self.alerts_check_job is None and "alerts_check_job" in self.model_fields_set:
+            _dict['alerts_check_job'] = None
 
         # set to None if compliance_job (nullable) is None
         # and model_fields_set contains the field
@@ -131,6 +149,8 @@ class PolicyAssignmentDetail(BaseModel):
             "applied_by_user_id": obj.get("applied_by_user_id"),
             "enforcement_starts_at": obj.get("enforcement_starts_at"),
             "compliance_status": ComplianceStatusDetail.from_dict(obj["compliance_status"]) if obj.get("compliance_status") is not None else None,
+            "metrics_calc_job": Job.from_dict(obj["metrics_calc_job"]) if obj.get("metrics_calc_job") is not None else None,
+            "alerts_check_job": Job.from_dict(obj["alerts_check_job"]) if obj.get("alerts_check_job") is not None else None,
             "compliance_job": Job.from_dict(obj["compliance_job"]) if obj.get("compliance_job") is not None else None,
             "last_violation_notified_at": obj.get("last_violation_notified_at")
         })

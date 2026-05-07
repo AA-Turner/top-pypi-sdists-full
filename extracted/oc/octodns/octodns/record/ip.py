@@ -3,13 +3,17 @@
 #
 
 
-class _IpValue(str):
-    @classmethod
-    def parse_rdata_text(cls, value):
-        return value
+from .validator import ValueValidator
 
-    @classmethod
-    def validate(cls, data, _type):
+
+class IpValueValidator(ValueValidator):
+    '''
+    Validates IP address values: rejects empty/missing values and
+    defers to the value class's ``_address_type`` (``IPv4Address`` or
+    ``IPv6Address``) to parse each value.
+    '''
+
+    def validate(self, value_cls, data, _type):
         if not isinstance(data, (list, tuple)):
             data = (data,)
         if len(data) == 0:
@@ -22,11 +26,23 @@ class _IpValue(str):
                 reasons.append('missing value(s)')
             else:
                 try:
-                    cls._address_type(str(value))
+                    value_cls._address_type(str(value))
                 except Exception:
-                    addr_name = cls._address_name
+                    addr_name = value_cls._address_name
                     reasons.append(f'invalid {addr_name} address "{value}"')
         return reasons
+
+
+class _IpValue(str):
+    VALIDATORS = [IpValueValidator('ip-value-rfc', sets={'legacy', 'strict'})]
+
+    @classmethod
+    def parse_rdata_text(cls, value):
+        return value
+
+    @classmethod
+    def _schema(cls):
+        return {'type': 'string', 'format': cls._address_name.lower()}
 
     @classmethod
     def process(cls, values):

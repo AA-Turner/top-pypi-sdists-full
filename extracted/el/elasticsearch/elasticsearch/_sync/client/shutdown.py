@@ -57,7 +57,7 @@ class ShutdownClient(NamespacedClient):
           <p>If the operator privileges feature is enabled, you must be an operator to use this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-shutdown-delete-node>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-shutdown-delete-node>`_
 
         :param node_id: The node id of node to be removed from the shutdown state
         :param master_timeout: Period to wait for a connection to the master node. If
@@ -115,7 +115,7 @@ class ShutdownClient(NamespacedClient):
           <p>If the operator privileges feature is enabled, you must be an operator to use this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-shutdown-get-node>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-shutdown-get-node>`_
 
         :param node_id: Comma-separated list of nodes for which to retrieve the shutdown
             status
@@ -188,7 +188,7 @@ class ShutdownClient(NamespacedClient):
           Monitor the node shutdown status to determine when it is safe to stop Elasticsearch.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-shutdown-put-node>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-shutdown-put-node>`_
 
         :param node_id: The node identifier. This parameter is not validated against
             the cluster's active nodes. This enables you to register a node for shut
@@ -211,9 +211,10 @@ class ShutdownClient(NamespacedClient):
         :param allocation_delay: Only valid if type is restart. Controls how long Elasticsearch
             will wait for the node to restart and join the cluster before reassigning
             its shards to other nodes. This works the same as delaying allocation with
-            the index.unassigned.node_left.delayed_timeout setting. If you specify both
-            a restart allocation delay and an index-level allocation delay, the longer
-            of the two is used.
+            the index.unassigned.node_left.delayed_timeout setting. If you don't specify
+            a restart allocation delay, a default value of 5 minutes will be used. If
+            both a restart allocation delay and an index-level allocation delay are configured,
+            the longer of the two is used.
         :param master_timeout: The period to wait for a connection to the master node.
             If no response is received before the timeout expires, the request fails
             and returns an error.

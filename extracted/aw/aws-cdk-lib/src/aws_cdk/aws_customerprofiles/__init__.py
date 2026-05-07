@@ -70,10 +70,12 @@ from .. import (
 )
 from ..interfaces.aws_customerprofiles import (
     CalculatedAttributeDefinitionReference as _CalculatedAttributeDefinitionReference_c3cb3a21,
+    DomainObjectTypeReference as _DomainObjectTypeReference_e7f72574,
     DomainReference as _DomainReference_ad5fb470,
     EventStreamReference as _EventStreamReference_962d06c6,
     EventTriggerReference as _EventTriggerReference_153e27ca,
     ICalculatedAttributeDefinitionRef as _ICalculatedAttributeDefinitionRef_4fe5d636,
+    IDomainObjectTypeRef as _IDomainObjectTypeRef_2f908287,
     IDomainRef as _IDomainRef_05f5627e,
     IEventStreamRef as _IEventStreamRef_2336759c,
     IEventTriggerRef as _IEventTriggerRef_29992959,
@@ -2885,6 +2887,517 @@ class CfnDomain(
             return "S3ExportingConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDomainObjectTypeRef_2f908287, _ITaggableV2_4e6798f8)
+class CfnDomainObjectType(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomainObjectType",
+):
+    '''Resource Type definition for AWS::CustomerProfiles::DomainObjectType.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html
+    :cloudformationResource: AWS::CustomerProfiles::DomainObjectType
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_customerprofiles as customerprofiles
+        
+        cfn_domain_object_type = customerprofiles.CfnDomainObjectType(self, "MyCfnDomainObjectType",
+            domain_name="domainName",
+            fields={
+                "fields_key": customerprofiles.CfnDomainObjectType.DomainObjectTypeFieldProperty(
+                    source="source",
+                    target="target",
+        
+                    # the properties below are optional
+                    content_type="contentType",
+                    feature_type="featureType"
+                )
+            },
+            object_type_name="objectTypeName",
+        
+            # the properties below are optional
+            description="description",
+            encryption_key="encryptionKey",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_name: builtins.str,
+        fields: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomainObjectType.DomainObjectTypeFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        object_type_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        encryption_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CustomerProfiles::DomainObjectType``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_name: The unique name of the domain.
+        :param fields: A map of the name and ObjectType field.
+        :param object_type_name: The name of the domain object type.
+        :param description: Description of the domain object type.
+        :param encryption_key: The default encryption key.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dbeab20c3537512d33017ab24a78ba716bf478c38cf9dfa566177aecf32558f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainObjectTypeProps(
+            domain_name=domain_name,
+            fields=fields,
+            object_type_name=object_type_name,
+            description=description,
+            encryption_key=encryption_key,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnDomainObjectType")
+    @builtins.classmethod
+    def is_cfn_domain_object_type(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDomainObjectType.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__233e55575fd40f78455f97db717ad5acc03220af0eff455ca612278c440c0363)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomainObjectType", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d69619ea9c3130094eb1b21983f210df9e7f63bef698f4a93f8566b734cdf75e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40eb74b16cce0fb62ae0a58a3083d30c98e386eb57a272059bdb3b1c8819fb40)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp of when the domain object type was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The timestamp of when the domain object type was most recently edited.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainObjectTypeRef")
+    def domain_object_type_ref(self) -> "_DomainObjectTypeReference_e7f72574":
+        '''A reference to a DomainObjectType resource.'''
+        return typing.cast("_DomainObjectTypeReference_e7f72574", jsii.get(self, "domainObjectTypeRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db2f6b31f77510128bf8297a513857a5e319045fd652bb6f4f8b2b2d655f310c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fields")
+    def fields(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomainObjectType.DomainObjectTypeFieldProperty"]]]:
+        '''A map of the name and ObjectType field.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomainObjectType.DomainObjectTypeFieldProperty"]]], jsii.get(self, "fields"))
+
+    @fields.setter
+    def fields(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomainObjectType.DomainObjectTypeFieldProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06e40ed70ca2f8885619acfb4ab16e630bbca3108311a4abd62c5e979ccead1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="objectTypeName")
+    def object_type_name(self) -> builtins.str:
+        '''The name of the domain object type.'''
+        return typing.cast(builtins.str, jsii.get(self, "objectTypeName"))
+
+    @object_type_name.setter
+    def object_type_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5c6f816f6cf49bb5fda08e9e8954fbb9e111dbb3c67a713f6d5e0d74abfd1d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "objectTypeName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the domain object type.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20842073551f582b5f0bf01d1c26ab1d6012d2d4ecef25f6ba247d25e62a1c6e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The default encryption key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
+
+    @encryption_key.setter
+    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9fb991cefc3fbf7f446b4958820045095dd1bf9795a5f6ff09e49c2b214f326c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59cd9578083eb4a97dee92d4ac8dd5c0ccbc2a23fbd2023af92e04c01def9700)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomainObjectType.DomainObjectTypeFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source": "source",
+            "target": "target",
+            "content_type": "contentType",
+            "feature_type": "featureType",
+        },
+    )
+    class DomainObjectTypeFieldProperty:
+        def __init__(
+            self,
+            *,
+            source: builtins.str,
+            target: builtins.str,
+            content_type: typing.Optional[builtins.str] = None,
+            feature_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents a field in a DomainObjectType.
+
+            :param source: The source field name.
+            :param target: The target field name.
+            :param content_type: The content type of the field.
+            :param feature_type: The feature type of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domainobjecttype-domainobjecttypefield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                domain_object_type_field_property = customerprofiles.CfnDomainObjectType.DomainObjectTypeFieldProperty(
+                    source="source",
+                    target="target",
+                
+                    # the properties below are optional
+                    content_type="contentType",
+                    feature_type="featureType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6a005546138b6ceeed1929a00bd52607a244aa7a92ed54855ed8ebe65f3b1c21)
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+                check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument feature_type", value=feature_type, expected_type=type_hints["feature_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "source": source,
+                "target": target,
+            }
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if feature_type is not None:
+                self._values["feature_type"] = feature_type
+
+        @builtins.property
+        def source(self) -> builtins.str:
+            '''The source field name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domainobjecttype-domainobjecttypefield.html#cfn-customerprofiles-domainobjecttype-domainobjecttypefield-source
+            '''
+            result = self._values.get("source")
+            assert result is not None, "Required property 'source' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target(self) -> builtins.str:
+            '''The target field name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domainobjecttype-domainobjecttypefield.html#cfn-customerprofiles-domainobjecttype-domainobjecttypefield-target
+            '''
+            result = self._values.get("target")
+            assert result is not None, "Required property 'target' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''The content type of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domainobjecttype-domainobjecttypefield.html#cfn-customerprofiles-domainobjecttype-domainobjecttypefield-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def feature_type(self) -> typing.Optional[builtins.str]:
+            '''The feature type of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domainobjecttype-domainobjecttypefield.html#cfn-customerprofiles-domainobjecttype-domainobjecttypefield-featuretype
+            '''
+            result = self._values.get("feature_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainObjectTypeFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomainObjectTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "fields": "fields",
+        "object_type_name": "objectTypeName",
+        "description": "description",
+        "encryption_key": "encryptionKey",
+        "tags": "tags",
+    },
+)
+class CfnDomainObjectTypeProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        fields: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomainObjectType.DomainObjectTypeFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        object_type_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        encryption_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomainObjectType``.
+
+        :param domain_name: The unique name of the domain.
+        :param fields: A map of the name and ObjectType field.
+        :param object_type_name: The name of the domain object type.
+        :param description: Description of the domain object type.
+        :param encryption_key: The default encryption key.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_domain_object_type_props = customerprofiles.CfnDomainObjectTypeProps(
+                domain_name="domainName",
+                fields={
+                    "fields_key": customerprofiles.CfnDomainObjectType.DomainObjectTypeFieldProperty(
+                        source="source",
+                        target="target",
+            
+                        # the properties below are optional
+                        content_type="contentType",
+                        feature_type="featureType"
+                    )
+                },
+                object_type_name="objectTypeName",
+            
+                # the properties below are optional
+                description="description",
+                encryption_key="encryptionKey",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d90e163768154e0ba9deeec2e68c597ff9b2c30ef123e0385ae0532445d67513)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "fields": fields,
+            "object_type_name": object_type_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if encryption_key is not None:
+            self._values["encryption_key"] = encryption_key
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html#cfn-customerprofiles-domainobjecttype-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def fields(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomainObjectType.DomainObjectTypeFieldProperty"]]]:
+        '''A map of the name and ObjectType field.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html#cfn-customerprofiles-domainobjecttype-fields
+        '''
+        result = self._values.get("fields")
+        assert result is not None, "Required property 'fields' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDomainObjectType.DomainObjectTypeFieldProperty"]]], result)
+
+    @builtins.property
+    def object_type_name(self) -> builtins.str:
+        '''The name of the domain object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html#cfn-customerprofiles-domainobjecttype-objecttypename
+        '''
+        result = self._values.get("object_type_name")
+        assert result is not None, "Required property 'object_type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the domain object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html#cfn-customerprofiles-domainobjecttype-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The default encryption key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html#cfn-customerprofiles-domainobjecttype-encryptionkey
+        '''
+        result = self._values.get("encryption_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domainobjecttype.html#cfn-customerprofiles-domainobjecttype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainObjectTypeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -12134,6 +12647,8 @@ __all__ = [
     "CfnCalculatedAttributeDefinition",
     "CfnCalculatedAttributeDefinitionProps",
     "CfnDomain",
+    "CfnDomainObjectType",
+    "CfnDomainObjectTypeProps",
     "CfnDomainProps",
     "CfnEventStream",
     "CfnEventStreamProps",
@@ -12521,6 +13036,96 @@ def _typecheckingstub__67d29e593ac1f40be9594826daeee9e088ed90a7a1c973d30de0a10f4
     *,
     s3_bucket_name: builtins.str,
     s3_key_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dbeab20c3537512d33017ab24a78ba716bf478c38cf9dfa566177aecf32558f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_name: builtins.str,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainObjectType.DomainObjectTypeFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    object_type_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    encryption_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__233e55575fd40f78455f97db717ad5acc03220af0eff455ca612278c440c0363(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d69619ea9c3130094eb1b21983f210df9e7f63bef698f4a93f8566b734cdf75e(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40eb74b16cce0fb62ae0a58a3083d30c98e386eb57a272059bdb3b1c8819fb40(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db2f6b31f77510128bf8297a513857a5e319045fd652bb6f4f8b2b2d655f310c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06e40ed70ca2f8885619acfb4ab16e630bbca3108311a4abd62c5e979ccead1e(
+    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDomainObjectType.DomainObjectTypeFieldProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5c6f816f6cf49bb5fda08e9e8954fbb9e111dbb3c67a713f6d5e0d74abfd1d4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20842073551f582b5f0bf01d1c26ab1d6012d2d4ecef25f6ba247d25e62a1c6e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fb991cefc3fbf7f446b4958820045095dd1bf9795a5f6ff09e49c2b214f326c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59cd9578083eb4a97dee92d4ac8dd5c0ccbc2a23fbd2023af92e04c01def9700(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a005546138b6ceeed1929a00bd52607a244aa7a92ed54855ed8ebe65f3b1c21(
+    *,
+    source: builtins.str,
+    target: builtins.str,
+    content_type: typing.Optional[builtins.str] = None,
+    feature_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d90e163768154e0ba9deeec2e68c597ff9b2c30ef123e0385ae0532445d67513(
+    *,
+    domain_name: builtins.str,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainObjectType.DomainObjectTypeFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    object_type_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    encryption_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

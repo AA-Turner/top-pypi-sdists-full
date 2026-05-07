@@ -27,8 +27,8 @@ from .clients.capsule import (
     SaveSessionDataRequest,
     SessionServiceStub,
 )
-from .constants import DEFAULT_CHANNEL_TYPE, HISTORY_FETCH_COUNT, KV_COLLECTION
-from .db import Collection, CollectionRef, DatabaseProxy, ScopedDatabaseProxy, reset_active_identity, set_active_identity
+from .constants import DEFAULT_CHANNEL_TYPE, HISTORY_FETCH_COUNT, KV_COLLECTION, CollectionDecl
+from .db import Collection, CollectionManager, CollectionRef, DatabaseProxy, ScopedDatabaseProxy, reset_active_identity, set_active_identity
 from .msg import Message
 from .task_types import TaskDescriptor
 
@@ -135,20 +135,28 @@ def _subprocess_entry(
             result_conn.send(("error", f"task '{task_name}' not found on {target_name}"))
             return
 
+        collection_scopes: dict[str, str] = {}
+
         def _bind_collection_refs() -> None:
             if not data_stub:
                 return
             from .app import _REGISTERED_CLASSES
 
             db = DatabaseProxy(data_stub, data_app_id)
+            collection_scopes.clear()
             for reg in _REGISTERED_CLASSES:
+                for raw in reg.get("collections", []):
+                    decl = CollectionDecl.from_dict(raw) if isinstance(raw, dict) else raw
+                    collection_scopes[decl.name] = decl.scope
                 for ref in reg.get("collection_refs", []):
                     if isinstance(ref, CollectionRef):
                         ref._bound = getattr(db, ref.name)
             if isinstance(obj, App):
                 obj._kv = Collection(data_stub, data_app_id, KV_COLLECTION)
+                obj.collections = CollectionManager(data_stub, data_app_id, collection_scopes=collection_scopes)
             elif instance is not None:
                 setattr(instance, "db", db)
+                setattr(instance, "collections", CollectionManager(data_stub, data_app_id, collection_scopes=collection_scopes))
 
         _bind_collection_refs()
 
@@ -165,7 +173,16 @@ def _subprocess_entry(
                     user_id=session.user.id,
                     owner_id=session.user.owner_id,
                     session_id=session.id,
-                    collection_scopes={},
+                    collection_scopes=collection_scopes,
+                )
+                session._collections_proxy = CollectionManager(
+                    data_stub,
+                    data_app_id,
+                    default_scope="session",
+                    user_id=session.user.id,
+                    owner_id=session.user.owner_id,
+                    session_id=session.id,
+                    collection_scopes=collection_scopes,
                 )
             return session
 

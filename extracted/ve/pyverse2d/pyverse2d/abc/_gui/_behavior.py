@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect
+from ..._internal import profile_section
 from ._tween import Tween
 
 from abc import ABC, abstractmethod
@@ -143,6 +143,7 @@ class Behavior(ABC):
     @abstractmethod
     def _update(self, dt: float) -> None: ...
 
+    @profile_section("ui.behavior.update")
     def update(self, dt: float) -> None:
         """Actualisation
         

@@ -139,6 +139,20 @@ This construct library facilitates the deployment of Bedrock AgentCore primitive
     * [Type-Safe Policy Builder](#type-safe-policy-builder)
     * [PolicyEngine with KMS Encryption](#policyengine-with-kms-encryption)
     * [Policy Validation Modes](#policy-validation-modes)
+  * [Online Evaluation](#online-evaluation)
+
+    * [Online Evaluation Properties](#online-evaluation-properties)
+    * [Basic Online Evaluation Creation](#basic-online-evaluation-creation)
+    * [Built-in Evaluators](#built-in-evaluators)
+    * [Custom Evaluators](#custom-evaluators)
+
+      * [LLM-as-a-Judge Evaluator](#llm-as-a-judge-evaluator)
+      * [Code-Based Evaluator](#code-based-evaluator)
+      * [Using Custom Evaluators with Online Evaluation](#using-custom-evaluators-with-online-evaluation)
+    * [Data Source Configuration](#data-source-configuration)
+    * [Sampling and Filtering](#sampling-and-filtering)
+    * [Online Evaluation with Custom Execution Role](#online-evaluation-with-custom-execution-role)
+    * [Online Evaluation IAM Permissions](#online-evaluation-iam-permissions)
 
 ## AgentCore Runtime
 
@@ -2537,6 +2551,8 @@ memory.add_memory_strategy(agentcore.MemoryStrategy.using_built_in_semantic())
 
 A policy engine is a collection of policies that evaluates and authorizes agent tool calls. When associated with a gateway, the policy engine intercepts all agent requests and determines whether to allow or deny each action based on the defined policies.
 
+For more information, see the [Policy in Amazon Bedrock AgentCore documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/policy.html).
+
 ### PolicyEngine Properties
 
 | Name | Type | Required | Description |
@@ -2582,6 +2598,13 @@ permit(
 
 Create a policy engine and add policies to it.
 
+#### Policy Engine Mode
+
+When associating a policy engine with a gateway, you can control the enforcement behavior using `PolicyEngineMode`:
+
+* `PolicyEngineMode.LOG_ONLY` (default) — evaluates actions and adds traces but does not enforce decisions. Use this mode for testing and validation before enabling enforcement.
+* `PolicyEngineMode.ENFORCE` — actively allows or denies agent operations based on Cedar policy evaluation.
+
 ```python
 # Create a Policy engine
 policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
@@ -2592,7 +2615,8 @@ policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
 gateway = agentcore.Gateway(self, "MyGateway",
     gateway_name="my-gateway",
     policy_engine_configuration=agentcore.GatewayPolicyEngineConfig(
-        policy_engine=policy_engine
+        policy_engine=policy_engine,
+        mode=agentcore.PolicyEngineMode.ENFORCE
     )
 )
 
@@ -2677,6 +2701,40 @@ conditional_policy = agentcore.Policy(self, "ConditionalPolicy",
     policy_name="conditional_access",
     statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser").on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn).when().principal_attribute("department").equal_to("Engineering").and().context_attribute("input.priority").equal_to("high").done(),
     description="Allow engineers for high-priority requests",
+    validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+)
+```
+
+#### Policy with Exclusions (unless)
+
+Use `unless` clauses to exclude specific conditions from a policy. The policy applies when the `unless` conditions are NOT met:
+
+```python
+# policy_engine: agentcore.PolicyEngine
+# gateway: agentcore.Gateway
+
+
+# Allow access unless the user is suspended
+policy_with_unless = agentcore.Policy(self, "UnlessPolicy",
+    policy_engine=policy_engine,
+    policy_name="unless_suspended",
+    statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser").on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn).unless().principal_attribute("suspended").equal_to(True).done(),
+    description="Allow all actions unless user is suspended",
+    validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+)
+```
+
+You can combine `when` and `unless` clauses in the same policy:
+
+```python
+# policy_engine: agentcore.PolicyEngine
+# gateway: agentcore.Gateway
+
+
+# Allow engineers unless they are on probation
+policy_engine.add_policy("CombinedConditions",
+    statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser").on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn).when().principal_attribute("department").equal_to("Engineering").done().unless().principal_attribute("status").equal_to("probation").done(),
+    description="Allow engineers unless on probation",
     validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
 )
 ```
@@ -2802,6 +2860,336 @@ policy_engine.grant_read(lambda_role)
 
 # Grant evaluation permissions
 policy_engine.grant_evaluate(lambda_role)
+```
+
+## Online Evaluation
+
+The Online Evaluation construct enables continuous monitoring and assessment of your agent's performance using live traffic. It automatically samples agent traces from CloudWatch Logs or Agent Endpoints and applies built-in evaluators to assess quality metrics like helpfulness, correctness, and safety.
+
+### Online Evaluation Properties
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `onlineEvaluationConfigName` | `string` | Yes | The name of the online evaluation configuration. Must start with a letter and can contain a-z, A-Z, 0-9, _ (underscore). Maximum 48 characters |
+| `evaluators` | `EvaluatorReference[]` | Yes | The list of built-in evaluators to apply during evaluation. Minimum 1, maximum 10 |
+| `dataSource` | `DataSourceConfig` | Yes | The data source configuration specifying where to read agent traces from |
+| `executionRole` | `iam.IRole` | No | The IAM role for evaluation. If not provided, a role will be created automatically |
+| `description` | `string` | No | Description of the evaluation configuration. Maximum 200 characters |
+| `samplingPercentage` | `number` | No | Percentage of traces to sample (0.01-100). Default: 10 |
+| `filters` | `FilterConfig[]` | No | Filters to determine which traces to evaluate. Use `FilterValue.string()`, `FilterValue.number()`, or `FilterValue.boolean()` for typed filter values. Maximum 5 |
+| `sessionTimeout` | `Duration` | No | Duration of inactivity before a session is considered complete (1-1440 minutes). Default: `Duration.minutes(15)` |
+| `tags` | `{ [key: string]: string }` | No | Tags for the evaluation configuration |
+
+### Basic Online Evaluation Creation
+
+Create an online evaluation configuration with built-in evaluators:
+
+```python
+evaluation = agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+    online_evaluation_config_name="my_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+        log_group_names=["/aws/bedrock-agentcore/my-agent"],
+        service_names=["my-agent.default"]
+    )
+)
+```
+
+### Built-in Evaluators
+
+Amazon Bedrock AgentCore provides 13 built-in evaluators that assess different aspects of agent performance:
+
+**Session-Level Evaluators:**
+
+* `GOAL_SUCCESS_RATE` - Evaluates whether the conversation successfully meets the user's goals
+
+**Trace-Level Evaluators:**
+
+* `HELPFULNESS` - How useful and valuable the agent's response is
+* `CORRECTNESS` - Whether the information is factually accurate
+* `FAITHFULNESS` - Whether the response is faithful to the provided context
+* `HARMFULNESS` - Whether the response contains harmful content
+* `STEREOTYPING` - Detects content that makes generalizations about individuals or groups
+* `REFUSAL` - Whether the agent appropriately refuses harmful requests
+* `COHERENCE` - Whether the response is logically coherent
+* `RESPONSE_RELEVANCE` - Whether the response appropriately addresses the user's query
+* `CONCISENESS` - Whether the response is appropriately concise
+* `INSTRUCTION_FOLLOWING` - How well the agent follows system instructions
+
+**Tool Call-Level Evaluators:**
+
+* `TOOL_SELECTION_ACCURACY` - Whether the agent selected the appropriate tool
+* `TOOL_PARAMETER_ACCURACY` - How accurately the agent extracts parameters from user queries
+
+```python
+evaluation = agentcore.OnlineEvaluationConfig(self, "ComprehensiveEval",
+    online_evaluation_config_name="comprehensive_evaluation",
+    evaluators=[
+        # Session level
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.GOAL_SUCCESS_RATE),
+        # Trace level - quality
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS),
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.COHERENCE),
+        # Trace level - safety
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HARMFULNESS),
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.STEREOTYPING),
+        # Tool call level
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.TOOL_SELECTION_ACCURACY)
+    ],
+    data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+        log_group_names=["/aws/bedrock-agentcore/my-agent"],
+        service_names=["my-agent.default"]
+    )
+)
+```
+
+### Custom Evaluators
+
+Custom evaluators let you define evaluation logic tailored to your specific use cases. You can create custom evaluators using two strategies:
+
+* **LLM-as-a-Judge**: Uses a foundation model with custom instructions and a rating scale to assess agent performance.
+* **Code-based**: Uses a Lambda function for custom evaluation logic.
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `evaluatorName` | `string` | Yes | Name of the evaluator. Must start with a letter, a-z, A-Z, 0-9, _ only. Maximum 48 characters |
+| `evaluatorConfig` | `EvaluatorConfig` | Yes | Configuration defining how the evaluator assesses performance |
+| `level` | `EvaluationLevel` | Yes | The level at which the evaluator operates: `TOOL_CALL`, `TRACE`, or `SESSION` |
+| `description` | `string` | No | Description of the evaluator. Maximum 200 characters |
+
+#### LLM-as-a-Judge Evaluator
+
+Create a custom evaluator that uses a foundation model to assess agent performance:
+
+```python
+# LLM-as-a-Judge with categorical rating scale
+categorical_evaluator = agentcore.Evaluator(self, "CategoricalEvaluator",
+    evaluator_name="domain_accuracy_evaluator",
+    level=agentcore.EvaluationLevel.SESSION,
+    description="Evaluates domain-specific accuracy of agent responses",
+    evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+        instructions="Evaluate whether the agent response is accurate within the healthcare domain.",
+        model_id="us.anthropic.claude-sonnet-4-6",
+        rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Accurate", definition="The response contains factually correct healthcare information.", label="Inaccurate", definition="The response contains incorrect or misleading healthcare information."
+        ])
+    )
+)
+
+# LLM-as-a-Judge with numerical rating scale and inference config
+numerical_evaluator = agentcore.Evaluator(self, "NumericalEvaluator",
+    evaluator_name="response_quality_evaluator",
+    level=agentcore.EvaluationLevel.TRACE,
+    evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+        instructions="Rate the overall quality of the agent response on a scale of 1 to 5.",
+        model_id="us.anthropic.claude-sonnet-4-6",
+        rating_scale=agentcore.EvaluatorRatingScale.numerical([label="Poor", definition="Inadequate response.", value=1, label="Below Average", definition="Partially addresses the query.", value=2, label="Average", definition="Adequately addresses the query.", value=3, label="Good", definition="Well-structured and accurate response.", value=4, label="Excellent", definition="Outstanding response exceeding expectations.", value=5
+        ]),
+        inference_config=agentcore.EvaluatorInferenceConfig(
+            max_tokens=1024,
+            temperature=0.1
+        )
+    )
+)
+```
+
+The `modelId` accepts standard Bedrock model IDs and cross-region inference profile IDs with region prefixes (e.g., `us.`, `eu.`, `global.`).
+
+> **Instructions placeholders:** Instructions must contain placeholders appropriate for the evaluation level (e.g., `{context}`, `{available_tools}` for SESSION level). Evaluators using reference-input placeholders (e.g., `{expected_tool_trajectory}`, `{assertions}`) are only compatible with on-demand evaluation, not online evaluation. See the [custom evaluators documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/custom-evaluators.html) for allowed placeholders per level.
+
+#### Code-Based Evaluator
+
+Create a custom evaluator that uses a Lambda function for evaluation logic:
+
+```python
+# eval_function: lambda.IFunction
+
+
+code_evaluator = agentcore.Evaluator(self, "CodeEvaluator",
+    evaluator_name="custom_code_evaluator",
+    level=agentcore.EvaluationLevel.TOOL_CALL,
+    description="Evaluates tool call accuracy using custom logic",
+    evaluator_config=agentcore.EvaluatorConfig.code_based(
+        lambda_function=eval_function,
+        timeout=cdk.Duration.seconds(30)
+    )
+)
+```
+
+For code-based evaluators, the construct automatically grants the `bedrock-agentcore.amazonaws.com` service principal permission to invoke the Lambda function, scoped to the specific evaluator resource with `aws:SourceAccount` and `aws:SourceArn` conditions for confused deputy prevention.
+
+#### Using Custom Evaluators with Online Evaluation
+
+Custom evaluators are used in `OnlineEvaluationConfig` via `EvaluatorReference.custom()`, alongside built-in evaluators:
+
+```python
+# custom_evaluator: agentcore.Evaluator
+
+
+evaluation = agentcore.OnlineEvaluationConfig(self, "MixedEvaluation",
+    online_evaluation_config_name="mixed_evaluation",
+    evaluators=[
+        # Built-in evaluators
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS),
+        # Custom evaluator
+        agentcore.EvaluatorReference.custom(custom_evaluator)
+    ],
+    data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+        log_group_names=["/aws/bedrock-agentcore/my-agent"],
+        service_names=["my-agent.default"]
+    )
+)
+```
+
+### Data Source Configuration
+
+Online evaluation supports two types of data sources:
+
+**AgentCore Runtime Data Source (Recommended):**
+
+For runtimes created within your CDK app, use `fromAgentRuntimeEndpoint()` which automatically derives the CloudWatch log group and service name:
+
+```python
+repository = ecr.Repository(self, "TestRepository",
+    repository_name="test-agent-runtime"
+)
+
+runtime = agentcore.Runtime(self, "MyRuntime",
+    runtime_name="my_agent",
+    agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+)
+
+# Using default endpoint (simplest)
+evaluation = agentcore.OnlineEvaluationConfig(self, "RuntimeEval",
+    online_evaluation_config_name="runtime_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime)
+)
+```
+
+You can also specify a specific endpoint:
+
+```python
+# runtime: agentcore.Runtime
+
+
+# Using a specific endpoint construct
+prod_endpoint = runtime.add_endpoint("PROD")
+evaluation = agentcore.OnlineEvaluationConfig(self, "ProdEval",
+    online_evaluation_config_name="prod_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime, prod_endpoint)
+)
+
+# Or using endpoint name as string
+staging_eval = agentcore.OnlineEvaluationConfig(self, "StagingEval",
+    online_evaluation_config_name="staging_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_agent_runtime_endpoint_name(runtime, "STAGING")
+)
+```
+
+**CloudWatch Logs Data Source:**
+
+For external agents or when you need to specify log groups directly:
+
+```python
+evaluation = agentcore.OnlineEvaluationConfig(self, "CloudWatchEval",
+    online_evaluation_config_name="cloudwatch_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+        log_group_names=["/aws/bedrock-agentcore/agent1", "/aws/bedrock-agentcore/agent2"
+        ],
+        service_names=["agent1.default"]
+    )
+)
+```
+
+### Sampling and Filtering
+
+Configure sampling percentage and filters to control which traces are evaluated:
+
+```python
+evaluation = agentcore.OnlineEvaluationConfig(self, "FilteredEval",
+    online_evaluation_config_name="filtered_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+        log_group_names=["/aws/bedrock-agentcore/my-agent"],
+        service_names=["my-agent.default"]
+    ),
+    # Sample 25% of traces
+    sampling_percentage=25,
+    # Only evaluate traces matching these filters
+    filters=[agentcore.FilterConfig(
+        key="user.region",
+        operator=agentcore.FilterOperator.EQUAL,
+        value=agentcore.FilterValue.string("us-east-1")
+    ), agentcore.FilterConfig(
+        key="session.duration",
+        operator=agentcore.FilterOperator.GREATER_THAN,
+        value=agentcore.FilterValue.number(60)
+    )
+    ],
+    # Consider sessions complete after 30 minutes of inactivity
+    session_timeout=cdk.Duration.minutes(30)
+)
+```
+
+### Online Evaluation with Custom Execution Role
+
+Provide a custom IAM role for the evaluation execution:
+
+```python
+execution_role = iam.Role(self, "EvaluationRole",
+    assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+    description="Custom role for online evaluation"
+)
+
+# Add required permissions
+execution_role.add_to_policy(iam.PolicyStatement(
+    actions=["logs:DescribeLogGroups", "logs:GetQueryResults", "logs:StartQuery"
+    ],
+    resources=["arn:aws:logs:*:*:log-group:/aws/bedrock-agentcore/*"]
+))
+
+evaluation = agentcore.OnlineEvaluationConfig(self, "CustomRoleEval",
+    online_evaluation_config_name="custom_role_evaluation",
+    evaluators=[
+        agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+    ],
+    data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+        log_group_names=["/aws/bedrock-agentcore/my-agent"],
+        service_names=["my-agent.default"]
+    ),
+    execution_role=execution_role
+)
+```
+
+### Online Evaluation IAM Permissions
+
+Grant IAM permissions to manage or read evaluation configurations:
+
+```python
+# evaluation: agentcore.OnlineEvaluationConfig
+# role: iam.IRole
+
+
+# Grant specific permissions
+evaluation.grant(role, "bedrock-agentcore:GetOnlineEvaluationConfig", "bedrock-agentcore:UpdateOnlineEvaluationConfig")
 ```
 '''
 from pkgutil import extend_path
@@ -6038,6 +6426,336 @@ class BrowserSigning(enum.Enum):
     '''
 
 
+class BuiltinEvaluator(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.BuiltinEvaluator",
+):
+    '''(experimental) Built-in evaluators provided by Amazon Bedrock AgentCore.
+
+    These evaluators assess different aspects of agent performance
+    at various levels (session, trace, or tool call).
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # custom_evaluator: agentcore.Evaluator
+        
+        
+        evaluation = agentcore.OnlineEvaluationConfig(self, "MixedEvaluation",
+            online_evaluation_config_name="mixed_evaluation",
+            evaluators=[
+                # Built-in evaluators
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS),
+                # Custom evaluator
+                agentcore.EvaluatorReference.custom(custom_evaluator)
+            ],
+            data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                service_names=["my-agent.default"]
+            )
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: - The evaluator identifier string.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c64b518622eda3e8cf35b8bde183d3444b690bdbbf5cd62f6d41aa8f1c26bcf0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERENCE")
+    def COHERENCE(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the response is logically structured and coherent.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "COHERENCE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONCISENESS")
+    def CONCISENESS(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the response is appropriately brief without missing key information.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "CONCISENESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CORRECTNESS")
+    def CORRECTNESS(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the information in the agent's response is factually accurate.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "CORRECTNESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FAITHFULNESS")
+    def FAITHFULNESS(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether information in the response is supported by provided context/sources.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "FAITHFULNESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GOAL_SUCCESS_RATE")
+    def GOAL_SUCCESS_RATE(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the conversation successfully meets the user's goals.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "GOAL_SUCCESS_RATE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="HARMFULNESS")
+    def HARMFULNESS(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the response contains harmful content.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "HARMFULNESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="HELPFULNESS")
+    def HELPFULNESS(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates from user's perspective how useful and valuable the agent's response is.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "HELPFULNESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="INSTRUCTION_FOLLOWING")
+    def INSTRUCTION_FOLLOWING(cls) -> "BuiltinEvaluator":
+        '''(experimental) Measures how well the agent follows the provided system instructions.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "INSTRUCTION_FOLLOWING"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="REFUSAL")
+    def REFUSAL(cls) -> "BuiltinEvaluator":
+        '''(experimental) Detects when agent evades questions or directly refuses to answer.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "REFUSAL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="RESPONSE_RELEVANCE")
+    def RESPONSE_RELEVANCE(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the response appropriately addresses the user's query.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "RESPONSE_RELEVANCE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STEREOTYPING")
+    def STEREOTYPING(cls) -> "BuiltinEvaluator":
+        '''(experimental) Detects content that makes generalizations about individuals or groups.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "STEREOTYPING"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TOOL_PARAMETER_ACCURACY")
+    def TOOL_PARAMETER_ACCURACY(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates how accurately the agent extracts parameters from user queries.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "TOOL_PARAMETER_ACCURACY"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TOOL_SELECTION_ACCURACY")
+    def TOOL_SELECTION_ACCURACY(cls) -> "BuiltinEvaluator":
+        '''(experimental) Evaluates whether the agent selected the appropriate tool for the task.
+
+        :stability: experimental
+        '''
+        return typing.cast("BuiltinEvaluator", jsii.sget(cls, "TOOL_SELECTION_ACCURACY"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the built-in evaluator.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.CategoricalRatingOption",
+    jsii_struct_bases=[],
+    name_mapping={"definition": "definition", "label": "label"},
+)
+class CategoricalRatingOption:
+    def __init__(self, *, definition: builtins.str, label: builtins.str) -> None:
+        '''(experimental) A categorical rating scale option for custom evaluators.
+
+        Categorical scales define discrete labels for scoring agent performance.
+
+        :param definition: (experimental) The description that explains what this rating represents.
+        :param label: (experimental) The label for this rating option.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            categorical_rating_option = bedrock_agentcore_alpha.CategoricalRatingOption(
+                definition="definition",
+                label="label"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bfec67267f97e218d64e56bdc39a1dc92173127a8c358b3ece8653eaa554c81)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "definition": definition,
+            "label": label,
+        }
+
+    @builtins.property
+    def definition(self) -> builtins.str:
+        '''(experimental) The description that explains what this rating represents.
+
+        :stability: experimental
+
+        Example::
+
+            "The response fully addresses the user query with accurate information."
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def label(self) -> builtins.str:
+        '''(experimental) The label for this rating option.
+
+        :stability: experimental
+
+        Example::
+
+            "Good"
+        '''
+        result = self._values.get("label")
+        assert result is not None, "Required property 'label' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CategoricalRatingOption(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.CloudWatchLogsDataSourceConfig",
+    jsii_struct_bases=[],
+    name_mapping={"log_group_names": "logGroupNames", "service_names": "serviceNames"},
+)
+class CloudWatchLogsDataSourceConfig:
+    def __init__(
+        self,
+        *,
+        log_group_names: typing.Sequence[builtins.str],
+        service_names: typing.Sequence[builtins.str],
+    ) -> None:
+        '''(experimental) Configuration for CloudWatch Logs data source.
+
+        :param log_group_names: (experimental) The list of CloudWatch log group names to monitor for agent traces.
+        :param service_names: (experimental) The list of service names to filter traces within the specified log groups. Used to identify relevant agent sessions. For agents hosted on AgentCore Runtime, service name follows the format: ``<agent-runtime-name>.<agent-runtime-endpoint-name>``
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            evaluation = agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+                online_evaluation_config_name="my_evaluation",
+                evaluators=[
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS)
+                ],
+                data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                    log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                    service_names=["my-agent.default"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7281b8b8211a54151ede624dc20bdd0ab27f35fa8aba5638a4da0fb4569416f9)
+            check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
+            check_type(argname="argument service_names", value=service_names, expected_type=type_hints["service_names"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "log_group_names": log_group_names,
+            "service_names": service_names,
+        }
+
+    @builtins.property
+    def log_group_names(self) -> typing.List[builtins.str]:
+        '''(experimental) The list of CloudWatch log group names to monitor for agent traces.
+
+        :stability: experimental
+        :maximum: 5
+        :minimum: 1
+        '''
+        result = self._values.get("log_group_names")
+        assert result is not None, "Required property 'log_group_names' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def service_names(self) -> typing.List[builtins.str]:
+        '''(experimental) The list of service names to filter traces within the specified log groups. Used to identify relevant agent sessions.
+
+        For agents hosted on AgentCore Runtime, service name follows the format:
+        ``<agent-runtime-name>.<agent-runtime-endpoint-name>``
+
+        :stability: experimental
+        :maximum: 1
+        :minimum: 1
+        '''
+        result = self._values.get("service_names")
+        assert result is not None, "Required property 'service_names' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudWatchLogsDataSourceConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.CodeAssetOptions",
     jsii_struct_bases=[_aws_cdk_aws_s3_assets_ceddda9d.AssetOptions],
@@ -6337,6 +7055,94 @@ class CodeAssetOptions(_aws_cdk_aws_s3_assets_ceddda9d.AssetOptions):
 
     def __repr__(self) -> str:
         return "CodeAssetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.CodeBasedOptions",
+    jsii_struct_bases=[],
+    name_mapping={"lambda_function": "lambdaFunction", "timeout": "timeout"},
+)
+class CodeBasedOptions:
+    def __init__(
+        self,
+        *,
+        lambda_function: "_aws_cdk_aws_lambda_ceddda9d.IFunction",
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''(experimental) Options for configuring a code-based custom evaluator using a Lambda function.
+
+        Uses a Lambda function to implement custom evaluation logic.
+
+        :param lambda_function: (experimental) The Lambda function used for evaluation. The function will be granted invoke permissions for the ``bedrock-agentcore.amazonaws.com`` service principal, scoped to this specific evaluator resource.
+        :param timeout: (experimental) The timeout for the Lambda function invocation during evaluation. When not specified, the AgentCore evaluation service uses its default timeout for Lambda-based evaluators. Default: - The AgentCore evaluation service's default Lambda timeout is used
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # eval_function: lambda.IFunction
+            
+            
+            code_evaluator = agentcore.Evaluator(self, "CodeEvaluator",
+                evaluator_name="custom_code_evaluator",
+                level=agentcore.EvaluationLevel.TOOL_CALL,
+                description="Evaluates tool call accuracy using custom logic",
+                evaluator_config=agentcore.EvaluatorConfig.code_based(
+                    lambda_function=eval_function,
+                    timeout=cdk.Duration.seconds(30)
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de86e3616d4ebbaef310a5c799e42b7efed10a0305a5642f119c360affd3f732)
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lambda_function": lambda_function,
+        }
+        if timeout is not None:
+            self._values["timeout"] = timeout
+
+    @builtins.property
+    def lambda_function(self) -> "_aws_cdk_aws_lambda_ceddda9d.IFunction":
+        '''(experimental) The Lambda function used for evaluation.
+
+        The function will be granted invoke permissions for the
+        ``bedrock-agentcore.amazonaws.com`` service principal, scoped
+        to this specific evaluator resource.
+
+        :stability: experimental
+        '''
+        result = self._values.get("lambda_function")
+        assert result is not None, "Required property 'lambda_function' is missing"
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.IFunction", result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) The timeout for the Lambda function invocation during evaluation.
+
+        When not specified, the AgentCore evaluation service uses its default
+        timeout for Lambda-based evaluators.
+
+        :default: - The AgentCore evaluation service's default Lambda timeout is used
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/custom-evaluators.html
+        :stability: experimental
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CodeBasedOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7401,6 +8207,206 @@ class CustomJwtConfiguration:
         )
 
 
+class DataSourceConfig(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.DataSourceConfig",
+):
+    '''(experimental) Configuration for the data source used in online evaluation.
+
+    Use the static factory methods to create data source configurations:
+
+    - ``DataSourceConfig.fromAgentRuntimeEndpoint()`` for AgentCore Runtime (recommended)
+    - ``DataSourceConfig.fromAgentRuntimeEndpointName()`` for AgentCore Runtime using endpoint name string
+    - ``DataSourceConfig.fromCloudWatchLogs()`` for external agents or custom log groups
+
+    :stability: experimental
+
+    Example::
+
+        # CloudWatch Logs data source (for external agents)
+        data_source = agentcore.DataSourceConfig.from_cloud_watch_logs(
+            log_group_names=["/aws/my-external-agent/logs"],
+            service_names=["my-external-agent"]
+        )
+    '''
+
+    @jsii.member(jsii_name="fromAgentRuntimeEndpoint")
+    @builtins.classmethod
+    def from_agent_runtime_endpoint(
+        cls,
+        runtime: "IBedrockAgentRuntime",
+        endpoint: typing.Optional["IRuntimeEndpoint"] = None,
+    ) -> "DataSourceConfig":
+        '''(experimental) Creates a data source configuration from an AgentCore Runtime and optional endpoint.
+
+        This is the recommended way to configure evaluation for AgentCore Runtime agents.
+        It automatically derives the CloudWatch log group and service name from the runtime and endpoint.
+
+        :param runtime: - The AgentCore Runtime construct.
+        :param endpoint: - The RuntimeEndpoint construct. Defaults to 'DEFAULT' endpoint if not provided.
+
+        :return: A DataSourceConfig instance
+
+        :stability: experimental
+
+        Example::
+
+            # Using a specific endpoint
+            # runtime: agentcore.Runtime
+            
+            endpoint = runtime.add_endpoint("PROD")
+            data_source = agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime, endpoint)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__608028d7dda6525dcefc34b2a31873df052121e11ff38a61f2d2bebf9e4fee25)
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+        return typing.cast("DataSourceConfig", jsii.sinvoke(cls, "fromAgentRuntimeEndpoint", [runtime, endpoint]))
+
+    @jsii.member(jsii_name="fromAgentRuntimeEndpointName")
+    @builtins.classmethod
+    def from_agent_runtime_endpoint_name(
+        cls,
+        runtime: "IBedrockAgentRuntime",
+        endpoint_name: builtins.str,
+    ) -> "DataSourceConfig":
+        '''(experimental) Creates a data source configuration from an AgentCore Runtime and an endpoint name string.
+
+        Use this method when you want to reference an endpoint by name without
+        having a construct reference. For construct references, prefer ``fromAgentRuntimeEndpoint()``.
+
+        :param runtime: - The AgentCore Runtime construct.
+        :param endpoint_name: - The name of the runtime endpoint.
+
+        :return: A DataSourceConfig instance
+
+        :stability: experimental
+
+        Example::
+
+            # runtime: agentcore.Runtime
+            
+            data_source = agentcore.DataSourceConfig.from_agent_runtime_endpoint_name(runtime, "PROD")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc8b295781d2efb2a3d28ac0a899ab0d567bff2e9eed1f3737ef80a789caa757)
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+        return typing.cast("DataSourceConfig", jsii.sinvoke(cls, "fromAgentRuntimeEndpointName", [runtime, endpoint_name]))
+
+    @jsii.member(jsii_name="fromCloudWatchLogs")
+    @builtins.classmethod
+    def from_cloud_watch_logs(
+        cls,
+        *,
+        log_group_names: typing.Sequence[builtins.str],
+        service_names: typing.Sequence[builtins.str],
+    ) -> "DataSourceConfig":
+        '''(experimental) Creates a CloudWatch Logs data source configuration.
+
+        Use this when your agent traces are stored in CloudWatch Logs,
+        such as for external agents or when you need to specify log groups directly.
+
+        :param log_group_names: (experimental) The list of CloudWatch log group names to monitor for agent traces.
+        :param service_names: (experimental) The list of service names to filter traces within the specified log groups. Used to identify relevant agent sessions. For agents hosted on AgentCore Runtime, service name follows the format: ``<agent-runtime-name>.<agent-runtime-endpoint-name>``
+
+        :return: A DataSourceConfig instance
+
+        :stability: experimental
+
+        Example::
+
+            data_source = agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/runtimes/myRuntime-abc123-DEFAULT"],
+                service_names=["myRuntime.DEFAULT"]
+            )
+        '''
+        config = CloudWatchLogsDataSourceConfig(
+            log_group_names=log_group_names, service_names=service_names
+        )
+
+        return typing.cast("DataSourceConfig", jsii.sinvoke(cls, "fromCloudWatchLogs", [config]))
+
+    @jsii.member(jsii_name="bind")
+    def bind(self) -> "DataSourceConfigBindResult":
+        '''(experimental) Binds the data source configuration to produce the L1 property.
+
+        :stability: experimental
+        '''
+        return typing.cast("DataSourceConfigBindResult", jsii.invoke(self, "bind", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudWatchLogsConfig")
+    def cloud_watch_logs_config(self) -> "CloudWatchLogsDataSourceConfig":
+        '''(experimental) The CloudWatch Logs configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast("CloudWatchLogsDataSourceConfig", jsii.get(self, "cloudWatchLogsConfig"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.DataSourceConfigBindResult",
+    jsii_struct_bases=[],
+    name_mapping={"cloud_watch_logs": "cloudWatchLogs"},
+)
+class DataSourceConfigBindResult:
+    def __init__(
+        self,
+        *,
+        cloud_watch_logs: typing.Union["CloudWatchLogsDataSourceConfig", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) The result of binding a DataSourceConfig.
+
+        :param cloud_watch_logs: (experimental) The CloudWatch Logs data source configuration.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            data_source_config_bind_result = bedrock_agentcore_alpha.DataSourceConfigBindResult(
+                cloud_watch_logs=bedrock_agentcore_alpha.CloudWatchLogsDataSourceConfig(
+                    log_group_names=["logGroupNames"],
+                    service_names=["serviceNames"]
+                )
+            )
+        '''
+        if isinstance(cloud_watch_logs, dict):
+            cloud_watch_logs = CloudWatchLogsDataSourceConfig(**cloud_watch_logs)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bc028b9d5f3d45c85126f37b3ddf24ae952303050ae9b7c6da6e9e2684128a7)
+            check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_watch_logs": cloud_watch_logs,
+        }
+
+    @builtins.property
+    def cloud_watch_logs(self) -> "CloudWatchLogsDataSourceConfig":
+        '''(experimental) The CloudWatch Logs data source configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("cloud_watch_logs")
+        assert result is not None, "Required property 'cloud_watch_logs' is missing"
+        return typing.cast("CloudWatchLogsDataSourceConfig", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataSourceConfigBindResult(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EpisodicReflectionConfiguration",
     jsii_struct_bases=[],
@@ -7468,6 +8474,1120 @@ class EpisodicReflectionConfiguration:
         return "EpisodicReflectionConfiguration(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class EvaluationLevel(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluationLevel",
+):
+    '''(experimental) The level at which a custom evaluator assesses agent performance.
+
+    Determines what granularity of data the evaluator operates on.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # Create a custom LLM-as-a-Judge evaluator
+        evaluator = agentcore.Evaluator(self, "MyEvaluator",
+            evaluator_name="my_custom_evaluator",
+            level=agentcore.EvaluationLevel.SESSION,
+            evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+                instructions="Evaluate whether the agent response is helpful and accurate.",
+                model_id="us.anthropic.claude-sonnet-4-6",
+                rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Good", definition="The response is helpful and accurate.", label="Bad", definition="The response is not helpful or contains errors."
+                ])
+            )
+        )
+        
+        # Use the custom evaluator in an online evaluation configuration
+        agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+            online_evaluation_config_name="my_evaluation",
+            evaluators=[
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                agentcore.EvaluatorReference.custom(evaluator)
+            ],
+            data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                service_names=["my-agent.default"]
+            )
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: - The evaluation level string.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90fe49e13ace26ccf215e2abdcf87060584ac1b771cd036596197ec539b8d469)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SESSION")
+    def SESSION(cls) -> "EvaluationLevel":
+        '''(experimental) Evaluates an entire agent session (multiple traces across a conversation).
+
+        :stability: experimental
+        '''
+        return typing.cast("EvaluationLevel", jsii.sget(cls, "SESSION"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TOOL_CALL")
+    def TOOL_CALL(cls) -> "EvaluationLevel":
+        '''(experimental) Evaluates individual tool call invocations within a trace.
+
+        :stability: experimental
+        '''
+        return typing.cast("EvaluationLevel", jsii.sget(cls, "TOOL_CALL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TRACE")
+    def TRACE(cls) -> "EvaluationLevel":
+        '''(experimental) Evaluates a complete agent trace (a single request-response cycle).
+
+        :stability: experimental
+        '''
+        return typing.cast("EvaluationLevel", jsii.sget(cls, "TRACE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the evaluation level.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "evaluator_arn": "evaluatorArn",
+        "evaluator_id": "evaluatorId",
+        "evaluator_name": "evaluatorName",
+    },
+)
+class EvaluatorAttributes:
+    def __init__(
+        self,
+        *,
+        evaluator_arn: builtins.str,
+        evaluator_id: builtins.str,
+        evaluator_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for importing an existing Evaluator.
+
+        :param evaluator_arn: (experimental) The ARN of the evaluator.
+        :param evaluator_id: (experimental) The ID of the evaluator.
+        :param evaluator_name: (experimental) The name of the evaluator. Default: - No name available
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            evaluator_attributes = bedrock_agentcore_alpha.EvaluatorAttributes(
+                evaluator_arn="evaluatorArn",
+                evaluator_id="evaluatorId",
+            
+                # the properties below are optional
+                evaluator_name="evaluatorName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__017671bd4962adee0ccb4f525b93f2d75bcdc92c860fd211435161c16a85e6e8)
+            check_type(argname="argument evaluator_arn", value=evaluator_arn, expected_type=type_hints["evaluator_arn"])
+            check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
+            check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluator_arn": evaluator_arn,
+            "evaluator_id": evaluator_id,
+        }
+        if evaluator_name is not None:
+            self._values["evaluator_name"] = evaluator_name
+
+    @builtins.property
+    def evaluator_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the evaluator.
+
+        :stability: experimental
+        '''
+        result = self._values.get("evaluator_arn")
+        assert result is not None, "Required property 'evaluator_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The ID of the evaluator.
+
+        :stability: experimental
+        '''
+        result = self._values.get("evaluator_id")
+        assert result is not None, "Required property 'evaluator_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def evaluator_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the evaluator.
+
+        :default: - No name available
+
+        :stability: experimental
+        '''
+        result = self._values.get("evaluator_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EvaluatorAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EvaluatorConfig(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorConfig",
+):
+    '''(experimental) Configuration for a custom evaluator.
+
+    Defines how an evaluator assesses agent performance. Supports two strategies:
+
+    - **LLM-as-a-Judge**: Uses a foundation model with custom instructions and a rating scale.
+    - **Code-based**: Uses a Lambda function for custom evaluation logic.
+
+    :stability: experimental
+
+    Example::
+
+        # Code-based evaluator
+        # my_eval_function: lambda.IFunction
+        # LLM-as-a-Judge evaluator
+        llm_config = agentcore.EvaluatorConfig.llm_as_aJudge(
+            instructions="Evaluate whether the agent response is helpful.",
+            model_id="us.anthropic.claude-sonnet-4-6",
+            rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Good", definition="The response is helpful.", label="Bad", definition="The response is not helpful."
+            ])
+        )
+        code_config = agentcore.EvaluatorConfig.code_based(
+            lambda_function=my_eval_function
+        )
+    '''
+
+    @jsii.member(jsii_name="codeBased")
+    @builtins.classmethod
+    def code_based(
+        cls,
+        *,
+        lambda_function: "_aws_cdk_aws_lambda_ceddda9d.IFunction",
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "EvaluatorConfig":
+        '''(experimental) Creates a code-based evaluator configuration using a Lambda function.
+
+        The Lambda function implements custom evaluation logic. The function will
+        automatically be granted invoke permissions for the bedrock-agentcore service.
+
+        :param lambda_function: (experimental) The Lambda function used for evaluation. The function will be granted invoke permissions for the ``bedrock-agentcore.amazonaws.com`` service principal, scoped to this specific evaluator resource.
+        :param timeout: (experimental) The timeout for the Lambda function invocation during evaluation. When not specified, the AgentCore evaluation service uses its default timeout for Lambda-based evaluators. Default: - The AgentCore evaluation service's default Lambda timeout is used
+
+        :stability: experimental
+        '''
+        options = CodeBasedOptions(lambda_function=lambda_function, timeout=timeout)
+
+        return typing.cast("EvaluatorConfig", jsii.sinvoke(cls, "codeBased", [options]))
+
+    @jsii.member(jsii_name="llmAsAJudge")
+    @builtins.classmethod
+    def llm_as_a_judge(
+        cls,
+        *,
+        instructions: builtins.str,
+        model_id: builtins.str,
+        rating_scale: "EvaluatorRatingScale",
+        additional_model_request_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        inference_config: typing.Optional[typing.Union["EvaluatorInferenceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> "EvaluatorConfig":
+        '''(experimental) Creates an LLM-as-a-Judge evaluator configuration.
+
+        Uses a foundation model to assess agent performance based on custom
+        instructions and a rating scale.
+
+        :param instructions: (experimental) The evaluation instructions that guide the language model in assessing agent performance. These instructions define the evaluation criteria, context, and expected behavior. Instructions must contain placeholders appropriate for the evaluation level (e.g., ``{context}``, ``{available_tools}`` for SESSION level). Note: Evaluators using reference-input placeholders (e.g., ``{expected_tool_trajectory}``, ``{assertions}``, ``{expected_response}``) are only compatible with on-demand evaluation, not online evaluation.
+        :param model_id: (experimental) The identifier of the Amazon Bedrock model to use for evaluation. Accepts standard model IDs (e.g., ``'anthropic.claude-sonnet-4-6'``) and cross-region inference profile IDs with region prefixes (e.g., ``'us.anthropic.claude-sonnet-4-6'``, ``'eu.anthropic.claude-sonnet-4-6'``).
+        :param rating_scale: (experimental) The rating scale that defines how the evaluator should score agent performance.
+        :param additional_model_request_fields: (experimental) Additional model-specific request fields. Default: - No additional fields
+        :param inference_config: (experimental) Optional inference configuration parameters that control model behavior during evaluation. When not specified, the foundation model uses its own default values for maxTokens, temperature, and topP. Default: - The foundation model's default inference parameters are used
+
+        :stability: experimental
+        '''
+        options = LlmAsAJudgeOptions(
+            instructions=instructions,
+            model_id=model_id,
+            rating_scale=rating_scale,
+            additional_model_request_fields=additional_model_request_fields,
+            inference_config=inference_config,
+        )
+
+        return typing.cast("EvaluatorConfig", jsii.sinvoke(cls, "llmAsAJudge", [options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaFunction")
+    def lambda_function(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"]:
+        '''(experimental) The Lambda function used for code-based evaluation, if applicable.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"], jsii.get(self, "lambdaFunction"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorInferenceConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "max_tokens": "maxTokens",
+        "temperature": "temperature",
+        "top_p": "topP",
+    },
+)
+class EvaluatorInferenceConfig:
+    def __init__(
+        self,
+        *,
+        max_tokens: typing.Optional[jsii.Number] = None,
+        temperature: typing.Optional[jsii.Number] = None,
+        top_p: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Inference configuration for a custom LLM-as-a-Judge evaluator.
+
+        Controls how the foundation model generates evaluation responses.
+
+        :param max_tokens: (experimental) The maximum number of tokens to generate in the model response. Default: - The foundation model's default maximum token limit is used
+        :param temperature: (experimental) The temperature value that controls randomness in the model's responses. Higher values produce more diverse outputs. Range: 0.0 to 1.0. Default: - The foundation model's default temperature is used
+        :param top_p: (experimental) The top-p sampling parameter that controls the diversity of the model's responses. Range: 0.0 to 1.0. Default: - The foundation model's default top-p value is used
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # LLM-as-a-Judge with categorical rating scale
+            categorical_evaluator = agentcore.Evaluator(self, "CategoricalEvaluator",
+                evaluator_name="domain_accuracy_evaluator",
+                level=agentcore.EvaluationLevel.SESSION,
+                description="Evaluates domain-specific accuracy of agent responses",
+                evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+                    instructions="Evaluate whether the agent response is accurate within the healthcare domain.",
+                    model_id="us.anthropic.claude-sonnet-4-6",
+                    rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Accurate", definition="The response contains factually correct healthcare information.", label="Inaccurate", definition="The response contains incorrect or misleading healthcare information."
+                    ])
+                )
+            )
+            
+            # LLM-as-a-Judge with numerical rating scale and inference config
+            numerical_evaluator = agentcore.Evaluator(self, "NumericalEvaluator",
+                evaluator_name="response_quality_evaluator",
+                level=agentcore.EvaluationLevel.TRACE,
+                evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+                    instructions="Rate the overall quality of the agent response on a scale of 1 to 5.",
+                    model_id="us.anthropic.claude-sonnet-4-6",
+                    rating_scale=agentcore.EvaluatorRatingScale.numerical([label="Poor", definition="Inadequate response.", value=1, label="Below Average", definition="Partially addresses the query.", value=2, label="Average", definition="Adequately addresses the query.", value=3, label="Good", definition="Well-structured and accurate response.", value=4, label="Excellent", definition="Outstanding response exceeding expectations.", value=5
+                    ]),
+                    inference_config=agentcore.EvaluatorInferenceConfig(
+                        max_tokens=1024,
+                        temperature=0.1
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dda8a5925596a630543af53419d38ff61112eb31a476b58b3fb626d01f4ef843)
+            check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
+            check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
+            check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if max_tokens is not None:
+            self._values["max_tokens"] = max_tokens
+        if temperature is not None:
+            self._values["temperature"] = temperature
+        if top_p is not None:
+            self._values["top_p"] = top_p
+
+    @builtins.property
+    def max_tokens(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The maximum number of tokens to generate in the model response.
+
+        :default: - The foundation model's default maximum token limit is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_tokens")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def temperature(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The temperature value that controls randomness in the model's responses.
+
+        Higher values produce more diverse outputs. Range: 0.0 to 1.0.
+
+        :default: - The foundation model's default temperature is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("temperature")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def top_p(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The top-p sampling parameter that controls the diversity of the model's responses.
+
+        Range: 0.0 to 1.0.
+
+        :default: - The foundation model's default top-p value is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("top_p")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EvaluatorInferenceConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "evaluator_config": "evaluatorConfig",
+        "evaluator_name": "evaluatorName",
+        "level": "level",
+        "description": "description",
+    },
+)
+class EvaluatorProps:
+    def __init__(
+        self,
+        *,
+        evaluator_config: "EvaluatorConfig",
+        evaluator_name: builtins.str,
+        level: "EvaluationLevel",
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Properties for creating an Evaluator.
+
+        :param evaluator_config: (experimental) The configuration that defines how the evaluator assesses agent performance. Use ``EvaluatorConfig.llmAsAJudge()`` for model-based evaluation or ``EvaluatorConfig.codeBased()`` for Lambda-based evaluation.
+        :param evaluator_name: (experimental) The name of the evaluator. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
+        :param level: (experimental) The level at which the evaluator assesses agent performance. Determines what granularity of data the evaluator operates on: tool call, trace (single request-response), or session (full conversation).
+        :param description: (experimental) The description of the evaluator. Default: - No description
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # Create a custom LLM-as-a-Judge evaluator
+            evaluator = agentcore.Evaluator(self, "MyEvaluator",
+                evaluator_name="my_custom_evaluator",
+                level=agentcore.EvaluationLevel.SESSION,
+                evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+                    instructions="Evaluate whether the agent response is helpful and accurate.",
+                    model_id="us.anthropic.claude-sonnet-4-6",
+                    rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Good", definition="The response is helpful and accurate.", label="Bad", definition="The response is not helpful or contains errors."
+                    ])
+                )
+            )
+            
+            # Use the custom evaluator in an online evaluation configuration
+            agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+                online_evaluation_config_name="my_evaluation",
+                evaluators=[
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                    agentcore.EvaluatorReference.custom(evaluator)
+                ],
+                data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                    log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                    service_names=["my-agent.default"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d74bbcd5ee4f575d954406fc5352fc68f924eaea2fae76a38213b6bb2b10c2d5)
+            check_type(argname="argument evaluator_config", value=evaluator_config, expected_type=type_hints["evaluator_config"])
+            check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluator_config": evaluator_config,
+            "evaluator_name": evaluator_name,
+            "level": level,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def evaluator_config(self) -> "EvaluatorConfig":
+        '''(experimental) The configuration that defines how the evaluator assesses agent performance.
+
+        Use ``EvaluatorConfig.llmAsAJudge()`` for model-based evaluation or
+        ``EvaluatorConfig.codeBased()`` for Lambda-based evaluation.
+
+        :stability: experimental
+        '''
+        result = self._values.get("evaluator_config")
+        assert result is not None, "Required property 'evaluator_config' is missing"
+        return typing.cast("EvaluatorConfig", result)
+
+    @builtins.property
+    def evaluator_name(self) -> builtins.str:
+        '''(experimental) The name of the evaluator.
+
+        Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore).
+        Must start with a letter and can be up to 48 characters long.
+
+        :stability: experimental
+        :pattern: ^[a-zA-Z][a-zA-Z0-9_]{0,47}$
+        '''
+        result = self._values.get("evaluator_name")
+        assert result is not None, "Required property 'evaluator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def level(self) -> "EvaluationLevel":
+        '''(experimental) The level at which the evaluator assesses agent performance.
+
+        Determines what granularity of data the evaluator operates on:
+        tool call, trace (single request-response), or session (full conversation).
+
+        :stability: experimental
+        '''
+        result = self._values.get("level")
+        assert result is not None, "Required property 'level' is missing"
+        return typing.cast("EvaluationLevel", result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the evaluator.
+
+        :default: - No description
+
+        :stability: experimental
+        :maxLength: 200
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EvaluatorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EvaluatorRatingScale(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorRatingScale",
+):
+    '''(experimental) Represents a rating scale for custom LLM-as-a-Judge evaluators.
+
+    Rating scales define how the evaluator scores agent performance.
+    Use either categorical (discrete labels) or numerical (labeled numeric values) scales.
+
+    :stability: experimental
+
+    Example::
+
+        # Categorical rating scale
+        categorical = agentcore.EvaluatorRatingScale.categorical([label="Good", definition="The response fully addresses the query.", label="Bad", definition="The response fails to address the query."
+        ])
+        
+        # Numerical rating scale
+        numerical = agentcore.EvaluatorRatingScale.numerical([label="Poor", definition="Inadequate response.", value=1, label="Good", definition="Adequate response.", value=3, label="Excellent", definition="Outstanding response.", value=5
+        ])
+    '''
+
+    @jsii.member(jsii_name="categorical")
+    @builtins.classmethod
+    def categorical(
+        cls,
+        options: typing.Sequence[typing.Union["CategoricalRatingOption", typing.Dict[builtins.str, typing.Any]]],
+    ) -> "EvaluatorRatingScale":
+        '''(experimental) Creates a categorical rating scale.
+
+        Categorical scales define discrete labels for scoring, such as "Good" / "Bad"
+        or "Pass" / "Fail".
+
+        :param options: - The categorical rating options (at least 1 required).
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16b7ad74457fe996812af209cb0c733411b3fd2cb4a912c9702e031bb95e4cb9)
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+        return typing.cast("EvaluatorRatingScale", jsii.sinvoke(cls, "categorical", [options]))
+
+    @jsii.member(jsii_name="numerical")
+    @builtins.classmethod
+    def numerical(
+        cls,
+        options: typing.Sequence[typing.Union["NumericalRatingOption", typing.Dict[builtins.str, typing.Any]]],
+    ) -> "EvaluatorRatingScale":
+        '''(experimental) Creates a numerical rating scale.
+
+        Numerical scales define labeled numeric values for scoring, such as
+        1 (Poor) through 5 (Excellent).
+
+        :param options: - The numerical rating options (at least 1 required).
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e8041733be7396b0e0c67c0999048edd07a3ce0c06ff9681b9243ed9b627f8f)
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+        return typing.cast("EvaluatorRatingScale", jsii.sinvoke(cls, "numerical", [options]))
+
+
+class EvaluatorReference(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorReference",
+):
+    '''(experimental) Represents a reference to an evaluator for online evaluation.
+
+    Use the static factory methods to create evaluator references:
+
+    - ``EvaluatorReference.builtin()`` for built-in evaluators
+    - ``EvaluatorReference.custom()`` for custom evaluators
+
+    :stability: experimental
+
+    Example::
+
+        # Using custom evaluators
+        # my_custom_evaluator: agentcore.IEvaluator
+        # Using built-in evaluators
+        helpfulness = agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+        custom = agentcore.EvaluatorReference.custom(my_custom_evaluator)
+    '''
+
+    @jsii.member(jsii_name="builtin")
+    @builtins.classmethod
+    def builtin(cls, evaluator: "BuiltinEvaluator") -> "EvaluatorReference":
+        '''(experimental) Creates a reference to a built-in evaluator.
+
+        Built-in evaluators are provided by Amazon Bedrock AgentCore and assess
+        different aspects of agent performance at various levels (session, trace, or tool call).
+
+        :param evaluator: - The built-in evaluator to reference.
+
+        :return: An EvaluatorReference instance
+
+        :stability: experimental
+
+        Example::
+
+            helpfulness = agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+            goal_success = agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.GOAL_SUCCESS_RATE)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57d17c6f2091ceedf7621934061147eff319f1405d29def761c3bf70a23e5348)
+            check_type(argname="argument evaluator", value=evaluator, expected_type=type_hints["evaluator"])
+        return typing.cast("EvaluatorReference", jsii.sinvoke(cls, "builtin", [evaluator]))
+
+    @jsii.member(jsii_name="custom")
+    @builtins.classmethod
+    def custom(cls, evaluator: "IEvaluator") -> "EvaluatorReference":
+        '''(experimental) Creates a reference to a custom evaluator.
+
+        Custom evaluators are created using the ``Evaluator`` construct and can be
+        LLM-as-a-Judge or code-based (Lambda) evaluators.
+
+        :param evaluator: - The custom evaluator construct to reference.
+
+        :return: An EvaluatorReference instance
+
+        :stability: experimental
+
+        Example::
+
+            # my_custom_evaluator: agentcore.IEvaluator
+            
+            ref = agentcore.EvaluatorReference.custom(my_custom_evaluator)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4512bc05f3ad996c3fb87a54540d33fc04c2c5dd9b918dc36a6d9e8d969b57b)
+            check_type(argname="argument evaluator", value=evaluator, expected_type=type_hints["evaluator"])
+        return typing.cast("EvaluatorReference", jsii.sinvoke(cls, "custom", [evaluator]))
+
+    @jsii.member(jsii_name="bind")
+    def bind(self) -> "EvaluatorReferenceBindResult":
+        '''(experimental) Binds the evaluator reference to produce the L1 property.
+
+        :stability: experimental
+        '''
+        return typing.cast("EvaluatorReferenceBindResult", jsii.invoke(self, "bind", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorId")
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The evaluator identifier.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorId"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorReferenceBindResult",
+    jsii_struct_bases=[],
+    name_mapping={"evaluator_id": "evaluatorId"},
+)
+class EvaluatorReferenceBindResult:
+    def __init__(self, *, evaluator_id: builtins.str) -> None:
+        '''(experimental) The result of binding an EvaluatorReference.
+
+        :param evaluator_id: (experimental) The evaluator identifier.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            evaluator_reference_bind_result = bedrock_agentcore_alpha.EvaluatorReferenceBindResult(
+                evaluator_id="evaluatorId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49bf149295521066e23655e950d5855f8c6852d2c13e60118de85e20de5e77ac)
+            check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluator_id": evaluator_id,
+        }
+
+    @builtins.property
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The evaluator identifier.
+
+        :stability: experimental
+        '''
+        result = self._values.get("evaluator_id")
+        assert result is not None, "Required property 'evaluator_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EvaluatorReferenceBindResult(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ExecutionStatus(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.ExecutionStatus",
+):
+    '''(experimental) The execution status of an online evaluation configuration.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        
+        execution_status = bedrock_agentcore_alpha.ExecutionStatus("value")
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: - The execution status string.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d59b764b9e49b99334bc892b999b33903268b56c3d49c67b09bf4a3c9fdb58c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DISABLED")
+    def DISABLED(cls) -> "ExecutionStatus":
+        '''(experimental) The evaluation is disabled and not processing agent traces.
+
+        :stability: experimental
+        '''
+        return typing.cast("ExecutionStatus", jsii.sget(cls, "DISABLED"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ENABLED")
+    def ENABLED(cls) -> "ExecutionStatus":
+        '''(experimental) The evaluation is enabled and actively processing agent traces.
+
+        :stability: experimental
+        '''
+        return typing.cast("ExecutionStatus", jsii.sget(cls, "ENABLED"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the execution status.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.FilterConfig",
+    jsii_struct_bases=[],
+    name_mapping={"key": "key", "operator": "operator", "value": "value"},
+)
+class FilterConfig:
+    def __init__(
+        self,
+        *,
+        key: builtins.str,
+        operator: "FilterOperator",
+        value: "FilterValue",
+    ) -> None:
+        '''(experimental) Filter configuration for online evaluation.
+
+        Filters determine which agent traces should be included in the evaluation
+        based on trace properties.
+
+        :param key: (experimental) The key or field name to filter on within the agent trace data.
+        :param operator: (experimental) The comparison operator to use for filtering.
+        :param value: (experimental) The value to compare against using the specified operator. Use ``FilterValue.string()``, ``FilterValue.number()``, or ``FilterValue.boolean()`` to create typed filter values.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            # filter_operator: bedrock_agentcore_alpha.FilterOperator
+            # filter_value: bedrock_agentcore_alpha.FilterValue
+            
+            filter_config = bedrock_agentcore_alpha.FilterConfig(
+                key="key",
+                operator=filter_operator,
+                value=filter_value
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93fef7108b4bbe5886bd2129da0e5e01b9ced7c31ba9589b0314aa86a20f4226)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key": key,
+            "operator": operator,
+            "value": value,
+        }
+
+    @builtins.property
+    def key(self) -> builtins.str:
+        '''(experimental) The key or field name to filter on within the agent trace data.
+
+        :stability: experimental
+
+        Example::
+
+            "user.region"
+        '''
+        result = self._values.get("key")
+        assert result is not None, "Required property 'key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def operator(self) -> "FilterOperator":
+        '''(experimental) The comparison operator to use for filtering.
+
+        :stability: experimental
+        '''
+        result = self._values.get("operator")
+        assert result is not None, "Required property 'operator' is missing"
+        return typing.cast("FilterOperator", result)
+
+    @builtins.property
+    def value(self) -> "FilterValue":
+        '''(experimental) The value to compare against using the specified operator.
+
+        Use ``FilterValue.string()``, ``FilterValue.number()``, or ``FilterValue.boolean()``
+        to create typed filter values.
+
+        :stability: experimental
+        '''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast("FilterValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FilterConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class FilterOperator(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.FilterOperator",
+):
+    '''(experimental) Filter operators for online evaluation filtering.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        evaluation = agentcore.OnlineEvaluationConfig(self, "FilteredEval",
+            online_evaluation_config_name="filtered_evaluation",
+            evaluators=[
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+            ],
+            data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                service_names=["my-agent.default"]
+            ),
+            # Sample 25% of traces
+            sampling_percentage=25,
+            # Only evaluate traces matching these filters
+            filters=[agentcore.FilterConfig(
+                key="user.region",
+                operator=agentcore.FilterOperator.EQUAL,
+                value=agentcore.FilterValue.string("us-east-1")
+            ), agentcore.FilterConfig(
+                key="session.duration",
+                operator=agentcore.FilterOperator.GREATER_THAN,
+                value=agentcore.FilterValue.number(60)
+            )
+            ],
+            # Consider sessions complete after 30 minutes of inactivity
+            session_timeout=cdk.Duration.minutes(30)
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: - The filter operator string.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__471e02ea1eb75d1bd71743a5925b898d917942a70b87aa7a39b1a787666fa9d8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONTAINS")
+    def CONTAINS(cls) -> "FilterOperator":
+        '''(experimental) String contains comparison.
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "CONTAINS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="EQUAL")
+    def EQUAL(cls) -> "FilterOperator":
+        '''(experimental) Exact equality comparison.
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "EQUAL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GREATER_THAN")
+    def GREATER_THAN(cls) -> "FilterOperator":
+        '''(experimental) Greater than comparison (numeric values).
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "GREATER_THAN"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GREATER_THAN_OR_EQUAL")
+    def GREATER_THAN_OR_EQUAL(cls) -> "FilterOperator":
+        '''(experimental) Greater than or equal comparison (numeric values).
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "GREATER_THAN_OR_EQUAL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LESS_THAN")
+    def LESS_THAN(cls) -> "FilterOperator":
+        '''(experimental) Less than comparison (numeric values).
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "LESS_THAN"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LESS_THAN_OR_EQUAL")
+    def LESS_THAN_OR_EQUAL(cls) -> "FilterOperator":
+        '''(experimental) Less than or equal comparison (numeric values).
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "LESS_THAN_OR_EQUAL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NOT_CONTAINS")
+    def NOT_CONTAINS(cls) -> "FilterOperator":
+        '''(experimental) String does not contain comparison.
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "NOT_CONTAINS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NOT_EQUAL")
+    def NOT_EQUAL(cls) -> "FilterOperator":
+        '''(experimental) Not equal comparison.
+
+        :stability: experimental
+        '''
+        return typing.cast("FilterOperator", jsii.sget(cls, "NOT_EQUAL"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the filter operator.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+class FilterValue(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.FilterValue",
+):
+    '''(experimental) A typed filter value for online evaluation filtering.
+
+    Use the static factory methods to create filter values:
+
+    - ``FilterValue.string()`` for string comparisons
+    - ``FilterValue.number()`` for numeric comparisons
+    - ``FilterValue.boolean()`` for boolean comparisons
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        evaluation = agentcore.OnlineEvaluationConfig(self, "FilteredEval",
+            online_evaluation_config_name="filtered_evaluation",
+            evaluators=[
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+            ],
+            data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                service_names=["my-agent.default"]
+            ),
+            # Sample 25% of traces
+            sampling_percentage=25,
+            # Only evaluate traces matching these filters
+            filters=[agentcore.FilterConfig(
+                key="user.region",
+                operator=agentcore.FilterOperator.EQUAL,
+                value=agentcore.FilterValue.string("us-east-1")
+            ), agentcore.FilterConfig(
+                key="session.duration",
+                operator=agentcore.FilterOperator.GREATER_THAN,
+                value=agentcore.FilterValue.number(60)
+            )
+            ],
+            # Consider sessions complete after 30 minutes of inactivity
+            session_timeout=cdk.Duration.minutes(30)
+        )
+    '''
+
+    @jsii.member(jsii_name="boolean")
+    @builtins.classmethod
+    def boolean(cls, value: builtins.bool) -> "FilterValue":
+        '''(experimental) Creates a boolean filter value.
+
+        :param value: - The boolean value to compare against.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68c079cba98359611e2491d4262f13373d9e55a8232db637f71da726d0629707)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("FilterValue", jsii.sinvoke(cls, "boolean", [value]))
+
+    @jsii.member(jsii_name="number")
+    @builtins.classmethod
+    def number(cls, value: jsii.Number) -> "FilterValue":
+        '''(experimental) Creates a numeric filter value.
+
+        :param value: - The numeric value to compare against.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4a1483c2da1bf5c139b639df1247e9204b52f92fc9c103dc18f99b082aef002)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("FilterValue", jsii.sinvoke(cls, "number", [value]))
+
+    @jsii.member(jsii_name="string")
+    @builtins.classmethod
+    def string(cls, value: builtins.str) -> "FilterValue":
+        '''(experimental) Creates a string filter value.
+
+        :param value: - The string value to compare against.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__859cea693e3314575661e3a2a74444ad64e6cdca5fedb1e75b9add02ecc260b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("FilterValue", jsii.sinvoke(cls, "string", [value]))
 
 
 @jsii.data_type(
@@ -8041,7 +10161,8 @@ class GatewayPolicyEngineConfig:
             gateway = agentcore.Gateway(self, "MyGateway",
                 gateway_name="my-gateway",
                 policy_engine_configuration=agentcore.GatewayPolicyEngineConfig(
-                    policy_engine=policy_engine
+                    policy_engine=policy_engine,
+                    mode=agentcore.PolicyEngineMode.ENFORCE
                 )
             )
             
@@ -13198,6 +15319,187 @@ class _ICredentialProviderConfigProxy:
 typing.cast(typing.Any, ICredentialProviderConfig).__jsii_proxy_class__ = lambda : _ICredentialProviderConfigProxy
 
 
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IEvaluator")
+class IEvaluator(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IEvaluatorRef,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Interface for Evaluator resources.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorArn")
+    def evaluator_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorId")
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorName")
+    def evaluator_name(self) -> builtins.str:
+        '''(experimental) The name of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the evaluator (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this evaluator.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEvaluatorProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IEvaluatorRef), # type: ignore[misc]
+):
+    '''(experimental) Interface for Evaluator resources.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IEvaluator"
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorArn")
+    def evaluator_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorId")
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorName")
+    def evaluator_name(self) -> builtins.str:
+        '''(experimental) The name of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the evaluator (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this evaluator.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc2d013758bf4d9b9229644e2e6bbc95db1ca008248c92419dfbcea9e96ad358)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEvaluator).__jsii_proxy_class__ = lambda : _IEvaluatorProxy
+
+
 @jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IGateway")
 class IGateway(
     _aws_cdk_ceddda9d.IResource,
@@ -16195,6 +18497,227 @@ class _IMemoryStrategyProxy:
 typing.cast(typing.Any, IMemoryStrategy).__jsii_proxy_class__ = lambda : _IMemoryStrategyProxy
 
 
+@jsii.interface(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IOnlineEvaluationConfig"
+)
+class IOnlineEvaluationConfig(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IOnlineEvaluationConfigRef,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Interface for OnlineEvaluationConfig resources.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigArn")
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigId")
+    def online_evaluation_config_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigName")
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM execution role for the evaluation.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="executionStatus")
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The execution status of the evaluation (ENABLED or DISABLED).
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the configuration (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this configuration.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOnlineEvaluationConfigProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.IOnlineEvaluationConfigRef), # type: ignore[misc]
+):
+    '''(experimental) Interface for OnlineEvaluationConfig resources.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-agentcore-alpha.IOnlineEvaluationConfig"
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigArn")
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigId")
+    def online_evaluation_config_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigName")
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM execution role for the evaluation.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "executionRole"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionStatus")
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The execution status of the evaluation (ENABLED or DISABLED).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the configuration (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this configuration.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__567ead95796d9490b56bd9cd9aab08dc0523b8decb60724ea8dc07474b2ed972)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOnlineEvaluationConfig).__jsii_proxy_class__ = lambda : _IOnlineEvaluationConfigProxy
+
+
 @jsii.interface(jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.IPolicy")
 class IPolicy(
     _aws_cdk_ceddda9d.IResource,
@@ -18231,6 +20754,170 @@ class LifecycleConfiguration:
 
     def __repr__(self) -> str:
         return "LifecycleConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.LlmAsAJudgeOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instructions": "instructions",
+        "model_id": "modelId",
+        "rating_scale": "ratingScale",
+        "additional_model_request_fields": "additionalModelRequestFields",
+        "inference_config": "inferenceConfig",
+    },
+)
+class LlmAsAJudgeOptions:
+    def __init__(
+        self,
+        *,
+        instructions: builtins.str,
+        model_id: builtins.str,
+        rating_scale: "EvaluatorRatingScale",
+        additional_model_request_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        inference_config: typing.Optional[typing.Union["EvaluatorInferenceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Options for configuring an LLM-as-a-Judge custom evaluator.
+
+        Uses a foundation model to assess agent performance based on
+        custom instructions and a rating scale.
+
+        :param instructions: (experimental) The evaluation instructions that guide the language model in assessing agent performance. These instructions define the evaluation criteria, context, and expected behavior. Instructions must contain placeholders appropriate for the evaluation level (e.g., ``{context}``, ``{available_tools}`` for SESSION level). Note: Evaluators using reference-input placeholders (e.g., ``{expected_tool_trajectory}``, ``{assertions}``, ``{expected_response}``) are only compatible with on-demand evaluation, not online evaluation.
+        :param model_id: (experimental) The identifier of the Amazon Bedrock model to use for evaluation. Accepts standard model IDs (e.g., ``'anthropic.claude-sonnet-4-6'``) and cross-region inference profile IDs with region prefixes (e.g., ``'us.anthropic.claude-sonnet-4-6'``, ``'eu.anthropic.claude-sonnet-4-6'``).
+        :param rating_scale: (experimental) The rating scale that defines how the evaluator should score agent performance.
+        :param additional_model_request_fields: (experimental) Additional model-specific request fields. Default: - No additional fields
+        :param inference_config: (experimental) Optional inference configuration parameters that control model behavior during evaluation. When not specified, the foundation model uses its own default values for maxTokens, temperature, and topP. Default: - The foundation model's default inference parameters are used
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # Create a custom LLM-as-a-Judge evaluator
+            evaluator = agentcore.Evaluator(self, "MyEvaluator",
+                evaluator_name="my_custom_evaluator",
+                level=agentcore.EvaluationLevel.SESSION,
+                evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+                    instructions="Evaluate whether the agent response is helpful and accurate.",
+                    model_id="us.anthropic.claude-sonnet-4-6",
+                    rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Good", definition="The response is helpful and accurate.", label="Bad", definition="The response is not helpful or contains errors."
+                    ])
+                )
+            )
+            
+            # Use the custom evaluator in an online evaluation configuration
+            agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+                online_evaluation_config_name="my_evaluation",
+                evaluators=[
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                    agentcore.EvaluatorReference.custom(evaluator)
+                ],
+                data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                    log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                    service_names=["my-agent.default"]
+                )
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = EvaluatorInferenceConfig(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed6371cdd6785d561211c1e821b30da5fafdfb6267069703b6ae1426b867d935)
+            check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
+            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+            check_type(argname="argument rating_scale", value=rating_scale, expected_type=type_hints["rating_scale"])
+            check_type(argname="argument additional_model_request_fields", value=additional_model_request_fields, expected_type=type_hints["additional_model_request_fields"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instructions": instructions,
+            "model_id": model_id,
+            "rating_scale": rating_scale,
+        }
+        if additional_model_request_fields is not None:
+            self._values["additional_model_request_fields"] = additional_model_request_fields
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+
+    @builtins.property
+    def instructions(self) -> builtins.str:
+        '''(experimental) The evaluation instructions that guide the language model in assessing agent performance.
+
+        These instructions define the evaluation criteria, context, and expected behavior.
+        Instructions must contain placeholders appropriate for the evaluation level
+        (e.g., ``{context}``, ``{available_tools}`` for SESSION level).
+
+        Note: Evaluators using reference-input placeholders (e.g., ``{expected_tool_trajectory}``,
+        ``{assertions}``, ``{expected_response}``) are only compatible with on-demand evaluation,
+        not online evaluation.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/custom-evaluators.html
+        :stability: experimental
+        '''
+        result = self._values.get("instructions")
+        assert result is not None, "Required property 'instructions' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_id(self) -> builtins.str:
+        '''(experimental) The identifier of the Amazon Bedrock model to use for evaluation.
+
+        Accepts standard model IDs (e.g., ``'anthropic.claude-sonnet-4-6'``)
+        and cross-region inference profile IDs with region prefixes
+        (e.g., ``'us.anthropic.claude-sonnet-4-6'``, ``'eu.anthropic.claude-sonnet-4-6'``).
+
+        :stability: experimental
+        '''
+        result = self._values.get("model_id")
+        assert result is not None, "Required property 'model_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rating_scale(self) -> "EvaluatorRatingScale":
+        '''(experimental) The rating scale that defines how the evaluator should score agent performance.
+
+        :stability: experimental
+        '''
+        result = self._values.get("rating_scale")
+        assert result is not None, "Required property 'rating_scale' is missing"
+        return typing.cast("EvaluatorRatingScale", result)
+
+    @builtins.property
+    def additional_model_request_fields(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Additional model-specific request fields.
+
+        :default: - No additional fields
+
+        :stability: experimental
+        '''
+        result = self._values.get("additional_model_request_fields")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["EvaluatorInferenceConfig"]:
+        '''(experimental) Optional inference configuration parameters that control model behavior during evaluation.
+
+        When not specified, the foundation model uses its own default values for
+        maxTokens, temperature, and topP.
+
+        :default: - The foundation model's default inference parameters are used
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/custom-evaluators.html
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["EvaluatorInferenceConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LlmAsAJudgeOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -20995,6 +23682,107 @@ class NoAuthAuthorizer(
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.NumericalRatingOption",
+    jsii_struct_bases=[],
+    name_mapping={"definition": "definition", "label": "label", "value": "value"},
+)
+class NumericalRatingOption:
+    def __init__(
+        self,
+        *,
+        definition: builtins.str,
+        label: builtins.str,
+        value: jsii.Number,
+    ) -> None:
+        '''(experimental) A numerical rating scale option for custom evaluators.
+
+        Numerical scales define labeled numeric values for scoring agent performance.
+
+        :param definition: (experimental) The description that explains what this numerical rating represents.
+        :param label: (experimental) The label for this rating option.
+        :param value: (experimental) The numerical value for this rating scale option.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            numerical_rating_option = bedrock_agentcore_alpha.NumericalRatingOption(
+                definition="definition",
+                label="label",
+                value=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c1f4343791430a43aee87ae88eebb3d30ca9e5945a1c3f235d263ce8b04098b)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "definition": definition,
+            "label": label,
+            "value": value,
+        }
+
+    @builtins.property
+    def definition(self) -> builtins.str:
+        '''(experimental) The description that explains what this numerical rating represents.
+
+        :stability: experimental
+
+        Example::
+
+            "The response is comprehensive, accurate, and well-structured."
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def label(self) -> builtins.str:
+        '''(experimental) The label for this rating option.
+
+        :stability: experimental
+
+        Example::
+
+            "Excellent"
+        '''
+        result = self._values.get("label")
+        assert result is not None, "Required property 'label' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> jsii.Number:
+        '''(experimental) The numerical value for this rating scale option.
+
+        :stability: experimental
+
+        Example::
+
+            5
+        '''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NumericalRatingOption(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OAuthConfiguration",
     jsii_struct_bases=[],
     name_mapping={
@@ -21144,6 +23932,1061 @@ class OAuthConfiguration:
 
     def __repr__(self) -> str:
         return "OAuthConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IOnlineEvaluationConfig)
+class OnlineEvaluationBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OnlineEvaluationBase",
+):
+    '''(experimental) Abstract base class for OnlineEvaluationConfig.
+
+    Contains methods and attributes valid for configurations either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16d18d1e12d843a3477575d4c9cae4dd9756a53c9b53eedfc94c9ceb67118467)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__240768cbaa5502face56b15e91d6da9d9303ba2b2614d308a2b1f25c38caef14)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    @abc.abstractmethod
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigArn")
+    @abc.abstractmethod
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigId")
+    @abc.abstractmethod
+    def online_evaluation_config_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigName")
+    @abc.abstractmethod
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigRef")
+    def online_evaluation_config_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.OnlineEvaluationConfigReference":
+        '''(experimental) A reference to this OnlineEvaluationConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.OnlineEvaluationConfigReference", jsii.get(self, "onlineEvaluationConfigRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    @abc.abstractmethod
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was created.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    @abc.abstractmethod
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM execution role for the evaluation.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="executionStatus")
+    @abc.abstractmethod
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The execution status of the evaluation (ENABLED or DISABLED).
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    @abc.abstractmethod
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the configuration (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    @abc.abstractmethod
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was last updated.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _OnlineEvaluationBaseProxy(
+    OnlineEvaluationBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigArn")
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigId")
+    def online_evaluation_config_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigName")
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was created.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM execution role for the evaluation.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "executionRole"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionStatus")
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The execution status of the evaluation (ENABLED or DISABLED).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the configuration (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, OnlineEvaluationBase).__jsii_proxy_class__ = lambda : _OnlineEvaluationBaseProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OnlineEvaluationBaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "online_evaluation_config_name": "onlineEvaluationConfigName",
+        "description": "description",
+        "execution_role": "executionRole",
+        "execution_status": "executionStatus",
+        "filters": "filters",
+        "sampling_percentage": "samplingPercentage",
+        "session_timeout": "sessionTimeout",
+    },
+)
+class OnlineEvaluationBaseProps:
+    def __init__(
+        self,
+        *,
+        online_evaluation_config_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        execution_status: typing.Optional["ExecutionStatus"] = None,
+        filters: typing.Optional[typing.Sequence[typing.Union["FilterConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sampling_percentage: typing.Optional[jsii.Number] = None,
+        session_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''(experimental) Base properties for creating an OnlineEvaluationConfig.
+
+        The actual OnlineEvaluationProps is defined in online-evaluation-config.ts
+        to avoid circular dependencies.
+
+        :param online_evaluation_config_name: (experimental) The name of the online evaluation configuration. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
+        :param description: (experimental) The description of the online evaluation configuration. Default: - No description
+        :param execution_role: (experimental) The IAM role that provides permissions for the evaluation to access AWS services. If not provided, a role will be created automatically with the required permissions including cross-region Bedrock model invocation (to support cross-region inference profiles). For strict cost controls or data residency compliance, provide a custom role with region-scoped permissions. Default: - A new role will be created
+        :param execution_status: (experimental) The execution status of the online evaluation configuration. Controls whether the evaluation actively processes agent traces. Default: ExecutionStatus.ENABLED
+        :param filters: (experimental) The list of filters that determine which agent traces should be evaluated. Default: - No filters (evaluate all sampled traces)
+        :param sampling_percentage: (experimental) The percentage of agent traces to sample for evaluation. Default: 10
+        :param session_timeout: (experimental) The duration of inactivity after which an agent session is considered complete and ready for evaluation. Must be between 1 minute and 1440 minutes (24 hours). Default: Duration.minutes(15)
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            import aws_cdk as cdk
+            from aws_cdk import aws_iam as iam
+            
+            # execution_status: bedrock_agentcore_alpha.ExecutionStatus
+            # filter_operator: bedrock_agentcore_alpha.FilterOperator
+            # filter_value: bedrock_agentcore_alpha.FilterValue
+            # role: iam.Role
+            
+            online_evaluation_base_props = bedrock_agentcore_alpha.OnlineEvaluationBaseProps(
+                online_evaluation_config_name="onlineEvaluationConfigName",
+            
+                # the properties below are optional
+                description="description",
+                execution_role=role,
+                execution_status=execution_status,
+                filters=[bedrock_agentcore_alpha.FilterConfig(
+                    key="key",
+                    operator=filter_operator,
+                    value=filter_value
+                )],
+                sampling_percentage=123,
+                session_timeout=cdk.Duration.minutes(30)
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__970ac25b691a4147925cb3f72a1e5836736377b42f56f02e5ed5055c38c49a79)
+            check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument execution_status", value=execution_status, expected_type=type_hints["execution_status"])
+            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument sampling_percentage", value=sampling_percentage, expected_type=type_hints["sampling_percentage"])
+            check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "online_evaluation_config_name": online_evaluation_config_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+        if execution_status is not None:
+            self._values["execution_status"] = execution_status
+        if filters is not None:
+            self._values["filters"] = filters
+        if sampling_percentage is not None:
+            self._values["sampling_percentage"] = sampling_percentage
+        if session_timeout is not None:
+            self._values["session_timeout"] = session_timeout
+
+    @builtins.property
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore).
+        Must start with a letter and can be up to 48 characters long.
+
+        :stability: experimental
+        :pattern: ^[a-zA-Z][a-zA-Z0-9_]{0,47}$
+        '''
+        result = self._values.get("online_evaluation_config_name")
+        assert result is not None, "Required property 'online_evaluation_config_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the online evaluation configuration.
+
+        :default: - No description
+
+        :stability: experimental
+        :maxLength: 200
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM role that provides permissions for the evaluation to access AWS services.
+
+        If not provided, a role will be created automatically with the required permissions
+        including cross-region Bedrock model invocation (to support cross-region inference
+        profiles). For strict cost controls or data residency compliance, provide a custom
+        role with region-scoped permissions.
+
+        :default: - A new role will be created
+
+        :stability: experimental
+        '''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
+
+    @builtins.property
+    def execution_status(self) -> typing.Optional["ExecutionStatus"]:
+        '''(experimental) The execution status of the online evaluation configuration.
+
+        Controls whether the evaluation actively processes agent traces.
+
+        :default: ExecutionStatus.ENABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("execution_status")
+        return typing.cast(typing.Optional["ExecutionStatus"], result)
+
+    @builtins.property
+    def filters(self) -> typing.Optional[typing.List["FilterConfig"]]:
+        '''(experimental) The list of filters that determine which agent traces should be evaluated.
+
+        :default: - No filters (evaluate all sampled traces)
+
+        :stability: experimental
+        :maximum: 5
+        '''
+        result = self._values.get("filters")
+        return typing.cast(typing.Optional[typing.List["FilterConfig"]], result)
+
+    @builtins.property
+    def sampling_percentage(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The percentage of agent traces to sample for evaluation.
+
+        :default: 10
+
+        :stability: experimental
+        :maximum: 100
+        :minimum: 0.01
+        '''
+        result = self._values.get("sampling_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def session_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) The duration of inactivity after which an agent session is considered complete and ready for evaluation.
+
+        Must be between 1 minute and 1440 minutes (24 hours).
+
+        :default: Duration.minutes(15)
+
+        :stability: experimental
+        '''
+        result = self._values.get("session_timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OnlineEvaluationBaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OnlineEvaluationConfig(
+    OnlineEvaluationBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OnlineEvaluationConfig",
+):
+    '''(experimental) Online evaluation configuration for Amazon Bedrock AgentCore.
+
+    Enables continuous evaluation of agent performance using built-in or custom evaluators.
+    Supports CloudWatch Logs and Agent Endpoint data sources.
+
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::OnlineEvaluationConfig
+
+    Example::
+
+        # Basic usage with built-in evaluators
+        evaluation = agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+            online_evaluation_config_name="my_evaluation",
+            evaluators=[
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS)
+            ],
+            data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                service_names=["my-agent.default"]
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        data_source: "DataSourceConfig",
+        evaluators: typing.Sequence["EvaluatorReference"],
+        online_evaluation_config_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        execution_status: typing.Optional["ExecutionStatus"] = None,
+        filters: typing.Optional[typing.Sequence[typing.Union["FilterConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sampling_percentage: typing.Optional[jsii.Number] = None,
+        session_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param data_source: (experimental) The data source configuration that specifies where to read agent traces from.
+        :param evaluators: (experimental) The list of evaluators to apply during online evaluation. Can include both built-in evaluators and custom evaluators.
+        :param online_evaluation_config_name: (experimental) The name of the online evaluation configuration. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
+        :param description: (experimental) The description of the online evaluation configuration. Default: - No description
+        :param execution_role: (experimental) The IAM role that provides permissions for the evaluation to access AWS services. If not provided, a role will be created automatically with the required permissions including cross-region Bedrock model invocation (to support cross-region inference profiles). For strict cost controls or data residency compliance, provide a custom role with region-scoped permissions. Default: - A new role will be created
+        :param execution_status: (experimental) The execution status of the online evaluation configuration. Controls whether the evaluation actively processes agent traces. Default: ExecutionStatus.ENABLED
+        :param filters: (experimental) The list of filters that determine which agent traces should be evaluated. Default: - No filters (evaluate all sampled traces)
+        :param sampling_percentage: (experimental) The percentage of agent traces to sample for evaluation. Default: 10
+        :param session_timeout: (experimental) The duration of inactivity after which an agent session is considered complete and ready for evaluation. Must be between 1 minute and 1440 minutes (24 hours). Default: Duration.minutes(15)
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1001024a6ebb29b0c624ada92131a16222ac1ee29a1d16766472f0fd9797e4cd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = OnlineEvaluationConfigProps(
+            data_source=data_source,
+            evaluators=evaluators,
+            online_evaluation_config_name=online_evaluation_config_name,
+            description=description,
+            execution_role=execution_role,
+            execution_status=execution_status,
+            filters=filters,
+            sampling_percentage=sampling_percentage,
+            session_timeout=session_timeout,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromOnlineEvaluationConfigArn")
+    @builtins.classmethod
+    def from_online_evaluation_config_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        online_evaluation_config_arn: builtins.str,
+    ) -> "IOnlineEvaluationConfig":
+        '''(experimental) Import an existing OnlineEvaluationConfig by its ARN.
+
+        :param scope: - The construct scope.
+        :param id: - Construct identifier.
+        :param online_evaluation_config_arn: - The configuration ARN to import.
+
+        :return: An IOnlineEvaluationConfig reference
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ea2026290719019990cbfbaa609785c437acf3cec5b40b35eb11cb93038f95e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument online_evaluation_config_arn", value=online_evaluation_config_arn, expected_type=type_hints["online_evaluation_config_arn"])
+        return typing.cast("IOnlineEvaluationConfig", jsii.sinvoke(cls, "fromOnlineEvaluationConfigArn", [scope, id, online_evaluation_config_arn]))
+
+    @jsii.member(jsii_name="fromOnlineEvaluationConfigAttributes")
+    @builtins.classmethod
+    def from_online_evaluation_config_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        online_evaluation_config_arn: builtins.str,
+        online_evaluation_config_id: builtins.str,
+        online_evaluation_config_name: builtins.str,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+    ) -> "IOnlineEvaluationConfig":
+        '''(experimental) Import an existing OnlineEvaluationConfig from its attributes.
+
+        :param scope: - The construct scope.
+        :param id: - Construct identifier.
+        :param online_evaluation_config_arn: (experimental) The ARN of the online evaluation configuration.
+        :param online_evaluation_config_id: (experimental) The ID of the online evaluation configuration.
+        :param online_evaluation_config_name: (experimental) The name of the online evaluation configuration.
+        :param execution_role_arn: (experimental) The ARN of the IAM execution role. Default: - No role ARN provided
+
+        :return: An IOnlineEvaluationConfig reference
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e7de32c1aa50ae096893de3be988353a2a498af8550f11bee28bc1394a596d1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = OnlineEvaluationConfigAttributes(
+            online_evaluation_config_arn=online_evaluation_config_arn,
+            online_evaluation_config_id=online_evaluation_config_id,
+            online_evaluation_config_name=online_evaluation_config_name,
+            execution_role_arn=execution_role_arn,
+        )
+
+        return typing.cast("IOnlineEvaluationConfig", jsii.sinvoke(cls, "fromOnlineEvaluationConfigAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromOnlineEvaluationConfigId")
+    @builtins.classmethod
+    def from_online_evaluation_config_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        online_evaluation_config_id: builtins.str,
+    ) -> "IOnlineEvaluationConfig":
+        '''(experimental) Import an existing OnlineEvaluationConfig by its ID.
+
+        :param scope: - The construct scope.
+        :param id: - Construct identifier.
+        :param online_evaluation_config_id: - The configuration ID to import.
+
+        :return: An IOnlineEvaluationConfig reference
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba35fda4e4afbd41fa655640a8da12da8850b83e599da7efba7dedf7ae6c1044)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument online_evaluation_config_id", value=online_evaluation_config_id, expected_type=type_hints["online_evaluation_config_id"])
+        return typing.cast("IOnlineEvaluationConfig", jsii.sinvoke(cls, "fromOnlineEvaluationConfigId", [scope, id, online_evaluation_config_id]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigArn")
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigId")
+    def online_evaluation_config_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigName")
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM execution role for the evaluation.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "executionRole"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionStatus")
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The execution status of the evaluation (ENABLED or DISABLED).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the configuration.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the configuration was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OnlineEvaluationConfigAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "online_evaluation_config_arn": "onlineEvaluationConfigArn",
+        "online_evaluation_config_id": "onlineEvaluationConfigId",
+        "online_evaluation_config_name": "onlineEvaluationConfigName",
+        "execution_role_arn": "executionRoleArn",
+    },
+)
+class OnlineEvaluationConfigAttributes:
+    def __init__(
+        self,
+        *,
+        online_evaluation_config_arn: builtins.str,
+        online_evaluation_config_id: builtins.str,
+        online_evaluation_config_name: builtins.str,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for importing an existing OnlineEvaluationConfig.
+
+        :param online_evaluation_config_arn: (experimental) The ARN of the online evaluation configuration.
+        :param online_evaluation_config_id: (experimental) The ID of the online evaluation configuration.
+        :param online_evaluation_config_name: (experimental) The name of the online evaluation configuration.
+        :param execution_role_arn: (experimental) The ARN of the IAM execution role. Default: - No role ARN provided
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+            
+            online_evaluation_config_attributes = bedrock_agentcore_alpha.OnlineEvaluationConfigAttributes(
+                online_evaluation_config_arn="onlineEvaluationConfigArn",
+                online_evaluation_config_id="onlineEvaluationConfigId",
+                online_evaluation_config_name="onlineEvaluationConfigName",
+            
+                # the properties below are optional
+                execution_role_arn="executionRoleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12c95b2947373e88076563859403fe3b0d8775317bd89a468f0feb369e7c52ea)
+            check_type(argname="argument online_evaluation_config_arn", value=online_evaluation_config_arn, expected_type=type_hints["online_evaluation_config_arn"])
+            check_type(argname="argument online_evaluation_config_id", value=online_evaluation_config_id, expected_type=type_hints["online_evaluation_config_id"])
+            check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "online_evaluation_config_arn": online_evaluation_config_arn,
+            "online_evaluation_config_id": online_evaluation_config_id,
+            "online_evaluation_config_name": online_evaluation_config_name,
+        }
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+
+    @builtins.property
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("online_evaluation_config_arn")
+        assert result is not None, "Required property 'online_evaluation_config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def online_evaluation_config_id(self) -> builtins.str:
+        '''(experimental) The ID of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("online_evaluation_config_id")
+        assert result is not None, "Required property 'online_evaluation_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("online_evaluation_config_name")
+        assert result is not None, "Required property 'online_evaluation_config_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The ARN of the IAM execution role.
+
+        :default: - No role ARN provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OnlineEvaluationConfigAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.OnlineEvaluationConfigProps",
+    jsii_struct_bases=[OnlineEvaluationBaseProps],
+    name_mapping={
+        "online_evaluation_config_name": "onlineEvaluationConfigName",
+        "description": "description",
+        "execution_role": "executionRole",
+        "execution_status": "executionStatus",
+        "filters": "filters",
+        "sampling_percentage": "samplingPercentage",
+        "session_timeout": "sessionTimeout",
+        "data_source": "dataSource",
+        "evaluators": "evaluators",
+    },
+)
+class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
+    def __init__(
+        self,
+        *,
+        online_evaluation_config_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        execution_status: typing.Optional["ExecutionStatus"] = None,
+        filters: typing.Optional[typing.Sequence[typing.Union["FilterConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sampling_percentage: typing.Optional[jsii.Number] = None,
+        session_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        data_source: "DataSourceConfig",
+        evaluators: typing.Sequence["EvaluatorReference"],
+    ) -> None:
+        '''(experimental) Properties for creating an OnlineEvaluationConfig.
+
+        :param online_evaluation_config_name: (experimental) The name of the online evaluation configuration. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
+        :param description: (experimental) The description of the online evaluation configuration. Default: - No description
+        :param execution_role: (experimental) The IAM role that provides permissions for the evaluation to access AWS services. If not provided, a role will be created automatically with the required permissions including cross-region Bedrock model invocation (to support cross-region inference profiles). For strict cost controls or data residency compliance, provide a custom role with region-scoped permissions. Default: - A new role will be created
+        :param execution_status: (experimental) The execution status of the online evaluation configuration. Controls whether the evaluation actively processes agent traces. Default: ExecutionStatus.ENABLED
+        :param filters: (experimental) The list of filters that determine which agent traces should be evaluated. Default: - No filters (evaluate all sampled traces)
+        :param sampling_percentage: (experimental) The percentage of agent traces to sample for evaluation. Default: 10
+        :param session_timeout: (experimental) The duration of inactivity after which an agent session is considered complete and ready for evaluation. Must be between 1 minute and 1440 minutes (24 hours). Default: Duration.minutes(15)
+        :param data_source: (experimental) The data source configuration that specifies where to read agent traces from.
+        :param evaluators: (experimental) The list of evaluators to apply during online evaluation. Can include both built-in evaluators and custom evaluators.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # custom_evaluator: agentcore.Evaluator
+            
+            
+            evaluation = agentcore.OnlineEvaluationConfig(self, "MixedEvaluation",
+                online_evaluation_config_name="mixed_evaluation",
+                evaluators=[
+                    # Built-in evaluators
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.CORRECTNESS),
+                    # Custom evaluator
+                    agentcore.EvaluatorReference.custom(custom_evaluator)
+                ],
+                data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                    log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                    service_names=["my-agent.default"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27dc1427f4bb35e3053a69ca483a3ec825bc727691876fdf50ffeda9fc19d50e)
+            check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument execution_status", value=execution_status, expected_type=type_hints["execution_status"])
+            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument sampling_percentage", value=sampling_percentage, expected_type=type_hints["sampling_percentage"])
+            check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
+            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
+            check_type(argname="argument evaluators", value=evaluators, expected_type=type_hints["evaluators"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "online_evaluation_config_name": online_evaluation_config_name,
+            "data_source": data_source,
+            "evaluators": evaluators,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+        if execution_status is not None:
+            self._values["execution_status"] = execution_status
+        if filters is not None:
+            self._values["filters"] = filters
+        if sampling_percentage is not None:
+            self._values["sampling_percentage"] = sampling_percentage
+        if session_timeout is not None:
+            self._values["session_timeout"] = session_timeout
+
+    @builtins.property
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''(experimental) The name of the online evaluation configuration.
+
+        Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore).
+        Must start with a letter and can be up to 48 characters long.
+
+        :stability: experimental
+        :pattern: ^[a-zA-Z][a-zA-Z0-9_]{0,47}$
+        '''
+        result = self._values.get("online_evaluation_config_name")
+        assert result is not None, "Required property 'online_evaluation_config_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the online evaluation configuration.
+
+        :default: - No description
+
+        :stability: experimental
+        :maxLength: 200
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The IAM role that provides permissions for the evaluation to access AWS services.
+
+        If not provided, a role will be created automatically with the required permissions
+        including cross-region Bedrock model invocation (to support cross-region inference
+        profiles). For strict cost controls or data residency compliance, provide a custom
+        role with region-scoped permissions.
+
+        :default: - A new role will be created
+
+        :stability: experimental
+        '''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
+
+    @builtins.property
+    def execution_status(self) -> typing.Optional["ExecutionStatus"]:
+        '''(experimental) The execution status of the online evaluation configuration.
+
+        Controls whether the evaluation actively processes agent traces.
+
+        :default: ExecutionStatus.ENABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("execution_status")
+        return typing.cast(typing.Optional["ExecutionStatus"], result)
+
+    @builtins.property
+    def filters(self) -> typing.Optional[typing.List["FilterConfig"]]:
+        '''(experimental) The list of filters that determine which agent traces should be evaluated.
+
+        :default: - No filters (evaluate all sampled traces)
+
+        :stability: experimental
+        :maximum: 5
+        '''
+        result = self._values.get("filters")
+        return typing.cast(typing.Optional[typing.List["FilterConfig"]], result)
+
+    @builtins.property
+    def sampling_percentage(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The percentage of agent traces to sample for evaluation.
+
+        :default: 10
+
+        :stability: experimental
+        :maximum: 100
+        :minimum: 0.01
+        '''
+        result = self._values.get("sampling_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def session_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) The duration of inactivity after which an agent session is considered complete and ready for evaluation.
+
+        Must be between 1 minute and 1440 minutes (24 hours).
+
+        :default: Duration.minutes(15)
+
+        :stability: experimental
+        '''
+        result = self._values.get("session_timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    @builtins.property
+    def data_source(self) -> "DataSourceConfig":
+        '''(experimental) The data source configuration that specifies where to read agent traces from.
+
+        :stability: experimental
+        '''
+        result = self._values.get("data_source")
+        assert result is not None, "Required property 'data_source' is missing"
+        return typing.cast("DataSourceConfig", result)
+
+    @builtins.property
+    def evaluators(self) -> typing.List["EvaluatorReference"]:
+        '''(experimental) The list of evaluators to apply during online evaluation.
+
+        Can include both built-in evaluators and custom evaluators.
+
+        :stability: experimental
+        :maximum: 10
+        :minimum: 1
+        '''
+        result = self._values.get("evaluators")
+        assert result is not None, "Required property 'evaluators' is missing"
+        return typing.cast(typing.List["EvaluatorReference"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OnlineEvaluationConfigProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -22480,15 +26323,49 @@ class PolicyEngineMode(
     '''(experimental) The enforcement mode for a policy engine associated with a gateway.
 
     :stability: experimental
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk.aws_bedrock_agentcore_alpha as bedrock_agentcore_alpha
+        # Create a Policy engine
+        policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+            policy_engine_name="my_policy_engine",
+            description="Policy engine for access control"
+        )
         
-        policy_engine_mode = bedrock_agentcore_alpha.PolicyEngineMode("value")
+        gateway = agentcore.Gateway(self, "MyGateway",
+            gateway_name="my-gateway",
+            policy_engine_configuration=agentcore.GatewayPolicyEngineConfig(
+                policy_engine=policy_engine,
+                mode=agentcore.PolicyEngineMode.ENFORCE
+            )
+        )
+        
+        # Add policy to policy engine
+        policy_engine.add_policy("AllowAllActions",
+            definition=f"""
+                permit(
+                  principal,
+                  action,
+                  resource == AgentCore::Gateway::\"{gateway.gatewayArn}\"
+                );
+              """,
+            description="Allow all actions on specific gateway (development)",
+            validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+        )
+        
+        # you can add multiple policies to the policy engine
+        policy_engine.add_policy("SpecificToolPolicy",
+            definition=f"""
+                permit(
+                  principal is AgentCore::OAuthUser,
+                  action == AgentCore::Action::\"WeatherTool__get_forecast\",
+                  resource == AgentCore::Gateway::\"{gateway.gatewayArn}\"
+                );
+              """,
+            description="Allow specific weather tool access",
+            validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
+        )
     '''
 
     def __init__(self, value: builtins.str) -> None:
@@ -22563,19 +26440,21 @@ class PolicyEngineProps:
 
         Example::
 
-            policy_engine = agentcore.PolicyEngine(self, "MyEngine",
-                policy_engine_name="my_engine"
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway"
             )
             
-            lambda_role = iam.Role(self, "LambdaRole",
-                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
+            policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
+                policy_engine_name="my_policy_engine"
             )
             
-            # Grant read permissions
-            policy_engine.grant_read(lambda_role)
-            
-            # Grant evaluation permissions
-            policy_engine.grant_evaluate(lambda_role)
+            allow_all_policy = agentcore.Policy(self, "AllowAllPolicy",
+                policy_engine=policy_engine,
+                policy_name="allow_all",
+                statement=agentcore.PolicyStatement.permit().for_all_principals().on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn),
+                description="Allow all actions on specific gateway (development only)",
+                validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24140c33786b19b00228bcdaae493864733f9f0da75b482cc3f927ae89e0e56e)
@@ -23153,20 +27032,17 @@ class PolicyValidationMode(
 
     Example::
 
-        gateway = agentcore.Gateway(self, "MyGateway",
-            gateway_name="my-gateway"
-        )
+        # policy_engine: agentcore.PolicyEngine
+        # gateway: agentcore.Gateway
         
-        policy_engine = agentcore.PolicyEngine(self, "MyPolicyEngine",
-            policy_engine_name="my_policy_engine"
-        )
         
-        allow_all_policy = agentcore.Policy(self, "AllowAllPolicy",
+        # Allow access unless the user is suspended
+        policy_with_unless = agentcore.Policy(self, "UnlessPolicy",
             policy_engine=policy_engine,
-            policy_name="allow_all",
-            statement=agentcore.PolicyStatement.permit().for_all_principals().on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn),
-            description="Allow all actions on specific gateway (development only)",
-            validation_mode=agentcore.PolicyValidationMode.IGNORE_ALL_FINDINGS
+            policy_name="unless_suspended",
+            statement=agentcore.PolicyStatement.permit().for_principal("AgentCore::OAuthUser").on_all_actions().on_resource("AgentCore::Gateway", gateway.gateway_arn).unless().principal_attribute("suspended").equal_to(True).done(),
+            description="Allow all actions unless user is suspended",
+            validation_mode=agentcore.PolicyValidationMode.FAIL_ON_ANY_FINDINGS
         )
     '''
 
@@ -29450,6 +33326,209 @@ class CustomJwtAuthorizer(
         return typing.cast("GatewayAuthorizerType", jsii.get(self, "authorizerType"))
 
 
+@jsii.implements(IEvaluator)
+class EvaluatorBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.EvaluatorBase",
+):
+    '''(experimental) Abstract base class for Evaluator.
+
+    Contains methods and attributes valid for evaluators either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1956858c6aa7281476440c9d7c0efc70e0a92db1420d086117a574bcb43fc81)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants IAM actions to the IAM Principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+        :param actions: - The actions to grant.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d80e071a3f139e5511023edf2876393d9e67b9aca4c6a8a38dfcc5d38be7a8d4)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorArn")
+    @abc.abstractmethod
+    def evaluator_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the evaluator.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorId")
+    @abc.abstractmethod
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the evaluator.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorName")
+    @abc.abstractmethod
+    def evaluator_name(self) -> builtins.str:
+        '''(experimental) The name of the evaluator.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorRef")
+    def evaluator_ref(
+        self,
+    ) -> "_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.EvaluatorReference":
+        '''(experimental) A reference to this Evaluator resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d.EvaluatorReference", jsii.get(self, "evaluatorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    @abc.abstractmethod
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was created.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    @abc.abstractmethod
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the evaluator (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    @abc.abstractmethod
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was last updated.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _EvaluatorBaseProxy(
+    EvaluatorBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorArn")
+    def evaluator_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the evaluator.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorId")
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the evaluator.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorName")
+    def evaluator_name(self) -> builtins.str:
+        '''(experimental) The name of the evaluator.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was created.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the evaluator (CREATING, ACTIVE, FAILED, DELETING).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, EvaluatorBase).__jsii_proxy_class__ = lambda : _EvaluatorBaseProxy
+
+
 @jsii.implements(IGateway)
 class GatewayBase(
     _aws_cdk_ceddda9d.Resource,
@@ -32398,14 +36477,16 @@ class RuntimeEndpoint(
             repository_name="test-agent-runtime"
         )
         
+        agent_runtime_artifact_new = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v2.0.0")
+        
         runtime = agentcore.Runtime(self, "MyAgentRuntime",
             runtime_name="myAgent",
-            agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+            agent_runtime_artifact=agent_runtime_artifact_new
         )
         
-        prod_endpoint = runtime.add_endpoint("production",
-            version="1",
-            description="Stable production endpoint - pinned to v1"
+        staging_endpoint = runtime.add_endpoint("staging",
+            version="2",
+            description="Staging environment for testing new version"
         )
     '''
 
@@ -33206,6 +37287,240 @@ class CodeInterpreterCustom(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+
+class Evaluator(
+    EvaluatorBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-agentcore-alpha.Evaluator",
+):
+    '''(experimental) A custom evaluator for Amazon Bedrock AgentCore.
+
+    Custom evaluators enable you to define evaluation logic tailored to your specific
+    use cases. Supports two evaluation strategies:
+
+    - **LLM-as-a-Judge**: Uses a foundation model with custom instructions and a rating scale.
+    - **Code-based**: Uses a Lambda function for custom evaluation logic.
+
+    Custom evaluators are used with ``OnlineEvaluationConfig`` via ``EvaluatorReference.custom()``.
+
+    :stability: experimental
+    :resource: AWS::BedrockAgentCore::Evaluator
+
+    Example::
+
+        # Create a custom LLM-as-a-Judge evaluator
+        evaluator = agentcore.Evaluator(self, "MyEvaluator",
+            evaluator_name="my_custom_evaluator",
+            level=agentcore.EvaluationLevel.SESSION,
+            evaluator_config=agentcore.EvaluatorConfig.llm_as_aJudge(
+                instructions="Evaluate whether the agent response is helpful and accurate.",
+                model_id="us.anthropic.claude-sonnet-4-6",
+                rating_scale=agentcore.EvaluatorRatingScale.categorical([label="Good", definition="The response is helpful and accurate.", label="Bad", definition="The response is not helpful or contains errors."
+                ])
+            )
+        )
+        
+        # Use the custom evaluator in an online evaluation configuration
+        agentcore.OnlineEvaluationConfig(self, "MyEvaluation",
+            online_evaluation_config_name="my_evaluation",
+            evaluators=[
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS),
+                agentcore.EvaluatorReference.custom(evaluator)
+            ],
+            data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                service_names=["my-agent.default"]
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        evaluator_config: "EvaluatorConfig",
+        evaluator_name: builtins.str,
+        level: "EvaluationLevel",
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param evaluator_config: (experimental) The configuration that defines how the evaluator assesses agent performance. Use ``EvaluatorConfig.llmAsAJudge()`` for model-based evaluation or ``EvaluatorConfig.codeBased()`` for Lambda-based evaluation.
+        :param evaluator_name: (experimental) The name of the evaluator. Must be unique within your account. Valid characters are a-z, A-Z, 0-9, _ (underscore). Must start with a letter and can be up to 48 characters long.
+        :param level: (experimental) The level at which the evaluator assesses agent performance. Determines what granularity of data the evaluator operates on: tool call, trace (single request-response), or session (full conversation).
+        :param description: (experimental) The description of the evaluator. Default: - No description
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a213c787d5e06fd0085acab9adc0d092a8fc4ff841f2977557f89fadf1ae78a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = EvaluatorProps(
+            evaluator_config=evaluator_config,
+            evaluator_name=evaluator_name,
+            level=level,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromEvaluatorArn")
+    @builtins.classmethod
+    def from_evaluator_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        evaluator_arn: builtins.str,
+    ) -> "IEvaluator":
+        '''(experimental) Import an existing Evaluator by its ARN.
+
+        :param scope: - The construct scope.
+        :param id: - Construct identifier.
+        :param evaluator_arn: - The evaluator ARN to import.
+
+        :return: An IEvaluator reference
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1f18abf83e243bf3690677a581bdd6022ab327e544fc2a2d9faf40482c9c277)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument evaluator_arn", value=evaluator_arn, expected_type=type_hints["evaluator_arn"])
+        return typing.cast("IEvaluator", jsii.sinvoke(cls, "fromEvaluatorArn", [scope, id, evaluator_arn]))
+
+    @jsii.member(jsii_name="fromEvaluatorAttributes")
+    @builtins.classmethod
+    def from_evaluator_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        evaluator_arn: builtins.str,
+        evaluator_id: builtins.str,
+        evaluator_name: typing.Optional[builtins.str] = None,
+    ) -> "IEvaluator":
+        '''(experimental) Import an existing Evaluator from its attributes.
+
+        :param scope: - The construct scope.
+        :param id: - Construct identifier.
+        :param evaluator_arn: (experimental) The ARN of the evaluator.
+        :param evaluator_id: (experimental) The ID of the evaluator.
+        :param evaluator_name: (experimental) The name of the evaluator. Default: - No name available
+
+        :return: An IEvaluator reference
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a34e0557523312284eac757bd0347ba30413a5f48478b255b50ec8b70c7b4dd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = EvaluatorAttributes(
+            evaluator_arn=evaluator_arn,
+            evaluator_id=evaluator_id,
+            evaluator_name=evaluator_name,
+        )
+
+        return typing.cast("IEvaluator", jsii.sinvoke(cls, "fromEvaluatorAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromEvaluatorId")
+    @builtins.classmethod
+    def from_evaluator_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        evaluator_id: builtins.str,
+    ) -> "IEvaluator":
+        '''(experimental) Import an existing Evaluator by its ID.
+
+        :param scope: - The construct scope.
+        :param id: - Construct identifier.
+        :param evaluator_id: - The evaluator ID to import.
+
+        :return: An IEvaluator reference
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f85cfbc93e449e96b7ba268ce9ee76c6b61acac16e380d249f5d78ff6836bb6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
+        return typing.cast("IEvaluator", jsii.sinvoke(cls, "fromEvaluatorId", [scope, id, evaluator_id]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorArn")
+    def evaluator_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorId")
+    def evaluator_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorName")
+    def evaluator_name(self) -> builtins.str:
+        '''(experimental) The name of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The lifecycle status of the evaluator.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The timestamp when the evaluator was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "updatedAt"))
 
 
 class Gateway(
@@ -34337,7 +38652,11 @@ __all__ = [
     "BrowserCustomProps",
     "BrowserNetworkConfiguration",
     "BrowserSigning",
+    "BuiltinEvaluator",
+    "CategoricalRatingOption",
+    "CloudWatchLogsDataSourceConfig",
     "CodeAssetOptions",
+    "CodeBasedOptions",
     "CodeInterpreterCustom",
     "CodeInterpreterCustomAttributes",
     "CodeInterpreterCustomBase",
@@ -34351,7 +38670,23 @@ __all__ = [
     "CustomClaimOperator",
     "CustomJwtAuthorizer",
     "CustomJwtConfiguration",
+    "DataSourceConfig",
+    "DataSourceConfigBindResult",
     "EpisodicReflectionConfiguration",
+    "EvaluationLevel",
+    "Evaluator",
+    "EvaluatorAttributes",
+    "EvaluatorBase",
+    "EvaluatorConfig",
+    "EvaluatorInferenceConfig",
+    "EvaluatorProps",
+    "EvaluatorRatingScale",
+    "EvaluatorReference",
+    "EvaluatorReferenceBindResult",
+    "ExecutionStatus",
+    "FilterConfig",
+    "FilterOperator",
+    "FilterValue",
     "Gateway",
     "GatewayAttributes",
     "GatewayAuthorizer",
@@ -34378,6 +38713,7 @@ __all__ = [
     "IBrowserCustom",
     "ICodeInterpreterCustom",
     "ICredentialProviderConfig",
+    "IEvaluator",
     "IGateway",
     "IGatewayAuthorizerConfig",
     "IGatewayProtocolConfig",
@@ -34386,6 +38722,7 @@ __all__ = [
     "IMcpGatewayTarget",
     "IMemory",
     "IMemoryStrategy",
+    "IOnlineEvaluationConfig",
     "IPolicy",
     "IPolicyEngine",
     "IRuntimeEndpoint",
@@ -34400,6 +38737,7 @@ __all__ = [
     "LambdaInterceptor",
     "LambdaTargetConfiguration",
     "LifecycleConfiguration",
+    "LlmAsAJudgeOptions",
     "LogType",
     "LoggingConfig",
     "LoggingDestination",
@@ -34422,7 +38760,13 @@ __all__ = [
     "MetadataConfiguration",
     "NetworkConfiguration",
     "NoAuthAuthorizer",
+    "NumericalRatingOption",
     "OAuthConfiguration",
+    "OnlineEvaluationBase",
+    "OnlineEvaluationBaseProps",
+    "OnlineEvaluationConfig",
+    "OnlineEvaluationConfigAttributes",
+    "OnlineEvaluationConfigProps",
     "OpenApiTargetConfiguration",
     "OverrideConfig",
     "Policy",
@@ -34817,6 +39161,28 @@ def _typecheckingstub__c723ceb06d7434df1c72a1865f418037daeeda29f30194820f0872da7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c64b518622eda3e8cf35b8bde183d3444b690bdbbf5cd62f6d41aa8f1c26bcf0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bfec67267f97e218d64e56bdc39a1dc92173127a8c358b3ece8653eaa554c81(
+    *,
+    definition: builtins.str,
+    label: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7281b8b8211a54151ede624dc20bdd0ab27f35fa8aba5638a4da0fb4569416f9(
+    *,
+    log_group_names: typing.Sequence[builtins.str],
+    service_names: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f1722cde23a70aaf0cccbf9f57a88893bfa43b7d559d5838108f3e61b3f88dc6(
     *,
     asset_hash: typing.Optional[builtins.str] = None,
@@ -34832,6 +39198,14 @@ def _typecheckingstub__f1722cde23a70aaf0cccbf9f57a88893bfa43b7d559d5838108f3e61b
     entrypoint: typing.Sequence[builtins.str],
     path: builtins.str,
     runtime: AgentCoreRuntime,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de86e3616d4ebbaef310a5c799e42b7efed10a0305a5642f119c360affd3f732(
+    *,
+    lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34986,9 +39360,134 @@ def _typecheckingstub__8f177e0b2ed3cb35819aacc05e59d683acdf040799acfae81a60470ec
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__608028d7dda6525dcefc34b2a31873df052121e11ff38a61f2d2bebf9e4fee25(
+    runtime: IBedrockAgentRuntime,
+    endpoint: typing.Optional[IRuntimeEndpoint] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc8b295781d2efb2a3d28ac0a899ab0d567bff2e9eed1f3737ef80a789caa757(
+    runtime: IBedrockAgentRuntime,
+    endpoint_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bc028b9d5f3d45c85126f37b3ddf24ae952303050ae9b7c6da6e9e2684128a7(
+    *,
+    cloud_watch_logs: typing.Union[CloudWatchLogsDataSourceConfig, typing.Dict[builtins.str, typing.Any]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__54c4009fde2425385edf6acd53c03bb6ab333043999fcb5a0cc042139c06bd5e(
     *,
     namespaces: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90fe49e13ace26ccf215e2abdcf87060584ac1b771cd036596197ec539b8d469(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__017671bd4962adee0ccb4f525b93f2d75bcdc92c860fd211435161c16a85e6e8(
+    *,
+    evaluator_arn: builtins.str,
+    evaluator_id: builtins.str,
+    evaluator_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dda8a5925596a630543af53419d38ff61112eb31a476b58b3fb626d01f4ef843(
+    *,
+    max_tokens: typing.Optional[jsii.Number] = None,
+    temperature: typing.Optional[jsii.Number] = None,
+    top_p: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d74bbcd5ee4f575d954406fc5352fc68f924eaea2fae76a38213b6bb2b10c2d5(
+    *,
+    evaluator_config: EvaluatorConfig,
+    evaluator_name: builtins.str,
+    level: EvaluationLevel,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16b7ad74457fe996812af209cb0c733411b3fd2cb4a912c9702e031bb95e4cb9(
+    options: typing.Sequence[typing.Union[CategoricalRatingOption, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e8041733be7396b0e0c67c0999048edd07a3ce0c06ff9681b9243ed9b627f8f(
+    options: typing.Sequence[typing.Union[NumericalRatingOption, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57d17c6f2091ceedf7621934061147eff319f1405d29def761c3bf70a23e5348(
+    evaluator: BuiltinEvaluator,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4512bc05f3ad996c3fb87a54540d33fc04c2c5dd9b918dc36a6d9e8d969b57b(
+    evaluator: IEvaluator,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49bf149295521066e23655e950d5855f8c6852d2c13e60118de85e20de5e77ac(
+    *,
+    evaluator_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d59b764b9e49b99334bc892b999b33903268b56c3d49c67b09bf4a3c9fdb58c9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93fef7108b4bbe5886bd2129da0e5e01b9ced7c31ba9589b0314aa86a20f4226(
+    *,
+    key: builtins.str,
+    operator: FilterOperator,
+    value: FilterValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__471e02ea1eb75d1bd71743a5925b898d917942a70b87aa7a39b1a787666fa9d8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68c079cba98359611e2491d4262f13373d9e55a8232db637f71da726d0629707(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4a1483c2da1bf5c139b639df1247e9204b52f92fc9c103dc18f99b082aef002(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__859cea693e3314575661e3a2a74444ad64e6cdca5fedb1e75b9add02ecc260b8(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35523,6 +40022,13 @@ def _typecheckingstub__01c13eef12b0c56a9c64f5606f19dffc282f6dc3b2394e327eeac5101
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fc2d013758bf4d9b9229644e2e6bbc95db1ca008248c92419dfbcea9e96ad358(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__67a7b74c78c66e6c4ae5fa4f1a6d7613f7b57cbdb98f41003e4cca6b66fe58e7(
     grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
     *actions: builtins.str,
@@ -35777,6 +40283,13 @@ def _typecheckingstub__934b8b491b04ba3c7c4ab4f5bc06c324dbefd303c41cbc2cfa9779067
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__567ead95796d9490b56bd9cd9aab08dc0523b8decb60724ea8dc07474b2ed972(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b06d682754dabb267b2363658c431dab477668c081aca5169652420e8e2fd7b0(
     grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
     *actions: builtins.str,
@@ -35930,6 +40443,17 @@ def _typecheckingstub__f39adc22c8396a71405e7fd3ec49f4208fd91c3ccafc829e042a75577
     *,
     idle_runtime_session_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     max_lifetime: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed6371cdd6785d561211c1e821b30da5fafdfb6267069703b6ae1426b867d935(
+    *,
+    instructions: builtins.str,
+    model_id: builtins.str,
+    rating_scale: EvaluatorRatingScale,
+    additional_model_request_fields: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    inference_config: typing.Optional[typing.Union[EvaluatorInferenceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36225,12 +40749,123 @@ def _typecheckingstub__b1156fe37fe7149a4f863e83246fb36b82ce35366fd78287a7abd7485
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3c1f4343791430a43aee87ae88eebb3d30ca9e5945a1c3f235d263ce8b04098b(
+    *,
+    definition: builtins.str,
+    label: builtins.str,
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0137f5a762bb8c7a6492963f354c75cc86adeb6d1bf737ed28f0e801c65264e7(
     *,
     provider_arn: builtins.str,
     scopes: typing.Sequence[builtins.str],
     secret_arn: builtins.str,
     custom_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16d18d1e12d843a3477575d4c9cae4dd9756a53c9b53eedfc94c9ceb67118467(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__240768cbaa5502face56b15e91d6da9d9303ba2b2614d308a2b1f25c38caef14(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__970ac25b691a4147925cb3f72a1e5836736377b42f56f02e5ed5055c38c49a79(
+    *,
+    online_evaluation_config_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    execution_status: typing.Optional[ExecutionStatus] = None,
+    filters: typing.Optional[typing.Sequence[typing.Union[FilterConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sampling_percentage: typing.Optional[jsii.Number] = None,
+    session_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1001024a6ebb29b0c624ada92131a16222ac1ee29a1d16766472f0fd9797e4cd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    data_source: DataSourceConfig,
+    evaluators: typing.Sequence[EvaluatorReference],
+    online_evaluation_config_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    execution_status: typing.Optional[ExecutionStatus] = None,
+    filters: typing.Optional[typing.Sequence[typing.Union[FilterConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sampling_percentage: typing.Optional[jsii.Number] = None,
+    session_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ea2026290719019990cbfbaa609785c437acf3cec5b40b35eb11cb93038f95e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    online_evaluation_config_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e7de32c1aa50ae096893de3be988353a2a498af8550f11bee28bc1394a596d1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    online_evaluation_config_arn: builtins.str,
+    online_evaluation_config_id: builtins.str,
+    online_evaluation_config_name: builtins.str,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba35fda4e4afbd41fa655640a8da12da8850b83e599da7efba7dedf7ae6c1044(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    online_evaluation_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12c95b2947373e88076563859403fe3b0d8775317bd89a468f0feb369e7c52ea(
+    *,
+    online_evaluation_config_arn: builtins.str,
+    online_evaluation_config_id: builtins.str,
+    online_evaluation_config_name: builtins.str,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27dc1427f4bb35e3053a69ca483a3ec825bc727691876fdf50ffeda9fc19d50e(
+    *,
+    online_evaluation_config_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    execution_status: typing.Optional[ExecutionStatus] = None,
+    filters: typing.Optional[typing.Sequence[typing.Union[FilterConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sampling_percentage: typing.Optional[jsii.Number] = None,
+    session_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    data_source: DataSourceConfig,
+    evaluators: typing.Sequence[EvaluatorReference],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37284,6 +41919,25 @@ def _typecheckingstub__38e59bc603de9e405a37067fca444858724ba4a5692828408586100c7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f1956858c6aa7281476440c9d7c0efc70e0a92db1420d086117a574bcb43fc81(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d80e071a3f139e5511023edf2876393d9e67b9aca4c6a8a38dfcc5d38be7a8d4(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__40a3cb82c305d29384ea80844afa06cf3bc54e68964fa6c1e0c46b5fcfec11c4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37722,6 +42376,45 @@ def _typecheckingstub__da00b980caf9bfd0b84d4f7c4ec856774682fff062a743c88616a5a93
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2a213c787d5e06fd0085acab9adc0d092a8fc4ff841f2977557f89fadf1ae78a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    evaluator_config: EvaluatorConfig,
+    evaluator_name: builtins.str,
+    level: EvaluationLevel,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1f18abf83e243bf3690677a581bdd6022ab327e544fc2a2d9faf40482c9c277(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    evaluator_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a34e0557523312284eac757bd0347ba30413a5f48478b255b50ec8b70c7b4dd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    evaluator_arn: builtins.str,
+    evaluator_id: builtins.str,
+    evaluator_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f85cfbc93e449e96b7ba268ce9ee76c6b61acac16e380d249f5d78ff6836bb6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    evaluator_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2985121a5f15718200b977df97c21191f0a411a8b56ec2d94bff0c84f990058b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37946,5 +42639,5 @@ def _typecheckingstub__d19feef196b77e5e83bf68d3b43488ef8ac66df0eb65c4f1ece12f93d
     """Type checking stubs"""
     pass
 
-for cls in [IBedrockAgentRuntime, IBrowserCustom, ICodeInterpreterCustom, ICredentialProviderConfig, IGateway, IGatewayAuthorizerConfig, IGatewayProtocolConfig, IGatewayTarget, IInterceptor, IMcpGatewayTarget, IMemory, IMemoryStrategy, IPolicy, IPolicyEngine, IRuntimeEndpoint, ITargetConfiguration]:
+for cls in [IBedrockAgentRuntime, IBrowserCustom, ICodeInterpreterCustom, ICredentialProviderConfig, IEvaluator, IGateway, IGatewayAuthorizerConfig, IGatewayProtocolConfig, IGatewayTarget, IInterceptor, IMcpGatewayTarget, IMemory, IMemoryStrategy, IOnlineEvaluationConfig, IPolicy, IPolicyEngine, IRuntimeEndpoint, ITargetConfiguration]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

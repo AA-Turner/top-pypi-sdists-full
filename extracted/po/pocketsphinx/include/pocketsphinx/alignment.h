@@ -64,6 +64,22 @@ extern "C" {
 /**
  * @struct ps_alignment_t pocketsphinx/alignment.h
  * @brief Multi-level alignment (words, phones, states) over an utterance.
+ *
+ * Alignments are organized hierarchically: words contain phones, and
+ * phones contain HMM states.  Use ps_alignment_words(),
+ * ps_alignment_phones(), or ps_alignment_states() to iterate at each
+ * level, and ps_alignment_iter_children() to descend into children.
+ *
+ * Each entry has the following fields, accessible via
+ * ps_alignment_iter_seg() and ps_alignment_iter_name():
+ *
+ *  - name: Text (word string, phone symbol, or state ID as string)
+ *  - start: Start frame index
+ *  - duration: Duration in frames
+ *  - score: Acoustic score (log probability, higher is better)
+ *
+ * To convert frames to seconds, divide by the frame rate (default
+ * 100, i.e. 10ms per frame).
  */
 typedef struct ps_alignment_s ps_alignment_t;
 

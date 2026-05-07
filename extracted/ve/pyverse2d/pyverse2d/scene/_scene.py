@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
+from .._internal import expect, profile_section
 from .._flag import StackMode, SceneState
 from .._rendering import Pipeline, Camera, Viewport
 from .._managers import CoordinatesManager, MouseManager
@@ -142,6 +142,7 @@ class Scene:
         self.update(0.0)
         self.draw(pipeline)
 
+    @profile_section("scene.update")
     def update(self, dt: float):
         """Actualisation"""
         self._camera.update(dt)
@@ -154,6 +155,7 @@ class Scene:
             fn(dt)
         self._clear_context()
 
+    @profile_section("scene.draw")
     def draw(self, pipeline: Pipeline):
         """Affichage"""
         self._apply_context()

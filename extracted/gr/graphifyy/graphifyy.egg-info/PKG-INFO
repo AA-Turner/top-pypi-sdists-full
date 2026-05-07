@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.7.7
+Version: 0.7.8
 Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License: MIT License
         
@@ -41,6 +41,7 @@ Requires-Dist: tree-sitter-typescript
 Requires-Dist: tree-sitter-go
 Requires-Dist: tree-sitter-rust
 Requires-Dist: tree-sitter-java
+Requires-Dist: tree-sitter-groovy
 Requires-Dist: tree-sitter-c
 Requires-Dist: tree-sitter-cpp
 Requires-Dist: tree-sitter-ruby
@@ -79,6 +80,14 @@ Requires-Dist: yt-dlp; extra == "video"
 Provides-Extra: kimi
 Requires-Dist: openai; extra == "kimi"
 Requires-Dist: tiktoken; extra == "kimi"
+Provides-Extra: ollama
+Requires-Dist: openai; extra == "ollama"
+Provides-Extra: gemini
+Requires-Dist: openai; extra == "gemini"
+Requires-Dist: tiktoken; extra == "gemini"
+Provides-Extra: openai
+Requires-Dist: openai; extra == "openai"
+Requires-Dist: tiktoken; extra == "openai"
 Provides-Extra: sql
 Requires-Dist: tree-sitter-sql; extra == "sql"
 Provides-Extra: all
@@ -224,7 +233,7 @@ Uninstall with the matching command (e.g. `graphify claude uninstall`).
 
 | Type | Extensions |
 |------|-----------|
-| Code (26 languages) | `.py .ts .js .jsx .tsx .go .rs .java .c .cpp .rb .cs .kt .scala .php .swift .lua .zig .ps1 .ex .exs .m .jl .vue .svelte .sql .f .F .f90 .F90 .f95 .F95 .f03 .F03 .f08 .F08` |
+| Code (28 languages) | `.py .ts .js .jsx .tsx .go .rs .java .c .cpp .rb .cs .kt .scala .php .swift .lua .luau .zig .ps1 .ex .exs .m .jl .vue .svelte .groovy .gradle .sql .f .F .f90 .F90 .f95 .F95 .f03 .F03 .f08 .F08` |
 | Docs | `.md .mdx .html .txt .rst .yaml .yml` |
 | Office | `.docx .xlsx` (requires `pip install graphifyy[office]`) |
 | PDFs | `.pdf` |
@@ -321,7 +330,7 @@ The MCP server gives your assistant structured access: `query_graph`, `get_node`
 
 - **Code files** — processed locally via tree-sitter. Nothing leaves your machine.
 - **Video / audio** — transcribed locally with faster-whisper. Nothing leaves your machine.
-- **Docs, PDFs, images** — sent to your AI assistant for semantic extraction (via the `/graphify` skill, using whatever model your IDE session runs). Headless `graphify extract` requires `ANTHROPIC_API_KEY` (Claude), `MOONSHOT_API_KEY` (Kimi), or a running Ollama instance (`OLLAMA_BASE_URL`). The `--dedup-llm` flag uses the same key.
+- **Docs, PDFs, images** — sent to your AI assistant for semantic extraction (via the `/graphify` skill, using whatever model your IDE session runs). Headless `graphify extract` requires `GEMINI_API_KEY` / `GOOGLE_API_KEY` (Gemini), `MOONSHOT_API_KEY` (Kimi), `ANTHROPIC_API_KEY` (Claude), `OPENAI_API_KEY` (OpenAI), or a running Ollama instance (`OLLAMA_BASE_URL`). The `--dedup-llm` flag uses the same key.
 - No telemetry, no usage tracking, no analytics.
 
 ---
@@ -374,7 +383,8 @@ graphify kiro install / uninstall
 graphify antigravity install / uninstall
 
 graphify extract ./docs                        # headless LLM extraction for CI (no IDE needed)
-graphify extract ./docs --backend claude       # explicit backend: claude (ANTHROPIC_API_KEY) or kimi (MOONSHOT_API_KEY)
+graphify extract ./docs --backend gemini       # explicit backend: gemini, kimi, claude, openai, or ollama
+graphify extract ./docs --backend gemini --model gemini-3.1-pro-preview
 graphify extract ./docs --backend ollama       # local Ollama (set OLLAMA_BASE_URL / OLLAMA_MODEL)
 graphify extract ./docs --no-cluster           # raw extraction only, skip clustering
 graphify extract ./docs --dedup-llm            # LLM tiebreaker for ambiguous entity pairs (uses same API key)

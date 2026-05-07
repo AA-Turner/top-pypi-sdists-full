@@ -2,6 +2,7 @@
 #
 #
 
+import warnings
 from unittest import TestCase
 
 from octodns.idna import idna_encode
@@ -929,3 +930,25 @@ class TestRecordValidation(TestCase):
             method = getattr(value_type, attr)
             self.assertTrue(method, f'{_type}, {cls} has {attr}')
             # this one is a @property so not callable
+
+
+class TestValidators(TestCase):
+    def test_legacy_record_validate_deprecation(self):
+        # 3rd-party records that still override Record.validate get a
+        # DeprecationWarning at class-definition time, telling them to
+        # migrate to declaring VALIDATORS before 2.0.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+
+            class LegacyRecord(ARecord):
+                @classmethod
+                def validate(cls, name, fqdn, data):
+                    return []
+
+        matched = [
+            w
+            for w in caught
+            if issubclass(w.category, DeprecationWarning)
+            and 'LegacyRecord.validate' in str(w.message)
+        ]
+        self.assertTrue(matched)

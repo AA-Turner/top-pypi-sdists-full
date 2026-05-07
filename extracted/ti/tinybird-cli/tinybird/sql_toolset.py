@@ -75,19 +75,6 @@ def explain_plan(sql: str) -> str:
     return chquery.explain_ast(sql)
 
 
-@dataclass(frozen=True)
-class ColumnInfo:
-    name: str
-    type: str
-    nullable: bool
-    default_specifier: str = ""
-    default_expression: str | None = None
-    codec: str | None = None
-    comment: str | None = None
-    ttl: str | None = None
-    is_primary_key: bool = False
-
-
 @dataclass
 class MaterializedViewTarget:
     database: Optional[str]
@@ -116,11 +103,6 @@ def parse_materialized_view_target(create_table_query: str) -> Optional[Material
         database=result["database"],
         table=result["table"],
     )
-
-
-def get_columns_from_create_query(sql_schema: str) -> list[ColumnInfo]:
-    columns = chquery.get_columns_from_create_query(sql_schema)
-    return [ColumnInfo(**col) for col in columns]
 
 
 def has_join(sql: str) -> bool:

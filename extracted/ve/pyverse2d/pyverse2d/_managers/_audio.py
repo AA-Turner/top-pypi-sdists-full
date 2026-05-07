@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, positive
+from .._internal import expect, positive, expect_callable, profile_section
 from .._flag import AudioState
 from ..abc import Manager, Request, AudioHandle
 from ..asset import Sound, Music, Playlist, SoundBundle, MusicBundle
@@ -13,7 +13,7 @@ import pyglet.media as _media
 
 import random
 from dataclasses import dataclass
-from numbers import Real
+from numbers import Real, Integral
 from typing import ClassVar, Type, Callable, Any
 
 # ======================================== CONSTANTS ========================================
@@ -21,7 +21,14 @@ _CROSSFADE_STEPS = 20
 
 # ======================================== HANDLES ========================================
 class SoundHandle(AudioHandle):
-    """Handle de son en cours de lecture"""
+    """Handle de son en cours de lecture
+    
+    Args:
+        sound: ``Sound`` asset en cours de lecture
+        source: ``StaticSource`` de lecture
+        player: ``MediaPlayer`` lisant le son
+        on_stop: callback de fin de lecture
+    """
     __slots__ = (
         "sound",
         "loop", "iterations_left",
@@ -30,7 +37,6 @@ class SoundHandle(AudioHandle):
     def __init__(self, sound: Sound, source: _media.StaticSource, player: _media.Player, on_stop: Callable[[SoundHandle], Any] = None):
         # Attributs publiques
         self.sound: Sound = sound
-        
         self.loop: bool = False
         self.iterations_left = None
 
@@ -72,7 +78,14 @@ class SoundHandle(AudioHandle):
 
 
 class MusicHandle(AudioHandle):
-    """Handle de musique en cours de lecture"""
+    """Handle de musique en cours de lecture
+
+    Args:
+        music: ``Music`` asset en cours de lecture
+        source: ``StreamingSource`` de lecture
+        player: ``MediaPlayer`` lisant la musique
+        on_stop: callback de fin de lecture
+    """
     __slots__ = (
         "music",
     )
@@ -134,7 +147,7 @@ class SoundGroup:
 
     Args:
         pool_max: nombre de lectures simultanées maximum
-        volume: volume du groupe [0, 1]
+        volume: volume du groupe *[0, 1]*
         parent: groupe parent (hérite du volume)
     """
     __slots__ = (
@@ -142,16 +155,19 @@ class SoundGroup:
         "_handles",
     )
 
-    def __init__(self, volume: Real = 1.0, pool_max: int = None, parent: SoundGroup = None):
-        # Attributs publiques
-        self._volume: float = float(volume)
-        self._pool_max: int | None = pool_max
-        self._parent: SoundGroup | None = parent
+    def __init__(self, volume: Real = 1.0, pool_max: Integral  | None = None, parent: SoundGroup | None = None):
+        # Transtypage et vérifications
+        volume = float(volume)
+        pool_max = int(pool_max) if pool_max is not None else None
 
         if __debug__:
-            positive(self._volume)
-            expect(self._pool_max, (int, None))
-            expect(self._parent, (SoundGroup, None))
+            positive(volume)
+            expect(parent, (SoundGroup, None))
+
+        # Attributs publiques
+        self._volume: float = volume
+        self._pool_max: int | None = pool_max
+        self._parent: SoundGroup | None = parent
         
         # Attributs internes
         self._handles: set[SoundHandle] = set()
@@ -167,7 +183,8 @@ class SoundGroup:
     @volume.setter
     def volume(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._volume = value
 
     @property
@@ -180,12 +197,12 @@ class SoundGroup:
         return self._pool_max
     
     @pool_max.setter
-    def pool_max(self, value: int | None) -> None:
-        assert value is None or isinstance(value, int), f"pool_max ({value}) must be an integer or None"
+    def pool_max(self, value: Integral | None) -> None:
+        value = int(value)
         self._pool_max = value
 
     @property
-    def parent(self) -> SoundGroup:
+    def parent(self) -> SoundGroup | None:
         """Groupe parent
 
         Le ``SoundGroup`` hérite du volume du parent.
@@ -232,27 +249,33 @@ class SoundGroup:
 # ======================================== REQUESTS ========================================
 @dataclass(slots=True)
 class _CrossfadeRequest(Request):
+    """Requête de fondu croisé"""
     handle_out: MusicHandle | None
     handle_in: MusicHandle | None
+
     steps: int
     step_dt: float
-    step: int
-    elapsed: float
     vol_out: float
     vol_in: float
     easing: EasingFunc
 
+    step: int = 0
+    elapsed: float = 0.0
+
 @dataclass(slots=True)
 class _PlaylistRequest(Request):
+    """Requête de lecture d'une playlist"""
     playlist: Playlist
     musics: list[Music]
     order: list[int]
+
     shuffle: bool
     loop: bool
     fade_in: float
     fade_out: float
     delay: float
     cross_fade: float
+
     playing: bool = True
     index: int = 0
     delay_timer: float = 0.0
@@ -266,7 +289,7 @@ class AudioManager(Manager):
         "_source_cache",
     )
 
-    _ID: str = "audio"
+    _ID: ClassVar[str] = "audio"
 
     # Types alias
     AudioState: ClassVar[Type[AudioState]] = AudioState
@@ -275,7 +298,7 @@ class AudioManager(Manager):
     MusicHandle: ClassVar[Type[MusicHandle]] = MusicHandle
 
     # Groupes par défaut
-    _DEFAULT_SOUN_GROUP: SoundGroup = None
+    _DEFAULT_SOUN_GROUP: ClassVar[SoundGroup] = None
 
     @classmethod
     def get_default_sound_group(cls) -> SoundGroup:
@@ -292,7 +315,7 @@ class AudioManager(Manager):
         self._master_volume: float = 1.0
         self._music_volume: float = 1.0
 
-        # Attributs privés
+        # Attributs internes
         self._active_sounds: set[Sound] = set()
         self._current_music: Music | None = None
         self._crossfade: _CrossfadeRequest | None = None
@@ -309,9 +332,10 @@ class AudioManager(Manager):
         return self._master_volume
 
     @master_volume.setter
-    def master_volume(self, value: float) -> None:
+    def master_volume(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"master_volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._master_volume = value
         self._refresh_volumes()
 
@@ -324,27 +348,31 @@ class AudioManager(Manager):
         return self._music_volume
 
     @music_volume.setter
-    def music_volume(self, value: float) -> None:
+    def music_volume(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"music_volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._music_volume = value
         self._refresh_volumes()
 
     # ======================================== FACTORY ========================================
     @staticmethod
     def create_sound(
-            path: str,
-            volume: Real = 1.0,
-            cooldown: Real = 0.0,
-            group: SoundGroup = None,
-        ) -> Sound:
+        path: str,
+        volume: Real = 1.0,
+        cooldown: Real = 0.0,
+        group: SoundGroup | None = None,
+    ) -> Sound:
         """Crée et retourne un ``Sound`` asset
 
         Args:
             path: chemin vers le fichier audio
-            volume: volume propre [0, 1]
-            cooldown: délai minimal entre deux lectures (secondes)
+            volume: volume propre *[0, 1]*
+            cooldown: délai minimal entre deux lectures *(en secondes)*
             group: groupe SFX
+
+        Returns:
+            sound: ``Sound`` asset généré
         """
         return Sound(
             path = path,
@@ -361,8 +389,20 @@ class AudioManager(Manager):
         volume: Real = 1.0,
         cooldown: Real = 0.0,
         group: SoundGroup |  None = None
-    ):
-        """"""
+    ) -> Sound:
+        """Crée en retourne un ``Sound`` asset avec variations
+
+        Args:
+            folder_path: chemin du dossier
+            prefix: préfixe des fichiers à charger
+            extensions: extensions acceptées (toutes si None)
+            volume: volume appliqué au son
+            cooldown: cooldown appliqué au son
+            group: groupe SFX à assigner
+
+        Returns:
+            sound: ``Sound`` asset généré
+        """
         return Sound.from_variations(
             folder_path = folder_path,
             prefix = prefix,
@@ -381,7 +421,10 @@ class AudioManager(Manager):
 
         Args:
             path: chemin vers le fichier audio
-            volume: volume propre [0, 1]
+            volume: volume propre *[0, 1]*
+
+        Returns:
+            music: ``Music`` asset généré
         """
         return Music(
             path = path,
@@ -408,6 +451,9 @@ class AudioManager(Manager):
             volume: volume appliqué à tous les sons
             cooldown: cooldown appliqué à tous les sons
             group: groupe SFX à assigner
+
+        Returns:
+            sound_bundle: ``SoundBundle`` généré
         """
         return SoundBundle.from_folder(
             folder_path = folder_path,
@@ -435,6 +481,9 @@ class AudioManager(Manager):
             extensions: extensions acceptées (toutes si None)
             remove_prefix: retirer le préfixe au chargement            
             volume: volume appliqué à toutes les musiques
+
+        Returns:
+            music_bundle: ``MusicBundle`` généré
         """
         return MusicBundle.from_folder(
             folder_path = folder_path,
@@ -451,12 +500,13 @@ class AudioManager(Manager):
         self._stop_music_immediate()
 
     # ======================================== SOUNDS ========================================
+    @profile_section("manager.audio.play_sound")
     def play_sound(
             self,
             sound: Sound,
             volume: Real = 1.0,
             loop: bool = False,
-            limit: int | None = None,
+            limit: Integral | None = None,
             on_end: Callable[[SoundHandle], Any] = None
         ) -> SoundHandle | None:
         """Joue un ``Sound`` asset
@@ -469,8 +519,18 @@ class AudioManager(Manager):
             on_end: callback de fin de son
 
         Returns:
-            handle: handle du son joué, ou None si le son n'a pas pu être joué
+            handle | None: ``SoundHandle`` du son joué, ou None si le son n'a pas pu être joué
         """
+        # Transtypage et vérifications
+        volume = float(volume)
+        loop = bool(loop)
+        limit = int(limit) if limit is not None else None
+
+        if __debug__:
+            expect(sound, Sound)
+            positive(volume)
+            expect_callable(on_end, include_none=True)
+
         # Vérification de la disponibilité du son
         if not sound.is_ready() or sound.is_paused():
             return None
@@ -573,18 +633,20 @@ class AudioManager(Manager):
         return self._active_sounds
 
     # ======================================== MUSICS ========================================
+    @profile_section("manager.audio.play_music")
     def play_music(
-            self,
-            music: Music,
-            volume: Real = 1.0,
-            loop: bool = True,
-            fade_s: float = 0.0,
-            fade_easing: EasingFunc = linear,
-            on_end: Callable[[MusicHandle], Any] = None,
-            playlist_fallback: bool = True,
-            _interrupt_playlist: bool = True,
-        ) -> MusicHandle:
-        """Joue un ``Music`` asset en remplaçant l'éventuel en cours.
+        self,
+        music: Music,
+        volume: Real = 1.0,
+        loop: bool = True,
+        fade_s: Real = 0.0,
+        fade_easing: EasingFunc = linear,
+        on_end: Callable[[MusicHandle], Any] | None = None,
+        playlist_fallback: bool = True,
+        *,
+        _interrupt_playlist: bool = True,
+    ) -> MusicHandle:
+        """Joue un ``Music`` asset en remplaçant l'éventuel en cours
 
         Args:
             music: musique à jouer
@@ -595,6 +657,19 @@ class AudioManager(Manager):
             on_end: callback de fin de lecture
             playlist_fallback: relancer la playliste en cours après la musique
         """
+        # Transtypage et vérifications
+        volume = float(volume)
+        loop = bool(loop)
+        fade_s = float(fade_s)
+        playlist_fallback = bool(playlist_fallback)
+
+        if __debug__:
+            expect(music, Music)
+            positive(volume)
+            positive(fade_s)
+            expect_callable(fade_easing)
+            expect_callable(on_end, include_none=True)
+
         # Arrêt de la musique en cours
         self._stop_music_immediate()
 
@@ -650,13 +725,20 @@ class AudioManager(Manager):
             return
         self._current_music._handle.pause()
 
-    def stop_music(self, fade_s: float = 0.0, fade_easing: EasingFunc = linear) -> None:
+    def stop_music(self, fade_s: Real = 0.0, fade_easing: EasingFunc = linear) -> None:
         """Arrête la musique en cours
 
         Args:
             fade_s: fade-out en secondes
             fade_easing: fonction d'atténuation du fade-out
         """
+        # Transtypage et vérifications
+        fade_s = float(fade_s)
+        
+        if __debug__:
+            positive(fade_s)
+            expect_callable(fade_easing)
+
         # Annulation du cross-fade en cours
         if self._current_music is None:
             return
@@ -681,26 +763,43 @@ class AudioManager(Manager):
         else:
             self._stop_music_immediate()
 
+    @profile_section("manager.audio.switch_music")
     def switch_music(
             self,
             music: Music,
             volume: Real = 1.0,
             loop: bool = True,
-            fade_s: float = 1.0,
+            fade_s: Real = 1.0,
             fade_easing: EasingFunc = linear,
             on_end: Callable[[MusicHandle], Any] = None,
             playlist_fallback: bool = True,
+            *,
             _interrupt_playlist: bool = True,
         ) -> MusicHandle:
         """Crossfade vers une nouvelle musique
 
         Args:
             music: musique cible
+            volume: volume cible
+            loop: boucle la nouvelle musique
             fade_s: durée totale du crossfade en secondes
             fade_easing: fonction d'atténuation du cross-fade
-            loop: boucle la nouvelle musique
+            on_end: callback de fin de lecture
             playlist_fallback: relancer la playliste en cours après la musique
         """
+        # Transtypage et vérifications
+        volume = float(volume)
+        loop = bool(loop)
+        fade_s = float(fade_s)
+        playlist_fallback = bool(playlist_fallback)
+
+        if __debug__:
+            expect(music, Music)
+            positive(volume)
+            positive(fade_s)
+            expect_callable(fade_easing)
+            expect_callable(on_end, include_none=True)
+
         # Cas sans cross-fade
         if fade_s <= 0.0:
             return self.play_music(music, loop=loop)
@@ -752,6 +851,7 @@ class AudioManager(Manager):
         return self._current_music
     
     # ======================================== PLAYLISTS ========================================
+    @profile_section("manager.audio.play_playlist")
     def play_playlist(self, playlist: Playlist) -> None:
         """Lance la lecture d'une playlist
         
@@ -820,6 +920,7 @@ class AudioManager(Manager):
         return self._playlist.playing
 
     # ======================================== CYCLE DE VIE ========================================
+    @profile_section("manager.audio.update")
     def update(self, dt: float) -> None:
         """Actualisation
         

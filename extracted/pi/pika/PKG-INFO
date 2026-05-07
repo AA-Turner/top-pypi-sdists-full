@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pika
-Version: 1.3.2
+Version: 1.4.0
 Summary: Pika Python AMQP Client Library
 Maintainer-email: "Gavin M. Roy" <gavinmroy@gmail.com>, Luke Bakken <lukerbakken@gmail.com>
 License: BSD-3-Clause
@@ -17,6 +17,9 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: Jython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -27,10 +30,14 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
-Provides-Extra: gevent
-Provides-Extra: tornado
-Provides-Extra: twisted
 License-File: LICENSE
+Provides-Extra: gevent
+Requires-Dist: gevent; extra == "gevent"
+Provides-Extra: tornado
+Requires-Dist: tornado; extra == "tornado"
+Provides-Extra: twisted
+Requires-Dist: twisted; extra == "twisted"
+Dynamic: license-file
 
 Pika
 ====
@@ -43,7 +50,9 @@ Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including
 RabbitMQ's extensions.
 
-- Supports Python 3.7+ (`1.1.0` was the last version to support 2.7)
+- Supports Python 3.7+ (CPython and PyPy; versions are listed on
+  `PyPI <https://pypi.org/project/pika/>`_). Pika 1.1.0 was the last release
+  that supported Python 2.7.
 - Since threads aren't appropriate to every situation, it doesn't require
   threads. Pika core takes care not to forbid them, either. The same goes for
   greenlets, callbacks, continuations, and generators. An instance of Pika's
@@ -106,11 +115,11 @@ Pika provides the following adapters
 - ``pika.SelectConnection`` - asynchronous adapter without third-party
   dependencies.
 - ``pika.adapters.gevent_connection.GeventConnection`` - asynchronous adapter
-  for use with `Gevent <http://www.gevent.org>`_'s I/O loop.
+  for use with `Gevent <https://www.gevent.org>`_'s I/O loop.
 - ``pika.adapters.tornado_connection.TornadoConnection`` - asynchronous adapter
-  for use with `Tornado <http://tornadoweb.org>`_'s I/O loop.
+  for use with `Tornado <https://tornadoweb.org>`_'s I/O loop.
 - ``pika.adapters.twisted_connection.TwistedProtocolConnection`` - asynchronous
-  adapter for use with `Twisted <http://twistedmatrix.com>`_'s I/O loop.
+  adapter for use with `Twisted <https://twistedmatrix.com>`_'s I/O loop.
 
 Multiple connection parameters
 ------------------------------
@@ -228,7 +237,7 @@ for connection errors. Here is a very basic example:
         except pika.exceptions.AMQPConnectionError:
             continue
 
-This example can be found in `examples/consume_recover.py`.
+A similar example can be found in `examples/blocking_consume_recover_multiple_hosts.py`.
 
 Generic operation retry libraries such as
 `retry <https://github.com/invl/retry>`_ can be used. Decorators make it
@@ -255,7 +264,6 @@ retries and limiting the number of retries:
 
     consume()
 
-This example can be found in `examples/consume_recover_retry.py`.
 
 For asynchronous adapters, use ``on_close_callback`` to react to connection
 failure events. This callback can be used to clean up and recover the
@@ -273,7 +281,7 @@ existing functionality **include test coverage**.
 rejected.*
 
 Additionally, please format your code using
-`Yapf <http://pypi.python.org/pypi/yapf>`_ with ``google`` style prior to
+`Yapf <https://pypi.org/project/yapf>`_ with ``google`` style prior to
 issuing your pull request. *Note: only format those lines that you have changed
 in your pull request. If you format an entire file and change code outside of
 the scope of your PR, it will likely be rejected.*
@@ -298,15 +306,15 @@ New non-blocking adapters may be implemented in either of the following ways:
   ``pika.adapters.twisted_connection.TwistedProtocolConnection``.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
-   :target: http://badge.fury.io/py/pika
+   :target: https://badge.fury.io/py/pika
 
 .. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
-    :target: https://pypi.python.org/pypi/pika
+    :target: https://pypi.org/project/pika
 
 .. |Actions Status| image:: https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg
    :target: https://github.com/pika/pika/actions/workflows/main.yaml
 
-.. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika.svg?
+.. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika/main.svg
    :target: https://codecov.io/github/pika/pika?branch=main
 
 .. |License| image:: https://img.shields.io/pypi/l/pika.svg?

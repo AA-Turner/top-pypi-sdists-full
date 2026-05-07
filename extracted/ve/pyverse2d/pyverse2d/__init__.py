@@ -1,9 +1,13 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
+
 from ._version import __version__
+from ._internal import ProfiledRun as _ProfiledRun
 
 import pyglet
+import sys
 from typing import Callable
+from numbers import Real
 
 # ======================================== PRIMITIVES ========================================
 from . import typing, abc, math, shape, asset
@@ -77,7 +81,7 @@ def set_window(window: Window):
         _pipeline.window.clear()
         scene.draw(_pipeline)
 
-# ======================================== COLLECTIONS ========================================
+# ======================================== INTERFACE ========================================
 def preload(loadable: scene.Scene = None) -> None:
     """Précharge le rendu
 
@@ -149,6 +153,35 @@ def stop():
     # Reset pipeline
     _pipeline = None
 
+def profile(
+    duration: Real = 10.0,
+    on_update: Callable[[float], None] = None,
+    on_draw: Callable[[], None] = None,
+    export_path: str | None = "profile_report.txt",
+):
+    """Lance un profiling de la boucle principale sur une durée donnée
+
+    Args:
+        duration: durée du profiling en secondes (défaut : 10 s)
+        on_update: hook d'actualisation utilisateur
+        on_draw: hook d'affichage utilisateur
+        export_path: chemin du rapport exporté (None = console uniquement)
+        deep: introspection automatique des objets de scene
+        scene_roots: objets supplémentaires à inspecter en mode deep
+    """
+    if _pipeline is None:
+        raise RuntimeError("No window set, try set_window() before profile()")
+
+    engine = sys.modules[__name__]
+
+    _ProfiledRun(
+        engine = engine,
+        on_update = on_update,
+        on_draw = on_draw,
+        duration = duration,
+        export_path = export_path,
+    ).run()
+
 # ======================================== EXPORTS ========================================
 __all__ = [
     "Window",
@@ -204,4 +237,5 @@ __all__ = [
     "preload",
     "run",
     "stop",
+    "profile",
 ]

@@ -47,6 +47,8 @@ use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::error::display::function_suffix;
+use crate::solver::solver::ArgumentSide;
+use crate::solver::solver::CallContext;
 use crate::solver::solver::QuantifiedHandle;
 use crate::solver::solver::TypeVarSpecializationError;
 use crate::types::callable::Callable;
@@ -354,6 +356,7 @@ impl CallArgPreEval<'_> {
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        call_context: &CallContext,
     ) -> Option<Type> {
         let tcc = &|| {
             TypeCheckContext::of_kind(if vararg {
@@ -366,25 +369,47 @@ impl CallArgPreEval<'_> {
         match self {
             Self::Type(ty, done) => {
                 *done = true;
-                solver.check_type(ty, hint, range, call_errors, tcc);
+                solver.check_type_with_call_context(
+                    ty,
+                    hint,
+                    range,
+                    call_errors,
+                    tcc,
+                    call_context,
+                );
                 Some((*ty).clone())
             }
             Self::Expr(x, done) => {
                 *done = true;
-                Some(solver.expr_with_separate_check_errors(
+                Some(solver.expr_with_separate_check_errors_with_call_context(
                     x,
                     Some((hint, call_errors, tcc)),
                     arg_errors,
+                    call_context,
                 ))
             }
             Self::Star(ty, done) => {
                 *done = vararg;
-                solver.check_type(ty, hint, range, call_errors, tcc);
+                solver.check_type_with_call_context(
+                    ty,
+                    hint,
+                    range,
+                    call_errors,
+                    tcc,
+                    call_context,
+                );
                 Some(ty.clone())
             }
             Self::Fixed(tys, i) => {
                 let arg_ty = tys[*i].clone();
-                solver.check_type(&arg_ty, hint, range, call_errors, tcc);
+                solver.check_type_with_call_context(
+                    &arg_ty,
+                    hint,
+                    range,
+                    call_errors,
+                    tcc,
+                    call_context,
+                );
                 *i += 1;
                 Some(arg_ty)
             }
@@ -573,6 +598,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         arg_errors: &ErrorCollector,
         call_errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
+        call_context: &CallContext,
         // If Some, records parameter-name → argument-type bindings (for meta-shape inference).
         bound_args: &mut Option<HashMap<String, Type>>,
     ) -> HashMap<TextRange, Type> {
@@ -717,6 +743,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             arg_errors,
                             call_errors,
                             context,
+                            call_context,
                         );
                         if let Some(name) = name
                             && let Some(ty) = arg_ty
@@ -752,6 +779,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             arg_errors,
                             call_errors,
                             context,
+                            call_context,
                         );
                         if bound_args.is_some() {
                             if let Some(name) = name {
@@ -784,9 +812,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //     def f[T](x: T, other: T): ...
             //     f(A(), 0)  # T = A | int
             if let Some(self_qs) = mem::take(&mut self_qs) {
-                let specialization_errors = self
-                    .solver()
-                    .finish_quantified(self_qs, self.solver().infer_with_first_use);
+                let specialization_errors = self.solver().finish_quantified_with_type_order(
+                    self_qs,
+                    self.solver().infer_with_first_use,
+                    self.type_order(),
+                );
                 if let Err(errors) = specialization_errors {
                     self.add_specialization_errors(errors, arg.range(), call_errors, context);
                 }
@@ -1004,13 +1034,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 unexpected_keyword_error(name, kw.range);
                             }
                             if let Some(want) = &hint {
-                                self.check_type(&field.ty, want, kw.range, call_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
-                                        Some(name.clone()),
-                                        callable_name.cloned(),
-                                    ))
-                                    .with_context(context.map(|ctx| ctx()))
-                                });
+                                self.check_type_with_call_context(
+                                    &field.ty,
+                                    want,
+                                    kw.range,
+                                    call_errors,
+                                    &|| {
+                                        TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
+                                            Some(name.clone()),
+                                            callable_name.cloned(),
+                                        ))
+                                        .with_context(context.map(|ctx| ctx()))
+                                    },
+                                    call_context,
+                                );
                             }
                         }
                     } else {
@@ -1021,7 +1058,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     &self.heap.mk_class_type(self.stdlib.str().clone()),
                                 ) {
                                     if let Some((name, want)) = kwargs.as_ref() {
-                                        self.check_type(
+                                        self.check_type_with_call_context(
                                             &value,
                                             want,
                                             kw.range,
@@ -1036,6 +1073,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                                 )
                                                 .with_context(context.map(|ctx| ctx()))
                                             },
+                                            call_context,
                                         );
                                     };
                                     splat_kwargs.push((value, kw.range));
@@ -1100,16 +1138,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .with_context(context.map(|ctx| ctx()))
                     };
                     let arg_ty = match kw.value {
-                        TypeOrExpr::Expr(x) => self.expr_with_separate_check_errors(
-                            x,
-                            hint.map(|ty| (ty, call_errors, tcc)),
-                            arg_errors,
-                        ),
+                        TypeOrExpr::Expr(x) => self
+                            .expr_with_separate_check_errors_with_call_context(
+                                x,
+                                hint.map(|ty| (ty, call_errors, tcc)),
+                                arg_errors,
+                                call_context,
+                            ),
                         TypeOrExpr::Type(x, range) => {
                             if let Some(hint) = &hint
                                 && !hint.is_any()
                             {
-                                self.check_type(x, hint, range, call_errors, tcc);
+                                self.check_type_with_call_context(
+                                    x,
+                                    hint,
+                                    range,
+                                    call_errors,
+                                    tcc,
+                                    call_context,
+                                );
                             }
                             (*x).clone()
                         }
@@ -1169,13 +1216,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 for (ty, range) in &splat_kwargs {
-                    self.check_type(ty, want, *range, call_errors, &|| {
-                        TypeCheckContext::of_kind(TypeCheckKind::CallUnpackKwArg(
-                            (*name).clone(),
-                            callable_name.cloned(),
-                        ))
-                        .with_context(context.map(|ctx| ctx()))
-                    });
+                    self.check_type_with_call_context(
+                        ty,
+                        want,
+                        *range,
+                        call_errors,
+                        &|| {
+                            TypeCheckContext::of_kind(TypeCheckKind::CallUnpackKwArg(
+                                (*name).clone(),
+                                callable_name.cloned(),
+                            ))
+                            .with_context(context.map(|ctx| ctx()))
+                        },
+                        call_context,
+                    );
                 }
             }
         }
@@ -1329,6 +1383,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Vec<TypeVarSpecializationError>,
         HashMap<TextRange, Type>,
     ) {
+        let mut call_context = CallContext::outside();
+        call_context.set_argument_side(ArgumentSide::Got);
+        call_context.require_boundary_consumption();
+
         // Look up meta-shape early so we can conditionally collect bound args.
         // Only consult the registry when tensor_shapes is enabled to avoid
         // unnecessary DSL parsing and per-call HashMap lookups.
@@ -1352,7 +1410,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     // Even though these quantifieds aren't used, let's make sure to not leave
                     // unfinished quantifieds around.
-                    let _ = self.solver().finish_quantified(qs, false);
+                    let _ = self.solver().finish_quantified_with_type_order(
+                        qs,
+                        false,
+                        self.type_order(),
+                    );
                     self.instantiate_fresh_callable(tparams, callable)
                 }
             } else {
@@ -1361,6 +1423,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             (QuantifiedHandle::empty(), callable)
         };
+        call_context.register_fresh_quantified_vars(callable_qs.vars());
         let (self_qs, remaining_callable_qs) = if self_obj.is_some()
             && let Some(first_param) = callable.get_first_param()
             // TODO(https://github.com/facebook/pyrefly/issues/105): handle nested vars
@@ -1376,6 +1439,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let ctor_qs = if let Some(targs) = ctor_targs.as_mut() {
             let qs = self.solver().freshen_class_targs(targs, self.uniques);
+            call_context.register_fresh_quantified_vars(qs.vars());
             let mp = targs.substitution_map();
             callable.params.visit_mut(&mut |t| t.subst_mut(&mp));
             if let Some(obj) = self_obj.as_mut() {
@@ -1407,6 +1471,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 arg_errors,
                 call_errors,
                 context,
+                &call_context,
                 &mut bound_args,
             ),
             Params::Ellipsis | Params::Materialization => {
@@ -1431,6 +1496,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         arg_errors,
                         call_errors,
                         context,
+                        &call_context,
                         &mut bound_args,
                     ),
                     // This can happen with a signature like `(f: Callable[P, None], *args: P.args, **kwargs: P.kwargs)`.
@@ -1449,6 +1515,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         arg_errors,
                         call_errors,
                         context,
+                        &call_context,
                         &mut bound_args,
                     ),
                     Type::Quantified(q) => {
@@ -1474,6 +1541,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 arg_errors,
                                 call_errors,
                                 context,
+                                &call_context,
                                 &mut bound_args,
                             )
                         } else {
@@ -1499,12 +1567,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let mut errors = self
             .solver()
-            .finish_quantified(remaining_callable_qs, self.solver().infer_with_first_use)
+            .finish_quantified_with_type_order_and_call_context(
+                remaining_callable_qs,
+                self.solver().infer_with_first_use,
+                self.type_order(),
+                &call_context,
+            )
             .map_or_else(|e| e.to_vec(), |_| Vec::new());
-        if let Err(e) = self
-            .solver()
-            .finish_quantified(ctor_qs, self.solver().infer_with_first_use)
-        {
+        if let Err(e) = self.solver().finish_quantified_with_type_order(
+            ctor_qs,
+            self.solver().infer_with_first_use,
+            self.type_order(),
+        ) {
             errors.extend(e);
         }
 

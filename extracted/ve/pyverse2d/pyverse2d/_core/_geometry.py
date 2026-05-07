@@ -1,15 +1,20 @@
+# ======================================== IMPORTS ========================================
 from __future__ import annotations
 
 from ..abc import Shape
 from ..math import Point, Vector
 from ._transform import Transform
+from .._internal import profile_section
 
 import math
 import numpy as np
 from numpy.typing import NDArray
 
+# ======================================== GEOMETRY ========================================
 class Geometry:
-    """Objet géométrique positionnel
+    """Objet géométrique avec une transformation monde
+
+    Cet objet possède différents caches internes afin d'optimiser la transformation monde d'un objet géométrique local.
     
     Args:
         shape: géométrie locale ``Shape``
@@ -73,20 +78,6 @@ class Geometry:
         return self._transform
     
     @property
-    def offset(self) -> Vector:
-        """Décalage par rapport au ``Transform``"""
-        return self._offset
-    
-    @property
-    def offset_x(self) -> float:
-        """Décalage horizontal"""
-        return self._offset.x
-    
-    @property
-    def offset_y(self) -> float:
-        """Décalage vertical"""
-    
-    @property
     def position(self) -> tuple[float, float]:
         """Position monde"""
         return (self._transform.x + self._offset.x, self._transform.y + self._offset.y)
@@ -125,8 +116,24 @@ class Geometry:
     def scale(self) -> float:
         """Facteur de redimensionnement"""
         return self._transform.scale
+    
+    @property
+    def offset(self) -> Vector:
+        """Décalage par rapport au ``Transform``"""
+        return self._offset
+    
+    @property
+    def offset_x(self) -> float:
+        """Décalage horizontal"""
+        return self._offset.x
+    
+    @property
+    def offset_y(self) -> float:
+        """Décalage vertical"""
+        return self._offset.y
 
     # ======================================== WORLD TRANSFORM ========================================
+    @profile_section("_core.geometry.world_vertices")
     def world_vertices(self) -> NDArray[np.float32]:
         """Vertices en coordonnées monde"""
         self._check_dirty()
@@ -134,6 +141,7 @@ class Geometry:
             self._compute_world_vertices()
         return self._cache_world_vertices
 
+    @profile_section("_core.geometry.world_bounding_box")
     def world_bounding_box(self) -> tuple[float, float, float, float]:
         """AABB ``(x_min, y_min, x_max, y_max)`` en coordonnées monde"""
         self._check_dirty()
@@ -141,6 +149,7 @@ class Geometry:
             self._compute_world_bounding_box()
         return self._cache_world_bounding_box
 
+    @profile_section("_core.geometry.world_center")
     def world_center(self) -> tuple[float, float]:
         """Centre géométrique monde"""
         self._check_dirty()
@@ -148,6 +157,7 @@ class Geometry:
             self._compute_world_center()
         return self._cache_world_center
 
+    @profile_section("_core.geometry.world_contains")
     def world_contains(self, point: Point) -> bool:
         """Hit-test en coordonnées monde"""
         self._check_dirty()
@@ -244,10 +254,10 @@ class Geometry:
 
 # ======================================== HELPERS ========================================
 def _anchor_offset(
-        bounding_box: tuple[float, float, float, float],
-        anchor_x: float,
-        anchor_y: float,
-    ) -> NDArray[np.float32]:
+    bounding_box: tuple[float, float, float, float],
+    anchor_x: float,
+    anchor_y: float,
+) -> NDArray[np.float32]:
     """Calcul le décalage généré par l'ancre
     
     Args:
@@ -261,3 +271,8 @@ def _anchor_offset(
          ymin + anchor_y * (ymax - ymin)],
         dtype=np.float32,
     )
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Geometry",
+]

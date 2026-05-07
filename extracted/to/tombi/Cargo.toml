@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "0.10.4"  # We use git tags for versioning. This is just a placeholder.
+version = "0.10.6"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -116,7 +116,9 @@ zed_extension_api = "0.7.0"
 zip = { version = "2.3.0" }
 
 [workspace.lints.clippy]
+collapsible_match = "warn"
 explicit_counter_loop = "warn"
+needless_for_each = "warn"
 
 [workspace.lints.rust]
 aarch64_softfloat_neon = "warn"

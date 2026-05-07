@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elasticsearch
-Version: 9.3.0
+Version: 9.4.0
 Summary: Python client for Elasticsearch
 Project-URL: Documentation, https://elasticsearch-py.readthedocs.io/
 Project-URL: Homepage, https://github.com/elastic/elasticsearch-py
@@ -35,6 +35,7 @@ Provides-Extra: async
 Requires-Dist: aiohttp<4,>=3; extra == 'async'
 Provides-Extra: dev
 Requires-Dist: aiohttp; extra == 'dev'
+Requires-Dist: anyio[trio]; extra == 'dev'
 Requires-Dist: black; extra == 'dev'
 Requires-Dist: build; extra == 'dev'
 Requires-Dist: coverage; extra == 'dev'
@@ -59,7 +60,6 @@ Requires-Dist: pyyaml>=5.4; extra == 'dev'
 Requires-Dist: requests<3,>=2; extra == 'dev'
 Requires-Dist: simsimd; extra == 'dev'
 Requires-Dist: tqdm; extra == 'dev'
-Requires-Dist: trio; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
 Requires-Dist: types-python-dateutil; extra == 'dev'
 Requires-Dist: types-tqdm; extra == 'dev'
@@ -92,7 +92,7 @@ Description-Content-Type: text/markdown
   <a href="https://pepy.tech/project/elasticsearch?versions=*"><img alt="Downloads" src="https://static.pepy.tech/badge/elasticsearch" /></a>
 <br/>
   <a href="https://github.com/elastic/elasticsearch-py/actions/workflows/ci.yml?query=workflow%3ACI"><img alt="Build Status on GitHub" src="https://github.com/elastic/elasticsearch-py/workflows/CI/badge.svg" /></a>
-  <a href="https://buildkite.com/elastic/elasticsearch-py-integration-tests"><img alt="Buildkite Status on Buildkite" src="https://badge.buildkite.com/68e22afcb2ea8f6dcc20834e3a5b5ab4431beee33d3bd751f3.svg" /></a>
+  <a href="https://buildkite.com/elastic/elasticsearch-py-integration-tests"><img alt="Buildkite Status on Buildkite" src="https://badge.buildkite.com/68e22afcb2ea8f6dcc20834e3a5b5ab4431beee33d3bd751f3.svg?branch=main" /></a>
   <a href="https://elasticsearch-py.readthedocs.io"><img alt="Documentation Status" src="https://readthedocs.org/projects/elasticsearch-py/badge/?version=latest" /></a><br>
 </p>
 

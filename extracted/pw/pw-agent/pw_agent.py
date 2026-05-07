@@ -26,7 +26,7 @@ from config import (
 )
 
 
-VERSION = "1.50.36"
+VERSION = "1.50.37"
 console = Console()
 
 BANNER = """[bold cyan]

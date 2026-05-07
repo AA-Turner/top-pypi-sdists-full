@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Callable, cast, Generator, Iterable, Iterator
 
 __pkgname__ = "pip-licenses-lib"
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 __author__ = "raimon, stefan6419846"
 __license__ = "MIT"
 __summary__ = (
@@ -174,7 +174,7 @@ def get_package_included_files(
     package_files = package.files or ()
     pattern = re.compile(file_names_regex, flags=re.IGNORECASE)
     matched_relative_paths = filter(
-        lambda entry: pattern.match(entry.name), package_files
+        lambda entry: pattern.match(Path(entry).name), package_files
     )
     for relative_path in matched_relative_paths:
         absolute_path = Path(package.locate_file(relative_path))  # type: ignore[arg-type]

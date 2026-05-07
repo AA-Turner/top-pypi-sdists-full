@@ -47,7 +47,7 @@ class FootCiteRole(SphinxRole):
             foot_bibliography = self.env.temp_data["bibtex_foot_bibliography"]
         except KeyError:
             self.env.temp_data["bibtex_foot_bibliography"] = foot_bibliography = (
-                foot_domain.bibliography_header.deepcopy()
+                docutils.nodes.container()
             )
         foot_old_refs: set[str] = self.env.temp_data.setdefault(  # type: ignore
             "bibtex_foot_old_refs", set()
@@ -77,8 +77,8 @@ class FootCiteRole(SphinxRole):
                     footnote = docutils.nodes.footnote(auto=1)
                     # no automatic ids for footnotes: force non-empty template
                     template: str = (
-                        self.env.app.config.bibtex_footcite_id
-                        if self.env.app.config.bibtex_footcite_id
+                        self.env.config.bibtex_footcite_id
+                        if self.env.config.bibtex_footcite_id
                         else "footcite-{key}"
                     )
                     raw_id = template.format(

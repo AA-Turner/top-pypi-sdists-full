@@ -3825,7 +3825,21 @@ class CfnResponderGateway(
             managed_endpoint_configuration=rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty(
                 auto_scaling_groups_configuration=rtbfabric.CfnResponderGateway.AutoScalingGroupsConfigurationProperty(
                     auto_scaling_group_name_list=["autoScalingGroupNameList"],
-                    role_arn="roleArn"
+                    role_arn="roleArn",
+        
+                    # the properties below are optional
+                    health_check_config=rtbfabric.CfnResponderGateway.HealthCheckConfigProperty(
+                        path="path",
+                        port=123,
+        
+                        # the properties below are optional
+                        healthy_threshold_count=123,
+                        interval_seconds=123,
+                        protocol="protocol",
+                        status_code_matcher="statusCodeMatcher",
+                        timeout_ms=123,
+                        unhealthy_threshold_count=123
+                    )
                 ),
                 eks_endpoints_configuration=rtbfabric.CfnResponderGateway.EksEndpointsConfigurationProperty(
                     cluster_api_server_ca_certificate_chain="clusterApiServerCaCertificateChain",
@@ -4160,6 +4174,7 @@ class CfnResponderGateway(
         name_mapping={
             "auto_scaling_group_name_list": "autoScalingGroupNameList",
             "role_arn": "roleArn",
+            "health_check_config": "healthCheckConfig",
         },
     )
     class AutoScalingGroupsConfigurationProperty:
@@ -4168,11 +4183,13 @@ class CfnResponderGateway(
             *,
             auto_scaling_group_name_list: typing.Sequence[builtins.str],
             role_arn: builtins.str,
+            health_check_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.HealthCheckConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Describes the configuration of an auto scaling group.
 
             :param auto_scaling_group_name_list: The names of the auto scaling group.
             :param role_arn: The role ARN of the auto scaling group.
+            :param health_check_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-autoscalinggroupsconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4185,17 +4202,34 @@ class CfnResponderGateway(
                 
                 auto_scaling_groups_configuration_property = rtbfabric.CfnResponderGateway.AutoScalingGroupsConfigurationProperty(
                     auto_scaling_group_name_list=["autoScalingGroupNameList"],
-                    role_arn="roleArn"
+                    role_arn="roleArn",
+                
+                    # the properties below are optional
+                    health_check_config=rtbfabric.CfnResponderGateway.HealthCheckConfigProperty(
+                        path="path",
+                        port=123,
+                
+                        # the properties below are optional
+                        healthy_threshold_count=123,
+                        interval_seconds=123,
+                        protocol="protocol",
+                        status_code_matcher="statusCodeMatcher",
+                        timeout_ms=123,
+                        unhealthy_threshold_count=123
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d1c95602d43fb8271931e505ccc184bd0ec122d89dad878b15fd318423cdc0a5)
                 check_type(argname="argument auto_scaling_group_name_list", value=auto_scaling_group_name_list, expected_type=type_hints["auto_scaling_group_name_list"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument health_check_config", value=health_check_config, expected_type=type_hints["health_check_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "auto_scaling_group_name_list": auto_scaling_group_name_list,
                 "role_arn": role_arn,
             }
+            if health_check_config is not None:
+                self._values["health_check_config"] = health_check_config
 
         @builtins.property
         def auto_scaling_group_name_list(self) -> typing.List[builtins.str]:
@@ -4216,6 +4250,16 @@ class CfnResponderGateway(
             result = self._values.get("role_arn")
             assert result is not None, "Required property 'role_arn' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def health_check_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.HealthCheckConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-autoscalinggroupsconfiguration.html#cfn-rtbfabric-respondergateway-autoscalinggroupsconfiguration-healthcheckconfig
+            '''
+            result = self._values.get("health_check_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.HealthCheckConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4367,6 +4411,169 @@ class CfnResponderGateway(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rtbfabric.CfnResponderGateway.HealthCheckConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "path": "path",
+            "port": "port",
+            "healthy_threshold_count": "healthyThresholdCount",
+            "interval_seconds": "intervalSeconds",
+            "protocol": "protocol",
+            "status_code_matcher": "statusCodeMatcher",
+            "timeout_ms": "timeoutMs",
+            "unhealthy_threshold_count": "unhealthyThresholdCount",
+        },
+    )
+    class HealthCheckConfigProperty:
+        def __init__(
+            self,
+            *,
+            path: builtins.str,
+            port: jsii.Number,
+            healthy_threshold_count: typing.Optional[jsii.Number] = None,
+            interval_seconds: typing.Optional[jsii.Number] = None,
+            protocol: typing.Optional[builtins.str] = None,
+            status_code_matcher: typing.Optional[builtins.str] = None,
+            timeout_ms: typing.Optional[jsii.Number] = None,
+            unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param path: 
+            :param port: 
+            :param healthy_threshold_count: 
+            :param interval_seconds: 
+            :param protocol: 
+            :param status_code_matcher: 
+            :param timeout_ms: 
+            :param unhealthy_threshold_count: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rtbfabric as rtbfabric
+                
+                health_check_config_property = rtbfabric.CfnResponderGateway.HealthCheckConfigProperty(
+                    path="path",
+                    port=123,
+                
+                    # the properties below are optional
+                    healthy_threshold_count=123,
+                    interval_seconds=123,
+                    protocol="protocol",
+                    status_code_matcher="statusCodeMatcher",
+                    timeout_ms=123,
+                    unhealthy_threshold_count=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4812b8fce1a268f8afb2e03c72b425e5823b9de35c2b7f18f2b1e0409dcdedd8)
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument healthy_threshold_count", value=healthy_threshold_count, expected_type=type_hints["healthy_threshold_count"])
+                check_type(argname="argument interval_seconds", value=interval_seconds, expected_type=type_hints["interval_seconds"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+                check_type(argname="argument status_code_matcher", value=status_code_matcher, expected_type=type_hints["status_code_matcher"])
+                check_type(argname="argument timeout_ms", value=timeout_ms, expected_type=type_hints["timeout_ms"])
+                check_type(argname="argument unhealthy_threshold_count", value=unhealthy_threshold_count, expected_type=type_hints["unhealthy_threshold_count"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "path": path,
+                "port": port,
+            }
+            if healthy_threshold_count is not None:
+                self._values["healthy_threshold_count"] = healthy_threshold_count
+            if interval_seconds is not None:
+                self._values["interval_seconds"] = interval_seconds
+            if protocol is not None:
+                self._values["protocol"] = protocol
+            if status_code_matcher is not None:
+                self._values["status_code_matcher"] = status_code_matcher
+            if timeout_ms is not None:
+                self._values["timeout_ms"] = timeout_ms
+            if unhealthy_threshold_count is not None:
+                self._values["unhealthy_threshold_count"] = unhealthy_threshold_count
+
+        @builtins.property
+        def path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-path
+            '''
+            result = self._values.get("path")
+            assert result is not None, "Required property 'path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def port(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-port
+            '''
+            result = self._values.get("port")
+            assert result is not None, "Required property 'port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def healthy_threshold_count(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-healthythresholdcount
+            '''
+            result = self._values.get("healthy_threshold_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def interval_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-intervalseconds
+            '''
+            result = self._values.get("interval_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def protocol(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-protocol
+            '''
+            result = self._values.get("protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status_code_matcher(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-statuscodematcher
+            '''
+            result = self._values.get("status_code_matcher")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_ms(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-timeoutms
+            '''
+            result = self._values.get("timeout_ms")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def unhealthy_threshold_count(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-healthcheckconfig.html#cfn-rtbfabric-respondergateway-healthcheckconfig-unhealthythresholdcount
+            '''
+            result = self._values.get("unhealthy_threshold_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HealthCheckConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4398,7 +4605,21 @@ class CfnResponderGateway(
                 managed_endpoint_configuration_property = rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty(
                     auto_scaling_groups_configuration=rtbfabric.CfnResponderGateway.AutoScalingGroupsConfigurationProperty(
                         auto_scaling_group_name_list=["autoScalingGroupNameList"],
-                        role_arn="roleArn"
+                        role_arn="roleArn",
+                
+                        # the properties below are optional
+                        health_check_config=rtbfabric.CfnResponderGateway.HealthCheckConfigProperty(
+                            path="path",
+                            port=123,
+                
+                            # the properties below are optional
+                            healthy_threshold_count=123,
+                            interval_seconds=123,
+                            protocol="protocol",
+                            status_code_matcher="statusCodeMatcher",
+                            timeout_ms=123,
+                            unhealthy_threshold_count=123
+                        )
                     ),
                     eks_endpoints_configuration=rtbfabric.CfnResponderGateway.EksEndpointsConfigurationProperty(
                         cluster_api_server_ca_certificate_chain="clusterApiServerCaCertificateChain",
@@ -4579,7 +4800,21 @@ class CfnResponderGatewayProps:
                 managed_endpoint_configuration=rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty(
                     auto_scaling_groups_configuration=rtbfabric.CfnResponderGateway.AutoScalingGroupsConfigurationProperty(
                         auto_scaling_group_name_list=["autoScalingGroupNameList"],
-                        role_arn="roleArn"
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        health_check_config=rtbfabric.CfnResponderGateway.HealthCheckConfigProperty(
+                            path="path",
+                            port=123,
+            
+                            # the properties below are optional
+                            healthy_threshold_count=123,
+                            interval_seconds=123,
+                            protocol="protocol",
+                            status_code_matcher="statusCodeMatcher",
+                            timeout_ms=123,
+                            unhealthy_threshold_count=123
+                        )
                     ),
                     eks_endpoints_configuration=rtbfabric.CfnResponderGateway.EksEndpointsConfigurationProperty(
                         cluster_api_server_ca_certificate_chain="clusterApiServerCaCertificateChain",
@@ -5380,6 +5615,7 @@ def _typecheckingstub__d1c95602d43fb8271931e505ccc184bd0ec122d89dad878b15fd31842
     *,
     auto_scaling_group_name_list: typing.Sequence[builtins.str],
     role_arn: builtins.str,
+    health_check_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.HealthCheckConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5392,6 +5628,20 @@ def _typecheckingstub__8c39d19c6d36879baafff96889064035f106253849fe63133370a9cd6
     endpoints_resource_name: builtins.str,
     endpoints_resource_namespace: builtins.str,
     role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4812b8fce1a268f8afb2e03c72b425e5823b9de35c2b7f18f2b1e0409dcdedd8(
+    *,
+    path: builtins.str,
+    port: jsii.Number,
+    healthy_threshold_count: typing.Optional[jsii.Number] = None,
+    interval_seconds: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    status_code_matcher: typing.Optional[builtins.str] = None,
+    timeout_ms: typing.Optional[jsii.Number] = None,
+    unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

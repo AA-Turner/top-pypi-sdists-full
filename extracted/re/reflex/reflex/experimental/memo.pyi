@@ -40,6 +40,7 @@ class ExperimentalMemoFunctionDefinition(ExperimentalMemoDefinition):
 class ExperimentalMemoComponentDefinition(ExperimentalMemoDefinition):
     export_name: str
     component: Component
+    passthrough_hole_child: Component | None
 
 class ExperimentalMemoComponent(Component):
     @classmethod
@@ -116,4 +117,19 @@ class _ExperimentalMemoFunctionWrapper:
 class _ExperimentalMemoComponentWrapper:
     def __call__(self, *children: Any, **props: Any) -> ExperimentalMemoComponent: ...
 
+def create_passthrough_component_memo(
+    component: Component,
+) -> tuple[
+    Callable[..., ExperimentalMemoComponent], ExperimentalMemoComponentDefinition
+]: ...
 def memo(fn: Callable[..., Any]) -> Callable[..., Any]: ...
+
+__all__ = [
+    "EXPERIMENTAL_MEMOS",
+    "ExperimentalMemoComponent",
+    "ExperimentalMemoComponentDefinition",
+    "ExperimentalMemoDefinition",
+    "ExperimentalMemoFunctionDefinition",
+    "create_passthrough_component_memo",
+    "memo",
+]

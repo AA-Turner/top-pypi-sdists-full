@@ -624,6 +624,51 @@ class _IMetricStreamRefProxy(
 typing.cast(typing.Any, IMetricStreamRef).__jsii_proxy_class__ = lambda : _IMetricStreamRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IOTelEnrichmentRef")
+class IOTelEnrichmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OTelEnrichment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="oTelEnrichmentRef")
+    def o_tel_enrichment_ref(self) -> "OTelEnrichmentReference":
+        '''(experimental) A reference to a OTelEnrichment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOTelEnrichmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OTelEnrichment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IOTelEnrichmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="oTelEnrichmentRef")
+    def o_tel_enrichment_ref(self) -> "OTelEnrichmentReference":
+        '''(experimental) A reference to a OTelEnrichment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OTelEnrichmentReference", jsii.get(self, "oTelEnrichmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOTelEnrichmentRef).__jsii_proxy_class__ = lambda : _IOTelEnrichmentRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.InsightRuleReference",
     jsii_struct_bases=[],
@@ -741,6 +786,55 @@ class MetricStreamReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.OTelEnrichmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId"},
+)
+class OTelEnrichmentReference:
+    def __init__(self, *, account_id: builtins.str) -> None:
+        '''A reference to a OTelEnrichment resource.
+
+        :param account_id: The AccountId of the OTelEnrichment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            o_tel_enrichment_reference = interfaces_cloudwatch.OTelEnrichmentReference(
+                account_id="accountId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c013550f10)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the OTelEnrichment resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OTelEnrichmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AlarmMuteRuleReference",
     "AlarmReference",
@@ -754,8 +848,10 @@ __all__ = [
     "IDashboardRef",
     "IInsightRuleRef",
     "IMetricStreamRef",
+    "IOTelEnrichmentRef",
     "InsightRuleReference",
     "MetricStreamReference",
+    "OTelEnrichmentReference",
 ]
 
 publication.publish()
@@ -812,5 +908,12 @@ def _typecheckingstub__fd4b5eb67c7a5b2c989d807371acca126080a0b48d263d4d19312a05a
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, IMetricStreamRef]:
+def _typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c013550f10(
+    *,
+    account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, IMetricStreamRef, IOTelEnrichmentRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

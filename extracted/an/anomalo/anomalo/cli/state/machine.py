@@ -97,7 +97,7 @@ class StateMachine:
             print("")
             if value.lower() in {"y", "yes"}:
                 return
-        except (KeyboardInterrupt, EOFError) as e:
+        except (KeyboardInterrupt, EOFError) as e:  # noqa: F841
             print(os.linesep)
         print("Cancelled")
         sys.exit(0)

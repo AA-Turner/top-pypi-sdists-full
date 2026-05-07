@@ -4,7 +4,7 @@ from . import ui
 from .app import App
 from .channels import API, Channel, ChannelRef, Chat, Slack, Telegram, WhatsApp
 from .constants import Column, PRICING_ONE_TIME, PRICING_MONTHLY, PricingType
-from .db import CollectionRef
+from .db import CollectionManager, CollectionRef, DynamicCollection
 from .filesystem import FileSystem, file
 from .home import HomeContext, Suggestion
 from .client import Client

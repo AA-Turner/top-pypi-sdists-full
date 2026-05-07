@@ -3,6 +3,7 @@ Fat links related views
 """
 
 # Standard Library
+import re
 from datetime import timedelta
 
 # Third Party
@@ -20,6 +21,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext_lazy
 
 # Alliance Auth
 from allianceauth.authentication.decorators import permissions_required
@@ -30,11 +32,13 @@ from esi.models import Token
 
 # Alliance Auth AFAT
 from afat import __title__
+from afat.constants import RegexPattern
 from afat.forms import (
     AFatClickFatForm,
     AFatEsiFatForm,
     AFatManualFatForm,
     FatLinkEditForm,
+    FleetSnapshot,
 )
 from afat.handler import esi_handler
 from afat.helper.fatlinks import get_doctrines, get_esi_fleet_information_by_user
@@ -125,9 +129,7 @@ def add_fatlink(request: WSGIRequest) -> HttpResponse:
 
 @login_required()
 @permissions_required(perm=("afat.manage_afat", "afat.add_fatlink"))
-def create_clickable_fatlink(
-    request: WSGIRequest,
-) -> HttpResponseRedirect:
+def create_clickable_fatlink(request: WSGIRequest) -> HttpResponseRedirect:
     """
     Create a clickable fat link
 
@@ -427,9 +429,7 @@ def create_esi_fatlink_callback(  # pylint: disable=too-many-locals
 
 
 @login_required()
-def create_esi_fatlink(
-    request: WSGIRequest,
-) -> HttpResponseRedirect:
+def create_esi_fatlink(request: WSGIRequest) -> HttpResponseRedirect:
     """
     Create an ESI fat link
 
@@ -568,8 +568,8 @@ def add_fat(
         Fat.objects.create(
             fatlink=fleet,
             character=character,
-            system=solar_system.name,
-            shiptype=ship.name,
+            solar_system=solar_system,
+            ship=ship,
             corporation_eve_id=character.corporation_id,
             alliance_eve_id=character.alliance_id,
         )
@@ -691,19 +691,63 @@ def process_manual_fat(request: WSGIRequest, fatlink_hash: str) -> HttpResponseR
 
             character_name = form.cleaned_data["character"]
             system = form.cleaned_data["system"]
-            shiptype = form.cleaned_data["shiptype"]
+            ship_type = form.cleaned_data["shiptype"]
             character = get_or_create_character(name=character_name)
 
             if character:
                 logger.debug(
-                    f"Manual FAT addition for character: {character_name}, system: {system}, shiptype: {shiptype}"
+                    f"Manual FAT addition for character: {character.character_name}, system: {system}, ship type: {ship_type}"
                 )
+
+                # Check SDE for system and ship type before we continue
+                try:
+                    solar_system = SolarSystem.objects.get(name_en=system)
+                except SolarSystem.DoesNotExist:
+                    messages.warning(
+                        request,
+                        mark_safe(
+                            format_lazy(
+                                _(
+                                    "<h4>Warning!</h4><p>The system name you entered cannot be found: {system}</p>"
+                                ),
+                                system=system,
+                            )
+                        ),
+                    )
+
+                    return redirect(
+                        "afat:fatlinks_details_fatlink", fatlink_hash=fatlink_hash
+                    )
+
+                try:
+                    ship = ItemType.objects.filter(published=1).get(name_en=ship_type)
+                except ItemType.DoesNotExist:
+                    messages.warning(
+                        request,
+                        mark_safe(
+                            format_lazy(
+                                _(
+                                    "<h4>Warning!</h4><p>The ship type you entered cannot be found: {ship_type}</p>"
+                                ),
+                                ship_type=ship_type,
+                            )
+                        ),
+                    )
+
+                    return redirect(
+                        "afat:fatlinks_details_fatlink", fatlink_hash=fatlink_hash
+                    )
 
                 fat, created = (  # pylint: disable=unused-variable
                     Fat.objects.get_or_create(
                         fatlink=fatlink,
                         character=character,
-                        defaults={"system": system, "shiptype": shiptype},
+                        defaults={
+                            "solar_system": solar_system,
+                            "ship": ship,
+                            "corporation_eve_id": character.corporation_id,
+                            "alliance_eve_id": character.alliance_id,
+                        },
                     )
                 )
 
@@ -711,8 +755,8 @@ def process_manual_fat(request: WSGIRequest, fatlink_hash: str) -> HttpResponseR
                     write_log(
                         request,
                         Log.Event.MANUAL_FAT,
-                        f"Pilot {character.character_name} flying a {shiptype} was manually added",
                         fatlink.hash,
+                        f"Pilot {character.character_name} flying a {ship_type} was manually added",
                     )
                     messages.success(
                         request,
@@ -724,7 +768,7 @@ def process_manual_fat(request: WSGIRequest, fatlink_hash: str) -> HttpResponseR
                                     "in {system}</p>"
                                 ),
                                 character_name=character.character_name,
-                                shiptype=shiptype,
+                                shiptype=ship_type,
                                 system=system,
                             )
                         ),
@@ -740,7 +784,7 @@ def process_manual_fat(request: WSGIRequest, fatlink_hash: str) -> HttpResponseR
                                     "<p>Name: {character_name}<br>System: {system}<br>Ship: {shiptype}</p>"
                                 ),
                                 character_name=character.character_name,
-                                shiptype=shiptype,
+                                shiptype=ship_type,
                                 system=system,
                             )
                         ),
@@ -756,6 +800,118 @@ def process_manual_fat(request: WSGIRequest, fatlink_hash: str) -> HttpResponseR
                         )
                     ),
                 )
+
+    return redirect("afat:fatlinks_details_fatlink", fatlink_hash=fatlink_hash)
+
+
+@login_required()
+@permissions_required(perm=("afat.manage_afat", "afat.add_fatlink"))
+def process_fleetsnapshot(request, fatlink_hash) -> HttpResponseRedirect:
+    """
+    Processing fleet snapshot
+
+    :param request:
+    :type request:
+    :param fatlink_hash:
+    :type fatlink_hash:
+    :return:
+    :rtype:
+    """
+
+    try:
+        fatlink = FatLink.objects.get(hash=fatlink_hash)
+    except FatLink.DoesNotExist:
+        messages.warning(
+            request,
+            mark_safe(_("<h4>Warning!</h4><p>The hash provided is not valid.</p>")),
+        )
+
+        return redirect("afat:dashboard")
+
+    if request.method == "POST":
+        form = FleetSnapshot(request.POST)
+
+        if form.is_valid():
+            logger.debug(f"Processing fleet snapshot form: {form.cleaned_data}")
+
+            if not re.match(
+                RegexPattern.FLEET_COMPOSITION.value,
+                form.cleaned_data["fleet_composition"],
+            ):
+                messages.error(
+                    request,
+                    mark_safe(
+                        _(
+                            "<h4>Oh No!</h4><p>Something went wrong!</p>"
+                            "<p>Please make sure to paste the fleet composition here.</p>"
+                        )
+                    ),
+                )
+
+                return redirect(
+                    "afat:fatlinks_details_fatlink", fatlink_hash=fatlink_hash
+                )
+
+            fleet_composition = form.cleaned_data["fleet_composition"].splitlines()
+
+            logger.debug(f"Fleet Composition: {fleet_composition}")
+
+            fatlinks_to_create = []
+
+            for line in fleet_composition:
+                # Let's split the lines up by tabs, but first let's make sure to remove
+                # any trailing tabs, as those would create empty list items in the
+                # resulting list and thus throw off the indexing. We also want to make
+                # sure to split by multiple tabs, just in case there are multiple tabs
+                # between the data points.
+                #
+                # line[0] => Pilot Name
+                # line[1] => System
+                # line[2] => Ship Class
+                # line[3] => Ship Type
+                # line[4] => Position in Fleet
+                # line[5] => Skills (FC - WC - SC)
+                # line[6] => Wing Name / Squad Name
+                line = re.split(r"\t+", line.rstrip("\t"))
+
+                logger.debug(f"Processing line: {line}")
+
+                character = get_or_create_character(name=line[0])
+
+                if character:
+                    solar_system = SolarSystem.objects.get(name_en=line[1])
+                    # We need the ship class here, actually
+                    ship = ItemType.objects.filter(published=1).get(name_en=line[2])
+
+                    # Add to the list…
+                    fatlinks_to_create.append(
+                        Fat(
+                            character=character,
+                            fatlink=fatlink,
+                            solar_system=solar_system,
+                            ship=ship,
+                            corporation_eve_id=character.corporation_id,
+                            alliance_eve_id=character.alliance_id,
+                        )
+                    )
+
+            logger.debug(f"FATs to create from fleet snapshot: {fatlinks_to_create}")
+
+            Fat.objects.bulk_create(objs=fatlinks_to_create, ignore_conflicts=True)
+
+            messages.success(
+                request,
+                mark_safe(
+                    format_lazy(
+                        ngettext_lazy(
+                            "<h4>Success!</h4><p>Fleet snapshot processed: {count} FAT</p>",
+                            "<h4>Success!</h4><p>Fleet snapshot processed: {count} FATs</p>",
+                            len(fatlinks_to_create),
+                        ),
+                        count=len(fatlinks_to_create),
+                    ),
+                ),
+            )
 
     return redirect("afat:fatlinks_details_fatlink", fatlink_hash=fatlink_hash)
 
@@ -823,6 +979,10 @@ def details_fatlink(request: WSGIRequest, fatlink_hash: str) -> HttpResponse:
         "reopen_duration": Setting.get_setting(
             Setting.Field.DEFAULT_FATLINK_REOPEN_DURATION
         ),
+        "forms": {
+            "manual_fat": AFatManualFatForm(),
+            "fleet_snapshot": FleetSnapshot(),
+        },
     }
 
     return render(request, "afat/view/fatlinks/fatlinks-details-fatlink.html", context)

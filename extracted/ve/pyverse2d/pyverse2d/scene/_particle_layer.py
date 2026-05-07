@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
+from .._internal import expect, profile_section
 from .._rendering import Pipeline, Camera
 from ..abc import Layer, ParticleEmitter, ParticleModifier
 from ..fx import ParticleRenderer
@@ -132,6 +132,7 @@ class ParticleLayer(Layer):
     def _preload(self):
         """Préchargement spécialisé"""
 
+    @profile_section("scene.particle_layer.update")
     def _update(self, dt: float) -> None:
         """Actualisation
         
@@ -141,6 +142,7 @@ class ParticleLayer(Layer):
         for emitter in self._emitters:
             emitter.update(dt, modifiers=(self._modifiers or None))
 
+    @profile_section("scene.particle_layer.draw")
     def _draw(self, pipeline: Pipeline) -> None:
         """Affichage
         

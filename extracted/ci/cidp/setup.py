@@ -1,11 +1,16 @@
+import re
+
 import setuptools
 
 # with open("README.md", "r") as fh:
 #     long_description = fh.read()
 
+with open("cidp/__init__.py", encoding="utf-8") as f:
+    version = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', f.read(), re.M).group(1)
+
 setuptools.setup(
     name="cidp", # Replace with your own username
-    version="0.0.11",
+    version=version,
     author="mccho",
     author_email="skt.mccho@sk.com",
     description="CIDP Python SDK",

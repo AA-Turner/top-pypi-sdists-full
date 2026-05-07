@@ -1,17 +1,18 @@
 import re
 from dataclasses import dataclass, field
-from test.common import html_citation_refs, html_citations, html_docutils_citation_refs
 from typing import cast
 
 import pybtex.plugin
 import pytest
 from pybtex.style.formatting.unsrt import Style as UnsrtStyle
 from pybtex.style.template import words
+from sphinx.errors import ExtensionError
 
 import sphinxcontrib.bibtex.plugin
 from sphinxcontrib.bibtex.domain import BibtexDomain
 from sphinxcontrib.bibtex.style.referencing import BracketStyle, PersonStyle
 from sphinxcontrib.bibtex.style.referencing.author_year import AuthorYearReferenceStyle
+from test.common import html_citation_refs, html_citations, html_docutils_citation_refs
 
 
 @pytest.mark.sphinx("html", testroot="citation_not_found")
@@ -347,7 +348,7 @@ def test_citation_roles_super(app, warning) -> None:
 )
 def test_citation_style_invalid(make_app, app_params) -> None:
     args, kwargs = app_params
-    with pytest.raises(ImportError, match="plugin .*non_existing not found"):
+    with pytest.raises(ExtensionError, match="plugin .*non_existing not found"):
         make_app(*args, **kwargs)
 
 
@@ -535,3 +536,23 @@ def test_citation_label_special_chars(app, warning) -> None:
     assert not warning.getvalue()
     output = (app.outdir / "index.html").read_text(encoding="utf-8-sig")
     assert len(html_citations(label="SBV09").findall(output)) == 1
+
+
+@pytest.mark.sphinx("html", testroot="citation_prefer_local")
+def test_citation_prefer_local(app, warning) -> None:
+
+    def _check(source: str, refdoc: str | None) -> None:
+        pattern = html_citation_refs()
+        matches = list(pattern.finditer(source))
+        assert len(matches) == 1
+        assert matches[0].group("label") == "Mou"
+        assert matches[0].group("refdoc") == refdoc
+
+    app.build()
+    assert not warning.getvalue()
+    index = (app.outdir / "index.html").read_text(encoding="utf-8-sig")
+    doc1 = (app.outdir / "doc1.html").read_text(encoding="utf-8-sig")
+    doc2 = (app.outdir / "doc2.html").read_text(encoding="utf-8-sig")
+    _check(index, None)
+    _check(doc1, None)
+    _check(doc2, None)

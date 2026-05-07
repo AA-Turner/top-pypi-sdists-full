@@ -4466,7 +4466,6 @@ class EndpointGroup(
     @builtins.property
     @jsii.member(jsii_name="endpoints")
     def _endpoints(self) -> typing.List["IEndpoint"]:
-        '''The array of the endpoints in this endpoint group.'''
         return typing.cast(typing.List["IEndpoint"], jsii.get(self, "endpoints"))
 
 

@@ -36,8 +36,10 @@ from inspect_ai._util.exception import TerminateSampleError, TerminateTaskError
 from inspect_ai._util.json import to_json_str_safe
 from inspect_ai._util.notgiven import NOT_GIVEN
 from inspect_ai._util.registry import (
+    has_registry_params,
     is_registry_object,
     registry_log_name,
+    registry_params,
     registry_unqualified_name,
 )
 from inspect_ai._util.working import (
@@ -88,11 +90,14 @@ from inspect_ai.model import (
     ModelName,
 )
 from inspect_ai.model._model import (
+    init_model_usage,
+    init_role_usage,
     init_sample_model_usage,
     init_sample_role_usage,
     sample_model_usage,
     sample_role_usage,
 )
+from inspect_ai.model._model_output import ModelUsage
 from inspect_ai.scorer import Scorer, Target
 from inspect_ai.scorer._metric import Metric, SampleScore
 from inspect_ai.scorer._reducer.types import ScoreReducer
@@ -168,6 +173,8 @@ class TaskRunOptions:
     sample_source: EvalSampleSource | None = field(default=None)
     display_name: str | None = field(default=None)
     kwargs: GenerateConfigArgs = field(default_factory=lambda: GenerateConfigArgs())
+    initial_model_usage: dict[str, ModelUsage] | None = field(default=None)
+    initial_role_usage: dict[str, ModelUsage] | None = field(default=None)
 
 
 def resolve_plan(task: Task, solver: Solver | None) -> Plan:
@@ -210,6 +217,15 @@ async def task_run(options: TaskRunOptions, task_cancel: TaskCancel | None) -> E
 
     # resolve default generate_config for task
     generate_config = task.config.merge(GenerateConfigArgs(**kwargs))
+
+    # seed model/role usage from a prior log when this task is a retry
+    # (the deepcopy guards against shared dict mutation across attempts).
+    # init_task_context's no-arg init_model_usage/init_role_usage will leave
+    # these seeded values in place.
+    if options.initial_model_usage:
+        init_model_usage(deepcopy(options.initial_model_usage))
+    if options.initial_role_usage:
+        init_role_usage(deepcopy(options.initial_role_usage))
 
     # init task context
     init_task_context(
@@ -1170,6 +1186,14 @@ async def task_run_sample(
                                                         ScoreEvent(
                                                             score=score_result,
                                                             target=sample.target,
+                                                            scorer=scorer_name,
+                                                            scorer_args=registry_params(
+                                                                scorer
+                                                            )
+                                                            if has_registry_params(
+                                                                scorer
+                                                            )
+                                                            else None,
                                                             model_usage=sample_model_usage()
                                                             or None,
                                                             role_usage=sample_role_usage()
@@ -1192,6 +1216,7 @@ async def task_run_sample(
                                         ScoreEvent(
                                             score=score,
                                             target=sample.target,
+                                            scorer=name,
                                             model_usage=sample_model_usage() or None,
                                             role_usage=sample_role_usage() or None,
                                         )

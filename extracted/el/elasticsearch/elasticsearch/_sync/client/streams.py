@@ -21,8 +21,10 @@ from elastic_transport import ObjectApiResponse, TextApiResponse
 
 from ._base import NamespacedClient
 from .utils import (
+    SKIP_IN_PATH,
     Stability,
     _availability_warning,
+    _quote,
     _rewrite_parameters,
 )
 
@@ -34,6 +36,7 @@ class StreamsClient(NamespacedClient):
     def logs_disable(
         self,
         *,
+        name: t.Union[str, t.Literal["logs", "logs.ecs", "logs.otel"]],
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
@@ -44,20 +47,23 @@ class StreamsClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Disable logs stream.</p>
-          <p>Turn off the logs stream feature for this cluster.</p>
+          <p>Disable a named stream.</p>
+          <p>Turn off the named stream feature for this cluster.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
 
+        :param name: The stream type to disable.
         :param master_timeout: The period to wait for a connection to the master node.
             If no response is received before the timeout expires, the request fails
             and returns an error.
         :param timeout: The period to wait for a response. If no response is received
             before the timeout expires, the request fails and returns an error.
         """
-        __path_parts: t.Dict[str, str] = {}
-        __path = "/_streams/logs/_disable"
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_streams/{__path_parts["name"]}/_disable'
         __query: t.Dict[str, t.Any] = {}
         if error_trace is not None:
             __query["error_trace"] = error_trace
@@ -71,7 +77,7 @@ class StreamsClient(NamespacedClient):
             __query["pretty"] = pretty
         if timeout is not None:
             __query["timeout"] = timeout
-        __headers = {"accept": "text/plain,application/json"}
+        __headers = {"accept": "application/json,text/plain"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -86,6 +92,7 @@ class StreamsClient(NamespacedClient):
     def logs_enable(
         self,
         *,
+        name: t.Union[str, t.Literal["logs", "logs.ecs", "logs.otel"]],
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
@@ -96,23 +103,27 @@ class StreamsClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Enable logs stream.</p>
-          <p>Turn on the logs stream feature for this cluster.</p>
-          <p>NOTE: To protect existing data, this feature can be turned on only if the
-          cluster does not have existing indices or data streams that match the pattern <code>logs|logs.*</code>.
-          If those indices or data streams exist, a <code>409 - Conflict</code> response and error is returned.</p>
+          <p>Enable a named stream.</p>
+          <p>Turn on the named stream feature for this cluster.</p>
+          <p>NOTE: To protect existing data, this feature can be turned on only if the cluster does not have
+          existing indices or data streams that match the pattern <code>&lt;name&gt;|&lt;name&gt;.*</code> for the enabled stream
+          type name. If those indices or data streams exist, a <code>409 - Conflict</code> response and error is
+          returned.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
 
+        :param name: The stream type to enable.
         :param master_timeout: The period to wait for a connection to the master node.
             If no response is received before the timeout expires, the request fails
             and returns an error.
         :param timeout: The period to wait for a response. If no response is received
             before the timeout expires, the request fails and returns an error.
         """
-        __path_parts: t.Dict[str, str] = {}
-        __path = "/_streams/logs/_enable"
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_streams/{__path_parts["name"]}/_enable'
         __query: t.Dict[str, t.Any] = {}
         if error_trace is not None:
             __query["error_trace"] = error_trace
@@ -126,7 +137,7 @@ class StreamsClient(NamespacedClient):
             __query["pretty"] = pretty
         if timeout is not None:
             __query["timeout"] = timeout
-        __headers = {"accept": "text/plain,application/json"}
+        __headers = {"accept": "application/json,text/plain"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,

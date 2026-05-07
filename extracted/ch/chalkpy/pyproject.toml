@@ -1,0 +1,667 @@
+[build-system]
+# setuptools removed pkg_resources in version 81
+requires = ["setuptools>=61,<81", "setuptools-rust>=1.9"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chalkpy"
+description = "Python SDK for Chalk"
+requires-python = ">=3.10,<3.15"
+authors = [
+    { name = "Chalk AI, Inc." }
+]
+readme = "README.md"
+classifiers = [
+    # Trove classifiers
+    # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "dataclasses_json>=0.5.7",
+    "executing>=1.2.0,<3",
+    "googleapis-common-protos>=1.56.0",
+    "grpcio>=1.63.0,<2",
+    "ipywidgets>=8.0.6",
+    "numpy<3",
+    "orjson",
+    "protobuf>=4.25,<8",
+    "pyarrow>=16.1.0",
+    "pydantic>=1.0.0,<3",
+    "pyopenssl>=23.2.0",
+    "pyyaml>=6.0,<7",
+    "requests>=2.31,<2.33.0",
+    "rich>=13.3.5",
+    "typing_extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+base = []
+
+dev = [
+    "boto3-stubs[s3]",
+    "grpc-stubs",
+    "pandas>=1.5.1,<3",
+    "prek",
+    "pytest-asyncio>=0.24.0",
+    "pytest-env",
+    "pytest-timeout",
+    "pytest-xdist",
+    "pytest",
+    "python-dotenv",
+    "sqlalchemy2-stubs",
+    "sqlglot>=19.0.0,<21.2.0",
+    "types-protobuf<6",
+    "types-psycopg2",
+    "types-pymysql",
+    "types-pyyaml",
+    "types-requests",
+]
+
+runtime = [
+    # Dependencies needed to execute resolvers
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "s3fs>=2024.2.0",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "sqlglot>=19.0.0,<21.2.0",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32"
+]
+
+openai = [
+    "openai>=1.3.2,<1.53",
+    "httpx<0.28.0", # httpx 0.28.0 introduces for a breaking change for `proxies`
+    "tiktoken>=0.12.0,<0.13",
+]
+
+cohere = [
+    "cohere==5.11.4",
+]
+
+vertexai = [
+    "google-cloud-aiplatform<2",
+]
+
+sentence-transformers = [
+    "sentence-transformers==5.3.0"
+]
+
+# SQL-specific
+sql = [
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    # And the runtime dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["runtime"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+athena = [
+    "PyAthena>=3.0.0",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+bigquery = [
+    "sqlalchemy-bigquery>=1.5.0,<1.12",
+    "google-cloud-bigquery>=3.25.0,<4",
+    "google-cloud-bigquery-storage>=2.22.0,<2.28",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+clickhouse = [
+    "clickhouse-sqlalchemy",
+    "clickhouse-driver",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+
+spanner = [
+    "sqlalchemy-spanner<1.12.0",
+    "google-auth",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+postgresql = [
+    "psycopg2>=2.9.4,<3",
+    "psycopg[binary]>=3.1.9,<3.3",
+    "packaging",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+snowflake = [
+    "cryptography<47",
+    "snowflake-connector-python>=3.12.4, <4",
+    "snowflake-sqlalchemy>=1.5.0,<1.7",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+sqlite = [
+    "aiosqlite>=0.19.0,<0.21",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+redshift = [
+    "chalk-sqlalchemy-redshift>=0.8.11,<0.9",
+    "redshift_connector>=2.0.909,<2.2",
+    "boto3",
+    # And the postgresql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["postgresql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "packaging",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "psycopg2>=2.9.4,<3",
+    "psycopg[binary]>=3.1.9,<3.3",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+mssql = [
+    "azure-identity>=1.12.0,<2",
+    "pyodbc>=4.0.0,<6",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+mysql = [
+    "pymysql>=1.1.1,<2",
+    "aiomysql>=0.3.0,<0.4",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+trino = [
+    "trino[sqlalchemy]",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+databricks = [
+    "databricks-sql-connector>=2.5.2,<3.5",
+    "databricks-sdk>=0.29.0,<1.0.0",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+dynamodb = [
+    "boto3",
+    "pydynamodb>=0.6,<0.9",
+    # And the sql dependencies
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["sql"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+tracing = [
+    "opentelemetry-api>=1.29.0",
+    "opentelemetry-sdk>=1.29.0",
+]
+
+torch = [
+    "torch>=1.7,<3",
+]
+
+all = [
+    # "All" includes everything except for dev dependencies
+    # In addition, we choose to explicitly exclude torch, as it is magnitudes longer to import than other libraries
+    # [[[cog
+    # import pathlib, tomli
+    # grps = tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]
+    # final_deps = set()
+    # for grp, deps in grps.items():
+    #    if grp in ("runtime", "openai", "cohere", "vertexai", "sql", "athena", "bigquery", "postgresql", "snowflake", "sqlite", "redshift", "mysql", "databricks", "trino", "spanner", "dynamodb", "clickhouse", "mssql", "tracing"):
+    #        final_deps.update(deps)
+    # for dep in sorted(final_deps):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "PyAthena>=3.0.0",
+    "adlfs",
+    "aiomysql>=0.3.0,<0.4",
+    "aiosqlite>=0.19.0,<0.21",
+    "azure-identity>=1.12.0,<2",
+    "boto3",
+    "chalk-sqlalchemy-redshift>=0.8.11,<0.9",
+    "clickhouse-driver",
+    "clickhouse-sqlalchemy",
+    "cohere==5.11.4",
+    "cryptography<47",
+    "databricks-sdk>=0.29.0,<1.0.0",
+    "databricks-sql-connector>=2.5.2,<3.5",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-aiplatform<2",
+    "google-cloud-bigquery-storage>=2.22.0,<2.28",
+    "google-cloud-bigquery>=3.25.0,<4",
+    "google-cloud-storage",
+    "httpx<0.28.0",
+    "openai>=1.3.2,<1.53",
+    "opentelemetry-api>=1.29.0",
+    "opentelemetry-sdk>=1.29.0",
+    "packaging",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "psycopg2>=2.9.4,<3",
+    "psycopg[binary]>=3.1.9,<3.3",
+    "pydynamodb>=0.6,<0.9",
+    "pymysql>=1.1.1,<2",
+    "pyodbc>=4.0.0,<6",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "redshift_connector>=2.0.909,<2.2",
+    "s3fs>=2024.2.0",
+    "snowflake-connector-python>=3.12.4, <4",
+    "snowflake-sqlalchemy>=1.5.0,<1.7",
+    "sqlalchemy-bigquery>=1.5.0,<1.12",
+    "sqlalchemy-spanner<1.12.0",
+    "sqlalchemy[asyncio]>=1.4.26,<2",
+    "sqlglot>=19.0.0,<21.2.0",
+    "tiktoken>=0.12.0,<0.13",
+    "trino[sqlalchemy]",
+    # [[[end]]]
+]
+
+# Deprecated groups
+polars = [
+    # deprecated; should use chalkpy[runtime]
+    # [[[cog
+    # import pathlib, tomli
+    # for dep in sorted(set(tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]["runtime"])):
+    #     print(f'    "{dep}",')
+    # ]]]
+    "adlfs",
+    "duckdb>=0.6,<1.2.0",
+    "fsspec",
+    "gcsfs",
+    "google-auth",
+    "google-cloud-storage",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "python-json-logger>=3.0.0,<4.0.0",
+    "s3fs>=2024.2.0",
+    "sqlglot>=19.0.0,<21.2.0",
+    # [[[end]]]
+]
+
+[project.urls]
+Homepage = "https://chalk.ai"
+Documentation = "https://docs.chalk.ai"
+Changelog = "https://docs.chalk.ai/docs/changelog"
+
+[project.scripts]
+chalkpy = "chalk.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["chalk*"]
+exclude = ["tests*", "fixtures*", "typings*"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = { attr = "chalk._version.__version__" }
+
+[tool.isort]
+profile = "black"
+py_version = 310
+line_length = 120
+skip = ["chalk/feature_n/__init__.py"]
+
+[tool.black]
+target-version = ['py310']
+line-length = 120
+
+[tool.autoflake]
+check = true
+remove-duplicate-keys = true
+remove-all-unused-imports = true
+in-place = true
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore:The SQL engine.*AUTOCOMMIT:UserWarning",
+    "ignore:Deprecated call to .pkg_resources.declare_namespace:DeprecationWarning",
+    "ignore::DeprecationWarning",
+    "ignore::ImportWarning",
+    "ignore:You have an incompatible version of 'pyarrow' installed:UserWarning",
+    "ignore:The GenericFunction 'flatten' is already registered and is going to be overridden.",
+    "ignore:You are using a Python version:FutureWarning",
+    "ignore:Resolving the schema of a LazyFrame",
+    "ignore:Determining the column names of a LazyFrame",
+    "ignore:Determining the data types of a LazyFrame",
+    "ignore:Row orientation inferred",
+]
+env = [
+    "PYTHONASYNCIODEBUG=1",
+    "SQLALCHEMY_WARN_20=1",
+    "ENABLE_NANOARROW=1",
+]
+addopts = ""
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+markers = [
+    "slow: Test is slow",
+    "ml: Tests requiring ML dependencies (scikit-learn, torch, xgboost, catboost, joblib)"
+]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+ignore = [
+    "chalk/_gen/",
+    "chalk/_monitoring/",
+]
+reportCallInDefaultInitializer = "error"
+# reportUnboundVariable
+# reportUnusedCoroutine
+reportConstantRedefinition = "error"
+reportDeprecated = "error"
+reportDuplicateImport = "error"
+reportFunctionMemberAccess = "error"
+reportImplicitStringConcatenation = "error"
+# reportImportCycles
+reportIncompatibleMethodOverride = "error"
+reportIncompatibleVariableOverride = "error"
+reportIncompleteStub = "information"
+reportInconsistentConstructor = "error"
+reportInvalidStubStatement = "error"
+# strictParameterNoneValue
+# enableTypeIgnoreComments
+reportMissingModuleSource = "none"
+# reportMissingImports
+# reportUndefinedVariable
+reportAssertAlwaysTrue = "error"
+# reportInvalidStringEscapeSequence
+reportInvalidTypeVarUse = "error"
+reportMatchNotExhaustive = "error"
+reportMissingParameterType = "error"
+reportMissingSuperCall = "error"
+# reportMissingTypeArgument
+reportOverlappingOverload = "error"
+# reportGeneralTypeIssues
+# reportOptionalSubscript
+# reportOptionalMemberAccess
+# reportOptionalCall
+# reportOptionalIterable
+# reportOptionalContextManager
+# reportOptionalOperand
+# reportTypedDictNotRequiredAccess
+reportPrivateImportUsage = "none"
+reportPrivateUsage = "error"
+reportPropertyTypeMismatch = "information"
+reportSelfClsParameterName = "error"
+reportTypeCommentUsage = "error"
+reportUninitializedInstanceVariable = "information"
+# reportUnknownArgumentType = "error"
+# reportUnknownLambdaType = "error"
+# reportUnknownMemberType = "error"
+# reportUnknownParameterType = "error"
+# reportUnknownVariableType = "error"
+reportUnnecessaryCast = "error"
+reportUnnecessaryComparison = "error"
+reportUnnecessaryContains = "error"
+reportUnnecessaryIsInstance = "error"
+reportUnnecessaryTypeIgnoreComment = "none"
+reportUnsupportedDunderAll = "error"
+reportUntypedBaseClass = "error"
+reportUntypedClassDecorator = "error"
+# reportUntypedFunctionDecorator
+reportUntypedNamedTuple = "error"
+reportUnusedClass = "error"
+reportUnusedExpression = "error"
+reportUnusedFunction = "error"
+reportUnusedImport = "error"
+reportUnusedVariable = "error"
+reportWildcardImportFromLibrary = "error"
+strictDictionaryInference = true
+strictListInference = true
+strictSetInference = true
+include = ["chalk/**"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "**/chalk/feature_n/**",
+    "build/",
+    "**/chalk/fixtures/**",
+    "**/integrations/psycopg3/**",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = ["F821"]

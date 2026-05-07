@@ -3069,6 +3069,8 @@ class FieldMetricType(sgqlc.types.Enum):
     * `PERCENTILE_40`None
     * `PERCENTILE_60`None
     * `PERCENTILE_80`None
+    * `PERCENTILE_95`None
+    * `PERCENTILE_99`None
     * `PMAX`None
     * `PMIN`None
     * `PSI`None
@@ -3163,6 +3165,8 @@ class FieldMetricType(sgqlc.types.Enum):
         "PERCENTILE_40",
         "PERCENTILE_60",
         "PERCENTILE_80",
+        "PERCENTILE_95",
+        "PERCENTILE_99",
         "PMAX",
         "PMIN",
         "PSI",
@@ -3272,6 +3276,8 @@ class FieldQueryType(sgqlc.types.Enum):
     * `PERCENTILE_40`None
     * `PERCENTILE_60`None
     * `PERCENTILE_80`None
+    * `PERCENTILE_95`None
+    * `PERCENTILE_99`None
     * `PMAX`None
     * `PMIN`None
     * `PSI`None
@@ -3367,6 +3373,8 @@ class FieldQueryType(sgqlc.types.Enum):
         "PERCENTILE_40",
         "PERCENTILE_60",
         "PERCENTILE_80",
+        "PERCENTILE_95",
+        "PERCENTILE_99",
         "PMAX",
         "PMIN",
         "PSI",
@@ -6044,6 +6052,8 @@ class SamplingEnabledMetricTypes(sgqlc.types.Enum):
     * `PERCENTILE_40`None
     * `PERCENTILE_60`None
     * `PERCENTILE_80`None
+    * `PERCENTILE_95`None
+    * `PERCENTILE_99`None
     * `RELATIVE_ROW_COUNT`None
     * `ROW_COUNT_CHANGE`None
     * `SUM`None
@@ -6111,6 +6121,8 @@ class SamplingEnabledMetricTypes(sgqlc.types.Enum):
         "PERCENTILE_40",
         "PERCENTILE_60",
         "PERCENTILE_80",
+        "PERCENTILE_95",
+        "PERCENTILE_99",
         "RELATIVE_ROW_COUNT",
         "ROW_COUNT_CHANGE",
         "SUM",
@@ -8545,12 +8557,14 @@ class CapabilityConfigInput(sgqlc.types.Input):
     """Configuration for a single capability in a custom integration.  -
     ``COLLECT``: ``connectionType``, ``credentialsKey``, and
     ``deploymentId``   are required. - ``REUSE``: ``reuseCapability``
-    is required. - ``PUSH``: on update, transition this capability to
-    push mode (soft-deletes   the existing connection or strips its
-    job types if the connection is   shared). No other fields are
-    used.  Omitting this input (null) means "leave unchanged" on
-    update, or "not configured" on create (push via API is always
-    available, and lineage inference from query logs is automatic).
+    is required. - ``PUSH``: configure this capability for push-via-
+    API. On create no   connection is provisioned; on update it soft-
+    deletes the existing   connection (or strips its job types if the
+    connection is shared). No   other fields are used. Not supported
+    for the ``monitors`` capability.  Omitting this input (null) means
+    "leave unchanged" on update, or "not configured" on create (push
+    via API is always available, and lineage inference from query logs
+    is automatic).
     """
 
     __schema__ = schema
@@ -9739,6 +9753,14 @@ class FieldQueryParametersInput(sgqlc.types.Input):
 
     filters = sgqlc.types.Field(sgqlc.types.list_of(FieldQueryFilterInput), graphql_name="filters")
     """Filters for which rows the query is computed over"""
+
+
+class FieldValueRangeInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("lower_bound", "upper_bound")
+    lower_bound = sgqlc.types.Field(Float, graphql_name="lowerBound")
+
+    upper_bound = sgqlc.types.Field(Float, graphql_name="upperBound")
 
 
 class FilterGroupInput(sgqlc.types.Input):
@@ -13658,6 +13680,7 @@ class TransformInput(sgqlc.types.Input):
         "sql_expression",
         "field_config_list",
         "model_name",
+        "field_value_range",
         "function",
         "field",
         "id",
@@ -13682,6 +13705,8 @@ class TransformInput(sgqlc.types.Input):
     )
 
     model_name = sgqlc.types.Field(String, graphql_name="modelName")
+
+    field_value_range = sgqlc.types.Field(FieldValueRangeInput, graphql_name="fieldValueRange")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -29223,6 +29248,14 @@ class FieldValueCorrelation(sgqlc.types.Type):
     anom_rate = sgqlc.types.Field(Float, graphql_name="anomRate")
 
 
+class FieldValueRange(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("lower_bound", "upper_bound")
+    lower_bound = sgqlc.types.Field(Float, graphql_name="lowerBound")
+
+    upper_bound = sgqlc.types.Field(Float, graphql_name="upperBound")
+
+
 class FigAgentSummary(sgqlc.types.Type):
     """Summary of an agent's fig execution history."""
 
@@ -35536,8 +35569,8 @@ class Mutation(sgqlc.types.Type):
       configuration (mode: COLLECT, REUSE, or PUSH). Omit to leave
       unchanged.
     * `monitors` (`CapabilityConfigInput`): Monitors capability
-      configuration (mode: COLLECT, REUSE, or PUSH). Omit to leave
-      unchanged.
+      configuration (mode: COLLECT or REUSE). PUSH is not supported.
+      Omit to leave unchanged.
     * `name` (`String`): Display name for the integration. Required
       when creating a new integration; optional on update.
     * `query_logs` (`CapabilityConfigInput`): Query logs capability
@@ -58710,6 +58743,7 @@ class Query(sgqlc.types.Type):
         "get_incident_timeline_events",
         "get_all_domains",
         "get_domain",
+        "get_domain_table_counts",
         "get_domains_v2",
         "get_domain_memberships_for_mcons",
         "get_domains_by_tags",
@@ -73611,6 +73645,29 @@ class Query(sgqlc.types.Type):
     * `uuid` (`UUID!`): Domain UUID
     """
 
+    get_domain_table_counts = sgqlc.types.Field(
+        sgqlc.types.non_null(DomainTableCounts),
+        graphql_name="getDomainTableCounts",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get monitored/non-monitored/total table counts for
+    a single domain. Returns zero counts when the UUID is not in the
+    caller's account.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): Domain UUID
+    """
+
     get_domains_v2 = sgqlc.types.Field(
         DomainOutputV2Connection,
         graphql_name="getDomainsV2",
@@ -76106,6 +76163,7 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="useCaseName", default=None
                     ),
                 ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 (
                     "include_deleted_assets",
                     sgqlc.types.Arg(Boolean, graphql_name="includeDeletedAssets", default=False),
@@ -76119,6 +76177,10 @@ class Query(sgqlc.types.Type):
 
     * `warehouse_id` (`UUID!`): The warehouse UUID
     * `use_case_name` (`String!`): The use case name
+    * `domain_id` (`UUID`): Filter counts to tables in this domain.
+      Must be one of the domains the user has access to. When omitted,
+      the user's domain restrictions (if any) are applied
+      automatically.
     * `include_deleted_assets` (`Boolean`): When true, counts tables
       that have been soft-deleted in the warehouse, and returns counts
       even if the warehouse itself has been soft-deleted. When false
@@ -86645,6 +86707,7 @@ class Transform(sgqlc.types.Type):
         "sql_expression",
         "field_config_list",
         "model_name",
+        "field_value_range",
         "function",
         "field",
         "id",
@@ -86669,6 +86732,8 @@ class Transform(sgqlc.types.Type):
     )
 
     model_name = sgqlc.types.Field(String, graphql_name="modelName")
+
+    field_value_range = sgqlc.types.Field(FieldValueRange, graphql_name="fieldValueRange")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 

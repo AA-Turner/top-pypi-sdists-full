@@ -84,6 +84,7 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
+use crate::solver::solver::CallContext;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
@@ -253,6 +254,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .into_ty()
     }
 
+    pub fn expr_with_separate_check_errors_with_call_context(
+        &self,
+        x: &Expr,
+        check: Option<(&Type, &ErrorCollector, &dyn Fn() -> TypeCheckContext)>,
+        errors: &ErrorCollector,
+        call_context: &CallContext,
+    ) -> Type {
+        self.expr_type_info_with_separate_check_errors_with_call_context(
+            x,
+            check,
+            errors,
+            call_context,
+        )
+        .into_ty()
+    }
+
     /// Infer a type for an expression.
     pub fn expr_infer(&self, x: &Expr, errors: &ErrorCollector) -> Type {
         self.expr_infer_type_info_with_hint(x, None, errors)
@@ -278,9 +295,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<HintRef>,
         errors: &ErrorCollector,
     ) -> TypeInfo {
-        if let Some(self_type_annotation) = self.intercept_typing_self_use(x) {
-            return self_type_annotation;
-        }
         let res = match x {
             Expr::Name(x) => {
                 if Ast::is_synthesized_empty_name(x) {
@@ -365,6 +379,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                 );
                 self.check_and_return_type_info(got, hint, x.range(), hint_errors, tcc)
+            }
+            _ => self.expr_infer_type_info_with_hint(x, None, errors),
+        }
+    }
+
+    fn expr_type_info_with_separate_check_errors_with_call_context(
+        &self,
+        x: &Expr,
+        check: Option<(&Type, &ErrorCollector, &dyn Fn() -> TypeCheckContext)>,
+        errors: &ErrorCollector,
+        call_context: &CallContext,
+    ) -> TypeInfo {
+        match check {
+            Some((hint, hint_errors, tcc)) if !hint.is_any() => {
+                let got = self.expr_infer_type_info_with_hint(
+                    x,
+                    Some(HintRef::new(hint, Some(hint_errors))),
+                    errors,
+                );
+                self.check_and_return_type_info_with_call_context(
+                    got,
+                    hint,
+                    x.range(),
+                    hint_errors,
+                    tcc,
+                    call_context,
+                )
             }
             _ => self.expr_infer_type_info_with_hint(x, None, errors),
         }
@@ -1169,17 +1210,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 && !typed_dict_fields_map.is_empty()
                 && typed_dict_fields_map.len() <= ANONYMOUS_TYPED_DICT_MAX_ITEMS
             {
-                // Compute the fallback value type from the field mapping, not from value_tys which
-                // may contain types from overridden keys
-                let final_value_tys: Vec<_> = typed_dict_fields_map
-                    .values()
-                    .map(|f| f.ty.clone())
-                    .collect();
                 let typed_dict_fields: Vec<_> = typed_dict_fields_map.into_iter().collect();
                 return self.heap.mk_typed_dict(TypedDict::Anonymous(Box::new(
                     AnonymousTypedDictInner {
                         fields: typed_dict_fields,
-                        value_type: self.unions(final_value_tys),
                     },
                 )));
             }
@@ -1941,17 +1975,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             _ => self.expr_infer_with_hint_promote(x, elt_hint, errors),
         })
-    }
-
-    fn intercept_typing_self_use(&self, x: &Expr) -> Option<TypeInfo> {
-        match x {
-            Expr::Name(..) | Expr::Attribute(..) => {
-                let key = Key::SelfTypeLiteral(x.range());
-                let self_type_form = self.get_hashed_opt(Hashed::new(&key))?;
-                Some(self_type_form.arc_clone())
-            }
-            _ => None,
-        }
     }
 
     fn is_enum_class_type(&self, ty: &Type) -> bool {
@@ -2950,17 +2973,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     e.member.clone(),
                 ))
             }
-            Type::Function(f) => Some(ConditionRedundantReason::Function(
+            ty if let Some(kind) = ty.to_func_kind() => Some(ConditionRedundantReason::Function(
                 self.module().name(),
-                f.metadata.kind.clone(),
-            )),
-            Type::Overload(f) => Some(ConditionRedundantReason::Function(
-                self.module().name(),
-                f.metadata.kind.clone(),
-            )),
-            Type::BoundMethod(f) => Some(ConditionRedundantReason::Function(
-                self.module().name(),
-                f.func.metadata().kind.clone(),
+                kind.clone(),
             )),
             Type::ClassDef(cls) => Some(ConditionRedundantReason::Class(cls.name().clone())),
             _ => None,

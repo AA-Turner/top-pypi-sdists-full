@@ -84,6 +84,7 @@ from .literals import (
     ClusterCapacityTypeType,
     ClusterConfigModeType,
     ClusterEventResourceTypeType,
+    ClusterImageVersionStatusType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
     ClusterInterfaceTypeType,
@@ -7862,6 +7863,7 @@ class ClusterNodeSummaryTypeDef(TypedDict):
     LastSoftwareUpdateTime: NotRequired[datetime]
     UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
     PrivateDnsHostname: NotRequired[str]
+    ImageVersionStatus: NotRequired[ClusterImageVersionStatusType]
 
 
 class ClusterOrchestratorTypeDef(TypedDict):
@@ -11749,6 +11751,7 @@ class ClusterNodeDetailsTypeDef(TypedDict):
     Placement: NotRequired[ClusterInstancePlacementTypeDef]
     CurrentImageId: NotRequired[str]
     DesiredImageId: NotRequired[str]
+    ImageVersionStatus: NotRequired[ClusterImageVersionStatusType]
     UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
     KubernetesConfig: NotRequired[ClusterKubernetesConfigNodeDetailsTypeDef]
     CapacityType: NotRequired[ClusterCapacityTypeType]
@@ -14268,6 +14271,7 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
     CurrentImageId: NotRequired[str]
     DesiredImageId: NotRequired[str]
+    ImageVersionStatus: NotRequired[ClusterImageVersionStatusType]
     ActiveOperations: NotRequired[dict[Literal["Scaling"], int]]
     KubernetesConfig: NotRequired[ClusterKubernetesConfigDetailsTypeDef]
     CapacityRequirements: NotRequired[ClusterCapacityRequirementsOutputTypeDef]

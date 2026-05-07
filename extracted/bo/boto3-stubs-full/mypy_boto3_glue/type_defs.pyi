@@ -2390,6 +2390,7 @@ class DataQualityEvaluationRunAdditionalRunOptionsTypeDef(TypedDict):
     CloudWatchMetricsEnabled: NotRequired[bool]
     ResultsS3Prefix: NotRequired[str]
     CompositeRuleEvaluationMethod: NotRequired[DQCompositeRuleEvaluationMethodType]
+    CustomLogGroupPrefix: NotRequired[str]
 
 class DataQualityGlueTableOutputTypeDef(TypedDict):
     DatabaseName: str
@@ -8187,6 +8188,7 @@ class DataQualityRulesetEvaluationRunFilterTypeDef(TypedDict):
     DataSource: DataSourceUnionTypeDef
     StartedBefore: NotRequired[TimestampTypeDef]
     StartedAfter: NotRequired[TimestampTypeDef]
+    RulesetName: NotRequired[str]
 
 class StartDataQualityRuleRecommendationRunRequestTypeDef(TypedDict):
     DataSource: DataSourceUnionTypeDef

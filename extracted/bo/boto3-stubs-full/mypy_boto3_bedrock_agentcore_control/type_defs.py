@@ -274,6 +274,7 @@ __all__ = (
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteWorkloadIdentityRequestTypeDef",
     "DescriptorsTypeDef",
+    "EfsAccessPointConfigurationTypeDef",
     "EpisodicConsolidationOverrideTypeDef",
     "EpisodicExtractionOverrideTypeDef",
     "EpisodicMemoryStrategyInputTypeDef",
@@ -628,6 +629,7 @@ __all__ = (
     "RuntimeMetadataConfigurationTypeDef",
     "RuntimeTargetConfigurationTypeDef",
     "S3ConfigurationTypeDef",
+    "S3FilesAccessPointConfigurationTypeDef",
     "S3LocationTypeDef",
     "SalesforceOauth2ProviderConfigInputTypeDef",
     "SalesforceOauth2ProviderConfigOutputTypeDef",
@@ -1337,6 +1339,11 @@ class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
 
+class EfsAccessPointConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+
+
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorArn: str
     evaluatorId: str
@@ -1349,6 +1356,11 @@ class EvaluatorSummaryTypeDef(TypedDict):
     level: NotRequired[EvaluatorLevelType]
     lockedForModification: NotRequired[bool]
     kmsKeyArn: NotRequired[str]
+
+
+class S3FilesAccessPointConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
 
 
 class SessionStorageConfigurationTypeDef(TypedDict):
@@ -2842,6 +2854,8 @@ class ListEvaluatorsResponseTypeDef(TypedDict):
 
 class FilesystemConfigurationTypeDef(TypedDict):
     sessionStorage: NotRequired[SessionStorageConfigurationTypeDef]
+    s3FilesAccessPoint: NotRequired[S3FilesAccessPointConfigurationTypeDef]
+    efsAccessPoint: NotRequired[EfsAccessPointConfigurationTypeDef]
 
 
 FilterTypeDef = TypedDict(

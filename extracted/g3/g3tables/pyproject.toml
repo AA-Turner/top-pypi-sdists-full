@@ -1,6 +1,6 @@
 [project]
 name = "g3tables"
-version = "0.2.18"
+version = "0.2.19"
 description = "G3 SW Definition, HW and PLC components, and Visualisation tables parser"
 readme = "README.md"
 license-files = ["LICENCE"]
@@ -27,7 +27,7 @@ requires-python = ">=3.10"
 dependencies = [
     'gspread',
     'openpyxl',
-    'pandas',
+    'pandas == 2.2.2',
     'python-gitlab',
     'unidecode',
     'platformdirs',

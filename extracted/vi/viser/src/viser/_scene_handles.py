@@ -11,10 +11,14 @@ from typing import (
     Dict,
     Generic,
     Literal,
+    Optional,
     Protocol,
+    Tuple,
     TypeVar,
     Union,
     cast,
+    get_args,
+    overload,
 )
 
 import numpy as np
@@ -33,8 +37,54 @@ if TYPE_CHECKING:
 
 
 @dataclasses.dataclass(frozen=True)
+class SceneClickEvent:
+    """Event passed to scene-level click callbacks (``SceneApi.on_click``)."""
+
+    client: ClientHandle
+    """Client that triggered this event."""
+    client_id: int
+    """ID of client that triggered this event."""
+    ray_origin: tuple[float, float, float]
+    """Origin of the 3D ray corresponding to this click, in world coordinates."""
+    ray_direction: tuple[float, float, float]
+    """Direction of the 3D ray corresponding to this click, in world coordinates."""
+    screen_pos: tuple[float, float]
+    """Screen position of the click in OpenCV image coordinates (0 to 1).
+    (0, 0) is the upper-left corner, (1, 1) is the bottom-right corner."""
+    modifier: _messages.KeyModifier | None
+    """Modifier-combo held at click time. ``None`` if no modifiers
+    were held; otherwise a canonical :data:`KeyModifier` string."""
+
+
+@dataclasses.dataclass(frozen=True)
+class SceneRectSelectEvent:
+    """Event passed to scene rectangle-select callbacks
+    (``SceneApi.on_rect_select``)."""
+
+    client: ClientHandle
+    """Client that triggered this event."""
+    client_id: int
+    """ID of client that triggered this event."""
+    screen_min: tuple[float, float]
+    """Min-corner of the selection rectangle in OpenCV image coordinates
+    (0 to 1)."""
+    screen_max: tuple[float, float]
+    """Max-corner of the selection rectangle."""
+    modifier: _messages.KeyModifier | None
+    """Modifier-combo held at gesture start. ``None`` if no modifiers
+    were held; otherwise a canonical :data:`KeyModifier` string."""
+
+
+@dataclasses.dataclass(frozen=True)
 class ScenePointerEvent:
-    """Event passed to pointer callbacks for the scene (currently only clicks)."""
+    """Event passed to scene pointer callbacks (legacy ``on_pointer_event``).
+
+    .. deprecated::
+        Use :meth:`SceneApi.on_click` with :class:`SceneClickEvent` or
+        :meth:`SceneApi.on_rect_select` with :class:`SceneRectSelectEvent`
+        instead. This shape unions the click and rect-select cases into a
+        single dataclass with awkward Optional/variable-length fields.
+    """
 
     client: ClientHandle
     """Client that triggered this event."""
@@ -50,6 +100,10 @@ class ScenePointerEvent:
     """Screen position of the click on the screen (OpenCV image coordinates, 0 to 1).
     (0, 0) is the upper-left corner, (1, 1) is the bottom-right corner.
     For a box selection, this includes the min- and max- corners of the box."""
+    modifier: _messages.KeyModifier | None
+    """Modifier-combo held when this event fired. ``None`` if no
+    modifiers were held; otherwise a canonical :data:`KeyModifier`
+    string."""
 
     @property
     @deprecated("The `event` property is deprecated. Use `event_type` instead.")
@@ -63,6 +117,47 @@ class ScenePointerEvent:
 
 
 TSceneNodeHandle = TypeVar("TSceneNodeHandle", bound="SceneNodeHandle")
+
+
+DragPhase = Literal["start", "update", "end"]
+"""Which point in a scene-node drag lifecycle a callback fires on."""
+
+
+@dataclasses.dataclass(frozen=True)
+class _DragInput:
+    """Pointer input state at the moment of a drag event.
+
+    Private -- consolidates the button + modifier pair that would
+    otherwise move as separate positional args through every dispatch
+    function."""
+
+    button: Literal["left", "middle", "right"]
+    modifier: _messages.KeyModifier | None
+
+
+@dataclasses.dataclass
+class _DragCallbackEntry:
+    """One registered drag callback + its filter.
+
+    Private to the handle; exposed to dispatch via ``_dispatch_drag``."""
+
+    callback: Callable[
+        [SceneNodeDragEvent[_RaycastSupportedSceneNodeHandle]], None | Coroutine
+    ]
+    button: _messages.DragButton
+    modifier: _messages.KeyModifier | None
+
+
+@dataclasses.dataclass
+class _ClickCallbackEntry:
+    """One registered click callback + its modifier filter.
+
+    Private to the handle; exposed to dispatch via ``_dispatch_click``."""
+
+    callback: Callable[
+        [SceneNodePointerEvent[_RaycastSupportedSceneNodeHandle]], None | Coroutine
+    ]
+    modifier: _messages.KeyModifier | None
 
 
 @dataclasses.dataclass
@@ -79,9 +174,10 @@ class _SceneNodeHandleState:
         default_factory=lambda: np.array([0.0, 0.0, 0.0])
     )
     visible: bool = True
-    click_cb: list[
-        Callable[[SceneNodePointerEvent[_ClickableSceneNodeHandle]], None | Coroutine]
-    ] = dataclasses.field(default_factory=list)
+    click_cb: list[_ClickCallbackEntry] = dataclasses.field(default_factory=list)
+    drag_cb: dict[DragPhase, list[_DragCallbackEntry]] = dataclasses.field(
+        default_factory=lambda: {"start": [], "update": [], "end": []}
+    )
     removed: bool = False
 
 
@@ -207,30 +303,65 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
             return
 
         # Collect all descendants via BFS.
+        api = self._impl.api
         to_remove = [self._impl.name]
         i = 0
         while i < len(to_remove):
-            children = self._impl.api._children_from_node_name.get(to_remove[i], ())
+            children = api._children_from_node_name.get(to_remove[i], ())
             to_remove.extend(children)
             i += 1
 
+        # Clear stale per-node interaction state (click + drag) before
+        # we tear down handles. ``SetSceneNodeClickableMessage`` and
+        # ``SetSceneNodeDragBindingsMessage`` are name-keyed in the
+        # persistent buffer and aren't purged by
+        # ``RemoveSceneNodeMessage``, so without an empty replacement a
+        # future node created with the same name would inherit stale
+        # interaction state on late-joining clients. Has to run for
+        # every node in ``to_remove`` (not just ``self``) so cascading
+        # parent removal cleans up interactive descendants too.
+        #
+        # Drag callbacks are preserved when a drag is in flight: the
+        # client will send a final ``phase="end"`` message after it
+        # observes the removal (via ``stopIfNodeIs``), and the user's
+        # ``on_drag_end`` MUST fire so per-drag state can be released.
+        # ``_handle_node_drag`` looks the handle up in the active-drag
+        # registry for non-start phases, so preserving ``drag_cb`` on
+        # the handle keeps the dispatch path alive until end.
+        for node_name in to_remove:
+            handle = api._handle_from_node_name.get(node_name)
+            if handle is None:
+                continue
+            impl = handle._impl
+            if len(impl.click_cb) > 0:
+                api._websock_interface.queue_message(
+                    _messages.SetSceneNodeClickableMessage(node_name, False)
+                )
+            if any(entries for entries in impl.drag_cb.values()):
+                if not api._is_drag_active_for(node_name):
+                    for entries in impl.drag_cb.values():
+                        entries.clear()
+                api._websock_interface.queue_message(
+                    _messages.SetSceneNodeDragBindingsMessage(node_name, ())
+                )
+
         # Clean up all descendants from both dicts.
         for node_name in to_remove:
-            handle = self._impl.api._handle_from_node_name.pop(node_name, None)
+            handle = api._handle_from_node_name.pop(node_name, None)
             if handle is not None:
                 handle._impl.removed = True
-            self._impl.api._children_from_node_name.pop(node_name, None)
+            api._children_from_node_name.pop(node_name, None)
 
         # Remove from parent's children set.
         parent = self._impl.name.rsplit("/", 1)[0]
-        parent_children = self._impl.api._children_from_node_name.get(parent)
+        parent_children = api._children_from_node_name.get(parent)
         if parent_children is not None:
             parent_children.discard(self._impl.name)
 
         # Send a RemoveSceneNodeMessage per descendant so redundancy keys
         # clean up their creation messages from the broadcast buffer.
         for node_name in to_remove:
-            self._impl.api._websock_interface.queue_message(
+            api._websock_interface.queue_message(
                 _messages.RemoveSceneNodeMessage(node_name)
             )
 
@@ -256,6 +387,10 @@ class SceneNodePointerEvent(Generic[TSceneNodeHandle]):
     (0, 0) is the upper-left corner, (1, 1) is the bottom-right corner."""
     instance_index: int | None
     """Instance ID of the clicked object, if applicable. Currently this is `None` for all objects except for the output of :meth:`SceneApi.add_batched_axes()`."""
+    modifier: _messages.KeyModifier | None
+    """Modifier-combo held when this event fired. ``None`` if no
+    modifiers were held; otherwise a canonical :data:`KeyModifier`
+    string."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -273,35 +408,358 @@ class TransformControlsEvent:
 NoneOrCoroutine = TypeVar("NoneOrCoroutine", None, Coroutine)
 
 
-class _ClickableSceneNodeHandle(SceneNodeHandle):
+@dataclasses.dataclass(frozen=True)
+class SceneNodeDragEvent(Generic[TSceneNodeHandle]):
+    """Event passed to scene-node drag callbacks."""
+
+    client: ClientHandle
+    """Client that triggered this event."""
+    client_id: int
+    """ID of client that triggered this event."""
+    target: TSceneNodeHandle
+    """Scene node that is being dragged."""
+    instance_index: int | None
+    """Instance index within a batched scene node (e.g. batched meshes,
+    batched GLBs, batched axes); ``None`` for non-batched nodes. Frozen
+    at drag-start -- the drag always refers to the instance that was
+    under the cursor when the gesture began."""
+    start_position: Tuple[float, float, float]
+    """World-coords position of the click point on the object. *Live* --
+    updates each event as the object moves, so it always reflects where
+    the grab point currently is in world coords (useful for
+    rotate-around-grab gestures)."""
+    start_screen_pos: Tuple[float, float]
+    """Live OpenCV screen-space projection of the click point."""
+    end_position: Tuple[float, float, float]
+    """Current pointer projected onto the camera-aligned drag plane,
+    in world coords."""
+    end_screen_pos: Tuple[float, float]
+    """Current pointer in OpenCV screen-space coordinates."""
+    button: Literal["left", "middle", "right"]
+    """Mouse button that initiated the drag."""
+    modifier: _messages.KeyModifier | None
+    """Modifier-combo held at drag-start (frozen for the drag's
+    lifetime). ``None`` if no modifiers were held; otherwise a
+    canonical :data:`KeyModifier` string."""
+
+
+_VALID_DRAG_BUTTONS: Tuple[_messages.DragButton, ...] = get_args(_messages.DragButton)
+
+
+class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
+    def _sync_drag_bindings(self) -> None:
+        """Recompute the union of registered (button, modifiers) across all
+        phases and push it to the client as a full binding set."""
+        seen: set[Tuple[_messages.DragButton, _messages.KeyModifier | None]] = set()
+        bindings: list[_messages.DragBinding] = []
+        for entries in self._impl.drag_cb.values():
+            for entry in entries:
+                key = (entry.button, entry.modifier)
+                if key in seen:
+                    continue
+                seen.add(key)
+                bindings.append(
+                    _messages.DragBinding(button=entry.button, modifier=entry.modifier)
+                )
+        self._impl.api._websock_interface.queue_message(
+            _messages.SetSceneNodeDragBindingsMessage(self._impl.name, tuple(bindings))
+        )
+
+    def _has_any_drag_callbacks(self) -> bool:
+        return any(entries for entries in self._impl.drag_cb.values())
+
+    def _dispatch_drag(
+        self, phase: DragPhase, input: _DragInput
+    ) -> list[
+        Callable[
+            [SceneNodeDragEvent[_RaycastSupportedSceneNodeHandle]], None | Coroutine
+        ]
+    ]:
+        """Return the callbacks whose filter matches this input.
+
+        Encapsulates ``_impl.drag_cb`` so dispatch doesn't depend on the
+        internal storage layout."""
+        from ._scene_api import _drag_input_matches_filter
+
+        return [
+            entry.callback
+            for entry in self._impl.drag_cb[phase]
+            if _drag_input_matches_filter(input, entry.button, entry.modifier)
+        ]
+
+    @staticmethod
+    def _validate_button(button: _messages.DragButton) -> None:
+        if button not in _VALID_DRAG_BUTTONS:
+            raise ValueError(
+                f"Unknown drag button {button!r}. "
+                f"Valid buttons: {list(_VALID_DRAG_BUTTONS)!r}."
+            )
+
+    def _register_drag_callback(
+        self: Self,
+        phase: DragPhase,
+        button: _messages.DragButton,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Callable[
+        [Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]],
+        Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ]:
+        self._validate_button(button)
+        normalized = _messages._normalize_key_modifier(modifier)
+
+        def decorator(
+            func: Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+        ) -> Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]:
+            entry = _DragCallbackEntry(
+                callback=cast(
+                    Callable[
+                        [SceneNodeDragEvent[_RaycastSupportedSceneNodeHandle]],
+                        Union[None, Coroutine],
+                    ],
+                    func,
+                ),
+                button=button,
+                modifier=normalized,
+            )
+            # Skip if an equivalent entry is already registered --
+            # otherwise double-registration would fire the callback twice
+            # per matching event. `_DragCallbackEntry` is a plain
+            # dataclass so tuple/dataclass equality catches duplicates.
+            if entry not in self._impl.drag_cb[phase]:
+                self._impl.drag_cb[phase].append(entry)
+                self._sync_drag_bindings()
+            return func
+
+        return decorator
+
+    @overload
+    def on_drag_start(
+        self: Self,
+        button: Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ) -> Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]: ...
+
+    @overload
+    def on_drag_start(
+        self: Self,
+        button: _messages.DragButton = ...,
+        *,
+        modifier: _messages.KeyModifier | None = ...,
+    ) -> Callable[
+        [Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]],
+        Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ]: ...
+
+    def on_drag_start(
+        self: Self,
+        button: Union[_messages.DragButton, Callable[..., Any]] = "left",
+        *,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Any:
+        """Attach a callback for when dragging starts.
+
+        (Experimental) Scene-node drag callbacks may change in future
+        releases.
+
+        Usable as a bare decorator (``@handle.on_drag_start``, defaults
+        to ``button="left"`` and no modifiers) or with arguments
+        (``@handle.on_drag_start("left", modifier="cmd/ctrl")``).
+
+        Args:
+            button: Mouse button that triggers the drag. One of
+                ``"left" | "middle" | "right"``. Defaults to ``"left"``.
+            modifier: Modifier keys that must be held, as a canonically
+                ordered ``"+"``-separated string like ``"cmd/ctrl"``,
+                ``"shift"``, or ``"cmd/ctrl+shift"``. ``None`` matches
+                "no modifiers held". Matching is exact: listed modifiers
+                must be held and others must not be. Left-drag on this
+                node intercepts the gesture -- the camera only orbits on
+                empty-space drags.
+
+        Note on ordering: drag callbacks fire in three phases per
+        gesture (start → update* → end). Synchronous (``def``)
+        callbacks are submitted to a thread pool fire-and-forget and
+        can run out of order -- an ``update`` may begin before
+        ``start`` finishes, leaving any state set in ``start`` (e.g.
+        a captured grab point) ``None`` when ``update`` reads it. To
+        get strict ordering, define your callbacks as ``async def``;
+        async callbacks are awaited on the event loop, which preserves
+        their phase order so long as you don't ``await`` inside them.
+        """
+        return self._dispatch_on_drag("start", button, modifier)
+
+    @overload
+    def on_drag_update(
+        self: Self,
+        button: Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ) -> Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]: ...
+
+    @overload
+    def on_drag_update(
+        self: Self,
+        button: _messages.DragButton = ...,
+        *,
+        modifier: _messages.KeyModifier | None = ...,
+    ) -> Callable[
+        [Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]],
+        Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ]: ...
+
+    def on_drag_update(
+        self: Self,
+        button: Union[_messages.DragButton, Callable[..., Any]] = "left",
+        *,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Any:
+        """Attach a callback for drag updates. See :meth:`on_drag_start` for argument docs.
+
+        (Experimental) Scene-node drag callbacks may change in future
+        releases."""
+        return self._dispatch_on_drag("update", button, modifier)
+
+    @overload
+    def on_drag_end(
+        self: Self,
+        button: Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ) -> Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]: ...
+
+    @overload
+    def on_drag_end(
+        self: Self,
+        button: _messages.DragButton = ...,
+        *,
+        modifier: _messages.KeyModifier | None = ...,
+    ) -> Callable[
+        [Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine]],
+        Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
+    ]: ...
+
+    def on_drag_end(
+        self: Self,
+        button: Union[_messages.DragButton, Callable[..., Any]] = "left",
+        *,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Any:
+        """Attach a callback for when dragging ends. See :meth:`on_drag_start` for argument docs.
+
+        (Experimental) Scene-node drag callbacks may change in future
+        releases."""
+        return self._dispatch_on_drag("end", button, modifier)
+
+    def _dispatch_on_drag(
+        self: Self,
+        phase: DragPhase,
+        button_or_func: Union[_messages.DragButton, Callable[..., Any]],
+        modifier: _messages.KeyModifier | None,
+    ) -> Any:
+        """Bare-decorator (a callable in the first slot) registers
+        immediately with default ``button="left"``; otherwise
+        ``button_or_func`` is the button literal."""
+        if callable(button_or_func):
+            return self._register_drag_callback(phase, "left", modifier)(
+                button_or_func  # type: ignore[arg-type]
+            )
+        return self._register_drag_callback(phase, button_or_func, modifier)
+
+    def _remove_drag_callback(
+        self,
+        phase: DragPhase,
+        callback: Literal["all"] | Callable,
+    ) -> None:
+        if callback == "all":
+            self._impl.drag_cb[phase].clear()
+        else:
+            self._impl.drag_cb[phase] = [
+                entry
+                for entry in self._impl.drag_cb[phase]
+                if entry.callback != callback
+            ]
+        self._sync_drag_bindings()
+
+    def remove_drag_start_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove drag start callbacks from the scene node."""
+        self._remove_drag_callback("start", callback)
+
+    def remove_drag_update_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove drag update callbacks from the scene node."""
+        self._remove_drag_callback("update", callback)
+
+    def remove_drag_end_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove drag end callbacks from the scene node."""
+        self._remove_drag_callback("end", callback)
+
+    @overload
     def on_click(
         self: Self,
         func: Callable[[SceneNodePointerEvent[Self]], NoneOrCoroutine],
-    ) -> Callable[[SceneNodePointerEvent[Self]], NoneOrCoroutine]:
+    ) -> Callable[[SceneNodePointerEvent[Self]], NoneOrCoroutine]: ...
+
+    @overload
+    def on_click(
+        self: Self,
+        *,
+        modifier: _messages.KeyModifier | None = ...,
+    ) -> Callable[
+        [Callable[[SceneNodePointerEvent[Self]], NoneOrCoroutine]],
+        Callable[[SceneNodePointerEvent[Self]], NoneOrCoroutine],
+    ]: ...
+
+    def on_click(
+        self: Self,
+        func: Optional[Callable[[SceneNodePointerEvent[Self]], NoneOrCoroutine]] = None,
+        *,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Any:
         """Attach a callback for when a scene node is clicked.
+
+        Usable as a bare decorator (``@handle.on_click``) or with a
+        modifier filter (``@handle.on_click(modifier="cmd/ctrl")``).
 
         The callback can be either a standard function or an async function:
         - Standard functions (def) will be executed in a threadpool.
         - Async functions (async def) will be executed in the event loop.
-
         Using async functions can be useful for reducing race conditions.
+
+        Args:
+            modifier: Modifier-combo filter. Default ``None`` matches
+                "no modifiers held". ``"cmd/ctrl"``, ``"shift"``,
+                ``"cmd/ctrl+shift"``, etc. are exact matches (listed
+                modifiers held, others not). ``cmd/ctrl`` matches
+                whenever either Cmd or Ctrl is held.
         """
-        self._impl.api._websock_interface.queue_message(
-            _messages.SetSceneNodeClickableMessage(self._impl.name, True)
-        )
-        if self._impl.click_cb is None:
-            self._impl.click_cb = []
-        self._impl.click_cb.append(
-            cast(
-                Callable[
-                    [SceneNodePointerEvent[_ClickableSceneNodeHandle]],
-                    # `Union[X, Y]` instead of `X | Y` for Python 3.8 support.
-                    Union[None, Coroutine],
-                ],
-                func,
+        # Validate eagerly so a bad string raises at the call site,
+        # not when the user later applies the returned decorator.
+        normalized_modifier = _messages._normalize_key_modifier(modifier)
+
+        def register(callback: Callable) -> Callable:
+            # Mark the node clickable only when a callback actually
+            # lands -- an unapplied decorator factory shouldn't leave
+            # the client thinking the node is clickable.
+            self._impl.api._websock_interface.queue_message(
+                _messages.SetSceneNodeClickableMessage(self._impl.name, True)
             )
-        )
-        return func
+            self._impl.click_cb.append(
+                _ClickCallbackEntry(
+                    callback=cast(
+                        Callable[
+                            [SceneNodePointerEvent[_RaycastSupportedSceneNodeHandle]],
+                            Union[None, Coroutine],
+                        ],
+                        callback,
+                    ),
+                    modifier=normalized_modifier,
+                )
+            )
+            return callback
+
+        if func is None:
+            return register
+        return register(func)
 
     def remove_click_callback(
         self, callback: Literal["all"] | Callable = "all"
@@ -314,28 +772,17 @@ class _ClickableSceneNodeHandle(SceneNodeHandle):
         if callback == "all":
             self._impl.click_cb.clear()
         else:
-            self._impl.click_cb = [cb for cb in self._impl.click_cb if cb != callback]
+            self._impl.click_cb = [
+                entry for entry in self._impl.click_cb if entry.callback != callback
+            ]
         if len(self._impl.click_cb) == 0:
             self._impl.api._websock_interface.queue_message(
                 _messages.SetSceneNodeClickableMessage(self._impl.name, False)
             )
 
-    def remove(self) -> None:
-        """Remove the node from the scene."""
-        if len(self._impl.click_cb) > 0:
-            # SetSceneNodeClickableMessage can still remain in the message
-            # buffer, even if a scene node is removed. This could cause a new
-            # scene node to be mistakenly considered clickable if it is made
-            # with the same name. We ideally would fix this with better state
-            # management... in the meantime we can just set the flag to False.
-            self._impl.api._websock_interface.queue_message(
-                _messages.SetSceneNodeClickableMessage(self._impl.name, False)
-            )
-        super().remove()
-
 
 class CameraFrustumHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.CameraFrustumProps,
 ):
     """Handle for camera frustums."""
@@ -489,63 +936,63 @@ class PointCloudHandle(
 
 
 class BatchedAxesHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.BatchedAxesProps,
 ):
     """Handle for batched coordinate frames."""
 
 
 class FrameHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.FrameProps,
 ):
     """Handle for coordinate frames."""
 
 
 class MeshHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.MeshProps,
 ):
     """Handle for mesh objects."""
 
 
 class BoxHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.BoxProps,
 ):
     """Handle for box objects."""
 
 
 class IcosphereHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.IcosphereProps,
 ):
     """Handle for icosphere objects."""
 
 
 class CylinderHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.CylinderProps,
 ):
     """Handle for cylinder objects."""
 
 
 class BatchedMeshHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.BatchedMeshesProps,
 ):
     """Handle for batched mesh objects."""
 
 
 class BatchedGlbHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.BatchedGlbProps,
 ):
     """Handle for batched GLB objects."""
 
 
 class GaussianSplatHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.GaussianSplatsProps,
 ):
     """Handle for Gaussian splatting objects.
@@ -669,7 +1116,7 @@ class GaussianSplatHandle(
 
 
 class MeshSkinnedHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.SkinnedMeshProps,
 ):
     """Handle for skinned mesh objects."""
@@ -755,6 +1202,13 @@ class LineSegmentsHandle(
     """Handle for line segments objects."""
 
 
+class ArrowsHandle(
+    SceneNodeHandle,
+    _messages.ArrowProps,
+):
+    """Handle for arrow objects."""
+
+
 class SplineCatmullRomHandle(
     SceneNodeHandle,
     _messages.CatmullRomSplineProps,
@@ -825,14 +1279,14 @@ class SplineCubicBezierHandle(
 
 
 class GlbHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.GlbProps,
 ):
     """Handle for GLB objects."""
 
 
 class ImageHandle(
-    _ClickableSceneNodeHandle,
+    _RaycastSupportedSceneNodeHandle,
     _messages.ImageProps,
 ):
     """Handle for 2D images, rendered in 3D."""

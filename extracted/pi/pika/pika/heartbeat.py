@@ -7,7 +7,7 @@ from pika import frame
 LOGGER = logging.getLogger(__name__)
 
 
-class HeartbeatChecker(object):
+class HeartbeatChecker:
     """Sends heartbeats to the broker. The provided timeout is used to
     determine if the connection is stale - no received heartbeats or
     other activity will close the connection. See the parameter list for more
@@ -35,7 +35,7 @@ class HeartbeatChecker(object):
 
         """
         if timeout < 1:
-            raise ValueError('timeout must >= 0, but got %r' % (timeout,))
+            raise ValueError('timeout must >= 0, but got {!r}'.format(timeout))
 
         self._connection = connection
 
@@ -185,8 +185,7 @@ class HeartbeatChecker(object):
     def _start_send_timer(self):
         """Start a new heartbeat send timer."""
         self._send_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
-            self._send_interval,
-            self._send_heartbeat)
+            self._send_interval, self._send_heartbeat)
 
     def _start_check_timer(self):
         """Start a new heartbeat check timer."""
@@ -197,8 +196,7 @@ class HeartbeatChecker(object):
         self._update_counters()
 
         self._check_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
-            self._check_interval,
-            self._check_heartbeat)
+            self._check_interval, self._check_heartbeat)
 
     def _update_counters(self):
         """Update the internal counters for bytes sent and received and the

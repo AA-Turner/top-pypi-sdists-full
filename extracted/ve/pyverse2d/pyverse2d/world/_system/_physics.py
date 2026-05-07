@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._internal import profile_section
 from ...abc import System
 from .._world import World
 from .._component import Transform, RigidBody, GroundSensor
@@ -21,6 +22,7 @@ class PhysicsSystem(System):
         return f"PhysicsSystem()"
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.physics.update")
     def update(self, world: World, dt: float):
         """Intègre la physique de tous les corps dynamiques actifs
 

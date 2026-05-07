@@ -9,6 +9,7 @@ from typing import Any
 # Django
 from django import forms
 from django.utils.safestring import mark_safe
+from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
@@ -34,16 +35,24 @@ def get_mandatory_form_label_text(text):
     """
 
     required_text = _("This field is mandatory")
-    required_marker = (
-        f'<span aria-label="{required_text}" class="form-required-marker">*</span>'
+
+    # Use format_lazy to preserve lazy translation objects instead of
+    # interpolating them into f-strings which would force evaluation.
+    required_marker = format_lazy(
+        '<span aria-label="{}" class="form-required-marker">*</span>',
+        required_text,
     )
 
     return mark_safe(
-        f'<span class="form-field-required">{text} {required_marker}</span>'
+        format_lazy(
+            '<span class="form-field-required">{} {}</span>', text, required_marker
+        )
     )
 
 
-def sanitize_cleaned_data(cleaned_data: dict[str, Any] | None) -> dict[str, Any] | None:
+def sanitize_cleaned_data(
+    cleaned_data: dict[str, Any] | None, keep_tabs: bool = False
+) -> dict[str, Any] | None:
     """
     Sanitize all string values in cleaned_data:
     - Remove simple HTML tags
@@ -72,12 +81,23 @@ def sanitize_cleaned_data(cleaned_data: dict[str, Any] | None) -> dict[str, Any]
             # Normalize CRLF and CR to LF
             cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
 
-            # Collapse spaces/tabs within each line but preserve line breaks
+            # Collapse whitespace within each line but preserve line breaks.
+            # If keep_tabs is True, preserve tab characters: only collapse consecutive
+            # spaces and trim spaces (but not tabs) at line ends. If keep_tabs is False,
+            # collapse spaces and tabs into a single space and trim all whitespace.
             lines = cleaned.split("\n")
-            processed_lines = [
-                re.sub(pattern=r"[ \t]+", repl=" ", string=line).strip()
-                for line in lines
-            ]
+
+            if keep_tabs:
+                processed_lines = [
+                    re.sub(pattern=r" {2,}", repl=" ", string=line).strip()
+                    for line in lines
+                ]
+            else:
+                processed_lines = [
+                    re.sub(pattern=r"[ \t]+", repl=" ", string=line).strip()
+                    for line in lines
+                ]
+
             cleaned = "\n".join(processed_lines)
 
             if cleaned != value:
@@ -143,16 +163,19 @@ class AFatManualFatForm(forms.Form):
         required=True,
         label=get_mandatory_form_label_text(text=_("Character Name")),
         max_length=255,
+        widget=forms.TextInput(attrs={"placeholder": _("Character Name")}),
     )
     system = forms.CharField(
         required=True,
         label=get_mandatory_form_label_text(text=_("System")),
         max_length=100,
+        widget=forms.TextInput(attrs={"placeholder": _("System")}),
     )
     shiptype = forms.CharField(
         required=True,
         label=get_mandatory_form_label_text(text=_("Ship type")),
         max_length=100,
+        widget=forms.TextInput(attrs={"placeholder": _("Ship type")}),
     )
 
     def clean(self):
@@ -166,6 +189,62 @@ class AFatManualFatForm(forms.Form):
         cleaned_data = super().clean()
 
         return sanitize_cleaned_data(cleaned_data)
+
+
+class FleetSnapshot(forms.Form):
+    """
+    Fleet snapshot form
+    """
+
+    fleet_composition = forms.CharField(
+        required=True,
+        label=get_mandatory_form_label_text(text=_("Fleet composition")),
+        widget=forms.Textarea(
+            attrs={
+                "rows": 10,
+                "cols": 20,
+                "input_type": "textarea",
+                "placeholder": _("Fleet composition"),
+            }
+        ),
+        help_text=_("Post the fleet composition from your fleet window here."),
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Pre-sanitize incoming raw data to remove control characters that
+        # would make the field-level validation fail (e.g. null bytes).
+        data = kwargs.get("data")
+        if data and "fleet_composition" in data:
+            try:
+                data_mut = data.copy()
+            except Exception:  # pylint: disable=broad-exception-caught
+                data_mut = dict(data)
+
+            raw_value = data_mut.get("fleet_composition")
+            if raw_value is not None:
+                sanitized = sanitize_cleaned_data(
+                    {"fleet_composition": raw_value}, keep_tabs=True
+                )
+                data_mut["fleet_composition"] = sanitized.get("fleet_composition")
+                kwargs["data"] = data_mut
+
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        """
+        Clean all input from HTML tags and other nefarious things.
+
+        :return: cleaned_data
+        :rtype: dict
+        """
+
+        cleaned_data = super().clean()
+
+        # Fallback: if cleaned_data is empty, use raw data (already pre-sanitized in __init__)
+        if not cleaned_data and "fleet_composition" in getattr(self, "data", {}):
+            cleaned_data = {"fleet_composition": self.data.get("fleet_composition")}
+
+        return sanitize_cleaned_data(cleaned_data, keep_tabs=True)
 
 
 class AFatClickFatForm(forms.Form):

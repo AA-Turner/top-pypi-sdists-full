@@ -4,19 +4,24 @@ import logging
 import socket
 import pika.compat
 
+from typing import Dict, Optional
+
 LOGGER = logging.getLogger(__name__)
 
-_SUPPORTED_TCP_OPTIONS = {}
+_SUPPORTED_TCP_OPTIONS: Dict[str, int] = {}
 
-try:
-    _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = socket.TCP_USER_TIMEOUT
-except AttributeError:
-    if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2, 6, 37):
-        # this is not the timeout value, but the number corresponding
-        # to the constant in tcp.h
-        # https://github.com/torvalds/linux/blob/master/include/uapi/linux/tcp.h#
-        # #define TCP_USER_TIMEOUT	18	/* How long for loss retry before timeout */
-        _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
+if hasattr(socket, 'TCP_USER_TIMEOUT'):
+    try:
+        _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = getattr(
+            socket, 'TCP_USER_TIMEOUT')
+    except AttributeError:
+        if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2, 6,
+                                                                       37):
+            # this is not the timeout value, but the number corresponding
+            # to the constant in tcp.h
+            # https://github.com/torvalds/linux/blob/master/include/uapi/linux/tcp.h#
+            # #define TCP_USER_TIMEOUT	18	/* How long for loss retry before timeout */
+            _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
 
 try:
     _SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = socket.TCP_KEEPIDLE
@@ -26,13 +31,13 @@ except AttributeError:
     pass
 
 
-def socket_requires_keepalive(tcp_options):
-    return ('TCP_KEEPIDLE' in tcp_options or
-            'TCP_KEEPCNT' in tcp_options or
+def socket_requires_keepalive(tcp_options: Dict[str, int]) -> bool:
+    return ('TCP_KEEPIDLE' in tcp_options or 'TCP_KEEPCNT' in tcp_options or
             'TCP_KEEPINTVL' in tcp_options)
 
 
-def set_sock_opts(tcp_options, sock):
+def set_sock_opts(tcp_options: Optional[Dict[str, int]],
+                  sock: socket.socket) -> None:
     if not tcp_options:
         return
 

@@ -13,3 +13,6 @@ url = { version = "2.5.4", features = ["serde"] }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

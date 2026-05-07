@@ -4,15 +4,19 @@
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 # ------------------------------------------------------------------------
 
+from typing import ClassVar
+
 import numpy as np
 import supervision as sv
 from scipy.optimize import linear_sum_assignment
 
 from trackers.core.base import BaseTracker
-from trackers.core.bytetrack.kalman import ByteTrackKalmanBoxTracker
-from trackers.core.sort.utils import (
-    get_alive_trackers,
-    get_iou_matrix,
+from trackers.core.bytetrack.tracklet import ByteTrackTracklet
+from trackers.core.bytetrack.utils import _get_alive_tracklets
+from trackers.core.sort.utils import _get_iou_matrix
+from trackers.utils.state_representations import (
+    BaseStateEstimator,
+    XYXYStateEstimator,
 )
 
 
@@ -53,9 +57,20 @@ class ByteTrackTracker(BaseTracker):
             detections to existing tracks. Higher values require more overlap.
         high_conf_det_threshold: `float` specifying threshold for separating
             high and low confidence detections in the two-stage association.
+        state_estimator_class: State estimator class to use for Kalman filter.
+            Defaults to `XYXYStateEstimator`. Can also use
+            `XCYCSRStateEstimator` for center-based representation.
     """
 
     tracker_id = "bytetrack"
+
+    search_space: ClassVar[dict[str, dict]] = {
+        "lost_track_buffer": {"type": "randint", "range": [10, 91]},
+        "track_activation_threshold": {"type": "uniform", "range": [0.1, 0.9]},
+        "minimum_iou_threshold": {"type": "uniform", "range": [0.05, 0.7]},
+        "high_conf_det_threshold": {"type": "uniform", "range": [0.3, 0.8]},
+        "minimum_consecutive_frames": {"type": "randint", "range": [1, 4]},
+    }
 
     def __init__(
         self,
@@ -65,6 +80,7 @@ class ByteTrackTracker(BaseTracker):
         minimum_consecutive_frames: int = 2,
         minimum_iou_threshold: float = 0.1,
         high_conf_det_threshold: float = 0.6,
+        state_estimator_class: type[BaseStateEstimator] = XYXYStateEstimator,
     ) -> None:
         # Calculate maximum frames without update based on lost_track_buffer and
         # frame_rate. This scales the buffer based on the frame rate to ensure
@@ -74,13 +90,15 @@ class ByteTrackTracker(BaseTracker):
         self.minimum_iou_threshold = minimum_iou_threshold
         self.track_activation_threshold = track_activation_threshold
         self.high_conf_det_threshold = high_conf_det_threshold
-        self.tracks: list[ByteTrackKalmanBoxTracker] = []
+        self.tracks: list[ByteTrackTracklet] = []
+        self.state_estimator_class = state_estimator_class
 
     def update(
         self,
         detections: sv.Detections,
+        frame: np.ndarray | None = None,
     ) -> sv.Detections:
-        """Update tracker state with new detections and return tracked objects.
+        """Update tracks state with new detections and return tracked objects.
         Performs Kalman filter prediction, two-stage association (high then low
         confidence), and initializes new tracks for unmatched detections.
 
@@ -88,12 +106,15 @@ class ByteTrackTracker(BaseTracker):
             detections: `sv.Detections` containing bounding boxes with shape
                 `(N, 4)` in `(x_min, y_min, x_max, y_max)` format and optional
                 confidence scores.
+            frame: Ignored by ByteTrack. If provided (not `None`), a warning is
+                emitted.
 
         Returns:
-            `sv.Detections` with `tracker_id` assigned for each detection.
-                Unmatched detections have `tracker_id` of `-1`. Detection order
-                may differ from input.
+            sv.Detections with tracker_id assigned for each detection.
+            Unmatched detections have tracker_id of -1. Detection order may
+            differ from input.
         """
+        self._warn_if_frame_unused(frame)
         if len(self.tracks) == 0 and len(detections) == 0:
             result = sv.Detections.empty()
             result.tracker_id = np.array([], dtype=int)
@@ -120,7 +141,7 @@ class ByteTrackTracker(BaseTracker):
         low_boxes = detection_boxes[low_indices]
 
         # Step 1: associate high-confidence detections to all tracks
-        iou_matrix = get_iou_matrix(self.tracks, high_boxes)
+        iou_matrix = _get_iou_matrix(self.tracks, high_boxes)
         matched, unmatched_tracks, unmatched_high = self._get_associated_indices(
             iou_matrix, self.minimum_iou_threshold
         )
@@ -129,18 +150,19 @@ class ByteTrackTracker(BaseTracker):
             track = self.tracks[row]
             track.update(high_boxes[col])
             if (
-                track.number_of_successful_updates >= self.minimum_consecutive_frames
+                track.number_of_successful_consecutive_updates
+                >= self.minimum_consecutive_frames
                 and track.tracker_id == -1
             ):
-                track.tracker_id = ByteTrackKalmanBoxTracker.get_next_tracker_id()
+                track.tracker_id = ByteTrackTracklet.get_next_tracker_id()
             out_det_indices.append(int(high_indices[col]))
             out_tracker_ids.append(track.tracker_id)
 
         remaining_tracks = [self.tracks[i] for i in unmatched_tracks]
 
         # Step 2: associate low-confidence detections to remaining tracks
-        iou_matrix = get_iou_matrix(remaining_tracks, low_boxes)
-        matched, _, unmatched_low = self._get_associated_indices(
+        iou_matrix = _get_iou_matrix(remaining_tracks, low_boxes)
+        matched, _unmatched_remaining, unmatched_low = self._get_associated_indices(
             iou_matrix, self.minimum_iou_threshold
         )
 
@@ -148,10 +170,11 @@ class ByteTrackTracker(BaseTracker):
             track = remaining_tracks[row]
             track.update(low_boxes[col])
             if (
-                track.number_of_successful_updates >= self.minimum_consecutive_frames
+                track.number_of_successful_consecutive_updates
+                >= self.minimum_consecutive_frames
                 and track.tracker_id == -1
             ):
-                track.tracker_id = ByteTrackKalmanBoxTracker.get_next_tracker_id()
+                track.tracker_id = ByteTrackTracklet.get_next_tracker_id()
             out_det_indices.append(int(low_indices[col]))
             out_tracker_ids.append(track.tracker_id)
 
@@ -161,7 +184,7 @@ class ByteTrackTracker(BaseTracker):
             out_tracker_ids.append(-1)
 
         # Spawn new tracks from unmatched high-confidence detections
-        self._spawn_new_trackers(
+        self._spawn_new_tracks(
             detection_boxes,
             confidences,
             unmatched_high,
@@ -170,10 +193,10 @@ class ByteTrackTracker(BaseTracker):
             out_tracker_ids,
         )
 
-        self.tracks = get_alive_trackers(
-            trackers=self.tracks,
-            maximum_frames_without_update=self.maximum_frames_without_update,
+        self.tracks = _get_alive_tracklets(
+            tracklets=self.tracks,
             minimum_consecutive_frames=self.minimum_consecutive_frames,
+            maximum_frames_without_update=self.maximum_frames_without_update,
         )
 
         # Build final sv.Detections from original by indexing
@@ -191,7 +214,7 @@ class ByteTrackTracker(BaseTracker):
         self,
         similarity_matrix: np.ndarray,
         min_similarity_thresh: float,
-    ) -> tuple[list[tuple[int, int]], set[int], set[int]]:
+    ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
         """
         Associate detections to tracks based on Similarity (IoU) using the
         Jonker-Volgenant algorithm approach with no initialization instead of the
@@ -203,8 +226,12 @@ class ByteTrackTracker(BaseTracker):
             min_similarity_thresh: Minimum similarity threshold for a valid match.
 
         Returns:
-            Matched indices (list of (tracker_idx, detection_idx)), indices of
-                unmatched tracks, indices of unmatched detections.
+            matched: List of ``(tracker_idx, detection_idx)`` tuples for
+                associations that meet the similarity threshold.
+            unmatched_tracks: Sorted list of track indices not matched to any
+                detection.
+            unmatched_detections: Sorted list of detection indices not matched
+                to any track.
         """  # noqa: E501
         matched_indices = []
         n_tracks, n_detections = similarity_matrix.shape
@@ -221,13 +248,14 @@ class ByteTrackTracker(BaseTracker):
                     unmatched_tracks.remove(row)
                     unmatched_detections.remove(col)
 
-        return matched_indices, unmatched_tracks, unmatched_detections
+        # Return sorted lists for deterministic order across CPython versions.
+        return matched_indices, sorted(unmatched_tracks), sorted(unmatched_detections)
 
-    def _spawn_new_trackers(
+    def _spawn_new_tracks(
         self,
         detection_boxes: np.ndarray,
         confidences: np.ndarray,
-        unmatched_high_local: set[int],
+        unmatched_high_local: list[int],
         high_indices: np.ndarray,
         out_det_indices: list[int],
         out_tracker_ids: list[int],
@@ -237,7 +265,10 @@ class ByteTrackTracker(BaseTracker):
             conf = float(confidences[global_idx])
             if conf >= self.track_activation_threshold:
                 self.tracks.append(
-                    ByteTrackKalmanBoxTracker(bbox=detection_boxes[global_idx])
+                    ByteTrackTracklet(
+                        initial_bbox=detection_boxes[global_idx],
+                        state_estimator_class=self.state_estimator_class,
+                    )
                 )
                 out_det_indices.append(global_idx)
                 out_tracker_ids.append(-1)
@@ -247,4 +278,4 @@ class ByteTrackTracker(BaseTracker):
         Call this method when switching to a new video or scene.
         """
         self.tracks = []
-        ByteTrackKalmanBoxTracker.count_id = 0
+        ByteTrackTracklet.count_id = 0

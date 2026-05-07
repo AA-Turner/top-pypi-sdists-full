@@ -76,8 +76,11 @@ class ModelRegistry:
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
                 f.write(content)
 
-            # Atomic rename
-            os.rename(temp_path, self.registry_path)
+            # Atomic rename — use os.replace() not os.rename() so this is
+            # also correct on Windows (where rename() fails if target exists).
+            # Backend currently runs Linux-only (Cloud Run), but match the
+            # CLI's pattern so this stays portable if the service ever moves.
+            os.replace(temp_path, self.registry_path)
 
         except Exception:
             # Clean up temp file on error

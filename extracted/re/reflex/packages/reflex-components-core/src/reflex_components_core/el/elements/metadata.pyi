@@ -6,15 +6,16 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
+from reflex_base.components.component import MemoizationLeaf
 from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
 from reflex_components_core.el.element import Element
 
-from .base import BaseHTML
+from .base import BaseHTML, VoidBaseHTML
 
-class Base(BaseHTML):
+class Base(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -538,7 +539,7 @@ class Head(BaseHTML):
             The component.
         """
 
-class Link(BaseHTML):
+class Link(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -842,7 +843,7 @@ class Link(BaseHTML):
             The component.
         """
 
-class Meta(BaseHTML):
+class Meta(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -1112,7 +1113,7 @@ class Meta(BaseHTML):
             The component.
         """
 
-class Title(Element):
+class Title(MemoizationLeaf, Element):
     @classmethod
     def create(
         cls,
@@ -1177,7 +1178,7 @@ class Title(Element):
             The component.
         """
 
-class StyleEl(Element):
+class StyleEl(MemoizationLeaf, Element):
     @classmethod
     def create(
         cls,

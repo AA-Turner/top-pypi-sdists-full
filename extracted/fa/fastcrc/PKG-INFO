@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastcrc
-Version: 0.3.5
+Version: 0.3.6
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -19,9 +19,9 @@ Home-Page: https://github.com/overcat/fastcrc
 Author-email: overcat <4catcode@gmail.com>
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst; charset=UTF-8
+Project-URL: documentation, https://fastcrc.readthedocs.io
 Project-URL: homepage, https://github.com/overcat/fastcrc
 Project-URL: repository, https://github.com/overcat/fastcrc
-Project-URL: documentation, https://fastcrc.readthedocs.io
 
 =======
 fastcrc

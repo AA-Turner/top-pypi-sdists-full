@@ -79,9 +79,18 @@ async def dispatch_to_cli(
     task_id: str,
     task: str,
     from_addr: str,
+    device_type: str = "",
+    deliver_natively: bool = False,
 ) -> str | None:
     """
     Send a task to a CLI session and await the result.
+
+    When `deliver_natively` is True, the CLI is responsible for delivering the
+    reply itself (via iMessage / KDE Connect). The backend skips its own SMTP
+    send for that recipient. This is the primary path for carrier-gateway
+    senders, since carrier email-to-SMS bridges silently drop most outbound
+    replies even when they don't issue a bounce.
+
     Returns the output string, or None if no session is available.
     """
     user_sessions = _cli_sessions.get(uid, {})
@@ -109,6 +118,8 @@ async def dispatch_to_cli(
                 "task_id": task_id,
                 "task": task,
                 "from": from_addr,
+                "device_type": device_type,
+                "deliver_natively": deliver_natively,
             })
             futures.append(fut)
         except Exception as exc:
@@ -131,8 +142,56 @@ async def dispatch_to_cli(
         return "⏱ Task timed out (>3 min). Check your terminal for progress."
 
 
-def resolve_task_result(task_id: str, output: str) -> None:
-    """Called when a CLI WebSocket sends back a result."""
+async def dispatch_native_message(
+    uid: str,
+    phone: str,
+    text: str,
+    device_type: str,
+    computer_name: str | None = None,
+) -> bool:
+    """Tell the user's connected CLI to deliver a message via iMessage / KDE Connect.
+
+    Used for outbound announcements / notifications where there's no
+    corresponding inbound message — the CLI doesn't need to wait for a result,
+    it just delivers the text to the phone. Returns True if at least one CLI
+    accepted the dispatch.
+    """
+    user_sessions = _cli_sessions.get(uid, {})
+    if not user_sessions:
+        logger.info("Cannot send native message — no online CLI for uid=%s", uid)
+        return False
+
+    # Pick the requested computer or the first available
+    if computer_name and computer_name.lower() in user_sessions:
+        targets = [user_sessions[computer_name.lower()]]
+    else:
+        targets = [next(iter(user_sessions.values()))]
+
+    payload = {
+        "type":          "native_message",
+        "phone":         phone,
+        "text":          text,
+        "device_type":   device_type,
+        "computer_name": computer_name or "SAGE",
+    }
+    sent = 0
+    for ws in targets:
+        try:
+            await ws.send_json(payload)
+            sent += 1
+        except Exception as exc:
+            logger.warning("Failed to send native_message to CLI: %s", exc)
+    return sent > 0
+
+
+def resolve_task_result(task_id: str, output: str, delivered_locally: bool = False) -> None:
+    """Called when a CLI WebSocket sends back a result.
+
+    When `delivered_locally` is True, the CLI handled native delivery itself
+    (iMessage / KDE Connect). The poller's caller (handle_inbound_email) checks
+    its `deliver_natively` flag and skips SMTP regardless, but we record this
+    for visibility on the future result.
+    """
     fut = _pending.pop(task_id, None)
     if fut and not fut.done():
         fut.set_result(output)
@@ -300,13 +359,72 @@ def _send_via_smtp(mime_msgs: list[MIMEText]) -> bool:
         return False
 
 
-def send_reply(to_addr: str, text: str, computer_name: str = "SAGE") -> None:
+# Recent SMTP sends to phone-gateway recipients — used to replay via iMessage
+# when carriers bounce the message asynchronously.
+# Key: recipient email; Value: dict with text, computer_name, uid, sent_at.
+_recent_phone_sends: dict[str, dict] = {}
+_RECENT_SEND_TTL = 600  # seconds — bounces typically arrive within ~2 min
+
+
+# ── Poller state — exposed via /sms/poller-status for debugging ────────────────
+_poller_state: dict = {
+    "started_at":          None,
+    "imap_connected":      False,
+    "imap_connected_at":   None,
+    "last_idle_activity":  None,
+    "last_message_at":     None,
+    "last_message_from":   None,
+    "messages_processed":  0,
+    "tasks_dispatched":    0,
+    "last_error":          None,
+    "last_error_at":       None,
+}
+
+
+def get_poller_state() -> dict:
+    """Snapshot of poller health for the diagnose endpoint."""
+    return dict(_poller_state)
+
+
+def _record_error(exc: Exception) -> None:
+    _poller_state["last_error"] = f"{type(exc).__name__}: {exc}"
+    _poller_state["last_error_at"] = time.time()
+
+
+def _record_recent_send(to_addr: str, text: str, computer_name: str, uid: str | None) -> None:
+    """Track a phone-gateway send so we can replay via iMessage if it bounces."""
+    if not uid or not _is_sms_gateway(to_addr):
+        return
+    _recent_phone_sends[to_addr.lower()] = {
+        "text":          text,
+        "computer_name": computer_name,
+        "uid":           uid,
+        "sent_at":       time.time(),
+    }
+    # Garbage collect expired entries
+    cutoff = time.time() - _RECENT_SEND_TTL
+    expired = [k for k, v in _recent_phone_sends.items() if v["sent_at"] < cutoff]
+    for k in expired:
+        _recent_phone_sends.pop(k, None)
+
+
+def send_reply(to_addr: str, text: str, computer_name: str = "SAGE", uid: str | None = None) -> None:
     """Send a reply — tries Gmail API first (requires DWD), falls back to SMTP.
     SMS gateway addresses receive a smart-truncated summary instead of the full output.
     """
     if not BRIDGE_EMAIL:
         logger.warning("SAGE_BRIDGE_EMAIL not configured — cannot send reply")
         return
+
+    # Phone-number storage keys (e.g. "phone:6696498725") are not valid email
+    # addresses. We can't send announcements/replies to them — the carrier
+    # gateway domain only exists in the inbound message's From header.
+    if not to_addr or "@" not in to_addr or to_addr.startswith("phone:"):
+        logger.info("Skipping reply to non-email contact: %s", to_addr)
+        return
+
+    # Track this send before attempting — bounces may arrive after we return
+    _record_recent_send(to_addr, text, computer_name, uid)
 
     # For SMS gateways, condense the response to fit phone screen limits
     if _is_sms_gateway(to_addr):
@@ -333,6 +451,72 @@ def send_reply(to_addr: str, text: str, computer_name: str = "SAGE") -> None:
         logger.info("Replied to %s (%d/%d parts)", to_addr, sent, total)
 
 
+def _lookup_device_type(uid: str, gateway_email: str) -> str:
+    """Look up the device_type ('apple'/'android') for the phone behind a
+    carrier-gateway address like 4085551234@vtext.com.
+    """
+    try:
+        from .sms_manager import _get_db, _normalize_phone, _phone_contact_key, _contact_doc_id
+        local = gateway_email.split("@", 1)[0]
+        phone = _normalize_phone(local)
+        if not phone:
+            return ""
+        db = _get_db()
+        if db is None:
+            return ""
+        doc_id = _contact_doc_id(_phone_contact_key(phone))
+        doc = db.collection("users").document(uid) \
+                 .collection("sms_contacts").document(doc_id).get()
+        if doc.exists:
+            return (doc.to_dict() or {}).get("device_type", "")
+    except Exception as exc:
+        logger.debug("Device type lookup failed: %s", exc)
+    return ""
+
+
+async def _handle_bounce(raw_body: str) -> None:
+    """Parse a mailer-daemon bounce, find the original phone-gateway recipient,
+    and signal the CLI to deliver the message via iMessage / KDE Connect.
+    """
+    m = re.search(
+        r'(?:message to|original recipient|final-recipient[^:]*:|to)\s+<?([\w._%+-]+@[\w.-]+\.\w+)',
+        raw_body, re.IGNORECASE,
+    )
+    if not m:
+        logger.debug("Bounce received but couldn't extract recipient")
+        return
+    failed_addr = m.group(1).lower()
+    entry = _recent_phone_sends.get(failed_addr)
+    if not entry:
+        logger.info("Bounce for %s — no recent send tracked, dropping", failed_addr)
+        return
+    if (time.time() - entry["sent_at"]) > _RECENT_SEND_TTL:
+        logger.info("Bounce for %s — tracked send is too old, dropping", failed_addr)
+        _recent_phone_sends.pop(failed_addr, None)
+        return
+
+    # Find an online CLI session and signal it with the device_type so the
+    # CLI picks the correct delivery path (iMessage vs KDE Connect).
+    user_sessions = _cli_sessions.get(entry["uid"], {})
+    if not user_sessions:
+        logger.warning("Bounce for %s — owner has no online CLI, can't send fallback", failed_addr)
+        return
+    device_type = _lookup_device_type(entry["uid"], failed_addr)
+    ws = next(iter(user_sessions.values()))
+    try:
+        await ws.send_json({
+            "type":          "imessage_fallback",
+            "recipient":     failed_addr,
+            "text":          entry["text"],
+            "computer_name": entry["computer_name"],
+            "device_type":   device_type,  # "apple" / "android" / ""
+        })
+        logger.info("Bounce for %s (device=%s) — signaled CLI fallback", failed_addr, device_type or "auto")
+        _recent_phone_sends.pop(failed_addr, None)
+    except Exception as exc:
+        logger.warning("Failed to signal CLI for fallback: %s", exc)
+
+
 # ── Inbound email handler ──────────────────────────────────────────────────────
 
 async def handle_inbound_email(from_addr: str, body: str) -> None:
@@ -347,12 +531,25 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
     from .sms_manager import find_user_by_contact_email
 
     from_addr = from_addr.lower().strip()
-    body = _clean_body(body).strip()
-    if not body:
+
+    # Detect bounce notifications BEFORE cleaning the body — a mailer-daemon
+    # bounce indicates a previous SMTP reply was rejected by the recipient
+    # carrier. If the bounced recipient was a phone-gateway address that we
+    # tracked recently, signal the CLI to replay the message via iMessage.
+    if "mailer-daemon" in from_addr or "postmaster" in from_addr:
+        await _handle_bounce(body)
         return
+
+    cleaned = _clean_body(body).strip()
+    if not cleaned:
+        logger.info("Inbound from %s: body empty after cleaning — dropping", from_addr)
+        return
+    body = cleaned
 
     # Primary: look up by registered contact
     uid = find_user_by_contact_email(from_addr)
+    if uid:
+        logger.info("Inbound from %s matched contact → uid=%s", from_addr, uid)
 
     # Fallback: if unregistered, route to the owner of any currently online computer
     if uid is None:
@@ -375,6 +572,7 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
             return
 
     target, task = _parse_routing(body)
+    _poller_state["tasks_dispatched"] += 1
     logger.info("Task from %s → [%s]: %s", from_addr, target or "any", task[:80])
 
     import uuid
@@ -386,14 +584,32 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
             from_addr,
             "⚠️ No SAGE computers are currently online.\n"
             "Start the bridge on your computer with: sage sms start",
+            uid=uid,
         )
         return
 
-    output = await dispatch_to_cli(uid, target, task_id, task, from_addr)
+    # When the sender came in through a carrier email-to-SMS gateway, the CLI
+    # is the only place that can reliably deliver the reply (most carriers
+    # silently drop our outbound replies). Look up the contact's device_type
+    # and ask the CLI to deliver natively.
+    device_type = ""
+    deliver_natively = False
+    if _is_sms_gateway(from_addr):
+        device_type = _lookup_device_type(uid, from_addr)
+        deliver_natively = bool(device_type)
+
+    output = await dispatch_to_cli(
+        uid, target, task_id, task, from_addr,
+        device_type=device_type, deliver_natively=deliver_natively,
+    )
     if output:
         # Determine which computer responded for the prefix
         computer_label = target if target and target != "all" else (online[0] if online else "SAGE")
-        send_reply(from_addr, output, computer_name=computer_label)
+        if deliver_natively:
+            # CLI handled delivery itself — skip SMTP. Log only.
+            logger.info("Native delivery handled by CLI for %s", from_addr)
+        else:
+            send_reply(from_addr, output, computer_name=computer_label, uid=uid)
 
 
 # ── IMAP IDLE poller (runs as asyncio background task) ────────────────────────
@@ -411,6 +627,7 @@ async def run_imap_poller() -> None:
         return
 
     logger.info("SMS poller starting for %s", BRIDGE_EMAIL)
+    _poller_state["started_at"] = time.time()
     reconnect_delay = 5
 
     while True:
@@ -418,21 +635,47 @@ async def run_imap_poller() -> None:
         try:
             mail = await asyncio.to_thread(_imap_connect)
             reconnect_delay = 5
+            _poller_state["imap_connected"] = True
+            _poller_state["imap_connected_at"] = time.time()
             logger.info("IMAP connected (%s)", BRIDGE_IMAP_HOST)
 
             # Drain any messages that arrived while disconnected
-            await _drain_and_dispatch(mail)
+            drained = await _drain_and_dispatch(mail)
+            if drained:
+                logger.info("Initial drain: processed %d unseen message(s)", drained)
 
-            # IDLE loop
+            # IDLE loop with safety-net drain.
+            #
+            # Gmail's IMAP IDLE is unreliable — it sometimes silently stops
+            # delivering notifications even though the TCP socket stays alive.
+            # If we trusted IDLE alone, inbound mail would queue forever. So
+            # we always drain on every loop iteration regardless of whether
+            # IDLE fired. The IDLE wait gives us low latency (sub-second)
+            # when it works; the unconditional drain caps worst-case latency
+            # at 25s when it doesn't.
+            #
+            # We also NOOP after each IDLE return — if the connection silently
+            # died, NOOP raises and we fall through to the outer reconnect
+            # loop instead of looping forever against a zombie socket.
             while True:
                 activity = await asyncio.to_thread(_imap_idle_wait, mail, 25)
                 if activity:
-                    await _drain_and_dispatch(mail)
+                    _poller_state["last_idle_activity"] = time.time()
+                # Health check — raises if connection is dead, triggering reconnect
+                await asyncio.to_thread(_imap_noop, mail)
+                drained = await _drain_and_dispatch(mail)
+                if drained:
+                    logger.info(
+                        "Drained %d message(s)  (idle_fired=%s)", drained, activity,
+                    )
 
         except asyncio.CancelledError:
             logger.info("SMS poller cancelled")
+            _poller_state["imap_connected"] = False
             return
         except Exception as exc:
+            _poller_state["imap_connected"] = False
+            _record_error(exc)
             logger.warning("IMAP error: %s — reconnecting in %ds", exc, reconnect_delay)
             await asyncio.sleep(reconnect_delay)
             reconnect_delay = min(reconnect_delay * 2, 120)
@@ -449,6 +692,18 @@ def _imap_connect() -> imaplib.IMAP4_SSL:
     mail.login(BRIDGE_EMAIL, BRIDGE_PASSWORD)
     mail.select("INBOX")
     return mail
+
+
+def _imap_noop(mail: imaplib.IMAP4_SSL) -> None:
+    """Send NOOP — raises if the connection is dead so the outer loop reconnects.
+
+    Gmail kills IMAP connections after periods of inactivity without sending
+    any FIN/RST that imaplib notices. Without an active probe, the poller can
+    sit looping against a zombie socket forever. NOOP forces a server response.
+    """
+    typ, _ = mail.noop()
+    if typ != "OK":
+        raise RuntimeError(f"IMAP NOOP returned {typ!r} — connection unhealthy")
 
 
 def _imap_idle_wait(mail: imaplib.IMAP4_SSL, timeout: int = 25) -> bool:
@@ -474,11 +729,21 @@ def _imap_idle_wait(mail: imaplib.IMAP4_SSL, timeout: int = 25) -> bool:
         return False
 
 
-async def _drain_and_dispatch(mail: imaplib.IMAP4_SSL) -> None:
-    """Fetch all UNSEEN messages and dispatch each as a task."""
+async def _drain_and_dispatch(mail: imaplib.IMAP4_SSL) -> int:
+    """Fetch all UNSEEN messages and dispatch each as a task. Returns count."""
     messages = await asyncio.to_thread(_fetch_unseen, mail)
+    if messages:
+        logger.info(
+            "IMAP drain: %d new message(s) — senders: %s",
+            len(messages),
+            [m.get("from", "?") for m in messages],
+        )
     for m in messages:
+        _poller_state["messages_processed"] += 1
+        _poller_state["last_message_at"] = time.time()
+        _poller_state["last_message_from"] = m.get("from")
         asyncio.create_task(handle_inbound_email(m["from"], m["body"]))
+    return len(messages)
 
 
 def _extract_text(msg: _email_mod.message.Message) -> str:

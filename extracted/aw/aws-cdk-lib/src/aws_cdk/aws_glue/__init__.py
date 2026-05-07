@@ -16187,8 +16187,9 @@ class CfnTable(
         *,
         catalog_id: builtins.str,
         database_name: builtins.str,
-        table_input: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.TableInputProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
         open_table_format_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.OpenTableFormatInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        table_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.TableInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Glue::Table``.
 
@@ -16196,8 +16197,9 @@ class CfnTable(
         :param id: Construct identifier for this resource (unique in its scope).
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table`` .
         :param database_name: The name of the database where the table metadata resides. For Hive compatibility, this must be all lowercase.
-        :param table_input: A structure used to define a table.
+        :param name: 
         :param open_table_format_input: Specifies an ``OpenTableFormatInput`` structure when creating an open format table.
+        :param table_input: A structure used to define a table.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63721068e81107cadbf3e418ec393de98f88a141604f2bb1044b5ae302e922ad)
@@ -16206,8 +16208,9 @@ class CfnTable(
         props = CfnTableProps(
             catalog_id=catalog_id,
             database_name=database_name,
-            table_input=table_input,
+            name=name,
             open_table_format_input=open_table_format_input,
+            table_input=table_input,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -16305,22 +16308,16 @@ class CfnTable(
         jsii.set(self, "databaseName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tableInput")
-    def table_input(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]:
-        '''A structure used to define a table.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"], jsii.get(self, "tableInput"))
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
-    @table_input.setter
-    def table_input(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"],
-    ) -> None:
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9200a2bfb582a6d400aba47da5ed4d77a8ca52ee0956131ca52cdc58253cb811)
+            type_hints = typing.get_type_hints(_typecheckingstub__f724929ed18cc52a68ba1110513482a31f2771ead8a2adc41bb8d6f72a54a37d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableInput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="openTableFormatInput")
@@ -16339,6 +16336,24 @@ class CfnTable(
             type_hints = typing.get_type_hints(_typecheckingstub__665cbaaa65195b8bbc7411de99becf7db59ef5ca96a0902eefe7c34b8e25afb0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "openTableFormatInput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableInput")
+    def table_input(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]]:
+        '''A structure used to define a table.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]], jsii.get(self, "tableInput"))
+
+    @table_input.setter
+    def table_input(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9200a2bfb582a6d400aba47da5ed4d77a8ca52ee0956131ca52cdc58253cb811)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableInput", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnTable.ColumnProperty",
@@ -16431,17 +16446,23 @@ class CfnTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"metadata_operation": "metadataOperation", "version": "version"},
+        name_mapping={
+            "iceberg_table_input": "icebergTableInput",
+            "metadata_operation": "metadataOperation",
+            "version": "version",
+        },
     )
     class IcebergInputProperty:
         def __init__(
             self,
             *,
+            iceberg_table_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergTableInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             metadata_operation: typing.Optional[builtins.str] = None,
             version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies an input structure that defines an Apache Iceberg metadata table.
 
+            :param iceberg_table_input: 
             :param metadata_operation: A required metadata operation. Can only be set to CREATE.
             :param version: The table version for the Iceberg table. Defaults to 2.
 
@@ -16454,20 +16475,79 @@ class CfnTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
+                # properties: Any
+                
                 iceberg_input_property = glue.CfnTable.IcebergInputProperty(
+                    iceberg_table_input=glue.CfnTable.IcebergTableInputProperty(
+                        location="location",
+                        schema=glue.CfnTable.IcebergSchemaProperty(
+                            fields=[glue.CfnTable.IcebergStructFieldProperty(
+                                id=123,
+                                name="name",
+                                required=False,
+                                type="type",
+                
+                                # the properties below are optional
+                                doc="doc"
+                            )],
+                
+                            # the properties below are optional
+                            identifier_field_ids=[123],
+                            schema_id=123,
+                            type="type"
+                        ),
+                
+                        # the properties below are optional
+                        partition_spec=glue.CfnTable.IcebergPartitionSpecProperty(
+                            fields=[glue.CfnTable.IcebergPartitionFieldProperty(
+                                name="name",
+                                source_id=123,
+                                transform="transform",
+                
+                                # the properties below are optional
+                                field_id=123
+                            )],
+                
+                            # the properties below are optional
+                            spec_id=123
+                        ),
+                        properties=properties,
+                        write_order=glue.CfnTable.IcebergSortOrderProperty(
+                            fields=[glue.CfnTable.IcebergSortFieldProperty(
+                                direction="direction",
+                                null_order="nullOrder",
+                                source_id=123,
+                                transform="transform"
+                            )],
+                            order_id=123
+                        )
+                    ),
                     metadata_operation="metadataOperation",
                     version="version"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__a5577a3390e460af8ee1e26ea5e72e59fe72e27a2ccecb9955c9c6bdef02fb27)
+                check_type(argname="argument iceberg_table_input", value=iceberg_table_input, expected_type=type_hints["iceberg_table_input"])
                 check_type(argname="argument metadata_operation", value=metadata_operation, expected_type=type_hints["metadata_operation"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if iceberg_table_input is not None:
+                self._values["iceberg_table_input"] = iceberg_table_input
             if metadata_operation is not None:
                 self._values["metadata_operation"] = metadata_operation
             if version is not None:
                 self._values["version"] = version
+
+        @builtins.property
+        def iceberg_table_input(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergTableInputProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-iceberginput.html#cfn-glue-table-iceberginput-icebergtableinput
+            '''
+            result = self._values.get("iceberg_table_input")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergTableInputProperty"]], result)
 
         @builtins.property
         def metadata_operation(self) -> typing.Optional[builtins.str]:
@@ -16503,6 +16583,758 @@ class CfnTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergPartitionFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "source_id": "sourceId",
+            "transform": "transform",
+            "field_id": "fieldId",
+        },
+    )
+    class IcebergPartitionFieldProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            source_id: jsii.Number,
+            transform: builtins.str,
+            field_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param name: 
+            :param source_id: 
+            :param transform: 
+            :param field_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_partition_field_property = glue.CfnTable.IcebergPartitionFieldProperty(
+                    name="name",
+                    source_id=123,
+                    transform="transform",
+                
+                    # the properties below are optional
+                    field_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__912652303fddac7b7d0655761601f8b4ae97bb923c98d1a99c401ed021388570)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
+                check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
+                check_type(argname="argument field_id", value=field_id, expected_type=type_hints["field_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "source_id": source_id,
+                "transform": transform,
+            }
+            if field_id is not None:
+                self._values["field_id"] = field_id
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_id(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-sourceid
+            '''
+            result = self._values.get("source_id")
+            assert result is not None, "Required property 'source_id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def transform(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-transform
+            '''
+            result = self._values.get("transform")
+            assert result is not None, "Required property 'transform' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def field_id(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html#cfn-glue-table-icebergpartitionfield-fieldid
+            '''
+            result = self._values.get("field_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergPartitionFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergPartitionSpecProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fields": "fields", "spec_id": "specId"},
+    )
+    class IcebergPartitionSpecProperty:
+        def __init__(
+            self,
+            *,
+            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            spec_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param fields: 
+            :param spec_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_partition_spec_property = glue.CfnTable.IcebergPartitionSpecProperty(
+                    fields=[glue.CfnTable.IcebergPartitionFieldProperty(
+                        name="name",
+                        source_id=123,
+                        transform="transform",
+                
+                        # the properties below are optional
+                        field_id=123
+                    )],
+                
+                    # the properties below are optional
+                    spec_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dcc35d30290862fcf9bbf9101ec74c4db7de496f0dbe8fc12ebe49af27ac72be)
+                check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+                check_type(argname="argument spec_id", value=spec_id, expected_type=type_hints["spec_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fields": fields,
+            }
+            if spec_id is not None:
+                self._values["spec_id"] = spec_id
+
+        @builtins.property
+        def fields(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionFieldProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html#cfn-glue-table-icebergpartitionspec-fields
+            '''
+            result = self._values.get("fields")
+            assert result is not None, "Required property 'fields' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionFieldProperty"]]], result)
+
+        @builtins.property
+        def spec_id(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html#cfn-glue-table-icebergpartitionspec-specid
+            '''
+            result = self._values.get("spec_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergPartitionSpecProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergSchemaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "fields": "fields",
+            "identifier_field_ids": "identifierFieldIds",
+            "schema_id": "schemaId",
+            "type": "type",
+        },
+    )
+    class IcebergSchemaProperty:
+        def __init__(
+            self,
+            *,
+            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergStructFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            schema_id: typing.Optional[jsii.Number] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param fields: 
+            :param identifier_field_ids: 
+            :param schema_id: 
+            :param type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_schema_property = glue.CfnTable.IcebergSchemaProperty(
+                    fields=[glue.CfnTable.IcebergStructFieldProperty(
+                        id=123,
+                        name="name",
+                        required=False,
+                        type="type",
+                
+                        # the properties below are optional
+                        doc="doc"
+                    )],
+                
+                    # the properties below are optional
+                    identifier_field_ids=[123],
+                    schema_id=123,
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__881361108a2739e2aeb5ac99ba8f5a3a3c75b402888c6817bdf3a105f573e278)
+                check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+                check_type(argname="argument identifier_field_ids", value=identifier_field_ids, expected_type=type_hints["identifier_field_ids"])
+                check_type(argname="argument schema_id", value=schema_id, expected_type=type_hints["schema_id"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fields": fields,
+            }
+            if identifier_field_ids is not None:
+                self._values["identifier_field_ids"] = identifier_field_ids
+            if schema_id is not None:
+                self._values["schema_id"] = schema_id
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def fields(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergStructFieldProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-fields
+            '''
+            result = self._values.get("fields")
+            assert result is not None, "Required property 'fields' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergStructFieldProperty"]]], result)
+
+        @builtins.property
+        def identifier_field_ids(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-identifierfieldids
+            '''
+            result = self._values.get("identifier_field_ids")
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def schema_id(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-schemaid
+            '''
+            result = self._values.get("schema_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html#cfn-glue-table-icebergschema-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergSchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergSortFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "direction": "direction",
+            "null_order": "nullOrder",
+            "source_id": "sourceId",
+            "transform": "transform",
+        },
+    )
+    class IcebergSortFieldProperty:
+        def __init__(
+            self,
+            *,
+            direction: builtins.str,
+            null_order: builtins.str,
+            source_id: jsii.Number,
+            transform: builtins.str,
+        ) -> None:
+            '''
+            :param direction: 
+            :param null_order: 
+            :param source_id: 
+            :param transform: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_sort_field_property = glue.CfnTable.IcebergSortFieldProperty(
+                    direction="direction",
+                    null_order="nullOrder",
+                    source_id=123,
+                    transform="transform"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c8c4e2c386a1669794f2ebcdb23e138b94dbe5125d0aca19b124c55b06ddbcab)
+                check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
+                check_type(argname="argument null_order", value=null_order, expected_type=type_hints["null_order"])
+                check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
+                check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "direction": direction,
+                "null_order": null_order,
+                "source_id": source_id,
+                "transform": transform,
+            }
+
+        @builtins.property
+        def direction(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-direction
+            '''
+            result = self._values.get("direction")
+            assert result is not None, "Required property 'direction' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def null_order(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-nullorder
+            '''
+            result = self._values.get("null_order")
+            assert result is not None, "Required property 'null_order' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_id(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-sourceid
+            '''
+            result = self._values.get("source_id")
+            assert result is not None, "Required property 'source_id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def transform(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html#cfn-glue-table-icebergsortfield-transform
+            '''
+            result = self._values.get("transform")
+            assert result is not None, "Required property 'transform' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergSortFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergSortOrderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fields": "fields", "order_id": "orderId"},
+    )
+    class IcebergSortOrderProperty:
+        def __init__(
+            self,
+            *,
+            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            order_id: jsii.Number,
+        ) -> None:
+            '''
+            :param fields: 
+            :param order_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_sort_order_property = glue.CfnTable.IcebergSortOrderProperty(
+                    fields=[glue.CfnTable.IcebergSortFieldProperty(
+                        direction="direction",
+                        null_order="nullOrder",
+                        source_id=123,
+                        transform="transform"
+                    )],
+                    order_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cd7fffdeb67ec2ce4517c2174c3721aabfdb1f42afc0fbd0aae3a611b067a59a)
+                check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+                check_type(argname="argument order_id", value=order_id, expected_type=type_hints["order_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fields": fields,
+                "order_id": order_id,
+            }
+
+        @builtins.property
+        def fields(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortFieldProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html#cfn-glue-table-icebergsortorder-fields
+            '''
+            result = self._values.get("fields")
+            assert result is not None, "Required property 'fields' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortFieldProperty"]]], result)
+
+        @builtins.property
+        def order_id(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html#cfn-glue-table-icebergsortorder-orderid
+            '''
+            result = self._values.get("order_id")
+            assert result is not None, "Required property 'order_id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergSortOrderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergStructFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "id": "id",
+            "name": "name",
+            "required": "required",
+            "type": "type",
+            "doc": "doc",
+        },
+    )
+    class IcebergStructFieldProperty:
+        def __init__(
+            self,
+            *,
+            id: jsii.Number,
+            name: builtins.str,
+            required: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            type: builtins.str,
+            doc: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param id: 
+            :param name: 
+            :param required: 
+            :param type: 
+            :param doc: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                iceberg_struct_field_property = glue.CfnTable.IcebergStructFieldProperty(
+                    id=123,
+                    name="name",
+                    required=False,
+                    type="type",
+                
+                    # the properties below are optional
+                    doc="doc"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__05878e8d359305c4e0e9f8f32e4deae078be9d31a3d0d46953d56451081bc059)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument doc", value=doc, expected_type=type_hints["doc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+                "name": name,
+                "required": required,
+                "type": type,
+            }
+            if doc is not None:
+                self._values["doc"] = doc
+
+        @builtins.property
+        def id(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def required(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def doc(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html#cfn-glue-table-icebergstructfield-doc
+            '''
+            result = self._values.get("doc")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergStructFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.IcebergTableInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "location": "location",
+            "schema": "schema",
+            "partition_spec": "partitionSpec",
+            "properties": "properties",
+            "write_order": "writeOrder",
+        },
+    )
+    class IcebergTableInputProperty:
+        def __init__(
+            self,
+            *,
+            location: builtins.str,
+            schema: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
+            partition_spec: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            properties: typing.Any = None,
+            write_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param location: 
+            :param schema: 
+            :param partition_spec: 
+            :param properties: 
+            :param write_order: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                # properties: Any
+                
+                iceberg_table_input_property = glue.CfnTable.IcebergTableInputProperty(
+                    location="location",
+                    schema=glue.CfnTable.IcebergSchemaProperty(
+                        fields=[glue.CfnTable.IcebergStructFieldProperty(
+                            id=123,
+                            name="name",
+                            required=False,
+                            type="type",
+                
+                            # the properties below are optional
+                            doc="doc"
+                        )],
+                
+                        # the properties below are optional
+                        identifier_field_ids=[123],
+                        schema_id=123,
+                        type="type"
+                    ),
+                
+                    # the properties below are optional
+                    partition_spec=glue.CfnTable.IcebergPartitionSpecProperty(
+                        fields=[glue.CfnTable.IcebergPartitionFieldProperty(
+                            name="name",
+                            source_id=123,
+                            transform="transform",
+                
+                            # the properties below are optional
+                            field_id=123
+                        )],
+                
+                        # the properties below are optional
+                        spec_id=123
+                    ),
+                    properties=properties,
+                    write_order=glue.CfnTable.IcebergSortOrderProperty(
+                        fields=[glue.CfnTable.IcebergSortFieldProperty(
+                            direction="direction",
+                            null_order="nullOrder",
+                            source_id=123,
+                            transform="transform"
+                        )],
+                        order_id=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e61f514edbd4a971d7fcc49f4019caf0833fa0f51d1a2ce111f239ac129edb80)
+                check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+                check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+                check_type(argname="argument partition_spec", value=partition_spec, expected_type=type_hints["partition_spec"])
+                check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+                check_type(argname="argument write_order", value=write_order, expected_type=type_hints["write_order"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "location": location,
+                "schema": schema,
+            }
+            if partition_spec is not None:
+                self._values["partition_spec"] = partition_spec
+            if properties is not None:
+                self._values["properties"] = properties
+            if write_order is not None:
+                self._values["write_order"] = write_order
+
+        @builtins.property
+        def location(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-location
+            '''
+            result = self._values.get("location")
+            assert result is not None, "Required property 'location' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def schema(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-schema
+            '''
+            result = self._values.get("schema")
+            assert result is not None, "Required property 'schema' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"], result)
+
+        @builtins.property
+        def partition_spec(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-partitionspec
+            '''
+            result = self._values.get("partition_spec")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]], result)
+
+        @builtins.property
+        def properties(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-properties
+            '''
+            result = self._values.get("properties")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def write_order(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortOrderProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-writeorder
+            '''
+            result = self._values.get("write_order")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortOrderProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergTableInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnTable.OpenTableFormatInputProperty",
         jsii_struct_bases=[],
         name_mapping={"iceberg_input": "icebergInput"},
@@ -16526,8 +17358,54 @@ class CfnTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
+                # properties: Any
+                
                 open_table_format_input_property = glue.CfnTable.OpenTableFormatInputProperty(
                     iceberg_input=glue.CfnTable.IcebergInputProperty(
+                        iceberg_table_input=glue.CfnTable.IcebergTableInputProperty(
+                            location="location",
+                            schema=glue.CfnTable.IcebergSchemaProperty(
+                                fields=[glue.CfnTable.IcebergStructFieldProperty(
+                                    id=123,
+                                    name="name",
+                                    required=False,
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    doc="doc"
+                                )],
+                
+                                # the properties below are optional
+                                identifier_field_ids=[123],
+                                schema_id=123,
+                                type="type"
+                            ),
+                
+                            # the properties below are optional
+                            partition_spec=glue.CfnTable.IcebergPartitionSpecProperty(
+                                fields=[glue.CfnTable.IcebergPartitionFieldProperty(
+                                    name="name",
+                                    source_id=123,
+                                    transform="transform",
+                
+                                    # the properties below are optional
+                                    field_id=123
+                                )],
+                
+                                # the properties below are optional
+                                spec_id=123
+                            ),
+                            properties=properties,
+                            write_order=glue.CfnTable.IcebergSortOrderProperty(
+                                fields=[glue.CfnTable.IcebergSortFieldProperty(
+                                    direction="direction",
+                                    null_order="nullOrder",
+                                    source_id=123,
+                                    transform="transform"
+                                )],
+                                order_id=123
+                            )
+                        ),
                         metadata_operation="metadataOperation",
                         version="version"
                     )
@@ -17422,6 +18300,7 @@ class CfnTable(
             "storage_descriptor": "storageDescriptor",
             "table_type": "tableType",
             "target_table": "targetTable",
+            "view_definition": "viewDefinition",
             "view_expanded_text": "viewExpandedText",
             "view_original_text": "viewOriginalText",
         },
@@ -17439,6 +18318,7 @@ class CfnTable(
             storage_descriptor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.StorageDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             table_type: typing.Optional[builtins.str] = None,
             target_table: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.TableIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            view_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.ViewDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             view_expanded_text: typing.Optional[builtins.str] = None,
             view_original_text: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -17453,6 +18333,7 @@ class CfnTable(
             :param storage_descriptor: A storage descriptor containing information about the physical storage of this table.
             :param table_type: The type of this table. AWS Glue will create tables with the ``EXTERNAL_TABLE`` type. Other services, such as Athena, may create tables with additional table types. AWS Glue related table types: - **EXTERNAL_TABLE** - Hive compatible attribute - indicates a non-Hive managed table. - **GOVERNED** - Used by AWS Lake Formation . The AWS Glue Data Catalog understands ``GOVERNED`` .
             :param target_table: A ``TableIdentifier`` structure that describes a target table for resource linking.
+            :param view_definition: 
             :param view_expanded_text: Included for Apache Hive compatibility. Not used in the normal course of AWS Glue operations.
             :param view_original_text: Included for Apache Hive compatibility. Not used in the normal course of AWS Glue operations. If the table is a ``VIRTUAL_VIEW`` , certain Athena configuration encoded in base64.
 
@@ -17528,6 +18409,18 @@ class CfnTable(
                         name="name",
                         region="region"
                     ),
+                    view_definition=glue.CfnTable.ViewDefinitionProperty(
+                        definer="definer",
+                        is_protected=False,
+                        representations=[glue.CfnTable.ViewRepresentationProperty(
+                            dialect="dialect",
+                            dialect_version="dialectVersion",
+                            validation_connection="validationConnection",
+                            view_expanded_text="viewExpandedText",
+                            view_original_text="viewOriginalText"
+                        )],
+                        sub_objects=["subObjects"]
+                    ),
                     view_expanded_text="viewExpandedText",
                     view_original_text="viewOriginalText"
                 )
@@ -17543,6 +18436,7 @@ class CfnTable(
                 check_type(argname="argument storage_descriptor", value=storage_descriptor, expected_type=type_hints["storage_descriptor"])
                 check_type(argname="argument table_type", value=table_type, expected_type=type_hints["table_type"])
                 check_type(argname="argument target_table", value=target_table, expected_type=type_hints["target_table"])
+                check_type(argname="argument view_definition", value=view_definition, expected_type=type_hints["view_definition"])
                 check_type(argname="argument view_expanded_text", value=view_expanded_text, expected_type=type_hints["view_expanded_text"])
                 check_type(argname="argument view_original_text", value=view_original_text, expected_type=type_hints["view_original_text"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -17564,6 +18458,8 @@ class CfnTable(
                 self._values["table_type"] = table_type
             if target_table is not None:
                 self._values["target_table"] = target_table
+            if view_definition is not None:
+                self._values["view_definition"] = view_definition
             if view_expanded_text is not None:
                 self._values["view_expanded_text"] = view_expanded_text
             if view_original_text is not None:
@@ -17672,6 +18568,16 @@ class CfnTable(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.TableIdentifierProperty"]], result)
 
         @builtins.property
+        def view_definition(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.ViewDefinitionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-viewdefinition
+            '''
+            result = self._values.get("view_definition")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.ViewDefinitionProperty"]], result)
+
+        @builtins.property
         def view_expanded_text(self) -> typing.Optional[builtins.str]:
             '''Included for Apache Hive compatibility.
 
@@ -17701,6 +18607,231 @@ class CfnTable(
 
         def __repr__(self) -> str:
             return "TableInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.ViewDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "definer": "definer",
+            "is_protected": "isProtected",
+            "representations": "representations",
+            "sub_objects": "subObjects",
+        },
+    )
+    class ViewDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            definer: typing.Optional[builtins.str] = None,
+            is_protected: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            representations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.ViewRepresentationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sub_objects: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param definer: 
+            :param is_protected: 
+            :param representations: 
+            :param sub_objects: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                view_definition_property = glue.CfnTable.ViewDefinitionProperty(
+                    definer="definer",
+                    is_protected=False,
+                    representations=[glue.CfnTable.ViewRepresentationProperty(
+                        dialect="dialect",
+                        dialect_version="dialectVersion",
+                        validation_connection="validationConnection",
+                        view_expanded_text="viewExpandedText",
+                        view_original_text="viewOriginalText"
+                    )],
+                    sub_objects=["subObjects"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f6eb5df3f64c19d44197c63a3ecbe9aa4805753f371c21322f1e31146f5cc6ae)
+                check_type(argname="argument definer", value=definer, expected_type=type_hints["definer"])
+                check_type(argname="argument is_protected", value=is_protected, expected_type=type_hints["is_protected"])
+                check_type(argname="argument representations", value=representations, expected_type=type_hints["representations"])
+                check_type(argname="argument sub_objects", value=sub_objects, expected_type=type_hints["sub_objects"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if definer is not None:
+                self._values["definer"] = definer
+            if is_protected is not None:
+                self._values["is_protected"] = is_protected
+            if representations is not None:
+                self._values["representations"] = representations
+            if sub_objects is not None:
+                self._values["sub_objects"] = sub_objects
+
+        @builtins.property
+        def definer(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-definer
+            '''
+            result = self._values.get("definer")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def is_protected(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-isprotected
+            '''
+            result = self._values.get("is_protected")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def representations(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.ViewRepresentationProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-representations
+            '''
+            result = self._values.get("representations")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.ViewRepresentationProperty"]]]], result)
+
+        @builtins.property
+        def sub_objects(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html#cfn-glue-table-viewdefinition-subobjects
+            '''
+            result = self._values.get("sub_objects")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ViewDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnTable.ViewRepresentationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dialect": "dialect",
+            "dialect_version": "dialectVersion",
+            "validation_connection": "validationConnection",
+            "view_expanded_text": "viewExpandedText",
+            "view_original_text": "viewOriginalText",
+        },
+    )
+    class ViewRepresentationProperty:
+        def __init__(
+            self,
+            *,
+            dialect: typing.Optional[builtins.str] = None,
+            dialect_version: typing.Optional[builtins.str] = None,
+            validation_connection: typing.Optional[builtins.str] = None,
+            view_expanded_text: typing.Optional[builtins.str] = None,
+            view_original_text: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param dialect: 
+            :param dialect_version: 
+            :param validation_connection: 
+            :param view_expanded_text: 
+            :param view_original_text: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                view_representation_property = glue.CfnTable.ViewRepresentationProperty(
+                    dialect="dialect",
+                    dialect_version="dialectVersion",
+                    validation_connection="validationConnection",
+                    view_expanded_text="viewExpandedText",
+                    view_original_text="viewOriginalText"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__49139af0e489a19a1a19c12138b59a3734dfe424e5663e9e974eaa88adef917b)
+                check_type(argname="argument dialect", value=dialect, expected_type=type_hints["dialect"])
+                check_type(argname="argument dialect_version", value=dialect_version, expected_type=type_hints["dialect_version"])
+                check_type(argname="argument validation_connection", value=validation_connection, expected_type=type_hints["validation_connection"])
+                check_type(argname="argument view_expanded_text", value=view_expanded_text, expected_type=type_hints["view_expanded_text"])
+                check_type(argname="argument view_original_text", value=view_original_text, expected_type=type_hints["view_original_text"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if dialect is not None:
+                self._values["dialect"] = dialect
+            if dialect_version is not None:
+                self._values["dialect_version"] = dialect_version
+            if validation_connection is not None:
+                self._values["validation_connection"] = validation_connection
+            if view_expanded_text is not None:
+                self._values["view_expanded_text"] = view_expanded_text
+            if view_original_text is not None:
+                self._values["view_original_text"] = view_original_text
+
+        @builtins.property
+        def dialect(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-dialect
+            '''
+            result = self._values.get("dialect")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def dialect_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-dialectversion
+            '''
+            result = self._values.get("dialect_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def validation_connection(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-validationconnection
+            '''
+            result = self._values.get("validation_connection")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def view_expanded_text(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-viewexpandedtext
+            '''
+            result = self._values.get("view_expanded_text")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def view_original_text(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html#cfn-glue-table-viewrepresentation-vieworiginaltext
+            '''
+            result = self._values.get("view_original_text")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ViewRepresentationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -18579,8 +19710,9 @@ class CfnTableOptimizerProps:
     name_mapping={
         "catalog_id": "catalogId",
         "database_name": "databaseName",
-        "table_input": "tableInput",
+        "name": "name",
         "open_table_format_input": "openTableFormatInput",
+        "table_input": "tableInput",
     },
 )
 class CfnTableProps:
@@ -18589,15 +19721,17 @@ class CfnTableProps:
         *,
         catalog_id: builtins.str,
         database_name: builtins.str,
-        table_input: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.TableInputProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
         open_table_format_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.OpenTableFormatInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        table_input: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.TableInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTable``.
 
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table`` .
         :param database_name: The name of the database where the table metadata resides. For Hive compatibility, this must be all lowercase.
-        :param table_input: A structure used to define a table.
+        :param name: 
         :param open_table_format_input: Specifies an ``OpenTableFormatInput`` structure when creating an open format table.
+        :param table_input: A structure used to define a table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-table.html
         :exampleMetadata: fixture=_generated
@@ -18609,11 +19743,65 @@ class CfnTableProps:
             from aws_cdk import aws_glue as glue
             
             # parameters: Any
+            # properties: Any
             # skewed_column_value_location_maps: Any
             
             cfn_table_props = glue.CfnTableProps(
                 catalog_id="catalogId",
                 database_name="databaseName",
+            
+                # the properties below are optional
+                name="name",
+                open_table_format_input=glue.CfnTable.OpenTableFormatInputProperty(
+                    iceberg_input=glue.CfnTable.IcebergInputProperty(
+                        iceberg_table_input=glue.CfnTable.IcebergTableInputProperty(
+                            location="location",
+                            schema=glue.CfnTable.IcebergSchemaProperty(
+                                fields=[glue.CfnTable.IcebergStructFieldProperty(
+                                    id=123,
+                                    name="name",
+                                    required=False,
+                                    type="type",
+            
+                                    # the properties below are optional
+                                    doc="doc"
+                                )],
+            
+                                # the properties below are optional
+                                identifier_field_ids=[123],
+                                schema_id=123,
+                                type="type"
+                            ),
+            
+                            # the properties below are optional
+                            partition_spec=glue.CfnTable.IcebergPartitionSpecProperty(
+                                fields=[glue.CfnTable.IcebergPartitionFieldProperty(
+                                    name="name",
+                                    source_id=123,
+                                    transform="transform",
+            
+                                    # the properties below are optional
+                                    field_id=123
+                                )],
+            
+                                # the properties below are optional
+                                spec_id=123
+                            ),
+                            properties=properties,
+                            write_order=glue.CfnTable.IcebergSortOrderProperty(
+                                fields=[glue.CfnTable.IcebergSortFieldProperty(
+                                    direction="direction",
+                                    null_order="nullOrder",
+                                    source_id=123,
+                                    transform="transform"
+                                )],
+                                order_id=123
+                            )
+                        ),
+                        metadata_operation="metadataOperation",
+                        version="version"
+                    )
+                ),
                 table_input=glue.CfnTable.TableInputProperty(
                     description="description",
                     name="name",
@@ -18674,16 +19862,20 @@ class CfnTableProps:
                         name="name",
                         region="region"
                     ),
+                    view_definition=glue.CfnTable.ViewDefinitionProperty(
+                        definer="definer",
+                        is_protected=False,
+                        representations=[glue.CfnTable.ViewRepresentationProperty(
+                            dialect="dialect",
+                            dialect_version="dialectVersion",
+                            validation_connection="validationConnection",
+                            view_expanded_text="viewExpandedText",
+                            view_original_text="viewOriginalText"
+                        )],
+                        sub_objects=["subObjects"]
+                    ),
                     view_expanded_text="viewExpandedText",
                     view_original_text="viewOriginalText"
-                ),
-            
-                # the properties below are optional
-                open_table_format_input=glue.CfnTable.OpenTableFormatInputProperty(
-                    iceberg_input=glue.CfnTable.IcebergInputProperty(
-                        metadata_operation="metadataOperation",
-                        version="version"
-                    )
                 )
             )
         '''
@@ -18691,15 +19883,19 @@ class CfnTableProps:
             type_hints = typing.get_type_hints(_typecheckingstub__1fa7a95b739eec87307cf104cf3e05eef39d32fd60cc53851b43bd980ef557e0)
             check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-            check_type(argname="argument table_input", value=table_input, expected_type=type_hints["table_input"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument open_table_format_input", value=open_table_format_input, expected_type=type_hints["open_table_format_input"])
+            check_type(argname="argument table_input", value=table_input, expected_type=type_hints["table_input"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "catalog_id": catalog_id,
             "database_name": database_name,
-            "table_input": table_input,
         }
+        if name is not None:
+            self._values["name"] = name
         if open_table_format_input is not None:
             self._values["open_table_format_input"] = open_table_format_input
+        if table_input is not None:
+            self._values["table_input"] = table_input
 
     @builtins.property
     def catalog_id(self) -> builtins.str:
@@ -18724,16 +19920,12 @@ class CfnTableProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def table_input(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]:
-        '''A structure used to define a table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-table.html#cfn-glue-table-tableinput
+    def name(self) -> typing.Optional[builtins.str]:
         '''
-        result = self._values.get("table_input")
-        assert result is not None, "Required property 'table_input' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"], result)
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-table.html#cfn-glue-table-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def open_table_format_input(
@@ -18745,6 +19937,17 @@ class CfnTableProps:
         '''
         result = self._values.get("open_table_format_input")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.OpenTableFormatInputProperty"]], result)
+
+    @builtins.property
+    def table_input(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]]:
+        '''A structure used to define a table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-table.html#cfn-glue-table-tableinput
+        '''
+        result = self._values.get("table_input")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.TableInputProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -23228,8 +24431,9 @@ def _typecheckingstub__63721068e81107cadbf3e418ec393de98f88a141604f2bb1044b5ae30
     *,
     catalog_id: builtins.str,
     database_name: builtins.str,
-    table_input: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TableInputProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
     open_table_format_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OpenTableFormatInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TableInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23264,14 +24468,20 @@ def _typecheckingstub__d3fa952b72d41b65e2c9a7ed9081c9236064d05e026dd37d5608da4ca
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9200a2bfb582a6d400aba47da5ed4d77a8ca52ee0956131ca52cdc58253cb811(
-    value: typing.Union[_IResolvable_da3f097b, CfnTable.TableInputProperty],
+def _typecheckingstub__f724929ed18cc52a68ba1110513482a31f2771ead8a2adc41bb8d6f72a54a37d(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__665cbaaa65195b8bbc7411de99becf7db59ef5ca96a0902eefe7c34b8e25afb0(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.OpenTableFormatInputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9200a2bfb582a6d400aba47da5ed4d77a8ca52ee0956131ca52cdc58253cb811(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.TableInputProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23287,8 +24497,77 @@ def _typecheckingstub__341bb786dd6f598e8fcaf71f90ff3da761cc3d8304f5ad4f6619ba17f
 
 def _typecheckingstub__a5577a3390e460af8ee1e26ea5e72e59fe72e27a2ccecb9955c9c6bdef02fb27(
     *,
+    iceberg_table_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergTableInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metadata_operation: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__912652303fddac7b7d0655761601f8b4ae97bb923c98d1a99c401ed021388570(
+    *,
+    name: builtins.str,
+    source_id: jsii.Number,
+    transform: builtins.str,
+    field_id: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcc35d30290862fcf9bbf9101ec74c4db7de496f0dbe8fc12ebe49af27ac72be(
+    *,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    spec_id: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__881361108a2739e2aeb5ac99ba8f5a3a3c75b402888c6817bdf3a105f573e278(
+    *,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergStructFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    schema_id: typing.Optional[jsii.Number] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8c4e2c386a1669794f2ebcdb23e138b94dbe5125d0aca19b124c55b06ddbcab(
+    *,
+    direction: builtins.str,
+    null_order: builtins.str,
+    source_id: jsii.Number,
+    transform: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd7fffdeb67ec2ce4517c2174c3721aabfdb1f42afc0fbd0aae3a611b067a59a(
+    *,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    order_id: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05878e8d359305c4e0e9f8f32e4deae078be9d31a3d0d46953d56451081bc059(
+    *,
+    id: jsii.Number,
+    name: builtins.str,
+    required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    type: builtins.str,
+    doc: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e61f514edbd4a971d7fcc49f4019caf0833fa0f51d1a2ce111f239ac129edb80(
+    *,
+    location: builtins.str,
+    schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
+    partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Any = None,
+    write_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23384,6 +24663,28 @@ def _typecheckingstub__2cd7cfcabe0becfeb1771268e35d45d44b6f88db622d180509f833411
     storage_descriptor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.StorageDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_type: typing.Optional[builtins.str] = None,
     target_table: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TableIdentifierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    view_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ViewDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    view_expanded_text: typing.Optional[builtins.str] = None,
+    view_original_text: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6eb5df3f64c19d44197c63a3ecbe9aa4805753f371c21322f1e31146f5cc6ae(
+    *,
+    definer: typing.Optional[builtins.str] = None,
+    is_protected: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    representations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ViewRepresentationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sub_objects: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49139af0e489a19a1a19c12138b59a3734dfe424e5663e9e974eaa88adef917b(
+    *,
+    dialect: typing.Optional[builtins.str] = None,
+    dialect_version: typing.Optional[builtins.str] = None,
+    validation_connection: typing.Optional[builtins.str] = None,
     view_expanded_text: typing.Optional[builtins.str] = None,
     view_original_text: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -23515,8 +24816,9 @@ def _typecheckingstub__1fa7a95b739eec87307cf104cf3e05eef39d32fd60cc53851b43bd980
     *,
     catalog_id: builtins.str,
     database_name: builtins.str,
-    table_input: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TableInputProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
     open_table_format_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OpenTableFormatInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TableInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

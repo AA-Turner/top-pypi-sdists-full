@@ -15,6 +15,7 @@ from helpers import (
     PlannableProvider,
     SimpleProvider,
     TemporaryDirectory,
+    validators_snapshot,
 )
 
 from octodns import __version__
@@ -29,6 +30,7 @@ from octodns.manager import (
 from octodns.processor.base import BaseProcessor
 from octodns.provider.yaml import YamlProvider
 from octodns.record import Create, Delete, Record, Update
+from octodns.record.validator import RecordValidator
 from octodns.secret.environ import EnvironSecretsException
 from octodns.yaml import safe_load
 from octodns.zone import Zone
@@ -131,6 +133,219 @@ class TestManager(TestCase):
         self.assertIn(
             'Incorrect plan_output config for bad', str(ctx.exception)
         )
+
+    def test_validators_missing_class(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-missing-class.yaml'))
+        self.assertIn('missing class', str(ctx.exception))
+
+    def test_validators_bad_class(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-bad-class.yaml'))
+        self.assertIn('Unknown validator class', str(ctx.exception))
+
+    def test_validators_wrong_base(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-wrong-base.yaml'))
+        self.assertIn(
+            'must extend RecordValidator or ValueValidator', str(ctx.exception)
+        )
+
+    def test_validators_bad_config(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-bad-config.yaml'))
+        self.assertIn('Incorrect validator config', str(ctx.exception))
+
+    def test_validators_unknown_name(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-unknown-name.yaml'))
+        self.assertIn('Unknown validator', str(ctx.exception))
+
+    def test_validators_disable_bridge(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-disable-bridge.yaml'))
+        self.assertIn('Cannot disable bridge validator', str(ctx.exception))
+
+    def test_validators_id_collision(self):
+        with self.assertRaises(ManagerException) as ctx:
+            Manager(get_config_filename('validators-id-collision.yaml'))
+        self.assertIn('already registered', str(ctx.exception))
+
+    def test_validators_add_global(self):
+        with validators_snapshot():
+            Manager(get_config_filename('validators-add-global.yaml'))
+            global_validators = Record.registered_validators()['record'].get(
+                '*', []
+            )
+            self.assertTrue(
+                any(v.id == 'my-test-validator' for v in global_validators)
+            )
+
+    def test_validators_add_with_kwargs(self):
+        with validators_snapshot():
+            Manager(get_config_filename('validators-add-with-kwargs.yaml'))
+            global_validators = Record.registered_validators()['record'].get(
+                '*', []
+            )
+            v = next(
+                (v for v in global_validators if v.id == 'my-test-validator'),
+                None,
+            )
+            self.assertIsNotNone(v)
+            self.assertEqual(300, v.min_ttl)
+
+    def test_validators_value_validator(self):
+        with validators_snapshot():
+            Manager(get_config_filename('validators-value-validator.yaml'))
+            txt_validators = Record.registered_validators()['value'].get(
+                'TXT', []
+            )
+            self.assertTrue(
+                any(v.id == 'my-value-validator' for v in txt_validators)
+            )
+
+    def test_validators_disable(self):
+        with validators_snapshot():
+            Manager(get_config_filename('validators-disable.yaml'))
+            global_validators = Record.registered_validators()['record'].get(
+                '*', []
+            )
+            self.assertFalse(
+                any(v.id == 'healthcheck' for v in global_validators)
+            )
+
+    def test_validators_disable_type(self):
+        with validators_snapshot():
+            Manager(get_config_filename('validators-disable-type.yaml'))
+            mx_validators = Record.registered_validators()['value'].get(
+                'MX', []
+            )
+            self.assertFalse(any(v.id == 'mx-value' for v in mx_validators))
+
+    def test_validators_disable_unknown(self):
+        # Disabling an id that isn't registered anywhere should warn but not
+        # raise — typos in disable_validators are user-visible without
+        # breaking the run.
+        with validators_snapshot():
+            with self.assertLogs('Manager', level='WARNING') as logs:
+                Manager(get_config_filename('validators-disable-unknown.yaml'))
+            self.assertTrue(
+                any(
+                    'this-id-does-not-exist' in msg and 'no validator' in msg
+                    for msg in logs.output
+                )
+            )
+
+    def test_validators_enabled_default(self):
+        # Without manager.enabled, legacy validators are active.
+        with validators_snapshot():
+            Manager(get_config_filename('validators-disable.yaml'))
+            global_validators = Record.registered_validators()['record'].get(
+                '*', []
+            )
+            self.assertTrue(any(v.id == 'name-rfc' for v in global_validators))
+            self.assertTrue(any(v.id == 'ttl-rfc' for v in global_validators))
+
+    def test_validators_enabled_sets(self):
+        # manager.enabled can include multiple set names; validators
+        # belonging to any of those sets become active.
+        with validators_snapshot():
+            # Register a validator in a custom set so enable_validators picks it up
+            class TestSetValidator(RecordValidator):
+                def __init__(self):
+                    super().__init__('test-set-member', sets={'test-set'})
+
+            v = TestSetValidator()
+            Record.register_validator(v, types=['A'])
+            Manager(get_config_filename('validators-enabled-sets.yaml'))
+            a_validators = Record.registered_validators()['record'].get('A', [])
+            self.assertTrue(
+                any(v.id == 'test-set-member' for v in a_validators)
+            )
+            # legacy validators are still active too
+            global_validators = Record.registered_validators()['record'].get(
+                '*', []
+            )
+            self.assertTrue(any(v.id == 'name-rfc' for v in global_validators))
+
+    def test_validators_enabled_empty(self):
+        # manager.enabled: [] removes all non-bridge validators from active.
+        with validators_snapshot():
+            Manager(get_config_filename('validators-enabled-empty.yaml'))
+            active = Record.registered_validators()
+            for type_validators in active['record'].values():
+                for v in type_validators:
+                    self.assertTrue(
+                        v.id.startswith('_'),
+                        f'Non-bridge validator {v.id!r} still active',
+                    )
+
+    def test_validators_enabled_string(self):
+        # A bare string for manager.enabled must raise a clear error rather
+        # than silently iterating its characters as set members.
+        with validators_snapshot():
+            with self.assertRaises(ManagerException) as ctx:
+                Manager(get_config_filename('validators-enabled-string.yaml'))
+            self.assertIn('must be a list', str(ctx.exception))
+
+    def test_validators_enabled_logging(self):
+        # Manager logs enabled sets at INFO.
+        with validators_snapshot():
+            with self.assertLogs('Manager', level='INFO') as logs:
+                Manager(get_config_filename('validators-enabled-sets.yaml'))
+            self.assertTrue(any('enabling sets' in msg for msg in logs.output))
+
+    def test_validators_add_types(self):
+        # types in validators: config scopes registration without manager.validators.
+        with validators_snapshot():
+            Manager(get_config_filename('validators-add.yaml'))
+            mx_validators = Record.registered_validators()['record'].get(
+                'MX', []
+            )
+            self.assertTrue(
+                any(v.id == 'my-test-validator' for v in mx_validators)
+            )
+            global_validators = Record.registered_validators()['record'].get(
+                '*', []
+            )
+            self.assertFalse(
+                any(v.id == 'my-test-validator' for v in global_validators)
+            )
+
+    def test_validators_add_types_string(self):
+        # types: MX as a bare string is normalized to a list.
+        with validators_snapshot():
+            Manager(get_config_filename('validators-add-types-string.yaml'))
+            mx_validators = Record.registered_validators()['record'].get(
+                'MX', []
+            )
+            self.assertTrue(
+                any(v.id == 'my-test-validator' for v in mx_validators)
+            )
+
+    def test_validators_add_logging(self):
+        # Manager logs each explicitly enabled validator at INFO.
+        with validators_snapshot():
+            with self.assertLogs('Manager', level='INFO') as logs:
+                Manager(get_config_filename('validators-add-global.yaml'))
+            self.assertTrue(
+                any(
+                    'enabled validator' in msg and 'my-test-validator' in msg
+                    for msg in logs.output
+                )
+            )
+
+    def test_validators_disable_logging(self):
+        # Manager logs each successfully disabled validator at INFO.
+        with validators_snapshot():
+            with self.assertLogs('Manager', level='INFO') as logs:
+                Manager(get_config_filename('validators-disable.yaml'))
+            self.assertTrue(
+                any(
+                    'disabled validator' in msg and 'healthcheck' in msg
+                    for msg in logs.output
+                )
+            )
 
     def test_source_only_as_a_target(self):
         with self.assertRaises(ManagerException) as ctx:
@@ -403,7 +618,7 @@ class TestManager(TestCase):
                 'value': {
                     'algorithm': 1,
                     'fingerprint_type': 1,
-                    'fingerprint': 'abcdefg',
+                    'fingerprint': 'bf6b6825d2977c511a475bbefb88aad54a92ac73',
                 },
             },
         )
@@ -1554,6 +1769,25 @@ class TestManager(TestCase):
 
             self.assertIsNone(zone_with_defaults.update_pcent_threshold)
             self.assertIsNone(zone_with_defaults.delete_pcent_threshold)
+
+    def test_zone_ignore_subzone_adds(self):
+        with TemporaryDirectory() as tmpdir:
+            environ['YAML_TMP_DIR'] = tmpdir.dirname
+
+            manager = Manager(
+                get_config_filename('zone-ignore-subzone-adds.yaml')
+            )
+
+            # zone with the flag set picks it up
+            zone = manager.get_zone('unit.tests.')
+            self.assertTrue(zone.ignore_subzone_adds)
+
+            # sibling zones without the flag default to False
+            subzone = manager.get_zone('subzone.unit.tests.')
+            self.assertFalse(subzone.ignore_subzone_adds)
+
+            zone_with_defaults = manager.get_zone('defaultignore.tests.')
+            self.assertFalse(zone_with_defaults.ignore_subzone_adds)
 
     def test_preprocess_zones_original(self):
         # these will be unused

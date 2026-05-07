@@ -1,3 +1,4 @@
+# ======================================== IMPORTS ========================================
 from __future__ import annotations
 
 from .._internal import different_from
@@ -5,6 +6,7 @@ from ..math import Point, Vector
 
 from numbers import Real
 
+# ======================================== TRANSFORM ========================================
 class Transform:
     """Objet possédant un positionnement monde
     
@@ -191,3 +193,8 @@ class Transform:
             different_from(factor, 0.0)
         self._scale *= factor
         self._version += 1
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Transform",
+]

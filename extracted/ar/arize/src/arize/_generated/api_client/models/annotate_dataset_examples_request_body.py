@@ -28,7 +28,7 @@ class AnnotateDatasetExamplesRequestBody(BaseModel):
     """
     Batch annotation request for dataset examples.
     """ # noqa: E501
-    annotations: Annotated[List[AnnotateRecordInput], Field(min_length=1, max_length=500)] = Field(description="Batch of dataset example annotations to write. Up to 500 examples per request.")
+    annotations: Annotated[List[AnnotateRecordInput], Field(min_length=1, max_length=1000)] = Field(description="Batch of dataset example annotations to write. Up to 1000 examples per request.")
     __properties: ClassVar[List[str]] = ["annotations"]
 
     model_config = ConfigDict(

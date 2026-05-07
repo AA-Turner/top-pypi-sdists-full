@@ -7,6 +7,7 @@ from sagemaker_studio.connections.sql_helper.ddb_sql_helper import DDBSQLHelper
 from sagemaker_studio.connections.sql_helper.mssql_sql_helper import MSSQLHelper
 from sagemaker_studio.connections.sql_helper.mysql_sql_helper import MySQLHelper
 from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQLHelper
+from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
 from sagemaker_studio.sql_engine.snowflake_transformer import SnowflakeAuthType
 
@@ -92,6 +93,38 @@ athena_connection = make_dataclass("Connection", ["secret", "connection_creds", 
             "session_token": "dummy_session_token",
         },
     ),
+)
+
+
+redshift_connection = make_dataclass(
+    "Connection", ["secret", "connection_creds", "data", "_find_secret_arn"]
+)(
+    {},
+    make_dataclass(
+        "ConnectionCredentials", ["access_key_id", "secret_access_key", "session_token"]
+    )(
+        access_key_id="dummy_access_key_id",
+        secret_access_key="dummy_secret_access_key",
+        session_token="dummy_session_token",
+    ),
+    make_dataclass(
+        "ConnectionData",
+        ["physical_endpoints", "database_name", "storage", "connection_creds"],
+    )(
+        physical_endpoints=[
+            make_dataclass("PhysicalEndpoint", ["awsLocation"])(
+                awsLocation={"awsRegion": "us-west-2"}
+            )
+        ],
+        database_name="default_db",
+        storage={"workgroupName": "my-workgroup", "clusterName": "my-cluster"},
+        connection_creds={
+            "access_key_id": "dummy_access_key_id",
+            "secret_access_key": "dummy_secret_access_key",
+            "session_token": "dummy_session_token",
+        },
+    ),
+    lambda: (_ for _ in ()).throw(Exception("no secret arn")),
 )
 
 
@@ -199,3 +232,20 @@ def test_to_athena_helper_sql_config_with_override(mock_get_s3_staging_dir):
         "catalog_name": "test_catalog",
         "schema_name": "test_schema",
     }
+
+
+def test_to_redshift_helper_sql_config_uses_connection_default_database():
+    result = RedshiftSqlHelper.to_sql_config(redshift_connection)
+    assert result["database_name"] == "default_db"
+    assert result["region"] == "us-west-2"
+    assert result["workgroup_name"] == "my-workgroup"
+    assert result["cluster_identifier"] == "my-cluster"
+    assert result["secret_arn"] is None
+    assert result["aws_access_key_id"] == "dummy_access_key_id"
+    assert result["aws_secret_access_key"] == "dummy_secret_access_key"
+    assert result["aws_session_token"] == "dummy_session_token"
+
+
+def test_to_redshift_helper_sql_config_uses_user_selected_database():
+    result = RedshiftSqlHelper.to_sql_config(redshift_connection, database_name="user_selected_db")
+    assert result["database_name"] == "user_selected_db"

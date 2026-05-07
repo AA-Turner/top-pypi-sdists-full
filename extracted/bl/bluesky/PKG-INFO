@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky
-Version: 1.15.0
+Version: 1.15.1
 Summary: Experiment specification & orchestration.
 Author: danielballan
 License: BSD 3-Clause License
@@ -112,6 +112,7 @@ Requires-Dist: types-mock; extra == "dev"
 Requires-Dist: tiled[all]; extra == "dev"
 Requires-Dist: vendoring; extra == "dev"
 Requires-Dist: zict; extra == "dev"
+Requires-Dist: pytest-mock>=3.15.1; extra == "dev"
 Provides-Extra: ipython
 Requires-Dist: ipython; extra == "ipython"
 Provides-Extra: zmq

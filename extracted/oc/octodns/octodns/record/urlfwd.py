@@ -5,12 +5,71 @@
 from ..equality import EqualityTupleMixin
 from .base import Record, ValuesMixin, unquote
 from .rr import RrParseError
+from .validator import ValueValidator
+
+
+class UrlfwdValueValidator(ValueValidator):
+    '''
+    Validates URLFWD rdata: ``code`` is a valid HTTP redirect code,
+    ``masking`` and ``query`` are in the recognized enum sets, and
+    ``path`` and ``target`` are present.
+    '''
+
+    def validate(self, value_cls, data, _type):
+        reasons = []
+        for value in data:
+            try:
+                code = int(value['code'])
+                if code not in value_cls.VALID_CODES:
+                    reasons.append(f'unrecognized return code "{code}"')
+            except KeyError:
+                reasons.append('missing code')
+            except ValueError:
+                reasons.append(f'invalid return code "{value["code"]}"')
+            try:
+                masking = int(value['masking'])
+                if masking not in value_cls.VALID_MASKS:
+                    reasons.append(f'unrecognized masking setting "{masking}"')
+            except KeyError:
+                reasons.append('missing masking')
+            except ValueError:
+                reasons.append(f'invalid masking setting "{value["masking"]}"')
+            try:
+                query = int(value['query'])
+                if query not in value_cls.VALID_QUERY:
+                    reasons.append(f'unrecognized query setting "{query}"')
+            except KeyError:
+                reasons.append('missing query')
+            except ValueError:
+                reasons.append(f'invalid query setting "{value["query"]}"')
+            for k in ('path', 'target'):
+                if k not in value:
+                    reasons.append(f'missing {k}')
+        return reasons
 
 
 class UrlfwdValue(EqualityTupleMixin, dict):
     VALID_CODES = (301, 302)
     VALID_MASKS = (0, 1, 2)
     VALID_QUERY = (0, 1)
+
+    VALIDATORS = [
+        UrlfwdValueValidator('urlfwd-value', sets={'legacy', 'strict'})
+    ]
+
+    @classmethod
+    def _schema(cls):
+        return {
+            'type': 'object',
+            'required': ['path', 'target', 'code', 'masking', 'query'],
+            'properties': {
+                'path': {'type': 'string'},
+                'target': {'type': 'string'},
+                'code': {'type': 'integer', 'enum': list(cls.VALID_CODES)},
+                'masking': {'type': 'integer', 'enum': list(cls.VALID_MASKS)},
+                'query': {'type': 'integer', 'enum': list(cls.VALID_QUERY)},
+            },
+        }
 
     @classmethod
     def parse_rdata_text(self, value):
@@ -39,39 +98,6 @@ class UrlfwdValue(EqualityTupleMixin, dict):
             'masking': masking,
             'query': query,
         }
-
-    @classmethod
-    def validate(cls, data, _type):
-        reasons = []
-        for value in data:
-            try:
-                code = int(value['code'])
-                if code not in cls.VALID_CODES:
-                    reasons.append(f'unrecognized return code "{code}"')
-            except KeyError:
-                reasons.append('missing code')
-            except ValueError:
-                reasons.append(f'invalid return code "{value["code"]}"')
-            try:
-                masking = int(value['masking'])
-                if masking not in cls.VALID_MASKS:
-                    reasons.append(f'unrecognized masking setting "{masking}"')
-            except KeyError:
-                reasons.append('missing masking')
-            except ValueError:
-                reasons.append(f'invalid masking setting "{value["masking"]}"')
-            try:
-                query = int(value['query'])
-                if query not in cls.VALID_QUERY:
-                    reasons.append(f'unrecognized query setting "{query}"')
-            except KeyError:
-                reasons.append('missing query')
-            except ValueError:
-                reasons.append(f'invalid query setting "{value["query"]}"')
-            for k in ('path', 'target'):
-                if k not in value:
-                    reasons.append(f'missing {k}')
-        return reasons
 
     @classmethod
     def process(cls, values):
@@ -153,6 +179,7 @@ class UrlfwdValue(EqualityTupleMixin, dict):
 
 
 class UrlfwdRecord(ValuesMixin, Record):
+    REFERENCES = ()
     _type = 'URLFWD'
     _value_type = UrlfwdValue
 

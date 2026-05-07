@@ -1990,23 +1990,28 @@ cdef class Endpointer:
         return (<const unsigned char *>&outbuf[0])[:out_n_samples * 2]
 
 cdef class AlignmentEntry:
-    """Entry (word, phone, state) in an alignment.
+    """Entry (word, phone, or state) in an alignment.
 
-    Iterating over this will iterate over its children (i.e. the
-    phones in a word or the states in a phone) if any.  For example::
+    Iterating over this will iterate over its children (phones in a
+    word, or states in a phone) if any.  For example, to print
+    word and phone timings in seconds::
 
         for word in decoder.get_alignment():
-            print("%s from %.2f to %.2f" % (word.name, word.start,
-                                            word.start + word.duration))
+            print("%s from %.3f to %.3f seconds" % (word.name,
+                                                    word.start / 100,
+                                                    (word.start + word.duration) / 100))
             for phone in word:
-                print("%s at %.2f duration %.2f" %
-                      (phone.name, phone.start, phone.duration))
+                print("  %s at %.3f for %.3f seconds" % (phone.name,
+                                                         phone.start / 100,
+                                                         phone.duration / 100))
 
     Attributes:
-      name(str): Name of segment (word, phone name, state id)
-      start(int): Index of start frame.
-      duration(int): Duration in frames.
-      score(float): Acoustic score (density).
+      name(str): Text of this entry (word string, phone symbol, or
+                 state ID as string).
+      start(int): Start frame index.  Divide by frame rate for seconds
+                  (default 100, i.e. 10ms per frame).
+      duration(int): Duration in frames.  Divide by frame rate for seconds.
+      score(int): Acoustic score (log probability, higher is better).
     """
     cdef public int start
     cdef public int duration
@@ -2034,9 +2039,16 @@ cdef class AlignmentEntry:
 cdef class Alignment:
     """Sub-word alignment as returned by `get_alignment`.
 
-    For the moment this is read-only.  You are able to iterate over
-    the words, phones, or states in it, as well as sub-iterating over
-    each of their children, as described in `AlignmentEntry`.
+    Alignments have three levels: words, phones, and HMM states.
+    Words contain phones, and phones contain states.
+
+    There are two ways to iterate:
+
+    Flat iteration over a single level using `words()`, `phones()`,
+    or `states()`.
+
+    Hierarchical iteration by iterating over an `AlignmentEntry` to
+    get its children (phones of a word, or states of a phone).
     """
     cdef ps_alignment_t *_al
 

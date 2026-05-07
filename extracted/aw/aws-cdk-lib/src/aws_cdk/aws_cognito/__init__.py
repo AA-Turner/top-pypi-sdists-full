@@ -5723,6 +5723,7 @@ class CfnUserPool(
                 email_subject_by_link="emailSubjectByLink",
                 sms_message="smsMessage"
             ),
+            web_authn_factor_configuration="webAuthnFactorConfiguration",
             web_authn_relying_party_id="webAuthnRelyingPartyId",
             web_authn_user_verification="webAuthnUserVerification"
         )
@@ -5760,6 +5761,7 @@ class CfnUserPool(
         user_pool_tags: typing.Any = None,
         user_pool_tier: typing.Optional[builtins.str] = None,
         verification_message_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.VerificationMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_authn_factor_configuration: typing.Optional[builtins.str] = None,
         web_authn_relying_party_id: typing.Optional[builtins.str] = None,
         web_authn_user_verification: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5794,6 +5796,7 @@ class CfnUserPool(
         :param user_pool_tags: The tag keys and values to assign to the user pool. A tag is a label that you can use to categorize and manage user pools in different ways, such as by purpose, owner, environment, or other criteria.
         :param user_pool_tier: The user pool `feature plan <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-sign-in-feature-plans.html>`_ , or tier. This parameter determines the eligibility of the user pool for features like managed login, access-token customization, and threat protection. Defaults to ``ESSENTIALS`` .
         :param verification_message_template: The template for the verification message that your user pool delivers to users who set an email address or phone number attribute. Set the email message type that corresponds to your ``DefaultEmailOption`` selection. For ``CONFIRM_WITH_LINK`` , specify an ``EmailMessageByLink`` and leave ``EmailMessage`` blank. For ``CONFIRM_WITH_CODE`` , specify an ``EmailMessage`` and leave ``EmailMessageByLink`` blank. When you supply both parameters with either choice, Amazon Cognito returns an error.
+        :param web_authn_factor_configuration: 
         :param web_authn_relying_party_id: Sets or displays the authentication domain, typically your user pool domain, that passkey providers must use as a relying party (RP) in their configuration. Under the following conditions, the passkey relying party ID must be the fully-qualified domain name of your custom domain: - The user pool is configured for passkey authentication. - The user pool has a custom domain, whether or not it also has a prefix domain. - Your application performs authentication with managed login or the classic hosted UI.
         :param web_authn_user_verification: When ``required`` , users can only register and sign in users with passkeys that are capable of `user verification <https://docs.aws.amazon.com/https://www.w3.org/TR/webauthn-2/#enum-userVerificationRequirement>`_ . When ``preferred`` , your user pool doesn't require the use of authenticators with user verification but encourages it.
         '''
@@ -5829,6 +5832,7 @@ class CfnUserPool(
             user_pool_tags=user_pool_tags,
             user_pool_tier=user_pool_tier,
             verification_message_template=verification_message_template,
+            web_authn_factor_configuration=web_authn_factor_configuration,
             web_authn_relying_party_id=web_authn_relying_party_id,
             web_authn_user_verification=web_authn_user_verification,
         )
@@ -6411,6 +6415,21 @@ class CfnUserPool(
             type_hints = typing.get_type_hints(_typecheckingstub__9163d1ccc0cf294430031f1b8b5289192a6e048b52e8181e9ca8707780aac888)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "verificationMessageTemplate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="webAuthnFactorConfiguration")
+    def web_authn_factor_configuration(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "webAuthnFactorConfiguration"))
+
+    @web_authn_factor_configuration.setter
+    def web_authn_factor_configuration(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__428cbd214650a4798db1a6db90368ed69e4abc45108aaef6c2e661eb91df94bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "webAuthnFactorConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="webAuthnRelyingPartyId")
@@ -11390,6 +11409,7 @@ class CfnUserPoolIdentityProviderProps:
         "user_pool_tags": "userPoolTags",
         "user_pool_tier": "userPoolTier",
         "verification_message_template": "verificationMessageTemplate",
+        "web_authn_factor_configuration": "webAuthnFactorConfiguration",
         "web_authn_relying_party_id": "webAuthnRelyingPartyId",
         "web_authn_user_verification": "webAuthnUserVerification",
     },
@@ -11425,6 +11445,7 @@ class CfnUserPoolProps:
         user_pool_tags: typing.Any = None,
         user_pool_tier: typing.Optional[builtins.str] = None,
         verification_message_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.VerificationMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_authn_factor_configuration: typing.Optional[builtins.str] = None,
         web_authn_relying_party_id: typing.Optional[builtins.str] = None,
         web_authn_user_verification: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -11457,6 +11478,7 @@ class CfnUserPoolProps:
         :param user_pool_tags: The tag keys and values to assign to the user pool. A tag is a label that you can use to categorize and manage user pools in different ways, such as by purpose, owner, environment, or other criteria.
         :param user_pool_tier: The user pool `feature plan <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-sign-in-feature-plans.html>`_ , or tier. This parameter determines the eligibility of the user pool for features like managed login, access-token customization, and threat protection. Defaults to ``ESSENTIALS`` .
         :param verification_message_template: The template for the verification message that your user pool delivers to users who set an email address or phone number attribute. Set the email message type that corresponds to your ``DefaultEmailOption`` selection. For ``CONFIRM_WITH_LINK`` , specify an ``EmailMessageByLink`` and leave ``EmailMessage`` blank. For ``CONFIRM_WITH_CODE`` , specify an ``EmailMessage`` and leave ``EmailMessageByLink`` blank. When you supply both parameters with either choice, Amazon Cognito returns an error.
+        :param web_authn_factor_configuration: 
         :param web_authn_relying_party_id: Sets or displays the authentication domain, typically your user pool domain, that passkey providers must use as a relying party (RP) in their configuration. Under the following conditions, the passkey relying party ID must be the fully-qualified domain name of your custom domain: - The user pool is configured for passkey authentication. - The user pool has a custom domain, whether or not it also has a prefix domain. - Your application performs authentication with managed login or the classic hosted UI.
         :param web_authn_user_verification: When ``required`` , users can only register and sign in users with passkeys that are capable of `user verification <https://docs.aws.amazon.com/https://www.w3.org/TR/webauthn-2/#enum-userVerificationRequirement>`_ . When ``preferred`` , your user pool doesn't require the use of authenticators with user verification but encourages it.
 
@@ -11596,6 +11618,7 @@ class CfnUserPoolProps:
                     email_subject_by_link="emailSubjectByLink",
                     sms_message="smsMessage"
                 ),
+                web_authn_factor_configuration="webAuthnFactorConfiguration",
                 web_authn_relying_party_id="webAuthnRelyingPartyId",
                 web_authn_user_verification="webAuthnUserVerification"
             )
@@ -11629,6 +11652,7 @@ class CfnUserPoolProps:
             check_type(argname="argument user_pool_tags", value=user_pool_tags, expected_type=type_hints["user_pool_tags"])
             check_type(argname="argument user_pool_tier", value=user_pool_tier, expected_type=type_hints["user_pool_tier"])
             check_type(argname="argument verification_message_template", value=verification_message_template, expected_type=type_hints["verification_message_template"])
+            check_type(argname="argument web_authn_factor_configuration", value=web_authn_factor_configuration, expected_type=type_hints["web_authn_factor_configuration"])
             check_type(argname="argument web_authn_relying_party_id", value=web_authn_relying_party_id, expected_type=type_hints["web_authn_relying_party_id"])
             check_type(argname="argument web_authn_user_verification", value=web_authn_user_verification, expected_type=type_hints["web_authn_user_verification"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11686,6 +11710,8 @@ class CfnUserPoolProps:
             self._values["user_pool_tier"] = user_pool_tier
         if verification_message_template is not None:
             self._values["verification_message_template"] = verification_message_template
+        if web_authn_factor_configuration is not None:
+            self._values["web_authn_factor_configuration"] = web_authn_factor_configuration
         if web_authn_relying_party_id is not None:
             self._values["web_authn_relying_party_id"] = web_authn_relying_party_id
         if web_authn_user_verification is not None:
@@ -12019,6 +12045,14 @@ class CfnUserPoolProps:
         '''
         result = self._values.get("verification_message_template")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.VerificationMessageTemplateProperty"]], result)
+
+    @builtins.property
+    def web_authn_factor_configuration(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-webauthnfactorconfiguration
+        '''
+        result = self._values.get("web_authn_factor_configuration")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def web_authn_relying_party_id(self) -> typing.Optional[builtins.str]:
@@ -25788,6 +25822,7 @@ def _typecheckingstub__32d20f28e2758f9a461380e2ed5d06233baf0f45541047ba837f26ebc
     user_pool_tags: typing.Any = None,
     user_pool_tier: typing.Optional[builtins.str] = None,
     verification_message_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.VerificationMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_authn_factor_configuration: typing.Optional[builtins.str] = None,
     web_authn_relying_party_id: typing.Optional[builtins.str] = None,
     web_authn_user_verification: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -25992,6 +26027,12 @@ def _typecheckingstub__7b34a7e631952732eaf3564630f968b4a1066c2249e1bd77fa5894ac2
 
 def _typecheckingstub__9163d1ccc0cf294430031f1b8b5289192a6e048b52e8181e9ca8707780aac888(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.VerificationMessageTemplateProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__428cbd214650a4798db1a6db90368ed69e4abc45108aaef6c2e661eb91df94bf(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26716,6 +26757,7 @@ def _typecheckingstub__00bbdbd31eb8d7342ce9883d0851b853acf61f6b243c0aa4323c025da
     user_pool_tags: typing.Any = None,
     user_pool_tier: typing.Optional[builtins.str] = None,
     verification_message_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.VerificationMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_authn_factor_configuration: typing.Optional[builtins.str] = None,
     web_authn_relying_party_id: typing.Optional[builtins.str] = None,
     web_authn_user_verification: typing.Optional[builtins.str] = None,
 ) -> None:

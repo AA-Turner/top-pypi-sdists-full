@@ -18,5 +18,5 @@ clap = ["dep:clap"]
 jsonschema = ["dep:schemars"]
 serde = ["dep:serde"]
 
-[lints.rust]
-deprecated = "allow"
+[lints]
+workspace = true

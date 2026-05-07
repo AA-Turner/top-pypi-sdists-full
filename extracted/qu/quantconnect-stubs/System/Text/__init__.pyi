@@ -345,6 +345,10 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
     def insert(self, index: int, value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
         ...
 
+    @staticmethod
+    def move_chunks(source: System.Text.StringBuilder) -> System.Text.StringBuilder:
+        ...
+
     def remove(self, start_index: int, length: int) -> System.Text.StringBuilder:
         ...
 

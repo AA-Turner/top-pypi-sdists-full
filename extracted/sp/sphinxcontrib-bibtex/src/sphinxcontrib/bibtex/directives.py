@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Dict, List, NamedTuple, Sequence, cast
 import docutils.nodes
 import docutils.parsers.rst.directives as directives
 import sphinx.util
-from docutils.parsers.rst import Directive
+from sphinx.util.docutils import SphinxDirective
 
 from .bibfile import _make_ids
 from .nodes import bibliography as bibliography_node
@@ -54,7 +54,7 @@ class BibliographyValue(NamedTuple):
     keys: List[str]  #: Keys listed as content of the directive.
 
 
-class BibliographyDirective(Directive):
+class BibliographyDirective(SphinxDirective):
     """Class for processing the :rst:dir:`bibliography` directive.
 
     Produces a
@@ -152,8 +152,9 @@ class BibliographyDirective(Directive):
                 bibfile = Path(env.relfn2path(bibfile_str)[1]).resolve()
                 if bibfile not in domain.bibdata.bibfiles:
                     logger.warning(
-                        "{0} not found or not configured"
-                        " in bibtex_bibfiles".format(bibfile_str),
+                        "{0} not found or not configured in bibtex_bibfiles".format(
+                            bibfile_str
+                        ),
                         location=(env.docname, self.lineno),
                         type="bibtex",
                         subtype="bibfile_error",
@@ -175,11 +176,11 @@ class BibliographyDirective(Directive):
                 subtype="list_type_error",
             )
             list_ = "citation"
-        citation_node_class: type[docutils.nodes.Element]
-        if list_ in {"bullet", "enumerated"}:
-            citation_node_class = docutils.nodes.list_item
-        else:
-            citation_node_class = docutils.nodes.citation
+        citation_node_class: type[docutils.nodes.Element] = (
+            docutils.nodes.list_item
+            if list_ in {"bullet", "enumerated"}
+            else docutils.nodes.citation
+        )
         env.temp_data["bibtex_bibliography_count"] = (
             env.temp_data.get("bibtex_bibliography_count", 0) + 1  # type: ignore
         )
@@ -192,7 +193,7 @@ class BibliographyDirective(Directive):
                 docname=env.docname,
                 lineno=self.lineno,
                 ids=ids,
-                raw_id=env.app.config.bibtex_bibliography_id.format(
+                raw_id=env.config.bibtex_bibliography_id.format(
                     bibliography_count=bibliography_count
                 ),
             ),
@@ -202,13 +203,12 @@ class BibliographyDirective(Directive):
         # but we need to know their ids before resolve stage
         # so for now we generate a node, and thus, an id, for every entry
         citation_nodes: Dict[str, docutils.nodes.Element] = {
-            keyprefix
-            + entry.key: citation_node_class(
+            keyprefix + entry.key: citation_node_class(
                 ids=_make_ids(
                     docname=env.docname,
                     lineno=self.lineno,
                     ids=ids,
-                    raw_id=env.app.config.bibtex_cite_id.format(
+                    raw_id=env.config.bibtex_cite_id.format(
                         bibliography_count=bibliography_count, key=keyprefix + entry.key
                     ),
                 )
@@ -229,13 +229,18 @@ class BibliographyDirective(Directive):
                 )
             else:
                 keys.append(key)
+        # header
+        header = getattr(env.config, "bibtex_bibliography_header")
+        header_nodes: list[docutils.nodes.Node] = (
+            self.parse_text_to_nodes(header) if header else []
+        )
         # create bibliography object
         bibliography = BibliographyValue(
             line=self.lineno,
             list_=list_,
             enumtype=self.options.get("enumtype", "arabic"),
             start=self.options.get("start", 1),
-            style=self.options.get("style", env.app.config.bibtex_default_style),
+            style=self.options.get("style", env.config.bibtex_default_style),
             filter_=filter_,
             labelprefix=self.options.get("labelprefix", ""),
             keyprefix=keyprefix,
@@ -246,4 +251,4 @@ class BibliographyDirective(Directive):
         bib_key = BibliographyKey(docname=env.docname, id_=node["ids"][0])
         assert bib_key not in domain.bibliographies
         domain.bibliographies[bib_key] = bibliography
-        return [node]
+        return header_nodes + [node]

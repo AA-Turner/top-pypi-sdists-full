@@ -182,7 +182,7 @@ import json
 import warnings
 from collections.abc import Callable, Sequence
 from copy import deepcopy
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Self, cast
 
 import arviz as az
 import numpy as np
@@ -586,6 +586,41 @@ class MMM(RegressionModelBuilder):
 
         self.mu_effects: list[MuEffect] = []
 
+    def add_mu_effect(
+        self: Self,
+        mu_effect: MuEffect,
+    ) -> Self:
+        """Include MuEffect in model.
+
+        Parameters
+        ----------
+        mu_effect : MuEffect
+            Any MuEffect Protocol to include in the model.
+
+        Returns
+        -------
+        The instance for chaining.
+
+        Examples
+        --------
+        Add LinearTrend to the MMM.
+
+        .. code-block:: python
+
+            from pymc_marketing.mmm import MMM, LinearTrend
+            from pymc_marketing.mmm.additive_effect import LinearTrendEffect
+
+            mmm = MMM(...).add_mu_effect(
+                LinearTrendEffect(
+                    trend=LinearTrend(n_changepoints=10),
+                    prefix="linear_trend",
+                )
+            )
+
+        """
+        self.mu_effects.append(mu_effect)
+        return self
+
     def __eq__(self, other: object) -> bool:
         """Compare two MMM instances for equivalence.
 
@@ -859,11 +894,11 @@ class MMM(RegressionModelBuilder):
     def _data_setter(self, X, y=None): ...
 
     def add_events(
-        self,
+        self: Self,
         df_events: pd.DataFrame,
         prefix: str,
         effect: EventEffect,
-    ) -> None:
+    ) -> Self:
         """Add event effects to the model.
 
         This must be called before building the model.
@@ -879,6 +914,10 @@ class MMM(RegressionModelBuilder):
             The prefix to use for the event effect and associated variables.
         effect : EventEffect
             The event effect to apply.
+
+        Returns
+        -------
+        The instance for chaining.
 
         Raises
         ------
@@ -897,6 +936,8 @@ class MMM(RegressionModelBuilder):
             effect=effect,
         )
         self.mu_effects.append(event_effect)
+
+        return self
 
     @property
     def _serializable_model_config(self) -> dict[str, Any]:
@@ -989,6 +1030,16 @@ class MMM(RegressionModelBuilder):
                         effect.df_events.reset_index(drop=True)
                     )
                     self.idata.add_groups({group_name: ds})
+
+        # Persist the base names of any *_original_scale Deterministics so they
+        # can be faithfully re-added by build_from_idata on load.
+        suffix = "_original_scale"
+        original_scale_vars = [
+            name[: -len(suffix)]
+            for name in self.model.named_vars
+            if name.endswith(suffix)
+        ]
+        self.idata.attrs["original_scale_vars"] = json.dumps(original_scale_vars)
 
         super().save(fname, **kwargs)
 
@@ -1908,7 +1959,10 @@ class MMM(RegressionModelBuilder):
         if var not in self.model.named_vars:
             raise ValueError(f"Variable {var} is not in the model")
 
-    def add_original_scale_contribution_variable(self, var: list[str]) -> None:
+    def add_original_scale_contribution_variable(
+        self: Self,
+        var: list[str],
+    ) -> Self:
         """Add a pymc.dims.Deterministic variable to the model that multiplies by the scaler.
 
         Restricted to the model parameters. Only make it possible for "_contribution" variables.
@@ -1946,6 +2000,8 @@ class MMM(RegressionModelBuilder):
                         "date", ..., missing_dims="ignore"
                     ),
                 )
+
+        return self
 
     def fit(  # type: ignore[override]
         self,
@@ -2914,11 +2970,11 @@ class MMM(RegressionModelBuilder):
         return target_transform
 
     def add_lift_test_measurements(
-        self,
+        self: Self,
         df_lift_test: pd.DataFrame,
         dist: type[pmd.DimDistribution] = pmd.Gamma,
         name: str = "lift_measurements",
-    ) -> None:
+    ) -> Self:
         """Add lift tests to the model.
 
         The model for the difference of a channel's saturation curve is created
@@ -3058,12 +3114,14 @@ class MMM(RegressionModelBuilder):
             name=name,
         )
 
+        return self
+
     def add_cost_per_target_calibration(
-        self,
+        self: Self,
         data: pd.DataFrame,
         calibration_data: pd.DataFrame,
         name_prefix: str = "cpt_calibration",
-    ) -> None:
+    ) -> Self:
         """Calibrate cost-per-target using an observed Normal likelihood.
 
         This computes cost-per-target as
@@ -3126,7 +3184,7 @@ class MMM(RegressionModelBuilder):
                 UserWarning,
                 stacklevel=2,
             )
-            return
+            return self
 
         # Validate required columns in calibration_data
         if "channel" not in calibration_data.columns:
@@ -3178,6 +3236,8 @@ class MMM(RegressionModelBuilder):
             target_value=self.model["channel_contribution_original_scale"],
             name_prefix=name_prefix,
         )
+
+        return self
 
     def create_fit_data(
         self,
@@ -3341,6 +3401,33 @@ class MMM(RegressionModelBuilder):
         y = dataset[self.target_column]
 
         self.build_model(X, y)  # type: ignore
+
+        # Re-add any *_original_scale Deterministics that were present when the
+        # model was saved.  These are added by add_original_scale_contribution_variable
+        # but the PyMC model graph is not serialized, so build_model does not know
+        # to recreate them.
+        #
+        # Primary path  : read the explicit list stored by save() in idata.attrs.
+        # Fallback path : infer from idata.posterior for models saved before this
+        #                 fix (original_scale_vars attr absent).
+        suffix = "_original_scale"
+        if "original_scale_vars" in idata.attrs:
+            vars_to_restore = [
+                v
+                for v in json.loads(idata.attrs["original_scale_vars"])
+                if v in self.model.named_vars
+            ]
+        elif hasattr(idata, "posterior"):
+            vars_to_restore = [
+                v[: -len(suffix)]
+                for v in idata.posterior.data_vars
+                if v.endswith(suffix) and v[: -len(suffix)] in self.model.named_vars
+            ]
+        else:
+            vars_to_restore = []
+
+        if vars_to_restore:
+            self.add_original_scale_contribution_variable(var=vars_to_restore)
 
     def set_cost_per_unit(
         self,

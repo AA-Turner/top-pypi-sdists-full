@@ -27,3 +27,6 @@ class RedisCache:
         if not keys:
             return []
         return await self._redis.mget(keys)
+
+    async def flush_all(self) -> None:
+        await self._redis.flushdb()

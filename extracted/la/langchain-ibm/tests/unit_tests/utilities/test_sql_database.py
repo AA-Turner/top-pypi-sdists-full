@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd  # type: ignore[import-untyped]
 import pytest
-from pyarrow import flight  # type: ignore[import-untyped]
+from pyarrow import flight
 from typing_extensions import Self
 
 from langchain_ibm.utilities.sql_database import (
@@ -53,6 +53,73 @@ def table_info() -> dict[str, Any]:
                 ],
             },
         ],
+    }
+
+
+@pytest.fixture
+def table_info_with_column_descriptions() -> dict[str, Any]:
+    return {
+        "fields": [
+            {
+                "name": "id",
+                "type": {"native_type": "INT", "nullable": False},
+                "description": "Primary identifier",
+            },
+            {
+                "name": "user_id",
+                "type": {"native_type": "INT", "nullable": False},
+                "description": "Foreign key to users table",
+            },
+            {
+                "name": "name",
+                "type": {"native_type": "VARCHAR(255)", "nullable": True},
+                "description": "User's full name",
+            },
+            {
+                "name": "age",
+                "type": {"native_type": "INT", "nullable": True},
+                "description": "User's age in years",
+            },
+        ],
+        "extended_metadata": [
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+        ],
+    }
+
+
+@pytest.fixture
+def table_info_with_table_description() -> dict[str, Any]:
+    return {
+        "fields": [
+            {"name": "id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "name", "type": {"native_type": "VARCHAR(255)", "nullable": True}},
+        ],
+        "extended_metadata": [
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+        ],
+        "description": "User information table",
+    }
+
+
+@pytest.fixture
+def table_info_with_all_descriptions() -> dict[str, Any]:
+    return {
+        "fields": [
+            {
+                "name": "id",
+                "type": {"native_type": "INT", "nullable": False},
+                "description": "Primary identifier",
+            },
+            {
+                "name": "name",
+                "type": {"native_type": "VARCHAR(255)", "nullable": True},
+                "description": "User's full name",
+            },
+        ],
+        "extended_metadata": [
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+        ],
+        "description": "User information table",
     }
 
 
@@ -109,7 +176,7 @@ class MockFlightSQLClient:
                 ],
             }
         error_msg = "Table not found"
-        raise flight.FlightError(error_msg)
+        raise flight.FlightError(error_msg)  # type: ignore[attr-defined]
 
     def execute(self, *_args: Any, **kwargs: Any) -> pd.DataFrame:
         if "table1" in kwargs.get("query", ""):
@@ -117,7 +184,7 @@ class MockFlightSQLClient:
 
         if "table1" not in kwargs.get("query", ""):
             error_msg = "Table not found"
-            raise flight.FlightError(error_msg)
+            raise flight.FlightError(error_msg)  # type: ignore[attr-defined]
 
         error_msg = "syntax error"
         raise ValueError(error_msg)
@@ -175,6 +242,111 @@ def test_pretty_print_table_info_wrong_format(
     fmt = "wrong_format"
     with pytest.raises(ValueError, match=fmt):
         pretty_print_table_info(schema, table_name, table_info, fmt)  # type: ignore[arg-type]
+
+
+def test_pretty_print_table_info_with_column_descriptions_ddl(
+    schema: str, table_name: str, table_info_with_column_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+CREATE TABLE "test_schema"."test_table" (
+\t"id" INT NOT NULL, -- Primary identifier
+\t"user_id" INT NOT NULL, -- Foreign key to users table
+\t"name" VARCHAR(255), -- User's full name
+\t"age" INT, -- User's age in years
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info_with_column_descriptions)
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_column_descriptions_markdown(
+    schema: str, table_name: str, table_info_with_column_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+- id (INT): Primary identifier
+- user_id (INT): Foreign key to users table
+- name (VARCHAR(255)): User's full name
+- age (INT): User's age in years
+
+### Keys
+- PK (id)"""
+    assert (
+        pretty_print_table_info(
+            schema, table_name, table_info_with_column_descriptions, "markdown"
+        )
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_table_description_ddl(
+    schema: str, table_name: str, table_info_with_table_description: dict[str, Any]
+) -> None:
+    expected_output = """
+CREATE TABLE "test_schema"."test_table" ( -- User information table
+\t"id" INT NOT NULL,
+\t"name" VARCHAR(255),
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info_with_table_description)
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_table_description_markdown(
+    schema: str, table_name: str, table_info_with_table_description: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+> User information table
+- id (INT)
+- name (VARCHAR(255))
+
+### Keys
+- PK (id)"""
+    assert (
+        pretty_print_table_info(
+            schema, table_name, table_info_with_table_description, "markdown"
+        )
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_all_descriptions_ddl(
+    schema: str, table_name: str, table_info_with_all_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+CREATE TABLE "test_schema"."test_table" ( -- User information table
+\t"id" INT NOT NULL, -- Primary identifier
+\t"name" VARCHAR(255), -- User's full name
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info_with_all_descriptions)
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_all_descriptions_markdown(
+    schema: str, table_name: str, table_info_with_all_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+> User information table
+- id (INT): Primary identifier
+- name (VARCHAR(255)): User's full name
+
+### Keys
+- PK (id)"""
+    assert (
+        pretty_print_table_info(
+            schema, table_name, table_info_with_all_descriptions, "markdown"
+        )
+        == expected_output
+    )
 
 
 def test_pretty_print_table_info_markdown(
@@ -256,6 +428,70 @@ def test_pretty_print_table_info_without_primary_key(
                 "type": {"native_type": "VARCHAR(255)", "nullable": True},
             },
         ]
+    }
+    assert (
+        pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
+    )
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected_output"),
+    [
+        (
+            "ddl",
+            """
+CREATE TABLE "fk_schema"."fk_table" (
+\t"order_id" INT NOT NULL,
+\t"user_id" INT NOT NULL,
+\t"product_id" INT,
+\tCONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id),
+\tCONSTRAINT fk_product FOREIGN KEY (product_id) REFERENCES products(id)
+\t)""",
+        ),
+        (
+            "markdown",
+            """
+## TABLE: fk_schema.fk_table
+- order_id (INT)
+- user_id (INT)
+- product_id (INT)
+
+### Keys
+- FK (user_id) -> users.id
+- FK (product_id) -> products.id""",
+        ),
+    ],
+)
+def test_pretty_print_table_info_with_foreign_key_without_primary_key(
+    fmt: MetaDataFormat, expected_output: str
+) -> None:
+    schema = "fk_schema"
+    table_name = "fk_table"
+    table_info = {
+        "fields": [
+            {"name": "order_id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "user_id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "product_id", "type": {"native_type": "INT", "nullable": True}},
+        ],
+        "extended_metadata": [
+            {
+                "name": "foreign_keys",
+                "value": [
+                    {
+                        "name": "fk_user",
+                        "join_condition": (
+                            "fk_schema.fk_table.user_id = fk_schema.users.id"
+                        ),
+                    },
+                    {
+                        "name": "fk_product",
+                        "join_condition": (
+                            "fk_schema.fk_table.product_id = fk_schema.products.id"
+                        ),
+                    },
+                ],
+            },
+        ],
     }
     assert (
         pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
@@ -370,6 +606,134 @@ def test_initialize_watsonx_sql_database_valid(
 
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
+        assert wx_sql_database.schema == schema
+
+
+def test_initialize_watsonx_sql_database_with_project_id_env(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that WATSONX_PROJECT_ID environment variable is used."""
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = None
+    mock_api_client.default_space_id = None
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ) as mock_client,
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+            "WATSONX_PROJECT_ID": PROJECT_ID,
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        mock_client.assert_called_once()
+        call_kwargs = mock_client.call_args[1]
+        assert "credentials" in call_kwargs
+        # Verify set.default_project was called with project_id from environment
+        mock_api_client.set.default_project.assert_called_once_with(
+            project_id=PROJECT_ID
+        )
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
+        assert wx_sql_database.schema == schema
+
+
+def test_initialize_watsonx_sql_database_with_space_id_env(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that WATSONX_SPACE_ID environment variable is used."""
+    space_id = "test_space_id"
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = None
+    mock_api_client.default_space_id = None
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ) as mock_client,
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+            "WATSONX_SPACE_ID": space_id,
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        mock_client.assert_called_once()
+        call_kwargs = mock_client.call_args[1]
+        assert "credentials" in call_kwargs
+        # Verify set.default_space was called with space_id from environment
+        mock_api_client.set.default_space.assert_called_once_with(space_id=space_id)
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
+        assert wx_sql_database.schema == schema
+
+
+def test_initialize_watsonx_sql_database_param_overrides_env(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that explicit parameters override environment variables."""
+    param_project_id = "param_project_id"
+    env_project_id = "env_project_id"
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = None
+    mock_api_client.default_space_id = None
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ) as mock_client,
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+            "WATSONX_PROJECT_ID": env_project_id,
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(
+            connection_id=CONNECTION_ID, schema=schema, project_id=param_project_id
+        )
+
+        mock_client.assert_called_once()
+        call_kwargs = mock_client.call_args[1]
+        assert "credentials" in call_kwargs
+        mock_api_client.set.default_project.assert_called_once_with(
+            project_id=param_project_id
+        )
         assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
         assert wx_sql_database.schema == schema
 

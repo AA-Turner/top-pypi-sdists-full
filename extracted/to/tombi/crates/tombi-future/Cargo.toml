@@ -13,3 +13,6 @@ futures.workspace = true
 [features]
 native = []
 wasm = []
+
+[lints]
+workspace = true

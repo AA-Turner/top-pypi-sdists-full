@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, HasPosition
+from ..._internal import expect, HasPosition, profile_section
 from ...abc import System
 
 from .._world import World
@@ -33,6 +33,7 @@ class SoundSystem(System):
         return f"SoundSystem(origin={(self._origin.x, self._origin.y)})"
     
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.sound.update")
     def update(self, world: World, dt: float) -> None:
         """Met à jour les sons émis"""
         for entity in world.query(SoundEmitter):

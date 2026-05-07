@@ -150,7 +150,6 @@ class IntegrationTestCase(CommandLineTestCase):
         for license_name in ("BSD-3-Clause", "MIT", "Apache 2.0"):
             self.assertIn(license_name, license_meta)
         for license_name in (
-            "BSD License",
             "MIT License",
             "Apache Software License",
         ):
@@ -406,7 +405,7 @@ class IntegrationTestCase(CommandLineTestCase):
             create_licenses_table(args)
 
         self.assertIn("license MIT License not in allow-only licenses was found for package", captured.stderr)
-        self.assertIn("license BSD License not in allow-only licenses was found for package", captured.stderr)
+        self.assertIn("license BSD-3-Clause not in allow-only licenses was found for package", captured.stderr)
 
     def test_allow_only_partial(self) -> None:
         licenses = (
@@ -638,3 +637,48 @@ This is a dummy file for testing.
                 ],
                 json.loads(result),
             )
+
+            args = create_parser().parse_args(
+                ["--format=json", "--with-license-files", "--with-notice-files", "--with-other-files", "--omit-non-metadata-files"]
+            )
+            result = create_output_string(args)
+            self.assertEqual(
+                [
+                    {
+                        "License": "",
+                        "LicenseFiles": [],
+                        "LicenseTexts": [],
+                        "Name": "test-package",
+                        "NoticeFiles": [],
+                        "NoticeTexts": [],
+                        "OtherFiles": [],
+                        "OtherTexts": [],
+                        "Version": "1.0",
+                    }
+                ],
+                json.loads(result),
+            )
+
+    def test_filter_files(self) -> None:
+        def get_package(_result: str) -> dict[str, str | list[str]]:
+            _data = json.loads(_result)
+            for _entry in _data:
+                if _entry["Name"] == "pip-licenses-lib":
+                    return _entry
+            raise KeyError("Package not found!")
+
+        args = create_parser().parse_args(["--format=json", "--with-license-files", "--with-notice-files", "--with-other-files", "--with-system"])
+        result_all = create_output_string(args)
+        args = create_parser().parse_args(
+            ["--format=json", "--with-license-files", "--with-notice-files", "--with-other-files", "--omit-non-metadata-files", "--with-system"]
+        )
+        result_omit = create_output_string(args)
+
+        package_all = get_package(result_all)
+        package_omit = get_package(result_omit)
+
+        self.assertEqual(package_all, package_omit)
+
+        self.assertEqual(1, len(package_all["LicenseFiles"]))
+        self.assertEqual(1, len(package_all["LicenseTexts"]))
+        self.assertEqual(0, len(package_all["NoticeFiles"]))

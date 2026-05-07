@@ -4689,6 +4689,33 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_5_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_5_1")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_5_1(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-5.1`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.57.0 - Chromium version 143.0.7499.169 - Firefox version 142.0.1.
+
+        New Features:
+
+        - Synthetics runtime namespace migration.
+        - Type definition is available in npm Registry. Please ensure the type definition package version matches your canary's runtime version.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-5.1
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_5_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_6_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_6_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-6.0`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.58.2 - Chromium version 145.0.7632.77 - Firefox version 146.0.1.
+
+        New Features:
+
+        - Applied security patches and updated Playwright and browser versions.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-6.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_6_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_10_0")
     def SYNTHETICS_NODEJS_PUPPETEER_10_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-10.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 24.2.0 - Chromium version 131.0.6778.264.

@@ -173,6 +173,7 @@ def serve(
     schedules = config.get("schedules", [])
     cpu = config.get("cpu", 0.25)
     memory = config.get("memory", 512)
+    gpu = config.get("gpu")
     spec_channel_names = tuple(
         ch["name"] for ch in channels if ch.get("type") == "_resource" and ch.get("name")
     )
@@ -192,7 +193,10 @@ def serve(
     terminal.header("Serving", f"[bold]{config['app_name']}[/bold]")
     entry_label = config['class_name'] or config['app_name']
     terminal.detail(f"  entry:     {config['module']}:{entry_label}")
-    terminal.detail(f"  compute:   {cpu} vCPU / {memory} MiB")
+    compute = f"{cpu} vCPU / {memory} MiB"
+    if gpu:
+        compute += f" / {gpu} GPU"
+    terminal.detail(f"  compute:   {compute}")
 
     if pages:
         terminal.detail(f"  pages:     {', '.join(p['name'] for p in pages)}")
@@ -214,7 +218,7 @@ def serve(
 
     req = StartServeRequest(
         app_name=config["app_name"],
-        image=build_image_spec(image, cpu=cpu, memory=memory),
+        image=build_image_spec(image, cpu=cpu, memory=memory, gpu=gpu),
         channels=build_channel_specs(serve_channels),
         entry_point=f"{config['module']}:{config['class_name'] or entry_point.rsplit(':', 1)[1]}",
         source_archive=archive,

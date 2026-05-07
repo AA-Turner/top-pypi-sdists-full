@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flagsmith-flag-engine
-Version: 10.0.4
+Version: 10.1.0
 Summary: Flag engine for the Flagsmith API.
 Home-page: https://github.com/Flagsmith/flagsmith-engine
 Author: Flagsmith
@@ -44,6 +44,14 @@ This project powers the core [Flagsmith API](https://github.com/Flagsmith/flagsm
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
+```
+
+## Syncing engine-test-data
+
+The engine-test-data submodule is pinned to a specific tag. To sync it locally:
+
+```bash
+make sync-engine-test-data
 ```
 
 ## Design

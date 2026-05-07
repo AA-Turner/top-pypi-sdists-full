@@ -234,7 +234,7 @@ async def auth_use(region_name_or_host_or_id: str) -> None:
     config.set_host(host)
 
     if not await try_authenticate(config, regions):
-        msg = FeedbackManager.error_wrong_config_file(config_file=config._path)
+        msg = FeedbackManager.error_wrong_config_file(config_file=config._path, cli="tb")
         raise CLIAuthException(msg)
 
     config.persist_to_file()

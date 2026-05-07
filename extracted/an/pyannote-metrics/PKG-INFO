@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyannote-metrics
-Version: 4.0.0
+Version: 4.1
 Summary: A toolkit for reproducible evaluation, diagnostic, and error analysis of speaker diarization systems
 Author-email: Hervé BREDIN <herve@pyannote.ai>
 License-File: LICENSE
@@ -24,13 +24,15 @@ Provides-Extra: plot
 Requires-Dist: matplotlib>=3.10.0; extra == 'plot'
 Provides-Extra: test
 Requires-Dist: pytest>=8.3.4; extra == 'test'
+Provides-Extra: transcription
+Requires-Dist: meeteval>=0.4.3; extra == 'transcription'
 Description-Content-Type: text/markdown
 
 # pyannote.metrics
 
 > a toolkit for reproducible evaluation, diagnostic, and error analysis of speaker diarization systems
 
-An overview of `pyannote.metrics` is available as an [InterSpeech 2017 paper](docs/pyannote-metrics.pdf): it is recommended to read it first, to quickly get an idea whether this tool is for you.
+An overview of `pyannote.metrics` is available as an [InterSpeech 2017 paper](doc/pyannote-metrics.pdf): it is recommended to read it first, to quickly get an idea whether this tool is for you.
 
 ## Installation
 

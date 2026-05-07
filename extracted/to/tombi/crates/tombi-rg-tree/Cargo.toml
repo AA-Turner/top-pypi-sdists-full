@@ -19,3 +19,6 @@ pretty_assertions.workspace = true
 
 [features]
 default = []
+
+[lints]
+workspace = true

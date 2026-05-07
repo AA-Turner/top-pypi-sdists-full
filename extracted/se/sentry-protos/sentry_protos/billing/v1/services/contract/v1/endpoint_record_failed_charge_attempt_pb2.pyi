@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import google.protobuf.timestamp_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -32,13 +33,27 @@ class RecordFailedChargeAttemptResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     UPDATED_FIELD_NUMBER: builtins.int
+    ATTEMPT_COUNT_FIELD_NUMBER: builtins.int
+    NEXT_PAYMENT_ATTEMPT_FIELD_NUMBER: builtins.int
     updated: builtins.bool
     """True if a matching invoice was found and updated."""
+    attempt_count: builtins.int
+    """Post-update attempt_count on the invoice."""
+    @property
+    def next_payment_attempt(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Post-update next_payment_attempt on the invoice. Unset if the retry
+        schedule has been exhausted and no further automatic retries will run.
+        """
+
     def __init__(
         self,
         *,
         updated: builtins.bool = ...,
+        attempt_count: builtins.int = ...,
+        next_payment_attempt: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["updated", b"updated"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_next_payment_attempt", b"_next_payment_attempt", "next_payment_attempt", b"next_payment_attempt"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_next_payment_attempt", b"_next_payment_attempt", "attempt_count", b"attempt_count", "next_payment_attempt", b"next_payment_attempt", "updated", b"updated"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_next_payment_attempt", b"_next_payment_attempt"]) -> typing.Literal["next_payment_attempt"] | None: ...
 
 global___RecordFailedChargeAttemptResponse = RecordFailedChargeAttemptResponse

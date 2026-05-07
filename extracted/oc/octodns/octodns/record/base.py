@@ -12,6 +12,7 @@ from ..equality import EqualityTupleMixin
 from ..idna import IdnaError, idna_decode, idna_encode
 from .change import Update
 from .exception import RecordException, ValidationError
+from .validator import RecordValidator, ValidatorRegistry
 
 
 def unquote(s):
@@ -20,10 +21,135 @@ def unquote(s):
     return s
 
 
+class NameValidator(RecordValidator):
+    '''
+    Validates record name and FQDN shape: rejects the legacy ``@`` alias,
+    enforces the 253-char total FQDN length and 63-char per-label length
+    limits from RFC 1035, and flags empty/double-dot labels.
+    '''
+
+    def validate(self, record_cls, name, fqdn, data):
+        reasons = []
+        if name == '@':
+            reasons.append('invalid name "@", use "" instead')
+        n = len(fqdn)
+        if n > 253:
+            reasons.append(
+                f'invalid fqdn, "{idna_decode(fqdn)}" is too long at {n} '
+                'chars, max is 253'
+            )
+        for label in name.split('.'):
+            n = len(label)
+            if n > 63:
+                reasons.append(
+                    f'invalid label, "{label}" is too long at {n}'
+                    ' chars, max is 63'
+                )
+        # in the case of endswith there's an implicit second . from the Zone
+        if '..' in name or name.endswith('.'):
+            reasons.append(f'invalid name, double `.` in "{idna_decode(fqdn)}"')
+        # TODO: look at the idna lib for a lot more potential validations...
+        return reasons
+
+
+class TtlValidator(RecordValidator):
+    '''
+    Validates that the record has a ttl and that it is a non-negative
+    integer.
+    '''
+
+    def validate(self, record_cls, name, fqdn, data):
+        reasons = []
+        try:
+            ttl = int(data['ttl'])
+            if ttl < 0:
+                reasons.append('invalid ttl')
+        except KeyError:
+            reasons.append('missing ttl')
+        return reasons
+
+
+class HealthcheckValidator(RecordValidator):
+    '''
+    Validates the optional ``octodns.healthcheck.protocol`` setting, if
+    present, is one of the supported protocols.
+    '''
+
+    def validate(self, record_cls, name, fqdn, data):
+        reasons = []
+        try:
+            if data['octodns']['healthcheck']['protocol'] not in (
+                'HTTP',
+                'HTTPS',
+                'ICMP',
+                'TCP',
+                'UDP',
+            ):
+                reasons.append('invalid healthcheck protocol')
+        except KeyError:
+            pass
+        return reasons
+
+
+class ValueTypeValidator(RecordValidator):
+    '''
+    Single-value variant of ``ValuesTypeValidator`` for records that use
+    ``ValueMixin``: passes ``data['value']`` (or ``None``) through to the
+    value type's validators.
+    '''
+
+    def __init__(self):
+        super().__init__(id='_value-type')
+
+    def validate(self, record_cls, name, fqdn, data):
+        return _process_value_validators(
+            record_cls._value_type, data.get('value', None), record_cls._type
+        )
+
+
+class ValuesTypeValidator(RecordValidator):
+    '''
+    Bridges a record's ``_value_type`` into the record-level validation
+    pipeline: pulls ``values``/``value`` from ``data``, coerces to a list,
+    and delegates to ``ValidatorRegistry.process_values``, which handles both
+    the legacy ``validate`` classmethod on the value class (for 3rd-party
+    back-compat) and any active ``ValueValidator`` instances for the type.
+    '''
+
+    def __init__(self):
+        super().__init__(id='_values-type')
+
+    def validate(self, record_cls, name, fqdn, data):
+        values = data.get('values', data.get('value', []))
+        values = values if isinstance(values, (list, tuple)) else [values]
+        return _process_value_validators(
+            record_cls._value_type, values, record_cls._type
+        )
+
+
 class Record(EqualityTupleMixin):
     log = getLogger('Record')
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if 'validate' in cls.__dict__:
+            deprecated(
+                f'`{cls.__name__}.validate` override is DEPRECATED. '
+                'Add a RecordValidator to `VALIDATORS` instead. '
+                'Will be removed in 2.0',
+                stacklevel=3,
+            )
+
+    REFERENCES = (
+        'https://datatracker.ietf.org/doc/html/rfc1035',
+        'https://datatracker.ietf.org/doc/html/rfc1123',
+        'https://datatracker.ietf.org/doc/html/rfc2181',
+        'https://datatracker.ietf.org/doc/html/rfc4592',
+        'https://datatracker.ietf.org/doc/html/rfc5890',
+    )
+
     _CLASSES = {}
+    validators = ValidatorRegistry()
 
     @classmethod
     def register_type(cls, _class, _type=None):
@@ -36,10 +162,44 @@ class Record(EqualityTupleMixin):
             msg = f'Type "{_type}" already registered by {module}.{name}'
             raise RecordException(msg)
         cls._CLASSES[_type] = _class
+        # Walk the MRO to find VALIDATORS at any level
+        for klass in _class.__mro__:
+            for validator in klass.__dict__.get('VALIDATORS', ()):
+                cls.register_validator(validator, types=[_type])
+        # include value validators; rely on normal Python attribute
+        # resolution so a value subclass can override its parent's
+        # VALIDATORS rather than registering both
+        vt = getattr(_class, '_value_type', None)
+        for validator in getattr(vt, 'VALIDATORS', ()):
+            cls.register_validator(validator, types=[_type])
 
     @classmethod
     def registered_types(cls):
         return cls._CLASSES
+
+    @classmethod
+    def register_validator(cls, validator, types=None):
+        cls.validators.register(validator, types=types)
+
+    @classmethod
+    def enable_validators(cls, sets):
+        cls.validators.enable_sets(sets)
+
+    @classmethod
+    def enable_validator(cls, id, types=None):
+        cls.validators.enable(id, types=types)
+
+    @classmethod
+    def disable_validator(cls, validator_id, types=None):
+        return cls.validators.disable(validator_id, types=types)
+
+    @classmethod
+    def registered_validators(cls):
+        return cls.validators.registered()
+
+    @classmethod
+    def available_validators(cls):
+        return cls.validators.available()
 
     @classmethod
     def new(cls, zone, name, data, source=None, lenient=False):
@@ -85,45 +245,12 @@ class Record(EqualityTupleMixin):
         return _class(zone, name, data, source=source, context=context)
 
     @classmethod
+    def _process_validators(cls, name, fqdn, data):
+        return cls.validators.process_record(cls, name, fqdn, data)
+
+    @classmethod
     def validate(cls, name, fqdn, data):
-        reasons = []
-        if name == '@':
-            reasons.append('invalid name "@", use "" instead')
-        n = len(fqdn)
-        if n > 253:
-            reasons.append(
-                f'invalid fqdn, "{idna_decode(fqdn)}" is too long at {n} '
-                'chars, max is 253'
-            )
-        for label in name.split('.'):
-            n = len(label)
-            if n > 63:
-                reasons.append(
-                    f'invalid label, "{label}" is too long at {n}'
-                    ' chars, max is 63'
-                )
-        # in the case of endswith there's an implicit second . from the Zone
-        if '..' in name or name.endswith('.'):
-            reasons.append(f'invalid name, double `.` in "{idna_decode(fqdn)}"')
-        # TODO: look at the idna lib for a lot more potential validations...
-        try:
-            ttl = int(data['ttl'])
-            if ttl < 0:
-                reasons.append('invalid ttl')
-        except KeyError:
-            reasons.append('missing ttl')
-        try:
-            if data['octodns']['healthcheck']['protocol'] not in (
-                'HTTP',
-                'HTTPS',
-                'ICMP',
-                'TCP',
-                'UDP',
-            ):
-                reasons.append('invalid healthcheck protocol')
-        except KeyError:
-            pass
-        return reasons
+        return cls._process_validators(name, fqdn, data)
 
     @classmethod
     def from_rrs(cls, zone, rrs, lenient=False, source=None):
@@ -308,17 +435,12 @@ class Record(EqualityTupleMixin):
         raise NotImplementedError('Abstract base class, __repr__ required')
 
 
+def _process_value_validators(value_type, values, _type):
+    return Record.validators.process_values(value_type, values, _type)
+
+
 class ValuesMixin(object):
-    @classmethod
-    def validate(cls, name, fqdn, data):
-        reasons = super().validate(name, fqdn, data)
-
-        values = data.get('values', data.get('value', []))
-        values = values if isinstance(values, (list, tuple)) else [values]
-
-        reasons.extend(cls._value_type.validate(values, cls._type))
-
-        return reasons
+    VALIDATORS = [ValuesTypeValidator()]
 
     @classmethod
     def data_from_rrs(cls, rrs):
@@ -378,13 +500,7 @@ class ValuesMixin(object):
 
 
 class ValueMixin(object):
-    @classmethod
-    def validate(cls, name, fqdn, data):
-        reasons = super().validate(name, fqdn, data)
-        reasons.extend(
-            cls._value_type.validate(data.get('value', None), cls._type)
-        )
-        return reasons
+    VALIDATORS = [ValueTypeValidator()]
 
     @classmethod
     def data_from_rrs(cls, rrs):
@@ -420,3 +536,10 @@ class ValueMixin(object):
         if self.octodns:
             octodns = f', {self.octodns}'
         return f'<{klass} {self._type} {self.ttl}, {self.decoded_fqdn}, {self.value}{octodns}>'
+
+
+Record.register_validator(NameValidator('name-rfc', sets={'legacy', 'strict'}))
+Record.register_validator(TtlValidator('ttl-rfc', sets={'legacy', 'strict'}))
+Record.register_validator(
+    HealthcheckValidator('healthcheck', sets={'legacy', 'strict'})
+)

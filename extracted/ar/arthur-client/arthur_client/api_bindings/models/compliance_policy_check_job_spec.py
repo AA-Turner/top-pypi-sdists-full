@@ -17,6 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
@@ -28,8 +29,10 @@ class CompliancePolicyCheckJobSpec(BaseModel):
     """ # noqa: E501
     job_type: Optional[StrictStr] = 'compliance_policy_check'
     scope_model_id: StrictStr = Field(description="The id of the model to run compliance policy checks on.")
+    check_range_start_timestamp: datetime = Field(description="Start of the window the compliance check evaluates.")
+    check_range_end_timestamp: datetime = Field(description="End of the window the compliance check evaluates.")
     policy_assignment_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["job_type", "scope_model_id", "policy_assignment_id"]
+    __properties: ClassVar[List[str]] = ["job_type", "scope_model_id", "check_range_start_timestamp", "check_range_end_timestamp", "policy_assignment_id"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -99,6 +102,8 @@ class CompliancePolicyCheckJobSpec(BaseModel):
         _obj = cls.model_validate({
             "job_type": obj.get("job_type") if obj.get("job_type") is not None else 'compliance_policy_check',
             "scope_model_id": obj.get("scope_model_id"),
+            "check_range_start_timestamp": obj.get("check_range_start_timestamp"),
+            "check_range_end_timestamp": obj.get("check_range_end_timestamp"),
             "policy_assignment_id": obj.get("policy_assignment_id")
         })
         return _obj

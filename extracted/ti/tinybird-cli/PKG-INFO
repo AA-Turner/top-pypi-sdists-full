@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 6.4.0
+Version: 6.4.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
@@ -12,7 +12,7 @@ Requires-Dist: clickhouse-toolset==0.34.dev0
 Requires-Dist: click<8.2,>=8.1.8
 Requires-Dist: colorama==0.4.6
 Requires-Dist: cryptography~=41.0.0
-Requires-Dist: croniter==1.3.15
+Requires-Dist: croniter==6.2.2
 Requires-Dist: GitPython~=3.1.32
 Requires-Dist: humanfriendly~=8.2
 Requires-Dist: pydantic~=2.8.0
@@ -42,6 +42,12 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+6.4.1
+***********
+
+- `Improved` feedback messages when suggesting other cli commands.
+- `Fixed` `tb push` rejecting the `%` operator in column DEFAULT/MATERIALIZED expressions, causing failures after `tb pull` on schemas using modulo arithmetic.
 
 6.4.0
 ***********

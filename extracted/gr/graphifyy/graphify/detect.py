@@ -18,7 +18,7 @@ class FileType(str, Enum):
 
 _MANIFEST_PATH = "graphify-out/manifest.json"
 
-CODE_EXTENSIONS = {'.py', '.ts', '.js', '.jsx', '.tsx', '.mjs', '.ejs', '.go', '.rs', '.java', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb', '.swift', '.kt', '.kts', '.cs', '.scala', '.php', '.lua', '.toc', '.zig', '.ps1', '.ex', '.exs', '.m', '.mm', '.jl', '.vue', '.svelte', '.dart', '.v', '.sv', '.sql', '.r', '.f', '.F', '.f90', '.F90', '.f95', '.F95', '.f03', '.F03', '.f08', '.F08'}
+CODE_EXTENSIONS = {'.py', '.ts', '.js', '.jsx', '.tsx', '.mjs', '.ejs', '.go', '.rs', '.java', '.groovy', '.gradle', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb', '.swift', '.kt', '.kts', '.cs', '.scala', '.php', '.lua', '.luau', '.toc', '.zig', '.ps1', '.ex', '.exs', '.m', '.mm', '.jl', '.vue', '.svelte', '.dart', '.v', '.sv', '.sql', '.r', '.f', '.F', '.f90', '.F90', '.f95', '.F95', '.f03', '.F03', '.f08', '.F08'}
 DOC_EXTENSIONS = {'.md', '.mdx', '.txt', '.rst', '.html', '.yaml', '.yml'}
 PAPER_EXTENSIONS = {'.pdf'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
@@ -771,7 +771,12 @@ def save_manifest(files: dict[str, list[str]], manifest_path: str = _MANIFEST_PA
     Path(manifest_path).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
-def detect_incremental(root: Path, manifest_path: str = _MANIFEST_PATH) -> dict:
+def detect_incremental(
+    root: Path,
+    manifest_path: str = _MANIFEST_PATH,
+    *,
+    follow_symlinks: bool = False,
+) -> dict:
     """Like detect(), but returns only new or modified files since the last run.
 
     Fast path: mtime unchanged → unchanged (free, no hash).
@@ -779,8 +784,13 @@ def detect_incremental(root: Path, manifest_path: str = _MANIFEST_PATH) -> dict:
     treat as unchanged. Different hash = actually changed, re-extract.
 
     Backwards compatible with legacy manifests storing plain float mtime values.
+
+    The ``follow_symlinks`` flag is forwarded to :func:`detect` so corpora that
+    rely on symlinked sub-trees (e.g. a ``state_of_truth/`` symlink pointing to a
+    directory outside the scan root) are scanned consistently between full and
+    incremental runs.
     """
-    full = detect(root)
+    full = detect(root, follow_symlinks=follow_symlinks)
     manifest = load_manifest(manifest_path)
 
     if not manifest:

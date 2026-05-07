@@ -36,6 +36,7 @@ from .assets_crowd_strike import AssetsCrowdStrike
 from .assets_crowd_strike_dataset import AssetsCrowdStrikeDataset
 from .assets_crowd_strike_mock import AssetsCrowdStrikeMock
 from .assets_defender import AssetsDefender
+from .assets_iru import AssetsIru
 from .assets_ivanti_neurons import AssetsIvantiNeurons
 from .assets_ivanti_neurons_dataset import AssetsIvantiNeuronsDataset
 from .assets_ivanti_neurons_mock import AssetsIvantiNeuronsMock
@@ -54,6 +55,11 @@ from .assets_sevco_mock import AssetsSevcoMock
 from .assets_tanium_cloud import AssetsTaniumCloud
 from .assets_tanium_cloud_dataset import AssetsTaniumCloudDataset
 from .assets_tanium_cloud_mock import AssetsTaniumCloudMock
+from .automox_api_key_credential import (
+    AutomoxApiKeyCredential,
+    AutomoxApiKeyCredential_Token,
+    AutomoxApiKeyCredential_TokenId,
+)
 from .autotask_api_integration_code_credential import (
     AutotaskApiIntegrationCodeCredential,
     AutotaskApiIntegrationCodeCredential_Secret,
@@ -178,6 +184,10 @@ from .elasticsearch_shared_secret import (
 )
 from .email_security_defender_for_office import EmailSecurityDefenderForOffice
 from .email_security_mimecast_cloud_gateway import EmailSecurityMimecastCloudGateway
+from .endpointmanagement_automox import EndpointmanagementAutomox
+from .endpointmanagement_intune import EndpointmanagementIntune
+from .endpointmanagement_iru import EndpointmanagementIru
+from .endpointmanagement_jamf import EndpointmanagementJamf
 from .entra_id_credential import (
     EntraIdCredential,
     EntraIdCredential_OAuthClient,
@@ -281,6 +291,11 @@ from .incident_io_credential import (
 )
 from .incident_response_incident_io import IncidentResponseIncidentIo
 from .incident_response_pager_duty import IncidentResponsePagerDuty
+from .intune_credential import (
+    IntuneCredential,
+    IntuneCredential_OAuthClient,
+    IntuneCredential_OAuthClientId,
+)
 from .iru_credential import IruCredential, IruCredential_Token, IruCredential_TokenId
 from .ivanti_credential import (
     IvantiCredential,
@@ -291,6 +306,11 @@ from .ivanti_credential_ticketing import (
     IvantiCredentialTicketing,
     IvantiCredentialTicketing_Token,
     IvantiCredentialTicketing_TokenId,
+)
+from .jamf_credential import (
+    JamfCredential,
+    JamfCredential_OAuthClient,
+    JamfCredential_OAuthClientId,
 )
 from .jira_credential import (
     JiraCredential,
@@ -394,6 +414,7 @@ from .provider_config import (
     ProviderConfig_AssetsCrowdstrike,
     ProviderConfig_AssetsCrowdstrikeMock,
     ProviderConfig_AssetsDefender,
+    ProviderConfig_AssetsIru,
     ProviderConfig_AssetsIvantiNeurons,
     ProviderConfig_AssetsIvantiNeuronsMock,
     ProviderConfig_AssetsNozomiVantage,
@@ -426,6 +447,10 @@ from .provider_config import (
     ProviderConfig_EdrTanium,
     ProviderConfig_EmailsecurityDefenderForOffice,
     ProviderConfig_EmailsecurityMimecastCloudGateway,
+    ProviderConfig_EndpointmanagementAutomox,
+    ProviderConfig_EndpointmanagementIntune,
+    ProviderConfig_EndpointmanagementIru,
+    ProviderConfig_EndpointmanagementJamf,
     ProviderConfig_IdentityEntraId,
     ProviderConfig_IdentityGoogle,
     ProviderConfig_IdentityOkta,
@@ -494,6 +519,7 @@ from .provider_config import (
     ProviderConfig_VulnerabilitiesCrowdstrikeMock,
     ProviderConfig_VulnerabilitiesDefender,
     ProviderConfig_VulnerabilitiesHorizon3,
+    ProviderConfig_VulnerabilitiesIru,
     ProviderConfig_VulnerabilitiesNucleus,
     ProviderConfig_VulnerabilitiesQualysCloud,
     ProviderConfig_VulnerabilitiesQualysCloudMock,
@@ -693,6 +719,7 @@ from .vulnerabilities_crowd_strike_dataset import VulnerabilitiesCrowdStrikeData
 from .vulnerabilities_crowd_strike_mock import VulnerabilitiesCrowdStrikeMock
 from .vulnerabilities_defender import VulnerabilitiesDefender
 from .vulnerabilities_horizon_3 import VulnerabilitiesHorizon3
+from .vulnerabilities_iru import VulnerabilitiesIru
 from .vulnerabilities_nucleus import VulnerabilitiesNucleus
 from .vulnerabilities_qualys_cloud import VulnerabilitiesQualysCloud
 from .vulnerabilities_qualys_cloud_dataset import VulnerabilitiesQualysCloudDataset
@@ -756,6 +783,7 @@ __all__ = [
     "AssetsCrowdStrikeDataset",
     "AssetsCrowdStrikeMock",
     "AssetsDefender",
+    "AssetsIru",
     "AssetsIvantiNeurons",
     "AssetsIvantiNeuronsDataset",
     "AssetsIvantiNeuronsMock",
@@ -774,6 +802,9 @@ __all__ = [
     "AssetsTaniumCloud",
     "AssetsTaniumCloudDataset",
     "AssetsTaniumCloudMock",
+    "AutomoxApiKeyCredential",
+    "AutomoxApiKeyCredential_Token",
+    "AutomoxApiKeyCredential_TokenId",
     "AutotaskApiIntegrationCodeCredential",
     "AutotaskApiIntegrationCodeCredential_Secret",
     "AutotaskApiIntegrationCodeCredential_SecretId",
@@ -864,6 +895,10 @@ __all__ = [
     "ElasticsearchSharedSecret_SecretId",
     "EmailSecurityDefenderForOffice",
     "EmailSecurityMimecastCloudGateway",
+    "EndpointmanagementAutomox",
+    "EndpointmanagementIntune",
+    "EndpointmanagementIru",
+    "EndpointmanagementJamf",
     "EntraIdCredential",
     "EntraIdCredential_OAuthClient",
     "EntraIdCredential_OAuthClientId",
@@ -935,6 +970,9 @@ __all__ = [
     "IncidentIoCredential_TokenId",
     "IncidentResponseIncidentIo",
     "IncidentResponsePagerDuty",
+    "IntuneCredential",
+    "IntuneCredential_OAuthClient",
+    "IntuneCredential_OAuthClientId",
     "IruCredential",
     "IruCredential_Token",
     "IruCredential_TokenId",
@@ -944,6 +982,9 @@ __all__ = [
     "IvantiCredentialTicketing_TokenId",
     "IvantiCredential_OAuthClient",
     "IvantiCredential_OAuthClientId",
+    "JamfCredential",
+    "JamfCredential_OAuthClient",
+    "JamfCredential_OAuthClientId",
     "JiraCredential",
     "JiraCredential_Basic",
     "JiraCredential_BasicId",
@@ -1018,6 +1059,7 @@ __all__ = [
     "ProviderConfig_AssetsCrowdstrike",
     "ProviderConfig_AssetsCrowdstrikeMock",
     "ProviderConfig_AssetsDefender",
+    "ProviderConfig_AssetsIru",
     "ProviderConfig_AssetsIvantiNeurons",
     "ProviderConfig_AssetsIvantiNeuronsMock",
     "ProviderConfig_AssetsNozomiVantage",
@@ -1050,6 +1092,10 @@ __all__ = [
     "ProviderConfig_EdrTanium",
     "ProviderConfig_EmailsecurityDefenderForOffice",
     "ProviderConfig_EmailsecurityMimecastCloudGateway",
+    "ProviderConfig_EndpointmanagementAutomox",
+    "ProviderConfig_EndpointmanagementIntune",
+    "ProviderConfig_EndpointmanagementIru",
+    "ProviderConfig_EndpointmanagementJamf",
     "ProviderConfig_IdentityEntraId",
     "ProviderConfig_IdentityGoogle",
     "ProviderConfig_IdentityOkta",
@@ -1118,6 +1164,7 @@ __all__ = [
     "ProviderConfig_VulnerabilitiesCrowdstrikeMock",
     "ProviderConfig_VulnerabilitiesDefender",
     "ProviderConfig_VulnerabilitiesHorizon3",
+    "ProviderConfig_VulnerabilitiesIru",
     "ProviderConfig_VulnerabilitiesNucleus",
     "ProviderConfig_VulnerabilitiesQualysCloud",
     "ProviderConfig_VulnerabilitiesQualysCloudMock",
@@ -1267,6 +1314,7 @@ __all__ = [
     "VulnerabilitiesCrowdStrikeMock",
     "VulnerabilitiesDefender",
     "VulnerabilitiesHorizon3",
+    "VulnerabilitiesIru",
     "VulnerabilitiesNucleus",
     "VulnerabilitiesQualysCloud",
     "VulnerabilitiesQualysCloudDataset",

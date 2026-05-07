@@ -1800,6 +1800,9 @@ class CfnCluster(
                 ),
                 current_count=123,
                 image_id="imageId",
+                instance_requirements=sagemaker.CfnCluster.InstanceRequirementsProperty(
+                    instance_types=["instanceTypes"]
+                ),
                 instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                     ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                         root_volume=False,
@@ -1838,6 +1841,9 @@ class CfnCluster(
                     source_s3_uri="sourceS3Uri"
                 ),
                 min_instance_count=123,
+                network_interface=sagemaker.CfnCluster.ClusterNetworkInterfaceProperty(
+                    interface_type="interfaceType"
+                ),
                 on_start_deep_health_checks=["onStartDeepHealthChecks"],
                 override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
                     security_group_ids=["securityGroupIds"],
@@ -2836,10 +2842,12 @@ class CfnCluster(
             "capacity_requirements": "capacityRequirements",
             "current_count": "currentCount",
             "image_id": "imageId",
+            "instance_requirements": "instanceRequirements",
             "instance_storage_configs": "instanceStorageConfigs",
             "kubernetes_config": "kubernetesConfig",
             "life_cycle_config": "lifeCycleConfig",
             "min_instance_count": "minInstanceCount",
+            "network_interface": "networkInterface",
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
             "scheduled_update_config": "scheduledUpdateConfig",
@@ -2859,10 +2867,12 @@ class CfnCluster(
             capacity_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterCapacityRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             current_count: typing.Optional[jsii.Number] = None,
             image_id: typing.Optional[builtins.str] = None,
+            instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instance_storage_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             kubernetes_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterKubernetesConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             life_cycle_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterLifeCycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             min_instance_count: typing.Optional[jsii.Number] = None,
+            network_interface: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterNetworkInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scheduled_update_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScheduledUpdateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2879,10 +2889,12 @@ class CfnCluster(
             :param capacity_requirements: Specifies the capacity requirements configuration for an instance group.
             :param current_count: The number of instances that are currently in the instance group of a SageMaker HyperPod cluster.
             :param image_id: AMI Id to be used for launching EC2 instances - HyperPodPublicAmiId or CustomAmiId.
+            :param instance_requirements: The instance requirements for the instance group. Specifies a list of instance types that can be used.
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
             :param kubernetes_config: Kubernetes configuration for cluster nodes including labels and taints.
             :param life_cycle_config: The lifecycle configuration for a SageMaker HyperPod cluster.
             :param min_instance_count: The minimum number of instances required for the instance group to be InService. MinInstanceCount must be less than or equal to InstanceCount.
+            :param network_interface: Specifies the network interface configuration for the instance group.
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
             :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
             :param scheduled_update_config: The configuration object of the schedule that SageMaker follows when updating the AMI.
@@ -2915,6 +2927,9 @@ class CfnCluster(
                     ),
                     current_count=123,
                     image_id="imageId",
+                    instance_requirements=sagemaker.CfnCluster.InstanceRequirementsProperty(
+                        instance_types=["instanceTypes"]
+                    ),
                     instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                         ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                             root_volume=False,
@@ -2953,6 +2968,9 @@ class CfnCluster(
                         source_s3_uri="sourceS3Uri"
                     ),
                     min_instance_count=123,
+                    network_interface=sagemaker.CfnCluster.ClusterNetworkInterfaceProperty(
+                        interface_type="interfaceType"
+                    ),
                     on_start_deep_health_checks=["onStartDeepHealthChecks"],
                     override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
                         security_group_ids=["securityGroupIds"],
@@ -3000,10 +3018,12 @@ class CfnCluster(
                 check_type(argname="argument capacity_requirements", value=capacity_requirements, expected_type=type_hints["capacity_requirements"])
                 check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
                 check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
+                check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
                 check_type(argname="argument kubernetes_config", value=kubernetes_config, expected_type=type_hints["kubernetes_config"])
                 check_type(argname="argument life_cycle_config", value=life_cycle_config, expected_type=type_hints["life_cycle_config"])
                 check_type(argname="argument min_instance_count", value=min_instance_count, expected_type=type_hints["min_instance_count"])
+                check_type(argname="argument network_interface", value=network_interface, expected_type=type_hints["network_interface"])
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
                 check_type(argname="argument scheduled_update_config", value=scheduled_update_config, expected_type=type_hints["scheduled_update_config"])
@@ -3022,6 +3042,8 @@ class CfnCluster(
                 self._values["current_count"] = current_count
             if image_id is not None:
                 self._values["image_id"] = image_id
+            if instance_requirements is not None:
+                self._values["instance_requirements"] = instance_requirements
             if instance_storage_configs is not None:
                 self._values["instance_storage_configs"] = instance_storage_configs
             if kubernetes_config is not None:
@@ -3030,6 +3052,8 @@ class CfnCluster(
                 self._values["life_cycle_config"] = life_cycle_config
             if min_instance_count is not None:
                 self._values["min_instance_count"] = min_instance_count
+            if network_interface is not None:
+                self._values["network_interface"] = network_interface
             if on_start_deep_health_checks is not None:
                 self._values["on_start_deep_health_checks"] = on_start_deep_health_checks
             if override_vpc_config is not None:
@@ -3113,6 +3137,19 @@ class CfnCluster(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def instance_requirements(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceRequirementsProperty"]]:
+            '''The instance requirements for the instance group.
+
+            Specifies a list of instance types that can be used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-instancerequirements
+            '''
+            result = self._values.get("instance_requirements")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.InstanceRequirementsProperty"]], result)
+
+        @builtins.property
         def instance_storage_configs(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterInstanceStorageConfigProperty"]]]]:
@@ -3155,6 +3192,17 @@ class CfnCluster(
             '''
             result = self._values.get("min_instance_count")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def network_interface(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkInterfaceProperty"]]:
+            '''Specifies the network interface configuration for the instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-networkinterface
+            '''
+            result = self._values.get("network_interface")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkInterfaceProperty"]], result)
 
         @builtins.property
         def on_start_deep_health_checks(
@@ -3613,6 +3661,58 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "ClusterLifeCycleConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterNetworkInterfaceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"interface_type": "interfaceType"},
+    )
+    class ClusterNetworkInterfaceProperty:
+        def __init__(self, *, interface_type: builtins.str) -> None:
+            '''Specifies the network interface configuration for the instance group.
+
+            :param interface_type: The type of network interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusternetworkinterface.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_network_interface_property = sagemaker.CfnCluster.ClusterNetworkInterfaceProperty(
+                    interface_type="interfaceType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__86057c4dddf19053e53571651a5f338ebadc543adc70cf832f5b40c30b353457)
+                check_type(argname="argument interface_type", value=interface_type, expected_type=type_hints["interface_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "interface_type": interface_type,
+            }
+
+        @builtins.property
+        def interface_type(self) -> builtins.str:
+            '''The type of network interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusternetworkinterface.html#cfn-sagemaker-cluster-clusternetworkinterface-interfacetype
+            '''
+            result = self._values.get("interface_type")
+            assert result is not None, "Required property 'interface_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterNetworkInterfaceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4302,6 +4402,60 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.InstanceRequirementsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"instance_types": "instanceTypes"},
+    )
+    class InstanceRequirementsProperty:
+        def __init__(self, *, instance_types: typing.Sequence[builtins.str]) -> None:
+            '''The instance requirements for the instance group.
+
+            Specifies a list of instance types that can be used.
+
+            :param instance_types: A list of instance types that can be used for this instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-instancerequirements.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                instance_requirements_property = sagemaker.CfnCluster.InstanceRequirementsProperty(
+                    instance_types=["instanceTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b2a14ec38ca1cfeebed0458b26d391e35b0bb1b2d362b077bab9563ea9e751a3)
+                check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_types": instance_types,
+            }
+
+        @builtins.property
+        def instance_types(self) -> typing.List[builtins.str]:
+            '''A list of instance types that can be used for this instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-instancerequirements.html#cfn-sagemaker-cluster-instancerequirements-instancetypes
+            '''
+            result = self._values.get("instance_types")
+            assert result is not None, "Required property 'instance_types' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InstanceRequirementsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.OrchestratorProperty",
         jsii_struct_bases=[],
         name_mapping={"eks": "eks", "slurm": "slurm"},
@@ -4800,6 +4954,9 @@ class CfnClusterProps:
                     ),
                     current_count=123,
                     image_id="imageId",
+                    instance_requirements=sagemaker.CfnCluster.InstanceRequirementsProperty(
+                        instance_types=["instanceTypes"]
+                    ),
                     instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                         ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                             root_volume=False,
@@ -4838,6 +4995,9 @@ class CfnClusterProps:
                         source_s3_uri="sourceS3Uri"
                     ),
                     min_instance_count=123,
+                    network_interface=sagemaker.CfnCluster.ClusterNetworkInterfaceProperty(
+                        interface_type="interfaceType"
+                    ),
                     on_start_deep_health_checks=["onStartDeepHealthChecks"],
                     override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
                         security_group_ids=["securityGroupIds"],
@@ -58246,10 +58406,12 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     capacity_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterCapacityRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     current_count: typing.Optional[jsii.Number] = None,
     image_id: typing.Optional[builtins.str] = None,
+    instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kubernetes_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterKubernetesConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     life_cycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterLifeCycleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_instance_count: typing.Optional[jsii.Number] = None,
+    network_interface: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterNetworkInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scheduled_update_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScheduledUpdateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -58291,6 +58453,13 @@ def _typecheckingstub__9feca01a5855cd661f26c8dbf78069a1fe8e659c3851cf6144113cdfc
     on_create: typing.Optional[builtins.str] = None,
     on_init_complete: typing.Optional[builtins.str] = None,
     source_s3_uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86057c4dddf19053e53571651a5f338ebadc543adc70cf832f5b40c30b353457(
+    *,
+    interface_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -58354,6 +58523,13 @@ def _typecheckingstub__899364a165a53139f902fa4a999dd968cdc29639285dacf831f16633b
     *,
     per_unit_storage_throughput: jsii.Number,
     size_in_gib: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2a14ec38ca1cfeebed0458b26d391e35b0bb1b2d362b077bab9563ea9e751a3(
+    *,
+    instance_types: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

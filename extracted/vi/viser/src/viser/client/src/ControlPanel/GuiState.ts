@@ -5,6 +5,7 @@ import { ColorTranslator } from "colortranslator";
 import {
   GuiComponentMessage,
   GuiModalMessage,
+  RegisterCommandMessage,
   ThemeConfigurationMessage,
 } from "../WebsocketMessages";
 
@@ -21,6 +22,9 @@ export interface GuiState {
   };
   modals: GuiModalMessage[];
   guiOrderFromUuid: { [id: string]: number };
+  /** Set of form UUIDs that currently have unsaved changes. Updated by
+   * GuiFormDirtyMessage (adds) and GuiFormSubmitMessage (removes). */
+  dirtyFormUuids: { [uuid: string]: true | undefined };
   uploadsInProgress: {
     [uuid: string]: {
       notificationId: string;
@@ -29,6 +33,8 @@ export interface GuiState {
       filename: string;
     };
   };
+  /** Registered command palette actions, keyed by UUID. */
+  commands: { [uuid: string]: RegisterCommandMessage };
 }
 
 export interface GuiActions {
@@ -46,6 +52,11 @@ export interface GuiActions {
       | GuiState["uploadsInProgress"][string]
     ) & { componentId: string },
   ) => void;
+  setFormDirty: (uuid: string) => void;
+  clearFormDirty: (uuid: string) => void;
+  addCommand: (command: RegisterCommandMessage) => void;
+  updateCommand: (uuid: string, updates: { [key: string]: any }) => void;
+  removeCommand: (uuid: string) => void;
 }
 
 const searchParams = new URLSearchParams(window.location.search);
@@ -70,7 +81,9 @@ const cleanGuiState: GuiState = {
   guiUuidSetFromContainerUuid: { root: {} },
   modals: [],
   guiOrderFromUuid: {},
+  dirtyFormUuids: {},
   uploadsInProgress: {},
+  commands: {},
 };
 
 export function computeRelativeLuminance(color: string) {
@@ -180,6 +193,8 @@ export function useGuiState(initialServer: string) {
         }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [id]: _2, ...remainingOrders } = store.get().guiOrderFromUuid;
+        const dirtyFormUuids = { ...store.get().dirtyFormUuids };
+        delete dirtyFormUuids[id];
         const containerUuid = guiConfig.container_uuid;
         const containerSet = {
           ...store.get().guiUuidSetFromContainerUuid[containerUuid],
@@ -195,6 +210,7 @@ export function useGuiState(initialServer: string) {
         }
         store.set({
           guiOrderFromUuid: remainingOrders,
+          dirtyFormUuids,
           guiUuidSetFromContainerUuid: newContainerMap,
         });
         configStore.set({ [id]: undefined });
@@ -208,7 +224,9 @@ export function useGuiState(initialServer: string) {
             cleanGuiState.guiUuidSetFromContainerUuid,
           modals: cleanGuiState.modals,
           guiOrderFromUuid: cleanGuiState.guiOrderFromUuid,
+          dirtyFormUuids: cleanGuiState.dirtyFormUuids,
           uploadsInProgress: cleanGuiState.uploadsInProgress,
+          commands: cleanGuiState.commands,
         });
         configStore.setAll({}, true);
       },
@@ -223,6 +241,55 @@ export function useGuiState(initialServer: string) {
               ...rest,
             },
           },
+        });
+      },
+      setFormDirty: (uuid) => {
+        store.set((state) => ({
+          dirtyFormUuids: { ...state.dirtyFormUuids, [uuid]: true },
+        }));
+      },
+      clearFormDirty: (uuid) => {
+        store.set((state) => {
+          const next = { ...state.dirtyFormUuids };
+          delete next[uuid];
+          return { dirtyFormUuids: next };
+        });
+      },
+      addCommand: (command) => {
+        store.set((state) => {
+          // Skip if an identical command is already registered (e.g. server
+          // reconnect replaying RegisterCommandMessage for every existing
+          // command). Prevents churning the whole subscriber set.
+          if (Object.is(state.commands[command.uuid], command)) return state;
+          return { commands: { ...state.commands, [command.uuid]: command } };
+        });
+      },
+      updateCommand: (uuid, updates) => {
+        store.set((state) => {
+          const existing = state.commands[uuid];
+          if (existing === undefined) return state;
+          const existingProps = existing.props as Record<string, unknown>;
+          let changed = false;
+          for (const [k, v] of Object.entries(updates)) {
+            if (!Object.is(existingProps[k], v)) {
+              changed = true;
+              break;
+            }
+          }
+          if (!changed) return state;
+          const merged: RegisterCommandMessage = {
+            ...existing,
+            props: { ...existing.props, ...updates },
+          };
+          return { commands: { ...state.commands, [uuid]: merged } };
+        });
+      },
+      removeCommand: (uuid) => {
+        store.set((state) => {
+          if (!(uuid in state.commands)) return state;
+          const next = { ...state.commands };
+          delete next[uuid];
+          return { commands: next };
         });
       },
       updateGuiProps: (id, updates) => {

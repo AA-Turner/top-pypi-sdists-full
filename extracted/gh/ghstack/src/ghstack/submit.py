@@ -90,6 +90,7 @@ class PreBranchState:
 
 # Ya, sometimes we get carriage returns.  Crazy right?
 RE_STACK = re.compile(r"Stack.*:\r?\n(\* [^\r\n]+\r?\n)+")
+RE_STACK_PR_NUMBER = re.compile(r"#(\d+)")
 
 
 # NB: This regex is fuzzy because the D1234567 identifier is typically
@@ -487,18 +488,20 @@ class Submitter:
                 d = ghstack.git.convert_header(h, self.github_url)
                 if d.pull_request_resolved is not None:
                     ed = self.elaborate_diff(d)
-                    pre_branch_state_index[h.commit_id] = PreBranchState(
-                        head_commit_id=GitCommitHash(
-                            self.sh.git(
-                                "rev-parse", f"{self.remote_name}/{ed.head_ref}"
-                            )
-                        ),
-                        base_commit_id=GitCommitHash(
-                            self.sh.git(
-                                "rev-parse", f"{self.remote_name}/{ed.base_ref}"
-                            )
-                        ),
-                    )
+                    # Skip closed PRs (e.g., after landing) where branches have been deleted
+                    if not ed.closed:
+                        pre_branch_state_index[h.commit_id] = PreBranchState(
+                            head_commit_id=GitCommitHash(
+                                self.sh.git(
+                                    "rev-parse", f"{self.remote_name}/{ed.head_ref}"
+                                )
+                            ),
+                            base_commit_id=GitCommitHash(
+                                self.sh.git(
+                                    "rev-parse", f"{self.remote_name}/{ed.base_ref}"
+                                )
+                            ),
+                        )
 
         # NB: deduplicates
         commit_index = {
@@ -516,7 +519,12 @@ class Submitter:
             for h in commits_to_submit
             if h.commit_id in diff_meta_index
         ]
-        self.push_updates(diffs_to_submit)
+        all_diffs_in_topo_order = [
+            diff_meta_index[h.commit_id]
+            for h in commits_to_rebase
+            if h.commit_id in diff_meta_index
+        ]
+        self.push_updates(diffs_to_submit, all_diffs=all_diffs_in_topo_order)
         if new_head := rebase_index.get(
             old_head := GitCommitHash(self.sh.git("rev-parse", "HEAD"))
         ):
@@ -870,21 +878,24 @@ to disassociate the commit with the pull request, and then try again.
                 "--header",
                 self.remote_name + "/" + branch_orig(username, gh_number),
             )
-        except RuntimeError as e:
+        except RuntimeError:
             if r["closed"]:
-                raise RuntimeError(
-                    f"Cannot ghstack a stack with closed PR #{number} whose branch was deleted.  "
-                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
-                    "Otherwise, you may have been trying to update a PR that was already closed. "
-                    "To disassociate your update from the old PR and open a new PR, "
-                    "run `ghstack unlink`, `git rebase` and then try again."
-                ) from e
-            raise
-        remote_summary = ghstack.git.split_header(rev_list)[0]
-        m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
-        remote_source_id = m_remote_source_id.group(1) if m_remote_source_id else None
-        m_comment_id = RE_GHSTACK_COMMENT_ID.search(remote_summary.commit_msg)
-        comment_id = int(m_comment_id.group(1)) if m_comment_id else None
+                # If the PR is closed and the branch is deleted (e.g., after landing),
+                # we can't get the remote source ID. Return None for it, which will
+                # signal to process_commit that this commit has been landed and should
+                # be skipped (not updated).
+                remote_source_id = None
+                comment_id = None
+            else:
+                raise
+        else:
+            remote_summary = ghstack.git.split_header(rev_list)[0]
+            m_remote_source_id = RE_GHSTACK_SOURCE_ID.search(remote_summary.commit_msg)
+            remote_source_id = (
+                m_remote_source_id.group(1) if m_remote_source_id else None
+            )
+            m_comment_id = RE_GHSTACK_COMMENT_ID.search(remote_summary.commit_msg)
+            comment_id = int(m_comment_id.group(1)) if m_comment_id else None
 
         return DiffWithGitHubMetadata(
             diff=diff,
@@ -917,6 +928,48 @@ to disassociate the commit with the pull request, and then try again.
         if elab_diff is not None and elab_diff.closed:
             if self.direct:
                 self._raise_needs_rebase()
+            # If we're trying to submit a closed commit, check if it has been modified
+            if elab_diff.remote_source_id is None:
+                # The branch was deleted (e.g., after landing). Check if the commit has been
+                # modified by comparing source_ids. If the commit is reachable from master with
+                # the same source_id (tree hash), it means it was landed and we should skip it.
+                # Otherwise, it's been modified and we should raise an error.
+                try:
+                    # Check if there's a commit on master with the same tree (source_id)
+                    master_commits = self.sh.git(
+                        "log",
+                        "--format=%H %T",
+                        f"{self.remote_name}/{self.base}",
+                        "-n",
+                        "100",  # Check last 100 commits
+                    )
+                    for line in master_commits.split("\n"):
+                        if not line.strip():
+                            continue
+                        commit_hash, tree_hash = line.split()
+                        if tree_hash == diff.source_id:
+                            # Found a commit on master with the same tree, so this commit
+                            # was landed (just with a different commit message/hash)
+                            return None
+                except Exception:
+                    pass
+                # Didn't find a matching commit on master, so this is a modified closed commit
+                raise RuntimeError(
+                    f"Cannot ghstack a stack with closed PR #{elab_diff.number} whose branch was deleted.  "
+                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
+                    "Otherwise, you may have been trying to update a PR that was already closed. "
+                    "To disassociate your update from the old PR and open a new PR, "
+                    "run `ghstack unlink`, `git rebase` and then try again."
+                )
+            elif diff.source_id != elab_diff.remote_source_id:
+                # The commit has been modified locally
+                raise RuntimeError(
+                    f"Cannot ghstack a stack with closed PR #{elab_diff.number} whose branch was deleted.  "
+                    "If you were just trying to update a later PR in the stack, `git rebase` and try again.  "
+                    "Otherwise, you may have been trying to update a PR that was already closed. "
+                    "To disassociate your update from the old PR and open a new PR, "
+                    "run `ghstack unlink`, `git rebase` and then try again."
+                )
             return None
 
         # Edge case: check if the commit is empty; if so skip submitting
@@ -1491,7 +1544,11 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         )
 
     def push_updates(
-        self, diffs_to_submit: List[DiffMeta], *, import_help: bool = True
+        self,
+        diffs_to_submit: List[DiffMeta],
+        *,
+        all_diffs: Optional[List[DiffMeta]] = None,
+        import_help: bool = True,
     ) -> None:
         # update pull request information, update bases as necessary
         #   preferably do this in one network call
@@ -1524,6 +1581,46 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
         if force_push_branches:
             self._git_push(force_push_branches, force=True)
 
+        # Discover orphan PR numbers from the old stack listing.
+        # We search the full local stack for old stack text, then
+        # collect open PRs that aren't being submitted — both above
+        # and below the submitted ones.  Closed PRs are filtered out.
+        submitted_numbers = {s.number for s in diffs_to_submit}
+        orphan_above: List[GitHubNumber] = []
+        orphan_below: List[GitHubNumber] = []
+        for s in all_diffs or diffs_to_submit:
+            old_stack_text: Optional[str] = None
+            if self.direct and s.elab_diff.comment_id is not None:
+                r = self.github.get(
+                    f"repos/{self.repo_owner}/{self.repo_name}/issues/comments/{s.elab_diff.comment_id}",
+                )
+                old_stack_text = r.get("body")
+            else:
+                m = RE_STACK.search(s.body)
+                if m:
+                    old_stack_text = m.group(0)
+            if old_stack_text:
+                old_pr_numbers = [
+                    GitHubNumber(int(n))
+                    for n in RE_STACK_PR_NUMBER.findall(old_stack_text)
+                ]
+                if not old_pr_numbers:
+                    continue
+                seen_submitted = False
+                for num in old_pr_numbers:
+                    if num in submitted_numbers:
+                        seen_submitted = True
+                        continue
+                    pr_info = self.github.get(
+                        f"repos/{self.repo_owner}/{self.repo_name}/pulls/{num}",
+                    )
+                    if pr_info.get("state") == "open":
+                        if seen_submitted:
+                            orphan_below.append(num)
+                        else:
+                            orphan_above.append(num)
+                break
+
         for s in reversed(diffs_to_submit):
             # NB: GraphQL API does not support modifying PRs
             assert not s.closed
@@ -1541,7 +1638,9 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
                 base_kwargs["base"] = s.base
             else:
                 assert s.base == s.elab_diff.base_ref
-            stack_desc = self._format_stack(diffs_to_submit, s.number)
+            stack_desc = self._format_stack(
+                diffs_to_submit, s.number, orphan_above, orphan_below
+            )
             self.github.patch(
                 "repos/{owner}/{repo}/pulls/{number}".format(
                     owner=self.repo_owner, repo=self.repo_name, number=s.number
@@ -1761,14 +1860,24 @@ is closed (likely due to being merged).  Please rebase to upstream and try again
     # - want "as complete" a tree as possible; this may involve
     #   poking around the xrefs to find out all the other PRs
     #   involved in the stack
-    def _format_stack(self, diffs_to_submit: List[DiffMeta], number: int) -> str:
+    def _format_stack(
+        self,
+        diffs_to_submit: List[DiffMeta],
+        number: int,
+        orphan_above: Sequence[GitHubNumber] = (),
+        orphan_below: Sequence[GitHubNumber] = (),
+    ) -> str:
         rows = []
+        for n in orphan_above:
+            rows.append(f"* #{n}")
         # NB: top is top of stack, opposite of update order
         for s in diffs_to_submit:
             if s.number == number:
                 rows.append(f"* __->__ #{s.number}")
             else:
                 rows.append(f"* #{s.number}")
+        for n in orphan_below:
+            rows.append(f"* #{n}")
         return self.stack_header + ":\n" + "\n".join(rows) + "\n"
 
     def _default_title_and_body(

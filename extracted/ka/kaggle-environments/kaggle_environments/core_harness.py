@@ -224,6 +224,7 @@ def _setup_model() -> tuple[str, dict[str, Any]]:
         litellm_kwargs = {
             "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
             "api_key": os.environ["MODEL_PROXY_KEY"],
+            "reasoning_effort": "high",
         }
     elif "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
         model_name = f"gemini/{model_name}"
@@ -273,6 +274,8 @@ def create_agent_fn(
             )
             setup_done = True
 
+        save_prompt = bool(config.get("savePrompt", False)) if config else False
+
         observation = obs if isinstance(obs, dict) else vars(obs)
 
         # -- inactive-call guard --
@@ -285,9 +288,14 @@ def create_agent_fn(
         if is_terminal:
             _TELEMETRY(inactive_call="terminal")
             return {"submission": None, "status": "INACTIVE"}
+        # Simultaneous-move games report ``currentPlayer == -2``
+        # (pyspiel.PlayerId.SIMULTANEOUS): every player_id is "current" until
+        # the round resolves, so skip the not-our-turn check in that case.
+        SIMULTANEOUS_PLAYER_ID = -2
         if (
             player_id is not None
             and current_player is not None
+            and current_player != SIMULTANEOUS_PLAYER_ID
             and player_id != current_player
         ):
             _TELEMETRY(inactive_call="not_our_turn")
@@ -354,12 +362,15 @@ def create_agent_fn(
                         "legal_action": result.legal_action,
                     },
                 )
-                return {
+                action: dict[str, Any] = {
                     "submission": legal_actions[idx],
                     "actionString": result.legal_action,
                     "thoughts": last_content,
                     "status": "OK",
                 }
+                if save_prompt:
+                    action["prompt"] = prompt
+                return action
 
             # -- parse failed → prepare rethink --
             _TELEMETRY(

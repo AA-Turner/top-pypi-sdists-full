@@ -1,6 +1,6 @@
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
-  set(DOXYGEN_PROJECT_NUMBER 5.0.4)
+  set(DOXYGEN_PROJECT_NUMBER 5.1.0)
   set(DOXYGEN_EXAMPLE_PATH ${CMAKE_SOURCE_DIR}/examples)
   set(DOXYGEN_SORT_MEMBER_DOCS NO)
   set(DOXYGEN_USE_MATHJAX YES)
@@ -21,8 +21,7 @@ install(FILES
   pocketsphinx.1
   pocketsphinx_batch.1
   pocketsphinx_mdef_convert.1
-  sphinx_lm_convert.1
-  sphinx_lm_eval.1
-  sphinx_lm_sort.1
-  sphinx_pitch.1
+  pocketsphinx_lm_convert.1
+  pocketsphinx_lm_eval.1
+  pocketsphinx_pitch.1
   DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)

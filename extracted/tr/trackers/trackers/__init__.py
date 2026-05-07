@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 from trackers.annotators.trace import MotionAwareTraceAnnotator
+from trackers.core.botsort.tracker import BoTSORTTracker
 from trackers.core.bytetrack.tracker import ByteTrackTracker
 from trackers.core.ocsort.tracker import OCSORTTracker
 from trackers.core.sort.tracker import SORTTracker
 from trackers.datasets.download import download_dataset
 from trackers.datasets.manifest import Dataset, DatasetAsset, DatasetSplit
+from trackers.io.mot import load_mot_file
 from trackers.io.video import frames_from_source
 from trackers.motion.estimator import MotionEstimator
 from trackers.motion.transformation import (
@@ -22,6 +24,7 @@ from trackers.motion.transformation import (
 from trackers.utils.converters import xcycsr_to_xyxy, xyxy_to_xcycsr
 
 __all__ = [
+    "BoTSORTTracker",
     "ByteTrackTracker",
     "CoordinatesTransformation",
     "Dataset",
@@ -35,6 +38,7 @@ __all__ = [
     "SORTTracker",
     "download_dataset",
     "frames_from_source",
+    "load_mot_file",
     "xcycsr_to_xyxy",
     "xyxy_to_xcycsr",
 ]

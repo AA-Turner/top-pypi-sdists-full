@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from .._internal import profile_section
 from ..abc import Manager
 
 from ._context import ContextManager
@@ -209,6 +210,7 @@ class EventManager(Manager):
         )
     
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.event.update")
     def update(self, dt: float) -> None:
         """Actualisation"""
         pass
@@ -240,6 +242,7 @@ class _EventSlot:
         self.subscribe(callback, priority)
         return callback
 
+    @profile_section("manager.event.subscribe")
     def subscribe(self, callback: Callable, priority: int = 0) -> None:
         """Abonne un callback"""
         sub = _Subscription(callback, priority)
@@ -249,6 +252,7 @@ class _EventSlot:
                 return
         self._subs.append(sub)
 
+    @profile_section("manager.event.unsubscribe")
     def unsubscribe(self, callback: Callable) -> None:
         """Désabonne un callback"""
         for s in self._subs:
@@ -256,6 +260,7 @@ class _EventSlot:
                 self._subs.remove(s)
                 return
 
+    @profile_section("manager.event.emit")
     def emit(self, *args, **kwargs) -> None:
         """Déclenche l'event"""
         for sub in self._subs:

@@ -26157,6 +26157,7 @@ class RestApiBase(
     @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
     def _resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''A policy document that contains the resource policy for this RestApi.'''
         return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "resourcePolicy"))
 
     @_resource_policy.setter

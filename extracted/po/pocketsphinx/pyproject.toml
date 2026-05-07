@@ -1,13 +1,13 @@
 [build-system]
 requires = [
-     	 "scikit-build-core",
-	 "Cython"
+    "scikit-build-core>=0.10",
+    "Cython"
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pocketsphinx"
-version = "5.0.4"
+version = "5.1.0"
 description = "Official Python bindings for PocketSphinx"
 readme = "cython/README.md"
 authors = [
@@ -20,7 +20,6 @@ classifiers = [
     "Programming Language :: C",
     "Programming Language :: Cython",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -39,15 +38,14 @@ Issues = "https://github.com/cmusphinx/pocketsphinx/issues"
 
 [project.scripts]
 pocketsphinx_lm = "pocketsphinx.lm:main"
+pocketsphinx_to_textgrid = "pocketsphinx.to_textgrid:main"
 
 [tool.cibuildwheel]
+# Build PyPy
+enable = [ "pypy" ]
 # Build a reduced selection of binaries as there are tons of them
 build = [
-      "pp310*",
-      "cp38-*",
-      "cp310-*",
       "cp311-*",
-      "cp312-*",
       "cp313-*",
 ]
 # Build only universal wheels for Mac where possible, and skip 32-bit
@@ -70,6 +68,47 @@ extend-ignore = "E203"
 max-line-length = "88"
 
 [tool.scikit-build]
-cmake.verbose = true
+minimum-version = "build-system.requires"
+build.verbose = true
 logging.level = "INFO"
 wheel.packages = ["cython/pocketsphinx"]
+
+# boilerplate from the bump-my-version docs!
+[tool.bumpversion]
+parse = """(?x)
+    (?P<major>0|[1-9]\\d*)\\.
+    (?P<minor>0|[1-9]\\d*)\\.
+    (?P<patch>0|[1-9]\\d*)
+    (?:
+        (?P<pre_l>[a-zA-Z-]+)         # pre-release label
+        (?P<pre_n>0|[1-9]\\d*)        # pre-release version number
+    )?                                # pre-release section is optional
+"""
+serialize = [
+    "{major}.{minor}.{patch}{pre_l}{pre_n}",
+    "{major}.{minor}.{patch}",
+]
+
+[[tool.bumpversion.files]]
+filename = "CMakeLists.txt"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "cython/README.md"
+
+[[tool.bumpversion.files]]
+filename = "docs/source/conf.py"
+
+[[tool.bumpversion.files]]
+filename = "doxygen/CMakeLists.txt"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+
+[[tool.bumpversion.files]]
+filename = "include/pocketsphinx.h"
+
+[tool.bumpversion.parts.pre_l]
+values = ["rc", "final"]
+optional_value = "final"

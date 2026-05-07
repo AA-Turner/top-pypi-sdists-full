@@ -169,6 +169,27 @@ class PermissionUpdate:
 
         return result
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "PermissionUpdate":
+        """Construct a PermissionUpdate from the control protocol dict format (inverse of to_dict)."""
+        rules = None
+        if data.get("rules") is not None:
+            rules = [
+                PermissionRuleValue(
+                    tool_name=r["toolName"],
+                    rule_content=r.get("ruleContent"),
+                )
+                for r in data["rules"]
+            ]
+        return cls(
+            type=data["type"],
+            rules=rules,
+            behavior=data.get("behavior"),
+            mode=data.get("mode"),
+            directories=data.get("directories"),
+            destination=data.get("destination"),
+        )
+
 
 # Tool callback types
 @dataclass
@@ -1137,6 +1158,10 @@ class ResultMessage:
     permission_denials: list[Any] | None = None
     deferred_tool_use: DeferredToolUse | None = None
     errors: list[str] | None = None
+    # HTTP status code (e.g. 429, 500, 529) of the failing API call when
+    # ``is_error`` is True and ``subtype`` is "success"; None otherwise.
+    # Emitted by the CLI since v2.1.110. Safe to log (no message content).
+    api_error_status: int | None = None
     uuid: str | None = None
 
 

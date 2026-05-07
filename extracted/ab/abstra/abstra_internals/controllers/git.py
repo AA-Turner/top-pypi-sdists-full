@@ -329,41 +329,60 @@ class GitController:
         success, error_message = self.git_repository.push_and_deploy(branch)
 
         if not success and error_message:
-            large_file_error_indicators = [
+            # These indicators signal that the push was rejected or interrupted
+            # below the application layer (transport error, server-side body
+            # rejection, mid-stream disconnect). They DO NOT prove the cause is
+            # large files: a flaky network or a server 5xx unrelated to size
+            # produces the same stderr.
+            transport_error_indicators = [
                 "curl 18",
                 "curl 22",
                 "HTTP 413",
+                "HTTP 500",
                 "transfer closed with outstanding read data remaining",
                 "unexpected disconnect while reading sideband packet",
                 "the remote end hung up unexpectedly",
                 "RPC failed",
             ]
 
-            is_large_file_error = any(
+            is_transport_error = any(
                 indicator.lower() in error_message.lower()
-                for indicator in large_file_error_indicators
+                for indicator in transport_error_indicators
             )
 
-            if is_large_file_error:
+            if is_transport_error:
                 large_files_info = self.check_large_files()
                 if large_files_info["hasLargeFiles"]:
-                    large_file_error_message = "Push failed: your project contains files that are too large to upload. Please add them to .gitignore and try again."
-                    DeployMessages.error(large_file_error_message)
+                    # Working tree has files over the per-file threshold; we
+                    # can confidently point at them.
+                    user_message = "Push failed: your project contains files that are too large to upload. Please add them to .gitignore and try again."
+                    DeployMessages.error(user_message)
                     return {
                         "success": False,
-                        "message": large_file_error_message,
+                        "message": user_message,
                         "errorType": "large_files_push",
                         "largeFiles": large_files_info.get("largeFiles", []),
+                        "details": error_message,
                     }
-                else:
-                    large_file_error_message = "Push failed: your project likely contains files that are too large to upload. This can happen when large files were already committed. Please remove them and try again."
-                    DeployMessages.error(large_file_error_message)
-                    return {
-                        "success": False,
-                        "message": large_file_error_message,
-                        "errorType": "large_files_push",
-                        "largeFiles": [],
-                    }
+                # No large files found in the working tree. The cause could be
+                # an oversized blob in history, cumulative pack size, or a
+                # transport-level failure (proxy, VPN, server 5xx). Be honest
+                # about the uncertainty and surface the raw git stderr.
+                user_message = (
+                    "Push failed: the server rejected or interrupted the upload. "
+                    "This can happen when the project contains large files in its history, "
+                    "or when the network drops the connection mid-upload. "
+                    "See the raw error below for more detail. "
+                    "If the problem persists, please contact us through the in-app Smart Chat."
+                )
+                DeployMessages.error(user_message)
+                return {
+                    "success": False,
+                    "message": user_message,
+                    "errorType": "push_transport_error",
+                    "largeFiles": [],
+                    "details": error_message,
+                }
 
         if success:
             project_id = self._get_project_id()

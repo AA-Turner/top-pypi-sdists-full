@@ -9,10 +9,12 @@ from __future__ import annotations
 import inspect
 import re
 import types
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, ClassVar, Union, get_args, get_origin
+from typing import Any, ClassVar, Protocol, Union, get_args, get_origin
 
+import numpy as np
 import supervision as sv
 
 
@@ -59,7 +61,7 @@ def _parse_docstring_arguments(docstring: str) -> dict[str, str]:
 
     Returns:
         Mapping of parameter names to their description strings.
-        Empty dict if no Args section found.
+        Empty dict if no Args section is found in the docstring.
     """
     if not docstring:
         return {}
@@ -133,7 +135,9 @@ def _normalize_type(annotation: Any, default: Any) -> Any:
             annotation is Any or cannot be resolved.
 
     Returns:
-        Simplified type (e.g., int, str, list) or Any if unresolvable.
+        Simplified type (e.g., int, str, list) suitable for argparse type
+        conversion, or Any if the annotation cannot be resolved to a concrete
+        type.
     """
     origin = get_origin(annotation)
     args = get_args(annotation)
@@ -172,8 +176,8 @@ def _extract_params_from_init(cls: type) -> dict[str, ParameterInfo]:
         cls: Class whose __init__ to analyze.
 
     Returns:
-        Mapping of parameter names to ParameterInfo objects.
-        Excludes 'self' parameter.
+        Mapping of parameter names to ParameterInfo objects, excluding
+        the ``self`` parameter.
     """
     sig = inspect.signature(cls.__init__)  # type: ignore[misc]
 
@@ -216,23 +220,132 @@ def _extract_params_from_init(cls: type) -> dict[str, ParameterInfo]:
     return params
 
 
+_VALID_SPACE_TYPES: frozenset[str] = frozenset({"randint", "uniform", "choice"})
+
+
+def _validate_search_space_entry(
+    cls_name: str, key: str, spec: Any, init_params: set[str]
+) -> None:
+    if key not in init_params:
+        raise ValueError(
+            f"{cls_name}: search_space key {key!r} is not a "
+            f"parameter of __init__. "
+            f"Valid parameters: {sorted(init_params)}"
+        )
+    if not isinstance(spec, dict):
+        raise ValueError(
+            f"{cls_name}: search_space[{key!r}] must be a dict, "
+            f"got {type(spec).__name__!r}"
+        )
+    if "type" not in spec:
+        raise ValueError(
+            f"{cls_name}: search_space[{key!r}] missing required "
+            f"key 'type'. Valid types: {sorted(_VALID_SPACE_TYPES)}"
+        )
+    if spec["type"] not in _VALID_SPACE_TYPES:
+        raise ValueError(
+            f"{cls_name}: search_space[{key!r}]['type'] = "
+            f"{spec['type']!r} is not valid. "
+            f"Valid types: {sorted(_VALID_SPACE_TYPES)}"
+        )
+    space_type = spec["type"]
+    if space_type == "choice":
+        if "options" not in spec:
+            raise ValueError(
+                f"{cls_name}: search_space[{key!r}] with type 'choice' "
+                f"missing required key 'options'"
+            )
+        opts = spec["options"]
+        if isinstance(opts, (str, bytes)):
+            raise ValueError(
+                f"{cls_name}: search_space[{key!r}]['options'] must be "
+                f"a sequence of choices, not {type(opts).__name__!r}"
+            )
+        try:
+            n_opts = len(opts)
+        except TypeError as exc:
+            raise ValueError(
+                f"{cls_name}: search_space[{key!r}]['options'] must be "
+                f"a sized sequence, got {type(opts).__name__!r}"
+            ) from exc
+        if n_opts < 1:
+            raise ValueError(
+                f"{cls_name}: search_space[{key!r}]['options'] must be "
+                f"non-empty, got {opts!r}"
+            )
+        return
+
+    if "range" not in spec:
+        raise ValueError(
+            f"{cls_name}: search_space[{key!r}] missing required key 'range'"
+        )
+    rng = spec["range"]
+    if not (hasattr(rng, "__len__") and len(rng) == 2):
+        raise ValueError(
+            f"{cls_name}: search_space[{key!r}]['range'] must be "
+            f"a 2-element sequence, got {rng!r}"
+        )
+    if rng[0] >= rng[1]:
+        raise ValueError(
+            f"{cls_name}: search_space[{key!r}]['range'] must "
+            f"have low < high, got {rng!r}"
+        )
+
+
+class TrackletProtocol(Protocol):
+    """Contract every tracklet in ``BaseTracker.tracks`` must satisfy."""
+
+    tracker_id: int
+
+    def get_state_bbox(self) -> np.ndarray: ...
+
+
 class BaseTracker(ABC):
     """Abstract tracker with auto-registration via tracker_id class variable.
 
     Subclasses that define `tracker_id` are automatically registered and
     become discoverable. Parameter metadata is extracted from __init__ for
     CLI integration.
+
+    Attributes:
+        tracker_id: Unique identifier for the tracker. Subclasses must define
+            this to be registered.
+        search_space: Hyperparameter search space for tuning. Each key must
+            match an `__init__` parameter. Values are dicts with `type`
+            ``"randint"`` or ``"uniform"`` and ``range`` ``[low, high]``, or
+            `type` ``"choice"`` and ``options`` (non-empty sequence of
+            categorical values for Optuna).
+        tracks: List of alive tracklets after each `update()`. Each element
+            must satisfy `TrackletProtocol` (exposes `.tracker_id: int` and
+            `.get_state_bbox() -> np.ndarray`). Subclasses must initialise
+            this as an empty list in `__init__`. Override `tracked_objects`
+            if using a different internal container.
     """
 
     _registry: ClassVar[dict[str, TrackerInfo]] = {}
     tracker_id: ClassVar[str | None] = None
+    search_space: ClassVar[dict[str, dict] | None] = None
+    # list[Any]: elements satisfy TrackletProtocol; list is invariant so
+    # list[ConcreteTracklet] in subclasses rejects list[TrackletProtocol] base.
+    tracks: list[Any]
+    maximum_frames_without_update: int
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Register subclass in the tracker registry if it defines tracker_id.
 
         Extracts parameter metadata from __init__ at class definition time.
+        Validates search_space (if present) against __init__ parameters.
         """
         super().__init_subclass__(**kwargs)
+
+        # Validate search_space keys match __init__ parameters (search_space optional)
+        search_space = getattr(cls, "search_space", None)
+        if search_space is not None and len(search_space) > 0:
+            init_params = {
+                n for n in inspect.signature(cls.__init__).parameters if n != "self"
+            }
+            for key, spec in search_space.items():
+                _validate_search_space_entry(cls.__name__, key, spec, init_params)
 
         tracker_id = getattr(cls, "tracker_id", None)
         if tracker_id is not None:
@@ -251,8 +364,8 @@ class BaseTracker(ABC):
             name: Tracker identifier (e.g., "bytetrack", "sort").
 
         Returns:
-            TrackerInfo containing class and parameters if found,
-            None otherwise.
+            TrackerInfo containing the tracker class and its parameter
+            metadata, or None if no tracker is registered under that name.
         """
         return cls._registry.get(name)
 
@@ -263,12 +376,34 @@ class BaseTracker(ABC):
         Internal method used by CLI for help text and argument validation.
 
         Returns:
-            Alphabetically sorted list of tracker identifiers.
+            Alphabetically sorted list of registered tracker identifiers
+            (e.g., ``["bytetrack", "ocsort", "sort"]``).
         """
         return sorted(cls._registry.keys())
 
+    def _warn_if_frame_unused(self, frame: np.ndarray | None) -> None:
+        """Emit a UserWarning when a frame is passed to a tracker that ignores it.
+
+        Subclasses that do not perform camera motion compensation should call this
+        at the top of their ``update()`` implementation.
+
+        Args:
+            frame: Value passed to ``update(frame=...)``.
+        """
+        if frame is not None:
+            warnings.warn(
+                f"{type(self).__name__}.update() received a frame argument"
+                " but does not use it.",
+                UserWarning,
+                stacklevel=3,
+            )
+
     @abstractmethod
-    def update(self, detections: sv.Detections) -> sv.Detections:
+    def update(
+        self,
+        detections: sv.Detections,
+        frame: np.ndarray | None = None,
+    ) -> sv.Detections:
         """Process new detections and assign track IDs.
 
         Matches incoming detections to existing tracks, creates new tracks
@@ -276,9 +411,12 @@ class BaseTracker(ABC):
 
         Args:
             detections: Current frame detections with xyxy, confidence, class_id.
+            frame: Current video frame in BGR format (H, W, 3), or ``None``.
+                Used by trackers with camera motion compensation (e.g. BoTSORT).
 
         Returns:
-            Same detections enriched with tracker_id attribute for each box.
+            sv.Detections enriched with tracker_id assigned for each
+            detection box.
         """
         pass
 
@@ -289,3 +427,46 @@ class BaseTracker(ABC):
         Call between videos or when tracking should restart from scratch.
         """
         pass
+
+    @property
+    def tracked_objects(self) -> sv.Detections:
+        """All confirmed alive tracks with Kalman-predicted bounding boxes.
+
+        Exposes every confirmed track (tracker_id != -1) that the tracker
+        still considers alive after the most recent `update()` call, including
+        tracks not matched to a detection on the current frame (e.g.
+        temporarily occluded or missed by the detector). Tracks are dropped
+        once the time since the last matching detection exceeds
+        `lost_track_buffer` (scaled by `frame_rate`).
+
+        Unlike the `update()` return value, the result omits `confidence` and
+        `class_id` (both remain `None`). Kalman-predicted boxes have no
+        associated detection score or class label.
+
+        Note:
+            `sv.LabelAnnotator` and other supervision annotators that read
+            `class_id` or `confidence` cannot be used directly on this result
+            and will raise `TypeError`. Guard with
+            ``if detections.class_id is not None`` before annotating.
+
+        Returns:
+            sv.Detections with Kalman-predicted xyxy and tracker_id for each
+            confirmed alive track. Returns an empty sv.Detections (with an
+            empty int tracker_id array) when no confirmed tracks are alive.
+            The exact set depends on each tracker's pruning logic.
+
+        Raises:
+            AttributeError: If a `BaseTracker` subclass does not initialise
+                `self.tracks` as a list of objects satisfying
+                `TrackletProtocol` in `__init__`.
+        """
+        tracklets = [t for t in self.tracks if t.tracker_id != -1]
+        xyxy = (
+            np.array([t.get_state_bbox() for t in tracklets], dtype=np.float32)
+            if tracklets
+            else np.empty((0, 4), dtype=np.float32)
+        )
+        tracker_ids = np.array([t.tracker_id for t in tracklets], dtype=int)
+        result = sv.Detections(xyxy=xyxy)
+        result.tracker_id = tracker_ids
+        return result

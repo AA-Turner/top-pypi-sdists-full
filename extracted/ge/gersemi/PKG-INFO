@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gersemi
-Version: 0.27.3
+Version: 0.27.4
 Summary: A formatter to make your CMake code the real treasure
 Author-email: Blank Spruce <blankspruce@protonmail.com>
 License: MPL-2.0
@@ -197,7 +197,7 @@ You can use gersemi with a pre-commit hook by adding the following to `.pre-comm
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi-pre-commit
-  rev: 0.27.3
+  rev: 0.27.4
   hooks:
   - id: gersemi
 ```
@@ -213,7 +213,7 @@ If you want to use extensions with pre-commit list them with [`additional_depend
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi-pre-commit
-  rev: 0.27.3
+  rev: 0.27.4
   hooks:
   - id: gersemi
     additional_dependencies:

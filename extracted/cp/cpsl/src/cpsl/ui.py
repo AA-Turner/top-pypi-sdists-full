@@ -110,20 +110,45 @@ class Column(_Widget):
 
 
 class Card(_Widget):
+    """Section container with a title row and stacked rows.
+
+    By default renders **borderless** — the section sits directly on the
+    page, with hairlines between rows for clean list-view separation.
+    Pass ``bordered=True`` to wrap the section in a bordered card with
+    background fill and rounded corners.
+
+    Args:
+        title: Section heading rendered above the body.
+        icon: Optional Lucide icon name (kebab-case, e.g. ``"database"``)
+            shown next to the title.
+        children: Widgets stacked inside the card body.
+        bordered: When ``True``, renders traditional card chrome
+            (border + bg + radius). Default ``False``.
+    """
+
     _type = "card"
 
     def __init__(
         self,
         title: str | None = None,
         children: list[_Widget] | None = None,
+        *,
+        icon: str | None = None,
+        bordered: bool = False,
     ) -> None:
         self.title = title
+        self.icon = icon
+        self.bordered = bordered
         self.children = children or []
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"type": self._type}
         if self.title is not None:
             d["title"] = self.title
+        if self.icon is not None:
+            d["icon"] = self.icon
+        if self.bordered:
+            d["bordered"] = True
         if self.children:
             d["children"] = [c.to_dict() for c in self.children]
         return d
@@ -189,6 +214,7 @@ class Table(_Widget):
         data: Named data source (alternative to ``collection``).
         rows: Inline list of ``{"col": value}`` dicts.
         columns: Column names to display (and their order).
+        scope: Scope for dynamic collection metadata when ``collection`` is a string.
         sortable: Enable column sorting in the UI.
         filterable: Show a filter bar above the table.
         paginate: Rows per page (``0`` disables pagination).
@@ -203,6 +229,7 @@ class Table(_Widget):
         data: str | None = None,
         rows: list[dict[str, Any]] | None = None,
         columns: list[str | ColumnDef] | None = None,
+        scope: Literal["app", "user", "owner", "session"] | None = None,
         sortable: bool = False,
         filterable: bool = False,
         paginate: int = 0,
@@ -212,6 +239,7 @@ class Table(_Widget):
         if isinstance(collection, _Ref):
             decl = collection._decl
             self.collection = collection.name
+            scope = scope or decl.scope
             if columns is None and decl.columns:
                 self._typed_columns = list(decl.columns)
                 columns = [c.key for c in decl.columns]
@@ -232,6 +260,7 @@ class Table(_Widget):
         self.data = data
         self.rows = rows
         self.columns = columns
+        self.scope = scope
         self.sortable = sortable
         self.filterable = filterable
         self.paginate = paginate
@@ -249,9 +278,11 @@ class Table(_Widget):
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"type": self._type}
         if self.collection is not None:
-            has_overrides = self.columns or self.sortable or self.filterable or self.paginate
+            has_overrides = self.columns or self.scope or self.sortable or self.filterable or self.paginate
             if has_overrides:
                 d["collection"] = self.collection
+                if self.scope:
+                    d["scope"] = self.scope
                 if self.columns:
                     d["columns"] = self._serialize_columns()
                 if self.sortable:

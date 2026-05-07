@@ -127,7 +127,7 @@ async def cli(
             click.echo(FeedbackManager.warning_development_cli())
 
         if "x.y.z" not in CURRENT_VERSION and latest_version != CURRENT_VERSION:
-            click.echo(FeedbackManager.warning_update_version(latest_version=latest_version))
+            click.echo(FeedbackManager.warning_update_version(latest_version=latest_version, cli="tb"))
             click.echo(FeedbackManager.warning_current_version(current_version=CURRENT_VERSION))
 
     if debug:
@@ -237,7 +237,7 @@ async def init(
     )
 
     if current_ws.get("is_branch"):
-        raise CLIException(FeedbackManager.error_not_allowed_in_branch())
+        raise CLIException(FeedbackManager.error_not_allowed_in_branch(cli="tb"))
 
     await folder_init(client, folder, generate_datasources, generate_releases=True, force=force)
 
@@ -255,7 +255,7 @@ async def init(
 
     if sync_git:
         if not cli_git_release.is_main_branch() and not override_commit:
-            raise CLIGitReleaseException(FeedbackManager.error_no_git_main_branch())
+            raise CLIGitReleaseException(FeedbackManager.error_no_git_main_branch(cli="tb"))
 
         if not cli_git_release.is_dottinyb_ignored():
             raise CLIGitReleaseException(
@@ -316,7 +316,7 @@ async def init(
 
         else:
             click.echo(FeedbackManager.info_no_git_release_yet(workspace=current_ws["name"]))
-            click.echo(FeedbackManager.info_diff_resources_for_git_init())
+            click.echo(FeedbackManager.info_diff_resources_for_git_init(cli="tb"))
             changed = await diff_command(
                 [], True, client, with_print=False, verbose=False, clean_up=True, progress_bar=True
             )
@@ -342,7 +342,7 @@ async def init(
             if cli_git_release.is_dirty_to_init():
                 raise CLIGitReleaseException(
                     FeedbackManager.error_commit_changes_to_init_release(
-                        path=cli_git_release.path, git_output=cli_git_release.status()
+                        path=cli_git_release.path, git_output=cli_git_release.status(), cli="tb"
                     )
                 )
             try:
@@ -732,19 +732,19 @@ async def diff(
         for workspace in response["workspaces"]:
             if config["id"] == workspace["id"]:
                 if not workspace.get("is_branch"):
-                    raise CLIException(FeedbackManager.error_not_a_branch())
+                    raise CLIException(FeedbackManager.error_not_a_branch(cli="tb"))
 
                 origin = workspace["main"]
                 workspace = await get_current_main_workspace(config)
 
                 if not workspace:
-                    raise CLIException(FeedbackManager.error_workspace(workspace=origin))
+                    raise CLIException(FeedbackManager.error_workspace(workspace=origin, cli="tb"))
 
                 ws_client = _get_tb_client(workspace["token"], config["host"])
                 break
 
         if not ws_client:
-            raise CLIException(FeedbackManager.error_workspace(workspace=origin))
+            raise CLIException(FeedbackManager.error_workspace(workspace=origin, cli="tb"))
         changed = await diff_command(
             list(filename) if filename else None, fmt, ws_client, no_color, with_print=not only_resources_changed
         )
@@ -1347,7 +1347,7 @@ async def deploy(
             current_semver = release.get("semver")
 
         if not current_semver:
-            click.echo(FeedbackManager.error_init_release(workspace=current_ws.get("name")))
+            click.echo(FeedbackManager.error_init_release(workspace=current_ws.get("name"), cli="tb"))
             sys.exit(1)
 
         release_created = False
@@ -1358,7 +1358,7 @@ async def deploy(
         if not semver:
             semver = current_semver
         else:
-            click.echo(FeedbackManager.warning_deprecated_releases())
+            click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
 
         if semver and current_semver:
             new_version = version.parse(semver.split("-snapshot")[0])

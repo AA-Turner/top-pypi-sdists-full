@@ -8187,6 +8187,56 @@ class CfnDistribution(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.CacheTagConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"header_name": "headerName"},
+    )
+    class CacheTagConfigProperty:
+        def __init__(self, *, header_name: builtins.str) -> None:
+            '''
+            :param header_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-cachetagconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                cache_tag_config_property = cloudfront.CfnDistribution.CacheTagConfigProperty(
+                    header_name="headerName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8aa772562a146d57dc765fcc1f436a81e43c9ed56ce266f9a0f1f974d3290ded)
+                check_type(argname="argument header_name", value=header_name, expected_type=type_hints["header_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "header_name": header_name,
+            }
+
+        @builtins.property
+        def header_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-cachetagconfig.html#cfn-cloudfront-distribution-cachetagconfig-headername
+            '''
+            result = self._values.get("header_name")
+            assert result is not None, "Required property 'header_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CacheTagConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.ConnectionFunctionAssociationProperty",
         jsii_struct_bases=[],
         name_mapping={"id": "id"},
@@ -9300,6 +9350,7 @@ class CfnDistribution(
             "aliases": "aliases",
             "anycast_ip_list_id": "anycastIpListId",
             "cache_behaviors": "cacheBehaviors",
+            "cache_tag_config": "cacheTagConfig",
             "cnam_es": "cnamEs",
             "comment": "comment",
             "connection_function_association": "connectionFunctionAssociation",
@@ -9332,6 +9383,7 @@ class CfnDistribution(
             aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
             anycast_ip_list_id: typing.Optional[builtins.str] = None,
             cache_behaviors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDistribution.CacheBehaviorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            cache_tag_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDistribution.CacheTagConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             cnam_es: typing.Optional[typing.Sequence[builtins.str]] = None,
             comment: typing.Optional[builtins.str] = None,
             connection_function_association: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDistribution.ConnectionFunctionAssociationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9361,6 +9413,7 @@ class CfnDistribution(
             :param aliases: .. epigraph:: This field only supports standard distributions. You can't specify this field for multi-tenant distributions. For more information, see `Unsupported features for SaaS Manager for Amazon CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-config-options.html#unsupported-saas>`_ in the *Amazon CloudFront Developer Guide* . A complex type that contains information about CNAMEs (alternate domain names), if any, for this distribution.
             :param anycast_ip_list_id: .. epigraph:: To use this field for a multi-tenant distribution, use a connection group instead. For more information, see `ConnectionGroup <https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ConnectionGroup.html>`_ . ID of the Anycast static IP list that is associated with the distribution.
             :param cache_behaviors: A complex type that contains zero or more ``CacheBehavior`` elements.
+            :param cache_tag_config: 
             :param cnam_es: An alias for the CloudFront distribution's domain name. .. epigraph:: This property is legacy. We recommend that you use `Aliases <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-aliases>`_ instead.
             :param comment: A comment to describe the distribution. The comment cannot be longer than 128 characters. Default: - ""
             :param connection_function_association: The distribution's connection function association.
@@ -9477,6 +9530,7 @@ class CfnDistribution(
                 check_type(argname="argument aliases", value=aliases, expected_type=type_hints["aliases"])
                 check_type(argname="argument anycast_ip_list_id", value=anycast_ip_list_id, expected_type=type_hints["anycast_ip_list_id"])
                 check_type(argname="argument cache_behaviors", value=cache_behaviors, expected_type=type_hints["cache_behaviors"])
+                check_type(argname="argument cache_tag_config", value=cache_tag_config, expected_type=type_hints["cache_tag_config"])
                 check_type(argname="argument cnam_es", value=cnam_es, expected_type=type_hints["cnam_es"])
                 check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
                 check_type(argname="argument connection_function_association", value=connection_function_association, expected_type=type_hints["connection_function_association"])
@@ -9508,6 +9562,8 @@ class CfnDistribution(
                 self._values["anycast_ip_list_id"] = anycast_ip_list_id
             if cache_behaviors is not None:
                 self._values["cache_behaviors"] = cache_behaviors
+            if cache_tag_config is not None:
+                self._values["cache_tag_config"] = cache_tag_config
             if cnam_es is not None:
                 self._values["cnam_es"] = cnam_es
             if comment is not None:
@@ -9615,6 +9671,16 @@ class CfnDistribution(
             '''
             result = self._values.get("cache_behaviors")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDistribution.CacheBehaviorProperty"]]]], result)
+
+        @builtins.property
+        def cache_tag_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDistribution.CacheTagConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-cachetagconfig
+            '''
+            result = self._values.get("cache_tag_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDistribution.CacheTagConfigProperty"]], result)
 
         @builtins.property
         def cnam_es(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12788,6 +12854,9 @@ class CfnDistributionProps:
                         trusted_key_groups=["trustedKeyGroups"],
                         trusted_signers=["trustedSigners"]
                     )],
+                    cache_tag_config=cloudfront.CfnDistribution.CacheTagConfigProperty(
+                        header_name="headerName"
+                    ),
                     cnam_es=["cnamEs"],
                     comment="comment",
                     connection_function_association=cloudfront.CfnDistribution.ConnectionFunctionAssociationProperty(
@@ -33664,6 +33733,13 @@ def _typecheckingstub__40fab044003cdf2432d623590b2a89d0545d13047f180f029d22adc95
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8aa772562a146d57dc765fcc1f436a81e43c9ed56ce266f9a0f1f974d3290ded(
+    *,
+    header_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__367579c3716b840c803cd1a2af6e9e817c060b94dc7e54a5e50b25a109669795(
     *,
     id: builtins.str,
@@ -33743,6 +33819,7 @@ def _typecheckingstub__924aa31797d5562075c15043a82632c8afbc217d476fdf805d7efea10
     aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
     anycast_ip_list_id: typing.Optional[builtins.str] = None,
     cache_behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.CacheBehaviorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cache_tag_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.CacheTagConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cnam_es: typing.Optional[typing.Sequence[builtins.str]] = None,
     comment: typing.Optional[builtins.str] = None,
     connection_function_association: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.ConnectionFunctionAssociationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

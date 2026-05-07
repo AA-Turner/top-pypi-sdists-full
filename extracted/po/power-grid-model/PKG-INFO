@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: power-grid-model
-Version: 1.13.70
+Version: 1.13.71
 Summary: Python/C++ library for distribution power system analysis
 Author-Email: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 License-Expression: MPL-2.0
@@ -14,7 +14,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Topic :: Scientific/Engineering :: Physics
-Project-URL: Home-page, https://lfenergy.org/projects/power-grid-model/
+Project-URL: Homepage, https://lfenergy.org/projects/power-grid-model/
 Project-URL: GitHub, https://github.com/PowerGridModel/power-grid-model
 Project-URL: Documentation, https://power-grid-model.readthedocs.io/en/stable/
 Project-URL: Mailing-list, https://lists.lfenergy.org/g/powergridmodel

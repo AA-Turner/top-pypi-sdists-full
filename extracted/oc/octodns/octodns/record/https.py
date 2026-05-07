@@ -4,14 +4,28 @@
 #
 
 from .base import Record, ValuesMixin
-from .svcb import SvcbValue
+from .svcb import (
+    SvcbValueBestPracticeValidator,
+    SvcbValueValidator,
+    _SvcbValueBase,
+)
 
 
-class HttpsValue(SvcbValue):
-    pass
+class HttpsValue(_SvcbValueBase):
+    VALIDATORS = [
+        SvcbValueValidator('https-value-rfc', sets={'legacy', 'strict'}),
+        SvcbValueBestPracticeValidator(
+            'https-value-best-practice', sets={'best-practice'}
+        ),
+    ]
 
 
 class HttpsRecord(ValuesMixin, Record):
+    REFERENCES = (
+        'https://datatracker.ietf.org/doc/html/rfc9460',
+        'https://datatracker.ietf.org/doc/html/rfc9461',
+        'https://datatracker.ietf.org/doc/html/rfc9462',
+    )
     _type = 'HTTPS'
     _value_type = HttpsValue
 

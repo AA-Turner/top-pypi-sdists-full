@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 WorkspacesInstances 1.43.4\n"
-        "Version:         1.43.4\n"
+        "Type annotations for boto3 WorkspacesInstances 1.43.5\n"
+        "Version:         1.43.5\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/boto3_stubs_docs/mypy_boto3_workspaces_instances//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces-instances.html#workspacesinstances\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.43.4\n")
+    sys.stdout.write("1.43.5\n")
 
 
 def main() -> None:

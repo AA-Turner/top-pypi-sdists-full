@@ -40,7 +40,6 @@ class SearchableSnapshotsClient(NamespacedClient):
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -50,10 +49,9 @@ class SearchableSnapshotsClient(NamespacedClient):
           <p>Get statistics about the shared cache for partially mounted indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-searchable-snapshots-cache-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-searchable-snapshots-cache-stats>`_
 
         :param node_id: The names of the nodes in the cluster to target.
-        :param master_timeout:
         """
         __path_parts: t.Dict[str, str]
         if node_id not in SKIP_IN_PATH:
@@ -69,8 +67,6 @@ class SearchableSnapshotsClient(NamespacedClient):
             __query["filter_path"] = filter_path
         if human is not None:
             __query["human"] = human
-        if master_timeout is not None:
-            __query["master_timeout"] = master_timeout
         if pretty is not None:
             __query["pretty"] = pretty
         __headers = {"accept": "application/json"}
@@ -111,17 +107,22 @@ class SearchableSnapshotsClient(NamespacedClient):
           <p>Clear indices and data streams from the shared cache for partially mounted indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-searchable-snapshots-clear-cache>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-searchable-snapshots-clear-cache>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             clear from the cache. It supports wildcards (`*`).
-        :param allow_no_indices: Whether to ignore if a wildcard indices expression resolves
-            into no concrete indices. (This includes `_all` string or when no indices
-            have been specified)
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Whether to expand wildcard expression to concrete indices
             that are open, closed or both
-        :param ignore_unavailable: Whether specified concrete indices should be ignored
-            when unavailable (missing or closed)
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH:
@@ -177,7 +178,9 @@ class SearchableSnapshotsClient(NamespacedClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
         renamed_index: t.Optional[str] = None,
-        storage: t.Optional[str] = None,
+        storage: t.Optional[
+            t.Union[str, t.Literal["full_copy", "shared_cache"]]
+        ] = None,
         wait_for_completion: t.Optional[bool] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -190,7 +193,7 @@ class SearchableSnapshotsClient(NamespacedClient):
           Manually mounting ILM-managed snapshots can interfere with ILM processes.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-searchable-snapshots-mount>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-searchable-snapshots-mount>`_
 
         :param repository: The name of the repository containing the snapshot of the
             index to mount.
@@ -206,7 +209,8 @@ class SearchableSnapshotsClient(NamespacedClient):
             node is not available before the timeout expires, the request fails and returns
             an error. To indicate that the request should never timeout, set it to `-1`.
         :param renamed_index: The name of the index that will be created.
-        :param storage: The mount option for the searchable snapshot index.
+        :param storage: The mount option for the searchable snapshot index. For further
+            information on mount options, refer to: [Mount options](https://www.elastic.co/docs/deploy-manage/tools/snapshot-and-restore/searchable-snapshots#searchable-snapshot-mount-storage-options)
         :param wait_for_completion: If true, the request blocks until the operation is
             complete.
         """
@@ -278,7 +282,7 @@ class SearchableSnapshotsClient(NamespacedClient):
           <p>Get searchable snapshot statistics.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-searchable-snapshots-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-searchable-snapshots-stats>`_
 
         :param index: A comma-separated list of data streams and indices to retrieve
             statistics for.

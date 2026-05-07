@@ -51,6 +51,7 @@ __all__ = (
     "AnalyticsUtteranceSortByNameType",
     "AssistedNluModeType",
     "AssociatedTranscriptFilterNameType",
+    "AudioFillerTypeType",
     "AudioRecognitionStrategyType",
     "BedrockTraceStatusType",
     "BotAliasAvailableWaiterName",
@@ -221,6 +222,15 @@ AnalyticsUtteranceMetricNameType = Literal["Count", "Detected", "Missed", "Utter
 AnalyticsUtteranceSortByNameType = Literal["UtteranceTimestamp"]
 AssistedNluModeType = Literal["Fallback", "Primary"]
 AssociatedTranscriptFilterNameType = Literal["IntentId", "SlotTypeId"]
+AudioFillerTypeType = Literal[
+    "MELODY_CHIPPER_CHIME",
+    "MELODY_CURIOUS_CRAWL",
+    "MELODY_PATIENT_PING",
+    "MELODY_PONDERING_PONG",
+    "MELODY_RISING_RIPPLE",
+    "TYPING_KINETIC_KEYS",
+    "TYPING_QUIET_QWERTY",
+]
 AudioRecognitionStrategyType = Literal["UseSlotValuesAsCustomVocabulary"]
 BedrockTraceStatusType = Literal["DISABLED", "ENABLED"]
 BotAliasAvailableWaiterName = Literal["bot_alias_available"]

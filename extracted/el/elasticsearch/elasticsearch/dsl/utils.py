@@ -230,14 +230,25 @@ class AttrDict(Generic[_ValT]):
         del self._d_[self.RESERVED.get(key, key)]
 
     def __setattr__(self, name: str, value: _ValT) -> None:
-        # the __orig__class__ attribute has to be treated as an exception, as
-        # is it added to an object when it is instantiated with type arguments
+        # Here we need to decide if this is a real setattr, or if this value is
+        # a dictionary set using setattr syntax. This is trciky as naming
+        # collisions are possible.
+        #
+        # We interpret this as a dictionary set if:
+        # - the dictionary already has the key in it, or
+        # - the given key is not a class property, or
+        # - the given key is a property, but it has no setter
+        # We make an exception for "__orig_class__", which is reserved for
+        # Python use.
         if (
-            name in self._d_ or not hasattr(self.__class__, name)
+            name in self._d_
+            or not hasattr(self.__class__, name)
+            or not hasattr(getattr(self.__class__, name), "fset")
         ) and name != "__orig_class__":
+            # set in the dictionary
             self._d_[self.RESERVED.get(name, name)] = value
         else:
-            # there is an attribute on the class (could be property, ..) - don't add it as field
+            # set as an attribute
             super().__setattr__(name, value)
 
     def __iter__(self) -> Iterator[str]:
@@ -554,6 +565,13 @@ class ObjectBase(AttrDict[Any]):
             return None
 
     @classmethod
+    def __get_renamed_field(cls, name: str) -> Optional[Tuple[str, "Field"]]:
+        for k, v, _ in cls.__list_fields():
+            if hasattr(v, "_es_name") and v._es_name == name:
+                return k, v
+        return None
+
+    @classmethod
     def from_es(cls, hit: Union[Dict[str, Any], "ObjectApiResponse[Any]"]) -> Self:
         meta = hit.copy()
         data = meta.pop("_source", {})
@@ -564,8 +582,14 @@ class ObjectBase(AttrDict[Any]):
     def _from_dict(self, data: Dict[str, Any]) -> None:
         for k, v in data.items():
             f = self.__get_field(k)
+            if f is None:
+                r = self.__get_renamed_field(k)
+                if r:
+                    k, f = r
             if f and f._coerce:
                 v = f.deserialize(v)
+                if hasattr(f, "_es_name") and f._es_name == k:
+                    f = f
             setattr(self, k, v)
 
     def __getstate__(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:  # type: ignore[override]
@@ -601,6 +625,9 @@ class ObjectBase(AttrDict[Any]):
         for k, v in self._d_.items():
             # if this is a mapped field,
             f = self.__get_field(k)
+            name = k
+            if f is not None and hasattr(f, "_es_name") and f._es_name:
+                name = f._es_name
             if f and f._coerce:
                 v = f.serialize(v, skip_empty=skip_empty)
 
@@ -623,7 +650,7 @@ class ObjectBase(AttrDict[Any]):
                     except TypeError:
                         pass
 
-            out[k] = v
+            out[name] = v
         return out
 
     def clean_fields(self, validate: bool = True) -> None:

@@ -167,7 +167,7 @@ pub struct CheckArgs {
     #[arg(
         long,
         value_enum,
-        help = "Markdown flavor to use: standard (also accepts gfm/github/commonmark), mkdocs, mdx, pandoc, quarto, obsidian, or kramdown"
+        help = "Markdown flavor to use: standard (also accepts gfm/github/commonmark), mkdocs, mdx, pandoc, quarto, obsidian, kramdown, or azure_devops (also accepts azure/ado)"
     )]
     pub flavor: Option<Flavor>,
 
@@ -257,7 +257,7 @@ pub struct FmtArgs {
     #[arg(
         long,
         value_enum,
-        help = "Markdown flavor to use while formatting: standard (also accepts gfm/github/commonmark), mkdocs, mdx, pandoc, quarto, obsidian, or kramdown"
+        help = "Markdown flavor to use while formatting: standard (also accepts gfm/github/commonmark), mkdocs, mdx, pandoc, quarto, obsidian, kramdown, or azure_devops (also accepts azure/ado)"
     )]
     pub flavor: Option<Flavor>,
 
@@ -413,6 +413,8 @@ pub enum Flavor {
     Obsidian,
     #[value(alias("jekyll"))]
     Kramdown,
+    #[value(name = "azure_devops", aliases(["azure", "ado"]))]
+    AzureDevOps,
 }
 
 impl From<Flavor> for rumdl_lib::config::MarkdownFlavor {
@@ -425,6 +427,7 @@ impl From<Flavor> for rumdl_lib::config::MarkdownFlavor {
             Flavor::Quarto => Self::Quarto,
             Flavor::Obsidian => Self::Obsidian,
             Flavor::Kramdown => Self::Kramdown,
+            Flavor::AzureDevOps => Self::AzureDevOps,
         }
     }
 }

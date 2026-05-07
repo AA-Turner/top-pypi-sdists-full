@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uncalled-for
-Version: 0.3.1
+Version: 0.3.2
 Summary: Async dependency injection for Python functions
 Project-URL: Repository, https://github.com/chrisguidry/uncalled-for
 Project-URL: Bug Tracker, https://github.com/chrisguidry/uncalled-for/issues

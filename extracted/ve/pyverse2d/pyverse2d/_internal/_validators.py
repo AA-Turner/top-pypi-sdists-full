@@ -1,9 +1,11 @@
 # ======================================== IMPORTS ========================================
+from ._profiler import profile_section
+
 from types import UnionType
 from typing import Tuple, get_args, get_origin, Union, Literal, Type
 from numbers import Real
 
-# ======================================== TYPE CHECK ========================================
+# ======================================== UTILITARIES ========================================
 def typename(t: type):
     """
     Renvoie le str du type
@@ -13,7 +15,8 @@ def typename(t: type):
     """
     return getattr(t, "__name__", str(t))
 
-
+# ======================================== TYPE CHECK ========================================
+@profile_section("_internal.type_check")
 def expect(value: object, types: type | Tuple[type, ...]):
     """
     Vérifie la valeur contre un type supporté :
@@ -145,6 +148,7 @@ def expect(value: object, types: type | Tuple[type, ...]):
 
     raise TypeError(f"unsupported type annotation: {types!r}")
 
+@profile_section("_internal.type_check")
 def expect_callable(value: object, include_none: bool = False, arg: str = "Argument") -> object:
     """Vérifie que l'objet soit appelable
 
@@ -159,6 +163,7 @@ def expect_callable(value: object, include_none: bool = False, arg: str = "Argum
         return value
     raise TypeError(f"{arg} ({value}) must be a callable{' or None' if include_none else ''}")
 
+@profile_section("_internal.type_check")
 def expect_subclass(value: object, superclass: Type, arg: str = "Argument") -> object:
     """Vérifie que l'objet soit une sous classe
 
@@ -172,6 +177,7 @@ def expect_subclass(value: object, superclass: Type, arg: str = "Argument") -> o
     return value
     
 # ======================================== VALUE CHECK ========================================
+@profile_section("_internal.value_check")
 def not_null(value: object, arg: str = "Argument"):
     """
     Vérifie que la valeur ne soit pas nulle
@@ -205,6 +211,7 @@ def not_null(value: object, arg: str = "Argument"):
     # Objet custom
     return value
 
+@profile_section("_internal.value_check")
 def not_in(value: object, forbidden: object | tuple[object], arg: str = "Argument"):
     """
     Vérifie que la valeur ne soit pas parmi les valeurs interdites
@@ -221,6 +228,7 @@ def not_in(value: object, forbidden: object | tuple[object], arg: str = "Argumen
     return value
 
 # ======================================== NUMBER CHECK ========================================
+@profile_section("_internal.number_check")
 def positive(value: Real, arg: str = "Argument"):
     """Vérifie que la valeur soit positive
 
@@ -231,7 +239,8 @@ def positive(value: Real, arg: str = "Argument"):
     if value < 0:
         raise ValueError(f"{arg} cannot be negative")
     return value
-    
+
+@profile_section("_internal.number_check")
 def over(value: Real, threshold: Real, include: bool = True, arg: str = "Argument"):
     """Vérifie que la valeur soit supérieure à un seuil
 
@@ -244,6 +253,7 @@ def over(value: Real, threshold: Real, include: bool = True, arg: str = "Argumen
         raise ValueError(f"{arg} must be over {threshold}")
     return value
 
+@profile_section("_internal.number_check")
 def under(value: Real, threshold: Real, include: bool = True, arg: str = "Argument"):
     """Vérifie que la valeur soit inférieure à un seuil
 
@@ -256,6 +266,7 @@ def under(value: Real, threshold: Real, include: bool = True, arg: str = "Argume
         raise ValueError(f"{arg} must be under {threshold}")
     return value
 
+@profile_section("_internal.number_check")
 def clamped(value: Real, min: Real = 0.0, max: Real = 1.0, include_min: bool = True, include_max: bool = True, arg: str = "Argument"):
     """Vérifie que la valeur soit comprise entre min et max
 
@@ -269,6 +280,7 @@ def clamped(value: Real, min: Real = 0.0, max: Real = 1.0, include_min: bool = T
         raise ValueError(f"{arg} must be between {min} {'included' if include_min else 'excluded'} and {max} {'included' if include_max else 'excluded'}")
     return value
 
+@profile_section("_internal.number_check")
 def inferior_to(value: Real, threshold: Real, include: bool = True, arg: str = "Argument"):
     """Vérifie que la valeur soit inférieure à un seuil
 
@@ -282,7 +294,7 @@ def inferior_to(value: Real, threshold: Real, include: bool = True, arg: str = "
         raise ValueError(f"{arg} must be inferior to {threshold}")
     return value
 
-
+@profile_section("_internal.number_check")
 def superior_to(value: Real, threshold: Real, include: bool = True, arg: str = "Argument"):
     """Vérifie que la valeur soit supérieure à un seuil
 
@@ -296,7 +308,7 @@ def superior_to(value: Real, threshold: Real, include: bool = True, arg: str = "
         raise ValueError(f"{arg} must be superior to {threshold}")
     return value
 
-
+@profile_section("_internal.number_check")
 def equal_to(value: Real, target: object, arg: str = "Argument"):
     """Vérifie que la valeur soit égale à une cible
 
@@ -309,6 +321,7 @@ def equal_to(value: Real, target: object, arg: str = "Argument"):
         raise ValueError(f"{arg} must be equal to {target!r}, got {value!r}")
     return value
 
+@profile_section("_internal.number_check")
 def different_from(value: Real, target: object, arg: str = "Argument"):
     """Vérifie que la valeur soit différente à une cible
 
@@ -323,6 +336,8 @@ def different_from(value: Real, target: object, arg: str = "Argument"):
 
 # ======================================== EXPORTS ========================================
 __all__ = [
+    "typename",
+
     "expect",
     "expect_callable",
     "expect_subclass",
@@ -334,6 +349,7 @@ __all__ = [
     "over",
     "under",
     "clamped",
+
     "inferior_to",
     "superior_to",
     "equal_to",

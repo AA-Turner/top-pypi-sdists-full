@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fickling
-Version: 0.1.10
+Version: 0.1.11
 Summary: A static analyzer and interpreter for Python pickle data
 Project-URL: Homepage, https://pypi.org/project/fickling
 Project-URL: Issues, https://github.com/trailofbits/fickling/issues
@@ -191,6 +191,7 @@ Provides-Extra: archive
 Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'archive'
 Provides-Extra: dev
 Requires-Dist: coverage[toml]>=7.0.0; extra == 'dev'
+Requires-Dist: huggingface-hub>=0.20.0; extra == 'dev'
 Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'dev'
 Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'dev'
@@ -204,6 +205,12 @@ Requires-Dist: typing-extensions; (python_version < '3.12') and extra == 'dev'
 Provides-Extra: examples
 Requires-Dist: numpy; extra == 'examples'
 Requires-Dist: pytorchfi; extra == 'examples'
+Provides-Extra: huggingface
+Requires-Dist: huggingface-hub>=0.20.0; extra == 'huggingface'
+Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'huggingface'
+Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'huggingface'
+Requires-Dist: torch>=2.1.0; extra == 'huggingface'
+Requires-Dist: torchvision>=0.24.1; extra == 'huggingface'
 Provides-Extra: lint
 Requires-Dist: ruff>=0.8.0; extra == 'lint'
 Requires-Dist: ty>=0.0.12; extra == 'lint'

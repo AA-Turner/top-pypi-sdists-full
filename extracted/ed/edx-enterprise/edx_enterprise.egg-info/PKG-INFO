@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.0.6
+Version: 8.0.8
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -166,6 +166,14 @@ Unreleased
 ----------
 
 * nothing unreleased
+
+[8.0.8] - 2026-05-06
+---------------------
+* feat: extra logging for enterprise email association pipeline step
+
+[8.0.7] - 2026-05-06
+---------------------
+* feat: add pluggable override for course home progress username obfuscation
 
 [8.0.6] - 2026-05-05
 ---------------------

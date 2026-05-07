@@ -790,14 +790,34 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
         Render the full template including base template inheritance.
         Used for initial GET requests when using template inheritance.
 
+        Architecture (post-#1370 fix): the page shell (DOCTYPE, head, nav,
+        footer — everything from ``{% extends %}``) is rendered by a temporary
+        Rust renderer from ``self._full_template``. The ``dj-root`` portion
+        is then REPLACED with the output of ``self._rust_view.render()`` —
+        the SAME instance the WS path uses. This guarantees marker IDs match
+        between the initial HTTP-rendered DOM and subsequent WS diffs.
+
         Args:
             request: HTTP request object
             serialized_context: Optional pre-serialized context dict
 
         Returns the complete HTML document (DOCTYPE, html, head, body, etc.)
         """
-        # Check if we have a full template from template inheritance
         if hasattr(self, "_full_template") and self._full_template:
+            # --- Step 1: Render the dj-root content via self._rust_view ---
+            # This is the SAME instance the WS path will use for diffing,
+            # so marker IDs (if-<8hex>-N) are guaranteed to match.
+            # IMPORTANT: do NOT inject handler metadata here — it appends a
+            # <script> element that the VDOM doesn't know about, which shifts
+            # child indices and breaks path-based patch resolution (#1370).
+            # Handler metadata is injected into the page shell (step 3) AFTER
+            # the dj-root replacement, so it lives OUTSIDE the diffed subtree.
+            self._initialize_rust_view(request)
+            self._sync_state_to_rust()
+            liveview_html = self._rust_view.render()
+            liveview_html = self._hydrate_react_components(liveview_html)
+
+            # --- Step 2: Render the page shell from _full_template ---
             from djust._rust import RustLiveView
 
             template_dirs = get_template_dirs()
@@ -805,19 +825,10 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
 
             safe_keys = []
             if serialized_context is not None:
-                # Always normalize — even "pre-serialized" context may contain
-                # Django Model instances whose FK descriptors are not in __dict__.
-                # Rust's FromPyObject extracts __dict__ which has claimant_id=1
-                # (the FK column int), not the related Claimant object.
-                # normalize_django_value resolves FK descriptors via getattr(),
-                # producing nested dicts that the Rust renderer can traverse
-                # with dot notation: {{ claim.claimant.first_name }}
                 from ..serialization import normalize_django_value
-
-                json_compatible_context = normalize_django_value(serialized_context)
-                # Recursively detect SafeStrings in the normalized context
                 from ..mixins.rust_bridge import _collect_safe_keys
 
+                json_compatible_context = normalize_django_value(serialized_context)
                 for key, value in json_compatible_context.items():
                     safe_keys.extend(_collect_safe_keys(value, key))
             else:
@@ -841,26 +852,46 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
                 from ..serialization import normalize_django_value
                 from ..mixins.rust_bridge import _collect_safe_keys
 
-                # Normalize first so Form/BoundField objects are converted to
-                # SafeString values before safe-key detection runs.  SafeString
-                # is a str subclass so it passes through normalize_django_value
-                # unchanged, preserving the safe marker.
                 json_compatible_context = normalize_django_value(rendered_context)
-
-                # Detect SafeStrings in normalized context (including those
-                # produced by Form/BoundField rendering above).
                 for key, value in json_compatible_context.items():
                     safe_keys.extend(_collect_safe_keys(value, key))
 
             temp_rust.update_state(json_compatible_context)
             if safe_keys:
                 temp_rust.mark_safe_keys(safe_keys)
-            html = temp_rust.render()
+            shell_html = temp_rust.render()
 
-            html = self._hydrate_react_components(html)
-            html = self._inject_handler_metadata(html, request=request)
+            # --- Step 3: Replace the ENTIRE dj-root div in the shell ---
+            # liveview_html already includes its own <div dj-root>...</div>
+            # wrapper (since get_template() returns the dj-root template).
+            # Replace the shell's <div dj-root>...</div> ENTIRELY (opening
+            # tag through closing tag) with liveview_html.
+            dj_root_match = _DJ_ROOT_RE.search(shell_html)
+            if dj_root_match:
+                # Start of the <div dj-root...> opening tag
+                tag_start = dj_root_match.start()
+                # End of the opening tag (past the >)
+                after_open = dj_root_match.end()
+                # Find the matching </div> by counting depth
+                depth = 1
+                i = after_open
+                while i < len(shell_html) and depth > 0:
+                    if shell_html[i : i + 5] == "<div " or shell_html[i : i + 5] == "<div>":
+                        depth += 1
+                    elif shell_html[i : i + 6] == "</div>":
+                        depth -= 1
+                        if depth == 0:
+                            # i points to the '<' of '</div>'
+                            # Replace from tag_start through '</div>' (6 chars)
+                            close_end = i + 6
+                            result = shell_html[:tag_start] + liveview_html + shell_html[close_end:]
+                            result = self._inject_handler_metadata(result, request=request)
+                            return result
+                    i += 1
 
-            return html
+            # Fallback: dj-root not found in shell (shouldn't happen)
+            shell_html = self._inject_handler_metadata(shell_html, request=request)
+            return shell_html
         else:
             return self.render(request)
 

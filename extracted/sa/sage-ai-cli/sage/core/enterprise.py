@@ -145,7 +145,7 @@ class StructuredLogger:
             print(json_line)
 
         if self.output_path:
-            with open(self.output_path, "a") as f:
+            with open(self.output_path, "a", encoding="utf-8") as f:
                 f.write(json_line + "\n")
 
         return log_event
@@ -253,7 +253,7 @@ class AuditLogger:
         if self.storage_path:
             self.storage_path.mkdir(parents=True, exist_ok=True)
             audit_file = self.storage_path / "audit.jsonl"
-            with open(audit_file, "a") as f:
+            with open(audit_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry.to_dict()) + "\n")
 
     def query(

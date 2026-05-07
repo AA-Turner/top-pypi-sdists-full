@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, over, positive, clamped
+from .._internal import expect, over, positive, clamped, profile_section
 from ..abc import Manager, Request
 
 from ._context import ContextManager
@@ -29,7 +29,7 @@ class _TimerRequest(Request):
 class TimeManager(Manager):
     """Gestionnaire du temps"""
     __slots__ = (
-        "_clock",
+        "_clock", "_frame",
         "_raw_dt", "_dt", "_eff_dt",
         "_target_fps", "_fps", "_fps_buffer",
         "_time_scale",
@@ -44,6 +44,7 @@ class TimeManager(Manager):
 
         # Horloge
         self._clock: float = 0.0
+        self._frame: int = 0
 
         # Delta time
         self._raw_dt: float = 0.0
@@ -64,9 +65,14 @@ class TimeManager(Manager):
 
     # ======================================== PROPERTIES ========================================
     @property
-    def timer(self) -> float:
+    def clock(self) -> float:
         """Temps écoulé depuis le début de l'éxécution"""
         return self._clock
+    
+    @property
+    def frame(self) -> int:
+        """Nombre de frames écoulés depuis le début de l'éxécution"""
+        return self._frame
 
     @property
     def raw_dt(self) -> float:
@@ -134,6 +140,7 @@ class TimeManager(Manager):
         self._time_scale = positive(float(expect(value, Real)))
 
     # ======================================== COLLECTIONS ========================================
+    @profile_section("manager.time.schedule")
     def schedule(self, func: Callable) -> None:
         """Lance une boucle sur une fonction
         
@@ -182,6 +189,7 @@ class TimeManager(Manager):
         self._timers.append(_TimerRequest(callback=callback, elapsed=0, interval=interval, remaining=limit))
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.time.tick")
     def tick(self, raw_dt: float) -> float:
         """Calcul le delta-time affiné
         
@@ -189,6 +197,7 @@ class TimeManager(Manager):
             raw_dt: delta-time brut
         """
         self._clock += raw_dt
+        self._frame += 1
         self._raw_dt = raw_dt
         self._dt = min(_DT_MAX, raw_dt)
         self._fps = 1 / max(self._dt, 10e-8)
@@ -196,6 +205,7 @@ class TimeManager(Manager):
         self._eff_dt = self._dt * self._time_scale
         return self._eff_dt
     
+    @profile_section("manager.time.update")
     def update(self, dt: float) -> None:
         """Actualisation
         
@@ -212,6 +222,7 @@ class TimeManager(Manager):
                     if timer.remaining == 0:
                         self._timers.remove(timer)
 
+    @profile_section("manager.time.flush")
     def flush(self) -> None:
         """Nettoyage"""
         pass

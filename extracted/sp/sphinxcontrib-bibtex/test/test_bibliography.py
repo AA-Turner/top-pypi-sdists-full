@@ -1,13 +1,14 @@
 import re
+from typing import Set
+
+import pytest
+
 from test.common import (
     html_citation_refs,
     html_citations,
     html_footnote_refs,
     html_footnotes,
 )
-from typing import Set
-
-import pytest
 
 
 def citation_refs(output) -> Set[str]:
@@ -42,13 +43,12 @@ def test_bibliography_header(app, warning) -> None:
         "bibtex_footbibliography_header": ".. rubric:: Footnote Citations",
     },
 )
-def test_bibliography_empty_no_header(app, warning) -> None:
+def test_bibliography_empty_has_header(app, warning) -> None:
     app.build()
     assert not warning.getvalue()
     output = (app.outdir / "index.pseudoxml").read_text(encoding="utf-8")
-    assert "Regular Citations" not in output
+    assert "Regular Citations" in output
     assert "Footnote Citations" not in output
-    assert "<rubric" not in output
 
 
 @pytest.mark.sphinx("html", testroot="bibliography_style_default")

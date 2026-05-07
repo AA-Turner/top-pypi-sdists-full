@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-valkey"
-version = "0.4.0"
+version = "0.4.1"
 description = "a valkey backend for django"
 readme = "README.rst"
 requires-python = ">=3.10"
@@ -36,6 +36,7 @@ classifiers = [
 dependencies = [
     "django>=4.2,!=5.0.*,!=5.1.*",
     "valkey>=6.0.2",
+    "typing-extensions>=4.15; python_version < '3.13'",
 ]
 
 
@@ -47,10 +48,10 @@ lz4 = [
     "lz4>=4.3.3",
 ]
 pyzstd = [
-    "backports.zstd>=1.0.0",
+    "backports.zstd>=1.0.0; python_version < '3.14'",
 ]
 zstd = [
-    "backports.zstd>=1.0.0",
+    "backports.zstd>=1.0.0; python_version < '3.14'",
 ]
 msgpack = [
     "msgpack>=1.1.0",

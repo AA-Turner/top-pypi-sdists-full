@@ -1096,8 +1096,8 @@ def main() -> None:
         print("    --top-k-edges N         per-symbol outbound edges in inspector (default 12)")
         print("    --label NAME            project label in header")
         print("  extract <path>          headless full extraction (AST + semantic LLM) for CI/scripts")
-        print("    --backend B             kimi|claude (default: whichever API key is set)")
-        print("    --model <name>          override the backend's default model")
+        print("    --backend B             gemini|kimi|claude|openai|ollama (default: whichever API key is set)")
+        print("    --model M               override backend default model")
         print("    --out DIR               output dir (default: <path>); writes <DIR>/graphify-out/")
         print("    --no-cluster            skip clustering, write raw extraction only")
         print("    --global                also merge the resulting graph into the global graph")
@@ -1546,7 +1546,15 @@ def main() -> None:
         cohesion = score_all(G, communities)
         gods = god_nodes(G)
         surprises = surprising_connections(G, communities)
-        labels = {cid: f"Community {cid}" for cid in communities}
+        out = watch_path / "graphify-out"
+        labels_path = out / ".graphify_labels.json"
+        if labels_path.exists():
+            try:
+                labels = {int(k): v for k, v in json.loads(labels_path.read_text(encoding="utf-8")).items()}
+            except Exception:
+                labels = {cid: f"Community {cid}" for cid in communities}
+        else:
+            labels = {cid: f"Community {cid}" for cid in communities}
         questions = suggest_questions(G, communities, labels)
         tokens = {"input": 0, "output": 0}
         from graphify.export import _git_head as _gh
@@ -1555,9 +1563,9 @@ def main() -> None:
                           {"warning": "cluster-only mode — file stats not available"},
                           tokens, str(watch_path), suggested_questions=questions,
                           min_community_size=min_community_size, built_at_commit=_commit)
-        out = watch_path / "graphify-out"
         (out / "GRAPH_REPORT.md").write_text(report, encoding="utf-8")
         to_json(G, communities, str(out / "graph.json"))
+        labels_path.write_text(json.dumps({str(k): v for k, v in labels.items()}, ensure_ascii=False), encoding="utf-8")
 
         # Mirror watch.py pattern: gate to_html so core outputs (graph.json +
         # GRAPH_REPORT.md) always land. Honor --no-viz explicitly; otherwise
@@ -1601,8 +1609,13 @@ def main() -> None:
         ok = _rebuild_code(watch_path, force=force)
         if ok:
             print("Code graph updated. For doc/paper/image changes run /graphify --update in your AI assistant.")
-            if not os.environ.get("MOONSHOT_API_KEY") and not os.environ.get("GRAPHIFY_NO_TIPS"):
-                print("Tip: set MOONSHOT_API_KEY to use Kimi K2.6 for semantic extraction — 3x cheaper, richer graphs. pip install 'graphifyy[kimi]'")
+            if not (
+                os.environ.get("GEMINI_API_KEY")
+                or os.environ.get("GOOGLE_API_KEY")
+                or os.environ.get("MOONSHOT_API_KEY")
+                or os.environ.get("GRAPHIFY_NO_TIPS")
+            ):
+                print("Tip: set GEMINI_API_KEY or GOOGLE_API_KEY to use Gemini for semantic extraction.")
         else:
             print("Nothing to update or rebuild failed — check output above.", file=sys.stderr)
             sys.exit(1)
@@ -1872,6 +1885,13 @@ def main() -> None:
         elif subcmd == "wiki":
             from graphify.wiki import to_wiki as _to_wiki
             from graphify.analyze import god_nodes as _god_nodes
+            if not communities:
+                print(
+                    "error: .graphify_analysis.json is missing or empty — refusing to export wiki to prevent data loss.\n"
+                    "Run `graphify extract .` (or `graphify cluster-only .`) to regenerate community data first.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
             if not gods_data:
                 gods_data = _god_nodes(G)
             n = _to_wiki(G, communities, str(out_dir / "wiki"),
@@ -1985,7 +2005,7 @@ def main() -> None:
         # has an API key set.
         if len(sys.argv) < 3:
             print(
-                "Usage: graphify extract <path> [--backend kimi|claude] "
+                "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai] "
                 "[--out DIR] [--no-cluster]",
                 file=sys.stderr,
             )
@@ -1997,10 +2017,10 @@ def main() -> None:
             sys.exit(1)
 
         backend: str | None = None
+        model: str | None = None
         out_dir: Path | None = None
         no_cluster = False
         dedup_llm = False
-        model_override: str | None = None
         global_merge = False
         global_repo_tag: str | None = None
         args = sys.argv[3:]
@@ -2012,9 +2032,9 @@ def main() -> None:
             elif a.startswith("--backend="):
                 backend = a.split("=", 1)[1]; i += 1
             elif a == "--model" and i + 1 < len(args):
-                model_override = args[i + 1]; i += 2
+                model = args[i + 1]; i += 2
             elif a.startswith("--model="):
-                model_override = a.split("=", 1)[1]; i += 1
+                model = a.split("=", 1)[1]; i += 1
             elif a == "--out" and i + 1 < len(args):
                 out_dir = Path(args[i + 1]); i += 2
             elif a.startswith("--out="):
@@ -2039,13 +2059,16 @@ def main() -> None:
             detect_backend as _detect_backend,
             estimate_cost as _estimate_cost,
             extract_corpus_parallel as _extract_corpus_parallel,
+            _format_backend_env_keys,
+            _get_backend_api_key,
         )
         if backend is None:
             backend = _detect_backend()
             if backend is None:
                 print(
-                    "error: no LLM API key found. Set MOONSHOT_API_KEY (kimi) "
-                    "or ANTHROPIC_API_KEY (claude), or pass --backend.",
+                    "error: no LLM API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY "
+                    "(gemini), MOONSHOT_API_KEY (kimi), ANTHROPIC_API_KEY (claude), "
+                    "or OPENAI_API_KEY (openai), or pass --backend.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -2056,10 +2079,9 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        env_key = _BACKENDS[backend]["env_key"]
-        if not os.environ.get(env_key):
+        if not _get_backend_api_key(backend):
             print(
-                f"error: backend '{backend}' requires {env_key} to be set.",
+                f"error: backend '{backend}' requires {_format_backend_env_keys(backend)} to be set.",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -2160,7 +2182,7 @@ def main() -> None:
                     fresh = _extract_corpus_parallel(
                         [Path(p) for p in uncached_paths],
                         backend=backend,
-                        model=model_override,
+                        model=model,
                         root=target,
                     )
                 except ImportError as exc:

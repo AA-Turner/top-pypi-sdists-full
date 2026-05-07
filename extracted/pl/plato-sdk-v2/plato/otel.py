@@ -229,11 +229,15 @@ def init_tracing(
         # OTEL_EXPORTER_OTLP_TIMEOUT is set — passing timeout= ourselves
         # would shadow those env vars.
         otlp_endpoint_url = f"{otlp_endpoint.rstrip('/')}/v1/traces"
+        # Route the batch by header so chronos doesn't have to peek into the
+        # OTLP payload to recover the session id (see useplato/plato#2962).
+        otlp_headers = {"X-Plato-Session-Id": session_id}
         if "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT" in os.environ or "OTEL_EXPORTER_OTLP_TIMEOUT" in os.environ:
-            otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint_url)
+            otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint_url, headers=otlp_headers)
         else:
             otlp_exporter = OTLPSpanExporter(
                 endpoint=otlp_endpoint_url,
+                headers=otlp_headers,
                 timeout=30,
             )
         # Batch on a background thread so span.end() doesn't block the

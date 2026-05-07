@@ -10,3 +10,6 @@ readme = "README.md"
 
 [dependencies]
 tombi-uri.workspace = true
+
+[lints]
+workspace = true

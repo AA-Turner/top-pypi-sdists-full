@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "dagger-io"
-version = "0.20.7"
+version = "0.20.8"
 description = "A client package for running Dagger pipelines in Python."
 readme = "README.md"
 authors = [{ name = "Dagger", email = "hello@dagger.io" }]

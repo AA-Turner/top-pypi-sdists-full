@@ -3,6 +3,7 @@ from datetime import datetime
 from http import HTTPStatus
 
 # Third Party
+from eve_sde.models import ItemType
 from pytz import utc
 
 # Django
@@ -110,49 +111,96 @@ class TestStatistics(BaseTestCase):
             character=cls.character_1001,
             created=datetime(year=2020, month=9, day=1, tzinfo=utc),
         )
+        # Ensure SDE ItemType instances exist and assign them to the Fat.ship FK
+        omen = ItemType.objects.get_or_create(
+            id=7001, defaults={"name": "Omen", "published": 1}
+        )[0]
+        thorax = ItemType.objects.get_or_create(
+            id=7002, defaults={"name": "Thorax", "published": 1}
+        )[0]
+        guardian = ItemType.objects.get_or_create(
+            id=7003, defaults={"name": "Guardian", "published": 1}
+        )[0]
 
         Fat.objects.create(
-            character=cls.character_1101, fatlink=afat_link_april_1, shiptype="Omen"
+            character=cls.character_1101,
+            fatlink=afat_link_april_1,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
-            character=cls.character_1001, fatlink=afat_link_april_1, shiptype="Omen"
+            character=cls.character_1001,
+            fatlink=afat_link_april_1,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
-            character=cls.character_1002, fatlink=afat_link_april_1, shiptype="Omen"
+            character=cls.character_1002,
+            fatlink=afat_link_april_1,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
-            character=cls.character_1003, fatlink=afat_link_april_1, shiptype="Omen"
+            character=cls.character_1003,
+            fatlink=afat_link_april_1,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
-            character=cls.character_1004, fatlink=afat_link_april_1, shiptype="Omen"
+            character=cls.character_1004,
+            fatlink=afat_link_april_1,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
-            character=cls.character_1005, fatlink=afat_link_april_1, shiptype="Omen"
+            character=cls.character_1005,
+            fatlink=afat_link_april_1,
+            shiptype="Omen",
+            ship=omen,
         )
 
         Fat.objects.create(
-            character=cls.character_1101, fatlink=afat_link_april_2, shiptype="Omen"
+            character=cls.character_1101,
+            fatlink=afat_link_april_2,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
-            character=cls.character_1004, fatlink=afat_link_april_2, shiptype="Thorax"
+            character=cls.character_1004,
+            fatlink=afat_link_april_2,
+            shiptype="Thorax",
+            ship=thorax,
         )
         Fat.objects.create(
-            character=cls.character_1002, fatlink=afat_link_april_2, shiptype="Thorax"
+            character=cls.character_1002,
+            fatlink=afat_link_april_2,
+            shiptype="Thorax",
+            ship=thorax,
         )
         Fat.objects.create(
-            character=cls.character_1003, fatlink=afat_link_april_2, shiptype="Omen"
+            character=cls.character_1003,
+            fatlink=afat_link_april_2,
+            shiptype="Omen",
+            ship=omen,
         )
 
         Fat.objects.create(
-            character=cls.character_1001, fatlink=afat_link_september, shiptype="Omen"
+            character=cls.character_1001,
+            fatlink=afat_link_september,
+            shiptype="Omen",
+            ship=omen,
         )
         Fat.objects.create(
             character=cls.character_1004,
             fatlink=afat_link_september,
             shiptype="Guardian",
+            ship=guardian,
         )
         Fat.objects.create(
-            character=cls.character_1005, fatlink=afat_link_september, shiptype="Omen"
+            character=cls.character_1005,
+            fatlink=afat_link_september,
+            shiptype="Omen",
+            ship=omen,
         )
 
     def test_should_only_show_my_chars_and_only_those_with_fat_links(self):

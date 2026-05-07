@@ -131,6 +131,7 @@ class CfnApplication(
             )],
             interactive_configuration=emrserverless.CfnApplication.InteractiveConfigurationProperty(
                 livy_endpoint_enabled=False,
+                session_enabled=False,
                 studio_enabled=False
             ),
             maximum_capacity=emrserverless.CfnApplication.MaximumAllowedResourcesProperty(
@@ -1335,6 +1336,7 @@ class CfnApplication(
         jsii_struct_bases=[],
         name_mapping={
             "livy_endpoint_enabled": "livyEndpointEnabled",
+            "session_enabled": "sessionEnabled",
             "studio_enabled": "studioEnabled",
         },
     )
@@ -1343,11 +1345,13 @@ class CfnApplication(
             self,
             *,
             livy_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            session_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             studio_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The configuration to use to enable the different types of interactive use cases in an application.
 
             :param livy_endpoint_enabled: Enables an Apache Livy endpoint that you can connect to and run interactive jobs. Default: - false
+            :param session_enabled: Enables interactive sessions on the application. Default: - false
             :param studio_enabled: Enables you to connect an application to Amazon EMR Studio to run interactive workloads in a notebook. Default: - false
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-interactiveconfiguration.html
@@ -1361,16 +1365,20 @@ class CfnApplication(
                 
                 interactive_configuration_property = emrserverless.CfnApplication.InteractiveConfigurationProperty(
                     livy_endpoint_enabled=False,
+                    session_enabled=False,
                     studio_enabled=False
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__edf1e97c33dd2242e6721656c9fad072127a48064e691254ed5d336cedf43d4a)
                 check_type(argname="argument livy_endpoint_enabled", value=livy_endpoint_enabled, expected_type=type_hints["livy_endpoint_enabled"])
+                check_type(argname="argument session_enabled", value=session_enabled, expected_type=type_hints["session_enabled"])
                 check_type(argname="argument studio_enabled", value=studio_enabled, expected_type=type_hints["studio_enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if livy_endpoint_enabled is not None:
                 self._values["livy_endpoint_enabled"] = livy_endpoint_enabled
+            if session_enabled is not None:
+                self._values["session_enabled"] = session_enabled
             if studio_enabled is not None:
                 self._values["studio_enabled"] = studio_enabled
 
@@ -1385,6 +1393,19 @@ class CfnApplication(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-interactiveconfiguration.html#cfn-emrserverless-application-interactiveconfiguration-livyendpointenabled
             '''
             result = self._values.get("livy_endpoint_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def session_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Enables interactive sessions on the application.
+
+            :default: - false
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-interactiveconfiguration.html#cfn-emrserverless-application-interactiveconfiguration-sessionenabled
+            '''
+            result = self._values.get("session_enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
@@ -2343,6 +2364,7 @@ class CfnApplicationProps:
                 )],
                 interactive_configuration=emrserverless.CfnApplication.InteractiveConfigurationProperty(
                     livy_endpoint_enabled=False,
+                    session_enabled=False,
                     studio_enabled=False
                 ),
                 maximum_capacity=emrserverless.CfnApplication.MaximumAllowedResourcesProperty(
@@ -2899,6 +2921,7 @@ def _typecheckingstub__48da54ce8c9f1ee4240ad6b62d8fe9b0e060a955f7cbba04cae2f1fbd
 def _typecheckingstub__edf1e97c33dd2242e6721656c9fad072127a48064e691254ed5d336cedf43d4a(
     *,
     livy_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    session_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     studio_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""

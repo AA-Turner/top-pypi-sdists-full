@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.13.0
+Version: 0.14.0
 Summary: Download compute kernels
 Author-email: Daniel de Kok <daniel@huggingface.co>, David Holtz <david@huggingface.co>
 License: Apache-2.0
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: huggingface_hub<2.0,>=1.3.0
+Requires-Dist: huggingface-hub>=1.10.0
+Requires-Dist: kernels-data>=0.14.0.dev1
 Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=6
 Requires-Dist: tomli>=2.0; python_version < "3.11"

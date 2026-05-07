@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, TypedDict, Union
 
+import sagemaker_studio.utils.sql_handler as sql_handler
 from sagemaker_studio.connections.helper_factory import HelperFactory
 from sagemaker_studio.project import Project
 from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
@@ -48,10 +49,15 @@ def sql(
     Raises:
         RuntimeError: If Project is not initialized when using connection_name or if there's an error executing the SQL query.
     """
+    if not query or not query.strip():
+        return None
+
     if _is_spark_connection(connection):
         spark = _ensure_spark()
         return spark.sql(query)
 
+    # adding args anyway as we will filter out necessary args to pass down based on engine type
+    _apply_athena_context(query, kwargs)
     engine = get_engine(connection_id, connection_name, **kwargs)
     if engine:
         result = next(_ensure_sql_executor().execute(engine, query, parameters))
@@ -87,6 +93,9 @@ def sql_stream(
     Raises:
         RuntimeError: If Project is not initialized when using connection_name or if there's an error executing the SQL query.
     """
+    if not query or not query.strip():
+        return iter([])
+
     if _is_spark_connection(connection):
         from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
@@ -98,6 +107,9 @@ def sql_stream(
             lambda stmt: spark.sql(stmt),
             error_strategy,
         )
+
+    # adding args anyway as we will filter out necessary args to pass down based on engine type
+    _apply_athena_context(query, kwargs)
 
     engine = get_engine(connection_id, connection_name, **kwargs)
     if engine:
@@ -112,6 +124,49 @@ def sql_stream(
             lambda stmt: (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt)),
             error_strategy,
         )
+
+
+def sql_stream_with_display(
+    query: str,
+    dataframe_name: str,
+    parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
+    connection_id: Optional[str] = None,
+    connection_name: Optional[str] = None,
+    connection: Optional[ConnectionConfig] = None,
+    error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+    **kwargs,
+):
+    """
+    Execute SQL statements, materialise results into the IPython namespace, and display them.
+
+    Each successful result is assigned to the IPython user namespace as
+    ``<dataframe_name>_<index>``, displayed, and the consolidated result
+    (single DataFrame or list) is stored under ``<dataframe_name>``.
+
+    On error, partial results are saved for debugging and the error is raised.
+
+    Args:
+        query (str): The SQL query to execute (can contain multiple statements).
+        dataframe_name (str): Variable name prefix for storing results in the IPython namespace.
+        parameters (Optional[Union[Dict[str, Any], List[str]]]): Optional parameters for the query.
+        connection_id (Optional[str]): The ID of the DataZone connection to use for the query.
+        connection_name (Optional[str]): The name of the DataZone connection to use for the query.
+        connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
+        error_strategy (str): Error handling strategy - STOP_ON_ERROR (default) or CONTINUE_ON_ERROR.
+
+    Raises:
+        Exception: If any statement fails, after saving partial results for debugging.
+    """
+    stream = sql_stream(
+        query,
+        parameters=parameters,
+        connection_id=connection_id,
+        connection_name=connection_name,
+        connection=connection,
+        error_strategy=error_strategy,
+        **kwargs,
+    )
+    _materialise_stream(stream, dataframe_name)
 
 
 def get_engine(
@@ -160,6 +215,23 @@ def get_engine(
     connection_config = sql_helper.to_sql_config(connection, **kwargs)
 
     return sql_executor.create_engine(connection.type, connection_config)
+
+
+def _apply_athena_context(query: str, kwargs: dict) -> None:
+    """Extract catalog/database from the query and inject into kwargs for the engine.
+
+    If catalog_name and schema_name are already passed from older UI logic, this is a no-op.
+    """
+    if "catalog_name" in kwargs and "schema_name" in kwargs:
+        return
+
+    execution_ctx = sql_handler.get_execution_context(query)
+    catalog = execution_ctx.get("catalog")
+    database = execution_ctx.get("database")
+    logger.debug(f"Found catalog {catalog} database: {database}")
+    if catalog and database:
+        kwargs["catalog_name"] = catalog
+        kwargs["schema_name"] = database
 
 
 def _ensure_project():
@@ -228,6 +300,40 @@ def _is_spark_connection(connection: Optional[ConnectionConfig] = None) -> bool:
             f"Use connection_id or connection_name for other engines. Got type: {conn_type}"
         )
     return False
+
+
+def _materialise_stream(stream, dataframe_name: str):
+    """Consume a result stream, display/assign results in IPython, and return consolidated output."""
+    logger.info("display/assign results")
+    from IPython import get_ipython
+    from IPython.display import display
+
+    ip = get_ipython()
+
+    results: list = []
+    for result in stream:
+        if result.status == "success":
+            display(result.result)
+            results.append(result)
+        else:
+            # Save partial results for debugging before raising
+            if len(results) > 0:
+                for r in results:
+                    ip.user_ns[f"{dataframe_name}_{r.statement_index}"] = r.result
+            raise Exception(result.error)
+
+    # No results — nothing to assign
+    if not results:
+        return
+
+    # All statements succeeded - save indexed vars if multiple results
+    if len(results) > 1:
+        for r in results:
+            ip.user_ns[f"{dataframe_name}_{r.statement_index}"] = r.result
+
+    # Save main variable
+    final = results[0].result if len(results) == 1 else [r.result for r in results]
+    ip.user_ns[dataframe_name] = final
 
 
 logger.info("Finished importing sqlutils")

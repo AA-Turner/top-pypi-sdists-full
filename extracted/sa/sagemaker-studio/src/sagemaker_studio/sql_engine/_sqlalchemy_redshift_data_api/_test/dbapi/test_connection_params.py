@@ -133,7 +133,7 @@ class TestConnectionParams:
 
     def test_invalid_database_format(self):
         """Test validation fails for invalid database format."""
-        with pytest.raises(InterfaceError, match="database_name must be lettersnumbers"):
+        with pytest.raises(InterfaceError, match="database_name must start with"):
             ConnectionParams(
                 cluster_identifier="my-cluster", database_name="my-db!"  # Invalid character
             )
@@ -141,7 +141,7 @@ class TestConnectionParams:
     def test_database_too_long(self):
         """Test validation fails for database name that's too long."""
         long_name = "a" * 65  # 65 characters, max is 64
-        with pytest.raises(InterfaceError, match="database_name must be lettersnumbers"):
+        with pytest.raises(InterfaceError, match="database_name must start with"):
             ConnectionParams(cluster_identifier="my-cluster", database_name=long_name)
 
     def test_invalid_db_user_format(self):

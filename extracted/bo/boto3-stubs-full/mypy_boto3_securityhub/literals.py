@@ -42,6 +42,7 @@ __all__ = (
     "ConnectorStatusType",
     "ControlFindingGeneratorType",
     "ControlStatusType",
+    "DateRangeComparisonType",
     "DateRangeUnitType",
     "DescribeActionTargetsPaginatorName",
     "DescribeProductsPaginatorName",
@@ -56,6 +57,7 @@ __all__ = (
     "GetFindingsTrendsV2PaginatorName",
     "GetFindingsV2PaginatorName",
     "GetInsightsPaginatorName",
+    "GetRecommendedPolicyV2PaginatorName",
     "GetResourcesTrendsV2PaginatorName",
     "GetResourcesV2PaginatorName",
     "GranularityFieldType",
@@ -87,6 +89,8 @@ __all__ = (
     "PaginatorName",
     "ParameterValueTypeType",
     "PartitionType",
+    "RecommendationStatusType",
+    "RecommendationTypeType",
     "RecordStateType",
     "RegionAvailabilityStatusType",
     "RegionName",
@@ -151,6 +155,7 @@ ConnectorStatusType = Literal[
 ]
 ControlFindingGeneratorType = Literal["SECURITY_CONTROL", "STANDARD_CONTROL"]
 ControlStatusType = Literal["DISABLED", "ENABLED"]
+DateRangeComparisonType = Literal["OLDER_THAN", "WITHIN"]
 DateRangeUnitType = Literal["DAYS"]
 DescribeActionTargetsPaginatorName = Literal["describe_action_targets"]
 DescribeProductsPaginatorName = Literal["describe_products"]
@@ -176,6 +181,7 @@ GetFindingsPaginatorName = Literal["get_findings"]
 GetFindingsTrendsV2PaginatorName = Literal["get_findings_trends_v2"]
 GetFindingsV2PaginatorName = Literal["get_findings_v2"]
 GetInsightsPaginatorName = Literal["get_insights"]
+GetRecommendedPolicyV2PaginatorName = Literal["get_recommended_policy_v2"]
 GetResourcesTrendsV2PaginatorName = Literal["get_resources_trends_v2"]
 GetResourcesV2PaginatorName = Literal["get_resources_v2"]
 GranularityFieldType = Literal["Daily", "Monthly", "Weekly"]
@@ -357,6 +363,8 @@ OrganizationConfigurationConfigurationTypeType = Literal["CENTRAL", "LOCAL"]
 OrganizationConfigurationStatusType = Literal["ENABLED", "FAILED", "PENDING"]
 ParameterValueTypeType = Literal["CUSTOM", "DEFAULT"]
 PartitionType = Literal["aws", "aws-cn", "aws-us-gov"]
+RecommendationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+RecommendationTypeType = Literal["UNUSED_PERMISSION_RECOMMENDATION"]
 RecordStateType = Literal["ACTIVE", "ARCHIVED"]
 RegionAvailabilityStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
 ResourceCategoryType = Literal[
@@ -888,6 +896,7 @@ PaginatorName = Literal[
     "get_findings_trends_v2",
     "get_findings_v2",
     "get_insights",
+    "get_recommended_policy_v2",
     "get_resources_trends_v2",
     "get_resources_v2",
     "list_aggregators_v2",

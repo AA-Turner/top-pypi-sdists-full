@@ -21,11 +21,12 @@ class OpenSearchSQLHelper(SqlHelper):
         """
         connection_data = SqlHelper.get_connection_data(connection)
         secret = connection.secret
+        normalized_secret = {k.lower(): v for k, v in secret.items()} if secret else {}
         config = {
             "domain_endpoint": SqlHelper.get_glue_connection_property(
                 connection_data, "DOMAIN_ENDPOINT"
             ),
-            "user": secret.get("USERNAME"),
-            "password": secret.get("PASSWORD"),
+            "user": normalized_secret.get("username"),
+            "password": normalized_secret.get("password"),
         }
         return config

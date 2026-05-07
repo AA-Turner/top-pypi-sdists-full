@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="pw-agent",
-    version="1.50.36",
+    version="1.50.37",
     description="CLI coding assistant powered by your Ollama GPUs via PastaWater",
     long_description=open("README.md").read() if __import__("os").path.exists("README.md") else "",
     long_description_content_type="text/markdown",

@@ -31,13 +31,18 @@ use pyrefly_build::handle::Handle;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_config::config::ConfigFile;
 use pyrefly_config::config::OutputFormat;
+use pyrefly_config::config::SynthesizedPresetReason;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_config::finder::ConfigError;
+use pyrefly_config::migration::run::MigratedConfigSource;
+use pyrefly_config::migration::run::MigratedFromKind;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_name::ModuleNameWithKind;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::args::clap_env;
+use pyrefly_util::demand_tree::DemandCollector;
+use pyrefly_util::demand_tree::report_json;
 use pyrefly_util::display;
 use pyrefly_util::display::count;
 use pyrefly_util::display::number_thousands;
@@ -56,6 +61,7 @@ use tracing::info;
 
 use crate::commands::config_finder::ConfigConfigurerWrapper;
 use crate::commands::files::FilesArgs;
+use crate::commands::files::UpsellDecision;
 use crate::commands::util::CommandExitStatus;
 use crate::config::error_kind::Severity;
 use crate::config::finder::ConfigFinder;
@@ -75,7 +81,9 @@ use crate::state::require::Require;
 use crate::state::require::RequireLevels;
 use crate::state::state::State;
 use crate::state::state::Transaction;
+use crate::state::steps::Step;
 use crate::state::subscriber::ProgressBarStyle;
+use crate::state::subscriber::TestSubscriber;
 
 /// Result data from a non-watch check run, used for telemetry logging.
 pub struct CheckResult {
@@ -127,12 +135,14 @@ impl FullCheckArgs {
         thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
         self.config_override.validate()?;
-        let (files_to_check, config_finder) = self.files.resolve(self.config_override, wrapper)?;
+        let (files_to_check, config_finder, upsell) =
+            self.files.resolve(self.config_override, wrapper)?;
         run_check(
             self.args,
             self.watch,
             files_to_check,
             config_finder,
+            upsell,
             thread_count,
         )
         .await
@@ -152,6 +162,7 @@ async fn run_check(
     watch: bool,
     files_to_check: Box<dyn Includes>,
     config_finder: ConfigFinder,
+    upsell: UpsellDecision,
     thread_count: ThreadCount,
 ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
     if watch {
@@ -161,12 +172,12 @@ async fn run_check(
             display::intersperse_iter(";", || roots.iter().map(|p| p.display()))
         );
         let watcher = Watcher::notify(&roots)?;
-        args.run_watch(watcher, files_to_check, config_finder, thread_count)
+        args.run_watch(watcher, files_to_check, config_finder, upsell, thread_count)
             .await?;
         Ok((CommandExitStatus::Success, None))
     } else {
         let (status, _, check_result) =
-            args.run_once(files_to_check, config_finder, thread_count)?;
+            args.run_once(files_to_check, config_finder, upsell, thread_count)?;
         Ok((status, Some(check_result)))
     }
 }
@@ -211,7 +222,7 @@ impl SnippetCheckArgs {
         wrapper: Option<ConfigConfigurerWrapper>,
         thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
-        let (_, config_finder) =
+        let (_, config_finder, _) =
             FilesArgs::get(vec![], self.config, self.config_override, wrapper)?;
         let check_args = CheckArgs {
             output: self.output,
@@ -262,6 +273,10 @@ struct OutputArgs {
     /// Format for pysa report output (json or capnp)
     #[arg(long, value_enum, default_value_t = report::pysa::PysaFormat::Capnp)]
     report_pysa_format: report::pysa::PysaFormat,
+    /// Report the cross-module demand tree (aggregated summary of LookupAnswer
+    /// and LookupExport calls). Useful for analyzing laziness properties.
+    #[arg(long, value_name = "OUTPUT_FILE")]
+    report_demand_tree: Option<PathBuf>,
     /// Generate a CinderX-format type report (experimental, internal-only).
     #[arg(long, value_name = "OUTPUT_DIR", hide = true)]
     report_cinderx: Option<PathBuf>,
@@ -712,6 +727,80 @@ impl Timings {
     }
 }
 
+/// URL referenced from the unconfigured-config upsell. Kept as a module-level
+/// constant so the wording can stay short and tests can pin the exact string
+/// the user sees.
+const UPSELL_DOCS_URL: &str = "https://pyrefly.org/en/docs/installation/";
+
+/// Resolve an `UpsellDecision` into the concrete reason (or `None` for
+/// "stay silent"). The `Determine` case walks handles with a
+/// short-circuit on the first config mismatch; the other variants are
+/// O(1).
+fn decide_upsell(
+    decision: UpsellDecision,
+    handles: &[Handle],
+    transaction: &Transaction,
+) -> Option<SynthesizedPresetReason> {
+    match decision {
+        UpsellDecision::Skip => None,
+        UpsellDecision::Show(reason) => Some(reason),
+        UpsellDecision::Determine => {
+            let mut iter = handles.iter().filter_map(|h| transaction.get_config(h));
+            let first = iter.next()?;
+            if iter.any(|c| c != first) {
+                return None;
+            }
+            first.synthesized_preset_reason
+        }
+    }
+}
+
+/// Write the "no pyrefly.toml found" upsell for a single
+/// `SynthesizedPresetReason`. Pure function of the reason — trivial to
+/// unit-test against a `Vec<u8>` without spinning up a real check run.
+///
+/// `IdeOverride` is intentionally suppressed: it can only be produced by
+/// the LSP path, and even if it leaks in here we don't want to nag a user
+/// who has explicitly set `typeCheckingMode`.
+fn write_unconfigured_upsell<W: Write>(
+    reason: SynthesizedPresetReason,
+    out: &mut W,
+) -> std::io::Result<()> {
+    match reason {
+        SynthesizedPresetReason::Migrated(kind) => {
+            let (location, preset) = match kind {
+                MigratedFromKind::Mypy(MigratedConfigSource::DedicatedFile) => {
+                    ("your `mypy.ini`", "legacy")
+                }
+                MigratedFromKind::Mypy(MigratedConfigSource::PyprojectToml) => {
+                    ("`[tool.mypy]` in your `pyproject.toml`", "legacy")
+                }
+                MigratedFromKind::Pyright(MigratedConfigSource::DedicatedFile) => {
+                    ("your `pyrightconfig.json`", "default")
+                }
+                MigratedFromKind::Pyright(MigratedConfigSource::PyprojectToml) => {
+                    ("`[tool.pyright]` in your `pyproject.toml`", "default")
+                }
+            };
+            writeln!(
+                out,
+                "No `pyrefly.toml` found — using settings imported from {location} (preset: {preset}).",
+            )?;
+            writeln!(out, "Run `pyrefly init` to continue setting up Pyrefly.")?;
+            writeln!(out, "Docs: {UPSELL_DOCS_URL}")?;
+        }
+        SynthesizedPresetReason::NoNearbyConfig => {
+            writeln!(out, "No `pyrefly.toml` found — using preset `basic`.")?;
+            writeln!(out, "Run `pyrefly init` to continue setting up Pyrefly.")?;
+            writeln!(out, "Docs: {UPSELL_DOCS_URL}")?;
+        }
+        // CLI never produces an IdeOverride; if one slips in (e.g.
+        // tests), suppress the upsell rather than emit confusing copy.
+        SynthesizedPresetReason::IdeOverride => {}
+    }
+    Ok(())
+}
+
 impl CheckArgs {
     /// Run a one-shot type check. Returns the exit status, the CLI-visible errors,
     /// and a `CheckResult` suitable for telemetry logging.
@@ -719,6 +808,7 @@ impl CheckArgs {
         mut self,
         files_to_check: Box<dyn Includes>,
         config_finder: ConfigFinder,
+        upsell: UpsellDecision,
         thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, Vec<Error>, CheckResult)> {
         let mut timings = Timings::new();
@@ -771,6 +861,7 @@ impl CheckArgs {
             &loaded_handles,
             sourcedb_errors,
             require_levels.specified,
+            upsell,
         )?;
         let check_result = CheckResult::from_errors(&errors, &relative_to, checked_file_count);
         Ok((status, errors, check_result))
@@ -826,6 +917,8 @@ impl CheckArgs {
             &[handle],
             vec![],
             require_levels.specified,
+            // Snippet checks are interactive ad-hoc inputs — never upsell.
+            UpsellDecision::Skip,
         )?;
         Ok((status, CheckResult::from_errors(&errors, &relative_to, 1)))
     }
@@ -835,6 +928,7 @@ impl CheckArgs {
         mut watcher: Watcher,
         files_to_check: Box<dyn Includes>,
         config_finder: ConfigFinder,
+        mut upsell: UpsellDecision,
         thread_count: ThreadCount,
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:
@@ -884,7 +978,12 @@ impl CheckArgs {
                 &loaded_handles,
                 sourcedb_errors,
                 require_levels.specified,
+                upsell,
             );
+            // The upsell is a one-time CTA. Re-nagging on every file
+            // save during a long watch session is noise — clamp to
+            // `Skip` after the first iteration regardless of decision.
+            upsell = UpsellDecision::Skip;
             state.commit_transaction(transaction, None);
             if let Err(e) = res {
                 eprintln!("{e:#}");
@@ -937,6 +1036,7 @@ impl CheckArgs {
         handles: &[Handle],
         mut sourcedb_errors: Vec<ConfigError>,
         require: Require,
+        upsell: UpsellDecision,
     ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
 
@@ -966,7 +1066,15 @@ impl CheckArgs {
         }
 
         let type_check_start = Instant::now();
-        transaction.set_subscriber(self.output.progress_bar_style().make_subscriber());
+        let demand_tree_subscriber = if self.output.report_demand_tree.is_some() {
+            transaction.set_demand_collector(Some(DemandCollector::new()));
+            let sub = TestSubscriber::new();
+            transaction.set_subscriber(Some(Box::new(sub.dupe())));
+            Some(sub)
+        } else {
+            transaction.set_subscriber(self.output.progress_bar_style().make_subscriber());
+            None
+        };
         transaction.run(handles, require, None);
         transaction.set_subscriber(None);
 
@@ -1170,6 +1278,25 @@ impl CheckArgs {
                 memory_trace.peak()
             );
         }
+
+        // Upsell users without a `pyrefly.toml` to run `pyrefly init`.
+        // Routed to stderr unconditionally so machine-readable output
+        // formats on stdout (json, omit-errors, …) stay clean.
+        //
+        // Treated as part of the summary: `--summary=none` suppresses
+        // it alongside the error-count line.
+        //
+        // The decision was largely made up front (see `UpsellDecision`):
+        // project mode and explicit `--config` short-circuit without
+        // walking handles. Only the `Determine` case — file-args
+        // without `--config` — needs a per-handle check, and even then
+        // it's bounded by the user's explicit args (not a project
+        // expansion) and short-circuits on the first config mismatch.
+        if self.output.summary != Summary::None
+            && let Some(reason) = decide_upsell(upsell, handles, transaction)
+        {
+            let _ = write_unconfigured_upsell(reason, &mut std::io::stderr());
+        }
         if let Some(output_path) = &self.output.report_timings {
             eprintln!("Computing timing information");
             transaction.set_subscriber(self.output.progress_bar_style().make_subscriber());
@@ -1211,6 +1338,20 @@ impl CheckArgs {
                 path,
                 report::dependency_graph::dependency_graph(transaction, handles),
             )?;
+        }
+        if let Some(path) = &self.output.report_demand_tree {
+            let roots = transaction.take_demand_roots();
+            let module_steps: Vec<(String, &'static str)> = demand_tree_subscriber
+                .expect("demand_tree_subscriber is set when report_demand_tree is Some")
+                .finish_detailed()
+                .into_iter()
+                .map(|(handle, info)| {
+                    let label = info.last_step.map_or("Nothing", Step::label);
+                    (handle.module().as_str().to_owned(), label)
+                })
+                .collect();
+            let output = report_json(&roots, &module_steps);
+            fs_anyhow::write(path, output)?;
         }
         if self.behavior.expectations {
             loads.check_against_expectations()?;
@@ -1331,5 +1472,76 @@ mod tests {
         output.inherit_defaults_from_config(&config);
 
         assert_eq!(output.output_format(), OutputFormat::Json);
+    }
+
+    fn upsell_string(reason: SynthesizedPresetReason) -> String {
+        let mut buf = Vec::new();
+        write_unconfigured_upsell(reason, &mut buf).unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    #[test]
+    fn upsell_for_no_nearby_config() {
+        let s = upsell_string(SynthesizedPresetReason::NoNearbyConfig);
+        assert!(s.contains("preset `basic`"), "{s}");
+        assert!(s.contains("`pyrefly init`"), "{s}");
+        assert!(s.contains(UPSELL_DOCS_URL), "{s}");
+    }
+
+    #[test]
+    fn upsell_for_migrated_from_mypy_ini() {
+        let s = upsell_string(SynthesizedPresetReason::Migrated(MigratedFromKind::Mypy(
+            MigratedConfigSource::DedicatedFile,
+        )));
+        assert!(s.contains("your `mypy.ini`"), "{s}");
+        assert!(s.contains("preset: legacy"), "{s}");
+        assert!(s.contains("`pyrefly init`"), "{s}");
+    }
+
+    #[test]
+    fn upsell_for_migrated_from_mypy_pyproject() {
+        let s = upsell_string(SynthesizedPresetReason::Migrated(MigratedFromKind::Mypy(
+            MigratedConfigSource::PyprojectToml,
+        )));
+        assert!(s.contains("`[tool.mypy]` in your `pyproject.toml`"), "{s}");
+        // Make sure the dedicated-file phrasing isn't accidentally
+        // reused here.
+        assert!(!s.contains("your `mypy.ini`"), "{s}");
+        assert!(s.contains("preset: legacy"), "{s}");
+        assert!(s.contains("`pyrefly init`"), "{s}");
+    }
+
+    #[test]
+    fn upsell_for_migrated_from_pyrightconfig() {
+        let s = upsell_string(SynthesizedPresetReason::Migrated(
+            MigratedFromKind::Pyright(MigratedConfigSource::DedicatedFile),
+        ));
+        assert!(s.contains("your `pyrightconfig.json`"), "{s}");
+        assert!(s.contains("preset: default"), "{s}");
+        assert!(s.contains("`pyrefly init`"), "{s}");
+    }
+
+    #[test]
+    fn upsell_for_migrated_from_pyright_pyproject() {
+        let s = upsell_string(SynthesizedPresetReason::Migrated(
+            MigratedFromKind::Pyright(MigratedConfigSource::PyprojectToml),
+        ));
+        assert!(
+            s.contains("`[tool.pyright]` in your `pyproject.toml`"),
+            "{s}"
+        );
+        assert!(!s.contains("your `pyrightconfig.json`"), "{s}");
+        assert!(s.contains("preset: default"), "{s}");
+        assert!(s.contains("`pyrefly init`"), "{s}");
+    }
+
+    /// `IdeOverride` is suppressed: the user explicitly chose a behavior
+    /// via the IDE setting, so we don't pester them with an upsell. This
+    /// also documents that the CLI never emits an `IdeOverride`-flavored
+    /// upsell even if one accidentally reaches this code path.
+    #[test]
+    fn upsell_is_silent_for_ide_override() {
+        let s = upsell_string(SynthesizedPresetReason::IdeOverride);
+        assert!(s.is_empty(), "expected no upsell, got {s:?}");
     }
 }

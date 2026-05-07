@@ -10,9 +10,9 @@ from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
-from reflex_components_core.el.elements.base import BaseHTML
+from reflex_components_core.el.elements.base import RawTextBaseHTML, VoidBaseHTML
 
-class RawLink(BaseHTML):
+class RawLink(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -276,7 +276,7 @@ class RawLink(BaseHTML):
             The component.
         """
 
-class ScriptTag(BaseHTML):
+class ScriptTag(RawTextBaseHTML):
     @classmethod
     def create(
         cls,

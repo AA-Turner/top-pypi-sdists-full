@@ -5,27 +5,26 @@ import inspect
 import logging
 from collections.abc import AsyncGenerator, Callable, Iterator
 from typing import (
-    Any,
-    TypeVar,
-    Generic,
     TYPE_CHECKING,
+    Any,
+    Generic,
+    TypeVar,
 )
 
 from django.conf import settings
-from django.core.cache.backends.base import get_key_func
+from django.core.cache.backends.base import DEFAULT_TIMEOUT, get_key_func
 from django.utils.module_loading import import_string
 
 from django_valkey.exceptions import ConnectionInterrupted
 
 if TYPE_CHECKING:
-    from valkey.lock import Lock
     from valkey.asyncio.lock import Lock as ALock
+    from valkey.lock import Lock
 
 Client = TypeVar("Client")
 Backend = TypeVar("Backend")
 
 CONNECTION_INTERRUPTED = object()
-DEFAULT_TIMEOUT = object()
 ATTR_DOES_NOT_EXIST = object()
 
 
@@ -255,6 +254,9 @@ class BackendCommands:
         if val is self._missing_key:
             if callable(default):
                 default = default()
+
+            if timeout is DEFAULT_TIMEOUT:
+                timeout = self.default_timeout
             self.add(key, default, timeout=timeout, version=version)
             # Fetch the value again to avoid a race condition if another caller
             # added a value between the first get() and the add() above.
@@ -438,6 +440,8 @@ class AsyncBackendCommands:
         if val is self._missing_key:
             if callable(default):
                 default = default()
+            if timeout is DEFAULT_TIMEOUT:
+                timeout = self.default_timeout
             await self.aadd(key, default, timeout=timeout, version=version)
             # Fetch the value again to avoid a race condition if another caller
             # added a value between the first aget() and the aadd() above.

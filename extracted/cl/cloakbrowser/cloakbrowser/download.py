@@ -60,7 +60,6 @@ def _show_welcome() -> None:
     sys.stderr.write("  CloakBrowser — stealth Chromium for automation\n")
     sys.stderr.write("  https://github.com/CloakHQ/CloakBrowser\n")
     sys.stderr.write("\n")
-    sys.stderr.write("  Issues?  https://github.com/CloakHQ/CloakBrowser/issues\n")
     sys.stderr.write("  Donate?  https://ko-fi.com/cloakhq\n")
     sys.stderr.write("  Star us if CloakBrowser helps your project!\n")
     sys.stderr.write("\n")

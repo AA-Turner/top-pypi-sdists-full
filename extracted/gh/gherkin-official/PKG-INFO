@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gherkin-official
-Version: 39.0.0
+Version: 39.1.0
 Summary: Gherkin parser (official, by Cucumber team)
 Keywords: gherkin,cucumber,bdd
 Author: Cucumber Ltd and Björn Rasmusson
@@ -9,13 +9,13 @@ License-Expression: MIT
 License-File: LICENSE
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: typing-extensions>=4
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/cucumber/gherkin
 Project-URL: Repository, https://github.com/cucumber/gherkin.git
 Project-URL: Download, https://pypi.python.org/pypi/gherkin-official

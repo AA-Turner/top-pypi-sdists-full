@@ -821,7 +821,10 @@ class FileTransaction:
                         op.path.unlink()
                 elif op.op_type == "rename":
                     if op.path.exists():
-                        op.path.rename(op.new_path)
+                        # .replace() not .rename(): cross-platform atomic
+                        # overwrite. On Windows .rename() raises FileExistsError
+                        # if target exists, breaking transactional file ops.
+                        op.path.replace(op.new_path)
 
                 executed.append(op)
 
@@ -851,7 +854,10 @@ class FileTransaction:
 
                 elif op.op_type == "rename":
                     if op.new_path and op.new_path.exists():
-                        op.new_path.rename(op.path)
+                        # Rollback: restore by overwriting whatever's at
+                        # op.path now (use .replace() so Windows doesn't
+                        # crash with FileExistsError).
+                        op.new_path.replace(op.path)
 
             except Exception:
                 pass  # Best effort rollback

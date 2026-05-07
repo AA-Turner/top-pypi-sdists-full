@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.14) # I like pie
+cmake_minimum_required(VERSION 3.25)
 
-project(PocketSphinx VERSION 5.0.4
+project(PocketSphinx VERSION 5.1.0
   DESCRIPTION "A small speech recognizer"
   HOMEPAGE_URL "https://github.com/cmusphinx/pocketsphinx"
   LANGUAGES C)
@@ -12,6 +12,7 @@ set(PACKAGE_STRING "${PROJECT_NAME} ${PROJECT_VERSION}")
 set(PACKAGE_TARNAME "${PROJECT_SHORTNAME}-${PROJECT_VERSION}")
 set(PACKAGE_URL ${PROJECT_HOMEPAGE_URL})
 set(PACKAGE_BUGREPORT dhdaines@gmail.com)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(CTest)
@@ -63,6 +64,37 @@ if(NOT DEFAULT_RADIX)
 endif()
 cmake_print_variables(FIXED_POINT DEFAULT_RADIX)
 
+option(PS_THREAD_LOCAL_RNG "Use thread-local storage for random number generator" ON)
+if(PS_THREAD_LOCAL_RNG)
+  # Test for thread-local storage support
+  include(CheckCSourceCompiles)
+  check_c_source_compiles("
+    _Thread_local int x;
+    int main() { x = 42; return 0; }
+  " HAVE_C11_THREAD_LOCAL)
+
+  check_c_source_compiles("
+    __thread int x;
+    int main() { x = 42; return 0; }
+  " HAVE_GCC_THREAD_LOCAL)
+
+  check_c_source_compiles("
+    __declspec(thread) int x;
+    int main() { x = 42; return 0; }
+  " HAVE_MSVC_THREAD_LOCAL)
+
+  if(HAVE_C11_THREAD_LOCAL OR HAVE_GCC_THREAD_LOCAL OR HAVE_MSVC_THREAD_LOCAL)
+    add_definitions(-DPS_USE_THREAD_LOCAL_RNG)
+    message(STATUS "Thread-local storage support: ENABLED")
+  else()
+    message(WARNING "Thread-local storage not supported on this compiler. Disabling PS_THREAD_LOCAL_RNG")
+    set(PS_THREAD_LOCAL_RNG OFF)
+  endif()
+else()
+  message(STATUS "Thread-local storage support: DISABLED")
+endif()
+cmake_print_variables(PS_THREAD_LOCAL_RNG)
+
 # Maybe not a great idea, but it does work on both Windows and Linux
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -100,9 +132,12 @@ else()
   endif()
   add_subdirectory(src)
   add_subdirectory(model)
-  add_subdirectory(doxygen)
-  add_subdirectory(programs)
-  add_subdirectory(examples)
+  if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    add_subdirectory(doxygen)
+    add_subdirectory(programs)
+    add_subdirectory(examples)
+  endif()
+  
   if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
     add_subdirectory(test)
   endif()

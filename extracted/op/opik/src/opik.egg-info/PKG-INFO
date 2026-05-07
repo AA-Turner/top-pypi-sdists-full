@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opik
-Version: 2.0.21
+Version: 2.0.23
 Summary: Comet tool for logging and evaluating LLM traces
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -26,7 +26,7 @@ Requires-Dist: boto3-stubs[bedrock-runtime]>=1.34.110
 Requires-Dist: click
 Requires-Dist: httpx
 Requires-Dist: rapidfuzz<4.0.0,>=3.0.0
-Requires-Dist: litellm!=1.75.0,!=1.75.1,!=1.75.2,!=1.75.3,!=1.75.4,!=1.75.5,!=1.77.3,!=1.77.4,!=1.77.5,!=1.77.7,!=1.78.0,!=1.78.2,!=1.78.3,!=1.78.4,!=1.78.5,!=1.78.6,!=1.78.7,!=1.79.0,!=1.79.1,!=1.82.7,!=1.82.8,>=1.79.2
+Requires-Dist: litellm!=1.81.*,!=1.82.*,!=1.83.0,!=1.83.1,!=1.83.2,!=1.83.3,!=1.83.4,!=1.83.5,!=1.83.6,>=1.79.2
 Requires-Dist: openai
 Requires-Dist: pydantic-settings!=2.9.0,<3.0.0,>=2.0.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0

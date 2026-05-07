@@ -11,7 +11,7 @@ from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
 
-from .base import BaseHTML
+from .base import BaseHTML, VoidBaseHTML
 
 class Blockquote(BaseHTML):
     @classmethod
@@ -1835,7 +1835,7 @@ class Figure(BaseHTML):
             The component.
         """
 
-class Hr(BaseHTML):
+class Hr(VoidBaseHTML):
     @classmethod
     def create(
         cls,

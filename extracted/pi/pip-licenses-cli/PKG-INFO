@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip-licenses-cli
-Version: 4.0.0
+Version: 4.1.0
 Summary: Dump the software license list of Python packages installed with pip.
 Author-email: raimon <raimon49@hotmail.com>
 Maintainer: stefan6419846
@@ -19,7 +19,7 @@ Classifier: Typing :: Typed
 Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pip-licenses-lib>=1.1.0
+Requires-Dist: pip-licenses-lib>=1.2.1
 Requires-Dist: prettytable>=3.13.0
 Requires-Dist: tomli>=2; python_version < "3.11"
 Provides-Extra: spdx
@@ -57,6 +57,9 @@ This is a fork of the original [pip-licenses](https://github.com/raimon49/pip-li
 
 `pip-licenses-cli` is usable as a drop-in replacement for `pip-licenses<=5.0.0`. More recent versions might be compatible, but use a
 partially different code base and possibly other/additional parameters for example.
+
+The initial goal was to provide a drop-in replacement for the unmaintained `pip-licenses` package. In the meantime, the original package
+got a new maintainer. This fork will continue to be maintained as usual.
 
 ## Installation
 

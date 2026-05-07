@@ -5,7 +5,8 @@ Domain for footnote citations.
     :members:
 """
 
-from typing import TYPE_CHECKING, AbstractSet, Dict, List, Tuple
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, AbstractSet, Any, Dict, List, Tuple
 
 import docutils.nodes
 import docutils.utils
@@ -13,9 +14,6 @@ import sphinx.util
 from sphinx.domains import Domain, ObjType
 from sphinx.locale import _
 
-import sphinxcontrib.bibtex.plugin
-
-from .domain import parse_header
 from .foot_roles import FootCiteRole
 from .style.referencing import BaseReferenceStyle
 
@@ -33,39 +31,21 @@ class BibtexFootDomain(Domain):
     name = "footcite"
     label = "BibTeX Footnote Citations"
     data_version = 0
-    initial_data = dict(
-        bibliography_header=docutils.nodes.container(),
-    )
     reference_style: BaseReferenceStyle
+    _role_names: Sequence[str] = [
+        "p",
+        "ps",
+        "t",
+        "ts",
+        "ct",
+        "cts",
+    ]
+    object_types = {"citation": ObjType(_("citation"), *_role_names, searchprio=-1)}
+    roles = {role_name: FootCiteRole() for role_name in _role_names}
 
-    @property
-    def bibliography_header(self) -> docutils.nodes.Element:
-        return self.data["bibliography_header"]
-
-    def __init__(self, env: "BuildEnvironment"):
-        # set up referencing style
-        style = sphinxcontrib.bibtex.plugin.find_plugin(
-            "sphinxcontrib.bibtex.style.referencing",
-            env.app.config.bibtex_foot_reference_style,
-        )
-        self.reference_style = style()
-        # set up object types and roles for referencing style
-        role_names = self.reference_style.role_names()
-        self.object_types = dict(
-            citation=ObjType(_("citation"), *role_names, searchprio=-1),
-        )
-        self.roles = dict((name, FootCiteRole()) for name in role_names)
-        # initialize the domain
-        super().__init__(env)
-        # parse bibliography header
-        header = getattr(env.app.config, "bibtex_footbibliography_header")
-        if header:
-            self.data["bibliography_header"] = docutils.nodes.container()
-            self.data["bibliography_header"] += parse_header(
-                header, "foot_bibliography_header"
-            )
-
-    def merge_domaindata(self, docnames: AbstractSet[str], otherdata: Dict) -> None:
+    def merge_domaindata(
+        self, docnames: AbstractSet[str], otherdata: Dict[str, Any]
+    ) -> None:
         """Merge in data regarding *docnames* from domain data
         inventory *otherdata*.
 

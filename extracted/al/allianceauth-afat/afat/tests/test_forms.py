@@ -5,9 +5,6 @@ Tests for forms in AFAT
 # Standard Library
 from unittest.mock import patch
 
-# Django
-from django.utils.safestring import SafeString
-
 # Alliance Auth AFAT
 from afat.forms import (
     AFatClickFatForm,
@@ -15,6 +12,7 @@ from afat.forms import (
     AFatManualFatForm,
     DoctrineAdminForm,
     FatLinkEditForm,
+    FleetSnapshot,
     SettingAdminForm,
     get_mandatory_form_label_text,
     sanitize_cleaned_data,
@@ -39,7 +37,6 @@ class TestGetMandatoryFormLabelText(BaseTestCase):
         label = "Field Label"
         result = get_mandatory_form_label_text(label)
 
-        self.assertIsInstance(result, SafeString)
         self.assertIn(label, result)
         self.assertIn(
             '<span aria-label="This field is mandatory" class="form-required-marker">*</span>',
@@ -174,6 +171,49 @@ class TestSanitizeCleanedData(BaseTestCase):
         result = sanitize_cleaned_data(cleaned_data)
 
         self.assertEqual(result["val"], "Emoji 👍\nand multiple spaces")
+
+    def test_collapses_spaces_and_tabs_when_keep_tabs_false(self):
+        """
+        Test collapses spaces and tabs when keep_tabs is false.
+
+        :return:
+        :rtype:
+        """
+
+        data = {"field": "  a\t\tb   c \t d  "}
+        result = sanitize_cleaned_data(data.copy(), keep_tabs=False)
+
+        # leading/trailing whitespace trimmed and internal sequences of spaces/tabs collapsed
+        self.assertEqual(result["field"], "a b c d")
+
+    def test_preserves_tabs_when_keep_tabs_true_and_collapses_multiple_spaces(self):
+        """
+        Test preserves tabs when keep_tabs is True and collapses multiple spaces.
+
+        :return:
+        :rtype:
+        """
+
+        data = {"field": "\t\tA  B\tC  "}
+        result = sanitize_cleaned_data(data.copy(), keep_tabs=True)
+
+        # consecutive spaces collapsed to one, tabs preserved, trailing spaces removed but not tabs
+        self.assertEqual(result["field"], "A B\tC")
+
+    def test_removes_html_and_control_chars_and_normalizes_newlines(self):
+        """
+        Test removes html and control chars and normalizes newlines.
+
+        :return:
+        :rtype:
+        """
+
+        raw = "Hello\r\n<b>World</b>\x00\x1f!"
+        data = {"field": raw}
+        result = sanitize_cleaned_data(data.copy(), keep_tabs=False)
+
+        # HTML tags removed, control chars removed, CRLF normalized to LF
+        self.assertEqual(result["field"], "Hello\nWorld!")
 
 
 class TestAFatEsiFatForm(BaseTestCase):
@@ -714,3 +754,171 @@ class TestDoctrineAdminForm(BaseTestCase):
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["name"], "EmojiName")
         self.assertEqual(form.cleaned_data["notes"], "Note 😊 more\nend")
+
+
+class TestFleetSnapshotForm(BaseTestCase):
+    """
+    Tests for the Fleet Snapshot form.
+    """
+
+    def test_keeps_tabs_and_collapses_multiple_spaces_per_line(self):
+        """
+        Test keeps tabs and collapses multiple spaces per line.
+
+        :return:
+        :rtype:
+        """
+
+        raw = "\tRounon Dax\t\tDO6H-Q\tMetamorphosis\tFrigate\tFleet       Commander (Boss)\t5 - 5 - 5\t\t"
+        form = FleetSnapshot(data={"fleet_composition": raw})
+
+        self.assertTrue(form.is_valid())
+
+        cleaned = form.cleaned_data["fleet_composition"]
+        expected = "Rounon Dax\t\tDO6H-Q\tMetamorphosis\tFrigate\tFleet Commander (Boss)\t5 - 5 - 5"
+
+        self.assertEqual(cleaned, expected)
+
+    def test_init_handles_copy_exception_and_sanitizes_data(self):
+        """
+        Ensure FleetSnapshot.__init__ handles exceptions from data.copy() by
+        falling back to dict(data) and still sanitizing the fleet_composition field.
+
+        :return:
+        :rtype:
+        """
+
+        class BrokenCopyMapping:
+            """
+            Broken Copy Mapping.
+            """
+
+            def __init__(self, d):
+                """
+                Initialize BrokenCopyMapping.
+
+                :param d:
+                :type d:
+                """
+
+                self._d = dict(d)
+
+            def __contains__(self, key):
+                """
+                Check if key is in self._d.
+
+                :param key:
+                :type key:
+                :return:
+                :rtype:
+                """
+
+                return key in self._d
+
+            def copy(self):
+                """
+                Copy Mapping.
+
+                :return:
+                :rtype:
+                """
+
+                raise Exception("copy failed")
+
+            def __iter__(self):
+                """
+                Iterate Mapping.
+
+                :return:
+                :rtype:
+                """
+
+                return iter(self._d)
+
+            def __getitem__(self, key):
+                """
+                Get Mapping.
+
+                :param key:
+                :type key:
+                :return:
+                :rtype:
+                """
+
+                return self._d[key]
+
+            def items(self):
+                """
+                Get Mapping Items.
+                :return:
+                :rtype:
+                """
+
+                return self._d.items()
+
+            def keys(self):
+                """
+                Get Mapping Keys.
+
+                :return:
+                :rtype:
+                """
+
+                # Provide mapping protocol so dict(self) works in fallback
+                return self._d.keys()
+
+            def get(self, key, default=None):
+                """
+                Get Mapping Key.
+
+                :param key:
+                :type key:
+                :param default:
+                :type default:
+                :return:
+                :rtype:
+                """
+
+                return self._d.get(key, default)
+
+        raw = "\tRounon Dax\t\tDO6H-Q\tMetamorphosis\tFrigate\tFleet       Commander (Boss)\t5 - 5 - 5\t\t"
+
+        broken = BrokenCopyMapping({"fleet_composition": raw})
+
+        # Should not raise despite copy() raising internally
+        form = FleetSnapshot(data=broken)
+
+        self.assertTrue(form.is_valid())
+
+        cleaned = form.cleaned_data["fleet_composition"]
+        expected = "Rounon Dax\t\tDO6H-Q\tMetamorphosis\tFrigate\tFleet Commander (Boss)\t5 - 5 - 5"
+
+        self.assertEqual(cleaned, expected)
+
+    def test_skip_pre_sanitization_when_raw_value_is_none(self):
+        """
+        Ensure the pre-sanitization block in FleetSnapshot.__init__ (the
+        `if raw_value is not None` at forms.py:224) is skipped when the
+        provided data contains the key but its value is None. We verify
+        this by patching sanitize_cleaned_data and asserting it is only
+        called once (from clean), not during __init__.
+
+        :return:
+        :rtype:
+        """
+
+        with patch("afat.forms.sanitize_cleaned_data") as mock_sanitize:
+            # Make sanitize return a harmless structure for clean()
+            mock_sanitize.return_value = {"fleet_composition": None}
+
+            form = FleetSnapshot(data={"fleet_composition": None})
+
+            # Trigger validation (calls clean)
+            is_valid = form.is_valid()
+
+            # sanitize_cleaned_data should have been called exactly once (from clean)
+            self.assertEqual(mock_sanitize.call_count, 1)
+
+            # Form should be invalid because required field is None
+            self.assertFalse(is_valid)
+            self.assertIn("fleet_composition", form.errors)

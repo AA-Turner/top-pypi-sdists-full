@@ -44,7 +44,7 @@ base_requirements = {
     "sqlalchemy-stubs>=0.4",
     # Actual dependencies.
     "pydantic>=2.4.0,<3.0",
-    "acryl-datahub[datahub-rest]>=1.5.0.11",
+    "acryl-datahub[datahub-rest]>=1.5.0.15",
     "loguru>=0.5.0",
     "anyio>=3.0.0",
     "urllib3>=1.26.0,<3",

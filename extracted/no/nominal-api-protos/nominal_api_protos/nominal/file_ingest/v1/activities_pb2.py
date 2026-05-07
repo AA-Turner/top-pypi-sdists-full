@@ -23,10 +23,14 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from nominal_api_protos.nominal.direct_channel_writer.v2 import file_data_pb2 as nominal_dot_direct__channel__writer_dot_v2_dot_file__data__pb2
+from nominal_api_protos.nominal.file_ingest.v1 import ingest_request_pb2 as nominal_dot_file__ingest_dot_v1_dot_ingest__request__pb2
 from nominal_api_protos.nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
+from nominal_api_protos.nominal.types.object_storage import handle_pb2 as nominal_dot_types_dot_object__storage_dot_handle__pb2
+from nominal_api_protos.nominal.types.time import time_pb2 as nominal_dot_types_dot_time_dot_time__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\'nominal/file_ingest/v1/activities.proto\x12\x16nominal.file_ingest.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anominal/gen/v1/alias.proto\"\xc8\x02\n!SetDatasetFileIngestStatusRequest\x12\x42\n\x0f\x64\x61taset_file_id\x18\x01 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x02 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12\x32\n\x07parsing\x18\x03 \x01(\x0b\x32\x1f.nominal.file_ingest.v1.ParsingH\x00\x12\x36\n\tingesting\x18\x04 \x01(\x0b\x32!.nominal.file_ingest.v1.IngestingH\x00\x12.\n\x05\x65rror\x18\x05 \x01(\x0b\x32\x1d.nominal.file_ingest.v1.ErrorH\x00\x42\x08\n\x06status\"$\n\"SetDatasetFileIngestStatusResponse\"\t\n\x07Parsing\"\x0b\n\tIngesting\",\n\x05\x45rror\x12\x12\n\nerror_type\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\"\x9b\x03\n\x1eWriteFileBatchesToKafkaRequest\x12\x34\n\x07\x62\x61tches\x18\x01 \x03(\x0b\x32#.nominal.file_ingest.v1.StagedBatch\x12@\n\x0eingest_job_rid\x18\x02 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x10\n\x08\x66ile_rid\x18\x03 \x01(\t\x12;\n\x07org_rid\x18\x04 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.authentication.api.OrgRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x05 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x06 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12\x33\n\x0f\x66ile_created_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"3\n\x0bStagedBatch\x12\x10\n\x08\x62\x61tch_id\x18\x01 \x01(\x05\x12\x12\n\nobject_key\x18\x02 \x01(\t\"!\n\x1fWriteFileBatchesToKafkaResponse\"O\n\x17\x43leanStagedFilesRequest\x12\x34\n\x07\x62\x61tches\x18\x01 \x03(\x0b\x32#.nominal.file_ingest.v1.StagedBatch\"\x1a\n\x18\x43leanStagedFilesResponseB\x1d\n\x19io.nominal.file_ingest.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\'nominal/file_ingest/v1/activities.proto\x12\x16nominal.file_ingest.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x30nominal/direct_channel_writer/v2/file_data.proto\x1a+nominal/file_ingest/v1/ingest_request.proto\x1a\x1anominal/gen/v1/alias.proto\x1a)nominal/types/object_storage/handle.proto\x1a\x1dnominal/types/time/time.proto\"\x8a\x03\n!SetDatasetFileIngestStatusRequest\x12\x42\n\x0f\x64\x61taset_file_id\x18\x01 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x02 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12\x32\n\x07parsing\x18\x03 \x01(\x0b\x32\x1f.nominal.file_ingest.v1.ParsingH\x00\x12\x36\n\tingesting\x18\x04 \x01(\x0b\x32!.nominal.file_ingest.v1.IngestingH\x00\x12.\n\x05\x65rror\x18\x05 \x01(\x0b\x32\x1d.nominal.file_ingest.v1.ErrorH\x00\x12@\n\x0eingest_job_rid\x18\x06 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRidB\x08\n\x06status\"$\n\"SetDatasetFileIngestStatusResponse\"\t\n\x07Parsing\"6\n\tIngesting\x12)\n\x06\x62ounds\x18\x01 \x01(\x0b\x32\x19.nominal.types.time.Range\",\n\x05\x45rror\x12\x12\n\nerror_type\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\"\xcf\x02\n\x10ParseFileRequest\x12@\n\x0eingest_job_rid\x18\x01 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x02 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x03 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12;\n\x0b\x64\x61ta_ingest\x18\x04 \x01(\x0b\x32&.nominal.file_ingest.v1.DataFileIngest\x12=\n\rworkspace_rid\x18\x05 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\"{\n\x11ParseFileResponse\x12;\n\x0estaged_batches\x18\x01 \x03(\x0b\x32#.nominal.file_ingest.v1.StagedBatch\x12)\n\x06\x62ounds\x18\x02 \x01(\x0b\x32\x19.nominal.types.time.Range\"\xa2\x03\n\x1eWriteFileBatchesToKafkaRequest\x12;\n\x0estaged_batches\x18\x01 \x03(\x0b\x32#.nominal.file_ingest.v1.StagedBatch\x12@\n\x0eingest_job_rid\x18\x02 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x10\n\x08\x66ile_rid\x18\x03 \x01(\t\x12;\n\x07org_rid\x18\x04 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.authentication.api.OrgRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x05 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12\x39\n\x0b\x64\x61taset_rid\x18\x06 \x01(\tB$\x9a\xb2\x1a \n\x1eio.nominal.api.rids.DatasetRid\x12\x33\n\x0f\x66ile_created_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x94\x01\n\x0bStagedBatch\x12\x10\n\x08\x62\x61tch_id\x18\x01 \x01(\x05\x12\x34\n\x06handle\x18\x02 \x01(\x0b\x32$.nominal.types.object_storage.Handle\x12=\n\x06\x66ormat\x18\x03 \x01(\x0e\x32-.nominal.direct_channel_writer.v2.BatchFormat\"!\n\x1fWriteFileBatchesToKafkaResponseB\x1d\n\x19io.nominal.file_ingest.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -38,6 +42,16 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SETDATASETFILEINGESTSTATUSREQUEST'].fields_by_name['dataset_file_id']._serialized_options = b'\232\262\032%\n#io.nominal.datasource.DatasetFileId'
   _globals['_SETDATASETFILEINGESTSTATUSREQUEST'].fields_by_name['dataset_rid']._loaded_options = None
   _globals['_SETDATASETFILEINGESTSTATUSREQUEST'].fields_by_name['dataset_rid']._serialized_options = b'\232\262\032 \n\036io.nominal.api.rids.DatasetRid'
+  _globals['_SETDATASETFILEINGESTSTATUSREQUEST'].fields_by_name['ingest_job_rid']._loaded_options = None
+  _globals['_SETDATASETFILEINGESTSTATUSREQUEST'].fields_by_name['ingest_job_rid']._serialized_options = b'\232\262\032$\n\"io.nominal.ingest.api.IngestJobRid'
+  _globals['_PARSEFILEREQUEST'].fields_by_name['ingest_job_rid']._loaded_options = None
+  _globals['_PARSEFILEREQUEST'].fields_by_name['ingest_job_rid']._serialized_options = b'\232\262\032$\n\"io.nominal.ingest.api.IngestJobRid'
+  _globals['_PARSEFILEREQUEST'].fields_by_name['dataset_file_id']._loaded_options = None
+  _globals['_PARSEFILEREQUEST'].fields_by_name['dataset_file_id']._serialized_options = b'\232\262\032%\n#io.nominal.datasource.DatasetFileId'
+  _globals['_PARSEFILEREQUEST'].fields_by_name['dataset_rid']._loaded_options = None
+  _globals['_PARSEFILEREQUEST'].fields_by_name['dataset_rid']._serialized_options = b'\232\262\032 \n\036io.nominal.api.rids.DatasetRid'
+  _globals['_PARSEFILEREQUEST'].fields_by_name['workspace_rid']._loaded_options = None
+  _globals['_PARSEFILEREQUEST'].fields_by_name['workspace_rid']._serialized_options = b'\232\262\032\"\n io.nominal.api.rids.WorkspaceRid'
   _globals['_WRITEFILEBATCHESTOKAFKAREQUEST'].fields_by_name['ingest_job_rid']._loaded_options = None
   _globals['_WRITEFILEBATCHESTOKAFKAREQUEST'].fields_by_name['ingest_job_rid']._serialized_options = b'\232\262\032$\n\"io.nominal.ingest.api.IngestJobRid'
   _globals['_WRITEFILEBATCHESTOKAFKAREQUEST'].fields_by_name['org_rid']._loaded_options = None
@@ -46,24 +60,24 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_WRITEFILEBATCHESTOKAFKAREQUEST'].fields_by_name['dataset_file_id']._serialized_options = b'\232\262\032%\n#io.nominal.datasource.DatasetFileId'
   _globals['_WRITEFILEBATCHESTOKAFKAREQUEST'].fields_by_name['dataset_rid']._loaded_options = None
   _globals['_WRITEFILEBATCHESTOKAFKAREQUEST'].fields_by_name['dataset_rid']._serialized_options = b'\232\262\032 \n\036io.nominal.api.rids.DatasetRid'
-  _globals['_SETDATASETFILEINGESTSTATUSREQUEST']._serialized_start=129
-  _globals['_SETDATASETFILEINGESTSTATUSREQUEST']._serialized_end=457
-  _globals['_SETDATASETFILEINGESTSTATUSRESPONSE']._serialized_start=459
-  _globals['_SETDATASETFILEINGESTSTATUSRESPONSE']._serialized_end=495
-  _globals['_PARSING']._serialized_start=497
-  _globals['_PARSING']._serialized_end=506
-  _globals['_INGESTING']._serialized_start=508
-  _globals['_INGESTING']._serialized_end=519
-  _globals['_ERROR']._serialized_start=521
-  _globals['_ERROR']._serialized_end=565
-  _globals['_WRITEFILEBATCHESTOKAFKAREQUEST']._serialized_start=568
-  _globals['_WRITEFILEBATCHESTOKAFKAREQUEST']._serialized_end=979
-  _globals['_STAGEDBATCH']._serialized_start=981
-  _globals['_STAGEDBATCH']._serialized_end=1032
-  _globals['_WRITEFILEBATCHESTOKAFKARESPONSE']._serialized_start=1034
-  _globals['_WRITEFILEBATCHESTOKAFKARESPONSE']._serialized_end=1067
-  _globals['_CLEANSTAGEDFILESREQUEST']._serialized_start=1069
-  _globals['_CLEANSTAGEDFILESREQUEST']._serialized_end=1148
-  _globals['_CLEANSTAGEDFILESRESPONSE']._serialized_start=1150
-  _globals['_CLEANSTAGEDFILESRESPONSE']._serialized_end=1176
+  _globals['_SETDATASETFILEINGESTSTATUSREQUEST']._serialized_start=298
+  _globals['_SETDATASETFILEINGESTSTATUSREQUEST']._serialized_end=692
+  _globals['_SETDATASETFILEINGESTSTATUSRESPONSE']._serialized_start=694
+  _globals['_SETDATASETFILEINGESTSTATUSRESPONSE']._serialized_end=730
+  _globals['_PARSING']._serialized_start=732
+  _globals['_PARSING']._serialized_end=741
+  _globals['_INGESTING']._serialized_start=743
+  _globals['_INGESTING']._serialized_end=797
+  _globals['_ERROR']._serialized_start=799
+  _globals['_ERROR']._serialized_end=843
+  _globals['_PARSEFILEREQUEST']._serialized_start=846
+  _globals['_PARSEFILEREQUEST']._serialized_end=1181
+  _globals['_PARSEFILERESPONSE']._serialized_start=1183
+  _globals['_PARSEFILERESPONSE']._serialized_end=1306
+  _globals['_WRITEFILEBATCHESTOKAFKAREQUEST']._serialized_start=1309
+  _globals['_WRITEFILEBATCHESTOKAFKAREQUEST']._serialized_end=1727
+  _globals['_STAGEDBATCH']._serialized_start=1730
+  _globals['_STAGEDBATCH']._serialized_end=1878
+  _globals['_WRITEFILEBATCHESTOKAFKARESPONSE']._serialized_start=1880
+  _globals['_WRITEFILEBATCHESTOKAFKARESPONSE']._serialized_end=1913
 # @@protoc_insertion_point(module_scope)

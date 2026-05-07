@@ -1,5 +1,7 @@
 """Models and schema for SpatialData."""
 
+from __future__ import annotations
+
 import warnings
 from collections.abc import Mapping, Sequence
 from functools import singledispatchmethod
@@ -14,7 +16,7 @@ from dask.array import Array as DaskArray
 from dask.array.core import from_array
 from dask.dataframe import DataFrame as DaskDataFrame
 from geopandas import GeoDataFrame, GeoSeries
-from multiscale_spatial_image import to_multiscale
+from multiscale_spatial_image import to_multiscale as to_multiscale_msi
 from multiscale_spatial_image.to_multiscale.to_multiscale import Methods
 from pandas import CategoricalDtype
 from shapely._geometry import GeometryType
@@ -38,6 +40,9 @@ from spatialdata.models._utils import (
     _validate_mapping_to_coordinate_system_type,
     convert_region_column_to_categorical,
 )
+from spatialdata.models.chunks_utils import Chunks_t
+from spatialdata.models.pyramids_utils import ScaleFactors_t  # ozp -> ome-zarr-py
+from spatialdata.models.pyramids_utils import to_multiscale as to_multiscale_ozp
 from spatialdata.transformations._utils import (
     _get_transformations,
     _set_transformations,
@@ -45,9 +50,7 @@ from spatialdata.transformations._utils import (
 )
 from spatialdata.transformations.transformations import Identity
 
-# Types
-Chunks_t: TypeAlias = int | tuple[int, ...] | tuple[tuple[int, ...], ...] | Mapping[Any, None | int | tuple[int, ...]]
-ScaleFactors_t = Sequence[dict[str, int] | int]
+__all__ = ["Chunks_t", "ScaleFactors_t"]
 
 ATTRS_KEY = "spatialdata_attrs"
 
@@ -121,13 +124,24 @@ class RasterSchema:
             are `[2, 2, 2]`, the returned multiscale image will have 4 scales. The original image and then the 2x, 4x
             and 8x downsampled images.
         method
-            Method to use for multiscale downsampling (default is `'nearest'`). Please refer to
-            :class:`multiscale_spatial_image.to_multiscale` for details.\n
-            Note (advanced): the default choice (`'nearest'`) will keep the original scale lazy and compute each
-            downscaled version. On the other hand `'xarray_coarsen'` will compute each scale lazily (this implies that
-            each scale will be recomputed each time it is accessed unless `.persist()` is manually called to cache the
-            intermediate results). Please refer direclty to the source code of `to_multiscale()` in the
-            `multiscale-spatial-image` for precise information on how this is handled.
+            Method to use for multiscale downsampling. The default (``None``) differs between images and labels:
+
+            - **Images** (:class:`Image2DModel`, :class:`Image3DModel`): uses
+              ``multiscale_spatial_image.to_multiscale()`` with ``method=Methods.XARRAY_COARSEN``.  This is the
+              same default as in spatialdata <= 0.7.2 and is fast.
+            - **Labels** (:class:`Labels2DModel`, :class:`Labels3DModel`): uses a lazy implementation based on
+              ``ome-zarr-py``'s ``resize()`` (``order=0``, nearest-neighbour). This has lower peak memory usage
+              than the ``multiscale_spatial_image`` implementation.  Note: for images this ome-zarr-py path
+              shows a significant performance regression (both time and memory); see
+              `GitHub issue #1079 <https://github.com/scverse/spatialdata/issues/1079>`_.
+
+            To override the default, pass any
+            :class:`~multiscale_spatial_image.to_multiscale.to_multiscale.Methods` value, which will force the
+            ``multiscale_spatial_image.to_multiscale()`` code path for all element types.  For example:
+
+            - ``method=Methods.XARRAY_COARSEN`` — coarsening via xarray (fast, default for images).
+            - ``method=Methods.DASK_IMAGE_NEAREST`` — nearest-neighbour via dask-image (not lazy as of
+              multiscale-spatial-image==2.0.3, so it leads to higher memory usage).
         chunks
             Chunks to use for dask array.
         kwargs
@@ -225,18 +239,34 @@ class RasterSchema:
                 chunks = {dim: chunks[index] for index, dim in enumerate(data.dims)}
             if isinstance(chunks, float):
                 chunks = {dim: chunks for index, dim in data.dims}
-            data = to_multiscale(
-                data,
-                scale_factors=scale_factors,
-                method=method,
-                chunks=chunks,
-            )
+            if method is not None:
+                data = to_multiscale_msi(
+                    data,
+                    scale_factors=scale_factors,
+                    method=method,
+                    chunks=chunks,
+                )
+            elif C in cls.dims:
+                # Images: multiscale-spatial-image is faster (see https://github.com/scverse/spatialdata/issues/1079)
+                data = to_multiscale_msi(
+                    data,
+                    scale_factors=scale_factors,
+                    method=Methods.XARRAY_COARSEN,
+                    chunks=chunks,
+                )
+            else:
+                # Labels: ome-zarr-py based implementation uses less memory
+                data = to_multiscale_ozp(
+                    data,
+                    scale_factors=scale_factors,
+                    chunks=chunks,
+                )
             _parse_transformations(data, parsed_transform)
         else:
             # Chunk single scale images
             if chunks is not None:
                 if isinstance(chunks, tuple):
-                    chunks = {dim: chunks[index] for index, dim in enumerate(data.dims)}
+                    chunks = dict(zip(data.dims, chunks, strict=True))
                 data = data.chunk(chunks=chunks)
         # recompute coordinates for (multiscale) spatial image
         data = compute_coordinates(data)
@@ -375,9 +405,6 @@ class Labels2DModel(RasterSchema):
     ) -> DataArray | DataTree:
         if kwargs.get("c_coords") is not None:
             raise ValueError("`c_coords` is not supported for labels")
-        if kwargs.get("scale_factors") is not None and kwargs.get("method") is None:
-            # Override default scaling method to preserve labels
-            kwargs["method"] = Methods.DASK_IMAGE_NEAREST
         return super().parse(*args, **kwargs)
 
 
@@ -388,9 +415,6 @@ class Labels3DModel(RasterSchema):
     def parse(self, *args: Any, **kwargs: Any) -> DataArray | DataTree:  # noqa: D102
         if kwargs.get("c_coords") is not None:
             raise ValueError("`c_coords` is not supported for labels")
-        if kwargs.get("scale_factors") is not None and kwargs.get("method") is None:
-            # Override default scaling method to preserve labels
-            kwargs["method"] = Methods.DASK_IMAGE_NEAREST
         return super().parse(*args, **kwargs)
 
 
@@ -1029,25 +1053,30 @@ class TableModel:
             raise ValueError(f"`{attr[cls.REGION_KEY_KEY]}` not found in `adata.obs`. Please create the column.")
         if attr[cls.INSTANCE_KEY] not in data.obs:
             raise ValueError(f"`{attr[cls.INSTANCE_KEY]}` not found in `adata.obs`. Please create the column.")
-        if (
-            (dtype := data.obs[attr[cls.INSTANCE_KEY]].dtype)
-            not in [
-                int,
-                np.int16,
-                np.uint16,
-                np.int32,
-                np.uint32,
-                np.int64,
-                np.uint64,
-                "O",
-            ]
-            and not pd.api.types.is_string_dtype(data.obs[attr[cls.INSTANCE_KEY]])
-            or (dtype == "O" and (val_dtype := type(data.obs[attr[cls.INSTANCE_KEY]].iloc[0])) is not str)
-        ):
-            dtype = dtype if dtype != "O" else val_dtype
+        instance_col = data.obs[attr[cls.INSTANCE_KEY]]
+        dtype = instance_col.dtype
+
+        _INT_TYPES = [int, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]
+
+        def _is_int_or_str_dtype(d: np.dtype) -> bool:
+            return d in _INT_TYPES or isinstance(d, pd.StringDtype)
+
+        # First, check the top-level dtype (covers plain int and StringDtype cases)
+        is_valid = _is_int_or_str_dtype(dtype)
+        # Explicitly handle categorical dtypes by inspecting the categories' dtype, including
+        # object-backed string categories via is_string_dtype on the categories' dtype.
+        if isinstance(dtype, pd.CategoricalDtype):
+            cat_dtype = dtype.categories.dtype
+            is_valid = is_valid or _is_int_or_str_dtype(cat_dtype) or pd.api.types.is_string_dtype(cat_dtype)
+        # the string case is already covered above, the check below covers the case of dtype("O") with string dtype
+        is_valid = is_valid or pd.api.types.is_string_dtype(instance_col)
+
+        if not is_valid:
             raise TypeError(
-                f"Only int, np.int16, np.int32, np.int64, uint equivalents or string allowed as dtype for "
-                f"instance_key column in obs. Dtype found to be {dtype}"
+                f"Only integer (int, np.int16, np.int32, np.int64, and uint equivalents), string "
+                f"(including pandas StringDtype and object dtype with string values), or categorical "
+                f"with integer/string categories allowed as dtype for instance_key column in obs. "
+                f"Dtype found to be {dtype}"
             )
         expected_regions = attr[cls.REGION_KEY] if isinstance(attr[cls.REGION_KEY], list) else [attr[cls.REGION_KEY]]
         found_regions = data.obs[attr[cls.REGION_KEY_KEY]].unique().tolist()
@@ -1221,14 +1250,17 @@ Schema_t: TypeAlias = (
 
 def get_model(
     e: SpatialElement,
+    validate: bool = True,
 ) -> Schema_t:
     """
-    Get the model for the given element.
+    Get the model for the given element. Validate using the model if `validate` is `True`.
 
     Parameters
     ----------
     e
         The element.
+    validate
+        Whether to validate the element using the model.
 
     Returns
     -------
@@ -1239,7 +1271,8 @@ def get_model(
         schema: Schema_t,
         e: SpatialElement,
     ) -> Schema_t:
-        schema.validate(e)
+        if validate:
+            schema.validate(e)
         return schema
 
     if isinstance(e, DataArray | DataTree):

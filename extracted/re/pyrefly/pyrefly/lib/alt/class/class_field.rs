@@ -18,7 +18,6 @@ use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::FuncFlags;
-use pyrefly_types::callable::FuncId;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::ParamList;
 use pyrefly_types::callable::Params;
@@ -79,8 +78,11 @@ use crate::types::annotation::Qualifier;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::Param;
+use crate::types::callable::PropertyMetadata;
+use crate::types::callable::PropertyRole;
 use crate::types::callable::Required;
 use crate::types::class::Class;
+use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
 use crate::types::display::LspDisplayMode;
 use crate::types::display::TypeDisplayContext;
@@ -97,6 +99,7 @@ use crate::types::typed_dict::TypedDictField;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
 use crate::types::types::BoundMethodType;
+use crate::types::types::CalleeKind;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
 use crate::types::types::Overload;
@@ -242,9 +245,22 @@ pub enum ClassFieldInitialization {
     /// If this is a dataclass field, DataclassFieldKeywords stores the field's
     /// dataclass flags (which are options that control how fields behave).
     ClassBody(Option<Box<DataclassFieldKeywords>>),
-    /// This field is initialized in a method. Note that this applies only if the field is not
-    /// declared anywhere else.
+    /// This field is initialized in an instance method (e.g. `self.x = 1`).
+    ///
+    /// Note that this applies only if the field is not declared anywhere else.
+    ///
+    /// At runtime, this creates an instance attribute. Therefore:
+    /// 1. It is not visible when accessed on the class object (e.g. `Class.x` yields a no-access error).
+    /// 2. It is ignored by dataclass field extraction (unless also declared in the class body).
     Method,
+    /// This field is initialized in a class method (e.g. `cls.x = 1` inside `@classmethod`).
+    ///
+    /// Note that this applies only if the field is not declared anywhere else.
+    ///
+    /// At runtime, this creates a class attribute. Therefore:
+    /// 1. It is visible when accessed on the class object (e.g. `Class.x` is valid).
+    /// 2. It is ignored by dataclass field extraction (unless also declared in the class body).
+    ClassMethod,
     /// The field is not initialized at the point where it is declared. This usually means that the
     /// field is instance-only and is declared but not initialized in the class body.
     Uninitialized,
@@ -259,6 +275,7 @@ impl Display for ClassFieldInitialization {
         match self {
             Self::ClassBody(_) => write!(f, "initialized on class body"),
             Self::Method => write!(f, "initialized in method"),
+            Self::ClassMethod => write!(f, "initialized in class method"),
             Self::Uninitialized => write!(f, "initialized on instances"),
             Self::Magic => {
                 write!(f, "not initialized on class body/method")
@@ -456,7 +473,7 @@ impl ClassField {
                 },
                 IsInherited::Maybe,
             )
-        } else if is_method_type(&ty) {
+        } else if ty.has_toplevel_func_metadata() {
             // Synthesized methods (like __init__, __eq__, __iter__, etc.)
             ClassField(
                 ClassFieldInner::Method {
@@ -741,6 +758,7 @@ impl ClassField {
             ClassFieldInner::ClassAttribute { ty, .. } => match self.initialization() {
                 ClassFieldInitialization::ClassBody(_) => Some(ty),
                 ClassFieldInitialization::Method
+                | ClassFieldInitialization::ClassMethod
                 | ClassFieldInitialization::Uninitialized
                 | ClassFieldInitialization::Magic => None,
             },
@@ -846,6 +864,7 @@ impl ClassField {
             ClassFieldInner::ClassAttribute {
                 initialization:
                     ClassFieldInitialization::Method
+                    | ClassFieldInitialization::ClassMethod
                     | ClassFieldInitialization::Uninitialized
                     | ClassFieldInitialization::Magic,
                 ..
@@ -1113,6 +1132,7 @@ impl ClassField {
                     kws
                 }
                 ClassFieldInitialization::Method
+                | ClassFieldInitialization::ClassMethod
                 | ClassFieldInitialization::Uninitialized
                 | ClassFieldInitialization::Magic => DataclassFieldKeywords::new(),
             },
@@ -1127,7 +1147,7 @@ impl ClassField {
             ClassFieldInner::Method { .. } => false,
             ClassFieldInner::NestedClass { .. } => false,
             ClassFieldInner::ClassAttribute { initialization, .. } => {
-                matches!(initialization, ClassFieldInitialization::Method)
+                matches!(initialization, ClassFieldInitialization::ClassMethod)
             }
             ClassFieldInner::InstanceAttribute { .. } => true, // By definition, always assigned in methods
         }
@@ -1381,22 +1401,10 @@ pub enum DataclassMember {
     NotAField,
 }
 
-fn is_method_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Function(_)
-            | Type::Overload(_)
-            | Type::Forall(box Forall {
-                body: Forallable::Function(_),
-                ..
-            })
-    )
-}
-
 fn has_any_method_type(ty: &Type) -> bool {
     match ty {
-        Type::Union(union) => union.members.iter().any(is_method_type),
-        _ => is_method_type(ty),
+        Type::Union(union) => union.members.iter().any(|t| t.has_toplevel_func_metadata()),
+        _ => ty.has_toplevel_func_metadata(),
     }
 }
 
@@ -1668,7 +1676,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
 
                 let initialization = match method.instance_or_class {
-                    MethodSelfKind::Class => ClassFieldInitialization::ClassBody(None),
+                    MethodSelfKind::Class => ClassFieldInitialization::ClassMethod,
                     MethodSelfKind::Instance => ClassFieldInitialization::Method,
                 };
                 let (mut value_ty, annotation, is_inherited) = self.analyze_class_field_value(
@@ -1862,9 +1870,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 _ => {}
             };
         }
-        // Check if this is a Django ForeignKey field
+        // Check if this is a Django ForeignKey or OneToOneField
         let is_foreign_key = metadata.is_django_model()
-            && matches!(&ty, Type::ClassType(cls) if self.is_foreign_key_field(cls.class_object()));
+            && matches!(&ty, Type::ClassType(cls) if self.is_foreign_key_like_field(cls.class_object()));
 
         // Check if this is a Django field with choices
         let has_choices = if let ClassFieldDefinition::AssignedInBody { value, .. } =
@@ -2094,7 +2102,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             // We interpret `self.foo = None` to mean the type of foo is None or some unknown type.
             (None, Expr::NoneLiteral(_)) => {
-                self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::UnannotatedAttribute), "This expression is implicitly inferred to be `Any | None`. Please provide an explicit type annotation.".to_owned());
+                self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::ImplicitAnyAttribute), "This expression is implicitly inferred to be `Any | None`. Please provide an explicit type annotation.".to_owned());
                 self.union(self.heap.mk_none(), self.heap.mk_any_implicit())
             }
             // We interpret `self.foo = ()` to mean the type of foo is an arbitrary-length tuple,
@@ -2105,7 +2113,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (None, Expr::Tuple(ExprTuple { elts, .. }))
                 if elts.is_empty() && *name != dunder::MATCH_ARGS =>
             {
-                self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::UnannotatedAttribute), "This expression is implicitly inferred to be `tuple[Any, ...]`. Please provide an explicit type annotation.".to_owned());
+                self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::ImplicitAnyAttribute), "This expression is implicitly inferred to be `tuple[Any, ...]`. Please provide an explicit type annotation.".to_owned());
                 self.heap.mk_unbounded_tuple(self.heap.mk_any_implicit())
             }
             (None, _) => self.expr_infer(x, errors),
@@ -2139,6 +2147,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
         )
+        .or_else(|| self.get_property_class_field_type(class, name, field_definition))
         .or_else(|| self.get_pydantic_root_model_class_field_type(class, name))
         .or_else(|| {
             let initial_value_expr = match field_definition {
@@ -2153,6 +2162,86 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             self.get_django_field_type(ty, class, Some(name), initial_value_expr)
         })
+    }
+
+    /// Recognize `x = property(fget, fset, fdel)` and return the corresponding
+    /// property type, mirroring what the `@property` decorator path produces.
+    fn get_property_class_field_type(
+        &self,
+        class: &Class,
+        name: &Name,
+        field_definition: &ClassFieldDefinition,
+    ) -> Option<Type> {
+        let ClassFieldDefinition::AssignedInBody { value, .. } = field_definition else {
+            return None;
+        };
+        let ExprOrBinding::Expr(expr) = value.as_ref() else {
+            return None;
+        };
+        let call = expr.as_call_expr()?;
+        let errors = self.error_swallower();
+        let callee_ty = self.expr_infer(&call.func, &errors);
+        if !matches!(
+            callee_ty.callee_kind(),
+            Some(CalleeKind::Class(ClassKind::Property(_)))
+        ) {
+            return None;
+        }
+
+        let getter = self.property_constructor_arg(class, name, call, 0, "fget", &errors)?;
+        let setter = self.property_constructor_arg(class, name, call, 1, "fset", &errors);
+        let has_deleter = self
+            .property_constructor_arg(class, name, call, 2, "fdel", &errors)
+            .is_some();
+
+        let role = if setter.is_some() {
+            PropertyRole::Setter
+        } else {
+            PropertyRole::Getter
+        };
+        let metadata =
+            PropertyMetadata::from_components(role, &getter, setter.as_ref(), has_deleter);
+        let mut primary = setter.unwrap_or(getter);
+        if !primary.set_property_metadata(metadata) {
+            // `primary` isn't a function-like type; fall back to the default path
+            // rather than returning a type without property metadata attached.
+            return None;
+        }
+        Some(primary)
+    }
+
+    /// Look up a `property()` constructor argument by position or keyword name.
+    fn property_constructor_arg(
+        &self,
+        class: &Class,
+        name: &Name,
+        call: &ExprCall,
+        position: usize,
+        keyword: &str,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        // Positional args take priority; we fall back to keyword search only when
+        // there is no positional arg at `position`. This is safe because Python
+        // forbids positional args after keyword args, so the two can never conflict.
+        let arg = call.arguments.args.get(position).or_else(|| {
+            call.arguments.keywords.iter().find_map(|kw| {
+                (kw.arg
+                    .as_ref()
+                    .is_some_and(|name| name.id.as_str() == keyword))
+                .then_some(&kw.value)
+            })
+        })?;
+        match self.expr_infer(arg, errors) {
+            Type::None => None,
+            Type::Callable(callable) => {
+                // Coerce the callable to a function so we can later attach property metadata.
+                Some(Type::Function(Box::new(Function {
+                    signature: *callable,
+                    metadata: FuncMetadata::method(class, name.clone()),
+                })))
+            }
+            ty => Some(ty),
+        }
     }
 
     fn determine_read_only_reason(
@@ -2658,6 +2747,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    fn normalize_attr_ty(&self, mut ty: Type) -> Type {
+        self.expand_vars_mut(&mut ty);
+        self.solver().finalize_callable_residuals_at_boundary(ty)
+    }
+
     fn as_instance_attribute(
         &self,
         field_name: &Name,
@@ -2717,27 +2811,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             ClassFieldInner::Method { mut ty, .. } => {
                 // bind_instance matches on the type, so resolve it if we can
-                self.expand_vars_mut(&mut ty);
+                ty = self.normalize_attr_ty(ty);
                 // If the field is a dunder or ClassVar[Callable] & the assigned value is a callable, we replace it with a named function
                 // so that it gets treated as a bound method.
                 //
                 // Both of these are heuristics that aren't guaranteed to be correct, but the dunder heuristic has usability benefits
                 // and the ClassVar heuristic aligns us with existing type checkers.
                 if let Type::Callable(box callable) = ty {
-                    let module = self.module();
-                    let func_id = FuncId {
-                        module: module.clone(),
-                        cls: None,
-                        name: field_name.clone(),
-                        def_index: None,
-                        outer_funcs: None,
-                    };
                     ty = self.heap.mk_function(Function {
                         signature: callable,
-                        metadata: FuncMetadata {
-                            kind: FunctionKind::Def(Arc::new(func_id)),
-                            flags: FuncFlags::default(),
-                        },
+                        metadata: FuncMetadata::def(self.module(), None, field_name.clone()),
                     })
                 }
                 if let Some(quantified) = self_quantified {
@@ -2762,7 +2845,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 read_only_reason,
                 ..
             } => {
-                self.expand_vars_mut(&mut ty);
+                ty = self.normalize_attr_ty(ty);
                 if is_classvar {
                     ClassAttribute::read_only(ty, ReadOnlyReason::ClassVar)
                 } else if let Some(reason) = read_only_reason {
@@ -2772,10 +2855,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             ClassFieldInner::InstanceAttribute {
-                ty,
+                mut ty,
                 read_only_reason,
                 ..
             } => {
+                ty = self.normalize_attr_ty(ty);
                 if let Some(reason) = read_only_reason {
                     ClassAttribute::read_only(ty, reason)
                 } else {
@@ -2815,14 +2899,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         match field.0 {
-            ClassFieldInner::Property { ty, .. } => {
+            ClassFieldInner::Property { mut ty, .. } => {
                 // When accessing a property on a class (not instance), you get the property object itself
+                ty = self.normalize_attr_ty(ty);
                 bind_class_attribute(self.heap, cls, ty, None)
             }
             ClassFieldInner::Descriptor { descriptor, .. } => {
                 ClassAttribute::descriptor(descriptor, DescriptorBase::ClassDef(cls.clone()))
             }
             ClassFieldInner::Method { mut ty, .. } => {
+                ty = self.normalize_attr_ty(ty);
                 // When accessing a method on a class (not instance), you get the unbound function.
                 // Filter overloads with narrower self-type annotations (e.g., `self: LiteralString`
                 // on str methods). These overloads only apply when the instance is known to be the
@@ -2866,8 +2952,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 bind_class_attribute(self.heap, cls, ty, None)
             }
-            ClassFieldInner::NestedClass { ty, .. } => {
+            ClassFieldInner::NestedClass { mut ty, .. } => {
                 // Nested classes are always read-only (ClassObjectInitializedOnBody)
+                ty = self.normalize_attr_ty(ty);
                 bind_class_attribute(
                     self.heap,
                     cls,
@@ -2882,10 +2969,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 cls.class_object().dupe(),
             )),
             ClassFieldInner::ClassAttribute {
-                ty,
+                mut ty,
                 read_only_reason,
                 ..
             } => {
+                ty = self.normalize_attr_ty(ty);
                 if ambiguous {
                     ClassAttribute::no_access(NoAccessReason::ClassAttributeIsGeneric(
                         cls.class_object().dupe(),
@@ -3116,10 +3204,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return false;
         }
 
-        // Django models and marshmallow schemas: skip override check for `Meta` class.
-        // These frameworks use a nested `Meta` class for configuration, and child classes
-        // define their own `Meta` without inheriting from the parent's `Meta`.
-        if (class_metadata.is_django_model() || class_metadata.is_marshmallow_schema())
+        // Django models, marshmallow schemas, and factory-boy factories: skip override
+        // check for `Meta` class. These frameworks use a nested `Meta` class for
+        // configuration, and child classes define their own `Meta` without inheriting
+        // from the parent's `Meta`.
+        if (class_metadata.is_django_model()
+            || class_metadata.is_marshmallow_schema()
+            || class_metadata.is_factory_boy_factory())
             && field_name.as_str() == "Meta"
         {
             return false;
@@ -3804,7 +3895,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
         self.get_field_from_mro(cls, name, &|cls, name| {
             let field = self.get_non_synthesized_field_from_current_class_only(cls, name)?;
-            if field.initialization() == ClassFieldInitialization::Method {
+            if matches!(
+                field.initialization(),
+                ClassFieldInitialization::Method | ClassFieldInitialization::ClassMethod
+            ) {
                 // This parent happens to assign to the field in a method but doesn't define it.
                 None
             } else {

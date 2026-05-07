@@ -17590,7 +17590,6 @@ class HostedZone(
     @builtins.property
     @jsii.member(jsii_name="vpcs")
     def _vpcs(self) -> typing.List["CfnHostedZone.VPCProperty"]:
-        '''VPCs to which this hosted zone will be added.'''
         return typing.cast(typing.List["CfnHostedZone.VPCProperty"], jsii.get(self, "vpcs"))
 
     @builtins.property

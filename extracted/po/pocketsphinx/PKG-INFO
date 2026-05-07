@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pocketsphinx
-Version: 5.0.4
+Version: 5.1.0
 Summary: Official Python bindings for PocketSphinx
 Keywords: asr,speech
 Author-Email: David Huggins-Daines <dhdaines@gmail.com>
@@ -8,7 +8,6 @@ Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -24,8 +23,8 @@ Project-URL: Issues, https://github.com/cmusphinx/pocketsphinx/issues
 Requires-Dist: sounddevice
 Description-Content-Type: text/markdown
 
-PocketSphinx 5.0.4
-==================
+PocketSphinx 5.1.0
+=====================
 
 This is PocketSphinx, one of Carnegie Mellon University's open source large
 vocabulary, speaker-independent continuous speech recognition engines.

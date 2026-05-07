@@ -2,11 +2,11 @@ import re
 import shutil
 import time
 from pathlib import Path
-from test.common import html_citations
 
 import pytest
-from pybtex.exceptions import PybtexError
 from sphinx.errors import ExtensionError
+
+from test.common import html_citations
 
 status_up_to_date = "checking bibtex cache.*up to date"
 status_out_of_date = "checking bibtex cache.*out of date"
@@ -90,7 +90,7 @@ def test_bibfiles_encoding(app, warning) -> None:
 )
 def test_bibfiles_encoding_bad(make_app, app_params) -> None:
     args, kwargs = app_params
-    with pytest.raises(PybtexError, match="can't decode byte 0xc4"):
+    with pytest.raises(ExtensionError, match="can't decode byte 0xc4"):
         make_app(*args, **kwargs)
 
 
@@ -102,7 +102,7 @@ def test_bibfiles_encoding_bad(make_app, app_params) -> None:
 )
 def test_bibfiles_encoding_invalid(make_app, app_params) -> None:
     args, kwargs = app_params
-    with pytest.raises(LookupError, match="unknown encoding"):
+    with pytest.raises(ExtensionError, match="unknown encoding"):
         make_app(*args, **kwargs)
 
 

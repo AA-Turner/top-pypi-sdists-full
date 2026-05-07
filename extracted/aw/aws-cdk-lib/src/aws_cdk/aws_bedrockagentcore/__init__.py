@@ -478,7 +478,19 @@ class CfnBrowserCustom(
             browser_signing=bedrockagentcore.CfnBrowserCustom.BrowserSigningProperty(
                 enabled=False
             ),
+            certificates=[bedrockagentcore.CfnBrowserCustom.CertificateProperty(
+                certificate_location=bedrockagentcore.CfnBrowserCustom.CertificateLocationProperty(
+                    secret_arn="secretArn"
+                )
+            )],
             description="description",
+            enterprise_policies=[bedrockagentcore.CfnBrowserCustom.BrowserEnterprisePolicyProperty(
+                location=bedrockagentcore.CfnBrowserCustom.S3LocationProperty(
+                    bucket="bucket",
+                    prefix="prefix"
+                ),
+                type="type"
+            )],
             execution_role_arn="executionRoleArn",
             recording_config=bedrockagentcore.CfnBrowserCustom.RecordingConfigProperty(
                 enabled=False,
@@ -501,7 +513,9 @@ class CfnBrowserCustom(
         name: builtins.str,
         network_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.BrowserNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         browser_signing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.BrowserSigningProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        enterprise_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.BrowserEnterprisePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         recording_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.RecordingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -513,7 +527,9 @@ class CfnBrowserCustom(
         :param name: The name of the custom browser.
         :param network_configuration: The network configuration for a code interpreter. This structure defines how the code interpreter connects to the network.
         :param browser_signing: Browser signing configuration.
+        :param certificates: List of root CA certificates.
         :param description: The custom browser.
+        :param enterprise_policies: List of browser enterprise policies.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role.
         :param recording_config: THe custom browser configuration.
         :param tags: The tags for the custom browser.
@@ -526,7 +542,9 @@ class CfnBrowserCustom(
             name=name,
             network_configuration=network_configuration,
             browser_signing=browser_signing,
+            certificates=certificates,
             description=description,
+            enterprise_policies=enterprise_policies,
             execution_role_arn=execution_role_arn,
             recording_config=recording_config,
             tags=tags,
@@ -758,6 +776,24 @@ class CfnBrowserCustom(
         jsii.set(self, "browserSigning", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="certificates")
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateProperty"]]]]:
+        '''List of root CA certificates.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateProperty"]]]], jsii.get(self, "certificates"))
+
+    @certificates.setter
+    def certificates(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98c25ecbf9f06f09197678ac6c18e3ed8b16e9f6813dac3e24d370ff6a0d8e74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The custom browser.'''
@@ -769,6 +805,24 @@ class CfnBrowserCustom(
             type_hints = typing.get_type_hints(_typecheckingstub__d16faa304c4f18b8bba1ee70b209c47d9944346a1e88926b4ee4ea5fe723fd64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enterprisePolicies")
+    def enterprise_policies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.BrowserEnterprisePolicyProperty"]]]]:
+        '''List of browser enterprise policies.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.BrowserEnterprisePolicyProperty"]]]], jsii.get(self, "enterprisePolicies"))
+
+    @enterprise_policies.setter
+    def enterprise_policies(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.BrowserEnterprisePolicyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9804a3d069b08f6f1068d62a5299df6e8237c943449c27808cb3de570b31d7fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enterprisePolicies", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -816,6 +870,82 @@ class CfnBrowserCustom(
             type_hints = typing.get_type_hints(_typecheckingstub__22e813ff9c64c23f175682396c7a13b02b9193809d3629b73f2ecac10192c8c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserCustom.BrowserEnterprisePolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"location": "location", "type": "type"},
+    )
+    class BrowserEnterprisePolicyProperty:
+        def __init__(
+            self,
+            *,
+            location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            type: builtins.str,
+        ) -> None:
+            '''Browser enterprise policy configuration.
+
+            :param location: S3 Location Configuration.
+            :param type: The type of browser enterprise policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-browserenterprisepolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                browser_enterprise_policy_property = bedrockagentcore.CfnBrowserCustom.BrowserEnterprisePolicyProperty(
+                    location=bedrockagentcore.CfnBrowserCustom.S3LocationProperty(
+                        bucket="bucket",
+                        prefix="prefix"
+                    ),
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ba0f6dda22af18764bb1c971999f950239af98eaa0fcef6b7c1190ae262d7fa8)
+                check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "location": location,
+                "type": type,
+            }
+
+        @builtins.property
+        def location(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.S3LocationProperty"]:
+            '''S3 Location Configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-browserenterprisepolicy.html#cfn-bedrockagentcore-browsercustom-browserenterprisepolicy-location
+            '''
+            result = self._values.get("location")
+            assert result is not None, "Required property 'location' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.S3LocationProperty"], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of browser enterprise policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-browserenterprisepolicy.html#cfn-bedrockagentcore-browsercustom-browserenterprisepolicy-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BrowserEnterprisePolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserCustom.BrowserNetworkConfigurationProperty",
@@ -950,6 +1080,118 @@ class CfnBrowserCustom(
 
         def __repr__(self) -> str:
             return "BrowserSigningProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserCustom.CertificateLocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class CertificateLocationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Certificate location in Secrets Manager.
+
+            :param secret_arn: Secrets Manager secret ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-certificatelocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                certificate_location_property = bedrockagentcore.CfnBrowserCustom.CertificateLocationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c9b72931f075ffd2339da5749e1bcb26e3348fecf01bac8d8194b30e7bd7a899)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''Secrets Manager secret ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-certificatelocation.html#cfn-bedrockagentcore-browsercustom-certificatelocation-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateLocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserCustom.CertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"certificate_location": "certificateLocation"},
+    )
+    class CertificateProperty:
+        def __init__(
+            self,
+            *,
+            certificate_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.CertificateLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''A root CA certificate configuration.
+
+            :param certificate_location: Certificate location in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-certificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                certificate_property = bedrockagentcore.CfnBrowserCustom.CertificateProperty(
+                    certificate_location=bedrockagentcore.CfnBrowserCustom.CertificateLocationProperty(
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__640a18da5056553bee5a1cb7ab3d997892f2888dafe223079f45e23f1d28221b)
+                check_type(argname="argument certificate_location", value=certificate_location, expected_type=type_hints["certificate_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "certificate_location": certificate_location,
+            }
+
+        @builtins.property
+        def certificate_location(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateLocationProperty"]:
+            '''Certificate location in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-browsercustom-certificate.html#cfn-bedrockagentcore-browsercustom-certificate-certificatelocation
+            '''
+            result = self._values.get("certificate_location")
+            assert result is not None, "Required property 'certificate_location' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateLocationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1179,7 +1421,9 @@ class CfnBrowserCustom(
         "name": "name",
         "network_configuration": "networkConfiguration",
         "browser_signing": "browserSigning",
+        "certificates": "certificates",
         "description": "description",
+        "enterprise_policies": "enterprisePolicies",
         "execution_role_arn": "executionRoleArn",
         "recording_config": "recordingConfig",
         "tags": "tags",
@@ -1192,7 +1436,9 @@ class CfnBrowserCustomProps:
         name: builtins.str,
         network_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.BrowserNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         browser_signing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.BrowserSigningProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        enterprise_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.BrowserEnterprisePolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         recording_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBrowserCustom.RecordingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1202,7 +1448,9 @@ class CfnBrowserCustomProps:
         :param name: The name of the custom browser.
         :param network_configuration: The network configuration for a code interpreter. This structure defines how the code interpreter connects to the network.
         :param browser_signing: Browser signing configuration.
+        :param certificates: List of root CA certificates.
         :param description: The custom browser.
+        :param enterprise_policies: List of browser enterprise policies.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role.
         :param recording_config: THe custom browser configuration.
         :param tags: The tags for the custom browser.
@@ -1232,7 +1480,19 @@ class CfnBrowserCustomProps:
                 browser_signing=bedrockagentcore.CfnBrowserCustom.BrowserSigningProperty(
                     enabled=False
                 ),
+                certificates=[bedrockagentcore.CfnBrowserCustom.CertificateProperty(
+                    certificate_location=bedrockagentcore.CfnBrowserCustom.CertificateLocationProperty(
+                        secret_arn="secretArn"
+                    )
+                )],
                 description="description",
+                enterprise_policies=[bedrockagentcore.CfnBrowserCustom.BrowserEnterprisePolicyProperty(
+                    location=bedrockagentcore.CfnBrowserCustom.S3LocationProperty(
+                        bucket="bucket",
+                        prefix="prefix"
+                    ),
+                    type="type"
+                )],
                 execution_role_arn="executionRoleArn",
                 recording_config=bedrockagentcore.CfnBrowserCustom.RecordingConfigProperty(
                     enabled=False,
@@ -1251,7 +1511,9 @@ class CfnBrowserCustomProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
             check_type(argname="argument browser_signing", value=browser_signing, expected_type=type_hints["browser_signing"])
+            check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enterprise_policies", value=enterprise_policies, expected_type=type_hints["enterprise_policies"])
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument recording_config", value=recording_config, expected_type=type_hints["recording_config"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1261,8 +1523,12 @@ class CfnBrowserCustomProps:
         }
         if browser_signing is not None:
             self._values["browser_signing"] = browser_signing
+        if certificates is not None:
+            self._values["certificates"] = certificates
         if description is not None:
             self._values["description"] = description
+        if enterprise_policies is not None:
+            self._values["enterprise_policies"] = enterprise_policies
         if execution_role_arn is not None:
             self._values["execution_role_arn"] = execution_role_arn
         if recording_config is not None:
@@ -1306,6 +1572,17 @@ class CfnBrowserCustomProps:
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.BrowserSigningProperty"]], result)
 
     @builtins.property
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateProperty"]]]]:
+        '''List of root CA certificates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browsercustom.html#cfn-bedrockagentcore-browsercustom-certificates
+        '''
+        result = self._values.get("certificates")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.CertificateProperty"]]]], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''The custom browser.
 
@@ -1313,6 +1590,17 @@ class CfnBrowserCustomProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enterprise_policies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.BrowserEnterprisePolicyProperty"]]]]:
+        '''List of browser enterprise policies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browsercustom.html#cfn-bedrockagentcore-browsercustom-enterprisepolicies
+        '''
+        result = self._values.get("enterprise_policies")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBrowserCustom.BrowserEnterprisePolicyProperty"]]]], result)
 
     @builtins.property
     def execution_role_arn(self) -> typing.Optional[builtins.str]:
@@ -1730,6 +2018,11 @@ class CfnCodeInterpreterCustom(
             ),
         
             # the properties below are optional
+            certificates=[bedrockagentcore.CfnCodeInterpreterCustom.CertificateProperty(
+                certificate_location=bedrockagentcore.CfnCodeInterpreterCustom.CertificateLocationProperty(
+                    secret_arn="secretArn"
+                )
+            )],
             description="description",
             execution_role_arn="executionRoleArn",
             tags={
@@ -1745,6 +2038,7 @@ class CfnCodeInterpreterCustom(
         *,
         name: builtins.str,
         network_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeInterpreterCustom.CodeInterpreterNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeInterpreterCustom.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1755,6 +2049,7 @@ class CfnCodeInterpreterCustom(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the code interpreter.
         :param network_configuration: The network configuration for a code interpreter. This structure defines how the code interpreter connects to the network.
+        :param certificates: List of root CA certificates.
         :param description: The code interpreter description.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role.
         :param tags: The tags for the code interpreter.
@@ -1766,6 +2061,7 @@ class CfnCodeInterpreterCustom(
         props = CfnCodeInterpreterCustomProps(
             name=name,
             network_configuration=network_configuration,
+            certificates=certificates,
             description=description,
             execution_role_arn=execution_role_arn,
             tags=tags,
@@ -1979,6 +2275,24 @@ class CfnCodeInterpreterCustom(
         jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="certificates")
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateProperty"]]]]:
+        '''List of root CA certificates.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateProperty"]]]], jsii.get(self, "certificates"))
+
+    @certificates.setter
+    def certificates(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8af2daa34dcbdc2f1e51e047570a16b60a515c767815b96c5f688dca8bd26d94)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The code interpreter description.'''
@@ -2019,6 +2333,118 @@ class CfnCodeInterpreterCustom(
             type_hints = typing.get_type_hints(_typecheckingstub__466065bbc5e5f3997568d60c567b51bbc4a9a4900e6ce6da9f9499f85329a3a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnCodeInterpreterCustom.CertificateLocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"secret_arn": "secretArn"},
+    )
+    class CertificateLocationProperty:
+        def __init__(self, *, secret_arn: builtins.str) -> None:
+            '''Certificate location in Secrets Manager.
+
+            :param secret_arn: Secrets Manager secret ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-codeinterpretercustom-certificatelocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                certificate_location_property = bedrockagentcore.CfnCodeInterpreterCustom.CertificateLocationProperty(
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5968dcfb080646615cf8e28e3157950be878d71f8ac98203b50bf6f19555b57b)
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "secret_arn": secret_arn,
+            }
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''Secrets Manager secret ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-codeinterpretercustom-certificatelocation.html#cfn-bedrockagentcore-codeinterpretercustom-certificatelocation-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateLocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnCodeInterpreterCustom.CertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"certificate_location": "certificateLocation"},
+    )
+    class CertificateProperty:
+        def __init__(
+            self,
+            *,
+            certificate_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeInterpreterCustom.CertificateLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''A root CA certificate configuration.
+
+            :param certificate_location: Certificate location in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-codeinterpretercustom-certificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                certificate_property = bedrockagentcore.CfnCodeInterpreterCustom.CertificateProperty(
+                    certificate_location=bedrockagentcore.CfnCodeInterpreterCustom.CertificateLocationProperty(
+                        secret_arn="secretArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3b8bffb3f382668ccbc82fdc3147e683893fc95d25d94483240796372eb7d638)
+                check_type(argname="argument certificate_location", value=certificate_location, expected_type=type_hints["certificate_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "certificate_location": certificate_location,
+            }
+
+        @builtins.property
+        def certificate_location(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateLocationProperty"]:
+            '''Certificate location in Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-codeinterpretercustom-certificate.html#cfn-bedrockagentcore-codeinterpretercustom-certificate-certificatelocation
+            '''
+            result = self._values.get("certificate_location")
+            assert result is not None, "Required property 'certificate_location' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateLocationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnCodeInterpreterCustom.CodeInterpreterNetworkConfigurationProperty",
@@ -2176,6 +2602,7 @@ class CfnCodeInterpreterCustom(
     name_mapping={
         "name": "name",
         "network_configuration": "networkConfiguration",
+        "certificates": "certificates",
         "description": "description",
         "execution_role_arn": "executionRoleArn",
         "tags": "tags",
@@ -2187,6 +2614,7 @@ class CfnCodeInterpreterCustomProps:
         *,
         name: builtins.str,
         network_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeInterpreterCustom.CodeInterpreterNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        certificates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeInterpreterCustom.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -2195,6 +2623,7 @@ class CfnCodeInterpreterCustomProps:
 
         :param name: The name of the code interpreter.
         :param network_configuration: The network configuration for a code interpreter. This structure defines how the code interpreter connects to the network.
+        :param certificates: List of root CA certificates.
         :param description: The code interpreter description.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the execution role.
         :param tags: The tags for the code interpreter.
@@ -2221,6 +2650,11 @@ class CfnCodeInterpreterCustomProps:
                 ),
             
                 # the properties below are optional
+                certificates=[bedrockagentcore.CfnCodeInterpreterCustom.CertificateProperty(
+                    certificate_location=bedrockagentcore.CfnCodeInterpreterCustom.CertificateLocationProperty(
+                        secret_arn="secretArn"
+                    )
+                )],
                 description="description",
                 execution_role_arn="executionRoleArn",
                 tags={
@@ -2232,6 +2666,7 @@ class CfnCodeInterpreterCustomProps:
             type_hints = typing.get_type_hints(_typecheckingstub__5b5217aa9ccd0ec964b92c3a48855bb1494914c435606fcee5b0faefd790d264)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+            check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -2239,6 +2674,8 @@ class CfnCodeInterpreterCustomProps:
             "name": name,
             "network_configuration": network_configuration,
         }
+        if certificates is not None:
+            self._values["certificates"] = certificates
         if description is not None:
             self._values["description"] = description
         if execution_role_arn is not None:
@@ -2269,6 +2706,17 @@ class CfnCodeInterpreterCustomProps:
         result = self._values.get("network_configuration")
         assert result is not None, "Required property 'network_configuration' is missing"
         return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CodeInterpreterNetworkConfigurationProperty"], result)
+
+    @builtins.property
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateProperty"]]]]:
+        '''List of root CA certificates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-codeinterpretercustom.html#cfn-bedrockagentcore-codeinterpretercustom-certificates
+        '''
+        result = self._values.get("certificates")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCodeInterpreterCustom.CertificateProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -5455,7 +5903,10 @@ class CfnGatewayTarget(
                         )
                     ),
                     mcp_server=bedrockagentcore.CfnGatewayTarget.McpServerTargetConfigurationProperty(
-                        endpoint="endpoint"
+                        endpoint="endpoint",
+        
+                        # the properties below are optional
+                        listing_mode="listingMode"
                     ),
                     open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                         inline_payload="inlinePayload",
@@ -6710,12 +7161,18 @@ class CfnGatewayTarget(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.McpServerTargetConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"endpoint": "endpoint"},
+        name_mapping={"endpoint": "endpoint", "listing_mode": "listingMode"},
     )
     class McpServerTargetConfigurationProperty:
-        def __init__(self, *, endpoint: builtins.str) -> None:
+        def __init__(
+            self,
+            *,
+            endpoint: builtins.str,
+            listing_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''
             :param endpoint: 
+            :param listing_mode: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-mcpservertargetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -6727,15 +7184,21 @@ class CfnGatewayTarget(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 mcp_server_target_configuration_property = bedrockagentcore.CfnGatewayTarget.McpServerTargetConfigurationProperty(
-                    endpoint="endpoint"
+                    endpoint="endpoint",
+                
+                    # the properties below are optional
+                    listing_mode="listingMode"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d73da9473e37697d875f5f3c74a1ab3e3ace8090917b37837b001996968f456a)
                 check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument listing_mode", value=listing_mode, expected_type=type_hints["listing_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "endpoint": endpoint,
             }
+            if listing_mode is not None:
+                self._values["listing_mode"] = listing_mode
 
         @builtins.property
         def endpoint(self) -> builtins.str:
@@ -6745,6 +7208,14 @@ class CfnGatewayTarget(
             result = self._values.get("endpoint")
             assert result is not None, "Required property 'endpoint' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def listing_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-mcpservertargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-mcpservertargetconfiguration-listingmode
+            '''
+            result = self._values.get("listing_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6856,7 +7327,10 @@ class CfnGatewayTarget(
                         )
                     ),
                     mcp_server=bedrockagentcore.CfnGatewayTarget.McpServerTargetConfigurationProperty(
-                        endpoint="endpoint"
+                        endpoint="endpoint",
+                
+                        # the properties below are optional
+                        listing_mode="listingMode"
                     ),
                     open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                         inline_payload="inlinePayload",
@@ -7460,7 +7934,10 @@ class CfnGatewayTarget(
                             )
                         ),
                         mcp_server=bedrockagentcore.CfnGatewayTarget.McpServerTargetConfigurationProperty(
-                            endpoint="endpoint"
+                            endpoint="endpoint",
+                
+                            # the properties below are optional
+                            listing_mode="listingMode"
                         ),
                         open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                             inline_payload="inlinePayload",
@@ -7854,7 +8331,10 @@ class CfnGatewayTargetProps:
                             )
                         ),
                         mcp_server=bedrockagentcore.CfnGatewayTarget.McpServerTargetConfigurationProperty(
-                            endpoint="endpoint"
+                            endpoint="endpoint",
+            
+                            # the properties below are optional
+                            listing_mode="listingMode"
                         ),
                         open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                             inline_payload="inlinePayload",
@@ -8038,6 +8518,10 @@ class CfnMemory(
             # the properties below are optional
             description="description",
             encryption_key_arn="encryptionKeyArn",
+            indexed_keys=[bedrockagentcore.CfnMemory.IndexedKeyProperty(
+                key="key",
+                type="type"
+            )],
             memory_execution_role_arn="memoryExecutionRoleArn",
             memory_strategies=[bedrockagentcore.CfnMemory.MemoryStrategyProperty(
                 custom_memory_strategy=bedrockagentcore.CfnMemory.CustomMemoryStrategyProperty(
@@ -8059,6 +8543,35 @@ class CfnMemory(
                                 model_id="modelId",
         
                                 # the properties below are optional
+                                memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                    metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                        key="key",
+        
+                                        # the properties below are optional
+                                        extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                            llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                                definition="definition",
+        
+                                                # the properties below are optional
+                                                llm_extraction_instruction="llmExtractionInstruction",
+                                                validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                    number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                        max_value=123,
+                                                        min_value=123
+                                                    ),
+                                                    string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                        allowed_values=["allowedValues"],
+                                                        max_items=123
+                                                    ),
+                                                    string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                        allowed_values=["allowedValues"]
+                                                    )
+                                                )
+                                            )
+                                        ),
+                                        type="type"
+                                    )]
+                                ),
                                 namespaces=["namespaces"],
                                 namespace_templates=["namespaceTemplates"]
                             )
@@ -8110,6 +8623,35 @@ class CfnMemory(
                     ),
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+        
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+        
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -8123,9 +8665,67 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+        
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+        
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+        
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+        
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"]
                     ),
@@ -8140,6 +8740,35 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+        
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+        
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -8153,6 +8782,35 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+        
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+        
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -8166,6 +8824,35 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+        
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+        
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -8202,6 +8889,7 @@ class CfnMemory(
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         encryption_key_arn: typing.Optional[builtins.str] = None,
+        indexed_keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.IndexedKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         memory_execution_role_arn: typing.Optional[builtins.str] = None,
         memory_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         stream_delivery_resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StreamDeliveryResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8215,6 +8903,7 @@ class CfnMemory(
         :param name: The memory name.
         :param description: Description of the Memory resource.
         :param encryption_key_arn: The memory encryption key Amazon Resource Name (ARN).
+        :param indexed_keys: List of indexed keys for the memory.
         :param memory_execution_role_arn: The memory role ARN.
         :param memory_strategies: The memory strategies.
         :param stream_delivery_resources: 
@@ -8229,6 +8918,7 @@ class CfnMemory(
             name=name,
             description=description,
             encryption_key_arn=encryption_key_arn,
+            indexed_keys=indexed_keys,
             memory_execution_role_arn=memory_execution_role_arn,
             memory_strategies=memory_strategies,
             stream_delivery_resources=stream_delivery_resources,
@@ -8415,6 +9105,24 @@ class CfnMemory(
             type_hints = typing.get_type_hints(_typecheckingstub__b682a270f87cf6f76b16e70568b3e20c1994f4ff375efed9e59f3ff29cce80cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="indexedKeys")
+    def indexed_keys(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.IndexedKeyProperty"]]]]:
+        '''List of indexed keys for the memory.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.IndexedKeyProperty"]]]], jsii.get(self, "indexedKeys"))
+
+    @indexed_keys.setter
+    def indexed_keys(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.IndexedKeyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c73c60e45f26b18721eaa126fbd5385ef5db42299a8e2f2c341f924eaf0cd404)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexedKeys", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="memoryExecutionRoleArn")
@@ -8605,6 +9313,35 @@ class CfnMemory(
                             model_id="modelId",
                 
                             # the properties below are optional
+                            memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                    key="key",
+                
+                                    # the properties below are optional
+                                    extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                        llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                            definition="definition",
+                
+                                            # the properties below are optional
+                                            llm_extraction_instruction="llmExtractionInstruction",
+                                            validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                    max_value=123,
+                                                    min_value=123
+                                                ),
+                                                string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                    allowed_values=["allowedValues"],
+                                                    max_items=123
+                                                ),
+                                                string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                    allowed_values=["allowedValues"]
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    type="type"
+                                )]
+                            ),
                             namespaces=["namespaces"],
                             namespace_templates=["namespaceTemplates"]
                         )
@@ -8747,6 +9484,7 @@ class CfnMemory(
             "configuration": "configuration",
             "created_at": "createdAt",
             "description": "description",
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
             "status": "status",
@@ -8763,6 +9501,7 @@ class CfnMemory(
             configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.CustomConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
@@ -8776,6 +9515,7 @@ class CfnMemory(
             :param configuration: The memory strategy configuration.
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
+            :param memory_record_schema: 
             :param namespaces: The memory strategy namespaces.
             :param namespace_templates: List of namespaces for memory strategy.
             :param status: The memory strategy status.
@@ -8811,6 +9551,35 @@ class CfnMemory(
                                 model_id="modelId",
                 
                                 # the properties below are optional
+                                memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                    metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                        key="key",
+                
+                                        # the properties below are optional
+                                        extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                            llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                                definition="definition",
+                
+                                                # the properties below are optional
+                                                llm_extraction_instruction="llmExtractionInstruction",
+                                                validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                    number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                        max_value=123,
+                                                        min_value=123
+                                                    ),
+                                                    string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                        allowed_values=["allowedValues"],
+                                                        max_items=123
+                                                    ),
+                                                    string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                        allowed_values=["allowedValues"]
+                                                    )
+                                                )
+                                            )
+                                        ),
+                                        type="type"
+                                    )]
+                                ),
                                 namespaces=["namespaces"],
                                 namespace_templates=["namespaceTemplates"]
                             )
@@ -8862,6 +9631,35 @@ class CfnMemory(
                     ),
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -8876,6 +9674,7 @@ class CfnMemory(
                 check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -8891,6 +9690,8 @@ class CfnMemory(
                 self._values["created_at"] = created_at
             if description is not None:
                 self._values["description"] = description
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
@@ -8942,6 +9743,16 @@ class CfnMemory(
             '''
             result = self._values.get("description")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-custommemorystrategy.html#cfn-bedrockagentcore-memory-custommemorystrategy-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9015,6 +9826,7 @@ class CfnMemory(
             "name": "name",
             "created_at": "createdAt",
             "description": "description",
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
             "reflection_configuration": "reflectionConfiguration",
@@ -9031,6 +9843,7 @@ class CfnMemory(
             name: builtins.str,
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             reflection_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.EpisodicReflectionConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9043,6 +9856,7 @@ class CfnMemory(
             :param name: Name of the Memory resource.
             :param created_at: Creation timestamp of the memory strategy.
             :param description: Description of the Memory resource.
+            :param memory_record_schema: 
             :param namespaces: List of namespaces for memory strategy.
             :param namespace_templates: List of namespaces for memory strategy.
             :param reflection_configuration: 
@@ -9066,9 +9880,67 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"]
                     ),
@@ -9083,6 +9955,7 @@ class CfnMemory(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument reflection_configuration", value=reflection_configuration, expected_type=type_hints["reflection_configuration"])
@@ -9097,6 +9970,8 @@ class CfnMemory(
                 self._values["created_at"] = created_at
             if description is not None:
                 self._values["description"] = description
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
@@ -9139,6 +10014,16 @@ class CfnMemory(
             '''
             result = self._values.get("description")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicmemorystrategy.html#cfn-bedrockagentcore-memory-episodicmemorystrategy-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9398,6 +10283,35 @@ class CfnMemory(
                         model_id="modelId",
                 
                         # the properties below are optional
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"]
                     )
@@ -9463,6 +10377,7 @@ class CfnMemory(
         name_mapping={
             "append_to_prompt": "appendToPrompt",
             "model_id": "modelId",
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
         },
@@ -9473,12 +10388,14 @@ class CfnMemory(
             *,
             append_to_prompt: builtins.str,
             model_id: builtins.str,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
             :param append_to_prompt: Text prompt for model instructions.
             :param model_id: 
+            :param memory_record_schema: 
             :param namespaces: List of namespaces for memory strategy.
             :param namespace_templates: List of namespaces for memory strategy.
 
@@ -9496,6 +10413,35 @@ class CfnMemory(
                     model_id="modelId",
                 
                     # the properties below are optional
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"]
                 )
@@ -9504,12 +10450,15 @@ class CfnMemory(
                 type_hints = typing.get_type_hints(_typecheckingstub__df10fcf9a92c0373c158e2aa4763d8107995e1f7b4403a8c8001a6afe3424ad4)
                 check_type(argname="argument append_to_prompt", value=append_to_prompt, expected_type=type_hints["append_to_prompt"])
                 check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "append_to_prompt": append_to_prompt,
                 "model_id": model_id,
             }
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
@@ -9533,6 +10482,16 @@ class CfnMemory(
             result = self._values.get("model_id")
             assert result is not None, "Required property 'model_id' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicoverridereflectionconfigurationinput.html#cfn-bedrockagentcore-memory-episodicoverridereflectionconfigurationinput-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9567,6 +10526,7 @@ class CfnMemory(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
         },
@@ -9575,10 +10535,12 @@ class CfnMemory(
         def __init__(
             self,
             *,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
+            :param memory_record_schema: 
             :param namespaces: List of namespaces for memory strategy.
             :param namespace_templates: List of namespaces for memory strategy.
 
@@ -9592,19 +10554,61 @@ class CfnMemory(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 episodic_reflection_configuration_input_property = bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__4d10801b6b457e9912061807464c00e48d36901349246d4c00671ab17eaee367)
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
                 self._values["namespace_templates"] = namespace_templates
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicreflectionconfigurationinput.html#cfn-bedrockagentcore-memory-episodicreflectionconfigurationinput-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9632,6 +10636,144 @@ class CfnMemory(
 
         def __repr__(self) -> str:
             return "EpisodicReflectionConfigurationInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.ExtractionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"llm_extraction_config": "llmExtractionConfig"},
+    )
+    class ExtractionConfigProperty:
+        def __init__(
+            self,
+            *,
+            llm_extraction_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.LlmExtractionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param llm_extraction_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-extractionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                extraction_config_property = bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                        definition="definition",
+                
+                        # the properties below are optional
+                        llm_extraction_instruction="llmExtractionInstruction",
+                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                max_value=123,
+                                min_value=123
+                            ),
+                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                allowed_values=["allowedValues"],
+                                max_items=123
+                            ),
+                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                allowed_values=["allowedValues"]
+                            )
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__17aab17ceb14e4b571865b35961897aa0a4d058e0026bce86f5a7fe2a0680a86)
+                check_type(argname="argument llm_extraction_config", value=llm_extraction_config, expected_type=type_hints["llm_extraction_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if llm_extraction_config is not None:
+                self._values["llm_extraction_config"] = llm_extraction_config
+
+        @builtins.property
+        def llm_extraction_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.LlmExtractionConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-extractionconfig.html#cfn-bedrockagentcore-memory-extractionconfig-llmextractionconfig
+            '''
+            result = self._values.get("llm_extraction_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.LlmExtractionConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExtractionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.IndexedKeyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "type": "type"},
+    )
+    class IndexedKeyProperty:
+        def __init__(self, *, key: builtins.str, type: builtins.str) -> None:
+            '''
+            :param key: Key name for metadata fields.
+            :param type: Supported data types for metadata values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-indexedkey.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                indexed_key_property = bedrockagentcore.CfnMemory.IndexedKeyProperty(
+                    key="key",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a732bc189190593182b36970dabef572375f0a7614c7e19e1e9661e30f6883c2)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "type": type,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''Key name for metadata fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-indexedkey.html#cfn-bedrockagentcore-memory-indexedkey-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Supported data types for metadata values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-indexedkey.html#cfn-bedrockagentcore-memory-indexedkey-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IndexedKeyProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9788,6 +10930,192 @@ class CfnMemory(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.LlmExtractionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "definition": "definition",
+            "llm_extraction_instruction": "llmExtractionInstruction",
+            "validation": "validation",
+        },
+    )
+    class LlmExtractionConfigProperty:
+        def __init__(
+            self,
+            *,
+            definition: builtins.str,
+            llm_extraction_instruction: typing.Optional[builtins.str] = None,
+            validation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.ValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param definition: Definition for the metadata schema entry.
+            :param llm_extraction_instruction: LLM extraction instruction.
+            :param validation: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-llmextractionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                llm_extraction_config_property = bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                    definition="definition",
+                
+                    # the properties below are optional
+                    llm_extraction_instruction="llmExtractionInstruction",
+                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                            max_value=123,
+                            min_value=123
+                        ),
+                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                            allowed_values=["allowedValues"],
+                            max_items=123
+                        ),
+                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                            allowed_values=["allowedValues"]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8b61c40ff545800582c3eb7e0dff6c37cf38c1bafeae5fae7d6a51d57d7996ef)
+                check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+                check_type(argname="argument llm_extraction_instruction", value=llm_extraction_instruction, expected_type=type_hints["llm_extraction_instruction"])
+                check_type(argname="argument validation", value=validation, expected_type=type_hints["validation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "definition": definition,
+            }
+            if llm_extraction_instruction is not None:
+                self._values["llm_extraction_instruction"] = llm_extraction_instruction
+            if validation is not None:
+                self._values["validation"] = validation
+
+        @builtins.property
+        def definition(self) -> builtins.str:
+            '''Definition for the metadata schema entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-llmextractionconfig.html#cfn-bedrockagentcore-memory-llmextractionconfig-definition
+            '''
+            result = self._values.get("definition")
+            assert result is not None, "Required property 'definition' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def llm_extraction_instruction(self) -> typing.Optional[builtins.str]:
+            '''LLM extraction instruction.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-llmextractionconfig.html#cfn-bedrockagentcore-memory-llmextractionconfig-llmextractioninstruction
+            '''
+            result = self._values.get("llm_extraction_instruction")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def validation(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.ValidationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-llmextractionconfig.html#cfn-bedrockagentcore-memory-llmextractionconfig-validation
+            '''
+            result = self._values.get("validation")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.ValidationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LlmExtractionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metadata_schema": "metadataSchema"},
+    )
+    class MemoryRecordSchemaProperty:
+        def __init__(
+            self,
+            *,
+            metadata_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MetadataSchemaEntryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param metadata_schema: List of metadata schema entries.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-memoryrecordschema.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                memory_record_schema_property = bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                    metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                        key="key",
+                
+                        # the properties below are optional
+                        extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                            llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                definition="definition",
+                
+                                # the properties below are optional
+                                llm_extraction_instruction="llmExtractionInstruction",
+                                validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                    number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                        max_value=123,
+                                        min_value=123
+                                    ),
+                                    string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                        allowed_values=["allowedValues"],
+                                        max_items=123
+                                    ),
+                                    string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                        allowed_values=["allowedValues"]
+                                    )
+                                )
+                            )
+                        ),
+                        type="type"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__571b528dd6e6a94ced1f5ed31e0ae0b6dcb9bb9b13a911b784d9966120c732bb)
+                check_type(argname="argument metadata_schema", value=metadata_schema, expected_type=type_hints["metadata_schema"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if metadata_schema is not None:
+                self._values["metadata_schema"] = metadata_schema
+
+        @builtins.property
+        def metadata_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.MetadataSchemaEntryProperty"]]]]:
+            '''List of metadata schema entries.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-memoryrecordschema.html#cfn-bedrockagentcore-memory-memoryrecordschema-metadataschema
+            '''
+            result = self._values.get("metadata_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.MetadataSchemaEntryProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MemoryRecordSchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.MemoryStrategyProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9845,6 +11173,35 @@ class CfnMemory(
                                     model_id="modelId",
                 
                                     # the properties below are optional
+                                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                            key="key",
+                
+                                            # the properties below are optional
+                                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                                    definition="definition",
+                
+                                                    # the properties below are optional
+                                                    llm_extraction_instruction="llmExtractionInstruction",
+                                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                            max_value=123,
+                                                            min_value=123
+                                                        ),
+                                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                            allowed_values=["allowedValues"],
+                                                            max_items=123
+                                                        ),
+                                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                            allowed_values=["allowedValues"]
+                                                        )
+                                                    )
+                                                )
+                                            ),
+                                            type="type"
+                                        )]
+                                    ),
                                     namespaces=["namespaces"],
                                     namespace_templates=["namespaceTemplates"]
                                 )
@@ -9896,6 +11253,35 @@ class CfnMemory(
                         ),
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -9909,9 +11295,67 @@ class CfnMemory(
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
+                            memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                    key="key",
+                
+                                    # the properties below are optional
+                                    extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                        llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                            definition="definition",
+                
+                                            # the properties below are optional
+                                            llm_extraction_instruction="llmExtractionInstruction",
+                                            validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                    max_value=123,
+                                                    min_value=123
+                                                ),
+                                                string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                    allowed_values=["allowedValues"],
+                                                    max_items=123
+                                                ),
+                                                string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                    allowed_values=["allowedValues"]
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    type="type"
+                                )]
+                            ),
                             namespaces=["namespaces"],
                             namespace_templates=["namespaceTemplates"]
                         ),
@@ -9926,6 +11370,35 @@ class CfnMemory(
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -9939,6 +11412,35 @@ class CfnMemory(
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -9952,6 +11454,35 @@ class CfnMemory(
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+                
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+                
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -10101,6 +11632,185 @@ class CfnMemory(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "key": "key",
+            "extraction_config": "extractionConfig",
+            "type": "type",
+        },
+    )
+    class MetadataSchemaEntryProperty:
+        def __init__(
+            self,
+            *,
+            key: builtins.str,
+            extraction_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.ExtractionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param key: Key name for metadata fields.
+            :param extraction_config: 
+            :param type: Supported data types for metadata values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-metadataschemaentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                metadata_schema_entry_property = bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                    key="key",
+                
+                    # the properties below are optional
+                    extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                        llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                            definition="definition",
+                
+                            # the properties below are optional
+                            llm_extraction_instruction="llmExtractionInstruction",
+                            validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                    max_value=123,
+                                    min_value=123
+                                ),
+                                string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                    allowed_values=["allowedValues"],
+                                    max_items=123
+                                ),
+                                string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                    allowed_values=["allowedValues"]
+                                )
+                            )
+                        )
+                    ),
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__89a679da4e16fe1ed23c82c1b10a91cb80f6201870b49c1216edd1b5b96a710a)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument extraction_config", value=extraction_config, expected_type=type_hints["extraction_config"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+            }
+            if extraction_config is not None:
+                self._values["extraction_config"] = extraction_config
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''Key name for metadata fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-metadataschemaentry.html#cfn-bedrockagentcore-memory-metadataschemaentry-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def extraction_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.ExtractionConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-metadataschemaentry.html#cfn-bedrockagentcore-memory-metadataschemaentry-extractionconfig
+            '''
+            result = self._values.get("extraction_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.ExtractionConfigProperty"]], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''Supported data types for metadata values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-metadataschemaentry.html#cfn-bedrockagentcore-memory-metadataschemaentry-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetadataSchemaEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.NumberValidationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_value": "maxValue", "min_value": "minValue"},
+    )
+    class NumberValidationProperty:
+        def __init__(
+            self,
+            *,
+            max_value: typing.Optional[jsii.Number] = None,
+            min_value: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param max_value: 
+            :param min_value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-numbervalidation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                number_validation_property = bedrockagentcore.CfnMemory.NumberValidationProperty(
+                    max_value=123,
+                    min_value=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1792e7b8ca5ef7ee6bb984f75e4f7e6e293131e32307124ca340e138b9e9f467)
+                check_type(argname="argument max_value", value=max_value, expected_type=type_hints["max_value"])
+                check_type(argname="argument min_value", value=min_value, expected_type=type_hints["min_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_value is not None:
+                self._values["max_value"] = max_value
+            if min_value is not None:
+                self._values["min_value"] = min_value
+
+        @builtins.property
+        def max_value(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-numbervalidation.html#cfn-bedrockagentcore-memory-numbervalidation-maxvalue
+            '''
+            result = self._values.get("max_value")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_value(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-numbervalidation.html#cfn-bedrockagentcore-memory-numbervalidation-minvalue
+            '''
+            result = self._values.get("min_value")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NumberValidationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.SelfManagedConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -10212,6 +11922,7 @@ class CfnMemory(
             "name": "name",
             "created_at": "createdAt",
             "description": "description",
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
             "status": "status",
@@ -10227,6 +11938,7 @@ class CfnMemory(
             name: builtins.str,
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
@@ -10239,6 +11951,7 @@ class CfnMemory(
             :param name: The memory strategy name.
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
+            :param memory_record_schema: 
             :param namespaces: The memory strategy namespaces.
             :param namespace_templates: List of namespaces for memory strategy.
             :param status: Status of the memory strategy.
@@ -10261,6 +11974,35 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -10274,6 +12016,7 @@ class CfnMemory(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -10287,6 +12030,8 @@ class CfnMemory(
                 self._values["created_at"] = created_at
             if description is not None:
                 self._values["description"] = description
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
@@ -10327,6 +12072,16 @@ class CfnMemory(
             '''
             result = self._values.get("description")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-semanticmemorystrategy.html#cfn-bedrockagentcore-memory-semanticmemorystrategy-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10745,12 +12500,130 @@ class CfnMemory(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.StringListValidationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"allowed_values": "allowedValues", "max_items": "maxItems"},
+    )
+    class StringListValidationProperty:
+        def __init__(
+            self,
+            *,
+            allowed_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+            max_items: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param allowed_values: 
+            :param max_items: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-stringlistvalidation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                string_list_validation_property = bedrockagentcore.CfnMemory.StringListValidationProperty(
+                    allowed_values=["allowedValues"],
+                    max_items=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fc038f4aa172b63f3d0937bdcaeb8ea291f63d99bb672a896a914daa4956fda7)
+                check_type(argname="argument allowed_values", value=allowed_values, expected_type=type_hints["allowed_values"])
+                check_type(argname="argument max_items", value=max_items, expected_type=type_hints["max_items"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if allowed_values is not None:
+                self._values["allowed_values"] = allowed_values
+            if max_items is not None:
+                self._values["max_items"] = max_items
+
+        @builtins.property
+        def allowed_values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-stringlistvalidation.html#cfn-bedrockagentcore-memory-stringlistvalidation-allowedvalues
+            '''
+            result = self._values.get("allowed_values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def max_items(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-stringlistvalidation.html#cfn-bedrockagentcore-memory-stringlistvalidation-maxitems
+            '''
+            result = self._values.get("max_items")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StringListValidationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.StringValidationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"allowed_values": "allowedValues"},
+    )
+    class StringValidationProperty:
+        def __init__(self, *, allowed_values: typing.Sequence[builtins.str]) -> None:
+            '''
+            :param allowed_values: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-stringvalidation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                string_validation_property = bedrockagentcore.CfnMemory.StringValidationProperty(
+                    allowed_values=["allowedValues"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4e07b37f0b40a3316624dff73cd80facaea1c5acf42b6cd36e3b7ae7aa956053)
+                check_type(argname="argument allowed_values", value=allowed_values, expected_type=type_hints["allowed_values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "allowed_values": allowed_values,
+            }
+
+        @builtins.property
+        def allowed_values(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-stringvalidation.html#cfn-bedrockagentcore-memory-stringvalidation-allowedvalues
+            '''
+            result = self._values.get("allowed_values")
+            assert result is not None, "Required property 'allowed_values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StringValidationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.SummaryMemoryStrategyProperty",
         jsii_struct_bases=[],
         name_mapping={
             "name": "name",
             "created_at": "createdAt",
             "description": "description",
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
             "status": "status",
@@ -10766,6 +12639,7 @@ class CfnMemory(
             name: builtins.str,
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
@@ -10778,6 +12652,7 @@ class CfnMemory(
             :param name: The memory strategy name.
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
+            :param memory_record_schema: 
             :param namespaces: The summary memory strategy.
             :param namespace_templates: List of namespaces for memory strategy.
             :param status: The memory strategy status.
@@ -10800,6 +12675,35 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -10813,6 +12717,7 @@ class CfnMemory(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -10826,6 +12731,8 @@ class CfnMemory(
                 self._values["created_at"] = created_at
             if description is not None:
                 self._values["description"] = description
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
@@ -10866,6 +12773,16 @@ class CfnMemory(
             '''
             result = self._values.get("description")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-summarymemorystrategy.html#cfn-bedrockagentcore-memory-summarymemorystrategy-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -11277,6 +13194,7 @@ class CfnMemory(
             "name": "name",
             "created_at": "createdAt",
             "description": "description",
+            "memory_record_schema": "memoryRecordSchema",
             "namespaces": "namespaces",
             "namespace_templates": "namespaceTemplates",
             "status": "status",
@@ -11292,6 +13210,7 @@ class CfnMemory(
             name: builtins.str,
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
+            memory_record_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryRecordSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
             namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
@@ -11304,6 +13223,7 @@ class CfnMemory(
             :param name: The memory strategy name.
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
+            :param memory_record_schema: 
             :param namespaces: The memory namespaces.
             :param namespace_templates: List of namespaces for memory strategy.
             :param status: The memory strategy status.
@@ -11326,6 +13246,35 @@ class CfnMemory(
                     # the properties below are optional
                     created_at="createdAt",
                     description="description",
+                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                            key="key",
+                
+                            # the properties below are optional
+                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                    definition="definition",
+                
+                                    # the properties below are optional
+                                    llm_extraction_instruction="llmExtractionInstruction",
+                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                            max_value=123,
+                                            min_value=123
+                                        ),
+                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                            allowed_values=["allowedValues"],
+                                            max_items=123
+                                        ),
+                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                            allowed_values=["allowedValues"]
+                                        )
+                                    )
+                                )
+                            ),
+                            type="type"
+                        )]
+                    ),
                     namespaces=["namespaces"],
                     namespace_templates=["namespaceTemplates"],
                     status="status",
@@ -11339,6 +13288,7 @@ class CfnMemory(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument memory_record_schema", value=memory_record_schema, expected_type=type_hints["memory_record_schema"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
                 check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -11352,6 +13302,8 @@ class CfnMemory(
                 self._values["created_at"] = created_at
             if description is not None:
                 self._values["description"] = description
+            if memory_record_schema is not None:
+                self._values["memory_record_schema"] = memory_record_schema
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
             if namespace_templates is not None:
@@ -11392,6 +13344,16 @@ class CfnMemory(
             '''
             result = self._values.get("description")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def memory_record_schema(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-userpreferencememorystrategy.html#cfn-bedrockagentcore-memory-userpreferencememorystrategy-memoryrecordschema
+            '''
+            result = self._values.get("memory_record_schema")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryRecordSchemaProperty"]], result)
 
         @builtins.property
         def namespaces(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -11680,6 +13642,105 @@ class CfnMemory(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.ValidationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "number_validation": "numberValidation",
+            "string_list_validation": "stringListValidation",
+            "string_validation": "stringValidation",
+        },
+    )
+    class ValidationProperty:
+        def __init__(
+            self,
+            *,
+            number_validation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.NumberValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            string_list_validation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StringListValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            string_validation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StringValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param number_validation: 
+            :param string_list_validation: 
+            :param string_validation: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-validation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                validation_property = bedrockagentcore.CfnMemory.ValidationProperty(
+                    number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                        max_value=123,
+                        min_value=123
+                    ),
+                    string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                        allowed_values=["allowedValues"],
+                        max_items=123
+                    ),
+                    string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                        allowed_values=["allowedValues"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7a1873deb2dd5da6d5acea46cf31bd1527eb1f132a31120db756c7ff518a3214)
+                check_type(argname="argument number_validation", value=number_validation, expected_type=type_hints["number_validation"])
+                check_type(argname="argument string_list_validation", value=string_list_validation, expected_type=type_hints["string_list_validation"])
+                check_type(argname="argument string_validation", value=string_validation, expected_type=type_hints["string_validation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if number_validation is not None:
+                self._values["number_validation"] = number_validation
+            if string_list_validation is not None:
+                self._values["string_list_validation"] = string_list_validation
+            if string_validation is not None:
+                self._values["string_validation"] = string_validation
+
+        @builtins.property
+        def number_validation(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.NumberValidationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-validation.html#cfn-bedrockagentcore-memory-validation-numbervalidation
+            '''
+            result = self._values.get("number_validation")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.NumberValidationProperty"]], result)
+
+        @builtins.property
+        def string_list_validation(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StringListValidationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-validation.html#cfn-bedrockagentcore-memory-validation-stringlistvalidation
+            '''
+            result = self._values.get("string_list_validation")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StringListValidationProperty"]], result)
+
+        @builtins.property
+        def string_validation(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StringValidationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-validation.html#cfn-bedrockagentcore-memory-validation-stringvalidation
+            '''
+            result = self._values.get("string_validation")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StringValidationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ValidationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemoryProps",
@@ -11689,6 +13750,7 @@ class CfnMemory(
         "name": "name",
         "description": "description",
         "encryption_key_arn": "encryptionKeyArn",
+        "indexed_keys": "indexedKeys",
         "memory_execution_role_arn": "memoryExecutionRoleArn",
         "memory_strategies": "memoryStrategies",
         "stream_delivery_resources": "streamDeliveryResources",
@@ -11703,6 +13765,7 @@ class CfnMemoryProps:
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         encryption_key_arn: typing.Optional[builtins.str] = None,
+        indexed_keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.IndexedKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         memory_execution_role_arn: typing.Optional[builtins.str] = None,
         memory_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         stream_delivery_resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StreamDeliveryResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11714,6 +13777,7 @@ class CfnMemoryProps:
         :param name: The memory name.
         :param description: Description of the Memory resource.
         :param encryption_key_arn: The memory encryption key Amazon Resource Name (ARN).
+        :param indexed_keys: List of indexed keys for the memory.
         :param memory_execution_role_arn: The memory role ARN.
         :param memory_strategies: The memory strategies.
         :param stream_delivery_resources: 
@@ -11735,6 +13799,10 @@ class CfnMemoryProps:
                 # the properties below are optional
                 description="description",
                 encryption_key_arn="encryptionKeyArn",
+                indexed_keys=[bedrockagentcore.CfnMemory.IndexedKeyProperty(
+                    key="key",
+                    type="type"
+                )],
                 memory_execution_role_arn="memoryExecutionRoleArn",
                 memory_strategies=[bedrockagentcore.CfnMemory.MemoryStrategyProperty(
                     custom_memory_strategy=bedrockagentcore.CfnMemory.CustomMemoryStrategyProperty(
@@ -11756,6 +13824,35 @@ class CfnMemoryProps:
                                     model_id="modelId",
             
                                     # the properties below are optional
+                                    memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                        metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                                llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                                    definition="definition",
+            
+                                                    # the properties below are optional
+                                                    llm_extraction_instruction="llmExtractionInstruction",
+                                                    validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                        number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                            max_value=123,
+                                                            min_value=123
+                                                        ),
+                                                        string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                            allowed_values=["allowedValues"],
+                                                            max_items=123
+                                                        ),
+                                                        string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                            allowed_values=["allowedValues"]
+                                                        )
+                                                    )
+                                                )
+                                            ),
+                                            type="type"
+                                        )]
+                                    ),
                                     namespaces=["namespaces"],
                                     namespace_templates=["namespaceTemplates"]
                                 )
@@ -11807,6 +13904,35 @@ class CfnMemoryProps:
                         ),
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+            
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+            
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -11820,9 +13946,67 @@ class CfnMemoryProps:
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+            
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+            
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
+                            memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                                metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                    key="key",
+            
+                                    # the properties below are optional
+                                    extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                        llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                            definition="definition",
+            
+                                            # the properties below are optional
+                                            llm_extraction_instruction="llmExtractionInstruction",
+                                            validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                                number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                    max_value=123,
+                                                    min_value=123
+                                                ),
+                                                string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                    allowed_values=["allowedValues"],
+                                                    max_items=123
+                                                ),
+                                                string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                    allowed_values=["allowedValues"]
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    type="type"
+                                )]
+                            ),
                             namespaces=["namespaces"],
                             namespace_templates=["namespaceTemplates"]
                         ),
@@ -11837,6 +14021,35 @@ class CfnMemoryProps:
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+            
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+            
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -11850,6 +14063,35 @@ class CfnMemoryProps:
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+            
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+            
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -11863,6 +14105,35 @@ class CfnMemoryProps:
                         # the properties below are optional
                         created_at="createdAt",
                         description="description",
+                        memory_record_schema=bedrockagentcore.CfnMemory.MemoryRecordSchemaProperty(
+                            metadata_schema=[bedrockagentcore.CfnMemory.MetadataSchemaEntryProperty(
+                                key="key",
+            
+                                # the properties below are optional
+                                extraction_config=bedrockagentcore.CfnMemory.ExtractionConfigProperty(
+                                    llm_extraction_config=bedrockagentcore.CfnMemory.LlmExtractionConfigProperty(
+                                        definition="definition",
+            
+                                        # the properties below are optional
+                                        llm_extraction_instruction="llmExtractionInstruction",
+                                        validation=bedrockagentcore.CfnMemory.ValidationProperty(
+                                            number_validation=bedrockagentcore.CfnMemory.NumberValidationProperty(
+                                                max_value=123,
+                                                min_value=123
+                                            ),
+                                            string_list_validation=bedrockagentcore.CfnMemory.StringListValidationProperty(
+                                                allowed_values=["allowedValues"],
+                                                max_items=123
+                                            ),
+                                            string_validation=bedrockagentcore.CfnMemory.StringValidationProperty(
+                                                allowed_values=["allowedValues"]
+                                            )
+                                        )
+                                    )
+                                ),
+                                type="type"
+                            )]
+                        ),
                         namespaces=["namespaces"],
                         namespace_templates=["namespaceTemplates"],
                         status="status",
@@ -11895,6 +14166,7 @@ class CfnMemoryProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+            check_type(argname="argument indexed_keys", value=indexed_keys, expected_type=type_hints["indexed_keys"])
             check_type(argname="argument memory_execution_role_arn", value=memory_execution_role_arn, expected_type=type_hints["memory_execution_role_arn"])
             check_type(argname="argument memory_strategies", value=memory_strategies, expected_type=type_hints["memory_strategies"])
             check_type(argname="argument stream_delivery_resources", value=stream_delivery_resources, expected_type=type_hints["stream_delivery_resources"])
@@ -11907,6 +14179,8 @@ class CfnMemoryProps:
             self._values["description"] = description
         if encryption_key_arn is not None:
             self._values["encryption_key_arn"] = encryption_key_arn
+        if indexed_keys is not None:
+            self._values["indexed_keys"] = indexed_keys
         if memory_execution_role_arn is not None:
             self._values["memory_execution_role_arn"] = memory_execution_role_arn
         if memory_strategies is not None:
@@ -11953,6 +14227,17 @@ class CfnMemoryProps:
         '''
         result = self._values.get("encryption_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def indexed_keys(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.IndexedKeyProperty"]]]]:
+        '''List of indexed keys for the memory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-memory.html#cfn-bedrockagentcore-memory-indexedkeys
+        '''
+        result = self._values.get("indexed_keys")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.IndexedKeyProperty"]]]], result)
 
     @builtins.property
     def memory_execution_role_arn(self) -> typing.Optional[builtins.str]:
@@ -18859,7 +21144,9 @@ def _typecheckingstub__e817ad5ee6496ab54cf569758c4d73da62a4d6f5cf0c34866960f6e46
     name: builtins.str,
     network_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.BrowserNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     browser_signing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.BrowserSigningProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    enterprise_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.BrowserEnterprisePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     recording_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.RecordingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -18925,8 +21212,20 @@ def _typecheckingstub__81fba2b1346993fe8f90531b960f456b9bae96a895915ce3c4c9fa512
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__98c25ecbf9f06f09197678ac6c18e3ed8b16e9f6813dac3e24d370ff6a0d8e74(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBrowserCustom.CertificateProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d16faa304c4f18b8bba1ee70b209c47d9944346a1e88926b4ee4ea5fe723fd64(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9804a3d069b08f6f1068d62a5299df6e8237c943449c27808cb3de570b31d7fb(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBrowserCustom.BrowserEnterprisePolicyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18949,6 +21248,14 @@ def _typecheckingstub__22e813ff9c64c23f175682396c7a13b02b9193809d3629b73f2ecac10
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ba0f6dda22af18764bb1c971999f950239af98eaa0fcef6b7c1190ae262d7fa8(
+    *,
+    location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f0d5bebf1ad5159cc9014318eaa4c540145c82225bd9e29170035b0a29d0ee07(
     *,
     network_mode: builtins.str,
@@ -18960,6 +21267,20 @@ def _typecheckingstub__f0d5bebf1ad5159cc9014318eaa4c540145c82225bd9e29170035b0a2
 def _typecheckingstub__7e53c5d43f81573d2efdf7d45e9c80191cee07ad5d1b9262ad41ee43c45059d9(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9b72931f075ffd2339da5749e1bcb26e3348fecf01bac8d8194b30e7bd7a899(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__640a18da5056553bee5a1cb7ab3d997892f2888dafe223079f45e23f1d28221b(
+    *,
+    certificate_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.CertificateLocationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18993,7 +21314,9 @@ def _typecheckingstub__08f9adb5e20b52bbdc47438decbd54e3ebb4b1976cbf46432a19597fc
     name: builtins.str,
     network_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.BrowserNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     browser_signing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.BrowserSigningProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    enterprise_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.BrowserEnterprisePolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     recording_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBrowserCustom.RecordingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -19069,6 +21392,7 @@ def _typecheckingstub__1aaa167a6af98d626969b5bd2de9377658de4e8d04df0b48dc5916f9e
     *,
     name: builtins.str,
     network_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeInterpreterCustom.CodeInterpreterNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeInterpreterCustom.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -19128,6 +21452,12 @@ def _typecheckingstub__a36911cef74e5cac559eb0b558b639739fba4dccbbc8a224553a0f0a0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8af2daa34dcbdc2f1e51e047570a16b60a515c767815b96c5f688dca8bd26d94(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCodeInterpreterCustom.CertificateProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f33607ff407017e2c7ecefbc727c6f7660550a46fe6b356799810d75ccf8d662(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -19142,6 +21472,20 @@ def _typecheckingstub__597443cc8b5cdaed2db807a1545702d23f8f925435f13cd3d17111236
 
 def _typecheckingstub__466065bbc5e5f3997568d60c567b51bbc4a9a4900e6ce6da9f9499f85329a3a4(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5968dcfb080646615cf8e28e3157950be878d71f8ac98203b50bf6f19555b57b(
+    *,
+    secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b8bffb3f382668ccbc82fdc3147e683893fc95d25d94483240796372eb7d638(
+    *,
+    certificate_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeInterpreterCustom.CertificateLocationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19166,6 +21510,7 @@ def _typecheckingstub__5b5217aa9ccd0ec964b92c3a48855bb1494914c435606fcee5b0faefd
     *,
     name: builtins.str,
     network_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeInterpreterCustom.CodeInterpreterNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeInterpreterCustom.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -19728,6 +22073,7 @@ def _typecheckingstub__e6ba80f262600990b7647765d60a5f51fb86eeeaf8708f22bc73e4794
 def _typecheckingstub__d73da9473e37697d875f5f3c74a1ab3e3ace8090917b37837b001996968f456a(
     *,
     endpoint: builtins.str,
+    listing_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19827,6 +22173,7 @@ def _typecheckingstub__b95a7255db9df73ca225a32aecd624481667f18f3308ba77ce3fbf7d7
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     encryption_key_arn: typing.Optional[builtins.str] = None,
+    indexed_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.IndexedKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     memory_execution_role_arn: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     stream_delivery_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StreamDeliveryResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19883,6 +22230,12 @@ def _typecheckingstub__b682a270f87cf6f76b16e70568b3e20c1994f4ff375efed9e59f3ff29
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c73c60e45f26b18721eaa126fbd5385ef5db42299a8e2f2c341f924eaf0cd404(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMemory.IndexedKeyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6bd6b17fbf9c4464799eba94f4be79124e7c5491b62da83c1a8bd39d6f2a0def(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -19932,6 +22285,7 @@ def _typecheckingstub__68f9ef2809f813258bef3dcd9ec460d2f237f2127d9f7cb9aae325616
     configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.CustomConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
@@ -19947,6 +22301,7 @@ def _typecheckingstub__4010f11a9f956fe10befa570e47005124fa04732849c4143a5219ad03
     name: builtins.str,
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     reflection_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.EpisodicReflectionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19987,6 +22342,7 @@ def _typecheckingstub__df10fcf9a92c0373c158e2aa4763d8107995e1f7b4403a8c8001a6afe
     *,
     append_to_prompt: builtins.str,
     model_id: builtins.str,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -19995,8 +22351,24 @@ def _typecheckingstub__df10fcf9a92c0373c158e2aa4763d8107995e1f7b4403a8c8001a6afe
 
 def _typecheckingstub__4d10801b6b457e9912061807464c00e48d36901349246d4c00671ab17eaee367(
     *,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17aab17ceb14e4b571865b35961897aa0a4d058e0026bce86f5a7fe2a0680a86(
+    *,
+    llm_extraction_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.LlmExtractionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a732bc189190593182b36970dabef572375f0a7614c7e19e1e9661e30f6883c2(
+    *,
+    key: builtins.str,
+    type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20013,6 +22385,22 @@ def _typecheckingstub__93a22e4fee5b26f3fa35e0a901c97e310ef9fc0744e5186b65b5da338
     *,
     content_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.ContentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     data_stream_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b61c40ff545800582c3eb7e0dff6c37cf38c1bafeae5fae7d6a51d57d7996ef(
+    *,
+    definition: builtins.str,
+    llm_extraction_instruction: typing.Optional[builtins.str] = None,
+    validation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.ValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__571b528dd6e6a94ced1f5ed31e0ae0b6dcb9bb9b13a911b784d9966120c732bb(
+    *,
+    metadata_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MetadataSchemaEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20035,6 +22423,23 @@ def _typecheckingstub__f26f0bfb6bb91a96529926b34610d43ded0571d826aa8ac6cb6e63367
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__89a679da4e16fe1ed23c82c1b10a91cb80f6201870b49c1216edd1b5b96a710a(
+    *,
+    key: builtins.str,
+    extraction_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.ExtractionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1792e7b8ca5ef7ee6bb984f75e4f7e6e293131e32307124ca340e138b9e9f467(
+    *,
+    max_value: typing.Optional[jsii.Number] = None,
+    min_value: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e4fcd7b9f7c5c0bb0c80ff54635936b78ada2b3d24596ba7cd43b9ece93f804c(
     *,
     historical_context_window_size: typing.Optional[jsii.Number] = None,
@@ -20049,6 +22454,7 @@ def _typecheckingstub__fdd1426fa7487dcb02499d9f810acd963031578a3c30fd4be0b076b09
     name: builtins.str,
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
@@ -20097,11 +22503,27 @@ def _typecheckingstub__8da4cbe8911c39d38348db455d0ae5e6aedc3caae072ac32c9c322b52
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fc038f4aa172b63f3d0937bdcaeb8ea291f63d99bb672a896a914daa4956fda7(
+    *,
+    allowed_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    max_items: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e07b37f0b40a3316624dff73cd80facaea1c5acf42b6cd36e3b7ae7aa956053(
+    *,
+    allowed_values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__eee517e4354bf11f650f3de6c9e3789b5ced3c958c97582b32deda0a2643b376(
     *,
     name: builtins.str,
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
@@ -20155,6 +22577,7 @@ def _typecheckingstub__404072c850abd871eb86ee8d04d20a311da6fb4147c983194a800b234
     name: builtins.str,
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    memory_record_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryRecordSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
     namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
@@ -20189,12 +22612,22 @@ def _typecheckingstub__a657a70bb10847e586abd34f2ecc11ddcafa4b88002f03b52b85d0852
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7a1873deb2dd5da6d5acea46cf31bd1527eb1f132a31120db756c7ff518a3214(
+    *,
+    number_validation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.NumberValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    string_list_validation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StringListValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    string_validation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StringValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__28dda218e5909d8e89c4ab4ee9bac6335e1f1cde1c399e1ac3c1c739ece89e19(
     *,
     event_expiry_duration: jsii.Number,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     encryption_key_arn: typing.Optional[builtins.str] = None,
+    indexed_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.IndexedKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     memory_execution_role_arn: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     stream_delivery_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StreamDeliveryResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

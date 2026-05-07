@@ -11,10 +11,13 @@ outside the doctree.
 
 import ast
 import re
+from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     AbstractSet,
+    Any,
     Dict,
     Iterable,
     List,
@@ -36,12 +39,9 @@ from pybtex.richtext import Tag
 from pybtex.style import FormattedEntry
 from pybtex.style.template import FieldIsMissing
 from sphinx.domains import Domain, ObjType
-from sphinx.errors import ExtensionError
 from sphinx.locale import _
 
-import sphinxcontrib.bibtex.plugin
-
-from .bibfile import BibData, process_bibdata
+from .bibfile import BibData
 from .citation_target import CitationTarget, parse_citation_targets
 from .roles import CiteRole
 from .style.referencing import BaseReferenceStyle, format_references
@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     from pybtex.database import Entry
     from pybtex.style.formatting import BaseStyle
     from sphinx.addnodes import pending_xref
-    from sphinx.application import Sphinx
     from sphinx.builders import Builder
     from sphinx.environment import BuildEnvironment
 
@@ -223,48 +222,50 @@ class Citation(NamedTuple):
     tooltip_entry: Optional["FormattedEntry"]  #: Formatted entry for tooltip.
 
 
-def env_updated(app: "Sphinx", env: "BuildEnvironment") -> Iterable[str]:
-    domain = cast(BibtexDomain, env.get_domain("cite"))
-    return domain.env_updated()
-
-
-def parse_header(header: str, source_path: str):
-    parser = docutils.parsers.rst.Parser()
-    # note: types stub for docutils doesn't know about components argument
-    settings = docutils.frontend.OptionParser(
-        components=(docutils.parsers.rst.Parser,)  # type: ignore
-    ).get_default_values()
-    document = docutils.utils.new_document(source_path, settings)
-    parser.parse(header, document)
-    return document[0]
-
-
 class BibtexDomain(Domain):
     """Sphinx domain for the bibtex extension."""
 
     name = "cite"
     label = "BibTeX Citations"
     data_version = 4
-    initial_data = dict(
-        bibdata=BibData(
+    initial_data = {
+        "bibdata": BibData(
             encoding="", bibfiles={}, data=pybtex.database.BibliographyData()
         ),
-        bibliography_header=docutils.nodes.container(),
-        bibliographies={},
-        citations=[],
-        citation_refs=[],
-    )
+        "bibliographies": {},
+        "citations": [],
+        "citation_refs": [],
+    }
     backend = pybtex_docutils.Backend()
     reference_style: BaseReferenceStyle
+    _role_names: Sequence[str] = [
+        "p",
+        "ps",
+        "t",
+        "ts",
+        "ct",
+        "cts",
+        "empty",
+        "alp",
+        "alps",
+        "label",
+        "labelpar",
+        "year",
+        "yearpar",
+        "author",
+        "authors",
+        "authorpar",
+        "authorpars",
+        "cauthor",
+        "cauthors",
+    ]
+    object_types = {"citation": ObjType(_("citation"), *_role_names, searchprio=-1)}
+    roles = {role_name: CiteRole() for role_name in _role_names}
 
     @property
     def bibdata(self) -> BibData:
         """Information about the bibliography files."""
         return self.data["bibdata"]
-
-    @property
-    def bibliography_header(self) -> docutils.nodes.Element:
-        return self.data["bibliography_header"]
 
     @property
     def bibliographies(self) -> Dict["BibliographyKey", "BibliographyValue"]:
@@ -281,43 +282,6 @@ class BibtexDomain(Domain):
         """Citation reference data."""
         return self.data["citation_refs"]
 
-    def __init__(self, env: "BuildEnvironment"):
-        # set up referencing style
-        style = sphinxcontrib.bibtex.plugin.find_plugin(
-            "sphinxcontrib.bibtex.style.referencing",
-            env.app.config.bibtex_reference_style,
-        )
-        self.reference_style = style()
-        # set up object types and roles for referencing style
-        role_names = self.reference_style.role_names()
-        self.object_types = dict(
-            citation=ObjType(_("citation"), *role_names, searchprio=-1),
-        )
-        self.roles = dict((name, CiteRole()) for name in role_names)
-        # initialize the domain
-        super().__init__(env)
-        # connect env-updated
-        env.app.connect("env-updated", env_updated)
-        # check config
-        if env.app.config.bibtex_bibfiles is None:
-            raise ExtensionError("You must configure the bibtex_bibfiles setting")
-        # canonicalize bibfile paths relative to confdir
-        bibfiles = [
-            (Path(env.app.confdir) / bibfile).resolve()
-            for bibfile in env.app.config.bibtex_bibfiles
-        ]
-        # update bib file information in the cache
-        self.data["bibdata"] = process_bibdata(
-            self.bibdata, bibfiles, env.app.config.bibtex_encoding
-        )
-        # parse bibliography header
-        header = getattr(env.app.config, "bibtex_bibliography_header")
-        if header:
-            self.data["bibliography_header"] = docutils.nodes.container()
-            self.data["bibliography_header"] += parse_header(
-                header, "bibliography_header"
-            )
-
     def clear_doc(self, docname: str) -> None:
         self.data["citations"] = [
             citation
@@ -331,7 +295,9 @@ class BibtexDomain(Domain):
             if bib_key.docname == docname:
                 del self.bibliographies[bib_key]
 
-    def merge_domaindata(self, docnames: AbstractSet[str], otherdata: Dict) -> None:
+    def merge_domaindata(
+        self, docnames: AbstractSet[str], otherdata: Dict[str, Any]
+    ) -> None:
         for bib_key, bib_value in otherdata["bibliographies"].items():
             if bib_key.docname in docnames:
                 self.bibliographies[bib_key] = bib_value
@@ -351,22 +317,16 @@ class BibtexDomain(Domain):
         docnames = list(get_docnames(self.env))
         # we keep track of this to quickly check for duplicates
         used_keys: Set[str] = set()
+        used_keys_per_doc: defaultdict[str, Set[str]] = defaultdict(set)
         used_labels: Dict[str, str] = {}
         for bibliography_key, bibliography in self.bibliographies.items():
             for entry, formatted_entry, tooltip_entry in self.get_formatted_entries(
                 bibliography_key,
                 docnames,
-                self.env.app.config.bibtex_tooltips,
-                self.env.app.config.bibtex_tooltips_style,
+                self.env.config.bibtex_tooltips,
+                self.env.config.bibtex_tooltips_style,
             ):
                 key = bibliography.keyprefix + formatted_entry.key
-                if bibliography.list_ == "citation" and key in used_keys:
-                    logger.warning(
-                        'duplicate citation for key "%s"' % key,
-                        location=(bibliography_key.docname, bibliography.line),
-                        type="bibtex",
-                        subtype="duplicate_citation",
-                    )
                 self.citations.append(
                     Citation(
                         citation_id=bibliography.citation_nodes[key]["ids"][0],
@@ -378,7 +338,22 @@ class BibtexDomain(Domain):
                     )
                 )
                 if bibliography.list_ == "citation":
+                    if key in used_keys_per_doc[bibliography_key.docname]:
+                        logger.warning(
+                            'duplicate local citation for key "%s"' % key,
+                            location=(bibliography_key.docname, bibliography.line),
+                            type="bibtex",
+                            subtype="duplicate_local_citation",
+                        )
+                    elif key in used_keys:
+                        logger.warning(
+                            'duplicate citation for key "%s"' % key,
+                            location=(bibliography_key.docname, bibliography.line),
+                            type="bibtex",
+                            subtype="duplicate_citation",
+                        )
                     used_keys.add(key)
+                    used_keys_per_doc[bibliography_key.docname].add(key)
                     if formatted_entry.label not in used_labels:
                         used_labels[formatted_entry.label] = formatted_entry.key
                     elif used_labels[formatted_entry.label] != formatted_entry.key:
@@ -413,11 +388,24 @@ class BibtexDomain(Domain):
         """Replace node by list of citation references (one for each key)."""
         targets = parse_citation_targets(target)
         keys: Dict[str, CitationTarget] = {target2.key: target2 for target2 in targets}
-        citations: Dict[str, Citation] = {
+
+        def _citations() -> Iterable[Citation]:
+            return (
+                cit
+                for cit in self.citations
+                if cit.key in keys
+                and self.bibliographies[cit.bibliography_key].list_ == "citation"
+            )
+
+        # resolve citations locally first (same docname)
+        citations_local: Dict[str, Citation] = {
             cit.key: cit
-            for cit in self.citations
-            if cit.key in keys
-            and self.bibliographies[cit.bibliography_key].list_ == "citation"
+            for cit in _citations()
+            if cit.bibliography_key.docname == fromdocname
+        }
+        # then resolve globally
+        citations: Dict[str, Citation] = citations_local | {
+            cit.key: cit for cit in _citations() if cit.key not in citations_local
         }
         for key in keys:
             if key not in citations:
@@ -452,6 +440,7 @@ class BibtexDomain(Domain):
         ]
         formatted_references = format_references(self.reference_style, typ, references)
         result_node = docutils.nodes.inline(rawsource=target)
+        result_node["classes"].append("bibtex-citation")
         result_node += formatted_references.render(self.backend)
         return result_node
 

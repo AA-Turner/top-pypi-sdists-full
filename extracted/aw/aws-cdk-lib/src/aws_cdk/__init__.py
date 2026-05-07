@@ -287,14 +287,10 @@ in the producing stack and an
 in the consuming stack to transfer that information from one stack to the
 other.
 
-## Accessing resources in a different stack and region
-
-> **This feature is currently experimental**
-
-You can enable the Stack property `crossRegionReferences`
-in order to access resources in a different stack *and* region. With this feature flag
-enabled it is possible to do something like creating a CloudFront distribution in `us-east-2` and
-an ACM certificate in `us-east-1`.
+If the resources are in different regions or different accounts, it will
+synthesize templates AWS CloudFormation Outputs in the producer stack
+(without an `Export` attribute), and a `Fn::GetStackOutput` in the consuming
+stack:
 
 ```python
 from aws_cdk import Environment, Environment
@@ -323,28 +319,6 @@ cloudfront.Distribution(stack2, "Distribution",
     certificate=cert
 )
 ```
-
-When the AWS CDK determines that the resource is in a different stack *and* is in a different
-region, it will "export" the value by creating a custom resource in the producing stack which
-creates SSM Parameters in the consuming region for each exported value. The parameters will be
-created with the name '/cdk/exports/${consumingStackName}/${export-name}'.
-In order to "import" the exports into the consuming stack a [SSM Dynamic reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html#dynamic-references-ssm)
-is used to reference the SSM parameter which was created.
-
-In order to mimic strong references, a Custom Resource is also created in the consuming
-stack which marks the SSM parameters as being "imported". When a parameter has been successfully
-imported, the producing stack cannot update the value.
-
-> [!NOTE]
-> As a consequence of this feature being built on a Custom Resource, we are restricted to a
-> CloudFormation response body size limitation of [4096 bytes](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-responses.html).
-> To prevent deployment errors related to the Custom Resource Provider response body being too
-> large, we recommend limiting the use of nested stacks and minimizing the length of stack names.
-> Doing this will prevent SSM parameter names from becoming too long which will reduce the size of the
-> response body.
-
-See the [adr](https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/core/adr/cross-region-stack-references.md)
-for more details on this feature.
 
 ### Removing automatic cross-stack references
 
@@ -16206,6 +16180,34 @@ class Fn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Fn"):
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "getAzs", [region]))
 
+    @jsii.member(jsii_name="getStackOutput")
+    @builtins.classmethod
+    def get_stack_output(
+        cls,
+        stack_name: builtins.str,
+        output_name: builtins.str,
+        region: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+    ) -> builtins.str:
+        '''The intrinsic function ``Fn::GetStackOutput`` returns the value of an output from another stack.
+
+        This is similar to ``Fn::ImportValue``, but it can reference
+        a normal output, without the need to export anything. As with ``Fn::ImportValue``,
+        you typically use this function to create cross-stack references.
+
+        :param stack_name: The name of the producer stack.
+        :param output_name: The name of the output to get the value from.
+        :param region: The region where the producer stack is deployed. If not provided, it will default to the same region as the consumer stack.
+        :param role_arn: The role to be used when describing the producer stack. If not provided, it will default to the role used to create the producer stack.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e815a3a2265c1bfbaa47ee986a0cf38d28ed0f8ea6c01dbc99cd9fbc1c02d52)
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+            check_type(argname="argument output_name", value=output_name, expected_type=type_hints["output_name"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "getStackOutput", [stack_name, output_name, region, role_arn]))
+
     @jsii.member(jsii_name="importListValue")
     @builtins.classmethod
     def import_list_value(
@@ -18480,6 +18482,15 @@ class IStackSynthesizer(typing_extensions.Protocol):
         ...
 
     @builtins.property
+    @jsii.member(jsii_name="cloudFormationExecutionRole")
+    def cloud_formation_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The role that is passed to CloudFormation to execute the change set.
+
+        :default: - no role
+        '''
+        ...
+
+    @builtins.property
     @jsii.member(jsii_name="lookupRole")
     def lookup_role(self) -> typing.Optional[builtins.str]:
         '''The role used to lookup for this stack.
@@ -18590,6 +18601,15 @@ class _IStackSynthesizerProxy:
         :default: - no qualifier
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bootstrapQualifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationExecutionRole")
+    def cloud_formation_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The role that is passed to CloudFormation to execute the change set.
+
+        :default: - no role
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cloudFormationExecutionRole"))
 
     @builtins.property
     @jsii.member(jsii_name="lookupRole")
@@ -21148,6 +21168,9 @@ class PolicyValidationPluginReport:
                     rule_name="ruleName",
                     violating_resources=[cdk.PolicyViolatingResource(
                         locations=["locations"],
+            
+                        # the properties below are optional
+                        construct_path="constructPath",
                         resource_logical_id="resourceLogicalId",
                         template_path="templatePath"
                     )],
@@ -21394,6 +21417,7 @@ class PolicyValidationReportStatusBeta1(enum.Enum):
     jsii_struct_bases=[],
     name_mapping={
         "locations": "locations",
+        "construct_path": "constructPath",
         "resource_logical_id": "resourceLogicalId",
         "template_path": "templatePath",
     },
@@ -21403,14 +21427,16 @@ class PolicyViolatingResource:
         self,
         *,
         locations: typing.Sequence[builtins.str],
-        resource_logical_id: builtins.str,
-        template_path: builtins.str,
+        construct_path: typing.Optional[builtins.str] = None,
+        resource_logical_id: typing.Optional[builtins.str] = None,
+        template_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Resource violating a specific rule.
 
         :param locations: The locations in the CloudFormation template that pose the violations.
-        :param resource_logical_id: The logical ID of the resource in the CloudFormation template.
-        :param template_path: The path to the CloudFormation template that contains this resource.
+        :param construct_path: The construct path of the violating construct. Use this for violations that originate from constructs rather than CloudFormation resources (e.g. annotations added via ``Annotations.of()`` or ``Validations.of()``). When provided, the report will use this path directly instead of deriving it from the resource logical ID. Mutually exclusive with ``resourceLogicalId``. Default: - construct path is derived from the resource logical ID
+        :param resource_logical_id: The logical ID of the resource in the CloudFormation template. Required for plugin-sourced violations that operate on CloudFormation templates. Mutually exclusive with ``constructPath``. Default: - no resource logical ID
+        :param template_path: The path to the CloudFormation template that contains this resource. Default: - no template path
 
         :exampleMetadata: fixture=_generated
 
@@ -21422,6 +21448,9 @@ class PolicyViolatingResource:
             
             policy_violating_resource = cdk.PolicyViolatingResource(
                 locations=["locations"],
+            
+                # the properties below are optional
+                construct_path="constructPath",
                 resource_logical_id="resourceLogicalId",
                 template_path="templatePath"
             )
@@ -21429,13 +21458,18 @@ class PolicyViolatingResource:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f94629927ab4a3e4d89f801754c91a550a97106ebedf9d446e39f3ce945a86b7)
             check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
+            check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument resource_logical_id", value=resource_logical_id, expected_type=type_hints["resource_logical_id"])
             check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "locations": locations,
-            "resource_logical_id": resource_logical_id,
-            "template_path": template_path,
         }
+        if construct_path is not None:
+            self._values["construct_path"] = construct_path
+        if resource_logical_id is not None:
+            self._values["resource_logical_id"] = resource_logical_id
+        if template_path is not None:
+            self._values["template_path"] = template_path
 
     @builtins.property
     def locations(self) -> typing.List[builtins.str]:
@@ -21445,18 +21479,40 @@ class PolicyViolatingResource:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def resource_logical_id(self) -> builtins.str:
-        '''The logical ID of the resource in the CloudFormation template.'''
-        result = self._values.get("resource_logical_id")
-        assert result is not None, "Required property 'resource_logical_id' is missing"
-        return typing.cast(builtins.str, result)
+    def construct_path(self) -> typing.Optional[builtins.str]:
+        '''The construct path of the violating construct.
+
+        Use this for violations that originate from constructs rather than
+        CloudFormation resources (e.g. annotations added via ``Annotations.of()``
+        or ``Validations.of()``). When provided, the report will use this path
+        directly instead of deriving it from the resource logical ID.
+        Mutually exclusive with ``resourceLogicalId``.
+
+        :default: - construct path is derived from the resource logical ID
+        '''
+        result = self._values.get("construct_path")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def template_path(self) -> builtins.str:
-        '''The path to the CloudFormation template that contains this resource.'''
+    def resource_logical_id(self) -> typing.Optional[builtins.str]:
+        '''The logical ID of the resource in the CloudFormation template.
+
+        Required for plugin-sourced violations that operate on CloudFormation
+        templates. Mutually exclusive with ``constructPath``.
+
+        :default: - no resource logical ID
+        '''
+        result = self._values.get("resource_logical_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def template_path(self) -> typing.Optional[builtins.str]:
+        '''The path to the CloudFormation template that contains this resource.
+
+        :default: - no template path
+        '''
         result = self._values.get("template_path")
-        assert result is not None, "Required property 'template_path' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21608,6 +21664,9 @@ class PolicyViolation:
                 rule_name="ruleName",
                 violating_resources=[cdk.PolicyViolatingResource(
                     locations=["locations"],
+            
+                    # the properties below are optional
+                    construct_path="constructPath",
                     resource_logical_id="resourceLogicalId",
                     template_path="templatePath"
                 )],
@@ -25552,6 +25611,12 @@ class StackSynthesizer(
     def bootstrap_qualifier(self) -> typing.Optional[builtins.str]:
         '''The qualifier used to bootstrap this stack.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bootstrapQualifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationExecutionRole")
+    def cloud_formation_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The role that is passed to CloudFormation to execute the change set.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cloudFormationExecutionRole"))
 
     @builtins.property
     @jsii.member(jsii_name="lookupRole")
@@ -39766,6 +39831,12 @@ class NestedStackSynthesizer(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bootstrapQualifier"))
 
     @builtins.property
+    @jsii.member(jsii_name="cloudFormationExecutionRole")
+    def cloud_formation_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The role that is passed to CloudFormation to execute the change set.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cloudFormationExecutionRole"))
+
+    @builtins.property
     @jsii.member(jsii_name="lookupRole")
     def lookup_role(self) -> typing.Optional[builtins.str]:
         '''The role used to lookup for this stack.'''
@@ -40439,6 +40510,12 @@ class DefaultStackSynthesizer(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bootstrapQualifier"))
 
     @builtins.property
+    @jsii.member(jsii_name="cloudFormationExecutionRole")
+    def cloud_formation_execution_role(self) -> typing.Optional[builtins.str]:
+        '''The role that is passed to CloudFormation to execute the change set.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cloudFormationExecutionRole"))
+
+    @builtins.property
     @jsii.member(jsii_name="lookupRole")
     def lookup_role(self) -> typing.Optional[builtins.str]:
         '''The role used to lookup for this stack.'''
@@ -40960,6 +41037,7 @@ __all__ = [
     "aws_ce",
     "aws_certificatemanager",
     "aws_chatbot",
+    "aws_chime",
     "aws_cleanrooms",
     "aws_cleanroomsml",
     "aws_cloud9",
@@ -41286,6 +41364,7 @@ from . import aws_cassandra
 from . import aws_ce
 from . import aws_certificatemanager
 from . import aws_chatbot
+from . import aws_chime
 from . import aws_cleanrooms
 from . import aws_cleanroomsml
 from . import aws_cloud9
@@ -43259,6 +43338,15 @@ def _typecheckingstub__ddfeaf20d2c8e6c042c332c2e1beca65310a356288fbbdfcce98bc268
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8e815a3a2265c1bfbaa47ee986a0cf38d28ed0f8ea6c01dbc99cd9fbc1c02d52(
+    stack_name: builtins.str,
+    output_name: builtins.str,
+    region: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__60fe490fdd623330e77a09e19de30aacd031fb555f9d3c3c923390a43f63aa0a(
     shared_value_to_import: builtins.str,
     assumed_length: jsii.Number,
@@ -43974,8 +44062,9 @@ def _typecheckingstub__53f32baa53504563bf348cb26d2308de0b3c94f4fea93a1c0384fb0ae
 def _typecheckingstub__f94629927ab4a3e4d89f801754c91a550a97106ebedf9d446e39f3ce945a86b7(
     *,
     locations: typing.Sequence[builtins.str],
-    resource_logical_id: builtins.str,
-    template_path: builtins.str,
+    construct_path: typing.Optional[builtins.str] = None,
+    resource_logical_id: typing.Optional[builtins.str] = None,
+    template_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

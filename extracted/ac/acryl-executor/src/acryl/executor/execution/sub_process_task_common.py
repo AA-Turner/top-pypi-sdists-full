@@ -22,7 +22,6 @@ from collections.abc import Sequence
 from typing import Any
 
 import pydantic
-import yaml
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -138,34 +137,36 @@ class SubProcessTaskUtil:
     @staticmethod
     def _resolve_recipe(
         recipe: str, execution_ctx: ExecutionContext, executor_ctx: ExecutorContext
-    ) -> tuple[dict, list[str], set[str]]:
-        # Now attempt to find and replace all secrets inside the recipe.
-        secret_pattern = re.compile(r".*?\${(\w+)}.*?")
+    ) -> tuple[dict, dict[str, str]]:
+        """Resolve secrets in a recipe and return the recipe dict + resolved secrets.
+
+        Secrets are resolved from stores first, then os.environ as fallback.
+        Secrets are NOT written to the executor's os.environ — they are returned
+        as a dict to be passed to the subprocess via stdin.
+
+        Returns:
+            Tuple of (recipe_dict, secret_values_dict) where secret_values_dict
+            contains all resolved secret name→value pairs.
+        """
+        secret_pattern = re.compile(r"\$\{(\w+)\}")
 
         resolved_recipe = recipe
         secret_matches = secret_pattern.findall(resolved_recipe)
 
-        # 1. Extract all secrets needing resolved.
-        secrets_to_resolve = []
+        secrets_to_resolve: list[str] = []
         if secret_matches:
             for match in secret_matches:
                 secrets_to_resolve.append(match)
 
         logger.info(f"Found {len(secrets_to_resolve)} secret variable(s) in recipe")
 
-        # 2. Resolve secret values
+        # Resolve secret values from stores
         secret_values_dict = SubProcessTaskUtil._resolve_secrets(
             secrets_to_resolve, executor_ctx
         )
 
-        # 3. Fall back to os.environ for any secrets not found in secret stores
-        # Track which secrets we need to add (vs. already present)
-        secrets_to_add_to_environ = set()
-
+        # Fall back to os.environ for any secrets not found in stores
         for secret_name in secrets_to_resolve:
-            # Check if secret already exists in environment BEFORE we modify it
-            was_already_in_environ = secret_name in os.environ
-
             if (
                 secret_name not in secret_values_dict
                 or secret_values_dict[secret_name] is None
@@ -176,84 +177,47 @@ class SubProcessTaskUtil:
                         f"Secret '{secret_name}' not found in secret stores, using value from environment variable"
                     )
                     secret_values_dict[secret_name] = env_value
-                    # Don't add to cleanup - it was already in environment
                 else:
                     logger.warning(
                         f"Secret '{secret_name}' not found in secret stores or environment, using empty string"
                     )
                     secret_values_dict[secret_name] = ""
-                    secrets_to_add_to_environ.add(secret_name)
-            else:
-                # Secret came from secret store
-                # Only add to cleanup if it wasn't already in environment
-                if not was_already_in_environ:
-                    secrets_to_add_to_environ.add(secret_name)
 
-        # Set environment variables for SecretRegistry and DataHub CLI
-        for name, value in secret_values_dict.items():
-            if value is not None and name in secrets_to_add_to_environ:
-                os.environ[name] = value
+        # Set up secret masking in the executor process (for masking logs/reports)
+        if secrets_to_resolve:
+            try:
+                initialize_secret_masking(force=True)
+                registry = SecretRegistry.get_instance()
+                for secret_name in secrets_to_resolve:
+                    secret_value = secret_values_dict.get(secret_name)
+                    if secret_value:
+                        registry.register_secret(secret_name, secret_value)
 
-        # Ensure environment cleanup on error
-        try:
-            # Set up secret masking (must happen after env vars are set)
-            if secrets_to_resolve:
-                try:
-                    initialize_secret_masking(force=True)
-                    registry = SecretRegistry.get_instance()
-                    for secret_name in secrets_to_resolve:
-                        secret_value = os.environ.get(secret_name)
-                        if secret_value:
-                            registry.register_secret(secret_name, secret_value)
+                logger.info(
+                    f"Secret masking enabled for {registry.get_count()} secret(s)"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to set up secret masking: {e}. Continuing without masking."
+                )
 
-                    logger.info(
-                        f"Secret masking enabled for {registry.get_count()} secret(s)"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to set up secret masking: {e}. Continuing without masking."
-                    )
+        # Validate secret values and warn on potential issues
+        if secret_matches:
+            for match in secret_matches:
+                secret_value = secret_values_dict.get(match, "")
+                SubProcessTaskUtil._warn_on_bad_secret_value(
+                    execution_ctx, match, secret_value
+                )
 
-            # Validate secret values and warn on potential issues
-            if secret_matches:
-                for match in secret_matches:
-                    secret_value = secret_values_dict.get(match, "")
-                    SubProcessTaskUtil._warn_on_bad_secret_value(
-                        execution_ctx, match, secret_value
-                    )
+        json_recipe = json.loads(resolved_recipe, strict=False)
+        json_recipe["run_id"] = execution_ctx.exec_id
 
-            json_recipe = json.loads(resolved_recipe, strict=False)
-            json_recipe["run_id"] = execution_ctx.exec_id
-
-            # Return recipe, all secret names, and secrets we added to environment
-            return json_recipe, secrets_to_resolve, secrets_to_add_to_environ
-        except Exception:
-            # Clean up only the secrets we added (not ones already in environment)
-            for secret_name in secrets_to_add_to_environ:
-                os.environ.pop(secret_name, None)
-            raise
+        return json_recipe, secret_values_dict
 
     @staticmethod
     def _get_plugin_from_recipe(recipe: dict) -> str:
         # The source type -- ASSUMPTION ALERT: This should always correspond to the plugin name.
         return recipe["source"]["type"]
-
-    @staticmethod
-    def _write_recipe_to_file(
-        dir_path: str, recipe: dict, file_name: str = "recipe.yml"
-    ) -> str:
-        # 1. Create directories to the path
-        os.makedirs(dir_path, mode=0o777, exist_ok=True)
-
-        # 2. Dump recipe dictionary to a YAML string
-        yaml_recipe = yaml.dump(recipe)
-
-        # 3. Write YAML to file
-        file_path = dir_path + "/" + file_name
-        with open(file_path, "w") as file_handle:
-            file_handle.write(yaml_recipe)
-
-        return file_path
 
     @staticmethod
     def _remove_directory(dir_path: str) -> None:

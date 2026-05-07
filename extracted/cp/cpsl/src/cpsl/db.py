@@ -16,13 +16,22 @@ import json
 from typing import TYPE_CHECKING
 
 from .constants import (
+    Column,
     CollectionDecl,
-    SCOPE_APP, SCOPE_SESSION, SCOPE_OWNER,
+    CollectionScope,
+    SCOPE_APP, SCOPE_SESSION, SCOPE_OWNER, SCOPE_USER,
     SCOPE_FIELD_SESSION, SCOPE_FIELD_OWNER, SCOPE_FIELD_USER,
+    VALID_SCOPES,
 )
 
 if TYPE_CHECKING:
     from .clients.capsule import DataServiceStub
+
+
+VALID_COLUMN_TYPES = {
+    "text", "number", "currency", "date", "link",
+    "file", "email", "status", "tags", "boolean",
+}
 
 
 _active_identity: contextvars.ContextVar[object | None] = contextvars.ContextVar(
@@ -79,6 +88,54 @@ def _with_id_alias(doc: dict) -> dict:
     if "_id" in doc and "id" not in doc:
         doc["id"] = doc["_id"]
     return doc
+
+
+def _scope_filter(scope: str, *, user_id: str = "", owner_id: str = "", session_id: str = "") -> dict[str, str]:
+    if scope == SCOPE_APP:
+        return {}
+    if scope == SCOPE_USER:
+        if not user_id:
+            raise ValueError("scope='user' requires user_id")
+        return {SCOPE_FIELD_USER: user_id}
+    if scope == SCOPE_OWNER:
+        owner = owner_id or user_id
+        if not owner:
+            raise ValueError("scope='owner' requires owner_id or user_id")
+        return {SCOPE_FIELD_OWNER: owner}
+    if scope == SCOPE_SESSION:
+        if not session_id:
+            raise ValueError("scope='session' requires session_id")
+        return {SCOPE_FIELD_SESSION: session_id}
+    raise ValueError(f"scope must be one of {VALID_SCOPES}, got {scope!r}")
+
+
+def _normalize_column(column: str | Column | dict) -> Column:
+    if isinstance(column, Column):
+        col = column
+    elif isinstance(column, str):
+        col = Column(key=column)
+    elif isinstance(column, dict):
+        col = Column.from_dict(column)
+    else:
+        raise TypeError("columns must be strings, Column objects, or column dictionaries")
+
+    if not col.key or col.key.startswith("$") or "." in col.key or "\x00" in col.key:
+        raise ValueError(f"invalid column key {col.key!r}")
+    if col.type not in VALID_COLUMN_TYPES:
+        raise ValueError(f"invalid column type {col.type!r}")
+    return col
+
+
+def _normalize_dynamic_columns(columns: list[str | Column | dict] | tuple[str | Column | dict, ...]) -> list[Column]:
+    normalized: list[Column] = []
+    seen: set[str] = set()
+    for raw in columns:
+        col = _normalize_column(raw)
+        if col.key in seen:
+            raise ValueError(f"duplicate column key {col.key!r}")
+        seen.add(col.key)
+        normalized.append(col)
+    return normalized
 
 
 class Collection:
@@ -191,6 +248,215 @@ class Collection:
         return resp.count
 
 
+class DynamicCollection:
+    """Schema-aware collection handle for runtime-created collections."""
+
+    def __init__(
+        self,
+        stub: DataServiceStub,
+        app_id: str,
+        name: str,
+        scope: CollectionScope,
+        *,
+        user_id: str = "",
+        owner_id: str = "",
+        session_id: str = "",
+    ) -> None:
+        self.name = name
+        self.scope = scope
+        self._stub = stub
+        self._app_id = app_id
+        self._user_id = user_id
+        self._owner_id = owner_id
+        self._session_id = session_id
+        inner = Collection(stub, app_id, name)
+        self._collection: Collection | ScopedCollection
+        if scope == SCOPE_APP:
+            self._collection = inner
+        else:
+            self._collection = ScopedCollection(
+                inner,
+                _scope_filter(
+                    scope,
+                    user_id=user_id,
+                    owner_id=owner_id,
+                    session_id=session_id,
+                ),
+            )
+
+    def _schema_kwargs(self) -> dict:
+        return {
+            "app_id": self._app_id,
+            "name": self.name,
+            "scope": self.scope,
+            "user_id": self._user_id,
+            "owner_id": self._owner_id,
+            "session_id": self._session_id,
+        }
+
+    @staticmethod
+    def _proto_columns(columns: list[Column]):
+        from .clients.capsule import CollectionColumnSpec
+        return [
+            CollectionColumnSpec(
+                key=col.key,
+                type=col.type,
+                label=col.label or "",
+                format=col.format or "",
+            )
+            for col in columns
+        ]
+
+    @staticmethod
+    def _columns_from_schema(schema) -> list[Column]:
+        return [
+            Column(key=col.key, type=col.type or "text", label=col.label or None, format=col.format or None)
+            for col in schema.columns
+        ]
+
+    async def list_columns(self) -> list[Column]:
+        from .clients.capsule import GetCollectionSchemaRequest
+        resp = await asyncio.get_running_loop().run_in_executor(
+            None,
+            self._stub.get_collection_schema,
+            GetCollectionSchemaRequest(**self._schema_kwargs()),
+        )
+        if not resp.found or resp.schema is None:
+            return []
+        return self._columns_from_schema(resp.schema)
+
+    async def set_columns(self, columns: list[str | Column | dict]) -> list[Column]:
+        from .clients.capsule import CollectionSchema, UpsertCollectionSchemaRequest
+        normalized = _normalize_dynamic_columns(columns)
+        schema = CollectionSchema(
+            name=self.name,
+            scope=self.scope,
+            columns=self._proto_columns(normalized),
+            user_id=self._user_id,
+            owner_id=self._owner_id,
+            session_id=self._session_id,
+        )
+        resp = await asyncio.get_running_loop().run_in_executor(
+            None,
+            self._stub.upsert_collection_schema,
+            UpsertCollectionSchemaRequest(app_id=self._app_id, schema=schema),
+        )
+        return self._columns_from_schema(resp.schema)
+
+    async def add_column(
+        self,
+        key: str,
+        *,
+        type: str = "text",
+        label: str | None = None,
+        format: str | None = None,
+        default=None,
+        backfill: bool = False,
+    ) -> list[Column]:
+        if backfill or default is not None:
+            raise NotImplementedError("column backfill is not supported yet; update rows explicitly")
+        columns = await self.list_columns()
+        if any(col.key == key for col in columns):
+            raise ValueError(f"column {key!r} already exists")
+        return await self.set_columns([*columns, Column(key=key, type=type, label=label, format=format)])
+
+    async def remove_column(self, key: str, *, drop_values: bool = False) -> list[Column]:
+        if drop_values:
+            raise NotImplementedError("dropping stored column values is not supported yet")
+        columns = [col for col in await self.list_columns() if col.key != key]
+        return await self.set_columns(columns)
+
+    async def rename_column(
+        self,
+        old_key: str,
+        new_key: str,
+        *,
+        migrate_values: bool = False,
+    ) -> list[Column]:
+        if migrate_values:
+            raise NotImplementedError("stored value migration is not supported yet")
+        columns = await self.list_columns()
+        renamed: list[Column] = []
+        found = False
+        for col in columns:
+            if col.key == old_key:
+                renamed.append(Column(key=new_key, type=col.type, label=col.label, format=col.format))
+                found = True
+            else:
+                renamed.append(col)
+        if not found:
+            raise ValueError(f"column {old_key!r} does not exist")
+        return await self.set_columns(renamed)
+
+    async def insert_one(self, document: dict) -> dict:
+        return await self._collection.insert_one(document)
+
+    async def insert_many(self, documents: list[dict]) -> list[dict]:
+        return await self._collection.insert_many(documents)
+
+    async def find_one(self, filter: dict | None = None) -> dict | None:
+        return await self._collection.find_one(filter)
+
+    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                   sort: dict | None = None) -> list[dict]:
+        return await self._collection.find(filter=filter, limit=limit, skip=skip, sort=sort)
+
+    async def update_one(self, filter: dict, update: dict, *, upsert: bool = False) -> dict:
+        return await self._collection.update_one(filter, update, upsert=upsert)
+
+    async def delete_one(self, filter: dict) -> dict:
+        return await self._collection.delete_one(filter)
+
+    async def count(self, filter: dict | None = None) -> int:
+        return await self._collection.count(filter)
+
+
+class CollectionManager:
+    """Factory for runtime-created, schema-aware collections."""
+
+    def __init__(
+        self,
+        stub: DataServiceStub,
+        app_id: str,
+        *,
+        default_scope: CollectionScope = SCOPE_APP,
+        user_id: str = "",
+        owner_id: str = "",
+        session_id: str = "",
+        collection_scopes: dict[str, str] | None = None,
+    ) -> None:
+        self._stub = stub
+        self._app_id = app_id
+        self._default_scope = default_scope
+        self._user_id = user_id
+        self._owner_id = owner_id
+        self._session_id = session_id
+        self._scopes = collection_scopes or {}
+
+    async def get(self, name: str, *, scope: CollectionScope | None = None) -> DynamicCollection:
+        resolved = scope or self._scopes.get(name)
+        if resolved is None:
+            raise ValueError(
+                f"scope is required for dynamic collection {name!r} because it has no static declaration"
+            )
+        if resolved not in VALID_SCOPES:
+            raise ValueError(f"scope must be one of {VALID_SCOPES}, got {resolved!r}")
+        static_scope = self._scopes.get(name)
+        if scope is not None and static_scope is not None and scope != static_scope:
+            raise ValueError(
+                f"collection {name!r} is statically declared with scope={static_scope!r}, got {scope!r}"
+            )
+        return DynamicCollection(
+            self._stub,
+            self._app_id,
+            name,
+            resolved,  # type: ignore[arg-type]
+            user_id=self._user_id,
+            owner_id=self._owner_id,
+            session_id=self._session_id,
+        )
+
+
 class CollectionRef:
     """First-class handle returned by ``app.collection()``.
 
@@ -255,6 +521,89 @@ class CollectionRef:
             session_id=session_id,
         )
         return ScopedCollection(col, sf)
+
+    def _static_columns(self) -> list[Column]:
+        return list(self._decl.columns or [])
+
+    def _schema_handle(self) -> DynamicCollection:
+        col = self._require_bound()
+        if self._decl.scope == SCOPE_APP:
+            return DynamicCollection(col._stub, col._app_id, self.name, SCOPE_APP)
+
+        identity = get_active_identity() or self._active_session
+        if identity is None:
+            raise RuntimeError(
+                f"Collection '{self.name}' has scope='{self._decl.scope}' "
+                "but no active handler context. Use this inside a @message, "
+                "@task, @data, or @endpoint handler."
+            )
+        user = getattr(identity, "user", None)
+        user_id = getattr(user, "id", "") if user else ""
+        owner_id = getattr(user, "owner_id", "") if user else ""
+        session_id = getattr(identity, "id", "")
+        return DynamicCollection(
+            col._stub,
+            col._app_id,
+            self.name,
+            self._decl.scope,
+            user_id=user_id,
+            owner_id=owner_id,
+            session_id=session_id,
+        )
+
+    async def list_columns(self) -> list[Column]:
+        if self._bound is None:
+            return self._static_columns()
+        columns = await self._schema_handle().list_columns()
+        return columns or self._static_columns()
+
+    async def set_columns(self, columns: list[str | Column | dict]) -> list[Column]:
+        return await self._schema_handle().set_columns(columns)
+
+    async def add_column(
+        self,
+        key: str,
+        *,
+        type: str = "text",
+        label: str | None = None,
+        format: str | None = None,
+        default=None,
+        backfill: bool = False,
+    ) -> list[Column]:
+        if backfill or default is not None:
+            raise NotImplementedError("column backfill is not supported yet; update rows explicitly")
+        columns = await self.list_columns()
+        if any(col.key == key for col in columns):
+            raise ValueError(f"column {key!r} already exists")
+        return await self.set_columns([*columns, Column(key=key, type=type, label=label, format=format)])
+
+    async def remove_column(self, key: str, *, drop_values: bool = False) -> list[Column]:
+        if drop_values:
+            raise NotImplementedError("dropping stored column values is not supported yet")
+        columns = [col for col in await self.list_columns() if col.key != key]
+        return await self.set_columns(columns)
+
+    async def rename_column(
+        self,
+        old_key: str,
+        new_key: str,
+        *,
+        migrate_values: bool = False,
+    ) -> list[Column]:
+        if migrate_values:
+            raise NotImplementedError("stored value migration is not supported yet")
+        columns = await self.list_columns()
+        renamed: list[Column] = []
+        found = False
+        for col in columns:
+            if col.key == old_key:
+                renamed.append(Column(key=new_key, type=col.type, label=col.label, format=col.format))
+                found = True
+            else:
+                renamed.append(col)
+        if not found:
+            raise ValueError(f"column {old_key!r} does not exist")
+        return await self.set_columns(renamed)
 
     async def insert_one(self, document: dict) -> dict:
         return await self._resolve().insert_one(document)
@@ -329,8 +678,8 @@ class ScopedCollection:
                    sort: dict | None = None) -> list[dict]:
         return await self._inner.find(filter=self._merge(filter), limit=limit, skip=skip, sort=sort)
 
-    async def update_one(self, filter: dict, update: dict) -> dict:
-        return await self._inner.update_one(self._merge(filter), update)
+    async def update_one(self, filter: dict, update: dict, *, upsert: bool = False) -> dict:
+        return await self._inner.update_one(self._merge(filter), update, upsert=upsert)
 
     async def delete_one(self, filter: dict) -> dict:
         return await self._inner.delete_one(self._merge(filter))

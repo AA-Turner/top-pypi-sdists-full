@@ -12,6 +12,38 @@ function sanitizeIdForLog(id) {
 }
 
 /**
+ * Returns true if a comment node's text content matches the dj-if family
+ * preserved by the server's VDOM parser. Mirrors
+ * `crates/djust_vdom/src/parser.rs:494-499` so client-side path-fallback
+ * traversal counts the same comments the server emits.
+ *
+ * Accepts:
+ *   - exact `dj-if` (legacy single-comment placeholder for false-no-else
+ *     pure-text conditionals — issue #295)
+ *   - `dj-if<space-or-tab>...` (boundary-marker opening, e.g.
+ *     `dj-if id="if-0"` or `dj-if id="if-a3b1c2d4-0"` after the Stage 11
+ *     prefix fix on PR #1363)
+ *   - `/dj-if` (boundary-marker closing)
+ *
+ * Rejects lookalikes like `dj-iffy`, `dj-if-extra`, `dj-ifid="x"`, etc.
+ *
+ * @param {string} text - The comment's textContent (may contain leading/
+ *   trailing whitespace; trim() is applied internally to match the
+ *   server's `.trim()`).
+ * @returns {boolean}
+ */
+function isDjIfComment(text) {
+    if (typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    if (trimmed === 'dj-if') return true;
+    if (trimmed === '/dj-if') return true;
+    // Boundary-open marker: `dj-if<space-or-tab>...`. Crucially must
+    // NOT match `dj-iffy`, `dj-if-extra`, `dj-ifid=...` — only a literal
+    // space or tab after `dj-if` qualifies, mirroring the server predicate.
+    return trimmed.startsWith('dj-if ') || trimmed.startsWith('dj-if\t');
+}
+
+/**
  * Save the current focus state (active element, selection, scroll position).
  * Call before DOM mutations that may destroy focus. Pairs with restoreFocusState().
  *
@@ -115,7 +147,7 @@ function restoreFocusState(state, rootEl = null) {
     if (state.selStart !== undefined && typeof el.setSelectionRange === 'function') {
         try {
             el.setSelectionRange(state.selStart, state.selEnd);
-        } catch (e) {
+        } catch (_e) {
             // setSelectionRange throws on some input types (email, number)
         }
     }
@@ -174,12 +206,14 @@ function getNodeByPath(path, djustId = null, rootEl = null) {
                 // JS \s includes \u00A0, so we use an explicit ASCII whitespace pattern instead.
                 return (/[^ \t\n\r\f]/.test(child.textContent));
             }
-            // Only include <!--dj-if--> placeholder comments — the Rust VDOM
-            // parser preserves these for diffing stability (#559) but drops
-            // all other HTML comments. Regular comments (<!-- Hero Section -->
-            // etc.) must be excluded to keep path indices aligned.
+            // Only include `dj-if`-family comments — the Rust VDOM
+            // parser preserves these for diffing stability (#559) and for
+            // boundary markers (#1358 Iter 1) but drops all other HTML
+            // comments. Regular comments (<!-- Hero Section --> etc.) must
+            // be excluded to keep path indices aligned. The predicate
+            // mirrors `crates/djust_vdom/src/parser.rs:494-499`.
             if (child.nodeType === Node.COMMENT_NODE) {
-                return child.textContent.trim() === 'dj-if';
+                return isDjIfComment(child.textContent);
             }
             return false;
         });
@@ -197,6 +231,7 @@ function getNodeByPath(path, djustId = null, rootEl = null) {
             return null;
         }
 
+        // eslint-disable-next-line security/detect-object-injection
         node = children[index];
     }
 
@@ -297,6 +332,7 @@ const SVG_ELEMENT_FACTORIES = {
 };
 
 function createSvgElement(tagLower) {
+    // eslint-disable-next-line security/detect-object-injection
     const factory = SVG_ELEMENT_FACTORIES[tagLower];
     return factory ? factory() : document.createElement('span');
 }
@@ -421,6 +457,7 @@ const HTML_ELEMENT_FACTORIES = {
 };
 
 function createHtmlElement(tagLower) {
+    // eslint-disable-next-line security/detect-object-injection
     const factory = HTML_ELEMENT_FACTORIES[tagLower];
     return factory ? factory() : document.createElement('span');
 }
@@ -483,7 +520,7 @@ function createNodeFromVNode(vnode, inSvgContext = false) {
         // falls back to <span> safely.
         try {
             elem = document.createElement(tagLower);
-        } catch (e) {
+        } catch (_e) {
             if (globalThis.djustDebug) {
                 console.warn('[LiveView] createElement threw for tag %s; using span placeholder', tagLower);
             }
@@ -560,7 +597,12 @@ function createNodeFromVNode(vnode, inSvgContext = false) {
  * Flag set by handleServerResponse when applying broadcast patches.
  * When true, preserveFormValues skips saving/restoring the focused
  * element so remote content (from other users) takes effect.
+ *
+ * `let` (NOT const) — 02-response-handler.js reassigns on broadcast
+ * frames; ESLint's per-file analysis can't see the cross-module
+ * reassignment (#1351).
  */
+// eslint-disable-next-line prefer-const
 let _isBroadcastUpdate = false;
 
 /**
@@ -637,7 +679,7 @@ function preserveFormValues(container, updateFn) {
         if (el) {
             if (saved.tag === 'textarea') {
                 el.value = saved.value;
-                try { el.setSelectionRange(saved.selStart, saved.selEnd); } catch (e) { /* */ }
+                try { el.setSelectionRange(saved.selStart, saved.selEnd); } catch (_e) { /* */ }
                 el.focus();
             } else if (el.type === 'checkbox' || el.type === 'radio') {
                 el.checked = saved.checked;
@@ -679,9 +721,11 @@ function morphChildren(existing, desired) {
 
     for (const dNode of desiredNodes) {
         // Advance past already-matched existing nodes
+        // eslint-disable-next-line security/detect-object-injection
         while (eIdx < existingNodes.length && matched.has(existingNodes[eIdx])) {
             eIdx++;
         }
+        // eslint-disable-next-line security/detect-object-injection
         const eNode = eIdx < existingNodes.length ? existingNodes[eIdx] : null;
 
         // --- Text node ---
@@ -823,6 +867,7 @@ function morphElement(existing, desired) {
         ? globalThis.djust.isIgnoredAttr
         : null;
     for (let i = existing.attributes.length - 1; i >= 0; i--) {
+        // eslint-disable-next-line security/detect-object-injection
         const name = existing.attributes[i].name;
         if (!desired.hasAttribute(name)) {
             if (isCanvas && (name === 'width' || name === 'height')) continue;
@@ -1063,6 +1108,7 @@ function _stampDjIds(serverHtml, container) {
         const serverChildren = Array.from(serverNode.children);
         const len = Math.min(domChildren.length, serverChildren.length);
         for (let i = 0; i < len; i++) {
+            // eslint-disable-next-line security/detect-object-injection
             stampRecursive(domChildren[i], serverChildren[i]);
         }
     }
@@ -1072,6 +1118,7 @@ function _stampDjIds(serverHtml, container) {
     const serverChildren = Array.from(serverRoot.children);
     const len = Math.min(domChildren.length, serverChildren.length);
     for (let i = 0; i < len; i++) {
+        // eslint-disable-next-line security/detect-object-injection
         stampRecursive(domChildren[i], serverChildren[i]);
     }
 }
@@ -1116,11 +1163,269 @@ function isWhitespacePreserving(node) {
     return false;
 }
 
+// ============================================================================
+// dj-if subtree patch helpers — Foundation 2 of #1358 (Iter 2)
+// ----------------------------------------------------------------------------
+// The server (Iter 1) emits `<!--dj-if id="if-<8hex>-N"-->...<!--/dj-if-->`
+// boundary markers around `{% if %}` block contents. The differ (Iter 3)
+// will emit `RemoveSubtree` / `InsertSubtree` patches when conditionals
+// flip. The handlers below dispatch those patch types.
+//
+// Until Iter 3 lands, no live frame contains these patch types — so this
+// is zero-observable-behavior. The handlers exist so the next milestone
+// can wire the differ without a coordinated client+server release.
+// ============================================================================
+
+/**
+ * Extract the `id="..."` value from a dj-if open-marker comment body.
+ *
+ * Mirrors the format emitted by Iter 1's parser: e.g.
+ * `dj-if id="if-a3b1c2d4-0"`. Returns `null` if the comment doesn't
+ * contain an id token (e.g. legacy bare `dj-if` placeholder, #295).
+ *
+ * @param {string} text — comment textContent (already trimmed, since
+ *   the open marker family is matched via `isDjIfComment`).
+ * @returns {string|null}
+ */
+function _extractDjIfMarkerId(text) {
+    if (typeof text !== 'string') return null;
+    // Match id="..."  (only the open marker carries it; the close is /dj-if).
+    // Quoted only — server emits double-quotes per parser.rs.
+    const match = /id="([^"]+)"/.exec(text);
+    return match ? match[1] : null;
+}
+
+/**
+ * Walk the DOM (or a scoped root) and find the open-marker comment node
+ * whose embedded id matches `targetId`.
+ *
+ * Uses a TreeWalker filtered to comment nodes for cheap traversal.
+ * Reuses `isDjIfComment` to ignore non-dj-if comments.
+ *
+ * @param {string} targetId — the id substring to match (e.g. `"if-abc-0"`).
+ * @param {Node} [root=document.body] — scoping root for the search.
+ * @returns {Comment|null}
+ */
+function _findDjIfOpenMarker(targetId, root) {
+    const scopeRoot = root || document.body;
+    if (!scopeRoot) return null;
+    const walker = document.createTreeWalker(scopeRoot, NodeFilter.SHOW_COMMENT, null);
+    let n = walker.nextNode();
+    while (n) {
+        const text = n.textContent || '';
+        if (isDjIfComment(text)) {
+            const id = _extractDjIfMarkerId(text.trim());
+            if (id === targetId) return n;
+        }
+        n = walker.nextNode();
+    }
+    return null;
+}
+
+/**
+ * Given an open-marker comment, find its matching close marker comment
+ * by scanning forward through *sibling-order* DOM nodes and counting
+ * `dj-if` opens / `/dj-if` closes.
+ *
+ * Handles nesting correctly: an inner open/close pair inside the
+ * targeted subtree increments and decrements the depth counter without
+ * ever returning to zero, so the outer close is the one returned.
+ *
+ * Uses a TreeWalker rooted at `document.body` (or the marker's
+ * common ancestor if unconnected) and advances forward until depth
+ * returns to 0.
+ *
+ * @param {Comment} openMarker — the matched open-marker comment node.
+ * @returns {Comment|null} — the matching close marker, or null if
+ *   none was found (malformed pairing — caller should warn + abort).
+ */
+function _findDjIfCloseMarker(openMarker) {
+    if (!openMarker || !openMarker.parentNode) return null;
+    // Walk only forward in document order — TreeWalker's currentNode
+    // anchored at the open marker, then nextNode() until depth==0 on
+    // a close.
+    const root = openMarker.ownerDocument && openMarker.ownerDocument.body
+        ? openMarker.ownerDocument.body
+        : openMarker.parentNode;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT, null);
+    walker.currentNode = openMarker;
+    let depth = 1;
+    let n = walker.nextNode();
+    while (n) {
+        const trimmed = (n.textContent || '').trim();
+        // Bare 'dj-if' is a legacy single-comment placeholder (#295) — it
+        // does NOT participate in open/close pairing. Only the boundary
+        // forms (`dj-if<space-or-tab>...` and `/dj-if`) bracket subtrees.
+        if (trimmed === '/dj-if') {
+            depth -= 1;
+            if (depth === 0) return n;
+        } else if (trimmed.startsWith('dj-if ') || trimmed.startsWith('dj-if\t')) {
+            depth += 1;
+        }
+        n = walker.nextNode();
+    }
+    return null;
+}
+
+/**
+ * Remove every node between (and including) the open and close marker
+ * comments, in sibling order.
+ *
+ * The open and close are guaranteed to share the same parent, since the
+ * Rust VDOM parser only emits boundary markers around `{% if %}` block
+ * children inside a single parent context. Walks the open marker's
+ * parent's children, collecting from `openMarker` through `closeMarker`
+ * inclusive, and removes them.
+ *
+ * @param {Comment} openMarker
+ * @param {Comment} closeMarker
+ */
+function _removeDjIfBracketedRange(openMarker, closeMarker) {
+    const parent = openMarker.parentNode;
+    if (!parent) return;
+    const toRemove = [];
+    let cursor = openMarker;
+    while (cursor) {
+        toRemove.push(cursor);
+        if (cursor === closeMarker) break;
+        cursor = cursor.nextSibling;
+    }
+    for (const node of toRemove) {
+        if (node.parentNode === parent) {
+            parent.removeChild(node);
+        }
+    }
+}
+
+/**
+ * Apply a `RemoveSubtree` patch: locate the dj-if marker pair by id and
+ * remove the bracketed range (markers + everything between).
+ *
+ * @param {Object} patch — `{type: 'RemoveSubtree', id: '...'}`.
+ * @param {HTMLElement|null} rootEl — optional scoping root.
+ * @returns {boolean} true on success, false if the marker wasn't found.
+ */
+function applyRemoveSubtree(patch, rootEl = null) {
+    const targetId = String(patch.id || '');
+    if (!targetId) {
+        console.warn('[LiveView] RemoveSubtree patch missing id, skipping');
+        return false;
+    }
+    const open = _findDjIfOpenMarker(targetId, rootEl);
+    if (!open) {
+        // Idempotent no-op: the marker is already gone (likely removed by a
+        // prior patch in the same batch, or an earlier patch cycle that
+        // succeeded but the server's diff baseline hasn't caught up). The
+        // desired end-state (no subtree with this id) is already achieved,
+        // so treat as success rather than failure — returning false would
+        // trigger the client's recovery-HTML fallback → page reload for a
+        // scenario that's semantically fine. See #1370 rc8.
+        if (globalThis.djustDebug) {
+            console.log(
+                '[LiveView] RemoveSubtree: marker already absent id=%s (idempotent no-op)',
+                sanitizeIdForLog(targetId)
+            );
+        }
+        return true;
+    }
+    const close = _findDjIfCloseMarker(open);
+    if (!close) {
+        console.warn('[LiveView] RemoveSubtree: close marker not found id=%s', sanitizeIdForLog(targetId));
+        return false;
+    }
+    _removeDjIfBracketedRange(open, close);
+    return true;
+}
+
+/**
+ * Parse a server-emitted HTML fragment into a DocumentFragment using a
+ * `<template>` element so any `<script>` tags inside are inert (not
+ * executed). The fragment is the trust-boundary's responsibility — the
+ * server is authoritative for HTML content; this just guarantees that
+ * even if the server emits a script tag inadvertently, it doesn't run.
+ *
+ * @param {string} html
+ * @returns {DocumentFragment}
+ */
+function _parseSubtreeHtml(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = String(html || '');
+    return tpl.content;
+}
+
+/**
+ * Apply an `InsertSubtree` patch: parse the server-emitted HTML
+ * fragment (which carries its own `<!--dj-if id="..."-->...
+ * <!--/dj-if-->` marker pair + content) and insert at `parent` /
+ * `index`.
+ *
+ * Uses Shape A (server emits the full marker pair). Patch shape:
+ *   {type: 'InsertSubtree', id: '...', html: '...',
+ *    path: [parent path], index: N, d: <parent dj-id?>}
+ *
+ * @param {Object} patch
+ * @param {HTMLElement|null} rootEl — optional scoping root.
+ * @returns {boolean}
+ */
+function applyInsertSubtree(patch, rootEl = null) {
+    if (typeof patch.html !== 'string' || !patch.html) {
+        console.warn('[LiveView] InsertSubtree patch missing html, skipping');
+        return false;
+    }
+    // Idempotent no-op: the marker with this id is already in the DOM.
+    // Inserting again would duplicate content. Skip. (Counterpart to the
+    // idempotency check in applyRemoveSubtree; see #1370 rc8.)
+    const existingId = String(patch.id || '');
+    if (existingId && _findDjIfOpenMarker(existingId, rootEl)) {
+        if (globalThis.djustDebug) {
+            console.log(
+                '[LiveView] InsertSubtree: marker already present id=%s (idempotent no-op)',
+                sanitizeIdForLog(existingId)
+            );
+        }
+        return true;
+    }
+    // Resolve the parent node via the same path/d resolution other
+    // child-ops use.
+    const parent = getNodeByPath(patch.path, patch.d, rootEl);
+    if (!parent) {
+        console.warn('[LiveView] InsertSubtree: parent not found path=%s id=%s',
+            Array.isArray(patch.path) ? patch.path.map(Number).join('/') : 'invalid',
+            sanitizeIdForLog(patch.id));
+        return false;
+    }
+    if (parent.nodeType !== 1) {
+        if (globalThis.djustDebug) {
+            console.log('[LiveView] InsertSubtree: parent is non-element (nodeType=%d), skipping', parent.nodeType);
+        }
+        return false;
+    }
+    const fragment = _parseSubtreeHtml(patch.html);
+    // Determine insert position: index counted against significant
+    // children (matches InsertChild semantics).
+    const children = getSignificantChildren(parent);
+    const refChild = (typeof patch.index === 'number' ? children[patch.index] : null) || null;
+    if (refChild) {
+        parent.insertBefore(fragment, refChild);
+    } else {
+        parent.appendChild(fragment);
+    }
+    return true;
+}
+
+// Export for testing
+window.djust._applyRemoveSubtree = applyRemoveSubtree;
+window.djust._applyInsertSubtree = applyInsertSubtree;
+window.djust._findDjIfOpenMarker = _findDjIfOpenMarker;
+window.djust._findDjIfCloseMarker = _findDjIfCloseMarker;
+window.djust._extractDjIfMarkerId = _extractDjIfMarkerId;
+
 // Export for testing
 window.djust.getSignificantChildren = getSignificantChildren;
 window.djust._applySinglePatch = applySinglePatch;
 window.djust._stampDjIds = _stampDjIds;
 window.djust._getNodeByPath = getNodeByPath;
+window.djust._isDjIfComment = isDjIfComment;
 window.djust.createNodeFromVNode = createNodeFromVNode;
 window.djust.preserveFormValues = preserveFormValues;
 window.djust.saveFocusState = saveFocusState;
@@ -1172,11 +1477,14 @@ function groupConsecutiveInserts(inserts) {
 
     for (let i = 1; i < inserts.length; i++) {
         // Check if this insert is consecutive with the previous one AND targets same parent
+        // eslint-disable-next-line security/detect-object-injection
         if (inserts[i].index === inserts[i - 1].index + 1 && inserts[i].d === inserts[i - 1].d) {
+            // eslint-disable-next-line security/detect-object-injection
             currentGroup.push(inserts[i]);
         } else {
             // Start a new group
             groups.push(currentGroup);
+            // eslint-disable-next-line security/detect-object-injection
             currentGroup = [inserts[i]];
         }
     }
@@ -1189,19 +1497,39 @@ function groupConsecutiveInserts(inserts) {
 window.djust._groupConsecutiveInserts = groupConsecutiveInserts;
 
 /**
- * Sort patches in 4-phase order for correct DOM mutation sequencing:
- * Phase 0: RemoveChild (descending index within same parent)
- * Phase 1: MoveChild
- * Phase 2: InsertChild
- * Phase 3: SetText, SetAttribute, and other node-targeting patches
+ * Sort patches into phases for correct DOM mutation sequencing.
+ *
+ * The id-based subtree patches (RemoveSubtree / InsertSubtree) MUST
+ * run before the path/index-based child patches. The server emits
+ * path-based RemoveChild/InsertChild indices that reflect the NEW
+ * tree's positions — i.e., the positions AFTER the boundary-keyed
+ * removals/insertions have been applied. Running RemoveChild first
+ * (with a new-tree index) against the still-old DOM state would
+ * either target the wrong child or fail path resolution entirely.
+ *
+ * This was the #1370 path-dependent corruption: short-path batches
+ * (≤10 patches) skipped the id-first pre-pass that the long-path
+ * did, so RemoveChild landed before RemoveSubtree and removed the
+ * wrong child. The fix is to give id-based patches phases that sort
+ * ahead of any path/index-based phase.
+ *
+ * Phases:
+ *   -2: RemoveSubtree (tear down keyed subtrees first)
+ *   -1: InsertSubtree (add keyed subtrees before any path indices apply)
+ *    0: RemoveChild (descending index within same parent)
+ *    1: MoveChild
+ *    2: InsertChild
+ *    3: SetText, SetAttribute, other node-targeting patches
  */
 function _sortPatches(patches) {
     function patchPhase(p) {
         switch (p.type) {
-            case 'RemoveChild': return 0;
-            case 'MoveChild':   return 1;
-            case 'InsertChild': return 2;
-            default:            return 3;
+            case 'RemoveSubtree': return -2;
+            case 'InsertSubtree': return -1;
+            case 'RemoveChild':   return 0;
+            case 'MoveChild':     return 1;
+            case 'InsertChild':   return 2;
+            default:              return 3;
         }
     }
     patches.sort(function(a, b) {
@@ -1228,6 +1556,21 @@ window.djust._sortPatches = _sortPatches;
  * - `d`: Compact djust ID for O(1) querySelector lookup
  */
 function applySinglePatch(patch, rootEl = null) {
+    // dj-if subtree patches (Foundation 2 of #1358) are dispatched by
+    // marker id, not by path/d resolution. Short-circuit before the
+    // generic `getNodeByPath` call so the dispatcher doesn't try to
+    // resolve a non-applicable path.
+    if (patch && (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree')) {
+        try {
+            if (patch.type === 'RemoveSubtree') {
+                return applyRemoveSubtree(patch, rootEl);
+            }
+            return applyInsertSubtree(patch, rootEl);
+        } catch (error) {
+            console.error('[LiveView] Error applying subtree patch:', error.message || error);
+            return false;
+        }
+    }
     // Use ID-based resolution (d field) with path as fallback.
     // rootEl is threaded in by the scoped applier (Sticky LiveViews
     // Phase B) so child / sticky patches don't resolve against the
@@ -1629,6 +1972,7 @@ function _applyPatchesInner(patches, rootEl = null) {
         let failedCount = 0;
         const failedIndices = [];
         for (let _pi = 0; _pi < patches.length; _pi++) {
+            // eslint-disable-next-line security/detect-object-injection
             if (!applySinglePatch(patches[_pi], rootEl)) {
                 failedCount++;
                 failedIndices.push(_pi);
@@ -1666,8 +2010,22 @@ function _applyPatchesInner(patches, rootEl = null) {
     let failedCount = 0;
     let successCount = 0;
 
-    // Group patches by parent for potential batching
-    const patchGroups = groupPatchesByParent(patches);
+    // id-based patches (RemoveSubtree, InsertSubtree) don't have a `path`
+    // field — they locate their target by marker id. Apply them directly
+    // before the path-grouped batching pass; they must not enter
+    // groupPatchesByParent which assumes patch.path exists.
+    const pathPatches = [];
+    for (const patch of patches) {
+        if (patch.type === 'RemoveSubtree' || patch.type === 'InsertSubtree') {
+            const ok = applySinglePatch(patch, rootEl);
+            if (ok) { successCount++; } else { failedCount++; }
+        } else {
+            pathPatches.push(patch);
+        }
+    }
+
+    // Group remaining path-based patches by parent for potential batching
+    const patchGroups = groupPatchesByParent(pathPatches);
 
     for (const [, group] of patchGroups) {
         // Phase order within a group MUST match the top-level phase order:
@@ -1731,6 +2089,7 @@ function _applyPatchesInner(patches, rootEl = null) {
 
                         const children = getSignificantChildren(parentNode);
                         const firstIndex = consecutiveGroup[0].index;
+                        // eslint-disable-next-line security/detect-object-injection
                         const refChild = children[firstIndex];
 
                         if (refChild) {

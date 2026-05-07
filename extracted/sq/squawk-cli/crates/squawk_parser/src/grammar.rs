@@ -2757,7 +2757,7 @@ fn select(p: &mut Parser, m: Option<Marker>, r: &SelectRestrictions) -> Option<C
     opt_having_clause(p);
     opt_window_clause(p);
     if p.at_ts(COMPOUND_SELECT_FIRST) {
-        let cm = m.complete(p, SELECT);
+        let cm = m.complete(p, out_kind);
         return Some(compound_select(p, cm));
     }
     if r.trailing_clauses {
@@ -2775,6 +2775,7 @@ fn opt_select_trailing_clauses(p: &mut Parser<'_>) -> bool {
     }
 
     opt_order_by_clause(p);
+    opt_misplaced_having_clause(p);
     let mut has_locking_clause = false;
     while p.at(FOR_KW) {
         if opt_locking_clause(p).is_some() {
@@ -3472,6 +3473,15 @@ fn opt_misplaced_joins(p: &mut Parser<'_>) {
         let m = p.start();
         p.error("JOINs must appear before WHERE");
         join(p);
+        m.complete(p, ERROR);
+    }
+}
+
+fn opt_misplaced_having_clause(p: &mut Parser<'_>) {
+    if p.at(HAVING_KW) {
+        let m = p.start();
+        p.error("HAVING must appear before ORDER BY");
+        opt_having_clause(p);
         m.complete(p, ERROR);
     }
 }
@@ -5677,6 +5687,7 @@ struct StmtRestrictions {
 
 fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
     match (p.current(), p.nth(1)) {
+        (SEMICOLON, _) => Some(empty_stmt(p)),
         (ABORT_KW, _) => Some(rollback(p)),
         (ALTER_KW, AGGREGATE_KW) => Some(alter_aggregate(p)),
         (ALTER_KW, COLLATION_KW) => Some(alter_collation(p)),
@@ -5957,6 +5968,14 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
             None
         }
     }
+}
+
+// handle things like: ;;;select 1
+fn empty_stmt(p: &mut Parser<'_>) -> CompletedMarker {
+    assert!(p.at(SEMICOLON));
+    let m = p.start();
+    p.bump(SEMICOLON);
+    m.complete(p, EMPTY_STMT)
 }
 
 // ALTER STATISTICS name OWNER TO { new_owner | CURRENT_ROLE | CURRENT_USER | SESSION_USER }
@@ -15293,17 +15312,16 @@ fn set_data_type(p: &mut Parser<'_>) {
 pub(crate) fn entry_point(p: &mut Parser) {
     let m = p.start();
     while !p.at(EOF) {
-        // handle things like: ;;;select 1
-        if p.eat(SEMICOLON) {
-            continue;
-        }
         let parsed_stmt = stmt(
             p,
             &StmtRestrictions {
                 begin_end_allowed: true,
             },
         );
-        if !p.at(EOF) && parsed_stmt.is_some() {
+        if !p.at(EOF)
+            && let Some(marker) = parsed_stmt
+            && marker.kind() != EMPTY_STMT
+        {
             p.expect(SEMICOLON);
         }
     }

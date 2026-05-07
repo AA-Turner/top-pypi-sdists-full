@@ -9,7 +9,7 @@
 #   * use XRefRole.result_nodes instead of XRefRole.__call__
 #   * use dictionary as ordered set (assuming Python 3.6+)
 
-from typing import List, Tuple, cast
+from typing import List, Tuple, TypedDict, cast
 
 import docutils.parsers.rst.directives as directives
 import pybtex.backends.plaintext
@@ -19,6 +19,7 @@ from docutils import nodes
 from docutils.parsers.rst import Directive
 from pybtex.database.input import bibtex
 from sphinx import addnodes
+from sphinx.application import Sphinx
 from sphinx.domains import Domain, ObjType
 from sphinx.environment import BuildEnvironment
 from sphinx.locale import _
@@ -27,7 +28,17 @@ from sphinx.util import logging
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONF = {
+
+class ConfType(TypedDict):
+    file: str
+    brackets: str
+    separator: str
+    style: str
+    sort: bool
+    sort_compress: bool
+
+
+DEFAULT_CONF: ConfType = {
     "file": "",
     "brackets": "()",
     "separator": ";",
@@ -92,15 +103,14 @@ def parse_keys(rawtext) -> Tuple[List[str], str, str]:
 
 
 class Citations:
-    def __init__(self, env):
+    def __init__(self, app: Sphinx):
         self.conf = DEFAULT_CONF.copy()
-        self.conf.update(env.app.config.natbib)
+        self.conf.update(app.config.natbib)
 
         self.file_name = None
         self.parser = None
         self.data = None
-        self.ref_map = {}
-        self.file_name = env.relfn2path(self.conf["file"], env.app.config.master_doc)[1]
+        self.file_name = app.env.relfn2path(self.conf["file"], app.config.master_doc)[1]
         self.parser = bibtex.Parser()
         self.data = self.parser.parse_file(self.file_name)
 
@@ -255,7 +265,7 @@ def sort_references(refs, citations):
         return titlesort.upper()
 
     sortedrefs = sorted(refs, key=sortkey)
-    return {ref: None for ref in sortedrefs}
+    return dict.fromkeys(sortedrefs)
 
 
 class CitationXRefRole(XRefRole):
@@ -279,7 +289,7 @@ class CitationXRefRole(XRefRole):
         for opt in ["style", "brackets", "separator", "sort", "sort_compress"]:
             config[opt] = env.temp_data.get(
                 "cite_%s" % opt,
-                env.domaindata["cite"]["conf"].get(opt, DEFAULT_CONF[opt]),
+                env.domaindata["cite"]["conf"].get(opt, DEFAULT_CONF.get(opt)),
             )
 
         if self.name == "cite:text":
@@ -499,22 +509,14 @@ class CitationDomain(Domain):
     }
 
     directives = {"conf": CitationConfDirective, "refs": CitationReferencesDirective}
-    roles = dict([(r, CitationXRefRole()) for r in ROLES])
+    roles = {r: CitationXRefRole() for r in ROLES}
+    citations: Citations  # set in builder-inited
 
     initial_data = {
         "keys": {},  # cite-keys in order of reference using dict as sorted set
         "conf": DEFAULT_CONF,
         "refdoc": None,
     }
-
-    def __init__(self, env):
-        super().__init__(env)
-
-        # Update conf
-        self.data["conf"].update(env.app.config.natbib)
-
-        # TODO: warn if citations can't parse bibtex file
-        self.citations = Citations(env)
 
     def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
         refdoc = self.data["refdoc"]
@@ -543,6 +545,13 @@ class CitationDomain(Domain):
         return node
 
 
+def builder_inited(app: Sphinx) -> None:
+    domain = cast(CitationDomain, app.env.get_domain("cite"))
+    domain.data["conf"].update(app.config.natbib)
+    domain.citations = Citations(app)
+
+
 def setup(app):
     app.add_config_value("natbib", DEFAULT_CONF, "env")
     app.add_domain(CitationDomain)
+    app.connect("builder-inited", builder_inited)

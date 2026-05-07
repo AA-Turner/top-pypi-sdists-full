@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, positive
+from ..._internal import expect, positive, profile_section
 from ...math import Point
 
 from ._particle_modifier import ParticleModifier
@@ -184,7 +184,7 @@ class ParticleEmitter(ABC):
         """Supprime toutes les particules vivantes"""
         self._lifetimes[:] = 0.0
 
-    # ======================================== MODIIFERS ========================================
+    # ======================================== MODIFIERS ========================================
     def add_modifier(self, modifier: ParticleModifier) -> None:
         """Ajoute un modifieur
         
@@ -240,6 +240,7 @@ class ParticleEmitter(ABC):
             modifier.apply(dt, alive, self._positions, self._velocities)
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("fx.particle.emitter.update")
     def update(self, dt: float, modifiers: list[ParticleModifier] = None) -> None:
         """Actualisation CPU du pool
         
@@ -274,6 +275,7 @@ class ParticleEmitter(ABC):
         self._positions[alive] += self._velocities[alive] * dt
         self._rotations[alive] += self._angular_velocities[alive] * dt
 
+    @profile_section("fx.particle.emitter.collect")
     def collect(self) -> tuple | None:
         """Renvoie ``(positions, rotations, sizes, colors)`` des particules vivantes"""
         alive = self._lifetimes > 0.0

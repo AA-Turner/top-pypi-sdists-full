@@ -24,6 +24,7 @@ from typing import (
     Annotated,
     Any,
     Callable,
+    Literal,
     TypeVar,
     get_args,
     get_origin,
@@ -86,6 +87,46 @@ def extract_type_and_annotations(type_hint):
         return top_level_type, []
 
 
+def extract_enum_descriptor(type_hint, func_name, param_name):
+    """If type_hint is Literal[...] (optionally wrapped in Annotated[..., {"tooltips":
+    ...}]), return a descriptor dict for an Office.js custom-function enum. Otherwise
+    None.
+
+    Descriptor shape:
+        {"id": str, "type": "string"|"number", "values": list,
+         "tooltips": dict[value, str]}
+    """
+    base = type_hint
+    companion = {}
+    if get_origin(type_hint) is Annotated:
+        base, *annotations = get_args(type_hint)
+        for ann in annotations:
+            if isinstance(ann, dict):
+                companion = ann
+                break
+    if get_origin(base) is not Literal:
+        return None
+    values = list(get_args(base))
+    if not values:
+        return None
+    if all(isinstance(v, str) for v in values):
+        enum_type = "string"
+    elif all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+        enum_type = "number"
+    else:
+        raise XlwingsError(
+            f"Literal values for parameter '{param_name}' of '{func_name}' must be "
+            "all strings or all numbers. Mixed types are not supported."
+        )
+    tooltips = {k: v for k, v in companion.get("tooltips", {}).items() if k in values}
+    return {
+        "id": f"{func_name}.{param_name}".upper(),
+        "type": enum_type,
+        "values": values,
+        "tooltips": tooltips,
+    }
+
+
 @overload
 def xlfunc(f: _F) -> _F:
     ...
@@ -122,16 +163,24 @@ def xlfunc(f: _F | None = None, **kwargs: Any) -> _F | Callable[[_F], _F]:
                     "options": {},
                 }
                 if var_name in type_hints:
+                    enum_descriptor = extract_enum_descriptor(
+                        type_hints[var_name], f.__name__, var_name
+                    )
                     type_hint, annotations = extract_type_and_annotations(
                         type_hints[var_name]
                     )
-                    arg_info["options"]["convert"] = type_hint
-                    if annotations:
-                        for key, value in annotations[0].items():
-                            if key == "doc":
-                                arg_info["doc"] = value
-                            else:
-                                arg_info["options"][key] = value
+                    if enum_descriptor is not None:
+                        arg_info["options"]["enum"] = enum_descriptor
+                        if annotations and "doc" in annotations[0]:
+                            arg_info["doc"] = annotations[0]["doc"]
+                    else:
+                        arg_info["options"]["convert"] = type_hint
+                        if annotations:
+                            for key, value in annotations[0].items():
+                                if key == "doc":
+                                    arg_info["doc"] = value
+                                else:
+                                    arg_info["options"][key] = value
                 if var_pos >= num_required_args:
                     arg_info["optional"] = sig["defaults"][var_pos - num_required_args]
                 xlargs.append(arg_info)
@@ -430,6 +479,7 @@ def custom_functions_meta(module, typehinted_params_to_exclude=None):
     if typehinted_params_to_exclude is None:
         typehinted_params_to_exclude = []
     funcs = []
+    enums = []
     for name, obj in inspect.getmembers(module):
         if hasattr(obj, "__xlfunc__"):
             xlfunc = obj.__xlfunc__
@@ -466,8 +516,24 @@ def custom_functions_meta(module, typehinted_params_to_exclude=None):
                 param = {}
                 param["description"] = arg["doc"]
                 param["name"] = arg["name"]
-                param["dimensionality"] = "matrix"
-                param["type"] = "any"
+                enum = arg["options"].get("enum")
+                if enum is not None and enum["type"] == "string":
+                    param["dimensionality"] = "scalar"
+                    param["type"] = "string"
+                    param["customEnumId"] = enum["id"]
+                    enums.append(
+                        {
+                            "id": enum["id"],
+                            "type": "string",
+                            "values": [
+                                _enum_value_entry("string", v, enum["tooltips"])
+                                for v in enum["values"]
+                            ],
+                        }
+                    )
+                else:
+                    param["dimensionality"] = "matrix"
+                    param["type"] = "any"
                 if "optional" in arg:
                     param["optional"] = True
                 elif arg["vararg"]:
@@ -475,11 +541,25 @@ def custom_functions_meta(module, typehinted_params_to_exclude=None):
                 params.append(param)
             func["parameters"] = params
             funcs.append(func)
-    return {
+    result = {
         "allowCustomDataForDataTypeAny": True,
         "allowErrorForDataTypeAny": True,
         "functions": funcs,
     }
+    if enums:
+        result["enums"] = enums
+    return result
+
+
+def _enum_value_entry(enum_type, value, tooltips):
+    entry = {"name": str(value)}
+    if enum_type == "string":
+        entry["stringValue"] = value
+    else:
+        entry["numberValue"] = value
+    if value in tooltips:
+        entry["tooltip"] = tooltips[value]
+    return entry
 
 
 # Custom scripts
@@ -493,8 +573,8 @@ def script(
     f: None = ...,
     name: str | None = ...,
     required_roles: list[str] | None = ...,
-    include: str | None = ...,
-    exclude: str | None = ...,
+    include: str | list[str] | None = ...,
+    exclude: str | list[str] | None = ...,
     button: str | None = ...,
     show_taskpane: bool | None = ...,
     lazy: bool = ...,
@@ -507,8 +587,8 @@ def script(
     f: Callable[..., Any] | None = None,
     name: str | None = None,
     required_roles: list[str] | None = None,
-    include: str | None = None,
-    exclude: str | None = None,
+    include: str | list[str] | None = None,
+    exclude: str | list[str] | None = None,
     button: str | None = None,
     show_taskpane: bool | None = None,
     lazy: bool = False,

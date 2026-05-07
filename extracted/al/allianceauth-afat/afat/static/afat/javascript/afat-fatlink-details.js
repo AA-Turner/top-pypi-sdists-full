@@ -1,4 +1,4 @@
-/* global afatSettings, _convertStringToSlug, _sortTable, ClipboardJS, _manageModal, fetchGet, DataTable, _removeColumnControl */
+/* global afatSettings, _afatBootstrapTooltip, _convertStringToSlug, _sortTable, ClipboardJS, _manageModal, fetchGet, DataTable, _removeColumnControl */
 
 $(document).ready(() => {
     'use strict';
@@ -117,10 +117,10 @@ $(document).ready(() => {
     }
 
     // Initialize clipboard and modals
-    const clipboard = new ClipboardJS('.copy-btn');
-    clipboard.on('success', () => {
-        $('.copy-btn').tooltip('show');
-    });
+    const clipboard = new ClipboardJS('.copy-to-clipboard'); // eslint-disable-line no-unused-vars
+    // clipboard.on('success', () => {
+    //     $('.copy-to-clipboard').tooltip('show');
+    // });
 
     [
         afatSettings.modal.cancelEsiFleetModal.element,
@@ -129,4 +129,6 @@ $(document).ready(() => {
     ].forEach((modalElement) => {
         _manageModal($(modalElement));
     });
+
+    _afatBootstrapTooltip({selector: '.allianceauth-afat', namespace: 'afat'});
 });

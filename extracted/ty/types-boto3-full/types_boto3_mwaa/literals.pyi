@@ -86,7 +86,7 @@ UnitType = Literal[
     "Terabytes/Second",
 ]
 UpdateStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
-WebserverAccessModeType = Literal["PRIVATE_ONLY", "PUBLIC_ONLY"]
+WebserverAccessModeType = Literal["PRIVATE_ONLY", "PUBLIC_AND_PRIVATE", "PUBLIC_ONLY"]
 WorkerReplacementStrategyType = Literal["FORCED", "GRACEFUL"]
 MWAAServiceName = Literal["mwaa"]
 ServiceName = Literal[

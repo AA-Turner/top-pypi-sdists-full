@@ -21,9 +21,11 @@ class GroupErrors(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_ERRORS_UNAUTHORIZED: _ClassVar[GroupErrors]
     GROUP_ERRORS_NOT_FOUND: _ClassVar[GroupErrors]
     GROUP_ERRORS_REQUESTED_PAGE_SIZE_TOO_LARGE: _ClassVar[GroupErrors]
+    GROUP_ERRORS_ID_CONFLICT: _ClassVar[GroupErrors]
 GROUP_ERRORS_UNAUTHORIZED: GroupErrors
 GROUP_ERRORS_NOT_FOUND: GroupErrors
 GROUP_ERRORS_REQUESTED_PAGE_SIZE_TOO_LARGE: GroupErrors
+GROUP_ERRORS_ID_CONFLICT: GroupErrors
 
 class Group(_message.Message):
     __slots__ = ("rid", "org_rid", "group_id", "display_name", "description", "user_rids", "created_at", "updated_at", "symbol")

@@ -69,6 +69,7 @@ use lsp_types::DidChangeWorkspaceFoldersParams;
 use lsp_types::DocumentDiagnosticParams;
 use lsp_types::DocumentDiagnosticReport;
 use lsp_types::DocumentHighlight;
+use lsp_types::DocumentHighlightKind;
 use lsp_types::DocumentHighlightParams;
 use lsp_types::DocumentSymbol;
 use lsp_types::DocumentSymbolParams;
@@ -208,7 +209,10 @@ use lsp_types::request::WorkspaceSymbolRequest;
 use pyrefly_build::SourceDatabase;
 use pyrefly_build::handle::Handle;
 use pyrefly_config::config::ConfigSource;
+use pyrefly_config::config::SynthesizedPresetReason;
 use pyrefly_config::error_kind::Severity;
+use pyrefly_config::migration::run::MigratedConfigSource;
+use pyrefly_config::migration::run::MigratedFromKind;
 use pyrefly_python::PYTHON_EXTENSIONS;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
@@ -245,6 +249,7 @@ use pyrefly_util::watch_pattern::WatchPattern;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use serde::Deserialize;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -302,8 +307,6 @@ use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
 use crate::lsp::non_wasm::safe_delete_file::safe_delete_file_code_action;
 use crate::lsp::non_wasm::stdlib::is_python_stdlib_file;
-use crate::lsp::non_wasm::stdlib::no_config_severity_override;
-use crate::lsp::non_wasm::stdlib::should_show_error_for_display_mode;
 use crate::lsp::non_wasm::stdlib::should_show_stdlib_error;
 use crate::lsp::non_wasm::transaction_manager::TransactionManager;
 use crate::lsp::non_wasm::type_hierarchy::collect_class_defs;
@@ -330,11 +333,11 @@ use crate::lsp::wasm::provide_type::provide_type;
 use crate::module::bundled::BundledStub;
 use crate::state::load::Load;
 use crate::state::load::LspFile;
-use crate::state::lsp::DisplayTypeErrors;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
 use crate::state::lsp::ImportBehavior;
 use crate::state::lsp::LocalRefactorCodeAction;
+use crate::state::lsp::TypeCheckingMode;
 use crate::state::notebook::LspNotebook;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
@@ -372,7 +375,7 @@ pub enum DidCloseKind {
     TextDocument,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum TypeErrorDisplayStatus {
     DisabledInIdeConfig,
@@ -380,6 +383,270 @@ pub enum TypeErrorDisplayStatus {
     DisabledInConfigFile,
     EnabledInConfigFile,
     NoConfigFile,
+}
+
+/// Versioned wire shape for the custom
+/// `pyrefly/textDocument/typeErrorDisplayStatus` LSP request. The client
+/// declares which version it can parse via
+/// `initializationOptions.pyrefly.typeErrorDisplayStatusVersion`. The
+/// server resolves the requested value as follows: missing / null
+/// becomes `V1` (the legacy bare-string shape, the safest default for
+/// clients that didn't opt in); a known version is honored as-is; an
+/// unknown future version is clamped to `LATEST` (the newest variant
+/// this server knows about), since the client opted into a richer
+/// shape and falling back to V1 would silently strip off a feature it
+/// asked for.
+///
+/// We use an enum so the variants are exhaustive at the type level —
+/// adding a new wire shape is a Rust-side change, not a magic-number
+/// bump.
+#[derive(Clone, Copy, Debug, Deserialize, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TypeErrorDisplayStatusVersion {
+    /// Legacy bare-string response (the original
+    /// `TypeErrorDisplayStatus` enum). Returned when the client doesn't
+    /// declare a version or declares `v1`.
+    #[default]
+    V1,
+    /// Rich response: `{ version: "v2", label, tooltip, docsUrl }`.
+    V2,
+}
+
+impl TypeErrorDisplayStatusVersion {
+    /// The latest version this server can produce. A client that asks
+    /// for an unknown future version (e.g. `v3` from a VSIX newer than
+    /// the binary) gets clamped to this — the closest thing we can
+    /// offer to what the client opted into.
+    pub const LATEST: Self = Self::V2;
+}
+
+/// Resolve the wire shape from
+/// `initializationOptions.pyrefly.typeErrorDisplayStatusVersion`:
+///
+/// - field absent or explicit JSON `null` → [`V1`](TypeErrorDisplayStatusVersion::V1)
+///   (the client didn't opt in; it almost certainly only knows the
+///   legacy bare-string shape).
+/// - field is a known kebab-case version (`"v1"`, `"v2"`) → that
+///   version.
+/// - field is an unknown future version (`"v3"` from a newer VSIX) →
+///   [`LATEST`](TypeErrorDisplayStatusVersion::LATEST). The client
+///   explicitly opted into a richer shape, so V1 would silently strip
+///   off a feature they asked for.
+///
+/// Pulled out as a free function so the negotiation logic is unit-
+/// testable without constructing a full `InitializeParams`.
+fn negotiate_type_error_display_status_version(
+    initialization_options: Option<&Value>,
+) -> TypeErrorDisplayStatusVersion {
+    initialization_options
+        .and_then(|opts| opts.get("pyrefly"))
+        .and_then(|pyrefly| pyrefly.get("typeErrorDisplayStatusVersion"))
+        .filter(|v| !v.is_null())
+        .map(|v| {
+            serde_json::from_value::<TypeErrorDisplayStatusVersion>(v.clone())
+                .unwrap_or(TypeErrorDisplayStatusVersion::LATEST)
+        })
+        .unwrap_or_default()
+}
+
+/// V2 wire shape for the status-bar response. `label` drives the
+/// status-bar parenthetical (`Pyrefly (Basic)`, `Pyrefly (Legacy)`,
+/// …); `null` means show plain `Pyrefly`. `tooltip` is markdown.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TypeErrorDisplayStatusV2 {
+    /// Always `"v2"`. Lets the client dispatch on `response.version`
+    /// once it has decoded the response as an object.
+    pub version: String,
+    /// Preset name to render in parentheses, or `None` for plain
+    /// `Pyrefly`. The parenthetical is only shown when the preset was
+    /// chosen automatically — if the user explicitly set
+    /// `typeCheckingMode` themselves, this is `None` because the user
+    /// already knows what they picked.
+    pub label: Option<String>,
+    /// Markdown tooltip explaining the current state.
+    pub tooltip: String,
+    /// URL referenced from the tooltip — the IDE typically renders this
+    /// as the trailing "Docs" link in the hover.
+    pub docs_url: String,
+}
+
+/// Internal sum type covering both wire shapes. `#[serde(untagged)]`
+/// dispatches by shape: V1 deserializes from / serializes to the V1
+/// kebab-case bare string, V2 from / to the V2 struct.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum TypeErrorDisplayStatusResponse {
+    V1(TypeErrorDisplayStatus),
+    V2(TypeErrorDisplayStatusV2),
+}
+
+/// Type-level binding for the custom
+/// `pyrefly/textDocument/typeErrorDisplayStatus` LSP request. Mirrors
+/// the `lsp_types::request::Request` pattern used by stock methods
+/// (e.g. `Completion`, `ProvideType`) so the wire method name lives in
+/// one place — call sites reference `TypeErrorDisplayStatusRequest::METHOD`
+/// instead of duplicating the string literal.
+pub enum TypeErrorDisplayStatusRequest {}
+
+impl lsp_types::request::Request for TypeErrorDisplayStatusRequest {
+    type Params = TextDocumentIdentifier;
+    type Result = TypeErrorDisplayStatusResponse;
+    const METHOD: &'static str = "pyrefly/textDocument/typeErrorDisplayStatus";
+}
+
+/// URL referenced from the V2 tooltip / docs link. Module-level so the
+/// derivation logic and tests share the exact string the user sees.
+const STATUS_BAR_DOCS_URL: &str = "https://pyrefly.org/en/docs/IDE/";
+
+/// Silent V2 response — plain `Pyrefly` (no parenthetical), no
+/// tooltip. Used for fallback cases where there is nothing useful to
+/// surface: the requested file isn't covered by any handle (no path
+/// resolves), or a non-`File` config source has no synthesized preset
+/// reason (a configured project shouldn't be nudged).
+///
+/// The onboarding nudge for genuine no-config states lives in the
+/// `Some(SynthesizedPresetReason::NoNearbyConfig)` branch of
+/// `derive_v2_response` (with `Basic` label + `pyrefly init` tooltip).
+fn default_v2_response() -> TypeErrorDisplayStatusV2 {
+    TypeErrorDisplayStatusV2 {
+        version: "v2".to_owned(),
+        label: None,
+        tooltip: String::new(),
+        docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+    }
+}
+
+/// Pure derivation of the V2 status-bar payload. Factored out of
+/// `Server::type_error_display_status_v2` so it can be unit-tested
+/// against synthetic inputs without standing up an LSP transport.
+///
+/// Precedence (mirrors the LSP filter): the workspace kill switch is
+/// checked first, then the per-config-source rules. Both kill-switch
+/// branches surface the same `Errors Off` label so users learn the
+/// state from the status bar itself; the tooltip is the place to
+/// distinguish workspace-level from config-level disable.
+fn derive_v2_response(
+    reason: Option<SynthesizedPresetReason>,
+    source: &ConfigSource,
+    disable_type_errors_in_ide: bool,
+    workspace_disable_type_errors: bool,
+    workspace_type_checking_mode: Option<TypeCheckingMode>,
+) -> TypeErrorDisplayStatusV2 {
+    if workspace_disable_type_errors {
+        return TypeErrorDisplayStatusV2 {
+            version: "v2".to_owned(),
+            label: Some("Errors Off".to_owned()),
+            tooltip:
+                "Pyrefly diagnostics are suppressed by [`python.pyrefly.disableTypeErrors`](command:workbench.action.openSettings?[\"python.pyrefly.disableTypeErrors\"]).\n\nUnset this setting to re-enable diagnostics."
+                    .to_owned(),
+            docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+        };
+    }
+    match reason {
+        Some(SynthesizedPresetReason::IdeOverride) => {
+            // The IdeOverride reason is set by the unconfigured resolver
+            // when the user explicitly chose a non-`Auto` value for the
+            // `python.pyrefly.typeCheckingMode` workspace setting AND no
+            // nearby `pyrefly.toml` was found, so we surface both facts.
+            // Fall back to `<unknown>` only if the workspace state and
+            // the reason somehow disagree — shouldn't happen in practice.
+            let value = workspace_type_checking_mode
+                .map(type_checking_mode_kebab)
+                .unwrap_or("<unknown>");
+            TypeErrorDisplayStatusV2 {
+                version: "v2".to_owned(),
+                label: None,
+                tooltip: format!(
+                    "Pyrefly is using the [`python.pyrefly.typeCheckingMode`](command:workbench.action.openSettings?[\"python.pyrefly.typeCheckingMode\"]) setting (currently: `{value}`) because no `pyrefly.toml` was found.\n\nRun `pyrefly init` to continue setting up Pyrefly.",
+                ),
+                docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+            }
+        }
+        Some(SynthesizedPresetReason::Migrated(kind)) => {
+            let (location, label, preset) = match kind {
+                MigratedFromKind::Mypy(MigratedConfigSource::DedicatedFile) => {
+                    ("your `mypy.ini`", "Legacy", "legacy")
+                }
+                MigratedFromKind::Mypy(MigratedConfigSource::PyprojectToml) => (
+                    "`[tool.mypy]` in your `pyproject.toml`",
+                    "Legacy",
+                    "legacy",
+                ),
+                MigratedFromKind::Pyright(MigratedConfigSource::DedicatedFile) => {
+                    ("your `pyrightconfig.json`", "Default", "default")
+                }
+                MigratedFromKind::Pyright(MigratedConfigSource::PyprojectToml) => (
+                    "`[tool.pyright]` in your `pyproject.toml`",
+                    "Default",
+                    "default",
+                ),
+            };
+            TypeErrorDisplayStatusV2 {
+                version: "v2".to_owned(),
+                label: Some(label.to_owned()),
+                tooltip: format!(
+                    "Pyrefly is using settings imported from {location} (preset: {preset}).\n\nRun `pyrefly init` to continue setting up Pyrefly.",
+                ),
+                docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+            }
+        }
+        Some(SynthesizedPresetReason::NoNearbyConfig) => TypeErrorDisplayStatusV2 {
+            version: "v2".to_owned(),
+            label: Some("Basic".to_owned()),
+            tooltip:
+                "Pyrefly is running with the `basic` preset because no `pyrefly.toml` was found.\n\nRun `pyrefly init` to continue setting up Pyrefly."
+                    .to_owned(),
+            docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+        },
+        None => match source {
+            ConfigSource::File(path) if disable_type_errors_in_ide => {
+                // The in-config disable lives at one of two paths: a
+                // dedicated `pyrefly.toml` (the `disable-type-errors-in-ide`
+                // key sits at the top level), or `[tool.pyrefly]` inside
+                // a `pyproject.toml` (the key sits inside that section).
+                // Tooltip distinguishes so users know what file to open.
+                let location = if path
+                    .file_name()
+                    .is_some_and(|n| n == ConfigFile::PYPROJECT_FILE_NAME)
+                {
+                    "`[tool.pyrefly]` in this project's `pyproject.toml`"
+                } else {
+                    "this project's `pyrefly.toml`"
+                };
+                TypeErrorDisplayStatusV2 {
+                    version: "v2".to_owned(),
+                    label: Some("Errors Off".to_owned()),
+                    tooltip: format!(
+                        "Pyrefly diagnostics are suppressed by `disable-type-errors-in-ide` in {location}.\n\nRemove this config to re-enable diagnostics.",
+                    ),
+                    docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+                }
+            }
+            ConfigSource::File(_) => TypeErrorDisplayStatusV2 {
+                version: "v2".to_owned(),
+                label: None,
+                tooltip: String::new(),
+                docs_url: STATUS_BAR_DOCS_URL.to_owned(),
+            },
+            _ => default_v2_response(),
+        },
+    }
+}
+
+/// Kebab-case spelling of a `TypeCheckingMode`. Matches the
+/// `#[serde(rename_all = "kebab-case")]` form the user types in
+/// `settings.json`, so the value we surface in tooltips is exactly what
+/// they would set the configuration key to.
+fn type_checking_mode_kebab(mode: TypeCheckingMode) -> &'static str {
+    match mode {
+        TypeCheckingMode::Auto => "auto",
+        TypeCheckingMode::Off => "off",
+        TypeCheckingMode::Basic => "basic",
+        TypeCheckingMode::Legacy => "legacy",
+        TypeCheckingMode::Default => "default",
+        TypeCheckingMode::Strict => "strict",
+    }
 }
 
 impl TypeErrorDisplayStatus {
@@ -497,7 +764,7 @@ pub trait TspInterface: Send + Sync + 'static {
 
     /// Return the cell index if `uri` is an open notebook cell, or `None`
     /// for regular file URIs.
-    fn maybe_get_cell_index(&self, uri: &Url) -> Option<usize>;
+    fn maybe_get_code_cell_index(&self, uri: &Url) -> Option<usize>;
 }
 
 pub struct Connection {
@@ -609,8 +876,7 @@ impl Connection {
         pipe_name: &str,
     ) -> std::io::Result<(Box<dyn Write + Send>, Box<dyn std::io::Read + Send>)> {
         use std::fs::OpenOptions;
-        let path = format!(r"\\.\pipe\{}", pipe_name);
-        let stream = OpenOptions::new().read(true).write(true).open(&path)?;
+        let stream = OpenOptions::new().read(true).write(true).open(&pipe_name)?;
         let reader = stream.try_clone()?;
         Ok((Box::new(stream), Box::new(reader)))
     }
@@ -725,11 +991,9 @@ struct LspProgressState {
 
 impl LspProgressState {
     fn snapshot(&mut self) -> (String, u32) {
-        let mut percentage = if self.started == 0 {
-            0
-        } else {
-            (((self.finished * 100) / self.started) as u32).min(99)
-        };
+        let mut percentage = (self.finished * 100)
+            .checked_div(self.started)
+            .map_or(0, |v| (v as u32).min(99));
         if percentage < self.last_percentage {
             percentage = self.last_percentage;
         }
@@ -928,7 +1192,11 @@ fn format_diagnostic_message_for_markdown(message: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use lsp_types::CodeActionKind;
+
+    use super::SOURCE_FIX_ALL_PYREFLY;
     use super::format_diagnostic_message_for_markdown;
+    use super::matches_fix_all_kind;
 
     #[test]
     fn test_format_diagnostic_message_for_markdown() {
@@ -968,6 +1236,367 @@ mod tests {
     #[test]
     fn test_format_only_special_characters() {
         assert_eq!(format_diagnostic_message_for_markdown("***"), "\\*\\*\\*");
+    }
+
+    #[test]
+    fn test_fix_all_kind_filter_matches_supported_kinds() {
+        assert!(matches_fix_all_kind(&CodeActionKind::SOURCE_FIX_ALL));
+        assert!(matches_fix_all_kind(&CodeActionKind::new(
+            SOURCE_FIX_ALL_PYREFLY,
+        )));
+    }
+
+    #[test]
+    fn test_fix_all_kind_filter_rejects_unsupported_kinds() {
+        assert!(!matches_fix_all_kind(&CodeActionKind::new(
+            "source.fixAll.pyrefly.foo",
+        )));
+        assert!(!matches_fix_all_kind(&CodeActionKind::new(
+            "source.fixAll.pyreflyyyyyy",
+        )));
+        assert!(!matches_fix_all_kind(&CodeActionKind::QUICKFIX));
+        assert!(!matches_fix_all_kind(&CodeActionKind::REFACTOR_EXTRACT));
+    }
+
+    /// Unit tests for the V2 status-bar response derivation. The test
+    /// matrix covers the four `SynthesizedPresetReason` cases plus the
+    /// configured-file branches. The full LSP integration (parsing the
+    /// version from init options, dispatching the request) is exercised
+    /// by the existing notebook_type_error_display_status tests.
+    mod v2_response {
+        use std::path::PathBuf;
+
+        use pyrefly_config::config::ConfigSource;
+        use pyrefly_config::config::SynthesizedPresetReason;
+        use pyrefly_config::migration::run::MigratedConfigSource;
+        use pyrefly_config::migration::run::MigratedFromKind;
+
+        use super::super::TypeErrorDisplayStatusVersion;
+        use super::super::derive_v2_response;
+        use crate::state::lsp::TypeCheckingMode;
+
+        #[test]
+        fn ide_override_yields_null_label() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::IdeOverride),
+                &ConfigSource::Synthetic,
+                false,
+                false,
+                Some(TypeCheckingMode::Strict),
+            );
+            assert_eq!(r.label, None);
+            assert!(r.tooltip.contains("typeCheckingMode"));
+            // The current value (`strict` in kebab-case) is rendered so
+            // the user sees what the setting is currently set to.
+            assert!(
+                r.tooltip.contains("currently: `strict`"),
+                "tooltip should embed the active `typeCheckingMode` value, got: {}",
+                r.tooltip
+            );
+        }
+
+        #[test]
+        fn migrated_from_mypy_ini_yields_legacy_label() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::Migrated(MigratedFromKind::Mypy(
+                    MigratedConfigSource::DedicatedFile,
+                ))),
+                &ConfigSource::Synthetic,
+                false,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Legacy"));
+            assert!(r.tooltip.contains("your `mypy.ini`"));
+            assert!(r.tooltip.contains("pyrefly init"));
+        }
+
+        #[test]
+        fn migrated_from_mypy_pyproject_yields_legacy_label() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::Migrated(MigratedFromKind::Mypy(
+                    MigratedConfigSource::PyprojectToml,
+                ))),
+                &ConfigSource::Synthetic,
+                false,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Legacy"));
+            assert!(r.tooltip.contains("`[tool.mypy]` in your `pyproject.toml`"));
+            assert!(!r.tooltip.contains("your `mypy.ini`"));
+        }
+
+        #[test]
+        fn migrated_from_pyrightconfig_yields_default_label() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::Migrated(
+                    MigratedFromKind::Pyright(MigratedConfigSource::DedicatedFile),
+                )),
+                &ConfigSource::Synthetic,
+                false,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Default"));
+            assert!(r.tooltip.contains("your `pyrightconfig.json`"));
+        }
+
+        #[test]
+        fn migrated_from_pyright_pyproject_yields_default_label() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::Migrated(
+                    MigratedFromKind::Pyright(MigratedConfigSource::PyprojectToml),
+                )),
+                &ConfigSource::Synthetic,
+                false,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Default"));
+            assert!(
+                r.tooltip
+                    .contains("`[tool.pyright]` in your `pyproject.toml`")
+            );
+            assert!(!r.tooltip.contains("your `pyrightconfig.json`"));
+        }
+
+        #[test]
+        fn no_nearby_config_yields_basic_label() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::NoNearbyConfig),
+                &ConfigSource::Synthetic,
+                false,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Basic"));
+            assert!(r.tooltip.contains("basic"));
+            assert!(r.tooltip.contains("pyrefly init"));
+        }
+
+        /// A real config file with errors enabled → no parenthetical, no
+        /// onboarding tooltip. The existence of a `pyrefly.toml` means
+        /// the user is already configured; nudging them is noise.
+        #[test]
+        fn configured_file_yields_null_label_no_tooltip() {
+            let r = derive_v2_response(
+                None,
+                &ConfigSource::File(PathBuf::from("/proj/pyrefly.toml")),
+                false,
+                false,
+                None,
+            );
+            assert_eq!(r.label, None);
+            assert!(r.tooltip.is_empty());
+        }
+
+        /// `disable_type_errors_in_ide` set in a dedicated `pyrefly.toml`
+        /// → status bar shows `Pyrefly (Errors Off)` with a tooltip
+        /// pointing at `disable-type-errors-in-ide` in the project's
+        /// `pyrefly.toml`.
+        #[test]
+        fn disabled_in_pyrefly_toml_yields_errors_off_label() {
+            let r = derive_v2_response(
+                None,
+                &ConfigSource::File(PathBuf::from("/proj/pyrefly.toml")),
+                true,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Errors Off"));
+            assert!(r.tooltip.contains("disable-type-errors-in-ide"));
+            assert!(r.tooltip.contains("this project's `pyrefly.toml`"));
+            assert!(
+                !r.tooltip.contains("[tool.pyrefly]"),
+                "dedicated-file tooltip shouldn't mention the pyproject form: {}",
+                r.tooltip
+            );
+        }
+
+        /// Same `disable-type-errors-in-ide` mechanism but the config
+        /// lives in a `pyproject.toml` `[tool.pyrefly]` section. The
+        /// tooltip distinguishes so users know which file to open.
+        #[test]
+        fn disabled_in_pyproject_toml_yields_errors_off_label() {
+            let r = derive_v2_response(
+                None,
+                &ConfigSource::File(PathBuf::from("/proj/pyproject.toml")),
+                true,
+                false,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Errors Off"));
+            assert!(r.tooltip.contains("disable-type-errors-in-ide"));
+            assert!(
+                r.tooltip
+                    .contains("`[tool.pyrefly]` in this project's `pyproject.toml`"),
+                "pyproject tooltip should distinguish from the dedicated-file form: {}",
+                r.tooltip
+            );
+        }
+
+        /// Workspace `disableTypeErrors = true` is the kill switch.
+        /// Status bar shows `Pyrefly (Errors Off)`; tooltip points the
+        /// user at the workspace setting (not the config) so they
+        /// know which knob to flip.
+        #[test]
+        fn workspace_kill_switch_yields_errors_off_label() {
+            let r = derive_v2_response(None, &ConfigSource::Synthetic, false, true, None);
+            assert_eq!(r.label.as_deref(), Some("Errors Off"));
+            assert!(r.tooltip.contains("python.pyrefly.disableTypeErrors"));
+        }
+
+        /// Workspace kill switch wins over every other branch — even
+        /// when a `SynthesizedPresetReason` would otherwise pick a
+        /// preset label or the in-config disable would point at the
+        /// config.
+        #[test]
+        fn workspace_kill_switch_wins_over_preset_reason() {
+            let r = derive_v2_response(
+                Some(SynthesizedPresetReason::NoNearbyConfig),
+                &ConfigSource::Synthetic,
+                false,
+                true,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Errors Off"));
+            assert!(r.tooltip.contains("python.pyrefly.disableTypeErrors"));
+        }
+
+        #[test]
+        fn workspace_kill_switch_wins_over_in_config_disable() {
+            let r = derive_v2_response(
+                None,
+                &ConfigSource::File(PathBuf::from("/proj/pyrefly.toml")),
+                true,
+                true,
+                None,
+            );
+            assert_eq!(r.label.as_deref(), Some("Errors Off"));
+            assert!(r.tooltip.contains("python.pyrefly.disableTypeErrors"));
+            assert!(
+                !r.tooltip.contains("disable-type-errors-in-ide"),
+                "workspace tooltip should not mention the in-config flag when it's the workspace setting that's responsible"
+            );
+        }
+
+        /// Forward-compat regression: `TypeErrorDisplayStatusVersion`
+        /// must round-trip through serde with the kebab-case spelling
+        /// the protocol uses. If a future client sends `"v3"` and the
+        /// server doesn't know it yet, deserialization fails — the
+        /// init-time negotiator catches that and clamps to
+        /// [`LATEST`](TypeErrorDisplayStatusVersion::LATEST), since the
+        /// client explicitly opted into a richer shape and V1 would
+        /// silently strip off a feature they asked for.
+        #[test]
+        fn version_unknown_value_fails_to_deserialize() {
+            let v: Result<TypeErrorDisplayStatusVersion, _> =
+                serde_json::from_value(serde_json::json!("v3"));
+            assert!(v.is_err());
+        }
+
+        /// Pin the clamping target so a future commit that adds `V3`
+        /// remembers to bump `LATEST`.
+        #[test]
+        fn version_latest_is_v2() {
+            assert_eq!(
+                TypeErrorDisplayStatusVersion::LATEST,
+                TypeErrorDisplayStatusVersion::V2
+            );
+        }
+
+        #[test]
+        fn version_v1_v2_round_trip() {
+            let v1: TypeErrorDisplayStatusVersion =
+                serde_json::from_value(serde_json::json!("v1")).unwrap();
+            assert_eq!(v1, TypeErrorDisplayStatusVersion::V1);
+            let v2: TypeErrorDisplayStatusVersion =
+                serde_json::from_value(serde_json::json!("v2")).unwrap();
+            assert_eq!(v2, TypeErrorDisplayStatusVersion::V2);
+        }
+
+        /// Negotiation pinned end-to-end against the documented contract:
+        /// missing or explicit `null` → V1; known version → that version;
+        /// unknown future version → LATEST.
+        mod negotiate {
+            use super::super::super::TypeErrorDisplayStatusVersion;
+            use super::super::super::negotiate_type_error_display_status_version;
+
+            #[test]
+            fn missing_initialization_options_resolves_to_v1() {
+                assert_eq!(
+                    negotiate_type_error_display_status_version(None),
+                    TypeErrorDisplayStatusVersion::V1
+                );
+            }
+
+            #[test]
+            fn missing_pyrefly_namespace_resolves_to_v1() {
+                let opts = serde_json::json!({});
+                assert_eq!(
+                    negotiate_type_error_display_status_version(Some(&opts)),
+                    TypeErrorDisplayStatusVersion::V1
+                );
+            }
+
+            #[test]
+            fn missing_field_resolves_to_v1() {
+                let opts = serde_json::json!({ "pyrefly": {} });
+                assert_eq!(
+                    negotiate_type_error_display_status_version(Some(&opts)),
+                    TypeErrorDisplayStatusVersion::V1
+                );
+            }
+
+            /// Explicit JSON `null` must resolve to V1, not LATEST.
+            /// Without the `.filter(|v| !v.is_null())` guard, deserialize
+            /// fails and the `.unwrap_or(LATEST)` branch clamps `null` to
+            /// V2 — silently upgrading older clients that send an
+            /// explicit `null` instead of omitting the field.
+            #[test]
+            fn explicit_null_resolves_to_v1() {
+                let opts =
+                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": null } });
+                assert_eq!(
+                    negotiate_type_error_display_status_version(Some(&opts)),
+                    TypeErrorDisplayStatusVersion::V1
+                );
+            }
+
+            #[test]
+            fn known_v1_resolves_to_v1() {
+                let opts =
+                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": "v1" } });
+                assert_eq!(
+                    negotiate_type_error_display_status_version(Some(&opts)),
+                    TypeErrorDisplayStatusVersion::V1
+                );
+            }
+
+            #[test]
+            fn known_v2_resolves_to_v2() {
+                let opts =
+                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": "v2" } });
+                assert_eq!(
+                    negotiate_type_error_display_status_version(Some(&opts)),
+                    TypeErrorDisplayStatusVersion::V2
+                );
+            }
+
+            /// A version newer than this server knows about clamps to
+            /// LATEST — the client opted into a richer shape, so falling
+            /// back to V1 would silently strip off a feature.
+            #[test]
+            fn unknown_future_version_clamps_to_latest() {
+                let opts =
+                    serde_json::json!({ "pyrefly": { "typeErrorDisplayStatusVersion": "v3" } });
+                assert_eq!(
+                    negotiate_type_error_display_status_version(Some(&opts)),
+                    TypeErrorDisplayStatusVersion::LATEST
+                );
+            }
+        }
     }
 }
 
@@ -1048,6 +1677,13 @@ pub struct Server {
     currently_streaming_diagnostics_for_handles: RwLock<Option<SmallSet<Handle>>>,
     /// Whether the client supports markdown in diagnostic messages.
     diagnostic_markdown_support: bool,
+    /// Wire-shape version negotiated for the
+    /// `pyrefly/textDocument/typeErrorDisplayStatus` request, parsed from
+    /// `initializationOptions.pyrefly.typeErrorDisplayStatusVersion`. The
+    /// server clamps unknown future values to
+    /// [`TypeErrorDisplayStatusVersion::LATEST`] (the richest shape this
+    /// server knows about) and a missing field to `V1`.
+    type_error_display_status_version: TypeErrorDisplayStatusVersion,
     /// Testing-only flag to prevent the next recheck from committing.
     /// When set, the recheck queue task will loop without committing the transaction.
     do_not_commit_recheck: AtomicBool,
@@ -1110,10 +1746,7 @@ pub fn initialize_start(
     sender: &Sender<Message>,
     reader: &mut MessageReader,
 ) -> anyhow::Result<Option<(RequestId, InitializeInfo)>> {
-    loop {
-        let Some(msg) = reader.recv() else {
-            break;
-        };
+    while let Some(msg) = reader.recv() {
         match msg {
             Message::Request(x) => {
                 if x.method == Initialize::METHOD {
@@ -1200,10 +1833,7 @@ pub fn initialize_finish<C: Serialize>(
     if sender.send(response.into()).is_err() {
         return Ok(false);
     }
-    loop {
-        let Some(msg) = reader.recv() else {
-            break;
-        };
+    while let Some(msg) = reader.recv() {
         match msg {
             Message::Request(x) => {
                 error!("Unexpected request before initialized: {x:?}");
@@ -1397,6 +2027,7 @@ pub fn capabilities(
                 CodeActionKind::new("refactor.move"),
                 CodeActionKind::REFACTOR_INLINE,
                 CodeActionKind::SOURCE_FIX_ALL,
+                CodeActionKind::new(SOURCE_FIX_ALL_PYREFLY),
             ]),
             ..Default::default()
         })),
@@ -1506,6 +2137,11 @@ pub enum ProcessEvent {
 }
 
 const PYTHON_SECTION: &str = "python";
+const SOURCE_FIX_ALL_PYREFLY: &str = "source.fixAll.pyrefly";
+
+fn matches_fix_all_kind(kind: &CodeActionKind) -> bool {
+    kind == &CodeActionKind::SOURCE_FIX_ALL || kind.as_str() == SOURCE_FIX_ALL_PYREFLY
+}
 
 struct TypeHierarchyTarget {
     def_index: ClassDefIndex,
@@ -1961,7 +2597,7 @@ impl Server {
                             url
                         )
                     })?;
-                    for cell_url in lsp_notebook.cell_urls() {
+                    for cell_url in lsp_notebook.code_cell_urls() {
                         self.open_notebook_cells
                             .write()
                             .insert(cell_url.clone(), notebook_path.clone());
@@ -2047,12 +2683,15 @@ impl Server {
 
                 // These are messages where VS Code will use results from previous document versions,
                 // we really don't want to implicitly cancel those.
+                // `TypeErrorDisplayStatusRequest` is in the list because cancelling it leaves the
+                // status-bar item hidden until the next unrelated event; stale data is fine here.
                 const ONLY_ONCE: &[&str] = &[
                     Completion::METHOD,
                     ResolveCompletionItem::METHOD,
                     SignatureHelpRequest::METHOD,
                     GotoDefinition::METHOD,
                     ProvideType::METHOD,
+                    TypeErrorDisplayStatusRequest::METHOD,
                 ];
 
                 let in_cancelled_requests = canceled_requests.remove(&x.id);
@@ -2431,6 +3070,14 @@ impl Server {
                     if let Some(params) = self
                         .extract_request_params_or_send_err_response::<ProvideType>(params, &x.id)
                     {
+                        // provide_type loads unopened files via transaction.run().
+                        // A concurrent config recheck can cancel the transaction,
+                        // silently aborting the load. Prevent this by detaching the
+                        // cancellation handle and resetting it before the handler runs.
+                        self.cancellation_handles
+                            .lock()
+                            .remove(&request_id_for_cancel);
+                        transaction.reset_cancellation();
                         self.send_response(new_response(
                             x.id,
                             Ok(self.provide_type(&mut transaction, params)),
@@ -2570,19 +3217,27 @@ impl Server {
                         .docstring_ranges(&transaction, &text_document)
                         .unwrap_or_default();
                     self.send_response(new_response(x.id, Ok(ranges)));
-                } else if &x.method == "pyrefly/textDocument/typeErrorDisplayStatus" {
+                } else if x.method == TypeErrorDisplayStatusRequest::METHOD {
                     let text_document: TextDocumentIdentifier = serde_json::from_value(x.params)?;
-                    if let Some(path) = self.path_for_uri_or_notebook_cell(&text_document.uri) {
-                        self.send_response(new_response(
-                            x.id,
-                            Ok(self.type_error_display_status(path.as_path())),
-                        ));
+                    let response = if let Some(path) =
+                        self.path_for_uri_or_notebook_cell(&text_document.uri)
+                    {
+                        self.type_error_display_status_response(path.as_path())
                     } else {
-                        self.send_response(new_response(
-                            x.id,
-                            Ok(TypeErrorDisplayStatus::NoConfigFile),
-                        ));
-                    }
+                        // No file — fall back to NoConfigFile in whatever
+                        // shape the client requested.
+                        match self.type_error_display_status_version {
+                            TypeErrorDisplayStatusVersion::V1 => {
+                                TypeErrorDisplayStatusResponse::V1(
+                                    TypeErrorDisplayStatus::NoConfigFile,
+                                )
+                            }
+                            TypeErrorDisplayStatusVersion::V2 => {
+                                TypeErrorDisplayStatusResponse::V2(default_v2_response())
+                            }
+                        }
+                    };
+                    self.send_response(new_response(x.id, Ok(response)));
                 } else if &x.method == "testing/doNotCommitNextRecheck" {
                     self.do_not_commit_recheck.store(true, Ordering::SeqCst);
                     info!("Set do_not_commit_recheck flag to true");
@@ -2650,6 +3305,10 @@ impl Server {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
+        let type_error_display_status_version = negotiate_type_error_display_status_version(
+            initialize_params.initialization_options.as_ref(),
+        );
+
         let should_request_workspace_settings = initialize_params
             .capabilities
             .workspace
@@ -2694,6 +3353,7 @@ impl Server {
             comment_folding_ranges,
             currently_streaming_diagnostics_for_handles: RwLock::new(None),
             diagnostic_markdown_support,
+            type_error_display_status_version,
             do_not_commit_recheck: AtomicBool::new(false),
             // Will be set to true if we send a workspace/configuration request
             awaiting_initial_workspace_config: AtomicBool::new(should_request_workspace_settings),
@@ -2876,26 +3536,10 @@ impl Server {
                 return None;
             }
 
-            // Check if we should filter based on error kind for ErrorMissingImports mode
-            let display_type_errors_mode = self
-                .workspaces
-                .get_with(path.to_path_buf(), |(_, w)| w.display_type_errors)
-                .unwrap_or_default();
-
-            if !should_show_error_for_display_mode(e, display_type_errors_mode, type_error_status) {
-                return None;
-            }
-
-            // In NoConfigFile mode, downgrade certain error kinds to Warn severity
-            // so users without a config file see critical issues as warnings.
-            let overridden;
-            let e = match no_config_severity_override(e, type_error_status) {
-                Some(severity) => {
-                    overridden = e.with_severity(severity);
-                    &overridden
-                }
-                None => e,
-            };
+            // The resolved config's preset (Basic / Off / migrated) is
+            // the single source of truth for which errors are silenced;
+            // the `typeCheckingMode` IDE setting reaches us through the
+            // resolver at config synthesis time, not per-diagnostic.
 
             if let Some(lsp_file) = open_files.get(&path)
                 && config.project_includes.covers(&path)
@@ -2905,7 +3549,7 @@ impl Server {
                 return match &**lsp_file {
                     LspFile::Notebook(notebook) => {
                         let error_cell = e.get_notebook_cell()?;
-                        let error_cell_uri = notebook.get_cell_url(error_cell)?;
+                        let error_cell_uri = notebook.get_code_cell_url(error_cell)?;
                         if let Some(filter_cell) = cell_uri
                             && error_cell_uri != filter_cell
                         {
@@ -2951,34 +3595,66 @@ impl Server {
             .state
             .config_finder()
             .python_file(handle.module_kind(), handle.path());
-        match self
+
+        // Workspace-scoped kill switch is a clean boolean. `true`
+        // suppresses every diagnostic; `false` defers to the resolved
+        // config and any in-config `disable-type-errors-in-ide` flag.
+        // Legacy `displayTypeErrors = "force-off"` is mapped onto
+        // `true` by `apply_client_configuration`.
+        if self
             .workspaces
-            .get_with(path.to_path_buf(), |(_, w)| w.display_type_errors)
+            .get_with(path.to_path_buf(), |(_, w)| w.disable_type_errors)
         {
-            Some(DisplayTypeErrors::ForceOn) => TypeErrorDisplayStatus::EnabledInIdeConfig,
-            Some(DisplayTypeErrors::ErrorMissingImports) => {
-                TypeErrorDisplayStatus::EnabledInIdeConfig
-            }
-            Some(DisplayTypeErrors::ForceOff) => TypeErrorDisplayStatus::DisabledInIdeConfig,
-            Some(DisplayTypeErrors::Default) | None => match &config.source {
-                // In this case, we don't have a config file.
-                ConfigSource::Synthetic => TypeErrorDisplayStatus::NoConfigFile,
-                // In this case, we have a config file like mypy.ini, or a pyproject.toml
-                // with Python tool sections but no [tool.pyrefly]. We don't parse it for
-                // pyrefly config, so treat it as if we don't have any config.
-                ConfigSource::PythonToolMarker(_)
-                | ConfigSource::Marker(_)
-                | ConfigSource::FailedParse(_) => TypeErrorDisplayStatus::NoConfigFile,
-                // We actually have a pyrefly.toml, so we can decide based on the config.
-                ConfigSource::File(_) => {
-                    if config.disable_type_errors_in_ide(path) {
-                        TypeErrorDisplayStatus::DisabledInConfigFile
-                    } else {
-                        TypeErrorDisplayStatus::EnabledInConfigFile
-                    }
-                }
-            },
+            return TypeErrorDisplayStatus::DisabledInIdeConfig;
         }
+        match &config.source {
+            ConfigSource::Synthetic
+            | ConfigSource::PythonToolMarker(_)
+            | ConfigSource::Marker(_)
+            | ConfigSource::FailedParse(_) => TypeErrorDisplayStatus::NoConfigFile,
+            ConfigSource::File(_) => {
+                if config.disable_type_errors_in_ide(path) {
+                    TypeErrorDisplayStatus::DisabledInConfigFile
+                } else {
+                    TypeErrorDisplayStatus::EnabledInConfigFile
+                }
+            }
+        }
+    }
+
+    /// Returns the typeErrorDisplayStatus response in whichever wire shape
+    /// the client negotiated at `initialize` time. V1 is the legacy bare
+    /// string; V2 is the rich struct used by the new status-bar UI.
+    fn type_error_display_status_response(&self, path: &Path) -> TypeErrorDisplayStatusResponse {
+        match self.type_error_display_status_version {
+            TypeErrorDisplayStatusVersion::V1 => {
+                TypeErrorDisplayStatusResponse::V1(self.type_error_display_status(path))
+            }
+            TypeErrorDisplayStatusVersion::V2 => {
+                TypeErrorDisplayStatusResponse::V2(self.type_error_display_status_v2(path))
+            }
+        }
+    }
+
+    /// Build the V2 status-bar response from the resolved config and the
+    /// workspace's `typeCheckingMode`.
+    fn type_error_display_status_v2(&self, path: &Path) -> TypeErrorDisplayStatusV2 {
+        let handle = make_open_handle(&self.state, path);
+        let config = self
+            .state
+            .config_finder()
+            .python_file(handle.module_kind(), handle.path());
+        let (workspace_disable_type_errors, workspace_type_checking_mode) =
+            self.workspaces.get_with(path.to_path_buf(), |(_, w)| {
+                (w.disable_type_errors, w.type_checking_mode)
+            });
+        derive_v2_response(
+            config.synthesized_preset_reason,
+            &config.source,
+            config.disable_type_errors_in_ide(path),
+            workspace_disable_type_errors,
+            workspace_type_checking_mode,
+        )
     }
 
     fn validate_in_memory_and_commit_if_possible<'a>(
@@ -3040,7 +3716,7 @@ impl Server {
             if let Some(lsp_file) = open_files.get(&handle_path_buf) {
                 match &**lsp_file {
                     LspFile::Notebook(notebook) => {
-                        for url in notebook.cell_urls() {
+                        for url in notebook.code_cell_urls() {
                             diags.insert(PathBuf::from(url.to_string()), Vec::new());
                         }
                     }
@@ -3965,7 +4641,7 @@ impl Server {
         match entry.get().as_ref() {
             LspFile::Notebook(notebook) => match kind {
                 DidCloseKind::NotebookDocument => {
-                    let cell_urls: Vec<_> = notebook.cell_urls().to_vec();
+                    let cell_urls: Vec<_> = notebook.code_cell_urls().to_vec();
                     for cell in cell_urls {
                         self.publish_diagnostics_for_uri(
                             cell.clone(),
@@ -4378,7 +5054,7 @@ impl Server {
                             if let Some(cell_idx) = info.to_cell_for_lsp(range.start())
                                 && let Some(path) = to_real_path(info.path())
                                 && let Some(notebook) = open_notebooks.get(&path)
-                                && let Some(cell_url) = notebook.get_cell_url(cell_idx)
+                                && let Some(cell_url) = notebook.get_code_cell_url(cell_idx)
                             {
                                 uri = cell_url.clone();
                             }
@@ -4465,11 +5141,7 @@ impl Server {
         let only_kinds = params.context.only.as_ref();
         let allow_quickfix = only_kinds
             .is_none_or(|kinds| kinds.iter().any(|kind| kind == &CodeActionKind::QUICKFIX));
-        let allow_fix_all = only_kinds.is_none_or(|kinds| {
-            kinds
-                .iter()
-                .any(|kind| kind == &CodeActionKind::SOURCE_FIX_ALL)
-        });
+        let allow_fix_all = only_kinds.is_none_or(|kinds| kinds.iter().any(matches_fix_all_kind));
         let allow_refactor = only_kinds.is_none_or(|kinds| {
             kinds
                 .iter()
@@ -4487,7 +5159,7 @@ impl Server {
             // If the code action is triggered from a notebook cell, we need the cell's
             // index so that import quick-fixes can be redirected to the current cell
             // instead of always targeting cell 1 (position 0 of the combined AST).
-            let triggered_cell_index = self.maybe_get_cell_index(uri);
+            let triggered_cell_index = self.maybe_get_code_cell_index(uri);
             if let Some(quickfixes) = transaction.local_quickfix_code_actions_sorted(
                 &handle,
                 range,
@@ -4517,7 +5189,7 @@ impl Server {
                                     if let Some(LspFile::Notebook(notebook)) =
                                         open_files.get(&path).map(|f| &**f)
                                     {
-                                        notebook.get_cell_url(current_cell_idx).cloned()
+                                        notebook.get_code_cell_url(current_cell_idx).cloned()
                                     } else {
                                         None
                                     }
@@ -4571,7 +5243,7 @@ impl Server {
                 if !changes.is_empty() {
                     actions.push(CodeActionOrCommand::CodeAction(CodeAction {
                         title: "Remove all redundant casts".to_owned(),
-                        kind: Some(CodeActionKind::SOURCE_FIX_ALL),
+                        kind: Some(CodeActionKind::new(SOURCE_FIX_ALL_PYREFLY)),
                         edit: Some(WorkspaceEdit {
                             changes: Some(changes),
                             ..Default::default()
@@ -4734,7 +5406,18 @@ impl Server {
                 .find_local_references(&handle, position, true)
                 .into_map(|range| DocumentHighlight {
                     range: info.to_lsp_range(range),
-                    kind: None,
+                    kind: Some(
+                        if transaction
+                            .identifier_at(&handle, range.start())
+                            .expect("local references should point at identifiers")
+                            .context
+                            .is_write()
+                        {
+                            DocumentHighlightKind::WRITE
+                        } else {
+                            DocumentHighlightKind::READ
+                        },
+                    ),
                 }),
         ))
     }
@@ -4782,9 +5465,11 @@ impl Server {
                 return Err(reason);
             }
         };
+        let uri_for_telemetry = uri.clone();
         self.find_reference_queue.queue_task(
             TelemetryEventKind::FindFromDefinition,
             Box::new(move |server, telemetry, telemetry_event| {
+                server.set_file_stats(uri_for_telemetry, telemetry_event);
                 telemetry_event.set_activity_key(activity_key);
                 let mut transaction = server.state.cancellable_transaction();
                 server
@@ -4910,7 +5595,7 @@ impl Server {
                             if let Some(cell_idx) = info.to_cell_for_lsp(range.start())
                                 && let Some(path) = to_real_path(info.path())
                                 && let Some(notebook) = open_notebooks.get(&path)
-                                && let Some(cell_url) = notebook.get_cell_url(cell_idx)
+                                && let Some(cell_url) = notebook.get_code_cell_url(cell_idx)
                             {
                                 uri = cell_url.clone();
                             }
@@ -5060,7 +5745,7 @@ impl Server {
         params: InlayHintParams,
     ) -> Result<Option<Vec<InlayHint>>, EmptyResponseReason> {
         let uri = &params.text_document.uri;
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let range = &params.range;
         let (handle, lsp_analysis_config) = self
             .make_handle_with_lsp_analysis_config_if_enabled(uri, Some(InlayHintRequest::METHOD))?;
@@ -5142,7 +5827,7 @@ impl Server {
         let runnable_code_lens = self
             .workspaces
             .get_with(path.clone(), |(_, workspace)| workspace.runnable_code_lens);
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let handle = self
             .make_handle_if_enabled(uri, Some(CodeLensRequest::METHOD))
             .ok()?;
@@ -5168,7 +5853,7 @@ impl Server {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>, EmptyResponseReason> {
         let uri = &params.text_document.uri;
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let handle = self.make_handle_if_enabled(uri, Some(SemanticTokensFullRequest::METHOD))?;
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
@@ -5184,7 +5869,7 @@ impl Server {
         params: SemanticTokensRangeParams,
     ) -> Result<Option<SemanticTokensRangeResult>, EmptyResponseReason> {
         let uri = &params.text_document.uri;
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let handle = self.make_handle_if_enabled(uri, Some(SemanticTokensRangeRequest::METHOD))?;
         let module_info = transaction
             .get_module_info(&handle)
@@ -5204,7 +5889,7 @@ impl Server {
         params: DocumentSymbolParams,
     ) -> Result<Option<Vec<DocumentSymbol>>, EmptyResponseReason> {
         let uri = &params.text_document.uri;
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let path = self
             .path_for_uri_or_notebook_cell(uri)
             .ok_or(EmptyResponseReason::NoFilePath)?;
@@ -5408,7 +6093,7 @@ impl Server {
         text_document: &TextDocumentIdentifier,
     ) -> Option<Vec<Range>> {
         let uri = &text_document.uri;
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let handle = self.make_handle_if_enabled(uri, None).ok()?;
         let module = transaction.get_module_info(&handle)?;
         let docstring_ranges = transaction.docstring_ranges(&handle)?;
@@ -5430,7 +6115,7 @@ impl Server {
         params: FoldingRangeParams,
     ) -> Result<Option<Vec<FoldingRange>>, EmptyResponseReason> {
         let uri = &params.text_document.uri;
-        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let handle = self.make_handle_if_enabled(uri, Some(FoldingRangeRequest::METHOD))?;
         let module = transaction
             .get_module_info(&handle)
@@ -5758,7 +6443,7 @@ impl Server {
             // we don't know what URI refers to which cell.
             let path = to_real_path(definition_module_info.path())?;
             if let LspFile::Notebook(notebook) = &**self.open_files.read().get(&path)?
-                && let Some(cell_url) = notebook.get_cell_url(cell_idx)
+                && let Some(cell_url) = notebook.get_code_cell_url(cell_idx)
             {
                 uri = cell_url.clone();
             }
@@ -5771,13 +6456,13 @@ impl Server {
 
     /// If the uri is an open notebook cell, return the index of the cell within the notebook
     /// otherwise, return None.
-    fn maybe_get_cell_index(&self, cell_uri: &Url) -> Option<usize> {
+    fn maybe_get_code_cell_index(&self, cell_uri: &Url) -> Option<usize> {
         self.open_notebook_cells
             .read()
             .get(cell_uri)
             .and_then(|path| self.open_files.read().get(path).duped())
             .and_then(|file| match &*file {
-                LspFile::Notebook(notebook) => notebook.get_cell_index(cell_uri),
+                LspFile::Notebook(notebook) => notebook.get_code_cell_index(cell_uri),
                 _ => None,
             })
     }
@@ -5788,12 +6473,12 @@ impl Server {
         module: &ModuleInfo,
         position: Position,
     ) -> TextSize {
-        let notebook_cell = self.maybe_get_cell_index(uri);
+        let notebook_cell = self.maybe_get_code_cell_index(uri);
         module.from_lsp_position(position, notebook_cell)
     }
 
     pub fn from_lsp_range(&self, uri: &Url, module: &ModuleInfo, position: Range) -> TextRange {
-        let notebook_cell = self.maybe_get_cell_index(uri);
+        let notebook_cell = self.maybe_get_code_cell_index(uri);
         module.from_lsp_range(position, notebook_cell)
     }
 
@@ -6373,7 +7058,7 @@ impl TspInterface for Server {
             .ok()
             .or_else(|| Url::from_file_path(uri).ok())?;
         let path = self.path_for_uri_or_notebook_cell(&url)?;
-        let notebook_cell = self.maybe_get_cell_index(&url);
+        let notebook_cell = self.maybe_get_code_cell_index(&url);
 
         let handle = make_open_handle(&self.state, &path);
         let transaction = self.state.transaction();
@@ -6421,7 +7106,7 @@ impl TspInterface for Server {
         self.path_for_uri_or_notebook_cell(uri)
     }
 
-    fn maybe_get_cell_index(&self, uri: &Url) -> Option<usize> {
-        Self::maybe_get_cell_index(self, uri)
+    fn maybe_get_code_cell_index(&self, uri: &Url) -> Option<usize> {
+        Self::maybe_get_code_cell_index(self, uri)
     }
 }

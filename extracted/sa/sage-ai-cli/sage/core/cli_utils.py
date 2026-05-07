@@ -540,7 +540,7 @@ class HistoryBrowser:
     def _save_history(self) -> None:
         """Save history to file."""
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.history_file, "w") as f:
+        with open(self.history_file, "w", encoding="utf-8") as f:
             for ts, cmd in self._history[-1000:]:  # Keep last 1000
                 f.write(f"{ts}|{cmd}\n")
 

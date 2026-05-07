@@ -19,7 +19,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.5.0"
+VERSION: Final = "2026.5.1"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (
@@ -1315,6 +1315,7 @@ class Parameter(StrEnum):
     LEVEL = "LEVEL"
     LEVEL_2 = "LEVEL_2"
     LEVEL_COMBINED = "LEVEL_COMBINED"
+    LEVEL_REAL = "LEVEL_REAL"
     LEVEL_SLATS = "LEVEL_SLATS"
     LOCK_STATE = "LOCK_STATE"
     LOCK_STATE_REASON = "LOCK_STATE_REASON"

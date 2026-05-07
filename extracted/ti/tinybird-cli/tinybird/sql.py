@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 valid_chars_name: str = string.ascii_letters + string.digits + "._`*<>+-'"
-valid_chars_fn: str = valid_chars_name + "[](),=!?:/ \n\t\r"
+valid_chars_fn: str = valid_chars_name + "[](),=!?:/% \n\t\r"
 # Use sets for O(1) membership checks in hot loops
 _VALID_CHARS_NAME_SET = set(valid_chars_name)
 _VALID_CHARS_FN_SET = set(valid_chars_fn)
@@ -233,8 +233,19 @@ def try_to_fix_nullable_in_simple_aggregating_function(t: str) -> Optional[str]:
     if match := _RE_TRY_FIX_NULLABLE_SAF.search(t):
         fn = match.group(1)
         inner_type = match.group(2)
-        result = f"SimpleAggregateFunction({fn}, Nullable({inner_type}))"
+        if "Nullable(" not in inner_type:
+            result = f"SimpleAggregateFunction({fn}, Nullable({inner_type}))"
     return result
+
+
+def wrap_nullable(col: dict[str, Any]):
+    if col["nullable"]:
+        if (col_type := try_to_fix_nullable_in_simple_aggregating_function(col["type"])) is None:
+            # Skip wrapping if Nullable already present, e.g. LowCardinality(Nullable(String))
+            col_type = col["type"] if "Nullable(" in col["type"] else "Nullable(%s)" % col["type"]
+    else:
+        col_type = col["type"]
+    return col_type
 
 
 def schema_to_sql_columns(schema: List[Dict[str, Any]], skip_jsonpaths: bool = False) -> List[str]:
@@ -255,12 +266,7 @@ def schema_to_sql_columns(schema: List[Dict[str, Any]], skip_jsonpaths: bool = F
     columns: List[str] = []
     for x in schema:
         name = x["normalized_name"] if "normalized_name" in x else x["name"]
-        if x["nullable"]:
-            if (_type := try_to_fix_nullable_in_simple_aggregating_function(x["type"])) is None:
-                # Skip wrapping if Nullable already present, e.g. LowCardinality(Nullable(String))
-                _type = x["type"] if "Nullable(" in x["type"] else "Nullable(%s)" % x["type"]
-        else:
-            _type = x["type"]
+        _type = wrap_nullable(x)
         parts = [col_name(name, backquotes=True), _type]
         if x.get("jsonpath", None) and not skip_jsonpaths:
             parts.append(f"`json:{x['jsonpath']}`")

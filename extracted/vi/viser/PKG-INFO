@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: viser
-Version: 1.0.26
+Version: 1.0.27
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/viser-project/viser
 License: MIT
@@ -48,6 +48,7 @@ Requires-Dist: plotly>=5.21.0; extra == 'examples'
 Requires-Dist: plyfile; extra == 'examples'
 Requires-Dist: pyliblzfse>=0.4.1; (platform_system != 'Windows') and extra == 'examples'
 Requires-Dist: robot-descriptions>=1.18.0; extra == 'examples'
+Requires-Dist: torch<2.5.0; (python_version < '3.9') and extra == 'examples'
 Requires-Dist: torch>=1.13.1; extra == 'examples'
 Requires-Dist: tyro<1.0.0,>=0.2.0; extra == 'examples'
 Description-Content-Type: text/markdown

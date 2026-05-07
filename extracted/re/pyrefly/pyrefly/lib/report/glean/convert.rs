@@ -889,26 +889,16 @@ impl GleanState<'_> {
         include_str_lit_xrefs: bool,
     ) -> Vec<(DefinitionLocation, TextRange)> {
         match expr {
-            Expr::Attribute(attr) => {
-                if attr.ctx.is_load() {
-                    self.find_definition_for_expr_attribute(attr)
-                        .into_iter()
-                        .map(|name| (name, attr.attr.range()))
-                        .collect()
-                } else {
-                    vec![]
-                }
-            }
-            Expr::Name(name) => {
-                if name.ctx.is_load() {
-                    self.find_definition_for_expr_name(name, false)
-                        .into_iter()
-                        .map(|x| (x, name.range()))
-                        .collect()
-                } else {
-                    vec![]
-                }
-            }
+            Expr::Attribute(attr) if attr.ctx.is_load() => self
+                .find_definition_for_expr_attribute(attr)
+                .into_iter()
+                .map(|name| (name, attr.attr.range()))
+                .collect(),
+            Expr::Name(name) if name.ctx.is_load() => self
+                .find_definition_for_expr_name(name, false)
+                .into_iter()
+                .map(|x| (x, name.range()))
+                .collect(),
             Expr::StringLiteral(str_lit) if include_str_lit_xrefs => {
                 self.get_xrefs_for_str_lit(str_lit)
             }

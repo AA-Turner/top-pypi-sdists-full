@@ -33,6 +33,7 @@ from .claroty_apiurl import ClarotyApiurl
 from .crowd_strike_credential import CrowdStrikeCredential
 from .assets_crowd_strike_dataset import AssetsCrowdStrikeDataset
 from .defender_credential import DefenderCredential
+from .iru_credential import IruCredential
 from .ivanti_credential import IvantiCredential
 from .assets_ivanti_neurons_dataset import AssetsIvantiNeuronsDataset
 from .nozomi_vantage_credential import NozomiVantageCredential
@@ -57,7 +58,6 @@ from .custom_endpoint import CustomEndpoint
 from .edr_crowd_strike_dataset import EdrCrowdStrikeDataset
 from .eset_credential import EsetCredential
 from .api_region import ApiRegion
-from .iru_credential import IruCredential
 from .malwarebytes_credential import MalwarebytesCredential
 from .sentinel_one_credential import SentinelOneCredential
 from .sentinel_one_edr_events_credential import SentinelOneEdrEventsCredential
@@ -65,6 +65,9 @@ from .sophos_credential import SophosCredential
 from .microsoft_defender_region import MicrosoftDefenderRegion
 from .mimecast_api_gateway import MimecastApiGateway
 from .mimecast_cloud_gateway_credential import MimecastCloudGatewayCredential
+from .automox_api_key_credential import AutomoxApiKeyCredential
+from .intune_credential import IntuneCredential
+from .jamf_credential import JamfCredential
 from .entra_id_credential import EntraIdCredential
 from .google_credential import GoogleCredential
 from .okta_credential import OktaCredential
@@ -395,6 +398,22 @@ class ProviderConfig_AssetsDefender(UncheckedBaseModel):
     type: typing.Literal["assets_defender"] = "assets_defender"
     credential: DefenderCredential
     tenant_id: str
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AssetsIru(UncheckedBaseModel):
+    type: typing.Literal["assets_iru"] = "assets_iru"
+    credential: IruCredential
     url: str
 
     if IS_PYDANTIC_V2:
@@ -922,6 +941,72 @@ class ProviderConfig_EmailsecurityMimecastCloudGateway(UncheckedBaseModel):
     )
     api_gateway: typing.Optional[MimecastApiGateway] = None
     credential: MimecastCloudGatewayCredential
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EndpointmanagementAutomox(UncheckedBaseModel):
+    type: typing.Literal["endpointmanagement_automox"] = "endpointmanagement_automox"
+    credential: AutomoxApiKeyCredential
+    org_id: str
+    url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EndpointmanagementIntune(UncheckedBaseModel):
+    type: typing.Literal["endpointmanagement_intune"] = "endpointmanagement_intune"
+    credential: IntuneCredential
+    tenant_id: str
+    url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EndpointmanagementIru(UncheckedBaseModel):
+    type: typing.Literal["endpointmanagement_iru"] = "endpointmanagement_iru"
+    credential: IruCredential
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EndpointmanagementJamf(UncheckedBaseModel):
+    type: typing.Literal["endpointmanagement_jamf"] = "endpointmanagement_jamf"
+    credential: JamfCredential
+    url: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -2128,6 +2213,22 @@ class ProviderConfig_VulnerabilitiesHorizon3(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_VulnerabilitiesIru(UncheckedBaseModel):
+    type: typing.Literal["vulnerabilities_iru"] = "vulnerabilities_iru"
+    credential: IruCredential
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_VulnerabilitiesNucleus(UncheckedBaseModel):
     type: typing.Literal["vulnerabilities_nucleus"] = "vulnerabilities_nucleus"
     credential: NucleusCredential
@@ -2321,6 +2422,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_AssetsCrowdstrike,
         ProviderConfig_AssetsCrowdstrikeMock,
         ProviderConfig_AssetsDefender,
+        ProviderConfig_AssetsIru,
         ProviderConfig_AssetsIvantiNeurons,
         ProviderConfig_AssetsIvantiNeuronsMock,
         ProviderConfig_AssetsNozomiVantage,
@@ -2353,6 +2455,10 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_EdrTanium,
         ProviderConfig_EmailsecurityDefenderForOffice,
         ProviderConfig_EmailsecurityMimecastCloudGateway,
+        ProviderConfig_EndpointmanagementAutomox,
+        ProviderConfig_EndpointmanagementIntune,
+        ProviderConfig_EndpointmanagementIru,
+        ProviderConfig_EndpointmanagementJamf,
         ProviderConfig_IdentityEntraId,
         ProviderConfig_IdentityGoogle,
         ProviderConfig_IdentityOkta,
@@ -2421,6 +2527,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_VulnerabilitiesCrowdstrikeMock,
         ProviderConfig_VulnerabilitiesDefender,
         ProviderConfig_VulnerabilitiesHorizon3,
+        ProviderConfig_VulnerabilitiesIru,
         ProviderConfig_VulnerabilitiesNucleus,
         ProviderConfig_VulnerabilitiesQualysCloud,
         ProviderConfig_VulnerabilitiesQualysCloudMock,

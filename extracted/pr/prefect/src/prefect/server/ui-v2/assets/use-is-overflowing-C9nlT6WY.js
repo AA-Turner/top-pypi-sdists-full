@@ -1,2 +1,0 @@
-import{r as e}from"./rolldown-runtime-S-ySWqyJ.js";import{s as t}from"./vendor-codemirror-CPtRGrRG.js";var n=e(t(),1),r=e=>{let[t,r]=(0,n.useState)(!1);return(0,n.useEffect)(()=>{e.current&&r(e.current.scrollWidth>e.current.clientWidth)},[e]),t};export{r as t};
-//# sourceMappingURL=use-is-overflowing-C9nlT6WY.js.map

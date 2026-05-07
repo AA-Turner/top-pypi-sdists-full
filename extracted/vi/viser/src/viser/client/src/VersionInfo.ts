@@ -1,6 +1,6 @@
 // Automatically generated file - do not edit manually.
 // This is synchronized with the Python package version in viser/__init__.py.
-export const VISER_VERSION = "1.0.26";
+export const VISER_VERSION = "1.0.27";
 
 // GitHub contributors for the viser project.
 export interface Contributor {
@@ -38,20 +38,24 @@ export const GITHUB_CONTRIBUTORS: Contributor[] = [
     html_url: "https://github.com/BrianSantoso",
   },
   {
-    login: "origamiman72",
-    html_url: "https://github.com/origamiman72",
+    login: "sea-bass",
+    html_url: "https://github.com/sea-bass",
   },
   {
     login: "ginazhouhuiwu",
     html_url: "https://github.com/ginazhouhuiwu",
   },
   {
-    login: "sea-bass",
-    html_url: "https://github.com/sea-bass",
+    login: "origamiman72",
+    html_url: "https://github.com/origamiman72",
   },
   {
     login: "jkulhanek",
     html_url: "https://github.com/jkulhanek",
+  },
+  {
+    login: "siddhss5",
+    html_url: "https://github.com/siddhss5",
   },
   {
     login: "ethanweber",
@@ -86,6 +90,10 @@ export const GITHUB_CONTRIBUTORS: Contributor[] = [
     html_url: "https://github.com/AdamRashid96",
   },
   {
+    login: "zoechann",
+    html_url: "https://github.com/zoechann",
+  },
+  {
     login: "slecleach",
     html_url: "https://github.com/slecleach",
   },
@@ -112,6 +120,10 @@ export const GITHUB_CONTRIBUTORS: Contributor[] = [
   {
     login: "rowoflo",
     html_url: "https://github.com/rowoflo",
+  },
+  {
+    login: "pgesel-rai",
+    html_url: "https://github.com/pgesel-rai",
   },
   {
     login: "MosesEbere",

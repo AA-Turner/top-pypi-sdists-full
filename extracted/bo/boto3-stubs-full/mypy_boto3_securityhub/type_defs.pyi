@@ -40,6 +40,7 @@ from .literals import (
     ConnectorStatusType,
     ControlFindingGeneratorType,
     ControlStatusType,
+    DateRangeComparisonType,
     FindingHistoryUpdateSourceTypeType,
     FindingsTrendsStringFieldType,
     GranularityFieldType,
@@ -60,6 +61,7 @@ from .literals import (
     OrganizationConfigurationStatusType,
     ParameterValueTypeType,
     PartitionType,
+    RecommendationStatusType,
     RecordStateType,
     RegionAvailabilityStatusType,
     ResourceCategoryType,
@@ -1137,6 +1139,7 @@ __all__ = (
     "FirewallPolicyStatelessCustomActionsDetailsTypeDef",
     "FirewallPolicyStatelessCustomActionsDetailsUnionTypeDef",
     "FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef",
+    "GenerateRecommendedPolicyV2RequestTypeDef",
     "GeneratorDetailsOutputTypeDef",
     "GeneratorDetailsTypeDef",
     "GeneratorDetailsUnionTypeDef",
@@ -1180,6 +1183,9 @@ __all__ = (
     "GetMasterAccountResponseTypeDef",
     "GetMembersRequestTypeDef",
     "GetMembersResponseTypeDef",
+    "GetRecommendedPolicyV2RequestPaginateTypeDef",
+    "GetRecommendedPolicyV2RequestTypeDef",
+    "GetRecommendedPolicyV2ResponseTypeDef",
     "GetResourcesStatisticsV2RequestTypeDef",
     "GetResourcesStatisticsV2ResponseTypeDef",
     "GetResourcesTrendsV2RequestPaginateTypeDef",
@@ -1317,6 +1323,8 @@ __all__ = (
     "ProviderSummaryTypeDef",
     "ProviderUpdateConfigurationTypeDef",
     "RangeTypeDef",
+    "RecommendationErrorTypeDef",
+    "RecommendationStepTypeDef",
     "RecommendationTypeDef",
     "RecordTypeDef",
     "RegisterConnectorV2RequestTypeDef",
@@ -1471,6 +1479,7 @@ __all__ = (
     "UnprocessedStandardsControlAssociationTypeDef",
     "UnprocessedStandardsControlAssociationUpdateTypeDef",
     "UntagResourceRequestTypeDef",
+    "UnusedPermissionsRecommendationStepTypeDef",
     "UpdateActionTargetRequestTypeDef",
     "UpdateAggregatorV2RequestTypeDef",
     "UpdateAggregatorV2ResponseTypeDef",
@@ -3810,6 +3819,7 @@ class CreateTicketV2RequestTypeDef(TypedDict):
 class DateRangeTypeDef(TypedDict):
     Value: NotRequired[int]
     Unit: NotRequired[Literal["DAYS"]]
+    Comparison: NotRequired[DateRangeComparisonType]
 
 class DeclineInvitationsRequestTypeDef(TypedDict):
     AccountIds: Sequence[str]
@@ -3968,6 +3978,9 @@ class FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef(TypedDict):
     Priority: NotRequired[int]
     ResourceArn: NotRequired[str]
 
+class GenerateRecommendedPolicyV2RequestTypeDef(TypedDict):
+    MetadataUid: str
+
 class GeneratorDetailsTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
@@ -4029,6 +4042,15 @@ class MemberTypeDef(TypedDict):
     MemberStatus: NotRequired[str]
     InvitedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
+
+class GetRecommendedPolicyV2RequestTypeDef(TypedDict):
+    MetadataUid: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class RecommendationErrorTypeDef(TypedDict):
+    Code: NotRequired[str]
+    Message: NotRequired[str]
 
 class GetSecurityControlDefinitionRequestTypeDef(TypedDict):
     SecurityControlId: str
@@ -4201,6 +4223,13 @@ class ServiceNowDetailTypeDef(TypedDict):
 
 class ServiceNowUpdateConfigurationTypeDef(TypedDict):
     SecretArn: NotRequired[str]
+
+class UnusedPermissionsRecommendationStepTypeDef(TypedDict):
+    RecommendedAction: NotRequired[str]
+    ExistingPolicy: NotRequired[str]
+    ExistingPolicyId: NotRequired[str]
+    PolicyUpdatedAt: NotRequired[datetime]
+    RecommendedPolicy: NotRequired[str]
 
 RecommendationTypeDef = TypedDict(
     "RecommendationTypeDef",
@@ -6620,6 +6649,10 @@ class GetInsightsRequestPaginateTypeDef(TypedDict):
     InsightArns: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class GetRecommendedPolicyV2RequestPaginateTypeDef(TypedDict):
+    MetadataUid: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAggregatorsV2RequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -6872,6 +6905,9 @@ class ProviderDetailTypeDef(TypedDict):
 class ProviderUpdateConfigurationTypeDef(TypedDict):
     JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
     ServiceNow: NotRequired[ServiceNowUpdateConfigurationTypeDef]
+
+class RecommendationStepTypeDef(TypedDict):
+    UnusedPermissions: NotRequired[UnusedPermissionsRecommendationStepTypeDef]
 
 class RemediationTypeDef(TypedDict):
     Recommendation: NotRequired[RecommendationTypeDef]
@@ -8733,6 +8769,15 @@ class UpdateConnectorV2RequestTypeDef(TypedDict):
     ConnectorId: str
     Description: NotRequired[str]
     Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
+
+class GetRecommendedPolicyV2ResponseTypeDef(TypedDict):
+    RecommendationType: Literal["UNUSED_PERMISSION_RECOMMENDATION"]
+    RecommendationSteps: list[RecommendationStepTypeDef]
+    Error: RecommendationErrorTypeDef
+    Status: RecommendationStatusType
+    ResourceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ResourceResultTypeDef(TypedDict):
     ResourceId: str

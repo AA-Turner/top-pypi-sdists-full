@@ -439,7 +439,10 @@ class CfnCluster(
             storage_mode="storageMode",
             tags={
                 "tags_key": "tags"
-            }
+            },
+            zookeeper_access=msk.CfnCluster.ZookeeperAccessProperty(
+                enabled=False
+            )
         )
     '''
 
@@ -462,6 +465,7 @@ class CfnCluster(
         rebalancing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.RebalancingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         storage_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        zookeeper_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ZookeeperAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MSK::Cluster``.
 
@@ -481,6 +485,7 @@ class CfnCluster(
         :param rebalancing: 
         :param storage_mode: This controls storage mode for supported storage tiers.
         :param tags: An arbitrary set of tags (key-value pairs) for the cluster.
+        :param zookeeper_access: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d267b4b2dcfdda539084655e7a1234ffaf8e77376f37d4914abbcef6c64e9f1c)
@@ -501,6 +506,7 @@ class CfnCluster(
             rebalancing=rebalancing,
             storage_mode=storage_mode,
             tags=tags,
+            zookeeper_access=zookeeper_access,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -815,6 +821,23 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__b25d99a2495a599ba3309403ed99fa0b41d839c07974463afbd155e81c63d4c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="zookeeperAccess")
+    def zookeeper_access(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ZookeeperAccessProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ZookeeperAccessProperty"]], jsii.get(self, "zookeeperAccess"))
+
+    @zookeeper_access.setter
+    def zookeeper_access(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ZookeeperAccessProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f3c9360426b4d2e105db2410d06dd6eaca815368635b59b5f3c0036d053f2e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "zookeeperAccess", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_msk.CfnCluster.BrokerLogsProperty",
@@ -3247,6 +3270,61 @@ class CfnCluster(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_msk.CfnCluster.ZookeeperAccessProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class ZookeeperAccessProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-zookeeperaccess.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_msk as msk
+                
+                zookeeper_access_property = msk.CfnCluster.ZookeeperAccessProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2382a61c62519a6648f91bfef7431872da468f9d1649487b008f3c38bde6bcda)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-zookeeperaccess.html#cfn-msk-cluster-zookeeperaccess-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ZookeeperAccessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.implements(_IInspectable_c2943556, _IClusterPolicyRef_f86bdab3)
 class CfnClusterPolicy(
@@ -3480,6 +3558,7 @@ class CfnClusterPolicyProps:
         "rebalancing": "rebalancing",
         "storage_mode": "storageMode",
         "tags": "tags",
+        "zookeeper_access": "zookeeperAccess",
     },
 )
 class CfnClusterProps:
@@ -3500,6 +3579,7 @@ class CfnClusterProps:
         rebalancing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.RebalancingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         storage_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        zookeeper_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ZookeeperAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
@@ -3517,6 +3597,7 @@ class CfnClusterProps:
         :param rebalancing: 
         :param storage_mode: This controls storage mode for supported storage tiers.
         :param tags: An arbitrary set of tags (key-value pairs) for the cluster.
+        :param zookeeper_access: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html
         :exampleMetadata: fixture=_generated
@@ -3642,7 +3723,10 @@ class CfnClusterProps:
                 storage_mode="storageMode",
                 tags={
                     "tags_key": "tags"
-                }
+                },
+                zookeeper_access=msk.CfnCluster.ZookeeperAccessProperty(
+                    enabled=False
+                )
             )
         '''
         if __debug__:
@@ -3661,6 +3745,7 @@ class CfnClusterProps:
             check_type(argname="argument rebalancing", value=rebalancing, expected_type=type_hints["rebalancing"])
             check_type(argname="argument storage_mode", value=storage_mode, expected_type=type_hints["storage_mode"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument zookeeper_access", value=zookeeper_access, expected_type=type_hints["zookeeper_access"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "broker_node_group_info": broker_node_group_info,
             "cluster_name": cluster_name,
@@ -3687,6 +3772,8 @@ class CfnClusterProps:
             self._values["storage_mode"] = storage_mode
         if tags is not None:
             self._values["tags"] = tags
+        if zookeeper_access is not None:
+            self._values["zookeeper_access"] = zookeeper_access
 
     @builtins.property
     def broker_node_group_info(
@@ -3831,6 +3918,16 @@ class CfnClusterProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def zookeeper_access(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ZookeeperAccessProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-zookeeperaccess
+        '''
+        result = self._values.get("zookeeper_access")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ZookeeperAccessProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7911,6 +8008,7 @@ def _typecheckingstub__d267b4b2dcfdda539084655e7a1234ffaf8e77376f37d4914abbcef6c
     rebalancing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.RebalancingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    zookeeper_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ZookeeperAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8019,6 +8117,12 @@ def _typecheckingstub__dbed80e4a8389757f50e4ac3a00ab70f0b1864d27b5014ae9d52159bb
 
 def _typecheckingstub__b25d99a2495a599ba3309403ed99fa0b41d839c07974463afbd155e81c63d4c5(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f3c9360426b4d2e105db2410d06dd6eaca815368635b59b5f3c0036d053f2e5(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ZookeeperAccessProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8272,6 +8376,13 @@ def _typecheckingstub__b1ebbb8eb7816ab0289a799ad732a769be10fd2ffc65eb2b9063e2992
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2382a61c62519a6648f91bfef7431872da468f9d1649487b008f3c38bde6bcda(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__44054483e71e00fc0cc8de4a0043676504f8ba8eaef21e7597ca21b373e44603(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8336,6 +8447,7 @@ def _typecheckingstub__da9c2c389b7fb44efe639e45c2911a96139b86d7a936606322d8605ae
     rebalancing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.RebalancingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    zookeeper_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ZookeeperAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

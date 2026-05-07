@@ -13,9 +13,9 @@ from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
 
-from .base import BaseHTML
+from .base import BaseHTML, RawTextBaseHTML, VoidBaseHTML
 
-class Area(BaseHTML):
+class Area(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -600,7 +600,7 @@ class Audio(BaseHTML):
 ImageDecoding = Literal["async", "auto", "sync"]
 ImageLoading = Literal["eager", "lazy"]
 
-class Img(BaseHTML):
+class Img(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -1168,7 +1168,7 @@ class Map(BaseHTML):
             The component.
         """
 
-class Track(BaseHTML):
+class Track(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -1718,7 +1718,7 @@ class Video(BaseHTML):
             The component.
         """
 
-class Embed(BaseHTML):
+class Embed(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -3070,7 +3070,7 @@ class Portal(BaseHTML):
             The component.
         """
 
-class Source(BaseHTML):
+class Source(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -11493,7 +11493,7 @@ class MPath(BaseHTML):
             The component.
         """
 
-class Desc(BaseHTML):
+class Desc(RawTextBaseHTML):
     @classmethod
     def create(
         cls,
@@ -11753,7 +11753,7 @@ class Desc(BaseHTML):
             The component.
         """
 
-class Title(BaseHTML):
+class Title(RawTextBaseHTML):
     @classmethod
     def create(
         cls,
@@ -12273,7 +12273,7 @@ class Metadata(BaseHTML):
             The component.
         """
 
-class Script(BaseHTML):
+class Script(RawTextBaseHTML):
     @classmethod
     def create(
         cls,
@@ -12539,7 +12539,7 @@ class Script(BaseHTML):
             The component.
         """
 
-class SvgStyle(BaseHTML):
+class SvgStyle(RawTextBaseHTML):
     @classmethod
     def create(
         cls,

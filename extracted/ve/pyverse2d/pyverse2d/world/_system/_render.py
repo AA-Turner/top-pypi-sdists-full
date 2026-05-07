@@ -1,7 +1,9 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._internal import profile_section
 from ...abc import System
+
 from .._world import World, Entity
 from .._component import Transform, SpriteRenderer, ShapeRenderer, TextRenderer
 from ..._rendering import Pipeline, PygletShapeRenderer, PygletSpriteRenderer, PygletLabelRenderer
@@ -41,6 +43,7 @@ class RenderSystem(System):
         return f"RenderSystem(sprites={len(self._sprites)}, shapes={len(self._shapes)}, labels={len(self._labels)})"
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.animation.update")
     def update(self, world: World, dt: float):
         """Actualisation du pilotage
 
@@ -50,6 +53,7 @@ class RenderSystem(System):
         """
         pass
 
+    @profile_section("world.animation.draw")
     def draw(self, world: World, pipeline: Pipeline):
         """Synchronise toutes les entités renderables avec le Batch de rendu
 

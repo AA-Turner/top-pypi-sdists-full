@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: descope
-Version: 1.13.0
+Version: 2.0.0
 Summary: Descope Python SDK
-License: MIT
-License-File: LICENSE
 Author: Descope
-Author-email: info@descope.com
-Requires-Python: >=3.8.1,<4.0
+Author-email: Descope <info@descope.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -19,20 +18,19 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Provides-Extra: flask
-Requires-Dist: Flask (>=2) ; extra == "flask"
-Requires-Dist: email-validator (>=2,<3) ; python_version >= "3.8"
-Requires-Dist: liccheck (>=0.9.1,<0.10.0)
-Requires-Dist: pyjwt[crypto] (>=2.4.0)
-Requires-Dist: requests (>=2.27.0)
-Project-URL: Bug Tracker, https://github.com/descope/python-sdk/issues
-Project-URL: Documentation, https://docs.descope.com
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: httpx>=0.28,<0.29
+Requires-Dist: certifi
+Requires-Dist: pyjwt[crypto]>=2.4.0
+Requires-Dist: email-validator>=2,<3
+Requires-Dist: flask>=2 ; extra == 'flask'
+Requires-Python: >=3.9, <4.0
 Project-URL: Homepage, https://descope.com/
 Project-URL: Repository, https://github.com/descope/python-sdk
+Project-URL: Documentation, https://docs.descope.com
+Project-URL: Bug Tracker, https://github.com/descope/python-sdk/issues
+Provides-Extra: flask
 Description-Content-Type: text/markdown
 
 # Descope SDK for Python
@@ -42,7 +40,7 @@ for a backend written in python. You can read more on the [Descope Website](http
 
 ## Requirements
 
-The SDK supports Python 3.8.1 and above.
+The SDK supports Python 3.9 and above.
 
 ## Installing the SDK
 
@@ -1921,13 +1919,13 @@ You can find various usage samples in the [samples folder](https://github.com/de
 
 ### Prerequisites
 
-- Python 3.8.1 or higher
-- [Poetry](https://python-poetry.org) installed
+- Python 3.9 or higher
+- [uv](https://docs.astral.sh/uv/) installed
 
 ### Install dependencies
 
 ```bash
-poetry install
+uv sync --all-extras
 ```
 
 ### Run tests
@@ -1935,13 +1933,20 @@ poetry install
 Running all tests:
 
 ```bash
-poetry run pytest tests
+uv run pytest tests
 ```
 
 Running all tests with coverage:
 
 ```bash
-poetry run pytest --junitxml=/tmp/pytest.xml --cov-report=term-missing:skip-covered --cov=descope tests/ --cov-report=xml:/tmp/cov.xml
+uv run pytest --junitxml=/tmp/pytest.xml --cov-report=term-missing:skip-covered --cov=descope tests/ --cov-report=xml:/tmp/cov.xml
+```
+
+### Lint and format
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
 ```
 
 ## Learn More
@@ -1955,4 +1960,3 @@ If you need help you can email [Descope Support](mailto:support@descope.com)
 ## License
 
 The Descope SDK for Python is licensed for use under the terms and conditions of the [MIT license Agreement](https://github.com/descope/python-sdk/blob/main/LICENSE).
-

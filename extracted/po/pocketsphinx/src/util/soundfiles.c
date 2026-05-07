@@ -43,6 +43,7 @@
 #include <pocketsphinx.h>
 #include "util/byteorder.h"
 #include "util/ckd_alloc.h"
+#include "util/cmd_ln.h"
 
 #define TRY_FREAD(ptr, size, nmemb, stream)                             \
     if (fread(ptr, size, nmemb, stream) != (nmemb)) {                   \
@@ -50,6 +51,22 @@
         rv = -1;                                                        \
         goto error_out;                                                 \
     }
+
+static int
+arg_was_set(ps_config_t *config, const char *name)
+{
+    uint32 i;
+    cmd_ln_t *cmdln = (cmd_ln_t *)config;
+    for (i = 0; i < cmdln->f_argc; i++) {
+        if (cmdln->f_argv[i] && cmdln->f_argv[i][0] == '-') {
+            const char *arg = cmdln->f_argv[i] + 1;
+            if (*arg == '-') arg++;
+            if (0 == strcmp(arg, name))
+                return 1;
+        }
+    }
+    return 0;
+}
 
 int
 ps_config_soundfile(ps_config_t *config, FILE *infh, const char *file)
@@ -96,6 +113,26 @@ error_out:
     return rv;
 }
 
+size_t
+fread_skip(size_t nbytes, FILE *infh)
+{
+    char buf[4096];
+    size_t total = 0;
+
+    while (nbytes) {
+        size_t nread, toread = nbytes;
+
+        if (toread > sizeof(buf))
+            toread = sizeof(buf);
+        nread = fread(buf, 1, toread, infh);
+        total += nread;
+        if (nread != toread)
+            break;
+        nbytes -= nread;
+    }
+    return total;
+}
+
 int
 ps_config_wavfile(ps_config_t *config, FILE *infh, const char *file)
 {
@@ -131,7 +168,7 @@ ps_config_wavfile(ps_config_t *config, FILE *infh, const char *file)
     /* Length of 'fmt ' chunk */
     TRY_FREAD(&intval, 4, 1, infh);
     SWAP_LE_32(&intval);
-    header_len = intval;
+    header_len = intval;  /* Should be 16 */
 
     /* Data format. */
     TRY_FREAD(&shortval, 2, 1, infh);
@@ -154,9 +191,9 @@ ps_config_wavfile(ps_config_t *config, FILE *infh, const char *file)
     /* Sampling rate (finally!) */
     TRY_FREAD(&intval, 4, 1, infh);
     SWAP_LE_32(&intval);
-    if (ps_config_int(config, "samprate") == 0)
+    if (!arg_was_set(config, "samprate")) {
         ps_config_set_int(config, "samprate", intval);
-    else if (ps_config_int(config, "samprate") != intval) {
+    } else if (ps_config_int(config, "samprate") != intval) {
         E_WARN("WAVE file sampling rate %d != samprate %d\n",
                intval, ps_config_int(config, "samprate"));
     }
@@ -178,15 +215,15 @@ ps_config_wavfile(ps_config_t *config, FILE *infh, const char *file)
 
     /* Any extra parameters. */
     if (header_len > 16) {
-        /* Avoid seeking... */
-        char *spam = malloc(header_len - 16);
-        if (fread(spam, 1, header_len - 16, infh) != (size_t)(header_len - 16)) {
-            E_ERROR_SYSTEM("%s: Failed to read extra header", file);
+        /* We might be reading standard input, so we can't use fseek.
+           On the other hand, a malicious actor may have passed some
+           totally implausible value for the header length, so we will
+           read 4k chunks and throw them away.  */
+        if (fread_skip(header_len - 16, infh) != (size_t)(header_len - 16)) {
+            E_ERROR_SYSTEM("%s: Failed to read %d byte fmt chunk", file, header_len);
             rv = -1;
-        }
-        ckd_free(spam);
-        if (rv == -1)
             goto error_out;
+        }
     }
 
     /* Now skip to the 'data' chunk. */
@@ -198,20 +235,15 @@ ps_config_wavfile(ps_config_t *config, FILE *infh, const char *file)
             break;
         }
         else {
-            char *spam;
-            /* Some other stuff... */
-            /* Number of bytes of ... whatever */
             TRY_FREAD(&intval, 4, 1, infh);
             SWAP_LE_32(&intval);
-            /* Avoid seeking... */
-            spam = malloc(intval);
-            if (fread(spam, 1, intval, infh) != (size_t)intval) {
-                E_ERROR_SYSTEM("%s: Failed to read %s chunk", file, id);
+            /* As above, skip over data without seeking. */
+            if (fread_skip(intval, infh) != (size_t)intval) {
+                E_ERROR_SYSTEM("%s: Failed to read %d byte %c%c%c%c chunk",
+                               file, intval, id[0], id[1], id[2], id[3]);
                 rv = -1;
-            }
-            ckd_free(spam);
-            if (rv == -1)
                 goto error_out;
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from .._internal import profile_section
 from .._flag import CoordSpace
 from .._rendering import Viewport, Camera
 from ..abc import Manager
@@ -102,6 +103,7 @@ class CoordinatesManager(Manager):
         self._temporary_camera = None
 
     # ======================================== CONTEXT ========================================
+    @profile_section("manager.coordinates.apply_context")
     def apply_context(self) -> None:
         """Applique le contexte courant"""
         # Nettoyage des caches
@@ -150,6 +152,7 @@ class CoordinatesManager(Manager):
         self._inv_pipeline = None
 
     @contextmanager
+    @profile_section("manager.coordinates.temporary_context")
     def temporary_context(self, viewport: Viewport = None, camera: Camera = None):
         """Crée un contexte particulier de coordonnées
         
@@ -217,6 +220,7 @@ class CoordinatesManager(Manager):
         return min(xs), min(ys), max(xs), max(ys)
 
     # ======================================== FROM WORLD ========================================
+    @profile_section("manager.coordinates.conversions")
     def world_to_framebuffer(self, x: float, y: float, vector: bool = False) -> tuple[float, float]:
         """Conversion ``World`` vers ``Framebuffer``
         
@@ -229,7 +233,7 @@ class CoordinatesManager(Manager):
             return self._world_to_framebuffer(x, y, vector)
         except TypeError:
             raise NoContextError() from None
-        
+    
     def _world_to_framebuffer(self, x: float, y: float, vector: bool) -> tuple[float, float]:
         """Logique interne de ``world_to_framebuffer``"""
         M = self.homogeneous(x, y, vector=vector)
@@ -241,6 +245,7 @@ class CoordinatesManager(Manager):
         else:
             return gx + (ndc_x + 1) * 0.5 * gw, gy + (ndc_y + 1) * 0.5 * gh
 
+    @profile_section("manager.coordinates.conversions")
     def world_to_window(self, x: float, y: float, vector: bool = False) -> tuple[float, float]:
         """Conversion ``World`` vers ``Window``
         
@@ -257,6 +262,7 @@ class CoordinatesManager(Manager):
             raise NoContextError() from None
 
     # ======================================== FROM FRAMEBUFFER ========================================
+    @profile_section("manager.coordinates.conversions")
     def framebuffer_to_world(self, x:float, y: float, vector: bool = False) -> tuple[float, float]:
         """Conversion ``Framebuffer`` vers ``World``
         
@@ -284,6 +290,7 @@ class CoordinatesManager(Manager):
         world_x, world_y, _, _ = inv_Pip @ M
         return world_x, world_y
 
+    @profile_section("manager.coordinates.conversions")
     def framebuffer_to_window(self, x: float, y: float, vector: bool = False) -> tuple[float, float]:
         """Conversion ``Framebuffer`` vers ``Window``
         
@@ -306,6 +313,7 @@ class CoordinatesManager(Manager):
         return canvas.x + x * window.physical_scale, canvas.y + y * window.physical_scale
 
     # ======================================== FROM WINDOW ========================================
+    @profile_section("manager.coordinates.conversions")
     def window_to_world(self, x: float, y: float, vector: bool = False) -> tuple[float, float]:
         """Conversion ``Window`` vers ``World``
         
@@ -321,6 +329,7 @@ class CoordinatesManager(Manager):
         except TypeError:
             raise NoContextError() from None
 
+    @profile_section("manager.coordinates.conversions")
     def window_to_framebuffer(self, x: float, y: float, vector: bool = False) -> tuple[float, float]:
         """Conversion ``Window``vers ``Framebuffer``
         
@@ -343,6 +352,7 @@ class CoordinatesManager(Manager):
         return (x - canvas.x) * window.logical_scale, (y - canvas.y) * window.logical_scale
 
     # ======================================== GLOBAL CONVERSION ========================================
+    @profile_section("manager.coordinates.conversions")
     def convert(
         self,
         x: float,
@@ -365,6 +375,7 @@ class CoordinatesManager(Manager):
         return handler(x, y, vector=vector)
     
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.coordinates.update")
     def update(self, dt: float) -> None:
         """Actualisation
         

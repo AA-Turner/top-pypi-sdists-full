@@ -8,7 +8,7 @@ import shutil
 import stat
 import sys
 import tempfile
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Type, Union
 
 from expecttest import assert_expected_inline
 
@@ -19,6 +19,7 @@ import ghstack.github
 import ghstack.github_fake
 import ghstack.github_utils
 import ghstack.land
+import ghstack.log
 import ghstack.shell
 import ghstack.submit
 import ghstack.unlink
@@ -34,6 +35,7 @@ __all__ = [
     "gh_unlink",
     "gh_cherry_pick",
     "gh_checkout",
+    "gh_log",
     "GitCommitHash",
     "checkout",
     "amend",
@@ -270,6 +272,18 @@ def gh_checkout(pull_request: str, same_base: bool = False) -> None:
     )
 
 
+def gh_log(pull_request: Optional[str] = None, args: Sequence[str] = ()) -> None:
+    self = CTX
+    return ghstack.log.main(
+        github=self.github,
+        sh=self.sh,
+        remote_name="origin",
+        github_url="github.com",
+        args=list(args),
+        pull_request=pull_request,
+    )
+
+
 def write_file_and_add(filename: str, contents: str) -> None:
     self = CTX
     with self.sh.open(filename, "w") as f:
@@ -392,8 +406,10 @@ def is_direct() -> bool:
     return CTX.direct
 
 
-def get_github() -> ghstack.github_fake.FakeGitHubEndpoint:
-    return CTX.github
+def get_github() -> "ghstack.github_fake.FakeGitHubEndpoint":
+    github = CTX.github
+    assert isinstance(github, ghstack.github_fake.FakeGitHubEndpoint)
+    return github
 
 
 def get_pr_reviewers(pr_number: int) -> List[str]:
@@ -417,8 +433,11 @@ def assert_eq(a: Any, b: Any) -> None:
 
 
 def assert_raises(
-    exc_type: any, callable: Callable[..., any], *args: any, **kwargs: any
-):
+    exc_type: Type[BaseException],
+    callable: Callable[..., Any],
+    *args: Any,
+    **kwargs: Any,
+) -> None:
     try:
         callable(*args, **kwargs)
     except exc_type:
@@ -427,8 +446,12 @@ def assert_raises(
 
 
 def assert_expected_raises_inline(
-    exc_type: any, callable: Callable[..., any], expect: str, *args: any, **kwargs: any
-):
+    exc_type: Type[BaseException],
+    callable: Callable[..., Any],
+    expect: str,
+    *args: Any,
+    **kwargs: Any,
+) -> None:
     try:
         callable(*args, **kwargs)
     except exc_type as e:

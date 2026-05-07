@@ -16,7 +16,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 project(
   prism
-  VERSION 0.14.2
+  VERSION 0.14.4
   DESCRIPTION "The Platform-agnostic Reader Interface for Speech and Messages"
   LANGUAGES C CXX)
 
@@ -377,6 +377,9 @@ if(APPLE)
   if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${APPKIT_FRAMEWORK})
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "watchOS")
+    find_library(WATCHKIT_FRAMEWORK WatchKit REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${WATCHKIT_FRAMEWORK})
   else()
     find_library(UIKIT_FRAMEWORK UIKit REQUIRED)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${UIKIT_FRAMEWORK})

@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, clamped
+from .._internal import expect, clamped, profile_section
 from .._rendering import Pipeline, Camera
 from ..gui import RenderContext
 from ..abc import Widget, Layer
@@ -116,11 +116,13 @@ class GuiLayer(Layer):
         """Préchargement"""
         pass
 
+    @profile_section("scene.gui_layer.update")
     def _update(self, dt: float) -> None:
         """Actualisation du layer"""
         for wrapper in reversed(self._wrappers):
             wrapper.widget.update(dt)
 
+    @profile_section("scene.gui_layer.draw")
     def _draw(self, pipeline: Pipeline) -> None:
         """Affichage du layer"""
         context = self._generate_context(pipeline)

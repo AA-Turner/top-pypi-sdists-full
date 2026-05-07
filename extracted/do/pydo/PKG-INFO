@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydo
-Version: 0.33.0
+Version: 0.34.0
 Summary: The official client for interacting with the DigitalOcean API
 Home-page: https://github.com/digitalocean/pydo
 License: Apache-2.0
@@ -118,6 +118,27 @@ while paginated:
         page = int(parse_qs(parsed_url.query)["page"][0])
     else:
         paginated = False
+```
+
+#### Async Usage
+
+For async, import from `pydo.aio` instead of `pydo`. The surface is identical
+— same constructor, same operation groups — just `await` the calls. Use
+`async with` so the underlying transport closes cleanly.
+
+```python
+import asyncio, os
+from pydo.aio import Client
+
+async def main():
+    async with Client(api_key=os.environ["DIGITALOCEAN_TOKEN"]) as client:
+        resp = await client.chat.completions.create(
+            model="llama3.3-70b-instruct",
+            messages=[{"role": "user", "content": "Hello!"}],
+        )
+        print(resp)
+
+asyncio.run(main())
 ```
 
 #### Retries and Backoff

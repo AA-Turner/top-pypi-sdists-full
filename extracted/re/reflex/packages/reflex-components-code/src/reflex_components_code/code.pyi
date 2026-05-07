@@ -356,7 +356,7 @@ class CodeBlock(Component, MarkdownComponentMap):
     def create(
         cls,
         *children,
-        theme: Theme | Var[Theme | str] | str | None = None,
+        theme: Theme | Var[Theme] | None = None,
         language: Literal[
             "abap",
             "abnf",
@@ -964,7 +964,7 @@ class CodeBlock(Component, MarkdownComponentMap):
 
         Args:
             *children: The children of the component.
-            theme: The theme to use ("light" or "dark").
+            theme: The theme to use, accessed via rx.code_block.themes (e.g. rx.code_block.themes.one_dark).
             language: The language to use.
             code: The code to display.
             show_line_numbers: If this is enabled line numbers will be shown next to the code block.
@@ -1010,7 +1010,7 @@ class CodeblockNamespace(ComponentNamespace):
     @staticmethod
     def __call__(
         *children,
-        theme: Theme | Var[Theme | str] | str | None = None,
+        theme: Theme | Var[Theme] | None = None,
         language: Literal[
             "abap",
             "abnf",
@@ -1618,7 +1618,7 @@ class CodeblockNamespace(ComponentNamespace):
 
         Args:
             *children: The children of the component.
-            theme: The theme to use ("light" or "dark").
+            theme: The theme to use, accessed via rx.code_block.themes (e.g. rx.code_block.themes.one_dark).
             language: The language to use.
             code: The code to display.
             show_line_numbers: If this is enabled line numbers will be shown next to the code block.

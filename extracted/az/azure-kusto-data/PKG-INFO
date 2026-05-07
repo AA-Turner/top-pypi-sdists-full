@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-kusto-data
-Version: 6.0.3
+Version: 6.0.4
 Summary: Kusto Data Client
 Keywords: azure,kusto,data,analytics
 Author: Microsoft Corporation
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
 Requires-Dist: python-dateutil>=2.9.0
 Requires-Dist: requests>=2.32.4
-Requires-Dist: azure-identity>=1.24.0,<2
-Requires-Dist: msal>=1.34.0b1,<2
+Requires-Dist: azure-identity>=1.25.3,<2
+Requires-Dist: msal>=1.35.1,<2
 Requires-Dist: ijson~=3.4.0
 Requires-Dist: azure-core>=1.35.0,<2
 Requires-Dist: aiohttp>=3.12.15 ; extra == 'aio'

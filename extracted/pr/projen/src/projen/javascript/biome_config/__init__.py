@@ -4987,7 +4987,7 @@ class Source:
         '''(experimental) A list of rules that belong to this group.
 
         :param no_duplicate_classes: (experimental) Remove duplicate CSS classes. See https://biomejs.dev/assist/actions/no-duplicate-classes
-        :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order. See https://biomejs.dev/assist/actions/organize-imports
+        :param organize_imports: (experimental) Sorts imports and exports in your JavaScript and TypeScript files. See https://biomejs.dev/assist/actions/organize-imports
         :param recommended: (experimental) Enables the recommended rules for this group.
         :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements. See https://biomejs.dev/assist/actions/use-sorted-attributes
         :param use_sorted_interface_members: (experimental) Sort interface members by key. See https://biomejs.dev/assist/actions/use-sorted-interface-members
@@ -5036,7 +5036,7 @@ class Source:
 
     @builtins.property
     def organize_imports(self) -> typing.Any:
-        '''(experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order.
+        '''(experimental) Sorts imports and exports in your JavaScript and TypeScript files.
 
         See https://biomejs.dev/assist/actions/organize-imports
 

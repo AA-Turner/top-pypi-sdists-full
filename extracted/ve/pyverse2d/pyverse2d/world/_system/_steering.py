@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._internal import profile_section
 from ...abc import System
 from ...math import Vector
 
@@ -50,6 +51,7 @@ class SteeringSystem(System):
         return f"SteeringSystem()"
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.steering.update")
     def update(self, world: World, dt: float):
         """Actualisation du pilotage"""
         for entity in world.query(Follow, Transform):

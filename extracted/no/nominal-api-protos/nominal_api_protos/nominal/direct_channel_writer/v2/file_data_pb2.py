@@ -23,11 +23,11 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
-from nominal_api_protos.nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2
 from nominal_api_protos.nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
+from nominal_api_protos.nominal.types.object_storage import handle_pb2 as nominal_dot_types_dot_object__storage_dot_handle__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n0nominal/direct_channel_writer/v2/file_data.proto\x12 nominal.direct_channel_writer.v2\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x44nominal/direct_channel_writer/v2/direct_nominal_channel_writer.proto\x1a\x1anominal/gen/v1/alias.proto\"\xfe\x02\n\x14WriteFileDataRequest\x12\\\n\x15write_batches_request\x18\x01 \x01(\x0b\x32=.nominal.direct_channel_writer.v2.InternalWriteBatchesRequest\x12@\n\x0eingest_job_rid\x18\x02 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x03 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12;\n\x07org_rid\x18\x04 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.authentication.api.OrgRid\x12\x10\n\x08\x62\x61tch_id\x18\x05 \x01(\x05\x12\x33\n\x0f\x66ile_created_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\'\n#io.nominal.direct_channel_writer.v2P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n0nominal/direct_channel_writer/v2/file_data.proto\x12 nominal.direct_channel_writer.v2\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anominal/gen/v1/alias.proto\x1a)nominal/types/object_storage/handle.proto\"\xa1\x03\n\x14WriteFileDataRequest\x12:\n\x0c\x62\x61tch_handle\x18\x01 \x01(\x0b\x32$.nominal.types.object_storage.Handle\x12@\n\x0eingest_job_rid\x18\x02 \x01(\tB(\x9a\xb2\x1a$\n\"io.nominal.ingest.api.IngestJobRid\x12\x42\n\x0f\x64\x61taset_file_id\x18\x03 \x01(\tB)\x9a\xb2\x1a%\n#io.nominal.datasource.DatasetFileId\x12;\n\x07org_rid\x18\x04 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.authentication.api.OrgRid\x12\x10\n\x08\x62\x61tch_id\x18\x05 \x01(\x05\x12\x33\n\x0f\x66ile_created_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x43\n\x0c\x62\x61tch_format\x18\x07 \x01(\x0e\x32-.nominal.direct_channel_writer.v2.BatchFormat*Y\n\x0b\x42\x61tchFormat\x12\x1c\n\x18\x42\x41TCH_FORMAT_UNSPECIFIED\x10\x00\x12,\n(BATCH_FORMAT_WRITE_BATCHES_REQUEST_PROTO\x10\x01\x42\'\n#io.nominal.direct_channel_writer.v2P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,6 +41,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_WRITEFILEDATAREQUEST'].fields_by_name['dataset_file_id']._serialized_options = b'\232\262\032%\n#io.nominal.datasource.DatasetFileId'
   _globals['_WRITEFILEDATAREQUEST'].fields_by_name['org_rid']._loaded_options = None
   _globals['_WRITEFILEDATAREQUEST'].fields_by_name['org_rid']._serialized_options = b'\232\262\032&\n$io.nominal.authentication.api.OrgRid'
-  _globals['_WRITEFILEDATAREQUEST']._serialized_start=218
-  _globals['_WRITEFILEDATAREQUEST']._serialized_end=600
+  _globals['_BATCHFORMAT']._serialized_start=610
+  _globals['_BATCHFORMAT']._serialized_end=699
+  _globals['_WRITEFILEDATAREQUEST']._serialized_start=191
+  _globals['_WRITEFILEDATAREQUEST']._serialized_end=608
 # @@protoc_insertion_point(module_scope)

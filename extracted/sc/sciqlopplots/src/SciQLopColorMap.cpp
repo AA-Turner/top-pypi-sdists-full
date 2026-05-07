@@ -20,6 +20,8 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/Plotables/SciQLopColorMap.hpp"
+#include "SciQLopPlots/Profiling.hpp"
+#include "SciQLopPlots/Tracing.hpp"
 #include "SciQLopPlots/constants.hpp"
 
 void SciQLopColorMap::_cmap_got_destroyed()
@@ -61,6 +63,11 @@ SciQLopColorMap::~SciQLopColorMap()
 
 void SciQLopColorMap::set_data(PyBuffer x, PyBuffer y, PyBuffer z)
 {
+    PROFILE_HERE_N("setdata.colormap");
+    ::SciQLopPlots::tracing::ScopedZone _sz("setdata.colormap", "setdata");
+    _sz.add_arg("nx", static_cast<int64_t>(x.flat_size()));
+    _sz.add_arg("ny", static_cast<int64_t>(y.flat_size()));
+    _sz.add_arg("nz", static_cast<int64_t>(z.flat_size()));
     if (!_cmap || !x.is_valid() || !y.is_valid() || !z.is_valid())
         return;
 
@@ -70,20 +77,40 @@ void SciQLopColorMap::set_data(PyBuffer x, PyBuffer y, PyBuffer z)
     const std::size_t nx_sz = x.flat_size();
     const std::size_t ny_sz = y.flat_size();
     const std::size_t nz_sz = z.flat_size();
-    // All-empty is allowed and behaves as a clear; otherwise z must be the
-    // full nx*ny matrix the QCP datasource expects.
-    const bool all_empty = (nx_sz == 0 && ny_sz == 0 && nz_sz == 0);
-    if (!all_empty && nz_sz != nx_sz * ny_sz)
+    // No data to plot ⇒ clear and bail. Speasy returns a "well-formed
+    // empty" spectrogram (time=0, freq=N, values=(0,N)) for windows
+    // with no samples; QCPSoADataSource2D asserts nx > 0 && nz > 0 so
+    // we must not construct it on any empty input.
+    if (nx_sz == 0 || nz_sz == 0)
+    {
+        _dataHolder.reset();
+        _cmap->setDataSource(std::shared_ptr<QCPAbstractDataSource2D>{});
+        m_data_range = SciQLopPlotRange();
+        Q_EMIT data_changed(x, y, z);
+        Q_EMIT data_changed();
+        return;
+    }
+
+    // QCPSoADataSource2D accepts both 1D and 2D y axes:
+    //   1D y:  ny == nz / nx   (one y value per row)
+    //   2D y:  ny == nz        (per-cell y, e.g. a spectrogram whose
+    //                           frequency axis varies per timestamp)
+    if (nz_sz % nx_sz != 0)
         throw std::runtime_error(
-            "ColorMap.set_data: z size must equal len(x) * len(y)");
+            "ColorMap.set_data: z size must be a multiple of x size");
+
+    const std::size_t y_size_per_row = nz_sz / nx_sz;
+    const bool valid_1d_y = (ny_sz == y_size_per_row);
+    const bool valid_2d_y = (ny_sz == nz_sz);
+    if (!valid_1d_y && !valid_2d_y)
+        throw std::runtime_error(
+            "ColorMap.set_data: y size must equal len(z)/len(x) (1D y) "
+            "or len(z) (2D y)");
 
     const auto* x_ptr = static_cast<const double*>(x.raw_data());
     const int nx = static_cast<int>(nx_sz);
 
-    if (nx > 0)
-        m_data_range = SciQLopPlotRange(x_ptr[0], x_ptr[nx - 1]);
-    else
-        m_data_range = SciQLopPlotRange();
+    m_data_range = SciQLopPlotRange(x_ptr[0], x_ptr[nx - 1]);
 
     dispatch_dtype(y.format_code(), [&](auto y_tag) {
         dispatch_dtype(z.format_code(), [&](auto z_tag) {

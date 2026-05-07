@@ -1,27 +1,25 @@
 Metadata-Version: 2.4
 Name: rpmfile
-Version: 2.2.0
+Version: 2.2.1
 Summary: Read rpm archive files
-Home-page: https://github.com/srossross/rpmfile
-Author: Sean Ross-Ross
-Author-email: srossross@gmail.com
-License: MIT
+Project-URL: Homepage, https://github.com/srossross/rpmfile
+Project-URL: Repository, https://github.com/srossross/rpmfile
+Author-email: Sean Ross-Ross <srossross@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Provides-Extra: zstd
-Requires-Dist: zstandard>=0.13.0; extra == "zstd"
-Dynamic: license-file
+Requires-Dist: zstandard>=0.13.0; extra == 'zstd'
+Description-Content-Type: text/markdown
 
 # rpmfile
 

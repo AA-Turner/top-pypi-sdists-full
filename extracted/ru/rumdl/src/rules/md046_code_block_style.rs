@@ -712,7 +712,13 @@ impl MD046CodeBlockStyle {
         warnings
     }
 
-    fn detect_style(&self, lines: &[&str], is_mkdocs: bool, ictx: &IndentContext) -> Option<CodeBlockStyle> {
+    fn detect_style(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        lines: &[&str],
+        is_mkdocs: bool,
+        ictx: &IndentContext,
+    ) -> Option<CodeBlockStyle> {
         if lines.is_empty() {
             return None;
         }
@@ -734,6 +740,14 @@ impl MD046CodeBlockStyle {
 
         for (i, line) in lines.iter().enumerate() {
             let in_container = ictx.in_comment_or_html.get(i).copied().unwrap_or(false);
+
+            // Lines inside Azure DevOps colon code fences are verbatim content.
+            // Any fence markers they contain are not real block delimiters and
+            // must not influence the fenced/indented style tally.
+            if ctx.flavor.supports_colon_code_fences() && ctx.lines.get(i).is_some_and(|l| l.in_code_block) {
+                prev_was_indented = false;
+                continue;
+            }
 
             if self.is_fenced_code_block_start(line) {
                 if in_container {
@@ -837,7 +851,7 @@ impl Rule for MD046CodeBlockStyle {
                     in_comment_or_html: &in_comment_or_html,
                     list_item_baseline: &list_item_baseline,
                 };
-                self.detect_style(lines, is_mkdocs, &ictx)
+                self.detect_style(ctx, lines, is_mkdocs, &ictx)
                     .unwrap_or(CodeBlockStyle::Fenced)
             }
             _ => self.config.style,
@@ -968,7 +982,7 @@ impl Rule for MD046CodeBlockStyle {
 
         let target_style = match self.config.style {
             CodeBlockStyle::Consistent => self
-                .detect_style(lines, is_mkdocs, &ictx)
+                .detect_style(ctx, lines, is_mkdocs, &ictx)
                 .unwrap_or(CodeBlockStyle::Fenced),
             _ => self.config.style,
         };
@@ -1223,7 +1237,17 @@ mod tests {
     /// this helper — callers that need to exercise those paths should go
     /// through the full `rule.check(&ctx)` entry point so the real LineInfo
     /// is computed from a `LintContext`.
+    ///
+    /// Colon fence exclusion is also not active here: tests that need Azure
+    /// DevOps colon fence skipping must use the full `check` entry point with
+    /// an `AzureDevOps` flavor `LintContext`.
     fn detect_style_from_content(rule: &MD046CodeBlockStyle, content: &str, is_mkdocs: bool) -> Option<CodeBlockStyle> {
+        let flavor = if is_mkdocs {
+            crate::config::MarkdownFlavor::MkDocs
+        } else {
+            crate::config::MarkdownFlavor::Standard
+        };
+        let ctx = LintContext::new(content, flavor, None);
         let lines: Vec<&str> = content.lines().collect();
         let in_list_context = rule.precompute_block_continuation_context(&lines);
         let in_tab_context = if is_mkdocs {
@@ -1250,7 +1274,7 @@ mod tests {
             in_comment_or_html: &in_comment_or_html,
             list_item_baseline: &list_item_baseline,
         };
-        rule.detect_style(&lines, is_mkdocs, &ictx)
+        rule.detect_style(&ctx, &lines, is_mkdocs, &ictx)
     }
 
     #[test]

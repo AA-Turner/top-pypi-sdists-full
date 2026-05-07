@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ...._internal import expect
+from ...._internal import expect, profile_section
 from ....abc import System
 from ...._core import Geometry
 
@@ -136,6 +136,7 @@ class CollisionSystem(System):
         return self._vel_along_wake_treshold
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.collision.update")
     def update(self, world: World, dt: float):
         """
         Détecte et résout les collisions pour toutes les entités actives

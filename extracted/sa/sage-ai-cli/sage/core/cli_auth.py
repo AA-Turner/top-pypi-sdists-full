@@ -28,11 +28,14 @@ SAGE_API_BASE = os.environ.get("SAGE_API_BASE", "https://sageworksai.com")
 
 def save_auth(data: dict) -> None:
     AUTH_DIR.mkdir(parents=True, exist_ok=True)
-    # Write to temp file first, then atomic rename — prevents partial writes
+    # Write to temp file first, then atomic rename — prevents partial writes.
+    # Use Path.replace() not .rename(): on Windows, .rename() raises
+    # FileExistsError if the target exists, while .replace() atomically
+    # overwrites on every platform (POSIX semantics).
     tmp = AUTH_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     tmp.chmod(stat.S_IRUSR | stat.S_IWUSR)  # 600 — owner read/write only
-    tmp.rename(AUTH_FILE)
+    tmp.replace(AUTH_FILE)
 
 
 def load_auth() -> dict | None:
@@ -51,25 +54,85 @@ def clear_auth() -> None:
 
 # ── Token operations ──────────────────────────────────────────────────────────
 
+def _jwt_exp(token: str) -> float:
+    """Extract the `exp` claim from a JWT without verifying the signature.
+
+    The JWT's own `exp` is the authoritative expiry — this is what the server
+    checks. Any locally-stored `expires_at` can drift from it (Firebase's token
+    refresh sometimes returns a token whose `exp` doesn't equal `now + expires_in`),
+    so trusting `expires_at` alone causes false-negative refreshes that surface
+    as 401s on the next API call.
+    """
+    try:
+        import base64
+        parts = token.split(".")
+        if len(parts) < 2:
+            return 0
+        payload = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return float(claims.get("exp", 0))
+    except Exception:
+        return 0
+
+
 def _is_expired(auth: dict, buffer_seconds: int = 300) -> bool:
+    """Return True if the stored token is within `buffer_seconds` of expiry.
+
+    Trusts the JWT's `exp` claim over the locally-cached `expires_at` field
+    when both are available, since they can drift apart over time.
+    """
+    token = auth.get("id_token", "")
+    jwt_exp = _jwt_exp(token) if token else 0
     expires_at = auth.get("expires_at", 0)
-    return time.time() >= (expires_at - buffer_seconds)
+    # If we have a real `exp`, prefer it. Otherwise fall back to expires_at.
+    effective = jwt_exp or expires_at
+    return time.time() >= (effective - buffer_seconds)
 
 
 def _refresh_token(auth: dict) -> dict:
     refresh = auth.get("refresh_token", "")
     if not refresh:
         raise RuntimeError("No refresh token available. Please run: sage login")
-    r = httpx.post(
-        f"{SECURE_TOKEN_URL}?key={FIREBASE_API_KEY}",
-        json={"grant_type": "refresh_token", "refresh_token": refresh},
-        timeout=15,
-    )
+    try:
+        r = httpx.post(
+            f"{SECURE_TOKEN_URL}?key={FIREBASE_API_KEY}",
+            json={"grant_type": "refresh_token", "refresh_token": refresh},
+            timeout=15,
+        )
+    except httpx.HTTPError as exc:
+        # Network failure (offline, DNS, timeout) — tell the user, don't crash.
+        raise RuntimeError(
+            f"Could not reach the SAGE auth server to refresh your session ({exc}). "
+            "Check your internet connection and try again."
+        ) from exc
+
+    if r.status_code == 400:
+        # Refresh token revoked, expired, or invalid. Wipe the bad credential
+        # so the next login starts clean instead of looping on the same bad
+        # token, then surface an actionable RuntimeError. Common causes:
+        # backend rotated the key, user signed in elsewhere, or session
+        # exceeded Firebase's max refresh window.
+        try:
+            error_body = r.json().get("error", {})
+            firebase_msg = error_body.get("message") if isinstance(error_body, dict) else None
+        except Exception:
+            firebase_msg = None
+        clear_auth()
+        detail = f" ({firebase_msg})" if firebase_msg else ""
+        raise RuntimeError(
+            "Your SAGE session has expired or been revoked" + detail + ".\n"
+            "Please run: sage login"
+        )
     r.raise_for_status()
     data = r.json()
-    auth["id_token"] = data["id_token"]
+    new_id_token = data["id_token"]
+    auth["id_token"] = new_id_token
     auth["refresh_token"] = data["refresh_token"]
-    auth["expires_at"] = time.time() + int(data.get("expires_in", 3600))
+    # Pin expires_at to the JWT's own `exp` so the local cache always matches
+    # the token the server will check. Falls back to `now + expires_in` only
+    # if the JWT is somehow undecodable.
+    jwt_exp = _jwt_exp(new_id_token)
+    auth["expires_at"] = jwt_exp or (time.time() + int(data.get("expires_in", 3600)))
     save_auth(auth)
     return auth
 

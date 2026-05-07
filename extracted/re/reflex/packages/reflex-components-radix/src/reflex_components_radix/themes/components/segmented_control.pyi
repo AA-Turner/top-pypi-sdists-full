@@ -13,6 +13,9 @@ from reflex_components_core.core.breakpoints import Breakpoints
 
 from reflex_components_radix.themes.base import RadixThemesComponent
 
+_COUNT_VAR = "--rx-sc-count"
+_IDX_VAR = "--rx-sc-idx"
+
 def on_value_change(value: Var[str | list[str]]) -> tuple[Var[str | list[str]]]: ...
 
 class SegmentedControlRoot(RadixThemesComponent):
@@ -123,13 +126,17 @@ class SegmentedControlRoot(RadixThemesComponent):
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> SegmentedControlRoot:
-        """Create a new component instance.
+        """Create a SegmentedControlRoot.
 
-        Will prepend "RadixThemes" to the component tag to avoid conflicts with
-        other UI libraries for common names, like Text and Button.
+        Radix Themes 3.3.0 hardcodes indicator width/translate CSS rules for up
+        to 10 items (see radix-ui/themes#730). When there are more items the
+        indicator collapses to zero width. Work around that by exposing the
+        selected item's index and the item count as CSS custom properties on
+        the root so the style override in `add_style` can position the
+        indicator using `calc()` regardless of item count.
 
         Args:
-            *children: Child components.
+            *children: The children of the component.
             size: The size of the segmented control: "1" | "2" | "3"
             variant: Variant of button: "classic" | "surface"
             type: The type of the segmented control, either "single" for selecting one option or "multiple" for selecting multiple options.
@@ -160,11 +167,13 @@ class SegmentedControlRoot(RadixThemesComponent):
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
             on_change: Handles the `onChange` event for the SegmentedControl component.
-            **props: Component properties.
+            **props: The properties of the component.
 
         Returns:
-            A new component instance.
+            The SegmentedControlRoot component.
         """
+
+    def add_style(self) -> dict[str, Any] | None: ...
 
 class SegmentedControlItem(RadixThemesComponent):
     @classmethod

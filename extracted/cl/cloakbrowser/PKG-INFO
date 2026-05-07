@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.3.26
+Version: 0.3.27
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip-licenses-lib
-Version: 1.2.1
+Version: 1.2.2
 Summary: Retrieve the software license list of Python packages installed with pip.
 Author: raimon49, stefan6419846 (library version)
 License-Expression: MIT

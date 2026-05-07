@@ -594,7 +594,9 @@ class Deployment:
     ):
         if self.is_git_release:
             if not self.current_release:
-                raise CLIGitReleaseException(FeedbackManager.error_init_release(workspace=self.current_ws["name"]))
+                raise CLIGitReleaseException(
+                    FeedbackManager.error_init_release(workspace=self.current_ws["name"], cli="tb")
+                )
             self.cli_git_release = CLIGitRelease()
             if not use_main:
                 self.cli_git_release.validate_local_for_release(self.current_release, check_outdated=check_outdated)
@@ -613,7 +615,7 @@ class Deployment:
             # error until we support it https://gitlab.com/tinybird/analytics/-/issues/9655
             for d in diffs:
                 if self.cli_git_release.ChangeType(d.change_type) == self.cli_git_release.ChangeType.RENAMED:
-                    raise CLIGitReleaseException(FeedbackManager.error_unsupported_diff())
+                    raise CLIGitReleaseException(FeedbackManager.error_unsupported_diff(cli="tb"))
             if not diffs:
                 click.echo(FeedbackManager.info_git_release_no_diffs())
             changed = self.cli_git_release.get_changes_from_diffs(diffs, filenames)
@@ -701,10 +703,10 @@ class Deployment:
                     release = await self.cli_git_release.update_release(self.tb_client, self.current_ws, commit)
                     click.echo(FeedbackManager.success_git_release(release_commit=release["commit"]))
                 else:
-                    click.echo(FeedbackManager.warning_no_release())
+                    click.echo(FeedbackManager.warning_no_release(cli="tb"))
             except Exception as e:
                 if self.only_changes:
-                    click.echo(FeedbackManager.warning_no_release())
+                    click.echo(FeedbackManager.warning_no_release(cli="tb"))
                 else:
                     raise e
 
@@ -3383,7 +3385,7 @@ async def new_ds(
 
     if alter_response:
         if git_release and not skip_confirmation:
-            click.echo(FeedbackManager.info_custom_deployment())
+            click.echo(FeedbackManager.info_custom_deployment(cli="tb"))
             click.echo("***************************************")
             click.echo("***************************************")
         click.echo(FeedbackManager.info_datasource_doesnt_match(datasource=ds_name))
@@ -4270,13 +4272,13 @@ async def folder_push(
     existing_resources: List[str] = [x["name"] for x in datasources] + [x["name"] for x in pipes]
     # replace workspace mapping names
     for old_ws, new_ws in workspace_map.items():
-        existing_resources = [re.sub(f"^{old_ws}\.", f"{new_ws}.", x) for x in existing_resources]
+        existing_resources = [re.sub(f"^{old_ws}\\.", f"{new_ws}.", x) for x in existing_resources]
 
     remote_resource_names = [get_remote_resource_name_without_version(x) for x in existing_resources]
 
     # replace workspace mapping names
     for old_ws, new_ws in workspace_map.items():
-        remote_resource_names = [re.sub(f"^{old_ws}\.", f"{new_ws}.", x) for x in remote_resource_names]
+        remote_resource_names = [re.sub(f"^{old_ws}\\.", f"{new_ws}.", x) for x in remote_resource_names]
 
     if not filenames:
         filenames = get_project_filenames(folder)

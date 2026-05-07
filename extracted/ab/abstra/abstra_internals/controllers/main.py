@@ -2713,6 +2713,7 @@ class MainController:
 
         Args:
             id (str): Unique identifier of the tasklet stage to run.
+            task_id (str): ID of an existing task. You can create a task using the create_task method.
             user_jwt (Optional[str]): JWT token for web-editor user identification.
 
         Returns:
@@ -2726,6 +2727,13 @@ class MainController:
         script = self.get_script(id)
         if not script:
             raise Exception(f"Tasklet with id {id} not found")
+
+        try:
+            self.tasks_repository.get_by_id(task_id)
+        except Exception:
+            raise Exception(
+                f"Task with id {task_id} not found. Please create the task first."
+            )
 
         conn = self.repositories.producer.enqueue(
             id, context=ScriptContext(task_id=task_id), user_jwt=user_jwt

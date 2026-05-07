@@ -11,7 +11,9 @@ import sys
 
 sys.modules["SciQLopPlotsBindings"] = SciQLopPlotsBindings
 
-__version__ = '0.23.0'
+from . import tracing  # noqa: E402,F401  -- runtime tracer facade
+
+__version__ = '0.24.0'
 
 def _merge_kwargs(kwargs, **kwargs2):
     for k, v in kwargs2.items():

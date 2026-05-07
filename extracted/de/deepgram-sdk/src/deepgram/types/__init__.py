@@ -37,6 +37,7 @@ if typing.TYPE_CHECKING:
     from .cartesia_speak_provider_model_id import CartesiaSpeakProviderModelId
     from .cartesia_speak_provider_voice import CartesiaSpeakProviderVoice
     from .create_agent_configuration_v1response import CreateAgentConfigurationV1Response
+    from .create_key_v1request import CreateKeyV1Request
     from .create_key_v1request_one import CreateKeyV1RequestOne
     from .create_key_v1response import CreateKeyV1Response
     from .create_project_distribution_credentials_v1response import CreateProjectDistributionCredentialsV1Response
@@ -83,6 +84,7 @@ if typing.TYPE_CHECKING:
     from .google_think_provider_model import GoogleThinkProviderModel
     from .grant_v1response import GrantV1Response
     from .groq import Groq
+    from .groq_think_provider_reasoning_mode import GroqThinkProviderReasoningMode
     from .leave_project_v1response import LeaveProjectV1Response
     from .list_agent_configurations_v1response import ListAgentConfigurationsV1Response
     from .list_agent_variables_v1response import ListAgentVariablesV1Response
@@ -194,6 +196,7 @@ if typing.TYPE_CHECKING:
     from .listen_v2eot_threshold import ListenV2EotThreshold
     from .listen_v2eot_timeout_ms import ListenV2EotTimeoutMs
     from .listen_v2keyterm import ListenV2Keyterm
+    from .listen_v2language_hint import ListenV2LanguageHint
     from .listen_v2mip_opt_out import ListenV2MipOptOut
     from .listen_v2model import ListenV2Model
     from .listen_v2sample_rate import ListenV2SampleRate
@@ -203,6 +206,7 @@ if typing.TYPE_CHECKING:
     from .open_ai_speak_provider_voice import OpenAiSpeakProviderVoice
     from .open_ai_think_provider import OpenAiThinkProvider
     from .open_ai_think_provider_model import OpenAiThinkProviderModel
+    from .open_ai_think_provider_reasoning_mode import OpenAiThinkProviderReasoningMode
     from .project_request_response import ProjectRequestResponse
     from .read_v1request import ReadV1Request
     from .read_v1request_text import ReadV1RequestText
@@ -304,6 +308,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CartesiaSpeakProviderModelId": ".cartesia_speak_provider_model_id",
     "CartesiaSpeakProviderVoice": ".cartesia_speak_provider_voice",
     "CreateAgentConfigurationV1Response": ".create_agent_configuration_v1response",
+    "CreateKeyV1Request": ".create_key_v1request",
     "CreateKeyV1RequestOne": ".create_key_v1request_one",
     "CreateKeyV1Response": ".create_key_v1response",
     "CreateProjectDistributionCredentialsV1Response": ".create_project_distribution_credentials_v1response",
@@ -342,6 +347,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GoogleThinkProviderModel": ".google_think_provider_model",
     "GrantV1Response": ".grant_v1response",
     "Groq": ".groq",
+    "GroqThinkProviderReasoningMode": ".groq_think_provider_reasoning_mode",
     "LeaveProjectV1Response": ".leave_project_v1response",
     "ListAgentConfigurationsV1Response": ".list_agent_configurations_v1response",
     "ListAgentVariablesV1Response": ".list_agent_variables_v1response",
@@ -429,6 +435,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListenV2EotThreshold": ".listen_v2eot_threshold",
     "ListenV2EotTimeoutMs": ".listen_v2eot_timeout_ms",
     "ListenV2Keyterm": ".listen_v2keyterm",
+    "ListenV2LanguageHint": ".listen_v2language_hint",
     "ListenV2MipOptOut": ".listen_v2mip_opt_out",
     "ListenV2Model": ".listen_v2model",
     "ListenV2SampleRate": ".listen_v2sample_rate",
@@ -438,6 +445,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OpenAiSpeakProviderVoice": ".open_ai_speak_provider_voice",
     "OpenAiThinkProvider": ".open_ai_think_provider",
     "OpenAiThinkProviderModel": ".open_ai_think_provider_model",
+    "OpenAiThinkProviderReasoningMode": ".open_ai_think_provider_reasoning_mode",
     "ProjectRequestResponse": ".project_request_response",
     "ReadV1Request": ".read_v1request",
     "ReadV1RequestText": ".read_v1request_text",
@@ -557,6 +565,7 @@ __all__ = [
     "CartesiaSpeakProviderModelId",
     "CartesiaSpeakProviderVoice",
     "CreateAgentConfigurationV1Response",
+    "CreateKeyV1Request",
     "CreateKeyV1RequestOne",
     "CreateKeyV1Response",
     "CreateProjectDistributionCredentialsV1Response",
@@ -595,6 +604,7 @@ __all__ = [
     "GoogleThinkProviderModel",
     "GrantV1Response",
     "Groq",
+    "GroqThinkProviderReasoningMode",
     "LeaveProjectV1Response",
     "ListAgentConfigurationsV1Response",
     "ListAgentVariablesV1Response",
@@ -682,6 +692,7 @@ __all__ = [
     "ListenV2EotThreshold",
     "ListenV2EotTimeoutMs",
     "ListenV2Keyterm",
+    "ListenV2LanguageHint",
     "ListenV2MipOptOut",
     "ListenV2Model",
     "ListenV2SampleRate",
@@ -691,6 +702,7 @@ __all__ = [
     "OpenAiSpeakProviderVoice",
     "OpenAiThinkProvider",
     "OpenAiThinkProviderModel",
+    "OpenAiThinkProviderReasoningMode",
     "ProjectRequestResponse",
     "ReadV1Request",
     "ReadV1RequestText",

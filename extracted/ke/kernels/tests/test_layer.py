@@ -4,7 +4,7 @@ from contextlib import nullcontext
 import pytest
 import torch
 import torch.nn as nn
-from huggingface_hub.errors import RepositoryNotFoundError
+from huggingface_hub.errors import HfHubHTTPError
 from torch.nn import functional as F
 
 from kernels import (
@@ -30,21 +30,16 @@ from kernels.utils import (
 
 @pytest.fixture
 def local_kernel_path():
-    package_name, path = install_kernel("kernels-community/activation", "main")
-    # Path is the build variant path (build/torch-<...>), so the grandparent
-    # is the kernel repository path.
-    return package_name, path
+    # install_kernel only works with resolved revisions.
+    return install_kernel("kernels-test/silu-and-mul", revision="v1")
 
 
 kernel_layer_mapping = {
     "SiluAndMul": {
         Device(type="cuda"): LayerRepository(
-            repo_id="kernels-community/activation",
+            repo_id="kernels-test/silu-and-mul",
             layer_name="SiluAndMul",
-        ),
-        "npu": LayerRepository(
-            repo_id="kernels-ext-npu/SwiGlu",
-            layer_name="SwiGlu",
+            version=1,
         ),
     },
     "SiluAndMulNoCompile": {
@@ -59,8 +54,9 @@ kernel_layer_mapping = {
     },
     "SiluAndMulStringDevice": {
         "cuda": LayerRepository(
-            repo_id="kernels-community/activation",
+            repo_id="kernels-test/silu-and-mul",
             layer_name="SiluAndMul",
+            version=1,
         )
     },
     "LigerRMSNorm": {
@@ -218,22 +214,14 @@ def test_hub_func(cls):
 def test_hub_forward_neuron():
     torch.manual_seed(0)
 
-    mapping = {
-        "ReLU": {
-            "neuron": LayerRepository(
-                repo_id="kernels-test/relu-nki", version=1, layer_name="ReLU"
-            )
-        }
-    }
+    mapping = {"ReLU": {"neuron": LayerRepository(repo_id="kernels-test/relu-nki", version=1, layer_name="ReLU")}}
 
     relu = ReLU()
     X = torch.randn((16, 16), device="neuron")
     Y = relu(X)
 
     with use_kernel_mapping(mapping):
-        relu_with_kernel = kernelize(
-            ReLUWithKernel(), device="neuron", mode=Mode.INFERENCE
-        )
+        relu_with_kernel = kernelize(ReLUWithKernel(), device="neuron", mode=Mode.INFERENCE)
     Y_kernel = relu_with_kernel(X)
 
     torch.testing.assert_close(Y_kernel, Y)
@@ -271,9 +259,7 @@ def test_hub_forward_rocm():
     X = torch.randn((32, 64))
     Y = silu_and_mul(X)
 
-    silu_and_mul_with_kernel = kernelize(
-        SiluAndMulNoCompileKernel(), device="rocm", mode=Mode.INFERENCE
-    )
+    silu_and_mul_with_kernel = kernelize(SiluAndMulNoCompileKernel(), device="rocm", mode=Mode.INFERENCE)
     Y_kernel = silu_and_mul_with_kernel(X)
 
     torch.testing.assert_close(Y_kernel, Y)
@@ -294,34 +280,13 @@ def test_hub_forward_xpu():
     X = torch.randn(4, 16, hidden_size, device="xpu", dtype=torch.float32)
     Y = rms_norm(X)
 
-    rms_norm_with_kernel = kernelize(
-        RMSNormWithKernel(weight), mode=Mode.INFERENCE, device="xpu"
-    )
+    rms_norm_with_kernel = kernelize(RMSNormWithKernel(weight), mode=Mode.INFERENCE, device="xpu")
     Y_kernel = rms_norm_with_kernel(X)
 
     torch.testing.assert_close(Y_kernel, Y)
 
     assert rms_norm.n_calls == 1
     assert rms_norm_with_kernel.n_calls == 0
-
-
-@pytest.mark.npu_only
-def test_hub_forward_npu():
-    torch.manual_seed(0)
-
-    silu_and_mul = SiluAndMul()
-    X = torch.randn((32, 64), device="npu")
-    Y = silu_and_mul(X)
-
-    silu_and_mul_with_kernel = kernelize(
-        SiluAndMulWithKernel(), device="npu", mode=Mode.INFERENCE
-    )
-    Y_kernel = silu_and_mul_with_kernel(X)
-
-    torch.testing.assert_close(Y_kernel, Y)
-
-    assert silu_and_mul.n_calls == 1
-    assert silu_and_mul_with_kernel.n_calls == 0
 
 
 def test_rocm_kernel_mapping(device):
@@ -334,7 +299,7 @@ def test_rocm_kernel_mapping(device):
     kernel_layer_mapping = {
         "SiluAndMul": {
             "rocm": LayerRepository(
-                repo_id="kernels-community/activation",
+                repo_id="kernels-test/silu-and-mul",
                 layer_name="SiluAndMul",
             )
         }
@@ -351,9 +316,7 @@ def test_rocm_kernel_mapping(device):
         # Verify the repository is correctly stored
         rocm_repos = mapping["SiluAndMul"]["rocm"]
         assert rocm_repos is not None
-        assert (
-            rocm_repos.repos[Mode.FALLBACK]._repo_id == "kernels-community/activation"
-        )
+        assert rocm_repos.repos[Mode.FALLBACK]._repo_id == "kernels-test/silu-and-mul"
         assert rocm_repos.repos[Mode.FALLBACK].layer_name == "SiluAndMul"
 
 
@@ -365,9 +328,7 @@ def test_capability():
             "Linear": {
                 Device(
                     type="cuda",
-                    properties=CUDAProperties(
-                        min_capability=75, max_capability=sys.maxsize
-                    ),
+                    properties=CUDAProperties(min_capability=75, max_capability=sys.maxsize),
                 ): LayerRepository(
                     repo_id="kernels-test/backward-marker-test",
                     layer_name="LinearBackward",
@@ -387,9 +348,7 @@ def test_capability():
             "Linear": {
                 Device(
                     type="cuda",
-                    properties=CUDAProperties(
-                        min_capability=sys.maxsize, max_capability=sys.maxsize
-                    ),
+                    properties=CUDAProperties(min_capability=sys.maxsize, max_capability=sys.maxsize),
                 ): LayerRepository(
                     repo_id="kernels-test/backward-marker-test",
                     layer_name="LinearBackward",
@@ -418,7 +377,7 @@ def test_layer_fallback_works():
 
 def test_local_layer_repo(device):
     # Fetch a kernel to the local cache.
-    package_name, path = install_kernel("kernels-test/backward-marker-test", "main")
+    path = install_kernel("kernels-test/backward-marker-test", revision="main")
 
     linear = TorchLinearWithCounter(32, 32).to(device)
 
@@ -428,7 +387,6 @@ def test_local_layer_repo(device):
                 device: LocalLayerRepository(
                     # install_kernel will give the fully-resolved path.
                     repo_path=path.parent.parent,
-                    package_name=package_name,
                     layer_name="LinearBackward",
                 )
             }
@@ -455,9 +413,7 @@ def test_torch_compile_layer_without_fallback(cls, device):
     silu_and_mul_with_kernel.eval()
 
     ctx = (
-        pytest.raises(ValueError, match="does not support mode")
-        if cls is SiluAndMulNoCompileKernel
-        else nullcontext()
+        pytest.raises(ValueError, match="does not support mode") if cls is SiluAndMulNoCompileKernel else nullcontext()
     )
     with ctx:
         silu_and_mul_with_kernel = kernelize(
@@ -511,7 +467,7 @@ def test_mapping_contexts():
     extra_mapping1 = {
         "TestKernel": {
             Device(type="cuda"): LayerRepository(
-                repo_id="kernels-community/activation",
+                repo_id="kernels-test/silu-and-mul",
                 layer_name="SiluAndMul",
                 revision="layers",
             )
@@ -546,9 +502,7 @@ def test_mapping_contexts():
                 "TestKernel",
             }
             assert (
-                _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"]
-                .repos[Mode.FALLBACK]
-                ._repo_id
+                _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"].repos[Mode.FALLBACK]._repo_id
                 == "kernels-community/non-existing"
             )
 
@@ -559,19 +513,14 @@ def test_mapping_contexts():
             "LigerRMSNorm",
             "TestKernel",
         }
-        assert (
-            _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"].repos[Mode.FALLBACK]._repo_id
-            == "kernels-community/activation"
-        )
+        assert _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"].repos[Mode.FALLBACK]._repo_id == "kernels-test/silu-and-mul"
 
         with use_kernel_mapping(extra_mapping2, inherit_mapping=False):
             assert set(_KERNEL_MAPPING.get().keys()) == {
                 "SiluAndMul",
             }
             assert (
-                _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"]
-                .repos[Mode.FALLBACK]
-                ._repo_id
+                _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"].repos[Mode.FALLBACK]._repo_id
                 == "kernels-community/non-existing"
             )
 
@@ -582,10 +531,7 @@ def test_mapping_contexts():
             "LigerRMSNorm",
             "TestKernel",
         }
-        assert (
-            _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"].repos[Mode.FALLBACK]._repo_id
-            == "kernels-community/activation"
-        )
+        assert _KERNEL_MAPPING.get()["SiluAndMul"]["cuda"].repos[Mode.FALLBACK]._repo_id == "kernels-test/silu-and-mul"
 
     assert set(_KERNEL_MAPPING.get().keys()) == {
         "SiluAndMul",
@@ -602,9 +548,7 @@ def test_validate_kernel_layer():
             self.foo = 42
 
     def stub_repo(layer):
-        return LayerRepository(
-            repo_id="kernels-test/nonexisting", layer_name=layer.__name__
-        )
+        return LayerRepository(repo_id="kernels-test/nonexisting", layer_name=layer.__name__)
 
     with pytest.raises(
         TypeError,
@@ -756,8 +700,7 @@ def test_kernel_modes():
         {
             "Linear": {
                 "cuda": {
-                    Mode.TRAINING
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.TRAINING | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     )
@@ -838,9 +781,7 @@ def test_invalid_mode_rejected():
     with pytest.raises(ValueError, match="cannot be combined with other modes"):
         _ = Mode.FALLBACK | Mode.TORCH_COMPILE
 
-    with pytest.raises(
-        ValueError, match="can only be used to register kernel mappings"
-    ):
+    with pytest.raises(ValueError, match="can only be used to register kernel mappings"):
         kernelize(torch.nn.Linear(32, 32), mode=Mode.FALLBACK)
 
     with pytest.raises(ValueError, match="mode must contain"):
@@ -885,8 +826,7 @@ def test_kernel_modes_inference():
         {
             "Linear": {
                 "cuda": {
-                    Mode.INFERENCE
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.INFERENCE | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     )
@@ -918,8 +858,7 @@ def test_kernel_modes_inference():
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
-                    Mode.INFERENCE
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.INFERENCE | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
@@ -998,13 +937,11 @@ def test_kernel_modes_mixed():
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
-                    Mode.INFERENCE
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.INFERENCE | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
-                    Mode.TRAINING
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.TRAINING | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
@@ -1068,8 +1005,7 @@ def test_kernel_modes_cross_fallback():
         {
             "Linear": {
                 "cuda": {
-                    Mode.TRAINING
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.TRAINING | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     )
@@ -1107,8 +1043,7 @@ def test_kernel_modes_cross_fallback():
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
-                    Mode.INFERENCE
-                    | Mode.TORCH_COMPILE: LayerRepository(
+                    Mode.INFERENCE | Mode.TORCH_COMPILE: LayerRepository(
                         repo_id="kernels-test/backward-marker-test",
                         layer_name="LinearBackward",
                     ),
@@ -1128,103 +1063,11 @@ def test_kernel_modes_cross_fallback():
         assert linear.n_calls == 2
 
 
-def test_layer_versions_old(device):
-    @use_kernel_forward_from_hub("Version")
-    class Version(nn.Module):
-        def forward(self) -> str:
-            return "0.0.0"
-
-    version = Version()
-
-    with use_kernel_mapping(
-        {
-            "Version": {
-                Device(type=device): LayerRepository(
-                    repo_id="kernels-test/versions",
-                    layer_name="Version",
-                )
-            }
-        }
-    ):
-        version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "0.2.0"
-
-    with use_kernel_mapping(
-        {
-            "Version": {
-                Device(type=device): LayerRepository(
-                    repo_id="kernels-test/versions",
-                    layer_name="Version",
-                    version="<1.0.0",
-                )
-            }
-        }
-    ):
-        version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "0.2.0"
-
-    with use_kernel_mapping(
-        {
-            "Version": {
-                Device(type=device): LayerRepository(
-                    repo_id="kernels-test/versions",
-                    layer_name="Version",
-                    version="<0.2.0",
-                )
-            }
-        }
-    ):
-        version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "0.1.1"
-
-    with use_kernel_mapping(
-        {
-            "Version": {
-                Device(type=device): LayerRepository(
-                    repo_id="kernels-test/versions",
-                    layer_name="Version",
-                    version=">0.1.0,<0.2.0",
-                )
-            }
-        }
-    ):
-        version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "0.1.1"
-
-    with use_kernel_mapping(
-        {
-            "Version": {
-                Device(type=device): LayerRepository(
-                    repo_id="kernels-test/versions",
-                    layer_name="Version",
-                    version=">0.2.0",
-                )
-            }
-        }
-    ):
-        with pytest.raises(ValueError, match=r"No version.*satisfies requirement"):
-            kernelize(version, device=device, mode=Mode.INFERENCE)
-
-    with pytest.raises(ValueError, match=r"Either a revision or a version.*not both"):
-        use_kernel_mapping(
-            {
-                "Version": {
-                    Device(type=device): LayerRepository(
-                        repo_id="kernels-test/versions",
-                        layer_name="Version",
-                        revision="v0.1.0",
-                        version="<1.0.0",
-                    )
-                }
-            }
-        )
-
-
 def test_layer_versions(device):
     @use_kernel_forward_from_hub("Version")
     class Version(nn.Module):
-        def forward(self) -> str:
-            return "0.0.0"
+        def forward(self) -> int:
+            return 0
 
     version = Version()
 
@@ -1239,7 +1082,7 @@ def test_layer_versions(device):
         }
     ):
         version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "0.2.0"
+        assert version() == 2
 
     with use_kernel_mapping(
         {
@@ -1253,7 +1096,7 @@ def test_layer_versions(device):
         }
     ):
         version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "1"
+        assert version() == 1
 
     with use_kernel_mapping(
         {
@@ -1267,7 +1110,7 @@ def test_layer_versions(device):
         }
     ):
         version = kernelize(version, device=device, mode=Mode.INFERENCE)
-        assert version() == "2"
+        assert version() == 2
 
     with use_kernel_mapping(
         {
@@ -1280,9 +1123,7 @@ def test_layer_versions(device):
             }
         }
     ):
-        with pytest.raises(
-            ValueError, match=r"Version 0 not found, available versions: 1, 2.*"
-        ):
+        with pytest.raises(ValueError, match=r"Version 0 not found, available versions: 1, 2.*"):
             kernelize(version, device=device, mode=Mode.INFERENCE)
 
     with pytest.raises(ValueError, match=r"Either a revision or a version.*not both"):
@@ -1305,12 +1146,10 @@ def test_local_overrides_layer(monkeypatch, local_kernel_path):
     # The primary validation is in the get_kernel tests. Here we just want
     # to ensure that the lookups also happen in layers.
 
-    package_name, kernel_path = local_kernel_path
-
     mapping = {
         "SiluAndMul": {
             Device(type="cuda"): LayerRepository(
-                repo_id="kernels-test/activation",
+                repo_id="kernels-test/silu-and-mul",
                 layer_name="SiluAndMul",
             ),
         },
@@ -1319,12 +1158,12 @@ def test_local_overrides_layer(monkeypatch, local_kernel_path):
     model = SiluAndMulWithKernel()
 
     with use_kernel_mapping(mapping, inherit_mapping=False):
-        with pytest.raises(RepositoryNotFoundError):
+        with pytest.raises(HfHubHTTPError):
             kernelize(model, device="cuda", mode=Mode.INFERENCE)
 
     with monkeypatch.context() as m:
         m.setenv(
             "LOCAL_KERNELS",
-            f"kernels-test/{package_name}={str(kernel_path)}:kernels-test/non-existing2=/non/existing",
+            f"kernels-test/silu-and-mul={str(local_kernel_path)}:kernels-test/non-existing2=/non/existing",
         )
         kernelize(model, device="cuda", mode=Mode.INFERENCE)

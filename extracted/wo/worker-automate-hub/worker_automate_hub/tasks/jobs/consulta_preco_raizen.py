@@ -487,21 +487,41 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
 
             for item_cfg in fuel_itens:
                 uuid_cfg = str(item_cfg.get("uuid", "") or "").strip()
-                descricao_raizen = normalizar_texto(item_cfg.get("descricaoRaizen"))
+                descricao_raw = item_cfg.get("descricaoRaizen")
 
-                if not uuid_cfg or not descricao_raizen:
+                if not uuid_cfg or not descricao_raw:
                     continue
 
-                preco_site = mapa_precos_site.get(descricao_raizen)
+                descricoes = [
+                    normalizar_texto(d)
+                    for d in str(descricao_raw).split(",")
+                    if d.strip()
+                ]
 
-                if preco_site is not None and float(preco_site) > 0:
-                    mapa_uuid_para_preco[uuid_cfg] = float(preco_site)
+                preco_encontrado = None
 
-                    log_data(
-                        f"Preço mapeado | "
-                        f"descricaoRaizen={descricao_raizen} | "
-                        f"uuid={uuid_cfg} | "
-                        f"preco={preco_site}"
+                for nome_site, preco_site in mapa_precos_site.items():
+                    nome_site_norm = normalizar_texto(nome_site)
+
+                    for desc in descricoes:
+                        # MATCH FLEXÍVEL
+                        if desc in nome_site_norm or nome_site_norm in desc:
+                            if float(preco_site) > 0:
+                                preco_encontrado = float(preco_site)
+
+                                log_data(
+                                    f"Match FLEX | site='{nome_site_norm}' | desc='{desc}' | uuid={uuid_cfg} | preco={preco_encontrado}"
+                                )
+                                break
+
+                    if preco_encontrado:
+                        break
+
+                if preco_encontrado is not None:
+                    mapa_uuid_para_preco[uuid_cfg] = preco_encontrado
+                else:
+                    log_warn(
+                        f"Nenhum match encontrado | uuid={uuid_cfg} | descricoes={descricoes}"
                     )
 
             log_data(f"mapa_uuid_para_preco: {mapa_uuid_para_preco}")
@@ -628,4 +648,3 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
                 await browser.close()
         except Exception:
             pass
-

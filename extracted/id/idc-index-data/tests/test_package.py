@@ -4,19 +4,14 @@ import importlib.metadata
 from pathlib import Path
 
 import pandas as pd
-from packaging.version import Version
 
 import idc_index_data as m
 
-EXPECTED_IDC_INDEX_VERSION = 23
+EXPECTED_IDC_INDEX_VERSION = 24
 
 
 def test_version():
     assert importlib.metadata.version("idc_index_data") == m.__version__
-
-
-def test_idc_index_version():
-    assert Version(m.__version__).major == EXPECTED_IDC_INDEX_VERSION
 
 
 def test_filepath():

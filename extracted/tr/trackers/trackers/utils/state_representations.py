@@ -11,7 +11,12 @@ from enum import Enum
 
 import numpy as np
 
-from trackers.utils.converters import xcycsr_to_xyxy, xyxy_to_xcycsr
+from trackers.utils.converters import (
+    xcycsr_to_xyxy,
+    xywh_to_xyxy,
+    xyxy_to_xcycsr,
+    xyxy_to_xywh,
+)
 from trackers.utils.kalman_filter import KalmanFilter
 
 
@@ -28,10 +33,17 @@ class StateRepresentation(Enum):
             `x1`, `y1` (top-left corner), `x2`, `y2` (bottom-right corner),
             and velocities `vx1`, `vy1`, `vx2`, `vy2` for each coordinate.
             More direct representation, potentially better for non-rigid objects.
+        XCYCWH: Center-based representation with 8 state variables:
+            `x_center`, `y_center` (box center), `w` (width), `h` (height),
+            and velocities `vx`, `vy`, `vw`, `vh`. Unlike XCYCSR, both width
+            and height carry independent velocity terms. Commonly used with
+            BoT-SORT-style tracking, where callers may refresh scale-aware
+            process and measurement noise separately based on the current w/h.
     """
 
     XCYCSR = "xcycsr"
     XYXY = "xyxy"
+    XCYCWH = "xcycwh"
 
 
 class BaseStateEstimator(ABC):
@@ -42,6 +54,15 @@ class BaseStateEstimator(ABC):
     Subclasses configure the filter dimensions, matrices, noise, and
     handle conversions between `[x1, y1, x2, y2]` bboxes and the
     internal state/measurement vectors.
+
+    Note:
+        Noise matrices (R, Q, P) are not configured in `_create_filter`
+        and default to identity matrices. Callers must configure them via
+        `set_kf_covariances` after construction for accurate tracking.
+        Tracklet classes (`SORTTracklet`, `ByteTrackTracklet`,
+        `OCSORTTracklet`) do this automatically via `_configure_noise()`.
+        If you instantiate a state estimator directly, call
+        `set_kf_covariances` before the first `predict`/`update`.
 
     Attributes:
         kf: The underlying Kalman filter instance.
@@ -126,6 +147,35 @@ class BaseStateEstimator(ABC):
         """
         self.kf.set_state(state)
 
+    def set_kf_covariances(
+        self,
+        R: np.ndarray | None = None,
+        Q: np.ndarray | None = None,
+        P: np.ndarray | None = None,
+    ) -> None:
+        """Set Kalman filter parameters.
+
+        Args:
+            R: Measurement noise covariance matrix.
+            Q: Process noise covariance matrix.
+            P: Error covariance matrix.
+        """
+        if R is not None:
+            expected_shape = (self.kf.dim_z, self.kf.dim_z)
+            if R.shape != expected_shape:
+                raise ValueError(f"R must have shape {expected_shape}; got {R.shape}.")
+            self.kf.R = R
+        if Q is not None:
+            expected_shape = (self.kf.dim_x, self.kf.dim_x)
+            if Q.shape != expected_shape:
+                raise ValueError(f"Q must have shape {expected_shape}; got {Q.shape}.")
+            self.kf.Q = Q
+        if P is not None:
+            expected_shape = (self.kf.dim_x, self.kf.dim_x)
+            if P.shape != expected_shape:
+                raise ValueError(f"P must have shape {expected_shape}; got {P.shape}.")
+            self.kf.P = P
+
 
 class XCYCSRStateEstimator(BaseStateEstimator):
     """Center-based Kalman filter with 7 state dimensions and 4 measurements.
@@ -157,13 +207,6 @@ class XCYCSRStateEstimator(BaseStateEstimator):
         # Measurement function: observe (x, y, s, r) from state
         kf.H = np.eye(4, 7, dtype=np.float64)
 
-        # Noise tuning (from OC-SORT paper)
-        kf.R[2:, 2:] *= 10.0
-        kf.P[4:, 4:] *= 1000.0  # high uncertainty for velocities
-        kf.P *= 10.0
-        kf.Q[-1, -1] *= 0.01
-        kf.Q[4:, 4:] *= 0.01
-
         # Initialise state with first observation
         kf.x[:4] = xyxy_to_xcycsr(bbox).reshape((4, 1))
 
@@ -179,6 +222,47 @@ class XCYCSRStateEstimator(BaseStateEstimator):
         # If predicted scale would go negative, zero out scale velocity
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] = 0.0
+
+
+class XCYCWHStateEstimator(BaseStateEstimator):
+    """Center-width-height Kalman filter with 8 state dims and 4 measurements.
+
+    State vector contains `x_center`, `y_center` (box center), `w` (width),
+    `h` (height), and velocities `vx`, `vy`, `vw`, `vh`.  Unlike
+    `XCYCSRStateEstimator`, both width and height have independent velocity
+    terms and can change freely.
+
+    This estimator only provides the coordinate-transform and filter-layout
+    logic (F, H, conversions).  Noise tuning (Q, R, P) and any dynamic
+    noise refresh are the responsibility of the tracklet that owns the
+    estimator — exactly like `XYXYStateEstimator` and `XCYCSRStateEstimator`.
+    """
+
+    def _create_filter(self, bbox: np.ndarray) -> KalmanFilter:
+        kf = KalmanFilter(dim_x=8, dim_z=4)
+
+        # Constant-velocity state transition
+        kf.F = np.eye(8, dtype=np.float64)
+        for i in range(4):
+            kf.F[i, i + 4] = 1.0
+
+        # Measurement: observe [xc, yc, w, h]
+        kf.H = np.eye(4, 8, dtype=np.float64)
+
+        # Initialise position from first bbox
+        measurement = xyxy_to_xywh(bbox)
+        kf.x[:4] = measurement.reshape((4, 1))
+
+        return kf
+
+    def bbox_to_measurement(self, bbox: np.ndarray) -> np.ndarray:
+        return xyxy_to_xywh(bbox)
+
+    def state_to_bbox(self) -> np.ndarray:
+        return xywh_to_xyxy(self.kf.x[:4].reshape((4,)))
+
+    def clamp_velocity(self) -> None:
+        pass
 
 
 class XYXYStateEstimator(BaseStateEstimator):
@@ -211,12 +295,6 @@ class XYXYStateEstimator(BaseStateEstimator):
         # Measurement function: observe (x1, y1, x2, y2) from state
         kf.H = np.eye(4, 8, dtype=np.float64)
 
-        # Noise tuning (similar scaling to XCYCSR version)
-        kf.R *= 1.0  # measurement noise
-        kf.P[4:, 4:] *= 1000.0  # high uncertainty for velocities
-        kf.P *= 10.0
-        kf.Q[4:, 4:] *= 0.01
-
         # Initialise state with first observation (direct XYXY)
         kf.x[:4] = bbox.reshape((4, 1))
 
@@ -240,6 +318,7 @@ class XYXYStateEstimator(BaseStateEstimator):
 _REPR_MAP: dict[StateRepresentation, type[BaseStateEstimator]] = {
     StateRepresentation.XCYCSR: XCYCSRStateEstimator,
     StateRepresentation.XYXY: XYXYStateEstimator,
+    StateRepresentation.XCYCWH: XCYCWHStateEstimator,
 }
 
 

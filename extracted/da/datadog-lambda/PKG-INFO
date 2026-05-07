@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: datadog_lambda
-Version: 8.124.0
+Version: 8.125.0
 Summary: The Datadog AWS Lambda Library
 Home-page: https://github.com/DataDog/datadog-lambda-python
 License: Apache-2.0

@@ -63,6 +63,7 @@ use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
+use crate::types::types::CallableResidualKind;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
 
@@ -177,6 +178,16 @@ impl ConstructedInstance {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    fn type_contains_overload_callable_residual(&self, ty: &Type) -> bool {
+        ty.any(|inner| {
+            matches!(
+                inner,
+                Type::CallableResidual(residual)
+                    if matches!(&residual.kind, CallableResidualKind::Overload { .. })
+            )
+        })
+    }
+
     fn error_call_target(
         &self,
         errors: &ErrorCollector,
@@ -243,7 +254,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 )))
             }
             Type::BoundMethod(bm) => {
-                let BoundMethod { obj, func } = *bm;
+                let bound_method = *bm;
+                if self.type_contains_overload_callable_residual(&bound_method.obj) {
+                    let mut is_subset = |got: &Type, want: &Type| self.is_subset_eq(got, want);
+                    if let Some(bound) = self.bind_boundmethod(&bound_method, &mut is_subset) {
+                        return self.as_call_target_impl(bound, quantified);
+                    }
+                }
+                let BoundMethod { obj, func } = bound_method;
                 match self.as_call_target_impl(func.as_type(), quantified) {
                     CallTargetLookup::Ok(box CallTarget::Function(func)) => {
                         CallTargetLookup::Ok(Box::new(CallTarget::BoundMethod(obj, func)))
@@ -695,10 +713,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
     ) {
         for e in specialization_errors {
+            let kind = e.error_kind();
             self.error(
                 errors,
                 range,
-                ErrorInfo::new(ErrorKind::BadSpecialization, context),
+                ErrorInfo::new(kind, context),
                 e.to_error_msg(self),
             );
         }
@@ -831,7 +850,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if class_metadata.is_enum() {
                 let specialization_errors = self
                     .solver()
-                    .finish_quantified(vs, self.solver().infer_with_first_use)
+                    .finish_quantified_with_type_order(
+                        vs,
+                        self.solver().infer_with_first_use,
+                        self.type_order(),
+                    )
                     .err();
                 return ConstructedInstance {
                     ty: ret,
@@ -844,7 +867,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Got something other than an instance of the class under construction.
                 let specialization_errors = self
                     .solver()
-                    .finish_quantified(vs, self.solver().infer_with_first_use)
+                    .finish_quantified_with_type_order(
+                        vs,
+                        self.solver().infer_with_first_use,
+                        self.type_order(),
+                    )
                     .err();
                 return ConstructedInstance {
                     ty: ret,
@@ -907,7 +934,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .finish_class_targs(cls.targs_mut(), self.uniques);
                     let specialization_errors = self
                         .solver()
-                        .finish_quantified(vs, self.solver().infer_with_first_use)
+                        .finish_quantified_with_type_order(
+                            vs,
+                            self.solver().infer_with_first_use,
+                            self.type_order(),
+                        )
                         .err();
                     return ConstructedInstance {
                         ty: ret.subst(&cls.targs().substitution_map()),
@@ -972,7 +1003,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .finish_class_targs(cls.targs_mut(), self.uniques);
         let specialization_errors = self
             .solver()
-            .finish_quantified(vs, self.solver().infer_with_first_use)
+            .finish_quantified_with_type_order(
+                vs,
+                self.solver().infer_with_first_use,
+                self.type_order(),
+            )
             .err();
         let result = if let Some(mut ret) = dunder_new_ret {
             ret.subst_mut(&cls.targs().substitution_map());
@@ -1139,7 +1174,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .finish_class_targs(typed_dict.targs_mut(), self.uniques);
         let specialization_errors = self
             .solver()
-            .finish_quantified(vs, self.solver().infer_with_first_use)
+            .finish_quantified_with_type_order(
+                vs,
+                self.solver().infer_with_first_use,
+                self.type_order(),
+            )
             .err();
         ConstructedInstance {
             ty: Type::TypedDict(TypedDict::TypedDict(typed_dict)),

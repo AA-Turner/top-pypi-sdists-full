@@ -38,6 +38,7 @@ from .paginator import (
     GetFindingsTrendsV2Paginator,
     GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetRecommendedPolicyV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
@@ -137,6 +138,7 @@ from .type_defs import (
     EnableSecurityHubRequestTypeDef,
     EnableSecurityHubV2RequestTypeDef,
     EnableSecurityHubV2ResponseTypeDef,
+    GenerateRecommendedPolicyV2RequestTypeDef,
     GetAdministratorAccountResponseTypeDef,
     GetAggregatorV2RequestTypeDef,
     GetAggregatorV2ResponseTypeDef,
@@ -170,6 +172,8 @@ from .type_defs import (
     GetMasterAccountResponseTypeDef,
     GetMembersRequestTypeDef,
     GetMembersResponseTypeDef,
+    GetRecommendedPolicyV2RequestTypeDef,
+    GetRecommendedPolicyV2ResponseTypeDef,
     GetResourcesStatisticsV2RequestTypeDef,
     GetResourcesStatisticsV2ResponseTypeDef,
     GetResourcesTrendsV2RequestTypeDef,
@@ -837,6 +841,16 @@ class SecurityHubClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#enable_security_hub_v2)
         """
 
+    def generate_recommended_policy_v2(
+        self, **kwargs: Unpack[GenerateRecommendedPolicyV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Begins the recommended policy generation to remediate a Security Hub finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/generate_recommended_policy_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#generate_recommended_policy_v2)
+        """
+
     def get_administrator_account(self) -> GetAdministratorAccountResponseTypeDef:
         """
         Provides the details for the Security Hub CSPM administrator account for the
@@ -1011,6 +1025,16 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_members.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_members)
+        """
+
+    def get_recommended_policy_v2(
+        self, **kwargs: Unpack[GetRecommendedPolicyV2RequestTypeDef]
+    ) -> GetRecommendedPolicyV2ResponseTypeDef:
+        """
+        Retrieves the recommended policy to remediate a Security Hub finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_recommended_policy_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_recommended_policy_v2)
         """
 
     def get_resources_statistics_v2(
@@ -1493,6 +1517,17 @@ class SecurityHubClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_insights"]
     ) -> GetInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_recommended_policy_v2"]
+    ) -> GetRecommendedPolicyV2Paginator:
         """
         Create a paginator for an operation.
 

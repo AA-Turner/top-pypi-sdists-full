@@ -33,8 +33,10 @@ class OperationId(str, enum.Enum):
     CUSTOM_POST_BATCH = "custom_post_batch"
     CUSTOM_QUERY = "custom_query"
     EDR_CREATE_IOCS = "edr_create_iocs"
+    EDR_CREATE_THREAT_NOTE = "edr_create_threat_note"
     EDR_DELETE_IOCS = "edr_delete_iocs"
     EDR_GET_ENDPOINT = "edr_get_endpoint"
+    EDR_GET_THREAT_NOTES = "edr_get_threat_notes"
     EDR_NETWORK_QUARANTINE = "edr_network_quarantine"
     EDR_QUERY_ALERTS = "edr_query_alerts"
     EDR_QUERY_APPLICATIONS = "edr_query_applications"
@@ -46,6 +48,12 @@ class OperationId(str, enum.Enum):
     EMAILSECURITY_GET_THREAT_DETAILS = "emailsecurity_get_threat_details"
     EMAILSECURITY_QUERY_EMAIL_EVENTS = "emailsecurity_query_email_events"
     EMAILSECURITY_QUERY_THREATS = "emailsecurity_query_threats"
+    ENDPOINTMANAGEMENT_GET_DEVICE = "endpointmanagement_get_device"
+    ENDPOINTMANAGEMENT_QUERY_COMPLIANCE_FINDINGS = (
+        "endpointmanagement_query_compliance_findings"
+    )
+    ENDPOINTMANAGEMENT_QUERY_DEVICES = "endpointmanagement_query_devices"
+    ENDPOINTMANAGEMENT_REMEDIATE_DEVICE = "endpointmanagement_remediate_device"
     IDENTITY_DISABLE_USER = "identity_disable_user"
     IDENTITY_ENABLE_USER = "identity_enable_user"
     IDENTITY_EXPIRE_ALL_USER_SESSIONS = "identity_expire_all_user_sessions"
@@ -149,8 +157,10 @@ class OperationId(str, enum.Enum):
         custom_post_batch: typing.Callable[[], T_Result],
         custom_query: typing.Callable[[], T_Result],
         edr_create_iocs: typing.Callable[[], T_Result],
+        edr_create_threat_note: typing.Callable[[], T_Result],
         edr_delete_iocs: typing.Callable[[], T_Result],
         edr_get_endpoint: typing.Callable[[], T_Result],
+        edr_get_threat_notes: typing.Callable[[], T_Result],
         edr_network_quarantine: typing.Callable[[], T_Result],
         edr_query_alerts: typing.Callable[[], T_Result],
         edr_query_applications: typing.Callable[[], T_Result],
@@ -162,6 +172,10 @@ class OperationId(str, enum.Enum):
         emailsecurity_get_threat_details: typing.Callable[[], T_Result],
         emailsecurity_query_email_events: typing.Callable[[], T_Result],
         emailsecurity_query_threats: typing.Callable[[], T_Result],
+        endpointmanagement_get_device: typing.Callable[[], T_Result],
+        endpointmanagement_query_compliance_findings: typing.Callable[[], T_Result],
+        endpointmanagement_query_devices: typing.Callable[[], T_Result],
+        endpointmanagement_remediate_device: typing.Callable[[], T_Result],
         identity_disable_user: typing.Callable[[], T_Result],
         identity_enable_user: typing.Callable[[], T_Result],
         identity_expire_all_user_sessions: typing.Callable[[], T_Result],
@@ -276,10 +290,14 @@ class OperationId(str, enum.Enum):
             return custom_query()
         if self is OperationId.EDR_CREATE_IOCS:
             return edr_create_iocs()
+        if self is OperationId.EDR_CREATE_THREAT_NOTE:
+            return edr_create_threat_note()
         if self is OperationId.EDR_DELETE_IOCS:
             return edr_delete_iocs()
         if self is OperationId.EDR_GET_ENDPOINT:
             return edr_get_endpoint()
+        if self is OperationId.EDR_GET_THREAT_NOTES:
+            return edr_get_threat_notes()
         if self is OperationId.EDR_NETWORK_QUARANTINE:
             return edr_network_quarantine()
         if self is OperationId.EDR_QUERY_ALERTS:
@@ -302,6 +320,14 @@ class OperationId(str, enum.Enum):
             return emailsecurity_query_email_events()
         if self is OperationId.EMAILSECURITY_QUERY_THREATS:
             return emailsecurity_query_threats()
+        if self is OperationId.ENDPOINTMANAGEMENT_GET_DEVICE:
+            return endpointmanagement_get_device()
+        if self is OperationId.ENDPOINTMANAGEMENT_QUERY_COMPLIANCE_FINDINGS:
+            return endpointmanagement_query_compliance_findings()
+        if self is OperationId.ENDPOINTMANAGEMENT_QUERY_DEVICES:
+            return endpointmanagement_query_devices()
+        if self is OperationId.ENDPOINTMANAGEMENT_REMEDIATE_DEVICE:
+            return endpointmanagement_remediate_device()
         if self is OperationId.IDENTITY_DISABLE_USER:
             return identity_disable_user()
         if self is OperationId.IDENTITY_ENABLE_USER:

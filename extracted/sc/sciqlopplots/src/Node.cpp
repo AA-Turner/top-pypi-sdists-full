@@ -93,6 +93,19 @@ PlotsModelNode* PlotsModelNode::insert_child(
     return node;
 }
 
+void PlotsModelNode::reinsert_child_at(PlotsModelNode* node, int row)
+{
+    if (!node)
+        return;
+    Q_ASSERT_X(node->parent() == this, "reinsert_child_at",
+        "node must already be a QObject child of this — cross-parent moves "
+        "would leave QObject parentage stale");
+    if (row < 0 || row > m_children.size())
+        m_children.append(node);
+    else
+        m_children.insert(row, node);
+}
+
 bool PlotsModelNode::remove_child(int row)
 {
     if (row < 0 || row >= m_children.size())

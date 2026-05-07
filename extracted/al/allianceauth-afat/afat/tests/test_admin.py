@@ -3,6 +3,8 @@ Test cases for the admin.py module.
 """
 
 # Standard Library
+import importlib
+import sys
 from unittest.mock import MagicMock, patch
 
 # Django
@@ -19,7 +21,15 @@ from afat.admin import (
     SettingAdmin,
 )
 from afat.forms import DoctrineAdminForm, SettingAdminForm
-from afat.models import Doctrine, FatLink, FatsInTimeFilter, FleetType, Log, Setting
+from afat.models import (
+    Doctrine,
+    Fat,
+    FatLink,
+    FatsInTimeFilter,
+    FleetType,
+    Log,
+    Setting,
+)
 from afat.tests import BaseTestCase
 
 
@@ -162,6 +172,70 @@ class TestAFatLinkTypeAdmin(BaseTestCase):
         admin_instance = AFatLinkTypeAdmin(FleetType, admin.site)
 
         self.assertFalse(admin_instance._is_enabled(fleet_type))
+
+    def test_no_success_message_when_all_activations_fail(self):
+        """
+        Test that activate does not send a success message when all activations fail.
+
+        :return:
+        :rtype:
+        """
+
+        queryset = MagicMock()
+        queryset.count.return_value = 2
+        mock_obj_1 = MagicMock(is_enabled=False)
+        mock_obj_1.save.side_effect = Exception()
+        mock_obj_2 = MagicMock(is_enabled=False)
+        mock_obj_2.save.side_effect = Exception()
+        queryset.__iter__.return_value = [mock_obj_1, mock_obj_2]
+
+        admin_instance = AFatLinkTypeAdmin(model=FleetType, admin_site=admin.site)
+        request = MagicMock()
+
+        with (
+            patch("afat.admin.messages.success") as mock_success,
+            patch("afat.admin.messages.error") as mock_error,
+        ):
+            admin_instance.activate(request=request, queryset=queryset)
+
+            # Error should be called for the failed saves
+            mock_error.assert_called()
+            error_message = mock_error.call_args_list[-1][0][1]
+            self.assertIn("Failed to activate 2", error_message)
+
+            # Success must not be called because there were no successful activations
+            mock_success.assert_not_called()
+
+    def test_no_success_message_when_all_deactivations_fail(self):
+        """
+        Test that deactivate does not send a success message when all deactivations fail.
+
+        :return:
+        :rtype:
+        """
+
+        queryset = MagicMock()
+        queryset.count.return_value = 2
+        mock_obj_1 = MagicMock(is_enabled=True)
+        mock_obj_1.save.side_effect = Exception()
+        mock_obj_2 = MagicMock(is_enabled=True)
+        mock_obj_2.save.side_effect = Exception()
+        queryset.__iter__.return_value = [mock_obj_1, mock_obj_2]
+
+        admin_instance = AFatLinkTypeAdmin(model=FleetType, admin_site=admin.site)
+        request = MagicMock()
+
+        with (
+            patch("afat.admin.messages.success") as mock_success,
+            patch("afat.admin.messages.error") as mock_error,
+        ):
+            admin_instance.deactivate(request=request, queryset=queryset)
+
+            mock_error.assert_called()
+            error_message = mock_error.call_args_list[-1][0][1]
+            self.assertIn("Failed to deactivate 2", error_message)
+
+            mock_success.assert_not_called()
 
 
 class TestAFatLogAdmin(BaseTestCase):
@@ -383,6 +457,115 @@ class TestFatsInTimeFilterAdmin(BaseTestCase):
         result = admin_instance.get_ship_classes(obj)
 
         self.assertEqual(result, "")
+
+    def test_fatsintimefilter_registered_when_securegroups_installed_true(self):
+        """
+        Test that FatsInTimeFilter is registered with the admin site when
+        securegroups_installed() returns True at import time.
+
+        :return:
+        :rtype:
+        """
+
+        # Ensure a clean state: unregister any models that afat.admin registers
+        for model in (
+            FatLink,
+            Fat,
+            FleetType,
+            Log,
+            Setting,
+            Doctrine,
+            FatsInTimeFilter,
+        ):
+            try:
+                admin.site.unregister(model)
+            except Exception:
+                pass
+
+        admin_module = sys.modules.get("afat.admin")
+
+        with patch("afat.app_settings.securegroups_installed", return_value=True):
+            # Import or reload under the patched setting so registration runs
+            if admin_module is None:
+                importlib.import_module("afat.admin")
+            else:
+                importlib.reload(admin_module)
+
+        self.assertIn(FatsInTimeFilter, admin.site._registry)
+
+        # Cleanup: reload original module to restore state
+        admin_orig = sys.modules.get("afat.admin")
+        if admin_orig is not None:
+            # Unregister models to avoid AlreadyRegistered on reload
+            for model in (
+                FatLink,
+                Fat,
+                FleetType,
+                Log,
+                Setting,
+                Doctrine,
+                FatsInTimeFilter,
+            ):
+                try:
+                    admin.site.unregister(model)
+                except Exception:
+                    pass
+
+            importlib.reload(admin_orig)
+
+    def test_fatsintimefilter_not_registered_when_securegroups_installed_false(self):
+        """
+        Test that FatsInTimeFilter is NOT registered with the admin site when
+        securegroups_installed() returns False at import time.
+
+        :return:
+        :rtype:
+        """
+
+        # Ensure a clean state: unregister any models that afat.admin registers
+        for model in (
+            FatLink,
+            Fat,
+            FleetType,
+            Log,
+            Setting,
+            Doctrine,
+            FatsInTimeFilter,
+        ):
+            try:
+                admin.site.unregister(model)
+            except Exception:
+                pass
+
+        admin_module = sys.modules.get("afat.admin")
+
+        with patch("afat.app_settings.securegroups_installed", return_value=False):
+            if admin_module is None:
+                importlib.import_module("afat.admin")
+            else:
+                importlib.reload(admin_module)
+
+        self.assertNotIn(FatsInTimeFilter, admin.site._registry)
+
+        # Cleanup: reload original module to restore state
+        admin_orig = sys.modules.get("afat.admin")
+        if admin_orig is not None:
+            # Unregister models to avoid AlreadyRegistered on reload
+            for model in (
+                FatLink,
+                Fat,
+                FleetType,
+                Log,
+                Setting,
+                Doctrine,
+                FatsInTimeFilter,
+            ):
+                try:
+                    admin.site.unregister(model)
+                except Exception:
+                    pass
+
+            importlib.reload(admin_orig)
 
 
 class TestAFatLinkAdmin(BaseTestCase):

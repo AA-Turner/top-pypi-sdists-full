@@ -204,13 +204,11 @@ class ShellExecuteTool:
     def execute(self, command: str) -> ToolResult:
         """Execute shell command."""
         try:
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-            )
+            # Route through run_shell so Windows users get bash semantics
+            # (Git Bash / WSL) instead of cmd.exe.
+            from sage.core.commands import run_shell
+
+            result = run_shell(command, timeout=self.timeout)
             return ToolResult(
                 success=result.returncode == 0,
                 output=result.stdout,

@@ -556,10 +556,10 @@ async def datasource_share(ctx: Context, datasource_name: str, workspace_name_or
     current_workspace = next((workspace for workspace in workspaces if workspace["id"] == config["id"]), None)
 
     if not destination_workspace:
-        raise CLIDatasourceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id))
+        raise CLIDatasourceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli="tb"))
 
     if not current_workspace:
-        raise CLIDatasourceException(FeedbackManager.error_not_authenticated())
+        raise CLIDatasourceException(FeedbackManager.error_not_authenticated(cli="tb"))
 
     if not user_token:
         user_token = ask_for_user_token("share a Data Source", ui_host)
@@ -626,10 +626,10 @@ async def datasource_unshare(ctx: Context, datasource_name: str, workspace_name_
     current_workspace = next((workspace for workspace in workspaces if workspace["id"] == config["id"]), None)
 
     if not destination_workspace:
-        raise CLIDatasourceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id))
+        raise CLIDatasourceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli="tb"))
 
     if not current_workspace:
-        raise CLIDatasourceException(FeedbackManager.error_not_authenticated())
+        raise CLIDatasourceException(FeedbackManager.error_not_authenticated(cli="tb"))
 
     if not user_token:
         user_token = ask_for_user_token("unshare a Data Source", ui_host)

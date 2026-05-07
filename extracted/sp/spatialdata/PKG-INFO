@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spatialdata
-Version: 0.7.2
+Version: 0.7.3
 Summary: Spatial data format.
 Project-URL: Documentation, https://spatialdata.scverse.org/en/latest
 Project-URL: Source, https://github.com/scverse/spatialdata.git
@@ -42,7 +42,7 @@ Requires-Dist: anndata>=0.9.1
 Requires-Dist: annsel>=0.1.2
 Requires-Dist: click
 Requires-Dist: dask-image
-Requires-Dist: dask<2026.1.2,>=2025.2.0
+Requires-Dist: dask<2026.1.2,>=2025.12.0
 Requires-Dist: datashader
 Requires-Dist: distributed<2026.1.2
 Requires-Dist: fsspec[http,s3]
@@ -51,7 +51,7 @@ Requires-Dist: multiscale-spatial-image==2.0.3
 Requires-Dist: networkx
 Requires-Dist: numba>=0.55.0
 Requires-Dist: numpy
-Requires-Dist: ome-zarr>=0.12.2
+Requires-Dist: ome-zarr>=0.14.0
 Requires-Dist: pandas
 Requires-Dist: pooch
 Requires-Dist: pyarrow
@@ -66,32 +66,10 @@ Requires-Dist: universal-pathlib>=0.2.6
 Requires-Dist: xarray-spatial>=0.3.5
 Requires-Dist: xarray>=2024.10.0
 Requires-Dist: zarr>=3.0.0
-Provides-Extra: benchmark
-Requires-Dist: asv; extra == 'benchmark'
-Requires-Dist: memray; extra == 'benchmark'
-Provides-Extra: dev
-Requires-Dist: bump2version; extra == 'dev'
-Requires-Dist: sentry-prevent-cli; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: ipython>=8.6.0; extra == 'docs'
-Requires-Dist: myst-nb; extra == 'docs'
-Requires-Dist: sphinx-autobuild; extra == 'docs'
-Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
-Requires-Dist: sphinx-book-theme>=1.0.0; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-design; extra == 'docs'
-Requires-Dist: sphinx-pytest; extra == 'docs'
-Requires-Dist: sphinx>=4.5; extra == 'docs'
-Requires-Dist: sphinxcontrib-bibtex>=1.0.0; extra == 'docs'
 Provides-Extra: extra
 Requires-Dist: napari-spatialdata[all]; extra == 'extra'
 Requires-Dist: spatialdata-io; extra == 'extra'
 Requires-Dist: spatialdata-plot; extra == 'extra'
-Provides-Extra: test
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-mock; extra == 'test'
-Requires-Dist: torch; extra == 'test'
 Provides-Extra: torch
 Requires-Dist: torch; extra == 'torch'
 Description-Content-Type: text/markdown

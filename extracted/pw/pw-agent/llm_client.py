@@ -159,13 +159,19 @@ class LLMClient:
                 return self.model
 
             # No brain-recorded choice yet. Fall back to whatever's resident.
+            # If nothing is currently resident (Ollama idle-unloaded after the
+            # 5-min default), keep the cached/configured value — Ollama will
+            # auto-load it on the next /api/chat call. Previously we cleared
+            # self.model here and chat_stream refused to send, forcing the
+            # user to bounce to the dashboard. The "read-only invariant" was
+            # over-protection: any /api/chat request with a model name
+            # implicitly triggers a load anyway, so guarding self.model
+            # achieved nothing while creating constant friction.
             if not chat_models:
                 if self.model:
-                    old = self.model
-                    self.model = ""
                     try:
                         import sys as _sys
-                        _sys.stderr.write(f"[pw-agent] no chat model resident and brain has no last-known model — cleared cached {old}\n")
+                        _sys.stderr.write(f"[pw-agent] no chat model resident — Ollama will load {self.model} on first request\n")
                         _sys.stderr.flush()
                     except Exception:
                         pass
@@ -202,14 +208,18 @@ class LLMClient:
                 t.join(timeout=0.1)
             if self._last_realign_ts == 0.0:
                 self._realign_model()
-            # READ-ONLY invariant: if Ollama has nothing resident, refuse
-            # to chat rather than implicitly trigger a model load.
-            # pw-agent must never change what's loaded in Ollama — that's
-            # the dashboard's sole responsibility.
+            # If we still have no model name after realign, the user hasn't
+            # configured one and the brain has never seen one loaded — that's
+            # the only case worth refusing. (Previously this also fired when
+            # Ollama was idle-empty, forcing a dashboard trip on every fresh
+            # session — the read-only invariant was over-protection because
+            # /api/chat implicitly loads the requested model anyway. Ollama
+            # auto-loads self.model on receipt; first request takes ~10s but
+            # subsequent ones are warm.)
             if not self.model:
-                yield ("[Error: No chat model is loaded in Ollama. "
-                       "Start a model from the GPU Setup dashboard first. "
-                       "pw-agent is read-only and won't pick one for you.]")
+                yield ("[Error: No chat model configured. "
+                       "Set one in your pw-agent config or start one from "
+                       "the GPU Setup dashboard so the brain records it.]")
                 return
             yield from self._stream_direct(messages, temperature, context_length, thinking=thinking)
         else:

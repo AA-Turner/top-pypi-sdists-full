@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-homeassistant-custom-component
-Version: 0.13.328
+Version: 0.13.329
 Summary: Experimental package to automatically extract test plugins for Home Assistant custom components
 Home-page: https://github.com/MatthewFlamm/pytest-homeassistant-custom-component
 Author: Matthew Flamm
@@ -40,7 +40,7 @@ Requires-Dist: requests-mock==1.12.1
 Requires-Dist: respx==0.23.1
 Requires-Dist: syrupy==5.1.0
 Requires-Dist: tqdm==4.67.1
-Requires-Dist: homeassistant==2026.5.0b2
+Requires-Dist: homeassistant==2026.5.0
 Requires-Dist: aiohasupervisor==0.4.3
 Requires-Dist: SQLAlchemy==2.0.49
 Requires-Dist: paho-mqtt==2.1.0
@@ -59,7 +59,7 @@ Dynamic: summary
 
 # pytest-homeassistant-custom-component
 
-![HA core version](https://img.shields.io/static/v1?label=HA+core+version&message=2026.5.0b2&labelColor=blue)
+![HA core version](https://img.shields.io/static/v1?label=HA+core+version&message=2026.5.0&labelColor=blue)
 
 Package to automatically extract testing plugins from Home Assistant for custom component testing.
 The goal is to provide the same functionality as the tests in home-assistant/core.

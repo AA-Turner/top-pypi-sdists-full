@@ -33,7 +33,7 @@ dependencies = [
   "starlette >=0.47.0",
   "typing_extensions >=4.13.0",
   "wrapt >=1.17.0,<3.0",
-  "reflex-base == 0.9.1",
+  "reflex-base == 0.9.2",
   "reflex-components-code >= 0.9.0",
   "reflex-components-core >= 0.9.0",
   "reflex-components-dataeditor >= 0.9.0",
@@ -248,6 +248,7 @@ lint.flake8-bugbear.extend-immutable-calls = [
 "tests/units/reflex_cli/**/*.py" = ["DOC201", "PT006", "RUF052"]
 "*/.templates/apps/blank/code/*" = ["INP001"]
 "*/blank.py" = ["I001"]
+"docs/package/scripts/*.py" = ["INP001"]
 
 [tool.pytest.ini_options]
 filterwarnings = "ignore:fields may not start with an underscore:RuntimeWarning"
@@ -342,4 +343,4 @@ reflex-integrations-docs.workspace = true
 reflex.workspace = true
 
 [tool.uv.workspace]
-members = ["packages/*", "docs/app"]
+members = ["packages/*", "docs/app", "docs/package"]

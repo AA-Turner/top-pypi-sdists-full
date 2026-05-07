@@ -59,6 +59,7 @@ async function handleEvent(eventName, params = {}) {
         if (key === '_targetElement' || key === '_optimisticUpdateId' || key === '_skipLoading' || key === '_djTargetSelector') {
             continue;
         }
+        // eslint-disable-next-line security/detect-object-injection
         serverParams[key] = params[key];
     }
     // Preserve the resolved activity name so the server can route / defer
@@ -70,6 +71,7 @@ async function handleEvent(eventName, params = {}) {
 
     // DEP-002: Apply optimistic UI rule if one exists for this event
     const optimisticRules = window.djust._optimisticRules || {};
+    // eslint-disable-next-line security/detect-object-injection
     const optimisticRule = optimisticRules[eventName];
     if (optimisticRule && triggerElement) {
         try {
@@ -161,7 +163,12 @@ async function handleEvent(eventName, params = {}) {
     }
 
     // Try WebSocket first
-    if (liveViewWS && liveViewWS.sendEvent(eventName, paramsToSend, triggerElement)) {
+    // #1315: sendEvent now returns a Promise that resolves when the server
+    // responds (patch, noop, or error with matching ref). Await it so callers
+    // can run post-response logic (e.g. _setFormPending(false) in finally).
+    const wsPromise = liveViewWS && liveViewWS.sendEvent(eventName, paramsToSend, triggerElement);
+    if (wsPromise) {
+        await wsPromise;
         return;
     }
 

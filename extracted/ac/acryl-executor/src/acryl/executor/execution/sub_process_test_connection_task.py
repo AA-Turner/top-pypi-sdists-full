@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import os
 import subprocess
@@ -20,7 +21,8 @@ import sys
 from collections import deque
 from pathlib import Path
 
-from datahub.masking.bootstrap import initialize_secret_masking, shutdown_secret_masking
+import yaml
+from datahub.masking.bootstrap import shutdown_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -75,21 +77,13 @@ class SubProcessTestConnectionTask(Task):
         # 0. Validate arguments
         validated_args = SubProcessTestConnectionTaskArgs.model_validate(args)
 
-        # 1. Resolve the recipe (combine it with others)
-        recipe: dict
-        secret_names: list[str]
-        secrets_to_cleanup: set[str]
-        recipe, secret_names, secrets_to_cleanup = SubProcessTaskUtil._resolve_recipe(
+        # 1. Resolve the recipe and secrets (secrets stay in memory)
+        recipe, secret_values = SubProcessTaskUtil._resolve_recipe(
             validated_args.recipe, execution_ctx=ctx, executor_ctx=self.ctx
         )
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
-        # 2. Write recipe file to local FS (requires write permissions to /tmp directory)
-        recipe_file_path = SubProcessTaskUtil._write_recipe_to_file(
-            exec_out_dir, recipe
-        )
-
-        # Prepare or resolve venv in Python (minimal change)
+        # 2. Prepare or resolve venv
         venv_config = VenvConfig(
             version=validated_args.version,
             main_plugin=plugin,
@@ -117,63 +111,52 @@ class SubProcessTestConnectionTask(Task):
         # Prepare environment for subprocess
         subprocess_env = {
             **validated_args.get_combined_env_vars(),
-            **venv_ref.extra_envs(),
             "VENV_PATH": str(venv_ref.venv_loc),
+            "DATAHUB_ENABLE_SECRET_MASKING": "true",
         }
 
-        # Enable secret masking in subprocess
-        subprocess_env["DATAHUB_ENABLE_SECRET_MASKING"] = "true"
-
-        # Pass the list of secret names to subprocess for targeted registration
-        if secret_names:
-            subprocess_env["DATAHUB_SECRET_NAMES"] = ",".join(secret_names)
-
-        # Register secrets in parent process for masking subprocess stdout
-        # The subprocess will register them too for its own logging
-        if secret_names:
-            try:
-                initialize_secret_masking(force=True)
-                registry = SecretRegistry.get_instance()
-                for secret_name in secret_names:
-                    secret_value = os.environ.get(secret_name)
-                    if secret_value:
-                        registry.register_secret(secret_name, secret_value)
-                logger.info(
-                    f"[TEST_CONNECTION] Registered {registry.get_count()} secret(s) in parent process"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"[TEST_CONNECTION] Failed to register secrets in parent: {e}"
-                )
+        # Build stdin envelope in datahub-compatible format.
+        # All envelope keys use dunder prefix to distinguish from recipe content.
+        stdin_envelope = json.dumps(
+            {
+                "__recipe_yaml__": yaml.dump(recipe),
+                "__secrets__": secret_values,
+                "__report_out_file__": report_out_file,
+            }
+        )
 
         ingest_process = subprocess.Popen(
             [
                 command_script,
                 str(venv_ref.venv_loc),
-                recipe_file_path,
-                report_out_file,
             ],
             env=subprocess_env,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
 
+        # Write envelope to stdin and close
+        assert ingest_process.stdin is not None
+        ingest_process.stdin.write(stdin_envelope)
+        ingest_process.stdin.close()
+
         try:
             # Create masking filter for subprocess stdout
+            # Masking was already set up in _resolve_recipe for the executor process
             masking_filter = None
-            if secret_names:
-                try:
-                    registry = SecretRegistry.get_instance()
-                    if registry and registry.get_count() > 0:
-                        masking_filter = SecretMaskingFilter(registry)
-                        logger.info(
-                            f"[TEST_CONNECTION] Created masking filter with {registry.get_count()} secret(s)"
-                        )
-                except Exception as e:
-                    logger.warning(
-                        f"[TEST_CONNECTION] Failed to create masking filter: {e}"
+            try:
+                registry = SecretRegistry.get_instance()
+                if registry and registry.get_count() > 0:
+                    masking_filter = SecretMaskingFilter(registry)
+                    logger.info(
+                        f"[TEST_CONNECTION] Created masking filter with {registry.get_count()} secret(s)"
                     )
+            except Exception as e:
+                logger.warning(
+                    f"[TEST_CONNECTION] Failed to create masking filter: {e}"
+                )
 
             while ingest_process.poll() is None:
                 assert ingest_process.stdout
@@ -197,17 +180,13 @@ class SubProcessTestConnectionTask(Task):
                 with open(report_out_file) as structured_report_fp:
                     report_content = structured_report_fp.read()
 
-                    # Mask secrets in structured report before setting it
-                    # This catches secrets in error messages from subprocess (e.g., Snowflake errors)
+                    # Mask secrets in structured report
                     try:
                         registry = SecretRegistry.get_instance()
                         if registry and registry.get_count() > 0:
-                            # Use DataHub's masking to mask the structured report
                             temp_filter = SecretMaskingFilter(registry)
                             report_content = temp_filter.mask_text(report_content)
                     except Exception:
-                        # If masking fails, continue with unmasked report
-                        # Better to have the report than to fail completely
                         logger.warning(
                             "Failed to mask structured report, using original"
                         )
@@ -218,15 +197,10 @@ class SubProcessTestConnectionTask(Task):
                 SubProcessTaskUtil._format_log_lines(stdout_lines)
             )
 
-            # Cleanup by removing the exec out directory
+            # Cleanup execution directory
             SubProcessTaskUtil._remove_directory(exec_out_dir)
 
-            # Cleanup secrets from environment to prevent pollution
-            # Only remove secrets we added, not ones already in environment
-            for secret_name in secrets_to_cleanup:
-                os.environ.pop(secret_name, None)
-
-            # Shutdown DataHub masking framework to clean up resources
+            # Shutdown DataHub masking framework
             try:
                 shutdown_secret_masking()
             except Exception as e:

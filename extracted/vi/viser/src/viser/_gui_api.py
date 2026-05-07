@@ -8,6 +8,7 @@ import functools
 import threading
 import time
 from asyncio import AbstractEventLoop
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import (
@@ -27,6 +28,7 @@ from typing_extensions import (
     LiteralString,
     TypeAlias,
     TypedDict,
+    assert_never,
     get_type_hints,
 )
 
@@ -35,13 +37,17 @@ from viser._backwards_compat_shims import deprecated_positional_shim
 
 from . import _messages, uplot
 from ._gui_handles import (
+    CommandEvent,
+    CommandHandle,
     GuiButtonGroupHandle,
     GuiButtonHandle,
     GuiCheckboxHandle,
     GuiContainerProtocol,
+    GuiDividerHandle,
     GuiDropdownHandle,
     GuiEvent,
     GuiFolderHandle,
+    GuiFormHandle,
     GuiHtmlHandle,
     GuiImageHandle,
     GuiMarkdownHandle,
@@ -54,6 +60,7 @@ from ._gui_handles import (
     GuiRgbHandle,
     GuiSliderHandle,
     GuiTabGroupHandle,
+    GuiTabHandle,
     GuiTextHandle,
     GuiUploadButtonHandle,
     GuiUplotHandle,
@@ -61,6 +68,7 @@ from ._gui_handles import (
     GuiVector3Handle,
     SupportsRemoveProtocol,
     UploadedFile,
+    _CommandHandleState,
     _GuiButtonHandleState,
     _GuiHandleState,
     _GuiInputHandle,
@@ -212,6 +220,7 @@ class GuiApi:
             "root": _RootGuiContainer({})
         }
         self._modal_handle_from_uuid: dict[str, GuiModalHandle] = {}
+        self._command_handle_from_uuid: dict[str, CommandHandle] = {}
         self._current_file_upload_states: dict[str, _FileUploadState] = {}
 
         # Set to True when plotly.min.js has been sent to client.
@@ -224,19 +233,41 @@ class GuiApi:
             _messages.GuiButtonHoldMessage, self._handle_gui_button_hold
         )
         self._websock_interface.register_handler(
+            _messages.GuiFormSubmitMessage, self._handle_gui_form_submit
+        )
+        self._websock_interface.register_handler(
+            _messages.GuiFormDirtyMessage, self._handle_gui_form_dirty
+        )
+        self._websock_interface.register_handler(
             _messages.FileTransferStartUpload, self._handle_file_transfer_start
         )
         self._websock_interface.register_handler(
             _messages.FileTransferPart,
             self._handle_file_transfer_part,
         )
+        self._websock_interface.register_handler(
+            _messages.CommandTriggerMessage, self._handle_command_trigger
+        )
+
+    def _resolve_client(self, client_id: ClientId) -> ClientHandle | None:
+        """Resolve the ClientHandle for a given client_id. Returns None when
+        the client has disconnected between queuing and dispatch -- callers
+        should early-return."""
+        # Runtime import to break the circular edge with `_viser`.
+        from ._viser import ClientHandle, ViserServer
+
+        if isinstance(self._owner, ClientHandle):
+            return self._owner
+        if isinstance(self._owner, ViserServer):
+            return self._owner._connected_clients.get(client_id, None)
+        assert_never(self._owner)
 
     async def _handle_gui_updates(
         self, client_id: ClientId, message: _messages.GuiUpdateMessage
     ) -> None:
         """Callback for handling GUI messages."""
         handle = self._gui_input_handle_from_uuid.get(message.uuid, None)
-        if handle is None:
+        if handle is None or handle._impl.removed:
             return
         handle_state = handle._impl
 
@@ -277,19 +308,10 @@ class GuiApi:
 
         # GUI element has been updated!
         handle_state.update_timestamp = time.time()
+        client = self._resolve_client(client_id)
+        if client is None:
+            return
         for cb in handle_state.update_cb:
-            from ._viser import ClientHandle, ViserServer
-
-            # Get the handle of the client that triggered this event.
-            if isinstance(self._owner, ClientHandle):
-                client = self._owner
-            elif isinstance(self._owner, ViserServer):
-                client = self._owner._connected_clients.get(client_id, None)
-                if client is None:
-                    return
-            else:
-                assert False
-
             if asyncio.iscoroutinefunction(cb):
                 await cb(GuiEvent(client, client_id, handle))
             else:
@@ -305,7 +327,7 @@ class GuiApi:
     ) -> None:
         """Callback for handling button hold messages."""
         handle = self._gui_input_handle_from_uuid.get(message.uuid, None)
-        if handle is None:
+        if handle is None or handle._impl.removed:
             return
 
         # Ensure this is a button handle with hold callbacks.
@@ -317,17 +339,9 @@ class GuiApi:
         if not callbacks:
             return
 
-        # Get the client handle.
-        from ._viser import ClientHandle, ViserServer
-
-        if isinstance(self._owner, ClientHandle):
-            client = self._owner
-        elif isinstance(self._owner, ViserServer):
-            client = self._owner._connected_clients.get(client_id, None)
-            if client is None:
-                return
-        else:
-            assert False
+        client = self._resolve_client(client_id)
+        if client is None:
+            return
 
         # Call all callbacks for this frequency.
         for cb in callbacks:
@@ -337,6 +351,42 @@ class GuiApi:
                 self._thread_executor.submit(
                     cb, GuiEvent(client, client_id, handle)
                 ).add_done_callback(print_threadpool_errors)
+
+    async def _handle_gui_form_submit(
+        self, client_id: ClientId, message: _messages.GuiFormSubmitMessage
+    ) -> None:
+        """Callback for client-initiated form submits (Cmd/Ctrl+Enter).
+
+        Fires the form's on_submit callbacks and broadcasts the message back
+        to all clients so they reset their dirty indicators.
+        """
+        handle = self._container_handle_from_uuid.get(message.uuid, None)
+        if not isinstance(handle, GuiFormHandle):
+            return
+
+        client = self._resolve_client(client_id)
+        if client is None:
+            return
+
+        for cb in handle._submit_cb:
+            if asyncio.iscoroutinefunction(cb):
+                await cb(GuiEvent(client, client_id, handle))
+            else:
+                self._thread_executor.submit(
+                    cb, GuiEvent(client, client_id, handle)
+                ).add_done_callback(print_threadpool_errors)
+
+        # Broadcast to clients so they clear their dirty indicators.
+        self._websock_interface.queue_message(
+            _messages.GuiFormSubmitMessage(uuid=message.uuid)
+        )
+
+    async def _handle_gui_form_dirty(
+        self, client_id: ClientId, message: _messages.GuiFormDirtyMessage
+    ) -> None:
+        """Broadcast form dirty signal to all other clients."""
+        message.excluded_self_client = client_id
+        self._websock_interface.queue_message(message)
 
     def _handle_file_transfer_start(
         self, client_id: ClientId, message: _messages.FileTransferStartUpload
@@ -387,7 +437,7 @@ class GuiApi:
         handle = self._gui_input_handle_from_uuid.get(
             message.source_component_uuid, None
         )
-        if handle is None:
+        if handle is None or handle._impl.removed:
             return
 
         handle_state = handle._impl
@@ -402,24 +452,38 @@ class GuiApi:
         handle_state.update_timestamp = time.time()
 
         # Trigger callbacks.
+        client = self._resolve_client(client_id)
+        if client is None:
+            return
         for cb in handle_state.update_cb:
-            from ._viser import ClientHandle, ViserServer
-
-            # Get the handle of the client that triggered this event.
-            if isinstance(self._owner, ClientHandle):
-                client = self._owner
-            elif isinstance(self._owner, ViserServer):
-                client = self._owner._connected_clients.get(client_id, None)
-                if client is None:
-                    return
-            else:
-                assert False
-
             if asyncio.iscoroutinefunction(cb):
                 self._event_loop.create_task(cb(GuiEvent(client, client_id, handle)))
             else:
                 self._thread_executor.submit(
                     cb, GuiEvent(client, client_id, handle)
+                ).add_done_callback(print_threadpool_errors)
+
+    async def _handle_command_trigger(
+        self, client_id: ClientId, message: _messages.CommandTriggerMessage
+    ) -> None:
+        """Callback for handling command trigger messages from the command palette."""
+        handle = self._command_handle_from_uuid.get(message.uuid, None)
+        if handle is None or handle._impl.removed:
+            return
+        handle_state = handle._impl
+        if handle_state.props.disabled:
+            return
+
+        client = self._resolve_client(client_id)
+        if client is None:
+            return
+
+        for cb in handle_state.trigger_cb:
+            if asyncio.iscoroutinefunction(cb):
+                await cb(CommandEvent(client, client_id, handle))
+            else:
+                self._thread_executor.submit(
+                    cb, CommandEvent(client, client_id, handle)
                 ).add_done_callback(print_threadpool_errors)
 
     def _get_container_uuid(self) -> str:
@@ -433,10 +497,12 @@ class GuiApi:
     def reset(self) -> None:
         """Reset the GUI."""
         root_container = self._container_handle_from_uuid["root"]
-        while len(root_container._children) > 0:
+        while root_container._children:
             next(iter(root_container._children.values())).remove()
-        while len(self._modal_handle_from_uuid) > 0:
+        while self._modal_handle_from_uuid:
             next(iter(self._modal_handle_from_uuid.values())).close()
+        while self._command_handle_from_uuid:
+            next(iter(self._command_handle_from_uuid.values())).remove()
 
     def set_panel_label(self, label: str | None) -> None:
         """Set the main label that appears in the GUI panel.
@@ -521,10 +587,84 @@ class GuiApi:
             ),
         )
 
+    def add_command(
+        self,
+        label: str,
+        *,
+        description: str | None = None,
+        hotkey: _messages.HotkeyKey | None = None,
+        modifier: _messages.KeyModifier | None = None,
+        icon: IconName | None = None,
+        disabled: bool = False,
+    ) -> CommandHandle:
+        """Register a command for the command palette.
+
+        Scope follows the owner of this :class:`GuiApi`, matching the
+        rest of the GUI API: ``server.gui.add_command(...)`` registers
+        the command for every connected client (and any that connect
+        later), while ``client.gui.add_command(...)`` registers it only
+        for that client.
+
+        (Experimental) The command palette API may change in future
+        releases.
+
+        Args:
+            label: Label displayed in the command palette.
+            description: Optional description displayed below the label.
+            hotkey: Optional hotkey key, e.g. ``"K"`` or ``"R"``. ``None``
+                disables the hotkey.
+            modifier: Modifier-combo to require with the hotkey, as a
+                canonically ordered ``"+"``-separated string like
+                ``"cmd/ctrl"``, ``"shift"``, or ``"cmd/ctrl+shift"``.
+                ``None`` matches "no modifiers held". ``cmd/ctrl``
+                matches whenever either Cmd or Ctrl is held. Must be
+                ``None`` when ``hotkey`` is ``None``; passing a
+                modifier without a hotkey raises ``ValueError``.
+            icon: Optional icon to display next to the command label.
+            disabled: If True, the command is visible but not triggerable.
+
+        Returns:
+            A handle that can be used to attach callbacks via
+            :meth:`CommandHandle.on_trigger`, update properties, or remove the
+            command.
+        """
+        if hotkey is None and modifier is not None:
+            raise ValueError(
+                "add_command(modifier=...) requires hotkey= to also be set."
+            )
+        # Validate + canonicalize the modifier string. Raises on bad input.
+        normalized_modifier = _messages._normalize_key_modifier(modifier)
+        command_uuid = _make_uuid()
+        props = _messages.CommandProps(
+            label=label,
+            description=description,
+            hotkey=hotkey,
+            modifier=normalized_modifier,
+            disabled=disabled,
+            _icon_html=None if icon is None else svg_from_icon(icon),
+        )
+        # Register in the local map before publishing, so an immediate
+        # trigger from the client can be resolved here.
+        handle_state = _CommandHandleState(
+            uuid=command_uuid,
+            gui_api=self,
+            props=props,
+            icon=icon,
+        )
+        handle = CommandHandle(handle_state)
+        self._command_handle_from_uuid[command_uuid] = handle
+        self._websock_interface.queue_message(
+            _messages.RegisterCommandMessage(
+                uuid=command_uuid,
+                props=props,
+            )
+        )
+        return handle
+
     @deprecated_positional_shim
     def add_folder(
         self,
-        label: str,
+        label: str | None,
         *,
         order: float | None = None,
         expand_by_default: bool = True,
@@ -533,10 +673,12 @@ class GuiApi:
         """Add a folder, and return a handle that can be used to populate it.
 
         Args:
-            label: Label to display on the folder.
+            label: Label to display on the folder. If ``None``, the folder is
+                rendered without a header or border, which is useful for pure
+                layout grouping.
             order: Optional ordering, smallest values will be displayed first.
             expand_by_default: Open the folder by default. Set to False to collapse it by
-                default.
+                default. Ignored when ``label`` is ``None``.
             visible: Whether the component is visible.
 
         Returns:
@@ -560,6 +702,78 @@ class GuiApi:
         return GuiFolderHandle(
             _GuiHandleState(
                 folder_container_id,
+                self,
+                None,
+                props=props,
+                parent_container_id=self._get_container_uuid(),
+            )
+        )
+
+    @deprecated_positional_shim
+    def add_form(
+        self,
+        label: str | None,
+        *,
+        order: float | None = None,
+        expand_by_default: bool = True,
+        visible: bool = True,
+    ) -> GuiFormHandle:
+        """Add a form, and return a handle that can be used to populate it.
+
+        See :class:`GuiFormHandle` for usage and semantics.
+
+        Args:
+            label: Label to display on the form. If ``None``, the form is
+                rendered without a header or border.
+            order: Optional ordering, smallest values will be displayed first.
+            expand_by_default: Open the form by default. Set to False to
+                collapse it by default. Ignored when ``label`` is ``None``.
+            visible: Whether the component is visible.
+
+        Returns:
+            A handle that can be used as a context to populate the form.
+        """
+        # Nested forms would produce invalid HTML on the client (nested
+        # <form> elements are not allowed and the browser flattens
+        # them). Walk through folders, tabs, and tab groups -- they
+        # share a DOM context with their ancestors. Stop at modals,
+        # which render into a separate React portal where a fresh
+        # <form> is well-formed.
+        container = self._get_container_uuid()
+        while container != "root":
+            parent = self._container_handle_from_uuid.get(container)
+            if isinstance(parent, GuiFormHandle):
+                raise ValueError(
+                    "Nested forms are not supported: add_form() was called "
+                    "inside an existing form's context."
+                )
+            if isinstance(parent, GuiModalHandle):
+                break
+            if isinstance(parent, GuiTabHandle):
+                container = parent._parent._impl.parent_container_id
+            elif isinstance(parent, (GuiFolderHandle, GuiTabGroupHandle)):
+                container = parent._impl.parent_container_id
+            else:
+                break
+
+        form_container_id = _make_uuid()
+        order = _apply_default_order(order)
+        props = _messages.GuiFolderProps(
+            order=order,
+            label=label,
+            expand_by_default=expand_by_default,
+            visible=visible,
+        )
+        self._websock_interface.queue_message(
+            _messages.GuiFormMessage(
+                uuid=form_container_id,
+                container_uuid=self._get_container_uuid(),
+                props=props,
+            )
+        )
+        return GuiFormHandle(
+            _GuiHandleState(
+                form_container_id,
                 self,
                 None,
                 props=props,
@@ -728,6 +942,43 @@ class GuiApi:
         return handle
 
     @deprecated_positional_shim
+    def add_divider(
+        self,
+        *,
+        order: float | None = None,
+        visible: bool = True,
+    ) -> GuiDividerHandle:
+        """Add a horizontal divider line to the GUI.
+
+        Args:
+            order: Optional ordering, smallest values will be displayed first.
+            visible: Whether the component is visible.
+
+        Returns:
+            A handle that can be used to interact with the GUI element.
+        """
+        message = _messages.GuiDividerMessage(
+            uuid=_make_uuid(),
+            container_uuid=self._get_container_uuid(),
+            props=_messages.GuiDividerProps(
+                order=_apply_default_order(order),
+                visible=visible,
+            ),
+        )
+        self._websock_interface.queue_message(message)
+
+        handle = GuiDividerHandle(
+            _GuiHandleState(
+                message.uuid,
+                self,
+                None,
+                props=message.props,
+                parent_container_id=message.container_uuid,
+            ),
+        )
+        return handle
+
+    @deprecated_positional_shim
     def add_image(
         self,
         image: np.ndarray,
@@ -790,6 +1041,7 @@ class GuiApi:
         self,
         figure: go.Figure,
         *,
+        config: Mapping[str, Any] | None = None,
         aspect: float = 1.0,
         order: float | None = None,
         visible: bool = True,
@@ -803,6 +1055,10 @@ class GuiApi:
 
         Args:
             figure: Plotly figure to display.
+            config: Plotly config dict merged into the figure JSON. Controls
+                display options like ``{"displayModeBar": False}``. Values
+                must be JSON-serializable. See
+                https://plotly.com/javascript/configuration-options/
             aspect: Aspect ratio of the plot in the control panel (width/height).
             order: Optional ordering, smallest values will be displayed first.
             visible: Whether the component is visible.
@@ -862,6 +1118,7 @@ class GuiApi:
                 parent_container_id=message.container_uuid,
             ),
             _figure=figure,
+            _config=config,
         )
 
         # Set the plotly handle properties.
@@ -884,6 +1141,8 @@ class GuiApi:
         cursor: uplot.Cursor | None = None,
         focus: uplot.Focus | None = None,
         aspect: float = 1.0,
+        height: int | None = None,
+        padding: tuple[int, int, int, int] | None = None,
         order: float | None = None,
         visible: bool = True,
     ) -> GuiUplotHandle:
@@ -928,6 +1187,10 @@ class GuiApi:
                 transparency of non-focused series to emphasize the active one.
             aspect: Width-to-height ratio for the chart display in the control panel.
                 1.0 creates a square chart, values > 1.0 create wider charts.
+                Used when height is None.
+            height: Fixed height in pixels. Overrides aspect ratio when set.
+            padding: Chart padding (top, right, bottom, left) in pixels. Defaults
+                to (0, 24, 0, 0) when omitted.
             order: Display ordering relative to other GUI elements (lower values first).
             visible: Whether the chart is visible in the interface.
 
@@ -935,7 +1198,7 @@ class GuiApi:
             A handle for programmatically updating chart properties and data.
         """
 
-        # Validate data structure
+        # Validate data structure.
         assert len(data) >= 2, (
             "data must have at least 2 arrays (x-data + at least one y-data series)"
         )
@@ -943,18 +1206,18 @@ class GuiApi:
             "all data elements must be numpy arrays"
         )
 
-        # Validate data dimensions and shapes
+        # Validate data dimensions and shapes.
         for i, arr in enumerate(data):
             assert arr.ndim == 1, f"data[{i}] must be a 1D array, got shape {arr.shape}"
 
-        # Check that all arrays have the same length
+        # Check that all arrays have the same length.
         lengths = [len(arr) for arr in data]
         if not all(length == lengths[0] for length in lengths):
             raise ValueError(
                 f"All data arrays must have the same length. Got lengths: {lengths}"
             )
 
-        # Validate series configuration
+        # Validate series configuration.
         assert len(series) > 0, "series must not be empty"
         if len(series) != len(data):
             raise ValueError(
@@ -962,7 +1225,7 @@ class GuiApi:
                 f"Each array in data needs a corresponding series configuration."
             )
 
-        # Convert arrays to float64 as expected by GuiUplotProps
+        # Convert arrays to float64 as expected by GuiUplotProps.
         data_float64 = tuple(arr.astype(np.float64) for arr in data)
 
         message = _messages.GuiUplotMessage(
@@ -981,6 +1244,8 @@ class GuiApi:
                 cursor=cursor,
                 focus=focus,
                 aspect=aspect,
+                height=height,
+                padding=padding,
                 visible=visible,
             ),
         )

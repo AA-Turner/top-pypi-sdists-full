@@ -132,7 +132,7 @@ def process_character(
         character=character,
         corporation_eve_id=character.corporation_id,
         alliance_eve_id=character.alliance_id,
-        defaults={"system": solar_system.name, "shiptype": ship.name},
+        defaults={"solar_system": solar_system, "ship": ship},
     )
 
     if created:

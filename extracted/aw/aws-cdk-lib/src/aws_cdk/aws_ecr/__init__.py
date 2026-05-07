@@ -6497,18 +6497,26 @@ class Repository(
 ):
     '''Define an ECR repository.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        container_recipe = imagebuilder.ContainerRecipe(self, "MyContainerRecipe",
-            base_image=imagebuilder.BaseContainerImage.from_docker_hub("amazonlinux", "latest"),
-            target_repository=imagebuilder.Repository.from_ecr(
-                ecr.Repository.from_repository_name(self, "Repository", "my-container-repo"))
+        repository = ecr.Repository(self, "TestRepository",
+            repository_name="test-agent-runtime"
         )
         
-        container_pipeline = imagebuilder.ImagePipeline(self, "MyContainerPipeline",
-            recipe=example_container_recipe
+        runtime = agentcore.Runtime(self, "MyRuntime",
+            runtime_name="my_agent",
+            agent_runtime_artifact=agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+        )
+        
+        # Using default endpoint (simplest)
+        evaluation = agentcore.OnlineEvaluationConfig(self, "RuntimeEval",
+            online_evaluation_config_name="runtime_evaluation",
+            evaluators=[
+                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+            ],
+            data_source=agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime)
         )
     '''
 

@@ -65,12 +65,23 @@ def _get_db():
     if _db is not None:
         return _db
     try:
+        import os
         import firebase_admin
         from firebase_admin import credentials, firestore as fs
+        # Pin the Firebase project explicitly — Cloud Run's GOOGLE_CLOUD_PROJECT
+        # is the *deployment* project (e.g. love-in-da-house), not necessarily
+        # the Firebase project where Firestore data lives. Whichever module
+        # initializes firebase_admin first pins the binding process-wide, so
+        # every init site must pass the same explicit projectId.
+        project_id = (
+            os.environ.get("FIREBASE_PROJECT_ID")
+            or os.environ.get("VITE_FIREBASE_PROJECT_ID")
+            or "sage-ai-d1c22"
+        )
         if not firebase_admin._apps:
-            firebase_admin.initialize_app()
+            firebase_admin.initialize_app(options={"projectId": project_id})
         _db = fs.client()
-        logger.info("Firestore client initialised")
+        logger.info("Firestore client initialised (project=%s)", project_id)
     except Exception as exc:
         logger.warning("Firestore unavailable (%s) — billing checks will use in-memory fallback", exc)
         _db = None

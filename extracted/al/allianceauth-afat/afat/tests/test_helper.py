@@ -4,6 +4,7 @@ Test AFAT helpers
 
 # Standard Library
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 # Django
@@ -19,11 +20,13 @@ from allianceauth.framework.api.user import get_main_character_name_from_user
 from afat.helper.fatlinks import get_esi_fleet_information_by_user
 from afat.helper.time import get_time_delta
 from afat.helper.views import (
+    AFATUI,
     _cached_main_character_name,
     _get_request_cache,
     _perm_flags,
     convert_fatlinks_to_dict,
     convert_fats_to_dict,
+    user_has_any_perms,
 )
 from afat.models import Fat, FatLink, get_hash_on_save
 from afat.tests import BaseTestCase
@@ -310,71 +313,172 @@ class TestHelpers(BaseTestCase):
             },
         )
 
-    def test_helper_convert_fats_to_dict(self):
+    def test_includes_view_action_when_user_has_add_permission_only(self):
         """
-        Test helper convert_fats_to_dict
+        Test that the view button is included when the user has add permission
+        but not manage permission (covers the `if has_manage or has_add` branch).
+        """
+
+        self.client.force_login(user=self.user_with_add_fatlink)
+        request = self.factory.get(path=reverse(viewname="afat:dashboard"))
+        request.user = self.user_with_add_fatlink
+
+        fatlink_hash = get_hash_on_save()
+        fatlink = FatLink.objects.create(
+            created=timezone.now(),
+            fleet="Add Only Fleet",
+            creator=self.user_with_add_fatlink,
+            character=self.character_1001,
+            hash=fatlink_hash,
+        )
+
+        edit_url = reverse(
+            viewname="afat:fatlinks_details_fatlink", args=[fatlink.hash]
+        )
+        delete_url = reverse(
+            viewname="afat:fatlinks_delete_fatlink", args=[fatlink.hash]
+        )
+
+        result = convert_fatlinks_to_dict(request=request, fatlink=fatlink)
+
+        self.assertIn(edit_url, result["actions"])
+        self.assertNotIn(delete_url, result["actions"])
+
+    def test_excludes_view_and_delete_actions_when_user_has_no_permissions(self):
+        """
+        Test that neither view nor delete actions are included when the user has
+        neither add nor manage permissions.
+        """
+
+        anon_user = SimpleNamespace()
+        anon_user.has_perm = lambda perm: False
+        request = self.factory.get(path=reverse(viewname="afat:dashboard"))
+        request.user = anon_user
+
+        fatlink_hash = get_hash_on_save()
+        fatlink = FatLink.objects.create(
+            created=timezone.now(),
+            fleet="NoPerm Fleet",
+            creator=self.user_with_add_fatlink,
+            character=self.character_1001,
+            hash=fatlink_hash,
+        )
+
+        result = convert_fatlinks_to_dict(request=request, fatlink=fatlink)
+
+        # No actions should be present when user lacks both permissions
+        self.assertEqual(result["actions"], "")
+
+
+class TestHelperConvertFatsToDict(BaseTestCase):
+    """
+    Test helper to convert fats to dict
+    """
+
+    def test_returns_expected_fields_and_esi_marker_when_user_has_no_manage_permission(
+        self,
+    ):
+        """
+        Test returns expected fields and esi marker when user has no manage permission
 
         :return:
         :rtype:
         """
 
-        self.client.force_login(user=self.user_with_manage_afat)
-        request = self.factory.get(path=reverse(viewname="afat:dashboard"))
-        request.user = self.user_with_manage_afat
+        user = SimpleNamespace()
+        user.has_perm = lambda perm, obj=None: False
+        request = SimpleNamespace(user=user)
 
-        fatlink_hash = get_hash_on_save()
-        fatlink_created = FatLink.objects.create(
-            created=timezone.now(),
-            fleet="April Fleet 1",
-            creator=self.user_with_manage_afat,
-            character=self.character_1001,
-            hash=fatlink_hash,
+        created_time = timezone.now()
+        fatlink = SimpleNamespace(
+            fleet="FleetName",
+            hash="deadbeef",
             is_esilink=True,
             is_registered_on_esi=True,
-            esi_fleet_id="3726458287",
-            fleet_type="CTA",
-            doctrine="Ships",
+            doctrine="MyDoctrine",
+            created=created_time,
+            fleet_type="MyFleetType",
         )
-        fat = Fat.objects.create(
-            character=self.character_1101, fatlink=fatlink_created, shiptype="Omen"
+
+        solar_system = SimpleNamespace(name="SolSystem")
+        ship = SimpleNamespace(name="Raven")
+        character = SimpleNamespace(character_name="PilotOne")
+
+        fat = SimpleNamespace(
+            solar_system=solar_system,
+            ship=ship,
+            character=character,
+            fatlink=fatlink,
+            id=1,
         )
 
         result = convert_fats_to_dict(request=request, fat=fat)
 
-        esi_marker = '<span class="badge text-bg-success afat-label ms-2">ESI</span>'
-        fleet_time = fat.fatlink.created
-        fleet_time_timestamp = fleet_time.timestamp()
+        self.assertEqual(result["system"], "SolSystem")
+        self.assertEqual(result["ship_type"], "Raven")
+        self.assertEqual(result["character_name"], "PilotOne")
 
-        button_delete_fat = reverse(
-            viewname="afat:fatlinks_delete_fat", args=[fat.fatlink.hash, fat.id]
-        )
-        button_delete_text = "Delete"
-        modal_body_text = (
-            "<p>Are you sure you want to remove "
-            f"{fat.character.character_name} from this FAT link?</p>"
+        # ESI marker present and via_esi set to Yes
+        self.assertEqual(result["via_esi"], "Yes")
+
+        expected_badge = f'<span class="{AFATUI.BADGE_ESI_TRACKING_ACTIVE.value}">{AFATUI.BADGE_ESI_TRACKING_TEXT.value}</span>'
+        self.assertIn(expected_badge, result["fleet_name"])
+
+        # doctrine and fleet_type preserved
+        self.assertEqual(result["doctrine"], "MyDoctrine")
+        self.assertEqual(result["fleet_type"], "MyFleetType")
+
+        # actions empty when user has no manage permission
+        self.assertEqual(result["actions"], "")
+
+    @patch("afat.helper.views.reverse", return_value="/delete-url/")
+    def test_includes_delete_action_when_user_has_manage_permission(self, mock_reverse):
+        """
+        Test includes delete action when user has manage permission
+
+        :param mock_reverse:
+        :type mock_reverse:
+        :return:
+        :rtype:
+        """
+
+        user = SimpleNamespace()
+        user.has_perm = lambda perm, obj=None: True
+        request = SimpleNamespace(user=user)
+
+        created_time = timezone.now()
+        # Set fleet to None to ensure hash fallback is used in fleet_name
+        fatlink = SimpleNamespace(
+            fleet=None,
+            hash="feedface",
+            is_esilink=False,
+            is_registered_on_esi=False,
+            doctrine="AnotherDoctrine",
+            created=created_time,
+            fleet_type="AnotherType",
         )
 
-        self.assertDictEqual(
-            d1=result,
-            d2={
-                "system": fat.system,
-                "ship_type": fat.shiptype,
-                "character_name": fat.character.character_name,
-                "doctrine": "Ships",
-                "fleet_name": fat.fatlink.fleet + esi_marker,
-                "fleet_time": {"time": fleet_time, "timestamp": fleet_time_timestamp},
-                "fleet_type": "CTA",
-                "via_esi": "Yes",
-                "actions": (
-                    '<a class="btn btn-danger btn-sm" data-bs-toggle="modal" '
-                    'data-bs-target="#deleteFatModal" '
-                    f'data-url="{button_delete_fat}" '
-                    f'data-confirm-text="{button_delete_text}" '
-                    f'data-body-text="{modal_body_text}">'
-                    '<i class="fa-solid fa-trash-can fa-fw"></i></a>'
-                ),
-            },
+        solar_system = SimpleNamespace(name="Alpha")
+        ship = SimpleNamespace(name="Megathron")
+        character = SimpleNamespace(character_name="PilotTwo")
+
+        fat = SimpleNamespace(
+            solar_system=solar_system,
+            ship=ship,
+            character=character,
+            fatlink=fatlink,
+            id=42,
         )
+
+        result = convert_fats_to_dict(request=request, fat=fat)
+
+        # via_esi should be No for non-ESI fatlink
+        self.assertEqual(result["via_esi"], "No")
+        # actions should contain the mocked reverse URL
+        self.assertIn("/delete-url/", result["actions"])
+        # confirm fleet_name uses hash fallback when fleet is None
+        expected_fleet_name_prefix = "feedface"
+        self.assertTrue(result["fleet_name"].startswith(expected_fleet_name_prefix))
 
 
 class TestHelperCachedMainCharacterName(BaseTestCase):
@@ -542,3 +646,40 @@ class TestHelperGetRequestCache(BaseTestCase):
         self.assertEqual(result, {})
         self.assertTrue(hasattr(request, "_afat_cache"))
         self.assertEqual(request._afat_cache, {})
+
+
+class TestUserHasAnyPerms(BaseTestCase):
+    """
+    Test user_has_any_perms function
+    """
+
+    def test_returns_true_for_active_superuser(self):
+        """
+        Active superusers should always have permissions.
+        """
+
+        user = SimpleNamespace()
+        user.is_active = True
+        user.is_superuser = True
+        user.has_perm = lambda perm, obj=None: False
+
+        result = user_has_any_perms(user=user, perm_list=["afat.any_perm"])
+
+        self.assertTrue(result)
+
+    def test_returns_based_on_has_perm_for_non_superuser(self):
+        """
+        Non-superusers should be evaluated by their has_perm results.
+        """
+
+        user = SimpleNamespace()
+        user.is_active = True
+        user.is_superuser = False
+
+        def has_perm(perm, obj=None):
+            return perm == "allow.me"
+
+        user.has_perm = has_perm
+
+        self.assertTrue(user_has_any_perms(user=user, perm_list=["allow.me"]))
+        self.assertFalse(user_has_any_perms(user=user, perm_list=["deny.me"]))

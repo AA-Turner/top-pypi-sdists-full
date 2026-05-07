@@ -12450,34 +12450,32 @@ class PolicyStatementProps:
         :param resources: Resource ARNs to add to the statement. Default: - no resources
         :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. Default: - no sid
 
-        :exampleMetadata: lit=aws-ec2/test/integ.vpc-endpoint.lit.ts infused
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            # Add gateway endpoints when creating the VPC
-            vpc = ec2.Vpc(self, "MyVpc",
-                gateway_endpoints={
-                    "S3": cdk.aws_ec2.GatewayVpcEndpointOptions(
-                        service=ec2.GatewayVpcEndpointAwsService.S3
-                    )
-                }
+            execution_role = iam.Role(self, "EvaluationRole",
+                assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+                description="Custom role for online evaluation"
             )
             
-            # Alternatively gateway endpoints can be added on the VPC
-            dynamo_db_endpoint = vpc.add_gateway_endpoint("DynamoDbEndpoint",
-                service=ec2.GatewayVpcEndpointAwsService.DYNAMODB
-            )
+            # Add required permissions
+            execution_role.add_to_policy(iam.PolicyStatement(
+                actions=["logs:DescribeLogGroups", "logs:GetQueryResults", "logs:StartQuery"
+                ],
+                resources=["arn:aws:logs:*:*:log-group:/aws/bedrock-agentcore/*"]
+            ))
             
-            # This allows to customize the endpoint policy
-            dynamo_db_endpoint.add_to_policy(
-                iam.PolicyStatement( # Restrict to listing and describing tables
-                    principals=[iam.AnyPrincipal()],
-                    actions=["dynamodb:DescribeTable", "dynamodb:ListTables"],
-                    resources=["*"]))
-            
-            # Add an interface endpoint
-            vpc.add_interface_endpoint("EcrDockerEndpoint",
-                service=ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER
+            evaluation = agentcore.OnlineEvaluationConfig(self, "CustomRoleEval",
+                online_evaluation_config_name="custom_role_evaluation",
+                evaluators=[
+                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+                ],
+                data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
+                    log_group_names=["/aws/bedrock-agentcore/my-agent"],
+                    service_names=["my-agent.default"]
+                ),
+                execution_role=execution_role
             )
         '''
         if __debug__:

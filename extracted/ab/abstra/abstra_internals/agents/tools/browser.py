@@ -3,10 +3,11 @@ import base64
 import os
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterable
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, TypedDict, Union
+from urllib.parse import unquote, urljoin, urlparse
 from uuid import uuid4
 
 import playwright.sync_api
@@ -633,9 +634,66 @@ def _is_target_closed(e: Exception) -> bool:
     return "Target" in msg and "closed" in msg
 
 
+def _safe_download_filename(filename: Optional[str]) -> str:
+    if not filename:
+        return "download"
+    name = Path(unquote(filename)).name.strip()
+    return name or "download"
+
+
+def _filename_from_url(url: str) -> str:
+    parsed = urlparse(url)
+    return _safe_download_filename(parsed.path)
+
+
+def _same_origin(left: str, right: str) -> bool:
+    left_parsed = urlparse(left)
+    right_parsed = urlparse(right)
+
+    def port(parsed):
+        if parsed.port is not None:
+            return parsed.port
+        if parsed.scheme == "https":
+            return 443
+        if parsed.scheme == "http":
+            return 80
+        return None
+
+    return (left_parsed.scheme, left_parsed.hostname, port(left_parsed)) == (
+        right_parsed.scheme,
+        right_parsed.hostname,
+        port(right_parsed),
+    )
+
+
+def _resolve_download_path(
+    output_path: Optional[str],
+    suggested_filename: Optional[str],
+    overwrite: bool,
+) -> Path:
+    filename = _safe_download_filename(suggested_filename)
+    if output_path is None:
+        download_dir = Path(tempfile.mkdtemp(prefix="abstra-download-"))
+        return download_dir / filename
+
+    raw_output_path = os.path.expanduser(output_path)
+    path = Path(raw_output_path)
+
+    if raw_output_path.endswith((os.sep, "/")) or (path.exists() and path.is_dir()):
+        path = path / filename
+
+    if path.exists() and not overwrite:
+        raise FileExistsError(
+            f"File '{path}' already exists. Pass overwrite=True to replace it."
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 class BrowserTools(AgentTools):
     """
-    Toolkit that gives an agent a headless Chromium browser via Playwright. The agent gets tools for navigation, clicking, filling forms, screenshotting, and extracting page content; optional flags add network, console, and WebSocket capture tools.
+    Toolkit that gives an agent a headless Chromium browser via Playwright. The agent gets tools for navigation, clicking, filling forms, downloading files, screenshotting, and extracting page content; optional flags add network, console, and WebSocket capture tools.
     """
 
     urls: Optional[Iterable[str]]
@@ -669,6 +727,7 @@ class BrowserTools(AgentTools):
             url (Optional): Restrict navigation to one URL or a list of allowed URLs. `None` allows any URL. Defaults to None.
             listen_network (bool): If True, capture all HTTP requests made by the page and expose `get_network_requests` to the agent. Defaults to False.
             listen_console (bool): If True, capture browser console messages and expose `get_console_logs` to the agent. Defaults to False.
+            listen_websocket (bool): If True, capture WebSocket frames and expose `get_websocket_frames` to the agent. Defaults to False.
             debug_mode (bool): If True, print verbose debug output for every browser action (navigation, clicks, fills, etc.). Useful for local development. Defaults to False.
             allow_close_page (bool): If True, expose a `close_page` tool to the agent. Defaults to True.
             headless (bool): Run Chromium in headless mode. Set to False to see the browser window during local development. Defaults to True.
@@ -734,7 +793,7 @@ class BrowserTools(AgentTools):
     def _build_browser_context(
         self, client_certificate: Optional[ClientCertificate]
     ) -> playwright.sync_api.BrowserContext:
-        context_options: Dict[str, Any] = {}
+        context_options: Dict[str, Any] = {"accept_downloads": True}
 
         if client_certificate is not None:
             origin: str = client_certificate["origin"]
@@ -1257,6 +1316,130 @@ class BrowserTools(AgentTools):
             )
         return result
 
+    def download_file(
+        self,
+        page_id: str,
+        selector: Optional[str] = None,
+        index: Optional[int] = None,
+        output_path: Optional[str] = None,
+        overwrite: bool = False,
+        timeout_ms: int = 30000,
+    ) -> Dict[str, Any]:
+        """Download a file by clicking an element. Provide either selector OR index from get_page_summary. The file is saved to output_path when provided; if output_path is a directory, the browser's suggested filename is used inside it. If output_path is omitted, a temporary download path is created. Returns {path, suggested_filename, url, size_bytes}. Use this instead of click() for links or buttons that trigger downloads."""
+        if timeout_ms <= 0 or timeout_ms > 120000:
+            raise ValueError("timeout_ms must be between 1 and 120000.")
+        if selector is not None and index is not None:
+            raise ValueError("Provide either selector OR index, not both.")
+        if selector is None and index is None:
+            raise ValueError("Provide either selector OR index.")
+
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.download_file] page_id={page_id}, selector={selector}, index={index}, output_path={output_path}, overwrite={overwrite}, timeout_ms={timeout_ms}"
+            )
+
+        if index is not None:
+            element = self._resolve_element(page_id, index)
+            selector = element["selector"]
+
+        assert selector is not None
+        page = self._get_page(page_id)
+
+        try:
+            element_handle = page.query_selector(selector)
+            if element_handle is None:
+                available = self._get_available_selectors_hint(page_id)
+                raise ValueError(
+                    f"Selector '{selector}' not found on the page. "
+                    f"Use download_file(page_id, index=...) with an index from get_page_summary instead. "
+                    f"{available}"
+                )
+
+            with page.expect_download(timeout=timeout_ms) as download_info:
+                page.click(selector, timeout=timeout_ms)
+            download = download_info.value
+
+            suggested_filename = _safe_download_filename(download.suggested_filename)
+            path = _resolve_download_path(output_path, suggested_filename, overwrite)
+            download.save_as(str(path))
+
+            result = {
+                "path": str(path),
+                "suggested_filename": suggested_filename,
+                "url": download.url,
+                "size_bytes": path.stat().st_size,
+            }
+            if self.debug_mode:
+                print(f"[DEBUG][BrowserTools.download_file] Result: {result}")
+            return result
+        except ValueError:
+            raise
+        except PlaywrightTimeoutError:
+            raise ValueError(
+                f"Clicking '{selector}' did not trigger a download within {timeout_ms}ms. "
+                "If the target is a regular URL, use download_url(page_id, url) instead."
+            )
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
+    def download_url(
+        self,
+        page_id: str,
+        url: str,
+        output_path: Optional[str] = None,
+        overwrite: bool = False,
+        timeout_ms: int = 30000,
+    ) -> Dict[str, Any]:
+        """Download a URL using the browser context's authenticated request state. Relative URLs are resolved against the page URL. The file is saved to output_path when provided; if output_path is a directory, the filename from the URL is used inside it. If output_path is omitted, a temporary download path is created. Returns {path, url, status, headers, size_bytes}. Use download_file() instead for blob URLs or buttons that only produce a file after a click."""
+        if timeout_ms <= 0 or timeout_ms > 120000:
+            raise ValueError("timeout_ms must be between 1 and 120000.")
+
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.download_url] page_id={page_id}, url={url}, output_path={output_path}, overwrite={overwrite}, timeout_ms={timeout_ms}"
+            )
+
+        page = self._get_page(page_id)
+        resolved_url = urljoin(page.url, url)
+        if self.urls is not None and resolved_url not in self.urls:
+            if not _same_origin(page.url, resolved_url):
+                raise PermissionError(
+                    f"URL '{resolved_url}' is not allowed. Direct downloads from a scoped browser session must be same-origin with the current page or explicitly listed in BrowserTools(url=...)."
+                )
+
+        path = _resolve_download_path(
+            output_path, _filename_from_url(resolved_url), overwrite
+        )
+
+        try:
+            response = self._browser_context.request.get(
+                resolved_url, timeout=timeout_ms
+            )
+            if not response.ok:
+                raise RuntimeError(
+                    f"Download failed with HTTP {response.status} {response.status_text} for {resolved_url}"
+                )
+
+            body = response.body()
+            path.write_bytes(body)
+
+            result = {
+                "path": str(path),
+                "url": resolved_url,
+                "status": response.status,
+                "headers": dict(response.headers),
+                "size_bytes": len(body),
+            }
+            if self.debug_mode:
+                print(f"[DEBUG][BrowserTools.download_url] Result: {result}")
+            return result
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
     def get_network_requests(self, page_id: str) -> Iterable[dict]:
         """Get all captured network requests for a page. Requires listen_network=True on initialization."""
         if self.debug_mode:
@@ -1604,7 +1787,7 @@ class BrowserTools(AgentTools):
             if self.debug_mode:
                 print("[DEBUG][BrowserTools.screenshot] Marker overlays removed")
 
-        with NamedTemporaryFile(delete=False, suffix=".jpg") as f:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as f:
             image_path = Path(f.name)
             if self.debug_mode:
                 print(f"[DEBUG][BrowserTools.screenshot] Saving to {image_path}")
@@ -1627,6 +1810,8 @@ class BrowserTools(AgentTools):
             self.get_attribute.__name__,
             self.get_attributes.__name__,
             self.get_all_links.__name__,
+            self.download_file.__name__,
+            self.download_url.__name__,
             self.execute_javascript.__name__,
             self.wait.__name__,
             self.screenshot.__name__,

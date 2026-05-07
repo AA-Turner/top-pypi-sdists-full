@@ -6,9 +6,53 @@ import re
 from collections import defaultdict
 from logging import getLogger
 
+from .base import _process_value_validators
 from .change import Update
 from .geo import GeoCodes
 from .subnet import Subnets
+from .validator import RecordValidator
+
+
+class DynamicValidator(RecordValidator):
+    '''
+    Validates the ``dynamic`` block of a dynamic record: the pools
+    structure (fallback chains, value types, status flags), the rules
+    list (geo/subnet targeting and pool references), and that no pools
+    are defined but unused.
+    '''
+
+    def validate(self, record_cls, name, fqdn, data):
+        reasons = []
+
+        if 'dynamic' not in data:
+            return reasons
+        elif 'geo' in data:
+            reasons.append('"dynamic" record with "geo" content')
+
+        try:
+            pools = data['dynamic']['pools']
+        except KeyError:
+            pools = {}
+
+        pool_reasons, pools_exist, pools_seen_as_fallback = (
+            record_cls._validate_pools(pools)
+        )
+        reasons.extend(pool_reasons)
+
+        try:
+            rules = data['dynamic']['rules']
+        except KeyError:
+            rules = []
+
+        rule_reasons, pools_seen = record_cls._validate_rules(pools, rules)
+        reasons.extend(rule_reasons)
+
+        unused = pools_exist - pools_seen - pools_seen_as_fallback
+        if unused:
+            unused = '", "'.join(sorted(unused))
+            reasons.append(f'unused pools: "{unused}"')
+
+        return reasons
 
 
 class _DynamicPool(object):
@@ -120,10 +164,80 @@ class _Dynamic(object):
 
 
 class _DynamicMixin(object):
+    VALIDATORS = [DynamicValidator('dynamic', sets={'legacy', 'strict'})]
+
     geo_re = re.compile(
         r'^(?P<continent_code>\w\w)(-(?P<country_code>\w\w)'
         r'(-(?P<subdivision_code>\w\w))?)?$'
     )
+
+    @classmethod
+    def _schema(cls, value_schema):
+        '''JSON Schema fragment describing the `dynamic` block.
+
+        Structural constraints that JSON Schema can express cleanly (shape of
+        pools, values, rules, weight/status ranges) are included. Rule
+        ordering, fallback-loop detection, and cross-references between rules
+        and pools are left to octoDNS's own validation.
+        '''
+        return {
+            'type': 'object',
+            'required': ['pools', 'rules'],
+            'properties': {
+                'pools': {
+                    'type': 'object',
+                    'minProperties': 1,
+                    'additionalProperties': {
+                        'type': 'object',
+                        'required': ['values'],
+                        'properties': {
+                            'fallback': {'type': ['string', 'null']},
+                            'values': {
+                                'type': 'array',
+                                'minItems': 1,
+                                'items': {
+                                    'type': 'object',
+                                    'required': ['value'],
+                                    'properties': {
+                                        'value': value_schema,
+                                        'weight': {
+                                            'type': 'integer',
+                                            'minimum': 1,
+                                            'maximum': 100,
+                                        },
+                                        'status': {
+                                            'enum': ['up', 'down', 'obey']
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                'rules': {
+                    'type': 'array',
+                    'minItems': 1,
+                    'items': {
+                        'type': 'object',
+                        'required': ['pool'],
+                        'properties': {
+                            'pool': {'type': 'string'},
+                            'geos': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'string',
+                                    'pattern': r'^[A-Z]{2}(-[A-Z]{2}(-[A-Z]{2})?)?$',
+                                },
+                            },
+                            'subnets': {
+                                'type': 'array',
+                                'items': {'type': 'string'},
+                            },
+                        },
+                    },
+                },
+            },
+        }
 
     @classmethod
     def _validate_pools(cls, pools):
@@ -178,7 +292,9 @@ class _DynamicMixin(object):
                     try:
                         value = value['value']
                         reasons.extend(
-                            cls._value_type.validate(value, cls._type)
+                            _process_value_validators(
+                                cls._value_type, value, cls._type
+                            )
                         )
                     except KeyError:
                         reasons.append(
@@ -345,40 +461,6 @@ class _DynamicMixin(object):
                 )
 
         return reasons, pools_seen
-
-    @classmethod
-    def validate(cls, name, fqdn, data):
-        reasons = super().validate(name, fqdn, data)
-
-        if 'dynamic' not in data:
-            return reasons
-        elif 'geo' in data:
-            reasons.append('"dynamic" record with "geo" content')
-
-        try:
-            pools = data['dynamic']['pools']
-        except KeyError:
-            pools = {}
-
-        pool_reasons, pools_exist, pools_seen_as_fallback = cls._validate_pools(
-            pools
-        )
-        reasons.extend(pool_reasons)
-
-        try:
-            rules = data['dynamic']['rules']
-        except KeyError:
-            rules = []
-
-        rule_reasons, pools_seen = cls._validate_rules(pools, rules)
-        reasons.extend(rule_reasons)
-
-        unused = pools_exist - pools_seen - pools_seen_as_fallback
-        if unused:
-            unused = '", "'.join(sorted(unused))
-            reasons.append(f'unused pools: "{unused}"')
-
-        return reasons
 
     def __init__(self, zone, name, data, *args, **kwargs):
         super().__init__(zone, name, data, *args, **kwargs)

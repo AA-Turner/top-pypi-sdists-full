@@ -7,7 +7,6 @@
 
 use std::sync::Arc;
 
-use dupe::Dupe;
 use pyrefly_python::dunder;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
@@ -428,7 +427,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let ty = self.heap.mk_function(Function {
             signature: Callable::list(ParamList::new(params), self.instantiate(cls)),
-            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::REPLACE, None),
+            metadata: FuncMetadata::method(cls, dunder::REPLACE),
         });
         ClassSynthesizedField::new(ty)
     }
@@ -881,14 +880,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
 
-                // Get converter param: explicit field converter takes priority, then Pydantic lax table
-                let converter_param = field_flags.converter_param.clone().or_else(|| {
-                    if !strict {
-                        converter_table.get(&field.ty()).cloned()
-                    } else {
-                        None
-                    }
-                });
+                // If this field has a `@field_validator(..., mode='before'|'plain')`, the init
+                // parameter accepts `Any` because the validator transforms arbitrary input.
+                let converter_param = if dataclass.pydantic_before_validator_fields.contains(&name)
+                {
+                    Some(self.heap.mk_any_explicit())
+                } else {
+                    field_flags.converter_param.clone().or_else(|| {
+                        if !strict {
+                            converter_table.get(&field.ty()).cloned()
+                        } else {
+                            None
+                        }
+                    })
+                };
 
                 if field_flags.init_by_name {
                     params.push(self.as_param(
@@ -922,7 +927,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let ty = self.heap.mk_function(Function {
             signature: Callable::list(ParamList::new(params), self.heap.mk_none()),
-            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT, None),
+            metadata: FuncMetadata::method(cls, dunder::INIT),
         });
         ClassSynthesizedField::new(ty)
     }
@@ -994,12 +999,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         } else {
                             callable.clone()
                         },
-                        metadata: FuncMetadata::def(
-                            self.module().dupe(),
-                            cls.dupe(),
-                            name.clone(),
-                            None,
-                        ),
+                        metadata: FuncMetadata::method(cls, name.clone()),
                     })),
                 )
             })
@@ -1011,7 +1011,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let ret = self.heap.mk_class_type(self.stdlib.int().clone());
         ClassSynthesizedField::new(self.heap.mk_function(Function {
             signature: Callable::list(ParamList::new(params), ret),
-            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::HASH, None),
+            metadata: FuncMetadata::method(cls, dunder::HASH),
         }))
     }
 }

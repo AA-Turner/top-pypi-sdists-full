@@ -103,8 +103,7 @@ class TestResourceListModel(unittest.TestCase):
                             capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
                                 gen_ai_enabled = True, ), ), 
                         agent_id = '', 
-                        project_name = '', 
-                        compliance_schedule_id = '', )
+                        project_name = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -182,8 +181,7 @@ class TestResourceListModel(unittest.TestCase):
                             capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
                                 gen_ai_enabled = True, ), ), 
                         agent_id = '', 
-                        project_name = '', 
-                        compliance_schedule_id = '', )
+                        project_name = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

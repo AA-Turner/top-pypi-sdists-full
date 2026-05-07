@@ -47,7 +47,6 @@ use crate::error::context::TypeCheckKind;
 use crate::error::style::ErrorStyle;
 use crate::solver::solver::SubsetError;
 use crate::state::loader::FindingOrError;
-use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::PropertyMetadata;
@@ -731,6 +730,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(attr_base) = self.as_attribute_base(base.clone()) {
             let lookup_result = self.lookup_attr_from_base(attr_base, attr_name);
             return lookup_result.internal_error.is_empty() && lookup_result.not_found.is_empty();
+        }
+        false
+    }
+
+    /// Does any union branch have the attribute without `__getattr__`/`__getattribute__` fallback?
+    pub fn has_attr_without_dynamic_fallback(&self, base: &Type, attr_name: &Name) -> bool {
+        if let Some(attr_base) = self.as_attribute_base(base.clone()) {
+            let lookup_result = self.lookup_attr_from_attribute_base(attr_base, attr_name);
+            return lookup_result.internal_error.is_empty() && !lookup_result.found.is_empty();
         }
         false
     }
@@ -1787,32 +1795,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // TODO(stroxler): it is probably possible to synthesize a forall type here
                     // that uses a type var to propagate the setter. Investigate this option later.
                     let mut getter = property.getter.clone();
-                    let metadata_getter = property.getter.without_property_metadata();
-                    let metadata_setter = property
-                        .setter
-                        .as_ref()
-                        .map(|setter| setter.without_property_metadata());
-                    getter.transform_toplevel_func_metadata(|meta: &mut FuncMetadata| {
-                        meta.flags.property_metadata = Some(PropertyMetadata {
-                            role: PropertyRole::SetterDecorator,
-                            getter: metadata_getter.clone(),
-                            setter: metadata_setter.clone(),
-                            has_deleter: property.deleter,
-                        });
-                    });
-                    acc.found_type(
-                        // TODO(samzhou19815): Support go-to-definition for @property applied symbols
-                        getter, base,
-                    )
+                    getter.set_property_metadata(PropertyMetadata::from_components(
+                        PropertyRole::SetterDecorator,
+                        &property.getter,
+                        property.setter.as_ref(),
+                        property.deleter,
+                    ));
+                    // TODO(samzhou19815): Support go-to-definition for @property applied symbols
+                    acc.found_type(getter, base)
                 } else if attr_name == "deleter" {
                     let mut getter = property.getter.clone();
-                    getter.transform_toplevel_func_metadata(|meta: &mut FuncMetadata| {
-                        meta.flags.property_metadata = Some(PropertyMetadata {
-                            role: PropertyRole::DeleterDecorator,
-                            getter: property.getter.clone(),
-                            setter: property.setter.clone(),
-                            has_deleter: true,
-                        });
+                    getter.set_property_metadata(PropertyMetadata {
+                        role: PropertyRole::DeleterDecorator,
+                        getter: property.getter.clone(),
+                        setter: property.setter.clone(),
+                        has_deleter: true,
                     });
                     acc.found_type(getter, base)
                 } else {
@@ -2351,6 +2348,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(
                 box (Type::Function(_)
                 | Type::Callable(_)
+                | Type::CallableResidual(_)
                 | Type::Overload(_)
                 | Type::Forall(box Forall {
                     tparams: _,
@@ -2383,9 +2381,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     deleter: metadata.has_deleter,
                 }));
             }
-            Type::Callable(_) => acc.push(AttributeBase1::ClassInstance(
-                self.stdlib.function_type().clone(),
-            )),
+            Type::Callable(_) | Type::CallableResidual(_) => acc.push(
+                AttributeBase1::ClassInstance(self.stdlib.function_type().clone()),
+            ),
             Type::KwCall(call) => self.as_attribute_base1(call.return_ty, acc),
             Type::Function(box Function {
                 signature: _,

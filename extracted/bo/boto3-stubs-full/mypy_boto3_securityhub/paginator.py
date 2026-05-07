@@ -23,6 +23,7 @@ Usage::
         GetFindingsTrendsV2Paginator,
         GetFindingsV2Paginator,
         GetInsightsPaginator,
+        GetRecommendedPolicyV2Paginator,
         GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
         ListAggregatorsV2Paginator,
@@ -51,6 +52,7 @@ Usage::
     get_findings_trends_v2_paginator: GetFindingsTrendsV2Paginator = client.get_paginator("get_findings_trends_v2")
     get_findings_v2_paginator: GetFindingsV2Paginator = client.get_paginator("get_findings_v2")
     get_insights_paginator: GetInsightsPaginator = client.get_paginator("get_insights")
+    get_recommended_policy_v2_paginator: GetRecommendedPolicyV2Paginator = client.get_paginator("get_recommended_policy_v2")
     get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
@@ -96,6 +98,8 @@ from .type_defs import (
     GetFindingsV2ResponseTypeDef,
     GetInsightsRequestPaginateTypeDef,
     GetInsightsResponseTypeDef,
+    GetRecommendedPolicyV2RequestPaginateTypeDef,
+    GetRecommendedPolicyV2ResponseTypeDef,
     GetResourcesTrendsV2RequestPaginateTypeDef,
     GetResourcesTrendsV2ResponseTypeDef,
     GetResourcesV2RequestPaginateTypeDef,
@@ -140,6 +144,7 @@ __all__ = (
     "GetFindingsTrendsV2Paginator",
     "GetFindingsV2Paginator",
     "GetInsightsPaginator",
+    "GetRecommendedPolicyV2Paginator",
     "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
     "ListAggregatorsV2Paginator",
@@ -383,6 +388,27 @@ class GetInsightsPaginator(_GetInsightsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetInsights.html#SecurityHub.Paginator.GetInsights.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/paginators/#getinsightspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetRecommendedPolicyV2PaginatorBase = Paginator[GetRecommendedPolicyV2ResponseTypeDef]
+else:
+    _GetRecommendedPolicyV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class GetRecommendedPolicyV2Paginator(_GetRecommendedPolicyV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetRecommendedPolicyV2.html#SecurityHub.Paginator.GetRecommendedPolicyV2)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/paginators/#getrecommendedpolicyv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetRecommendedPolicyV2RequestPaginateTypeDef]
+    ) -> PageIterator[GetRecommendedPolicyV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetRecommendedPolicyV2.html#SecurityHub.Paginator.GetRecommendedPolicyV2.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/paginators/#getrecommendedpolicyv2paginator)
         """
 
 

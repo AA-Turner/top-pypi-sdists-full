@@ -44,7 +44,7 @@ class AsyncSearchClient(NamespacedClient):
           If the Elasticsearch security features are enabled, the deletion of a specific async search is restricted to: the authenticated user that submitted the original search request; users that have the <code>cancel_task</code> cluster privilege.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-async-search-submit>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-async-search-submit>`_
 
         :param id: A unique identifier for the async search.
         """
@@ -81,6 +81,7 @@ class AsyncSearchClient(NamespacedClient):
         human: t.Optional[bool] = None,
         keep_alive: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
+        return_intermediate_results: t.Optional[bool] = None,
         typed_keys: t.Optional[bool] = None,
         wait_for_completion_timeout: t.Optional[
             t.Union[str, t.Literal[-1], t.Literal[0]]
@@ -94,7 +95,7 @@ class AsyncSearchClient(NamespacedClient):
           If the Elasticsearch security features are enabled, access to the results of a specific async search is restricted to the user or API key that submitted it.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-async-search-submit>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-async-search-submit>`_
 
         :param id: A unique identifier for the async search.
         :param keep_alive: The length of time that the async search should be available
@@ -103,6 +104,14 @@ class AsyncSearchClient(NamespacedClient):
             the value and extend the validity of the request. When this period expires,
             the search, if still running, is cancelled. If the search is completed, its
             saved results are deleted.
+        :param return_intermediate_results: Specifies whether the response should contain
+            intermediate results if the query is still running when the wait_for_completion_timeout
+            expires or if no wait_for_completion_timeout is specified. If true and the
+            search is still running, the search response will include any hits and partial
+            aggregations that are available. If false and the search is still running,
+            the search response will not include any hits (but possibly include total
+            hits) nor will include any partial aggregations. When not specified, the
+            intermediate results are returned for running queries.
         :param typed_keys: Specify whether aggregation and suggester names should be
             prefixed by their respective types in the response
         :param wait_for_completion_timeout: Specifies to wait for the search to be completed
@@ -127,6 +136,8 @@ class AsyncSearchClient(NamespacedClient):
             __query["keep_alive"] = keep_alive
         if pretty is not None:
             __query["pretty"] = pretty
+        if return_intermediate_results is not None:
+            __query["return_intermediate_results"] = return_intermediate_results
         if typed_keys is not None:
             __query["typed_keys"] = typed_keys
         if wait_for_completion_timeout is not None:
@@ -164,7 +175,7 @@ class AsyncSearchClient(NamespacedClient):
           </ul>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-async-search-submit>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-async-search-submit>`_
 
         :param id: A unique identifier for the async search.
         :param keep_alive: The length of time that the async search needs to be available.
@@ -347,15 +358,18 @@ class AsyncSearchClient(NamespacedClient):
           The maximum allowed size for a stored async search response can be set by changing the <code>search.max_async_search_response_size</code> cluster level setting.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-async-search-submit>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-async-search-submit>`_
 
         :param index: A comma-separated list of index names to search; use `_all` or
             empty string to perform the operation on all indices
         :param aggregations:
         :param aggs:
-        :param allow_no_indices: Whether to ignore if a wildcard indices expression resolves
-            into no concrete indices. (This includes `_all` string or when no indices
-            have been specified)
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param allow_partial_search_results: Indicate if an error should be returned
             if there is a partial search failure or timeout
         :param analyze_wildcard: Specify whether wildcard and prefix queries should be
@@ -387,8 +401,10 @@ class AsyncSearchClient(NamespacedClient):
         :param highlight:
         :param ignore_throttled: Whether specified concrete, expanded or aliased indices
             should be ignored when throttled
-        :param ignore_unavailable: Whether specified concrete indices should be ignored
-            when unavailable (missing or closed)
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param indices_boost: Boosts the _score of documents from specified indices.
         :param keep_alive: Specifies how long the async search needs to be available.
             Ongoing async searches and any saved search results are deleted after this
@@ -631,9 +647,7 @@ class AsyncSearchClient(NamespacedClient):
                 __body["version"] = version
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,

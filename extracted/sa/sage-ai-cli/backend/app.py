@@ -786,11 +786,13 @@ def create_app() -> FastAPI:
         response = await call_next(request)
 
         # Cross-origin isolation — required for SharedArrayBuffer / WebLLM.
-        # COOP must be exactly "same-origin" (not "same-origin-allow-popups")
-        # for the browser to set crossOriginIsolated = true.
-        # Firebase signInWithPopup still works because the auth callback
-        # (__/auth/handler) is served from the same origin, so window.opener
-        # is accessible from the same-origin redirect page inside the popup.
+        # COOP must be exactly "same-origin" for crossOriginIsolated = true.
+        #
+        # Apple sign-in uses signInWithRedirect (full-page navigation, not a
+        # popup) so it doesn't need same-origin-allow-popups.
+        # Google sign-in uses signInWithPopup but Firebase's iframe-based
+        # OAuth helper communicates via BroadcastChannel / shared storage on
+        # the same origin, so it works under same-origin too.
         response.headers["Cross-Origin-Opener-Policy"]   = "same-origin"
         response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
 
@@ -824,6 +826,17 @@ def create_app() -> FastAPI:
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
                 "https://cdn.jsdelivr.net "
+                "https://apis.google.com https://accounts.google.com "
+                "https://www.gstatic.com "
+                "https://www.google.com https://www.google.com/recaptcha/ "
+                "https://www.recaptcha.net "
+                "https://www.paypal.com https://www.paypalobjects.com; "
+            "script-src-elem 'self' 'unsafe-inline' "
+                "https://cdn.jsdelivr.net "
+                "https://apis.google.com https://accounts.google.com "
+                "https://www.gstatic.com "
+                "https://www.google.com https://www.google.com/recaptcha/ "
+                "https://www.recaptcha.net "
                 "https://www.paypal.com https://www.paypalobjects.com; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
@@ -834,6 +847,7 @@ def create_app() -> FastAPI:
                 "https://identitytoolkit.googleapis.com "
                 "https://securetoken.googleapis.com "
                 "https://storage.googleapis.com "
+                "https://apis.google.com "
                 # PayPal
                 "https://api-m.paypal.com "
                 "https://www.paypal.com "
@@ -857,7 +871,12 @@ def create_app() -> FastAPI:
                 # SAGE WebSocket terminal
                 "wss://sageworksai.com; "
             "frame-src https://www.paypal.com https://www.sandbox.paypal.com "
-                "https://sageworksai.com; "
+                "https://sageworksai.com "
+                "https://accounts.google.com "
+                "https://apis.google.com "
+                "https://appleid.apple.com "
+                "https://*.firebaseapp.com "
+                "https://www.google.com https://www.recaptcha.net; "
             "worker-src 'self' blob:; "
             "object-src 'none'; "
             "base-uri 'self'; "
@@ -2240,44 +2259,179 @@ def billing_cancel(request: Request):
     return {"ok": True, "message": "Subscription cancelled. You will retain access until the end of the billing period."}
 
 
+@app.post("/recaptcha/verify")
+async def recaptcha_verify(request: Request):
+    """Verify a reCAPTCHA Enterprise token against Google's assessments API.
+
+    Frontend calls grecaptcha.enterprise.execute(siteKey, {action}) → posts the
+    token here. We forward it to Google's reCAPTCHA Enterprise REST endpoint
+    using the Cloud Run service account's ADC (which has the
+    `roles/recaptchaenterprise.agent` role granted), and return the risk score
+    so the frontend can decide whether to proceed or challenge the user.
+    """
+    body = await request.json()
+    token  = (body.get("token")  or "").strip()
+    action = (body.get("action") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="token required")
+
+    site_key = os.environ.get("VITE_RECAPTCHA_ENTERPRISE_SITE_KEY", "").strip()
+    if not site_key:
+        return {"ok": False, "valid": False, "score": 0.0,
+                "reasons": ["server-not-configured"]}
+
+    try:
+        import google.auth
+        import google.auth.transport.requests as _gar
+        creds, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        creds.refresh(_gar.Request())
+
+        r = httpx.post(
+            "https://recaptchaenterprise.googleapis.com/v1/projects/sage-ai-d1c22/assessments",
+            json={"event": {
+                "token":          token,
+                "expectedAction": action,
+                "siteKey":        site_key,
+            }},
+            headers={
+                "Authorization": f"Bearer {creds.token}",
+                "Content-Type":  "application/json",
+            },
+            timeout=8,
+        )
+        if r.status_code != 200:
+            logger.warning("reCAPTCHA assessment %s: %s", r.status_code, r.text[:200])
+            return {"ok": False, "valid": False, "score": 0.0,
+                    "reasons": [f"http-{r.status_code}"]}
+        data = r.json()
+        token_props = data.get("tokenProperties", {}) or {}
+        risk        = data.get("riskAnalysis", {})    or {}
+        return {
+            "ok":      True,
+            "valid":   bool(token_props.get("valid")),
+            "score":   float(risk.get("score", 0.0)),
+            "reasons": list(risk.get("reasons", [])),
+            "action":  token_props.get("action", ""),
+        }
+    except Exception as exc:
+        logger.warning("reCAPTCHA verify error: %s", exc)
+        return {"ok": False, "valid": False, "score": 0.0, "reasons": ["server-error"]}
+
+
 @app.get("/account/providers")
 def account_get_providers(request: Request):
-    """Return the OAuth providers linked to this account (Google, Apple, etc.)."""
-    from firebase_admin import auth as fb_auth
+    """Return ALL sign-in methods linked to this account (Google, Apple, password, etc.).
+
+    Uses the Identity Toolkit REST API directly instead of `firebase_admin.auth.get_user()`
+    — the Python SDK has caching issues that intermittently surface as
+    INSUFFICIENT_PERMISSION even when the underlying service account has the
+    required role. The REST call uses the same credentials but is stateless.
+    """
     identity = _require_auth(request)
+    providers: list[dict] = []
     try:
-        record = fb_auth.get_user(identity["uid"])
-        providers = [
-            {
-                "provider_id":   p.provider_id,
-                "email":         p.email or "",
-                "display_name":  p.display_name or "",
-                "photo_url":     p.photo_url or "",
-            }
-            for p in record.provider_data
-        ]
+        import httpx as _httpx
+        import google.auth, google.auth.transport.requests as _gar
+        creds, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/identitytoolkit",
+                    "https://www.googleapis.com/auth/cloud-platform"]
+        )
+        creds.refresh(_gar.Request())
+        lookup = _httpx.post(
+            "https://identitytoolkit.googleapis.com/v1/projects/sage-ai-d1c22/accounts:lookup",
+            json={"localId": [identity["uid"]]},
+            headers={"Authorization": f"Bearer {creds.token}",
+                     "X-Goog-User-Project": "sage-ai-d1c22",
+                     "Content-Type": "application/json"},
+            timeout=8,
+        )
+        if lookup.status_code != 200:
+            logger.warning("get_providers Identity Toolkit returned %s: %s",
+                           lookup.status_code, lookup.text[:200])
+            return {"ok": True, "providers": []}
+
+        users = lookup.json().get("users", [])
+        if not users:
+            return {"ok": True, "providers": []}
+        record = users[0]
+        seen_ids = set()
+
+        # Federated providers from providerUserInfo (google.com, apple.com)
+        for p in record.get("providerUserInfo", []):
+            pid = p.get("providerId")
+            if not pid or pid in seen_ids:
+                continue
+            seen_ids.add(pid)
+            providers.append({
+                "provider_id":   pid,
+                "email":         p.get("email", ""),
+                "display_name":  p.get("displayName", ""),
+                "photo_url":     p.get("photoUrl", ""),
+            })
+
+        # Password — synthesize from passwordUpdatedAt field
+        if record.get("passwordUpdatedAt") and "password" not in seen_ids:
+            providers.append({
+                "provider_id":  "password",
+                "email":        record.get("email", ""),
+                "display_name": record.get("displayName", ""),
+                "photo_url":    "",
+            })
     except Exception as exc:
         logger.warning("get_providers failed: %s", exc)
-        providers = []
     return {"ok": True, "providers": providers}
 
 
 @app.post("/account/sync-contacts")
-def account_sync_contacts(request: Request):
-    """Auto-register linked Google/Apple emails as authorized SMS contacts."""
-    from firebase_admin import auth as fb_auth
+async def account_sync_contacts(request: Request):
+    """Auto-register linked Google/Apple emails as authorized SMS contacts.
+
+    Accepts the provider list in the request body (sent by the frontend, sourced
+    from `auth.currentUser.providerData`). The user's own Firebase ID token is
+    already required by `_require_auth`, so trusting their providerData is fine
+    — they're claiming providers they've linked to themselves.
+
+    Falls back to the firebase_admin SDK lookup if the body is empty (legacy
+    clients), but the SDK path can fail in Cloud Run runtime due to Identity
+    Toolkit rejecting the compute service account's token.
+    """
     from .sms_manager import add_contact
     identity = _require_auth(request)
+
+    body_providers: list[dict] = []
     try:
-        record = fb_auth.get_user(identity["uid"])
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        body = await request.json()
+        if isinstance(body, dict):
+            raw = body.get("providers") or []
+            if isinstance(raw, list):
+                body_providers = [p for p in raw if isinstance(p, dict)]
+    except Exception:
+        body_providers = []
+
+    pairs: list[tuple[str, str]] = []  # (provider_id, email)
+    if body_providers:
+        for p in body_providers:
+            pid = p.get("provider_id") or p.get("providerId")
+            email = p.get("email") or ""
+            if email and pid in ("google.com", "apple.com"):
+                pairs.append((pid, email))
+    else:
+        try:
+            from firebase_admin import auth as fb_auth
+            record = fb_auth.get_user(identity["uid"])
+            for p in record.provider_data:
+                if p.email and p.provider_id in ("google.com", "apple.com"):
+                    pairs.append((p.provider_id, p.email))
+        except Exception as exc:
+            logger.warning("sync_contacts SDK fallback failed: %s", exc)
+
     added = []
-    for p in record.provider_data:
-        if p.email and p.provider_id in ("google.com", "apple.com"):
-            name = "Google" if p.provider_id == "google.com" else "Apple"
-            add_contact(identity["uid"], p.email, f"{name} — {p.email}")
-            added.append({"email": p.email, "provider": name})
+    for pid, email in pairs:
+        name = "Google" if pid == "google.com" else "Apple"
+        add_contact(identity["uid"], email, f"{name} — {email}", provider=pid)
+        added.append({"email": email, "provider": name})
     return {"ok": True, "added": added}
 
 
@@ -2385,8 +2539,12 @@ async def sms_cli_websocket(websocket: WebSocket):
         uid = identity["uid"]
         ensure_user_record(uid, identity["email"])
 
-        # Register computer in Firestore (idempotent)
-        register_computer(uid, computer_name, BRIDGE_EMAIL or "")
+        # Computers whose name starts with "_" are transient (e.g. the setup
+        # wizard's "_setup" peek) — skip Firestore registration so they don't
+        # leave permanent ghost rows in `sage sms devices`. They still get a
+        # live WebSocket session so the wizard can read the bridge_email.
+        if not computer_name.startswith("_"):
+            register_computer(uid, computer_name, BRIDGE_EMAIL or "")
 
         # Register active WebSocket session for task dispatch
         register_cli_session(uid, computer_name, websocket)
@@ -2404,7 +2562,14 @@ async def sms_cli_websocket(websocket: WebSocket):
             msg_type = msg.get("type", "")
 
             if msg_type == "result":
-                resolve_task_result(msg.get("task_id", ""), msg.get("output", ""))
+                # `delivered_locally` is True when the CLI handled native
+                # delivery (iMessage / KDE Connect) itself — we record it on
+                # the future so handle_inbound_email can skip its SMTP step.
+                resolve_task_result(
+                    msg.get("task_id", ""),
+                    msg.get("output", ""),
+                    delivered_locally=bool(msg.get("delivered_locally")),
+                )
 
             elif msg_type == "heartbeat":
                 await websocket.send_json({"type": "pong"})
@@ -2466,19 +2631,26 @@ def sms_remove_computer(computer_id: str, request: Request):
 
 @app.post("/sms/contacts")
 async def sms_add_contact(request: Request):
-    """Add an authorized contact — accepts an email address or a phone number."""
+    """Add an authorized contact — accepts an email address or a phone number.
+
+    For phone numbers, an optional `device_type` field ("apple" or "android")
+    selects which fallback delivery path to use when carriers reject the
+    email-to-SMS reply.
+    """
     from .sms_manager import add_contact, _normalize_phone
     identity = _require_auth(request)
     body = await request.json()
-    raw   = body.get("email", "").strip()
-    label = body.get("label", "").strip()
+    raw         = body.get("email", "").strip()
+    label       = body.get("label", "").strip()
+    device_type = body.get("device_type", "").strip().lower()
+    if device_type not in ("", "apple", "android"):
+        raise HTTPException(status_code=400, detail="device_type must be 'apple' or 'android'")
     if not raw:
         raise HTTPException(status_code=400, detail="email or phone number required")
-    # Accept phone numbers (digits only) or valid email addresses
     phone = _normalize_phone(raw)
     if not phone and "@" not in raw:
         raise HTTPException(status_code=400, detail="Provide a valid email or 10-digit phone number")
-    result = add_contact(identity["uid"], raw, label)
+    result = add_contact(identity["uid"], raw, label, device_type=device_type)
     return {"ok": True, "contact": result}
 
 
@@ -2504,33 +2676,115 @@ def sms_remove_contact(email: str, request: Request):
     return {"ok": True}
 
 
+@app.get("/sms/poller-status")
+def sms_poller_status(request: Request):
+    """Return server-side IMAP poller health for `sage sms diagnose`.
+
+    Reports: IMAP connection state, last-IDLE-activity, last-message-at,
+    messages-processed counter, and last-error so the user can see whether
+    inbound mail is actually being polled and what's happening on the server
+    side. Authenticated to prevent leaking poller state to the world.
+    """
+    from .sms_poller import get_poller_state, get_online_computers
+    identity = _require_auth(request)
+    state = get_poller_state()
+    state["online_computers"] = get_online_computers(identity["uid"])
+    return state
+
+
 @app.post("/sms/announce")
 async def sms_announce_online(request: Request):
-    """
-    Send an 'I'm online' message from the bridge computer to all registered contacts.
-    Called once by the CLI immediately after a successful WebSocket connection.
+    """Send 'I'm online' to ALL configured contact methods.
+
+    Three delivery paths fan out from here:
+      1. Email contacts (Gmail/iCloud/Outlook/...) — SMTP from messages@sageworksai.com
+      2. Phone contacts tagged `device_type=apple` — iMessage from the bridge
+         computer via the CLI WebSocket (the CLI then runs osascript locally)
+      3. Phone contacts tagged `device_type=android` — KDE Connect from the
+         bridge computer via the CLI WebSocket (paired phone sends real SMS)
+
+    Untagged phone contacts are skipped — there's no reliable way to deliver
+    to them, and silently sending nothing is better than spamming an unfamiliar
+    address. The CLI surfaces which contacts are missing tags via
+    `sage sms diagnose`.
     """
     import asyncio
-    from .sms_manager import get_contact_emails
-    from .sms_poller import send_reply
+    from .sms_manager import list_contacts
+    from .sms_poller import send_reply, dispatch_native_message
     identity = _require_auth(request)
+    uid = identity["uid"]
     body = await request.json()
     computer_name = body.get("computer_name", "SAGE").strip() or "SAGE"
-    emails = get_contact_emails(identity["uid"])
-    if not emails:
-        return {"ok": True, "notified": 0}
+
+    contacts = list_contacts(uid)
     msg = (
         f"✅ [{computer_name}] SAGE is online and ready.\n"
         f"Send me any task and I'll run it on your computer.\n"
         f"Reply @help to see available commands."
     )
+
+    # Bucket contacts by delivery method
+    email_targets: list[str] = []
+    phone_targets: list[dict] = []
+    seen_emails: set[str] = set()
+    for c in contacts:
+        email = (c.get("email") or "").lower().strip()
+        if not email:
+            continue
+        if email.startswith("phone:"):
+            device_type = (c.get("device_type") or "").lower()
+            if device_type in ("apple", "android"):
+                phone_targets.append({"email": email, "device_type": device_type})
+            # untagged phone contacts: deliberately skip (see docstring)
+        else:
+            if email in seen_emails:
+                continue  # dedupe across [Apple] + [Google] for same email
+            seen_emails.add(email)
+            email_targets.append(email)
+
+    notified = {"email": 0, "imessage": 0, "kdeconnect": 0, "skipped_untagged": 0}
+    for c in contacts:
+        if (c.get("email") or "").startswith("phone:") and not (c.get("device_type") or ""):
+            notified["skipped_untagged"] += 1
+
+    # Path 1: emails over SMTP (sequential to keep SMTP rate-friendly)
     loop = asyncio.get_event_loop()
-    for email in emails:
-        await loop.run_in_executor(None, send_reply, email, msg, computer_name)
-    return {"ok": True, "notified": len(emails)}
+    for email in email_targets:
+        try:
+            await loop.run_in_executor(None, send_reply, email, msg, computer_name)
+            notified["email"] += 1
+        except Exception as exc:
+            logger.warning("Announce email to %s failed: %s", email, exc)
+
+    # Path 2 + 3: iMessage / KDE Connect via the connected CLI
+    if phone_targets:
+        for target in phone_targets:
+            phone_only = target["email"].replace("phone:", "")
+            ok = await dispatch_native_message(
+                uid=uid,
+                phone=phone_only,
+                text=msg,
+                device_type=target["device_type"],
+            )
+            if ok:
+                if target["device_type"] == "apple":
+                    notified["imessage"] += 1
+                else:
+                    notified["kdeconnect"] += 1
+            else:
+                logger.warning(
+                    "Announce native delivery failed: phone=%s device=%s",
+                    phone_only, target["device_type"],
+                )
+
+    return {
+        "ok": True,
+        "notified": notified["email"] + notified["imessage"] + notified["kdeconnect"],
+        "by_method": notified,
+    }
 
 
-@app.api_route("/__/auth/{path:path}", methods=["GET", "POST", "OPTIONS"])
+@app.api_route("/__/auth/{path:path}", methods=["GET", "POST", "OPTIONS", "HEAD"])
 async def firebase_auth_proxy(path: str, request: Request):
     """
     Proxy Firebase's OAuth handler to the same origin so signInWithPopup works
@@ -2559,8 +2813,10 @@ async def firebase_auth_proxy(path: str, request: Request):
                 },
                 content=await request.body(),
             )
-        # Strip hop-by-hop headers that can't be forwarded
-        skip = {"transfer-encoding", "content-encoding", "connection", "keep-alive"}
+        # Strip headers that don't apply to the proxied body.
+        # content-length must go because httpx auto-decompresses gzip; the
+        # original length applies to the encoded body, not what we forward.
+        skip = {"transfer-encoding", "content-encoding", "content-length", "connection", "keep-alive"}
         headers = {k: v for k, v in proxy_resp.headers.items() if k.lower() not in skip}
         return _Resp(
             content=proxy_resp.content,

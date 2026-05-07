@@ -9,6 +9,8 @@ from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 # Third Party
+# Eve SDE
+from eve_sde.models import ItemType, SolarSystem
 from pytz import utc
 
 # Django
@@ -534,9 +536,11 @@ class TestProcessManualFat(FatlinksViewTestCase):
     Test process manual fat addition
     """
 
+    @patch("afat.views.fatlinks.ItemType.objects")
+    @patch("afat.views.fatlinks.SolarSystem.objects.get")
     @patch("afat.views.fatlinks.get_or_create_character")
     def test_manual_fat_adds_new_character_successfully(
-        self, mock_get_or_create_character
+        self, mock_get_or_create_character, mock_solar_get, mock_item_objects
     ):
         """
         Test manual fat adds new character successfully
@@ -558,6 +562,17 @@ class TestProcessManualFat(FatlinksViewTestCase):
 
         mock_character = self.character_1101
         mock_get_or_create_character.return_value = mock_character
+
+        # Ensure SDE lookups in the view succeed for system and ship type
+        # Return a real SolarSystem model instance instead of a MagicMock so
+        # assigning to Fat.solar_system works during Fat.objects.create
+        mock_solar_get.return_value = SolarSystem.objects.get_or_create(
+            id=5000, defaults={"name": "Test System"}
+        )[0]
+        # Use a real ItemType instance so FK assignment to Fat.ship succeeds
+        shiptype_instance = ItemType(id=7000, name="Test Ship", published=1)
+        shiptype_instance.save()
+        mock_item_objects.filter.return_value.get.return_value = shiptype_instance
 
         form_data = {
             "character": mock_character.character_name,
@@ -581,9 +596,11 @@ class TestProcessManualFat(FatlinksViewTestCase):
             )
         )
 
+    @patch("afat.views.fatlinks.ItemType.objects")
+    @patch("afat.views.fatlinks.SolarSystem.objects.get")
     @patch("afat.views.fatlinks.get_or_create_character")
     def test_manual_fat_character_already_registered_shows_info(
-        self, mock_get_or_create_character
+        self, mock_get_or_create_character, mock_solar_get, mock_item_objects
     ):
         """
         Test manual fat character already registered shows info
@@ -605,6 +622,15 @@ class TestProcessManualFat(FatlinksViewTestCase):
 
         mock_character = self.character_1001
         mock_get_or_create_character.return_value = mock_character
+
+        # Ensure SDE lookups succeed so the view reaches the duplicate branch
+        mock_solar_get.return_value = SolarSystem.objects.get_or_create(
+            id=5000, defaults={"name": "Test System"}
+        )[0]
+        # Use a real ItemType instance so FK assignment to Fat.ship succeeds
+        shiptype_instance = ItemType(id=7000, name="Test Ship", published=1)
+        shiptype_instance.save()
+        mock_item_objects.filter.return_value.get.return_value = shiptype_instance
 
         Fat.objects.create(
             fatlink=fatlink,
@@ -695,6 +721,122 @@ class TestProcessManualFat(FatlinksViewTestCase):
         messages = list(get_messages(response.wsgi_request))
         self.assertTrue(
             any("The hash provided is not valid." in str(m) for m in messages)
+        )
+
+    def test_manual_fat_shows_warning_when_system_not_found(self):
+        """
+        Test manual_fat shows warning when system is not found.
+
+        :return:
+        :rtype:
+        """
+
+        self.client.force_login(user=self.user_with_manage_afat)
+
+        fatlink = FatLink.objects.create(
+            hash="mf1",
+            fleet="Manual Fleet",
+            creator=self.user_with_manage_afat,
+            character=self.character_1001,
+        )
+
+        request = RequestFactory().post(
+            path=reverse("afat:fatlinks_process_manual_fat", args=[fatlink.hash]),
+            data={"character": "Some", "system": "NoSuchSystem", "shiptype": "Test"},
+        )
+        SessionMiddleware(get_response=lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user_with_manage_afat
+        request._messages = FallbackStorage(request)
+
+        with (
+            patch(
+                "afat.views.fatlinks.get_or_create_character",
+                return_value=self.character_1001,
+            ),
+            patch(
+                "afat.views.fatlinks.SolarSystem.objects.get",
+                side_effect=fatlinks_module.SolarSystem.DoesNotExist,
+            ),
+        ):
+            response = fatlinks_module.process_manual_fat.__wrapped__.__wrapped__(
+                request, fatlink.hash
+            )
+
+        self.assertEqual(
+            response.url,
+            reverse(
+                "afat:fatlinks_details_fatlink", kwargs={"fatlink_hash": fatlink.hash}
+            ),
+        )
+        messages = list(get_messages(request))
+        self.assertTrue(
+            any(
+                "The system name you entered cannot be found" in str(m)
+                for m in messages
+            )
+        )
+
+    def test_manual_fat_shows_warning_when_shiptype_not_found(self):
+        """
+        Test manual_fat shows warning when shiptype is not found.
+
+        :return:
+        :rtype:
+        """
+
+        self.client.force_login(user=self.user_with_manage_afat)
+
+        fatlink = FatLink.objects.create(
+            hash="mf2",
+            fleet="Manual Fleet",
+            creator=self.user_with_manage_afat,
+            character=self.character_1001,
+        )
+
+        request = RequestFactory().post(
+            path=reverse("afat:fatlinks_process_manual_fat", args=[fatlink.hash]),
+            data={
+                "character": "Some",
+                "system": "Test System",
+                "shiptype": "NoSuchShip",
+            },
+        )
+        SessionMiddleware(get_response=lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user_with_manage_afat
+        request._messages = FallbackStorage(request)
+
+        # SolarSystem exists, ItemType lookup raises DoesNotExist
+        with (
+            patch(
+                "afat.views.fatlinks.get_or_create_character",
+                return_value=self.character_1001,
+            ),
+            patch(
+                "afat.views.fatlinks.SolarSystem.objects.get",
+                return_value=SolarSystem.objects.get_or_create(
+                    id=5000, defaults={"name": "Test System"}
+                )[0],
+            ),
+            patch("afat.views.fatlinks.ItemType.objects") as mock_item_objects,
+        ):
+            mock_item_objects.filter.return_value.get.side_effect = (
+                fatlinks_module.ItemType.DoesNotExist
+            )
+            response = fatlinks_module.process_manual_fat.__wrapped__.__wrapped__(
+                request, fatlink.hash
+            )
+
+        self.assertEqual(
+            response.url,
+            reverse(
+                "afat:fatlinks_details_fatlink", kwargs={"fatlink_hash": fatlink.hash}
+            ),
+        )
+        messages = list(get_messages(request))
+        self.assertTrue(
+            any("The ship type you entered cannot be found" in str(m) for m in messages)
         )
 
 
@@ -1222,6 +1364,11 @@ class TestAddFatView(BaseTestCase):
 
         Duration.objects.create(fleet=self.fatlink, duration=60)
         self.url = reverse("afat:fatlinks_add_fat", args=["valid_hash"])
+        # Ensure SDE objects exist for tests that expect real model instances
+        SolarSystem.objects.get_or_create(id=5000, defaults={"name": "Test System"})
+        ItemType.objects.get_or_create(
+            id=6000, defaults={"name": "Test Ship", "published": 1}
+        )
 
     @patch("afat.views.fatlinks.esi_handler.result")
     def test_redirects_to_dashboard_if_fatlink_does_not_exist(self, mock_esi_result):
@@ -1383,14 +1530,17 @@ class TestAddFatView(BaseTestCase):
             esi_ship_resp,
         ]
 
-        # Ensure the model lookups return single model-like instances (not tuples)
-        solar_mock = MagicMock()
-        solar_mock.name = "SolarSystemName"
-        mock_get_solar.return_value = solar_mock
+        # Ensure the model lookups return real model instances so created Fat
+        # objects can be assigned correctly.
+        solar_system = SolarSystem.objects.get_or_create(
+            id=location_solar_system_id, defaults={"name": "SolarSystemName"}
+        )[0]
+        mock_get_solar.return_value = solar_system
 
-        shiptype_mock = MagicMock()
-        shiptype_mock.name = "ShipTypeName"
-        mock_get_type.return_value = shiptype_mock
+        ship = ItemType.objects.get_or_create(
+            id=ship_type_id, defaults={"name": "ShipTypeName", "published": 1}
+        )[0]
+        mock_get_type.return_value = ship
 
         # Build request and attach session, messages and user
         url = self.url  # set in setUp
@@ -1423,8 +1573,9 @@ class TestAddFatView(BaseTestCase):
             fatlink=self.fatlink, character__character_id=eve_char.character_id
         ).first()
         self.assertIsNotNone(created_fat)
-        self.assertEqual(created_fat.system, solar_mock.name)
-        self.assertEqual(created_fat.shiptype, shiptype_mock.name)
+        # The view sets the foreign keys; assert the FK relationships are set
+        self.assertEqual(created_fat.solar_system, solar_system)
+        self.assertEqual(created_fat.ship, ship)
 
         # Check that a success message was added
         messages = list(get_messages(request))
@@ -1531,3 +1682,252 @@ class TestAddFatView(BaseTestCase):
         # Check that a warning about duplicate registration was added
         messages = list(get_messages(request))
         self.assertTrue(any("already registered" in str(m) for m in messages))
+
+
+class TestprocessFleetSnapshot(BaseTestCase):
+    """
+    Tests for process_fleetsnapshot
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Setup the test class
+
+        :return:
+        :rtype:
+        """
+
+        super().setUpClass()
+
+        cls.character_1001 = EveCharacter.objects.get(character_id=1001)
+        cls.character_1002 = EveCharacter.objects.get(character_id=1002)
+        cls.character_1003 = EveCharacter.objects.get(character_id=1003)
+        cls.character_1004 = EveCharacter.objects.get(character_id=1004)
+        cls.character_1005 = EveCharacter.objects.get(character_id=1005)
+        cls.character_1101 = EveCharacter.objects.get(character_id=1101)
+
+        cls.user_without_access, _ = create_user_from_evecharacter(
+            character_id=cls.character_1001.character_id
+        )
+
+        cls.user_with_basic_access, _ = create_user_from_evecharacter(
+            character_id=cls.character_1002.character_id,
+            permissions=["afat.basic_access"],
+        )
+
+        cls.user_with_manage_afat, _ = create_user_from_evecharacter(
+            character_id=cls.character_1003.character_id,
+            permissions=["afat.basic_access", "afat.manage_afat"],
+        )
+
+        cls.user_with_add_fatlink, _ = create_user_from_evecharacter(
+            character_id=cls.character_1004.character_id,
+            permissions=["afat.basic_access", "afat.add_fatlink"],
+        )
+
+    def test_processes_valid_fleet_snapshot_creates_expected_fats(self):
+        """
+        Test processing valid fleet snapshot creates expected fats
+
+        :return:
+        :rtype:
+        """
+
+        self.client.force_login(user=self.user_with_manage_afat)
+
+        fatlink = FatLink.objects.create(
+            hash="snap1",
+            fleet="Snapshot Fleet",
+            creator=self.user_with_manage_afat,
+            character=self.character_1001,
+        )
+
+        raw = "Rounon Dax\tDO6H-Q\tMetamorphosis\tFrigate\tFleet Commander (Boss)\t5 - 5 - 5\t\t"
+
+        # Ensure SDE lookups succeed for the system and ship class used in the
+        # fleet snapshot so the view can resolve them to real model instances.
+        SolarSystem.objects.get_or_create(
+            id=5002, name_en="DO6H-Q", defaults={"name": "DO6H-Q"}
+        )
+        ItemType.objects.get_or_create(
+            id=6002,
+            name_en="Metamorphosis",
+            defaults={"name": "Metamorphosis", "published": 1},
+        )
+
+        request = RequestFactory().post(
+            path=reverse("afat:fatlinks_process_fleetsnapshot", args=[fatlink.hash]),
+            data={"fleet_composition": raw},
+        )
+        SessionMiddleware(get_response=lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user_with_manage_afat
+        request._messages = FallbackStorage(request)
+
+        with (
+            patch(
+                "afat.views.fatlinks.get_or_create_character",
+                return_value=self.character_1001,
+            ),
+            patch("afat.views.fatlinks.Fat.objects.bulk_create") as mock_bulk,
+        ):
+            response = fatlinks_module.process_fleetsnapshot.__wrapped__.__wrapped__(
+                request, fatlink.hash
+            )
+
+        # bulk_create should be called once with one created Fat instance
+        self.assertTrue(mock_bulk.called)
+        objs = mock_bulk.call_args[1]["objs"]
+        self.assertEqual(len(objs), 1)
+
+        # Redirects to details view and adds a success message
+        expected_url = reverse(
+            "afat:fatlinks_details_fatlink", kwargs={"fatlink_hash": fatlink.hash}
+        )
+        self.assertEqual(response.url, expected_url)
+        messages = list(get_messages(request))
+        self.assertTrue(any("Fleet snapshot processed" in str(m) for m in messages))
+
+    def test_skips_lines_when_character_not_found(self):
+        """
+        Test skips lines when character not found
+
+        :return:
+        :rtype:
+        """
+
+        self.client.force_login(user=self.user_with_manage_afat)
+
+        fatlink = FatLink.objects.create(
+            hash="snap2",
+            fleet="Snapshot Fleet",
+            creator=self.user_with_manage_afat,
+            character=self.character_1001,
+        )
+
+        raw = (
+            "Known Pilot\tSYS\tClass\tType\tPos\t5 - 5 - 5\t\t\n"
+            "Unknown Pilot\tSYS\tClass\tType\tPos\t5 - 5 - 5\t\t"
+        )
+
+        request = RequestFactory().post(
+            path=reverse("afat:fatlinks_process_fleetsnapshot", args=[fatlink.hash]),
+            data={"fleet_composition": raw},
+        )
+        # Ensure SDE lookups for the system and ship class used in this
+        # snapshot are available so the view can resolve them.
+        SolarSystem.objects.get_or_create(
+            id=5003, name_en="SYS", defaults={"name": "SYS"}
+        )
+        ItemType.objects.get_or_create(
+            id=6003, name_en="Class", defaults={"name": "Class", "published": 1}
+        )
+        SessionMiddleware(get_response=lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user_with_manage_afat
+        request._messages = FallbackStorage(request)
+
+        # First call returns a character, second returns None
+        with (
+            patch(
+                "afat.views.fatlinks.get_or_create_character",
+                side_effect=[self.character_1001, None],
+            ),
+            patch("afat.views.fatlinks.Fat.objects.bulk_create") as mock_bulk,
+        ):
+            fatlinks_module.process_fleetsnapshot.__wrapped__.__wrapped__(
+                request, fatlink.hash
+            )
+
+        self.assertTrue(mock_bulk.called)
+        objs = mock_bulk.call_args[1]["objs"]
+        # Only one valid character line should result in one Fat to create
+        self.assertEqual(len(objs), 1)
+
+        messages = list(get_messages(request))
+        self.assertTrue(any("Fleet snapshot processed" in str(m) for m in messages))
+
+    def test_invalid_fleet_composition_shows_error_and_redirects(self):
+        """
+        Test invalid fleet composition shows error and redirects
+
+        :return:
+        :rtype:
+        """
+
+        self.client.force_login(user=self.user_with_manage_afat)
+
+        fatlink = FatLink.objects.create(
+            hash="snap3",
+            fleet="Snapshot Fleet",
+            creator=self.user_with_manage_afat,
+            character=self.character_1001,
+        )
+
+        # This string should not match the expected fleet composition regex
+        invalid_raw = "INVALID FLEET DATA THAT DOES NOT MATCH"
+
+        request = RequestFactory().post(
+            path=reverse("afat:fatlinks_process_fleetsnapshot", args=[fatlink.hash]),
+            data={"fleet_composition": invalid_raw},
+        )
+        SessionMiddleware(get_response=lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user_with_manage_afat
+        request._messages = FallbackStorage(request)
+
+        with (
+            patch("afat.views.fatlinks.get_or_create_character"),
+            patch("afat.views.fatlinks.Fat.objects.bulk_create") as mock_bulk,
+        ):
+            response = fatlinks_module.process_fleetsnapshot.__wrapped__.__wrapped__(
+                request, fatlink.hash
+            )
+
+        # bulk_create should not be called for invalid format
+        self.assertFalse(mock_bulk.called)
+
+        # Redirect to details view and error message present
+        expected_url = reverse(
+            "afat:fatlinks_details_fatlink", kwargs={"fatlink_hash": fatlink.hash}
+        )
+        self.assertEqual(response.url, expected_url)
+        messages = list(get_messages(request))
+        self.assertTrue(
+            any(
+                "Please make sure to paste the fleet composition here" in str(m)
+                for m in messages
+            )
+        )
+
+    def test_invalid_hash_redirects_to_dashboard_with_warning(self):
+        """
+        Test invalid hash redirects to dashboard with warning
+
+        :return:
+        :rtype:
+        """
+
+        request = RequestFactory().post(
+            path=reverse("afat:fatlinks_process_fleetsnapshot", args=["nope"]),
+            data={"fleet_composition": "x"},
+        )
+        SessionMiddleware(get_response=lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user_with_manage_afat
+        request._messages = FallbackStorage(request)
+
+        # Patch FatLink.objects.get to raise DoesNotExist
+        with patch(
+            "afat.views.fatlinks.FatLink.objects.get", side_effect=FatLink.DoesNotExist
+        ):
+            response = fatlinks_module.process_fleetsnapshot.__wrapped__.__wrapped__(
+                request, "nope"
+            )
+
+        self.assertEqual(response.url, reverse("afat:dashboard"))
+        messages = list(get_messages(request))
+        self.assertTrue(
+            any("The hash provided is not valid" in str(m) for m in messages)
+        )

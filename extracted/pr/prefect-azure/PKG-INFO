@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-azure
-Version: 0.4.9
+Version: 0.4.10
 Summary: Prefect integrations with Microsoft Azure services
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -23,7 +23,7 @@ Requires-Dist: aiohttp
 Requires-Dist: azure_identity>=1.10
 Requires-Dist: azure_mgmt_containerinstance>=10.0
 Requires-Dist: azure-mgmt-resource<25,>=21.2
-Requires-Dist: prefect>=3.6.17
+Requires-Dist: prefect>=3.7.0
 Requires-Dist: prefect-docker>=0.6.2
 Requires-Dist: setuptools<81
 Provides-Extra: blob-storage

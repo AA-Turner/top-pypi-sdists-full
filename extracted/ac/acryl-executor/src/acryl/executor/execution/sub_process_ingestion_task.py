@@ -14,6 +14,7 @@
 
 import asyncio
 import asyncio.exceptions
+import json
 import logging
 import os
 import signal
@@ -26,6 +27,7 @@ from pathlib import Path
 from typing import IO, Any, Optional
 
 import pydantic
+import yaml
 from datahub.configuration.env_vars import get_debug
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.masking.bootstrap import shutdown_secret_masking
@@ -230,7 +232,6 @@ class SubProcessIngestionTask(Task):
         validated_args: SubProcessIngestionTaskArgs,
         exec_out_dir: str,
         artifact_output_dir: str,
-        secret_names: list[str],
     ) -> dict:
         """Prepare environment variables for subprocess."""
         subprocess_env = validated_args.get_combined_env_vars()
@@ -240,10 +241,6 @@ class SubProcessIngestionTask(Task):
 
         # Enable secret masking in subprocess
         subprocess_env["DATAHUB_ENABLE_SECRET_MASKING"] = "true"
-
-        # Pass the list of secret names to subprocess for targeted registration
-        if secret_names:
-            subprocess_env["DATAHUB_SECRET_NAMES"] = ",".join(secret_names)
 
         # Set DATAHUB_DEBUG based on debug_mode to control hide_input_in_errors
         subprocess_env["DATAHUB_DEBUG"] = validated_args.debug_mode
@@ -311,13 +308,18 @@ class SubProcessIngestionTask(Task):
         self,
         validated_args: SubProcessIngestionTaskArgs,
         plugin: str,
-        recipe_file_path: str,
+        recipe: dict,
         report_out_file: str,
         subprocess_env: dict,
         exec_out_dir: str,
         shared_logs: LogHolder,
+        secret_values: dict[str, str],
     ) -> asyncio.subprocess.Process:
-        """Create and return the ingestion subprocess."""
+        """Create and return the ingestion subprocess.
+
+        Secrets and recipe are passed via stdin as a JSON envelope to avoid
+        writing secrets to env vars or recipe to disk.
+        """
         # First, set up the venv using Python utilities with shared logging
         venv_ref = await self._setup_venv(
             validated_args, plugin, exec_out_dir, shared_logs
@@ -335,31 +337,40 @@ class SubProcessIngestionTask(Task):
         else:
             logger.info(f"Running ingestion with dynamic venv: {venv_ref.venv_loc}")
 
-        # Prepare environment with venv information (no log file needed)
-        # Filter out empty string values to prevent them from overriding non-empty system vars
-        filtered_venv_extra = {
-            k: v for k, v in venv_ref.extra_envs().items() if v != ""
-        }
         venv_env = {
-            **subprocess_env,  # System vars as base
-            **filtered_venv_extra,  # Recipe's extra_env_vars override (non-empty only)
+            **subprocess_env,
             "VENV_PATH": str(venv_ref.venv_loc),
         }
 
-        return await asyncio.create_subprocess_exec(
-            *[
-                command_script,
-                str(venv_ref.venv_loc),  # Pass venv path directly
-                recipe_file_path,
-                report_out_file,
-                debug_mode,
-                # No log file argument needed anymore!
-            ],
+        # Build stdin envelope in datahub-compatible format.
+        # __recipe_yaml__ and __secrets__ are consumed by datahub's config_loader.
+        # __report_out_file__ and __debug_mode__ are consumed by the wrapper script.
+        # All envelope keys use dunder prefix to distinguish from recipe content.
+        stdin_envelope = json.dumps(
+            {
+                "__recipe_yaml__": yaml.dump(recipe),
+                "__secrets__": secret_values,
+                "__report_out_file__": report_out_file,
+                "__debug_mode__": debug_mode,
+            }
+        )
+
+        process = await asyncio.create_subprocess_exec(
+            command_script,
+            str(venv_ref.venv_loc),
             env=venv_env,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             limit=SubProcessTaskUtil.SUBPROCESS_BUFFER_SIZE,
         )
+
+        # Write the envelope to stdin and close it
+        assert process.stdin is not None
+        process.stdin.write(stdin_envelope.encode("utf-8"))
+        process.stdin.close()
+
+        return process
 
     async def execute(self, args: dict, ctx: ExecutionContext) -> None:
         exec_id = ctx.exec_id  # The unique execution id.
@@ -382,28 +393,23 @@ class SubProcessIngestionTask(Task):
         exec_id: str,
     ) -> None:
         """Execute the ingestion task with the given arguments."""
-        # 1. Resolve the recipe (combine it with others)
-        recipe: dict
-        secret_names: list[str]
-        secrets_to_cleanup: set[str]
-        recipe, secret_names, secrets_to_cleanup = SubProcessTaskUtil._resolve_recipe(
+        # 1. Resolve the recipe and secrets (secrets stay in memory, not in os.environ)
+        recipe, secret_values = SubProcessTaskUtil._resolve_recipe(
             validated_args.recipe, ctx, self.ctx
         )
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
-        # 2. Write recipe file to local FS (requires write permissions to /tmp directory)
+        # 2. Setup directories
         exec_out_dir, artifact_output_dir, report_out_file = self._setup_directories(
             exec_id
-        )
-        recipe_file_path = SubProcessTaskUtil._write_recipe_to_file(
-            exec_out_dir, recipe
         )
 
         # 3. Prepare subprocess environment and create subprocess
         subprocess_env = self._prepare_subprocess_environment(
-            validated_args, exec_out_dir, artifact_output_dir, secret_names
+            validated_args, exec_out_dir, artifact_output_dir
         )
-        logger.debug(f"Subprocess environment: {subprocess_env}")
+        # Only log env var keys, not values — values may contain user-provided secrets
+        logger.debug(f"Subprocess environment keys: {sorted(subprocess_env.keys())}")
         if DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR in subprocess_env:
             self.config.cloud_log_bucket = subprocess_env[
                 DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR
@@ -428,11 +434,12 @@ class SubProcessIngestionTask(Task):
         ingest_process = await self._create_subprocess(
             validated_args,
             plugin,
-            recipe_file_path,
+            recipe,
             report_out_file,
             subprocess_env,
             exec_out_dir,
             shared_logs,
+            secret_values,
         )
 
         try:
@@ -448,7 +455,6 @@ class SubProcessIngestionTask(Task):
                 recipe,
                 exec_out_dir,
                 shared_logs,
-                secrets_to_cleanup,
             )
 
     async def _monitor_subprocess(
@@ -660,7 +666,6 @@ class SubProcessIngestionTask(Task):
         recipe: dict,
         exec_out_dir: str,
         shared_logs: LogHolder,
-        secrets_to_cleanup: set[str],
     ) -> None:
         """Handle subprocess completion, including report processing and cleanup."""
 
@@ -692,17 +697,10 @@ class SubProcessIngestionTask(Task):
             SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
         )
 
-        # Cleanup by removing the recipe file
+        # Cleanup execution directory
         SubProcessTaskUtil._remove_directory(exec_out_dir)
 
-        # Cleanup secrets from environment to prevent pollution
-        # Only remove secrets we added, not ones already in environment
-        # This must happen before checking return code to ensure cleanup on both success and failure
-        for secret_name in secrets_to_cleanup:
-            os.environ.pop(secret_name, None)
-
         # Shutdown DataHub masking framework to clean up resources
-        # This must happen before checking return code to ensure cleanup on both success and failure
         try:
             shutdown_secret_masking()
         except Exception as e:

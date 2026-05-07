@@ -508,9 +508,10 @@ class _TerminalRateLimiter:
         return True
 
 
-# Global terminal rate limiter
+# Global terminal rate limiter — generous enough to survive normal page-mount churn
+# (React StrictMode double-mounts, tab switches) without locking users out.
 _terminal_rate_limiter = _TerminalRateLimiter(
-    max_connections_per_ip=5,
+    max_connections_per_ip=30,
     time_window_seconds=60
 )
 
@@ -566,28 +567,30 @@ async def terminal_websocket_handler(websocket: WebSocket):
     """Handle WebSocket connection for terminal."""
     from backend.config import settings
 
-    # CRITICAL SECURITY: Check rate limit FIRST (before auth to prevent DoS)
+    # CRITICAL: Accept the WebSocket BEFORE any close() so our custom close codes
+    # (4003 auth, 4029 rate limit) actually reach the client. If we close before
+    # accept, the browser sees "WebSocket closed before connection established"
+    # with generic code 1006 — and our frontend retries, hitting the rate limit
+    # again, creating an infinite reconnect loop.
+    await websocket.accept()
+
+    # Rate limit check (DoS protection)
     client_ip = websocket.client.host if websocket.client else "unknown"
     allowed, reason = _check_terminal_rate_limit(client_ip)
     if not allowed:
         await websocket.close(code=4029, reason=reason)
         return
 
-    # CRITICAL SECURITY: Require authentication in ALL modes (not just production)
-    # Extract token from query params or headers
+    # Authentication — extract token from query params or Authorization header
     token = websocket.query_params.get("token", "")
     if not token:
-        # Also check Authorization header
         auth_header = websocket.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
 
-    # Use strict auth that fails closed
     if not _require_terminal_auth(token, settings.is_production):
         await websocket.close(code=4003, reason="Authentication required")
         return
-
-    await websocket.accept()
 
     # Decide which terminal session type to use
     use_simulated = _should_use_simulated_terminal()

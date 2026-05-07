@@ -4,7 +4,7 @@ from __future__ import annotations
 from ..typing import DictKeys, DictValues
 
 from abc import ABC, abstractmethod
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, Self
 import os
 import random
 
@@ -29,7 +29,7 @@ class Bundle(ABC):
 
     # ======================================== FACTORY ========================================
     @classmethod
-    def from_folder(cls, folder_path: str, prefix: str  ="", extensions: list[str] = None, remove_prefix: bool = False, **kwargs) -> Bundle:
+    def from_folder(cls, folder_path: str, prefix: str  ="", extensions: list[str] = None, remove_prefix: bool = False, **kwargs) -> Self:
         """Crée un bundle à partir d'un dossier
 
         Args:
@@ -53,7 +53,7 @@ class Bundle(ABC):
             paths[key] = os.path.join(folder_path, filename)
         return cls(paths, **kwargs)
 
-    def preload(self) -> Bundle:
+    def preload(self) -> Self:
         """Précharge tous les éléments du bundle"""
         for key in self._paths:
             self.get(key)

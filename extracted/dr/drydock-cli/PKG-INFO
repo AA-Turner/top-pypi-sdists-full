@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drydock-cli
-Version: 2.7.46
+Version: 2.8.0
 Summary: Local-first CLI coding agent — tested with Gemma 4 26B via vLLM
 Project-URL: Homepage, https://github.com/fbobe321/drydock
 Project-URL: Repository, https://github.com/fbobe321/drydock
@@ -41,7 +41,6 @@ Requires-Dist: pydantic-settings>=2.12.0
 Requires-Dist: pydantic>=2.12.4
 Requires-Dist: pypdf>=4.0.0
 Requires-Dist: pyperclip>=1.11.0
-Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.20.0
 Requires-Dist: rich>=14.0.0

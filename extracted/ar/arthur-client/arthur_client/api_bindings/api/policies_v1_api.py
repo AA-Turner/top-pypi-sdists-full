@@ -27,6 +27,7 @@ from arthur_client.api_bindings.models.compliance_status import ComplianceStatus
 from arthur_client.api_bindings.models.create_policy_assignments_request import CreatePolicyAssignmentsRequest
 from arthur_client.api_bindings.models.infinite_resource_list_compliance_row import InfiniteResourceListComplianceRow
 from arthur_client.api_bindings.models.jobs_batch import JobsBatch
+from arthur_client.api_bindings.models.metrics_calculation_job_spec import MetricsCalculationJobSpec
 from arthur_client.api_bindings.models.patch_policy import PatchPolicy
 from arthur_client.api_bindings.models.patch_policy_alert_rule import PatchPolicyAlertRule
 from arthur_client.api_bindings.models.patch_policy_attestation_rule import PatchPolicyAttestationRule
@@ -34,6 +35,7 @@ from arthur_client.api_bindings.models.policy import Policy
 from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_assignment import PolicyAssignment
 from arthur_client.api_bindings.models.policy_assignment_detail import PolicyAssignmentDetail
+from arthur_client.api_bindings.models.policy_assignment_job_chain_patch import PolicyAssignmentJobChainPatch
 from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAttestationRule
 from arthur_client.api_bindings.models.policy_sort import PolicySort
 from arthur_client.api_bindings.models.policy_summary import PolicySummary
@@ -71,6 +73,7 @@ class PoliciesV1Api:
     def check_assignment_compliance(
         self,
         assignment_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -86,10 +89,12 @@ class PoliciesV1Api:
     ) -> JobsBatch:
         """Check Assignment Compliance
 
-        Enqueues a compliance check job for a specific policy assignment. Requires policy_assignment_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain scoped to a specific assignment. The window is taken from the request body's start_timestamp / end_timestamp. Requires policy_assignment_check_compliance permission.
 
         :param assignment_id: (required)
         :type assignment_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -114,6 +119,7 @@ class PoliciesV1Api:
 
         _param = self._check_assignment_compliance_serialize(
             assignment_id=assignment_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -140,6 +146,7 @@ class PoliciesV1Api:
     def check_assignment_compliance_with_http_info(
         self,
         assignment_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -155,10 +162,12 @@ class PoliciesV1Api:
     ) -> ApiResponse[JobsBatch]:
         """Check Assignment Compliance
 
-        Enqueues a compliance check job for a specific policy assignment. Requires policy_assignment_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain scoped to a specific assignment. The window is taken from the request body's start_timestamp / end_timestamp. Requires policy_assignment_check_compliance permission.
 
         :param assignment_id: (required)
         :type assignment_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -183,6 +192,7 @@ class PoliciesV1Api:
 
         _param = self._check_assignment_compliance_serialize(
             assignment_id=assignment_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -209,6 +219,7 @@ class PoliciesV1Api:
     def check_assignment_compliance_without_preload_content(
         self,
         assignment_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -224,10 +235,12 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Check Assignment Compliance
 
-        Enqueues a compliance check job for a specific policy assignment. Requires policy_assignment_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain scoped to a specific assignment. The window is taken from the request body's start_timestamp / end_timestamp. Requires policy_assignment_check_compliance permission.
 
         :param assignment_id: (required)
         :type assignment_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -252,6 +265,7 @@ class PoliciesV1Api:
 
         _param = self._check_assignment_compliance_serialize(
             assignment_id=assignment_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -273,6 +287,7 @@ class PoliciesV1Api:
     def _check_assignment_compliance_serialize(
         self,
         assignment_id,
+        metrics_calculation_job_spec,
         _request_auth,
         _content_type,
         _headers,
@@ -300,6 +315,8 @@ class PoliciesV1Api:
         # process the header parameters
         # process the form parameters
         # process the body parameter
+        if metrics_calculation_job_spec is not None:
+            _body_params = metrics_calculation_job_spec
 
 
         # set the HTTP header `Accept`
@@ -310,6 +327,19 @@ class PoliciesV1Api:
                 ]
             )
 
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
 
         # authentication setting
         _auth_settings: List[str] = [
@@ -338,6 +368,7 @@ class PoliciesV1Api:
     def check_model_compliance(
         self,
         model_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -353,10 +384,12 @@ class PoliciesV1Api:
     ) -> JobsBatch:
         """Check Model Compliance
 
-        Enqueues a compliance check job for all assignments on this model. Requires model_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for all assignments on this model. The window is taken from the request body's start_timestamp / end_timestamp. Requires model_check_compliance permission.
 
         :param model_id: (required)
         :type model_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -381,6 +414,7 @@ class PoliciesV1Api:
 
         _param = self._check_model_compliance_serialize(
             model_id=model_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -407,6 +441,7 @@ class PoliciesV1Api:
     def check_model_compliance_with_http_info(
         self,
         model_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -422,10 +457,12 @@ class PoliciesV1Api:
     ) -> ApiResponse[JobsBatch]:
         """Check Model Compliance
 
-        Enqueues a compliance check job for all assignments on this model. Requires model_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for all assignments on this model. The window is taken from the request body's start_timestamp / end_timestamp. Requires model_check_compliance permission.
 
         :param model_id: (required)
         :type model_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -450,6 +487,7 @@ class PoliciesV1Api:
 
         _param = self._check_model_compliance_serialize(
             model_id=model_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -476,6 +514,7 @@ class PoliciesV1Api:
     def check_model_compliance_without_preload_content(
         self,
         model_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -491,10 +530,12 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Check Model Compliance
 
-        Enqueues a compliance check job for all assignments on this model. Requires model_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for all assignments on this model. The window is taken from the request body's start_timestamp / end_timestamp. Requires model_check_compliance permission.
 
         :param model_id: (required)
         :type model_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -519,6 +560,7 @@ class PoliciesV1Api:
 
         _param = self._check_model_compliance_serialize(
             model_id=model_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -540,6 +582,7 @@ class PoliciesV1Api:
     def _check_model_compliance_serialize(
         self,
         model_id,
+        metrics_calculation_job_spec,
         _request_auth,
         _content_type,
         _headers,
@@ -567,6 +610,8 @@ class PoliciesV1Api:
         # process the header parameters
         # process the form parameters
         # process the body parameter
+        if metrics_calculation_job_spec is not None:
+            _body_params = metrics_calculation_job_spec
 
 
         # set the HTTP header `Accept`
@@ -577,6 +622,19 @@ class PoliciesV1Api:
                 ]
             )
 
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
 
         # authentication setting
         _auth_settings: List[str] = [
@@ -605,6 +663,7 @@ class PoliciesV1Api:
     def check_policy_compliance(
         self,
         policy_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -620,10 +679,12 @@ class PoliciesV1Api:
     ) -> JobsBatch:
         """Check Policy Compliance
 
-        Enqueues a compliance check job for every assignment in this policy. Requires policy_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for every assignment in this policy. The window is taken from the request body's start_timestamp / end_timestamp. Requires policy_check_compliance permission.
 
         :param policy_id: (required)
         :type policy_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -648,6 +709,7 @@ class PoliciesV1Api:
 
         _param = self._check_policy_compliance_serialize(
             policy_id=policy_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -674,6 +736,7 @@ class PoliciesV1Api:
     def check_policy_compliance_with_http_info(
         self,
         policy_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -689,10 +752,12 @@ class PoliciesV1Api:
     ) -> ApiResponse[JobsBatch]:
         """Check Policy Compliance
 
-        Enqueues a compliance check job for every assignment in this policy. Requires policy_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for every assignment in this policy. The window is taken from the request body's start_timestamp / end_timestamp. Requires policy_check_compliance permission.
 
         :param policy_id: (required)
         :type policy_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -717,6 +782,7 @@ class PoliciesV1Api:
 
         _param = self._check_policy_compliance_serialize(
             policy_id=policy_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -743,6 +809,7 @@ class PoliciesV1Api:
     def check_policy_compliance_without_preload_content(
         self,
         policy_id: StrictStr,
+        metrics_calculation_job_spec: MetricsCalculationJobSpec,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -758,10 +825,12 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Check Policy Compliance
 
-        Enqueues a compliance check job for every assignment in this policy. Requires policy_check_compliance permission.
+        Enqueues a Metrics → Alerts → Compliance chain for every assignment in this policy. The window is taken from the request body's start_timestamp / end_timestamp. Requires policy_check_compliance permission.
 
         :param policy_id: (required)
         :type policy_id: str
+        :param metrics_calculation_job_spec: (required)
+        :type metrics_calculation_job_spec: MetricsCalculationJobSpec
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -786,6 +855,7 @@ class PoliciesV1Api:
 
         _param = self._check_policy_compliance_serialize(
             policy_id=policy_id,
+            metrics_calculation_job_spec=metrics_calculation_job_spec,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -807,6 +877,7 @@ class PoliciesV1Api:
     def _check_policy_compliance_serialize(
         self,
         policy_id,
+        metrics_calculation_job_spec,
         _request_auth,
         _content_type,
         _headers,
@@ -834,6 +905,8 @@ class PoliciesV1Api:
         # process the header parameters
         # process the form parameters
         # process the body parameter
+        if metrics_calculation_job_spec is not None:
+            _body_params = metrics_calculation_job_spec
 
 
         # set the HTTP header `Accept`
@@ -844,6 +917,19 @@ class PoliciesV1Api:
                 ]
             )
 
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
 
         # authentication setting
         _auth_settings: List[str] = [
@@ -8395,6 +8481,301 @@ class PoliciesV1Api:
         return self.api_client.param_serialize(
             method='PUT',
             resource_path='/api/v1/policy_assignments/{assignment_id}/compliance_status',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def update_assignment_job_chain(
+        self,
+        assignment_id: StrictStr,
+        policy_assignment_job_chain_patch: PolicyAssignmentJobChainPatch,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> PolicyAssignmentDetail:
+        """Update Assignment Job Chain
+
+        Sparse update for the downstream job IDs in the compliance chain (alerts_check_job_id, compliance_job_id). Called by the data-plane executors as the chain advances. metrics_calc_job_id is set by the operator at chain submission and is not accepted here. Requires policy_assignment_set_compliance_status permission.
+
+        :param assignment_id: (required)
+        :type assignment_id: str
+        :param policy_assignment_job_chain_patch: (required)
+        :type policy_assignment_job_chain_patch: PolicyAssignmentJobChainPatch
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._update_assignment_job_chain_serialize(
+            assignment_id=assignment_id,
+            policy_assignment_job_chain_patch=policy_assignment_job_chain_patch,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PolicyAssignmentDetail",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_assignment_job_chain_with_http_info(
+        self,
+        assignment_id: StrictStr,
+        policy_assignment_job_chain_patch: PolicyAssignmentJobChainPatch,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[PolicyAssignmentDetail]:
+        """Update Assignment Job Chain
+
+        Sparse update for the downstream job IDs in the compliance chain (alerts_check_job_id, compliance_job_id). Called by the data-plane executors as the chain advances. metrics_calc_job_id is set by the operator at chain submission and is not accepted here. Requires policy_assignment_set_compliance_status permission.
+
+        :param assignment_id: (required)
+        :type assignment_id: str
+        :param policy_assignment_job_chain_patch: (required)
+        :type policy_assignment_job_chain_patch: PolicyAssignmentJobChainPatch
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._update_assignment_job_chain_serialize(
+            assignment_id=assignment_id,
+            policy_assignment_job_chain_patch=policy_assignment_job_chain_patch,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PolicyAssignmentDetail",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_assignment_job_chain_without_preload_content(
+        self,
+        assignment_id: StrictStr,
+        policy_assignment_job_chain_patch: PolicyAssignmentJobChainPatch,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Update Assignment Job Chain
+
+        Sparse update for the downstream job IDs in the compliance chain (alerts_check_job_id, compliance_job_id). Called by the data-plane executors as the chain advances. metrics_calc_job_id is set by the operator at chain submission and is not accepted here. Requires policy_assignment_set_compliance_status permission.
+
+        :param assignment_id: (required)
+        :type assignment_id: str
+        :param policy_assignment_job_chain_patch: (required)
+        :type policy_assignment_job_chain_patch: PolicyAssignmentJobChainPatch
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._update_assignment_job_chain_serialize(
+            assignment_id=assignment_id,
+            policy_assignment_job_chain_patch=policy_assignment_job_chain_patch,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PolicyAssignmentDetail",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _update_assignment_job_chain_serialize(
+        self,
+        assignment_id,
+        policy_assignment_job_chain_patch,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if assignment_id is not None:
+            _path_params['assignment_id'] = assignment_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if policy_assignment_job_chain_patch is not None:
+            _body_params = policy_assignment_job_chain_patch
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PATCH',
+            resource_path='/api/v1/policy_assignments/{assignment_id}/job_chain',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

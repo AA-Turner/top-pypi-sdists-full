@@ -234,7 +234,7 @@ variable to '1' or 'true'."""
         try:
             self.main(*args, **kwargs)
         except AuthNoTokenException:
-            error_msg = FeedbackManager.error_notoken()
+            error_msg = FeedbackManager.error_notoken(cli="tb")
             error_event = "auth_error"
             exit_code = 1
         except AuthException as ex:
@@ -315,7 +315,6 @@ async def folder_init(
         except FileExistsError:
             if not force:
                 click.echo(FeedbackManager.info_path_already_exists(path=x))
-            pass
 
     if generate_datasources:
         for format in SUPPORTED_FORMATS:
@@ -690,7 +689,7 @@ async def create_workspace_branch(
     try:
         workspace = await get_current_workspace(config)
         if not workspace:
-            raise CLIWorkspaceException(FeedbackManager.error_workspace())
+            raise CLIWorkspaceException(FeedbackManager.error_workspace(cli="tb"))
 
         if not branch_name:
             click.echo(FeedbackManager.info_workspace_branch_create_greeting())
@@ -1195,7 +1194,7 @@ def validate_string_connector_param(param, s):
 
 async def validate_connection_name(client, connection_name, service):
     if await client.get_connector(connection_name, service) is not None:
-        raise CLIConnectionException(FeedbackManager.error_connection_already_exists(name=connection_name))
+        raise CLIConnectionException(FeedbackManager.error_connection_already_exists(name=connection_name, cli="tb"))
 
 
 def _get_setting_value(connection, setting, sensitive_settings):
@@ -1223,9 +1222,9 @@ async def switch_workspace(config: CLIConfig, workspace_name_or_id: str, only_en
 
         if not workspace:
             if only_environments:
-                raise CLIException(FeedbackManager.error_branch(branch=workspace_name_or_id))
+                raise CLIException(FeedbackManager.error_branch(branch=workspace_name_or_id, cli="tb"))
             else:
-                raise CLIException(FeedbackManager.error_workspace(workspace=workspace_name_or_id))
+                raise CLIException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli="tb"))
 
         config.set_token(workspace["token"])
         config.set_token_for_host(workspace["token"], config.get_host())
@@ -1391,17 +1390,17 @@ async def get_host_from_region(
         try:
             host = regions[index - 1]["api_host"]
         except Exception:
-            raise CLIException(FeedbackManager.error_getting_region_by_index())
+            raise CLIException(FeedbackManager.error_getting_region_by_index(cli="tb"))
     except ValueError:
         region_name = region_name_or_host_or_id.lower()
         try:
             region = get_region_from_host(region_name, regions)
             host = region["api_host"] if region else None
         except Exception:
-            raise CLIException(FeedbackManager.error_getting_region_by_name_or_url())
+            raise CLIException(FeedbackManager.error_getting_region_by_name_or_url(cli="tb"))
 
     if not host:
-        raise CLIException(FeedbackManager.error_getting_region_by_name_or_url())
+        raise CLIException(FeedbackManager.error_getting_region_by_name_or_url(cli="tb"))
 
     return regions, host
 
@@ -1562,7 +1561,7 @@ async def try_authenticate(
                 break
 
     if not authenticated:
-        raise CLIAuthException(FeedbackManager.error_invalid_token())
+        raise CLIAuthException(FeedbackManager.error_invalid_token(cli="tb"))
 
     config.persist_to_file()
 
@@ -1899,14 +1898,14 @@ async def validate_aws_iamrole_connection_name(
 ) -> str:
     if connection_name and no_validate is False:
         if await client.get_connector(connection_name) is not None:
-            raise CLIConnectionException(FeedbackManager.info_connection_already_exists(name=connection_name))
+            raise CLIConnectionException(FeedbackManager.info_connection_already_exists(name=connection_name, cli="tb"))
     else:
         while not connection_name:
             connection_name = click.prompt("Enter the name for this connection", default=None, show_default=False)
             assert isinstance(connection_name, str)
 
             if no_validate is False and await client.get_connector(connection_name) is not None:
-                click.echo(FeedbackManager.info_connection_already_exists(name=connection_name))
+                click.echo(FeedbackManager.info_connection_already_exists(name=connection_name, cli="tb"))
                 connection_name = None
     assert isinstance(connection_name, str)
     return connection_name

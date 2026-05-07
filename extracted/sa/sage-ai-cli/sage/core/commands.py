@@ -18,10 +18,13 @@ Key safety guarantees:
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 import shlex
+import shutil
 import subprocess
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
@@ -42,6 +45,7 @@ __all__ = [
     "validate_command",
     "is_command_allowed",
     "get_allowed_commands",
+    "run_shell",
     # Command builders
     "build_test_command",
     "build_lint_command",
@@ -51,6 +55,75 @@ __all__ = [
     "BLOCKED_PATTERNS",
     "DANGEROUS_FLAGS",
 ]
+
+
+@functools.lru_cache(maxsize=1)
+def _windows_bash_exe() -> str | None:
+    """Locate a POSIX-compatible bash on Windows. None if not found.
+
+    Why this exists: when subprocess runs with ``shell=True`` on Windows,
+    Python invokes ``cmd.exe``, which can't parse the bash idioms the SAGE
+    agent emits (single-quoted args, ``$(subst)``, ``mkdir -p``, ``grep``,
+    ``cat``, heredocs, etc). Routing through Git Bash / WSL bash makes
+    those work the same as on Linux/macOS.
+
+    Search order:
+      1. Git Bash — bundled with Git for Windows, present on most dev boxes
+      2. WSL bash via PATH (``bash.exe``)
+      3. MSYS2 bash
+    """
+    if sys.platform != "win32":
+        return None
+    candidates = [
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        r"C:\msys64\usr\bin\bash.exe",
+    ]
+    for c in candidates:
+        if Path(c).is_file():
+            return c
+    return shutil.which("bash.exe") or shutil.which("bash")
+
+
+def run_shell(
+    cmd: str,
+    *,
+    cwd: Path | str | None = None,
+    timeout: float | None = 120,
+    capture_output: bool = True,
+    text: bool = True,
+    stdin: int | None = subprocess.DEVNULL,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
+    """Run a shell command string with POSIX semantics on every platform.
+
+    On non-Windows: ``subprocess.run(cmd, shell=True, ...)`` — uses ``/bin/sh``.
+    On Windows: prefer Git Bash / WSL bash via ``[bash, "-c", cmd]`` so the
+    agent's bash idioms work the same as on Linux/macOS. Falls back to
+    ``cmd.exe`` (``shell=True``) only if no bash is found.
+
+    The fallback is intentionally lossy — the user gets a runnable shell at
+    least, even if complex bash one-liners may not parse. ``sage doctor``
+    style diagnostics elsewhere should warn the user to install Git Bash.
+    """
+    common: dict = {
+        "cwd": str(cwd) if cwd is not None else None,
+        "capture_output": capture_output,
+        "text": text,
+        "timeout": timeout,
+        "stdin": stdin,
+    }
+    if env is not None:
+        common["env"] = env
+
+    if sys.platform == "win32":
+        bash = _windows_bash_exe()
+        if bash:
+            return subprocess.run([bash, "-c", cmd], **common)
+        # No bash available — fall through to cmd.exe.
+
+    return subprocess.run(cmd, shell=True, **common)
 
 
 class CommandCategory(str, Enum):
@@ -954,18 +1027,18 @@ def execute_command(
         )
 
     if needs_shell and allow_shell:
-        # Fall back to shell execution (with validation already passed)
+        # Fall back to shell execution (with validation already passed).
+        # Uses run_shell so Windows routes through Git Bash / WSL bash when
+        # available — keeps POSIX semantics (single quotes, $(...) , pipes)
+        # consistent with Linux/macOS.
         import time
 
         start_time = time.time()
 
         try:
-            result = subprocess.run(
+            result = run_shell(
                 cmd,
-                shell=True,
-                cwd=str(exec_cwd) if exec_cwd else None,
-                capture_output=True,
-                text=True,
+                cwd=exec_cwd,
                 timeout=timeout,
             )
 

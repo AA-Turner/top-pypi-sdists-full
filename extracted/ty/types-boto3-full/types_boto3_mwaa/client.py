@@ -66,6 +66,7 @@ class Exceptions(BaseClientExceptions):
     ResourceNotFoundException: type[BotocoreClientError]
     RestApiClientException: type[BotocoreClientError]
     RestApiServerException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
 

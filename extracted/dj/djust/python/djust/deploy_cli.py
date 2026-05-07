@@ -75,7 +75,7 @@ def load_credentials() -> dict:
     """Load credentials from disk, raising ClickException if absent."""
     path = credentials_path()
     if not path.exists():
-        raise click.ClickException("Not logged in. Run `djust-deploy login` first.")
+        raise click.ClickException("Not logged in. Run `djust deploy login` first.")
     return json.loads(path.read_text())
 
 
@@ -410,14 +410,20 @@ def deploy_dir(ctx: click.Context, project_slug: str, source_dir: str) -> None:
                     status = data.get("status")
                     click.echo(f"Status: {status}")
 
-                    if status in ("active", "failed", "cancelled", "superseded"):
-                        if status == "active":
+                    # `deploying` means the k8s resources have been created
+                    # and the readiness probe passed; the deployment row
+                    # may still flip to `active` later, but the app is
+                    # already serving so we can return.
+                    if status in ("active", "deploying", "failed", "cancelled", "superseded"):
+                        if status in ("active", "deploying"):
                             container_url = data.get("container_url")
                             if container_url:
                                 click.echo(f"Application available at: {container_url}")
                         return
             except requests.RequestException:
-                pass
+                # Transient network error during status poll; the loop's
+                # next iteration will retry. Logged at debug to avoid noise.
+                logger.debug("status poll failed; retrying", exc_info=True)
 
         click.echo("Deployment timed out waiting for completion.")
 

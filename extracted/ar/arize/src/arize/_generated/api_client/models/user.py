@@ -17,18 +17,26 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from typing import Any, ClassVar, Dict, List
+from arize._generated.api_client.models.user_role import UserRole
+from arize._generated.api_client.models.user_status import UserStatus
 from typing import Optional, Set
 from typing_extensions import Self
 
 class User(BaseModel):
     """
-    A reference to a user by their ID and optionally their email address.
+    An account user represents a member of the account. Users can be listed, updated, or removed from the account. 
     """ # noqa: E501
-    id: StrictStr = Field(description="The unique identifier for the user")
-    email: Optional[StrictStr] = Field(default=None, description="An email address")
-    __properties: ClassVar[List[str]] = ["id", "email"]
+    id: StrictStr = Field(description="A universally unique identifier")
+    name: StrictStr = Field(description="Display name of the user")
+    email: StrictStr = Field(description="An email address")
+    created_at: datetime = Field(description="Timestamp for when the user was created")
+    status: UserStatus
+    role: UserRole
+    is_developer: StrictBool = Field(description="Whether the user has developer permissions (can create GraphQL API keys)")
+    __properties: ClassVar[List[str]] = ["id", "name", "email", "created_at", "status", "role", "is_developer"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,7 +95,12 @@ class User(BaseModel):
 
         _obj = cls.model_validate({
             "id": obj.get("id"),
-            "email": obj.get("email")
+            "name": obj.get("name"),
+            "email": obj.get("email"),
+            "created_at": obj.get("created_at"),
+            "status": obj.get("status"),
+            "role": obj.get("role"),
+            "is_developer": obj.get("is_developer")
         })
         return _obj
 

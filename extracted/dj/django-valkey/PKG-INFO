@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-valkey
-Version: 0.4.0
+Version: 0.4.1
 Summary: a valkey backend for django
 Project-URL: Homepage, https://github.com/django-commons/django-valkey
 Project-URL: Source, https://github.com/django-commons/django-valkey
@@ -30,6 +30,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Requires-Dist: django!=5.0.*,!=5.1.*,>=4.2
+Requires-Dist: typing-extensions>=4.15; python_version < '3.13'
 Requires-Dist: valkey>=6.0.2
 Provides-Extra: brotli
 Requires-Dist: brotli>=1.1.0; extra == 'brotli'
@@ -42,9 +43,9 @@ Requires-Dist: msgpack>=1.1.0; extra == 'msgpack'
 Provides-Extra: msgspec
 Requires-Dist: msgspec>=0.19.0; extra == 'msgspec'
 Provides-Extra: pyzstd
-Requires-Dist: backports-zstd>=1.0.0; extra == 'pyzstd'
+Requires-Dist: backports-zstd>=1.0.0; (python_version < '3.14') and extra == 'pyzstd'
 Provides-Extra: zstd
-Requires-Dist: backports-zstd>=1.0.0; extra == 'zstd'
+Requires-Dist: backports-zstd>=1.0.0; (python_version < '3.14') and extra == 'zstd'
 Description-Content-Type: text/x-rst
 
 ===============================

@@ -11,7 +11,7 @@ from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
 
-from .base import BaseHTML
+from .base import BaseHTML, RawTextBaseHTML
 
 class Canvas(BaseHTML):
     @classmethod
@@ -273,7 +273,7 @@ class Canvas(BaseHTML):
             The component.
         """
 
-class Noscript(BaseHTML):
+class Noscript(RawTextBaseHTML):
     @classmethod
     def create(
         cls,
@@ -533,7 +533,7 @@ class Noscript(BaseHTML):
             The component.
         """
 
-class Script(BaseHTML):
+class Script(RawTextBaseHTML):
     @classmethod
     def create(
         cls,

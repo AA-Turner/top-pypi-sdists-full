@@ -4,16 +4,28 @@
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 # ------------------------------------------------------------------------
 
+from typing import ClassVar
+
 import numpy as np
 import supervision as sv
+from deprecate import deprecated
 from scipy.optimize import linear_sum_assignment
 
 from trackers.core.base import BaseTracker
-from trackers.core.sort.kalman import SORTKalmanBoxTracker
+from trackers.core.sort.tracklet import SORTTracklet
 from trackers.core.sort.utils import (
-    get_alive_trackers,
-    get_iou_matrix,
+    _get_alive_tracklets,
+    _get_iou_matrix,
 )
+from trackers.utils.state_representations import (
+    BaseStateEstimator,
+    XYXYStateEstimator,
+)
+
+
+@deprecated(target=None, deprecated_in="0.4", remove_in="1.0")
+def _access_trackers(self_: "SORTTracker") -> "list[SORTTracklet]":
+    return self_.tracks
 
 
 class SORTTracker(BaseTracker):
@@ -51,9 +63,19 @@ class SORTTracker(BaseTracker):
             threshold, tracks are assigned `tracker_id` of `-1`.
         minimum_iou_threshold: `float` specifying IoU threshold for associating
             detections to existing tracks. Higher values require more overlap.
+        state_estimator_class: State estimator class to use for Kalman filter.
+            Defaults to `XYXYStateEstimator`. Can also use
+            `XCYCSRStateEstimator` for center-based representation.
     """
 
     tracker_id = "sort"
+
+    search_space: ClassVar[dict[str, dict]] = {
+        "lost_track_buffer": {"type": "randint", "range": [10, 91]},
+        "track_activation_threshold": {"type": "uniform", "range": [0.1, 0.9]},
+        "minimum_consecutive_frames": {"type": "randint", "range": [1, 4]},
+        "minimum_iou_threshold": {"type": "uniform", "range": [0.05, 0.7]},
+    }
 
     def __init__(
         self,
@@ -62,6 +84,7 @@ class SORTTracker(BaseTracker):
         track_activation_threshold: float = 0.25,
         minimum_consecutive_frames: int = 3,
         minimum_iou_threshold: float = 0.3,
+        state_estimator_class: type[BaseStateEstimator] = XYXYStateEstimator,
     ) -> None:
         # Calculate maximum frames without update based on lost_track_buffer and
         # frame_rate. This scales the buffer based on the frame rate to ensure
@@ -70,28 +93,39 @@ class SORTTracker(BaseTracker):
         self.minimum_consecutive_frames = minimum_consecutive_frames
         self.minimum_iou_threshold = minimum_iou_threshold
         self.track_activation_threshold = track_activation_threshold
+        self.state_estimator_class = state_estimator_class
 
-        # Active trackers
-        self.trackers: list[SORTKalmanBoxTracker] = []
+        # Active tracklets
+        self.tracks: list[SORTTracklet] = []
+
+    @property
+    def trackers(self) -> list[SORTTracklet]:
+        """Deprecated: use tracks instead."""
+        return _access_trackers(self)
 
     def _get_associated_indices(
         self, iou_matrix: np.ndarray, detection_boxes: np.ndarray
-    ) -> tuple[list[tuple[int, int]], set[int], set[int]]:
+    ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
         """
-        Associate detections to trackers based on IOU
+        Associate detections to tracks based on IOU
 
         Args:
             iou_matrix: IOU cost matrix.
             detection_boxes: Detected bounding boxes in the form [x1, y1, x2, y2].
 
         Returns:
-            Matched indices, unmatched trackers, unmatched detections.
+            matched: List of ``(track_index, detection_index)`` tuples for
+                associations that meet the IoU threshold.
+            unmatched_tracks: Sorted list of track indices not matched to any
+                detection.
+            unmatched_detections: Sorted list of detection indices not matched
+                to any track.
         """
         matched_indices = []
-        unmatched_trackers = set(range(len(self.trackers)))
+        unmatched_tracklets = set(range(len(self.tracks)))
         unmatched_detections = set(range(len(detection_boxes)))
 
-        if len(self.trackers) > 0 and len(detection_boxes) > 0:
+        if len(self.tracks) > 0 and len(detection_boxes) > 0:
             # Find optimal assignment using scipy.optimize.linear_sum_assignment.
             # Note that it uses a a modified Jonker-Volgenant algorithm with no
             # initialization instead of the Hungarian algorithm as mentioned in the
@@ -100,28 +134,33 @@ class SORTTracker(BaseTracker):
             for row, col in zip(row_indices, col_indices):
                 if iou_matrix[row, col] >= self.minimum_iou_threshold:
                     matched_indices.append((row, col))
-                    unmatched_trackers.remove(row)
+                    unmatched_tracklets.remove(row)
                     unmatched_detections.remove(col)
 
-        return matched_indices, unmatched_trackers, unmatched_detections
+        # Return sorted lists for deterministic order across CPython versions.
+        return (
+            matched_indices,
+            sorted(unmatched_tracklets),
+            sorted(unmatched_detections),
+        )
 
-    def _spawn_new_trackers(
+    def _spawn_new_tracklets(
         self,
-        confidences: np.ndarray | None,
+        confidences: np.ndarray,
         detection_boxes: np.ndarray,
-        unmatched_detections: set[int],
+        unmatched_detections: list[int],
     ) -> None:
         for detection_idx in unmatched_detections:
-            if (
-                confidences is None
-                or detection_idx >= len(confidences)
-                or confidences[detection_idx] >= self.track_activation_threshold
-            ):
-                self.trackers.append(
-                    SORTKalmanBoxTracker(detection_boxes[detection_idx])
+            if confidences[detection_idx] >= self.track_activation_threshold:
+                new_tracker = SORTTracklet(
+                    detection_boxes[detection_idx],
+                    state_estimator_class=self.state_estimator_class,
                 )
+                self.tracks.append(new_tracker)
 
-    def update(self, detections: sv.Detections) -> sv.Detections:
+    def update(
+        self, detections: sv.Detections, frame: np.ndarray | None = None
+    ) -> sv.Detections:
         """Update tracker state with new detections and return tracked objects.
         Performs Kalman filter prediction, IoU-based association, and initializes
         new tracks for unmatched high-confidence detections.
@@ -130,57 +169,73 @@ class SORTTracker(BaseTracker):
             detections: `sv.Detections` containing bounding boxes with shape
                 `(N, 4)` in `(x_min, y_min, x_max, y_max)` format and optional
                 confidence scores.
+            frame: Ignored by SORT. If provided (not `None`), a warning is emitted.
 
         Returns:
-            `sv.Detections` with `tracker_id` assigned for each detection.
-                Unmatched or immature tracks have `tracker_id` of `-1`.
+            sv.Detections with tracker_id assigned for each detection.
+            Unmatched or immature tracks have tracker_id of -1.
         """
-        if len(self.trackers) == 0 and len(detections) == 0:
-            detections.tracker_id = np.array([], dtype=int)
-            return detections
+        self._warn_if_frame_unused(frame)
+        if len(self.tracks) == 0 and len(detections) == 0:
+            result = sv.Detections.empty()
+            result.tracker_id = np.array([], dtype=int)
+            return result
 
         detection_boxes = (
             detections.xyxy if len(detections) > 0 else np.array([]).reshape(0, 4)
         )
 
-        for tracker in self.trackers:
-            tracker.predict()
+        for tracklet in self.tracks:
+            tracklet.predict()
 
-        iou_matrix = get_iou_matrix(self.trackers, detection_boxes)
-        matched_indices, _, unmatched_detections = self._get_associated_indices(
-            iou_matrix, detection_boxes
+        iou_matrix = _get_iou_matrix(self.tracks, detection_boxes)
+
+        # Associate detections to tracklets based on IOU
+        matched_indices, _unmatched_tracklets, unmatched_detections = (
+            self._get_associated_indices(iou_matrix, detection_boxes)
         )
 
-        # Update matched trackers and record the det_idx -> tracker mapping
-        matched_tracker_for_det: dict[int, SORTKalmanBoxTracker] = {}
+        # Update matched tracklets and record the det_idx -> tracklet mapping
+        matched_tracklet_for_det: dict[int, SORTTracklet] = {}
         for row, col in matched_indices:
-            self.trackers[row].update(detection_boxes[col])
-            matched_tracker_for_det[col] = self.trackers[row]
+            self.tracks[row].update(detection_boxes[col])
+            matched_tracklet_for_det[col] = self.tracks[row]
 
-        self._spawn_new_trackers(
-            detections.confidence, detection_boxes, unmatched_detections
+        confidences = (
+            detections.confidence
+            if detections.confidence is not None
+            else np.ones(len(detections))
         )
+        self._spawn_new_tracklets(confidences, detection_boxes, unmatched_detections)
 
-        self.trackers = get_alive_trackers(
-            self.trackers,
+        # Remove dead tracklets
+        self.tracks = _get_alive_tracklets(
+            self.tracks,
             self.minimum_consecutive_frames,
             self.maximum_frames_without_update,
         )
 
         # Build tracker_ids from the recorded mapping (no deepcopy, no re-IoU)
         tracker_ids = np.full(len(detection_boxes), -1, dtype=int)
-        for det_idx, tracker in matched_tracker_for_det.items():
-            if tracker.number_of_successful_updates >= self.minimum_consecutive_frames:
-                if tracker.tracker_id == -1:
-                    tracker.tracker_id = SORTKalmanBoxTracker.get_next_tracker_id()
-                tracker_ids[det_idx] = tracker.tracker_id
+        for det_idx, tracklet in matched_tracklet_for_det.items():
+            if tracklet.number_of_successful_updates >= self.minimum_consecutive_frames:
+                if tracklet.tracker_id == -1:
+                    tracklet.tracker_id = SORTTracklet.get_next_tracker_id()
+                tracker_ids[det_idx] = tracklet.tracker_id
 
-        detections.tracker_id = tracker_ids
-        return detections
+        # Return a fresh sv.Detections rather than mutating the caller's object,
+        # matching the aliasing semantics of ByteTrack and OC-SORT.
+        result = (
+            sv.Detections.empty()
+            if len(detections) == 0
+            else detections[np.arange(len(detections))]
+        )
+        result.tracker_id = tracker_ids
+        return result
 
     def reset(self) -> None:
         """Reset tracker state by clearing all tracks and resetting ID counter.
         Call this method when switching to a new video or scene.
         """
-        self.trackers = []
-        SORTKalmanBoxTracker.count_id = 0
+        self.tracks = []
+        SORTTracklet.count_id = 0

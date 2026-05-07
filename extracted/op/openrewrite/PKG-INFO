@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openrewrite
-Version: 8.81.4
+Version: 8.81.6
 Summary: OpenRewrite automated refactoring for Python.
 Author-email: "Moderne Inc." <support@moderne.io>
 License: Moderne Source Available License
@@ -33,6 +33,8 @@ Requires-Dist: ruff>=0.1.0; extra == "dev"
 Provides-Extra: publish
 Requires-Dist: build>=1.0.0; extra == "publish"
 Requires-Dist: twine>=5.0.0; extra == "publish"
+Provides-Extra: profiling
+Requires-Dist: pyroscope-io>=0.8.0; extra == "profiling"
 
 # OpenRewrite Python
 

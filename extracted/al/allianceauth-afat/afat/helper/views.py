@@ -20,10 +20,15 @@ from django.utils.translation import gettext_lazy as _
 # Alliance Auth
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 from allianceauth.framework.api.user import get_main_character_name_from_user
+from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT
+from afat import __title__
 from afat.helper.users import users_with_permission
 from afat.models import Fat, FatLink
+from afat.providers import AppLogger
+
+logger = AppLogger(my_logger=get_extension_logger(name=__name__), prefix=__title__)
 
 
 class AFATUI(Enum):
@@ -124,6 +129,8 @@ def _perm_flags(request: WSGIRequest) -> dict[str, bool]:
     :rtype:
     """
 
+    logger.debug("Getting permission flags for user: %s", request.user)
+
     cache = getattr(request, "_afat_cache", None)
 
     if cache is None:
@@ -132,6 +139,8 @@ def _perm_flags(request: WSGIRequest) -> dict[str, bool]:
 
     # Return cached value if present
     if "perm_flags" in cache:
+        logger.debug("Cached permission flags: %s", cache["perm_flags"])
+
         return cache["perm_flags"]
 
     # Safely handle requests without a user
@@ -146,6 +155,8 @@ def _perm_flags(request: WSGIRequest) -> dict[str, bool]:
         }
 
     cache["perm_flags"] = flags
+
+    logger.debug("Permission flags: %s", flags)
 
     return flags
 
@@ -344,8 +355,8 @@ def convert_fats_to_dict(request: WSGIRequest, fat: Fat) -> dict:
     )
 
     return {
-        "system": fat.system,
-        "ship_type": fat.shiptype,
+        "system": fat.solar_system.name,
+        "ship_type": fat.ship.name,
         "character_name": fat.character.character_name,
         "fleet_name": fleet_name + esi_fleet_marker,
         "doctrine": fat.fatlink.doctrine,

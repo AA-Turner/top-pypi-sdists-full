@@ -11,7 +11,7 @@ from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
 
-from .base import BaseHTML
+from .base import BaseHTML, VoidBaseHTML
 
 class Caption(BaseHTML):
     @classmethod
@@ -273,7 +273,7 @@ class Caption(BaseHTML):
             The component.
         """
 
-class Col(BaseHTML):
+class Col(VoidBaseHTML):
     @classmethod
     def create(
         cls,

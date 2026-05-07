@@ -5,17 +5,28 @@ from typing import Any, Callable, Type, TypeVar, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .db import Collection
+    from .db import CollectionManager
     from .task_types import TaskDescriptor
 
 from .channels import Chat, ChannelRef, _DeprecatedChannel, API
 from .constants import (
-    ACCESS_AUTHENTICATED, ACCESS_PUBLIC, AccessLevel,
-    CollectionDecl, CollectionScope, Column, _normalize_columns,
+    ACCESS_AUTHENTICATED,
+    ACCESS_PUBLIC,
+    AccessLevel,
+    CollectionDecl,
+    CollectionScope,
+    Column,
+    _normalize_columns,
     KV_KEY_FIELD,
-    SettingDecl, SettingScope,
-    PAGE_TYPE_DSL, PAGE_TYPE_REACT,
-    PRICING_ONE_TIME, PricingType,
-    SCOPE_APP, VALID_SCOPES, VALID_SETTING_SCOPES,
+    SettingDecl,
+    SettingScope,
+    PAGE_TYPE_DSL,
+    PAGE_TYPE_REACT,
+    PRICING_ONE_TIME,
+    PricingType,
+    SCOPE_APP,
+    VALID_SCOPES,
+    VALID_SETTING_SCOPES,
     _TYPE_TO_STR,
 )
 from .db import CollectionRef
@@ -30,8 +41,14 @@ from .integration import (
     Integration,
 )
 from .decorators import (
-    _BOOT_ATTR, _SHUTDOWN_ATTR, _ENTER_ATTR, _EXIT_ATTR,
-    _MESSAGE_ATTR, _SCHEDULE_ATTR, _ENDPOINT_ATTR, _ASGI_ATTR,
+    _BOOT_ATTR,
+    _SHUTDOWN_ATTR,
+    _ENTER_ATTR,
+    _EXIT_ATTR,
+    _MESSAGE_ATTR,
+    _SCHEDULE_ATTR,
+    _ENDPOINT_ATTR,
+    _ASGI_ATTR,
 )
 from .secret import Secret
 from .theme import PresetName, Radius, Theme, resolve_theme
@@ -109,6 +126,7 @@ class App:
         filesystems: Mount paths mapped to FileSystem names.
         cpu: Number of vCPUs allocated to the sandbox (default 0.25).
         memory: MiB of RAM allocated to the sandbox (default 512).
+        gpu: GPU reservation for the sandbox, e.g. ``"T4"`` or ``"A100:2"``.
         price: Price in cents charged per interaction.
         pricing_type: ``"one_time"`` or ``"monthly"``.
     """
@@ -124,6 +142,7 @@ class App:
         filesystems: dict[str, FileSystem] | None = None,
         cpu: float = 0.25,
         memory: int = 512,
+        gpu: str | None = None,
         price: int = 0,
         pricing_type: PricingType = PRICING_ONE_TIME,
     ) -> None:
@@ -147,8 +166,10 @@ class App:
         self._home_suggestions_ttl: int = 0
         self._chat_widget_tree: dict[str, Any] | None = None
         self._shell_config: dict[str, Any] | None = None
+        self.collections: CollectionManager | None = None
 
         from .settings import SettingsAccessor
+
         self.settings = SettingsAccessor(self)
         self._kv: Collection | None = None
 
@@ -175,6 +196,7 @@ class App:
                 "filesystems": fs_map,
                 "cpu": cpu,
                 "memory": memory,
+                "gpu": gpu,
                 "integrations": [],
                 "schedules": [],
                 "pages": [],
@@ -370,15 +392,31 @@ class App:
             radius: Border-radius scale — ``"sm"``, ``"md"``, or ``"lg"``.
         """
         overrides = {
-            k: v for k, v in {
-                "logo": logo, "logo_background": logo_background, "tagline": tagline,
-                "title": title, "description": description,
-                "site_name": site_name, "preview_image": preview_image, "favicon": favicon,
-                "primary": primary, "accent": accent, "background": background,
-                "foreground": foreground, "sidebar": sidebar, "surface": surface,
-                "border": border, "muted": muted, "danger": danger, "success": success,
-                "font_sans": font_sans, "font_mono": font_mono, "radius": radius,
-            }.items() if v is not None
+            k: v
+            for k, v in {
+                "logo": logo,
+                "logo_background": logo_background,
+                "tagline": tagline,
+                "title": title,
+                "description": description,
+                "site_name": site_name,
+                "preview_image": preview_image,
+                "favicon": favicon,
+                "primary": primary,
+                "accent": accent,
+                "background": background,
+                "foreground": foreground,
+                "sidebar": sidebar,
+                "surface": surface,
+                "border": border,
+                "muted": muted,
+                "danger": danger,
+                "success": success,
+                "font_sans": font_sans,
+                "font_mono": font_mono,
+                "radius": radius,
+            }.items()
+            if v is not None
         }
         self._theme = resolve_theme(preset=preset, **overrides)
 
@@ -486,10 +524,16 @@ class App:
         """
         if isinstance(integration_type, IntegrationConfig):
             if client_id or client_secret or scopes or fields is not None:
-                raise ValueError("IntegrationConfig cannot be combined with client_id/client_secret/scopes/fields")
+                raise ValueError(
+                    "IntegrationConfig cannot be combined with client_id/client_secret/scopes/fields"
+                )
             config = integration_type
         else:
-            type_name = integration_type.value if isinstance(integration_type, Integration) else str(integration_type)
+            type_name = (
+                integration_type.value
+                if isinstance(integration_type, Integration)
+                else str(integration_type)
+            )
             is_secret = fields is not None or type_name in KNOWN_SECRET_INTEGRATIONS
             config = IntegrationConfig(
                 type=type_name,
@@ -502,7 +546,9 @@ class App:
 
         is_secret = config.mode == MODE_SECRET
         if is_secret and (config.client_id or config.client_secret):
-            raise ValueError(f"Secret integration '{config.type}' must not set client_id or client_secret")
+            raise ValueError(
+                f"Secret integration '{config.type}' must not set client_id or client_secret"
+            )
         if is_secret and config.type not in KNOWN_SECRET_INTEGRATIONS and not config.fields:
             raise ValueError(f"Custom secret integration '{config.type}' requires fields")
         if not is_secret and (not config.client_id or not config.client_secret):
@@ -531,15 +577,17 @@ class App:
         if order is None:
             order = self._page_order
         self._page_order = max(self._page_order, order) + 1
-        self._pages.append({
-            "name": name,
-            "icon": icon,
-            "type": PAGE_TYPE_REACT,
-            "component": component,
-            "packages": packages or [],
-            "order": order,
-            "access": access,
-        })
+        self._pages.append(
+            {
+                "name": name,
+                "icon": icon,
+                "type": PAGE_TYPE_REACT,
+                "component": component,
+                "packages": packages or [],
+                "order": order,
+                "access": access,
+            }
+        )
 
     def page(
         self,
@@ -568,14 +616,16 @@ class App:
                     f"got {type(widget_tree).__name__}"
                 )
             tree_dict = widget_tree.to_dict()
-            self._pages.append({
-                "name": name,
-                "icon": icon,
-                "type": PAGE_TYPE_DSL,
-                "widget_tree": tree_dict,
-                "order": _order,
-                "access": _access,
-            })
+            self._pages.append(
+                {
+                    "name": name,
+                    "icon": icon,
+                    "type": PAGE_TYPE_DSL,
+                    "widget_tree": tree_dict,
+                    "order": _order,
+                    "access": _access,
+                }
+            )
             return fn
 
         return decorator
@@ -697,7 +747,9 @@ class App:
 
     # -- data sources --------------------------------------------------------
 
-    def data(self, name: str, *, access: AccessLevel = ACCESS_PUBLIC) -> Callable[[Callable], Callable]:
+    def data(
+        self, name: str, *, access: AccessLevel = ACCESS_PUBLIC
+    ) -> Callable[[Callable], Callable]:
         """Register a named data source endpoint. The function is called on
         ``GET /data/<name>`` and should return JSON-serializable data.
 
@@ -712,6 +764,7 @@ class App:
             setattr(fn, _DATA_ATTR, name)
             setattr(fn, _ACCESS_ATTR, _access)
             return fn
+
         return decorator
 
     # -- functional handler decorators ----------------------------------------
@@ -737,6 +790,7 @@ class App:
             if attr == _MESSAGE_ATTR:
                 self._cpsl_config["has_message_handler"] = True
             return fn
+
         return decorator
 
     def boot(self) -> Callable[[F], F]:
@@ -774,9 +828,12 @@ class App:
             setattr(self, attr_name, fn)
             self._cpsl_config["schedules"].append({"name": attr_name, "cron": cron})
             return fn
+
         return decorator
 
-    def endpoint(self, method: str = "GET", path: str = "/", authorized: bool = True) -> Callable[[F], F]:
+    def endpoint(
+        self, method: str = "GET", path: str = "/", authorized: bool = True
+    ) -> Callable[[F], F]:
         """Register an HTTP endpoint handler.
 
         Args:
@@ -790,6 +847,7 @@ class App:
             setattr(fn, _ENDPOINT_ATTR, {"method": method, "path": path, "authorized": authorized})
             setattr(self, fn.__name__, fn)
             return fn
+
         return decorator
 
     def asgi(self, path: str = "/app") -> Callable[[F], F]:
@@ -804,6 +862,7 @@ class App:
             setattr(fn, _ASGI_ATTR, {"path": path})
             setattr(self, fn.__name__, fn)
             return fn
+
         return decorator
 
     def task(
@@ -851,13 +910,19 @@ class App:
 
         def decorator(fn: Callable) -> TaskDescriptor:
             desc = _TD(
-                fn, retries=retries, timeout=timeout, lock=lock,
-                retry_for=retry_for, callback_url=callback_url,
-                functional=True, process=process,
+                fn,
+                retries=retries,
+                timeout=timeout,
+                lock=lock,
+                retry_for=retry_for,
+                callback_url=callback_url,
+                functional=True,
+                process=process,
             )
             setattr(desc, _TASK_ATTR, True)
             setattr(self, fn.__name__, desc)
             return desc
+
         return decorator
 
     # -- workflows -----------------------------------------------------------
@@ -903,6 +968,7 @@ class App:
         filesystems: dict[str, FileSystem] | None = None,
         cpu: float = 0.25,
         memory: int = 512,
+        gpu: str | None = None,
     ) -> Callable[[type[T]], type[T]]:
         """Decorator for class-based apps. Captures deploy config.
 
@@ -916,6 +982,8 @@ class App:
             filesystems: Mount paths mapped to FileSystem names.
             cpu: Number of vCPUs allocated to the sandbox (default 0.25).
             memory: MiB of RAM allocated to the sandbox (default 512).
+            gpu: GPU reservation for the sandbox, e.g. ``"T4"`` or ``"A100:2"``.
+                This is not supported when sprites.dev is the runtime.
         """
         if self._functional:
             raise RuntimeError(
@@ -962,6 +1030,7 @@ class App:
                 "filesystems": fs_map,
                 "cpu": cpu,
                 "memory": memory,
+                "gpu": gpu,
                 "integrations": integrations,
                 "schedules": schedule_specs,
                 "pages": pages,

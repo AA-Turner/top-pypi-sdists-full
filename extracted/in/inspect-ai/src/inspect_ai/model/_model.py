@@ -387,6 +387,20 @@ class ModelAPI(abc.ABC):
         """Scope for enforcement of max_connections."""
         return "default"
 
+    def apply_redacted_reasoning_tokens_to_input(self) -> bool:
+        """Whether compaction should add `redacted_reasoning_tokens` to its input estimate.
+
+        Override and return True for providers whose `usage.input_tokens`
+        omits redacted reasoning content on re-injection (e.g., OpenAI
+        Responses with `store=false` + `include=["reasoning.encrypted_content"]`).
+
+        Note: bridge-mediated workloads (`agent_bridge`) reconstruct messages
+        from provider-native input and lose this metadata, so the predictive
+        correction does not apply there. Bridge users rely on the reactive
+        `model_length` recovery.
+        """
+        return False
+
     def should_retry(self, ex: Exception) -> bool | RetryDecision:
         """Should this exception be retried?
 
@@ -422,6 +436,10 @@ class ModelAPI(abc.ABC):
 
     def collapse_assistant_messages(self) -> bool:
         """Collapse consecutive assistant messages into a single message."""
+        return False
+
+    def collapse_system_messages(self) -> bool:
+        """Collapse consecutive system messages into a single message."""
         return False
 
     def tools_required(self) -> bool:
@@ -488,6 +506,41 @@ class ModelAPI(abc.ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support native compaction."
         )
+
+
+REDACTED_REASONING_TOKENS_METADATA_KEY = "redacted_reasoning_tokens"
+"""Metadata key for the per-message reasoning token count that an
+all-redacted-reasoning response contributes to context on re-injection but
+is omitted from `usage.input_tokens` by some providers (e.g., OpenAI
+Responses with encrypted reasoning preservation). Compaction reads this
+to correct its threshold estimate."""
+
+
+def _stamp_redacted_reasoning_tokens(output: ModelOutput) -> None:
+    """Stamp `redacted_reasoning_tokens` onto an assistant message's metadata.
+
+    Only stamps when ALL reasoning blocks in the response are redacted; mixed
+    responses (some visible, some redacted) can't be split from a single
+    `usage.reasoning_tokens` figure, and responses with only visible reasoning
+    don't have the input-counting blind spot the metadata is meant to correct.
+    """
+    if not (
+        output.usage
+        and output.usage.reasoning_tokens
+        and isinstance(output.message.content, list)
+    ):
+        return
+
+    reasoning_blocks = [
+        c for c in output.message.content if isinstance(c, ContentReasoning)
+    ]
+    if not reasoning_blocks or not all(c.redacted for c in reasoning_blocks):
+        return
+
+    output.message.metadata = {
+        **(output.message.metadata or {}),
+        REDACTED_REASONING_TOKENS_METADATA_KEY: output.usage.reasoning_tokens,
+    }
 
 
 class Model:
@@ -689,6 +742,8 @@ class Model:
                 if output.time is not None
                 else (completed - start_time).total_seconds()
             )
+
+            _stamp_redacted_reasoning_tokens(output)
 
             # return output
             return output
@@ -951,6 +1006,9 @@ class Model:
 
         if self.api.collapse_assistant_messages():
             input = collapse_consecutive_assistant_messages(input)
+
+        if self.api.collapse_system_messages():
+            input = collapse_consecutive_system_messages(input)
 
         # resolve cache policy
         if isinstance(cache, NotGiven):
@@ -1981,6 +2039,15 @@ def collapse_consecutive_assistant_messages(
     return functools.reduce(assistant_message_reducer, messages, [])
 
 
+# Functions to reduce consecutive system messages to a single system message ->
+# required for OpenRouter inference providers (e.g. AkashML, Parasail) that
+# reject requests containing more than one system message.
+def collapse_consecutive_system_messages(
+    messages: list[ChatMessage],
+) -> list[ChatMessage]:
+    return functools.reduce(system_message_reducer, messages, [])
+
+
 def user_message_reducer(
     messages: list[ChatMessage],
     message: ChatMessage,
@@ -1993,6 +2060,13 @@ def assistant_message_reducer(
     message: ChatMessage,
 ) -> list[ChatMessage]:
     return consecutive_message_reducer(messages, message, ChatMessageAssistant)
+
+
+def system_message_reducer(
+    messages: list[ChatMessage],
+    message: ChatMessage,
+) -> list[ChatMessage]:
+    return consecutive_message_reducer(messages, message, ChatMessageSystem)
 
 
 def consecutive_message_reducer(

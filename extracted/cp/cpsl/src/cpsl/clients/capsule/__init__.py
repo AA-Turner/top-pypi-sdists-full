@@ -319,6 +319,7 @@ class ImageSpec(betterproto.Message):
     commands: List[str] = betterproto.string_field(3)
     cpu: float = betterproto.float_field(4)
     memory_mib: int = betterproto.int32_field(5)
+    gpu: str = betterproto.string_field(6)
 
 
 @dataclass(eq=False, repr=False)
@@ -877,6 +878,65 @@ class CountResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CollectionColumnSpec(betterproto.Message):
+    key: str = betterproto.string_field(1)
+    type: str = betterproto.string_field(2)
+    label: str = betterproto.string_field(3)
+    format: str = betterproto.string_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class CollectionSchema(betterproto.Message):
+    name: str = betterproto.string_field(1)
+    scope: str = betterproto.string_field(2)
+    columns: List["CollectionColumnSpec"] = betterproto.message_field(3)
+    user_id: str = betterproto.string_field(4)
+    owner_id: str = betterproto.string_field(5)
+    session_id: str = betterproto.string_field(6)
+
+
+@dataclass(eq=False, repr=False)
+class GetCollectionSchemaRequest(betterproto.Message):
+    app_id: str = betterproto.string_field(1)
+    name: str = betterproto.string_field(2)
+    scope: str = betterproto.string_field(3)
+    user_id: str = betterproto.string_field(4)
+    owner_id: str = betterproto.string_field(5)
+    session_id: str = betterproto.string_field(6)
+
+
+@dataclass(eq=False, repr=False)
+class GetCollectionSchemaResponse(betterproto.Message):
+    found: bool = betterproto.bool_field(1)
+    schema: "CollectionSchema" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ListCollectionSchemasRequest(betterproto.Message):
+    app_id: str = betterproto.string_field(1)
+    scope: str = betterproto.string_field(2)
+    user_id: str = betterproto.string_field(3)
+    owner_id: str = betterproto.string_field(4)
+    session_id: str = betterproto.string_field(5)
+
+
+@dataclass(eq=False, repr=False)
+class ListCollectionSchemasResponse(betterproto.Message):
+    schemas: List["CollectionSchema"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class UpsertCollectionSchemaRequest(betterproto.Message):
+    app_id: str = betterproto.string_field(1)
+    schema: "CollectionSchema" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class UpsertCollectionSchemaResponse(betterproto.Message):
+    schema: "CollectionSchema" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class StartServeRequest(betterproto.Message):
     app_name: str = betterproto.string_field(1)
     image: "ImageSpec" = betterproto.message_field(2)
@@ -1260,6 +1320,33 @@ class DataServiceStub(SyncServiceStub):
             CountRequest,
             CountResponse,
         )(count_request)
+
+    def get_collection_schema(
+        self, get_collection_schema_request: "GetCollectionSchemaRequest"
+    ) -> "GetCollectionSchemaResponse":
+        return self._unary_unary(
+            "/capsule.DataService/GetCollectionSchema",
+            GetCollectionSchemaRequest,
+            GetCollectionSchemaResponse,
+        )(get_collection_schema_request)
+
+    def list_collection_schemas(
+        self, list_collection_schemas_request: "ListCollectionSchemasRequest"
+    ) -> "ListCollectionSchemasResponse":
+        return self._unary_unary(
+            "/capsule.DataService/ListCollectionSchemas",
+            ListCollectionSchemasRequest,
+            ListCollectionSchemasResponse,
+        )(list_collection_schemas_request)
+
+    def upsert_collection_schema(
+        self, upsert_collection_schema_request: "UpsertCollectionSchemaRequest"
+    ) -> "UpsertCollectionSchemaResponse":
+        return self._unary_unary(
+            "/capsule.DataService/UpsertCollectionSchema",
+            UpsertCollectionSchemaRequest,
+            UpsertCollectionSchemaResponse,
+        )(upsert_collection_schema_request)
 
 
 class SessionServiceStub(SyncServiceStub):

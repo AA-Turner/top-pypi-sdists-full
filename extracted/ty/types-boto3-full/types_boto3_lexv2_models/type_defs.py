@@ -47,6 +47,7 @@ from .literals import (
     AnalyticsUtteranceMetricNameType,
     AssistedNluModeType,
     AssociatedTranscriptFilterNameType,
+    AudioFillerTypeType,
     BedrockTraceStatusType,
     BotAliasReplicationStatusType,
     BotAliasStatusType,
@@ -160,6 +161,7 @@ __all__ = (
     "AssociatedTranscriptFilterTypeDef",
     "AssociatedTranscriptTypeDef",
     "AudioAndDTMFInputSpecificationTypeDef",
+    "AudioFillerSettingsTypeDef",
     "AudioLogDestinationTypeDef",
     "AudioLogSettingTypeDef",
     "AudioSpecificationTypeDef",
@@ -894,6 +896,14 @@ class DTMFSpecificationTypeDef(TypedDict):
     endTimeoutMs: int
     deletionCharacter: str
     endCharacter: str
+
+
+class AudioFillerSettingsTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    audioType: NotRequired[AudioFillerTypeType]
+    startDelayInMilliseconds: NotRequired[int]
+    minimumPlayDurationInMilliseconds: NotRequired[int]
+    responseDeliveryDelayInMilliseconds: NotRequired[int]
 
 
 class S3BucketLogDestinationTypeDef(TypedDict):
@@ -3565,6 +3575,7 @@ class BotLocaleImportSpecificationTypeDef(TypedDict):
     speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
     unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
+    audioFillerSettings: NotRequired[AudioFillerSettingsTypeDef]
 
 
 class QnAIntentConfigurationOutputTypeDef(TypedDict):
@@ -3865,6 +3876,7 @@ class CreateBotLocaleRequestTypeDef(TypedDict):
     description: NotRequired[str]
     voiceSettings: NotRequired[VoiceSettingsTypeDef]
     unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
+    audioFillerSettings: NotRequired[AudioFillerSettingsTypeDef]
     speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     generativeAISettings: NotRequired[GenerativeAISettingsTypeDef]
     speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
@@ -3879,6 +3891,7 @@ class CreateBotLocaleResponseTypeDef(TypedDict):
     nluIntentConfidenceThreshold: float
     voiceSettings: VoiceSettingsTypeDef
     unifiedSpeechSettings: UnifiedSpeechSettingsTypeDef
+    audioFillerSettings: AudioFillerSettingsTypeDef
     speechRecognitionSettings: SpeechRecognitionSettingsTypeDef
     botLocaleStatus: BotLocaleStatusType
     creationDateTime: datetime
@@ -3896,6 +3909,7 @@ class DescribeBotLocaleResponseTypeDef(TypedDict):
     nluIntentConfidenceThreshold: float
     voiceSettings: VoiceSettingsTypeDef
     unifiedSpeechSettings: UnifiedSpeechSettingsTypeDef
+    audioFillerSettings: AudioFillerSettingsTypeDef
     speechRecognitionSettings: SpeechRecognitionSettingsTypeDef
     intentsCount: int
     slotTypesCount: int
@@ -3919,6 +3933,7 @@ class UpdateBotLocaleRequestTypeDef(TypedDict):
     description: NotRequired[str]
     voiceSettings: NotRequired[VoiceSettingsTypeDef]
     unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
+    audioFillerSettings: NotRequired[AudioFillerSettingsTypeDef]
     speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     generativeAISettings: NotRequired[GenerativeAISettingsTypeDef]
     speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
@@ -3933,6 +3948,7 @@ class UpdateBotLocaleResponseTypeDef(TypedDict):
     nluIntentConfidenceThreshold: float
     voiceSettings: VoiceSettingsTypeDef
     unifiedSpeechSettings: UnifiedSpeechSettingsTypeDef
+    audioFillerSettings: AudioFillerSettingsTypeDef
     speechRecognitionSettings: SpeechRecognitionSettingsTypeDef
     botLocaleStatus: BotLocaleStatusType
     failureReasons: list[str]

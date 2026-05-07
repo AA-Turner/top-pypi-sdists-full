@@ -17,3 +17,6 @@ class NoCache:
 
     async def get_many(self, keys: List[str]) -> List[Optional[str]]:
         return [None] * len(keys)
+
+    async def flush_all(self) -> None:
+        pass

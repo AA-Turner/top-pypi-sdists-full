@@ -79,7 +79,7 @@ async def print_releases(config: CLIConfig):
 )
 @coro
 async def release_generate(semver: str) -> None:
-    click.echo(FeedbackManager.warning_deprecated_releases())
+    click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
     if os.path.exists(".tinyenv"):
         async with aiofiles.open(".tinyenv", "r") as env_file:
             lines = await env_file.readlines()
@@ -147,7 +147,7 @@ set -euxo pipefail
 )
 @coro
 async def release_create(semver: str, commit: Optional[str]) -> None:
-    click.echo(FeedbackManager.warning_deprecated_releases())
+    click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
     config = CLIConfig.get_project_config()
     _ = await try_update_config_with_remote(config, only_if_needed=True)
 
@@ -165,7 +165,7 @@ async def release_promote(semver: str) -> None:
     """
     The oldest rollback Release will be automatically removed if no usage, otherwise export TB_FORCE_REMOVE_OLDEST_ROLLBACK="1" to force deletion
     """
-    click.echo(FeedbackManager.warning_deprecated_releases())
+    click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
     config = CLIConfig.get_project_config()
     _ = await try_update_config_with_remote(config, only_if_needed=True)
 
@@ -191,7 +191,7 @@ async def release_promote(semver: str) -> None:
 )
 @coro
 async def release_preview(semver: str) -> None:
-    click.echo(FeedbackManager.warning_deprecated_releases())
+    click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
     config = CLIConfig.get_project_config()
     _ = await try_update_config_with_remote(config, only_if_needed=True)
 
@@ -208,7 +208,7 @@ async def release_preview(semver: str) -> None:
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @coro
 async def release_rollback(yes: bool) -> None:
-    click.echo(FeedbackManager.warning_deprecated_releases())
+    click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
     config = CLIConfig.get_project_config()
     _ = await try_update_config_with_remote(config, only_if_needed=False)
 
@@ -252,7 +252,7 @@ async def release_rollback(yes: bool) -> None:
 )
 @coro
 async def release_rm(semver: str, oldest_rollback: bool, force: bool, yes: bool, dry_run: bool) -> None:
-    click.echo(FeedbackManager.warning_deprecated_releases())
+    click.echo(FeedbackManager.warning_deprecated_releases(cli="tb"))
     if (not semver and not oldest_rollback) or (semver and oldest_rollback):
         raise CLIException(FeedbackManager.error_release_rm_param())
 
@@ -278,7 +278,6 @@ async def release_rm(semver: str, oldest_rollback: bool, force: bool, yes: bool,
 @cli.group()
 def branch() -> None:
     """Branch commands. Branches are an experimental feature only available in beta. Running branch commands without activation will return an error"""
-    pass
 
 
 @branch.command(name="ls")
@@ -427,7 +426,7 @@ async def delete_branch(branch_name_or_id: str, yes: bool) -> None:
         raise CLIBranchException(FeedbackManager.error_exception(error=str(e)))
 
     if not workspace_to_delete:
-        raise CLIBranchException(FeedbackManager.error_branch(branch=branch_name_or_id))
+        raise CLIBranchException(FeedbackManager.error_branch(branch=branch_name_or_id, cli="tb"))
 
     if yes or click.confirm(FeedbackManager.warning_confirm_delete_branch(branch=workspace_to_delete["name"])):
         need_to_switch_to_main = workspace_to_delete.get("main") and config["id"] == workspace_to_delete["id"]
@@ -450,7 +449,7 @@ async def delete_branch(branch_name_or_id: str, yes: bool) -> None:
                 if workspace_main:
                     await switch_to_workspace_by_user_workspace_data(config, workspace_main)
                 else:
-                    raise CLIException(FeedbackManager.error_switching_to_main())
+                    raise CLIException(FeedbackManager.error_switching_to_main(cli="tb"))
 
 
 @branch.command(

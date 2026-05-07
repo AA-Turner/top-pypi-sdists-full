@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: idc-index-data
-Version: 23.10.1
+Version: 24.0.3
 Summary: ImagingDataCommons index to query and download data.
 Project-URL: Homepage, https://github.com/ImagingDataCommons/idc-index-data
 Project-URL: Bug Tracker, https://github.com/ImagingDataCommons/idc-index-data/issues
@@ -55,6 +55,7 @@ Requires-Dist: pandas; extra == 'test'
 Requires-Dist: pyarrow; extra == 'test'
 Requires-Dist: pytest-cov>=3; extra == 'test'
 Requires-Dist: pytest>=6; extra == 'test'
+Requires-Dist: requests; extra == 'test'
 Description-Content-Type: text/markdown
 
 # idc-index-data

@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect
+from .._internal import expect, profile_section
 from .._rendering import Pipeline, Camera
 from ..abc import Layer
 from ..tile import TileMap, TileRenderer
@@ -90,10 +90,12 @@ class TileLayer(Layer):
         """Préchargement"""
         pass
 
+    @profile_section("scene.tile_layer.draw")
     def _update(self, dt: float) -> None:
         """Actualisation"""
         ...
 
+    @profile_section("scene.tile_layer.draw")
     def _draw(self, pipeline: Pipeline) -> None:
         """Affuchage"""
         if not self._renderer.built:

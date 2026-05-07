@@ -1,2 +1,0 @@
-import{o as e}from"./vendor-codemirror-CPtRGrRG.js";import{Qa as t}from"./index-BLNtQPnl.js";var n=e(),r=({alt:e,logoUrl:t,size:r=`sm`})=>(0,n.jsx)(`img`,{alt:e,src:t??void 0,className:i({size:r})}),i=t(`border border-border bg-muted rounded`,{variants:{size:{sm:`size-8`,lg:`size-14`}}});export{r as t};
-//# sourceMappingURL=block-type-logo-DE1rAbzP.js.map

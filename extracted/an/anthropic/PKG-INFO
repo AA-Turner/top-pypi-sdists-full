@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 0.99.0
+Version: 0.100.0
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
@@ -43,6 +43,8 @@ Provides-Extra: mcp
 Requires-Dist: mcp>=1.0; (python_version >= '3.10') and extra == 'mcp'
 Provides-Extra: vertex
 Requires-Dist: google-auth[requests]<3,>=2; extra == 'vertex'
+Provides-Extra: webhooks
+Requires-Dist: standardwebhooks<2,>=1.0.1; extra == 'webhooks'
 Description-Content-Type: text/markdown
 
 # Claude SDK for Python

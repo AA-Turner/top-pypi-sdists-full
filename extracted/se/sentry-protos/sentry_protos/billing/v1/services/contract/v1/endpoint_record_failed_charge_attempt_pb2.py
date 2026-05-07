@@ -12,17 +12,18 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nYsentry_protos/billing/v1/services/contract/v1/endpoint_record_failed_charge_attempt.proto\x12-sentry_protos.billing.v1.services.contract.v1\"6\n RecordFailedChargeAttemptRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\"4\n!RecordFailedChargeAttemptResponse\x12\x0f\n\x07updated\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nYsentry_protos/billing/v1/services/contract/v1/endpoint_record_failed_charge_attempt.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"6\n RecordFailedChargeAttemptRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\"\xa3\x01\n!RecordFailedChargeAttemptResponse\x12\x0f\n\x07updated\x18\x01 \x01(\x08\x12\x15\n\rattempt_count\x18\x02 \x01(\r\x12=\n\x14next_payment_attempt\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x88\x01\x01\x42\x17\n\x15_next_payment_attemptb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_record_failed_charge_attempt_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_RECORDFAILEDCHARGEATTEMPTREQUEST']._serialized_start=140
-  _globals['_RECORDFAILEDCHARGEATTEMPTREQUEST']._serialized_end=194
-  _globals['_RECORDFAILEDCHARGEATTEMPTRESPONSE']._serialized_start=196
-  _globals['_RECORDFAILEDCHARGEATTEMPTRESPONSE']._serialized_end=248
+  _globals['_RECORDFAILEDCHARGEATTEMPTREQUEST']._serialized_start=173
+  _globals['_RECORDFAILEDCHARGEATTEMPTREQUEST']._serialized_end=227
+  _globals['_RECORDFAILEDCHARGEATTEMPTRESPONSE']._serialized_start=230
+  _globals['_RECORDFAILEDCHARGEATTEMPTRESPONSE']._serialized_end=393
 # @@protoc_insertion_point(module_scope)

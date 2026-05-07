@@ -5034,6 +5034,7 @@ class CfnCustomDBEngineVersion(
             engine_version="engineVersion",
         
             # the properties below are optional
+            database_installation_files=["databaseInstallationFiles"],
             database_installation_files_s3_bucket_name="databaseInstallationFilesS3BucketName",
             database_installation_files_s3_prefix="databaseInstallationFilesS3Prefix",
             description="description",
@@ -5057,6 +5058,7 @@ class CfnCustomDBEngineVersion(
         *,
         engine: builtins.str,
         engine_version: builtins.str,
+        database_installation_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         database_installation_files_s3_bucket_name: typing.Optional[builtins.str] = None,
         database_installation_files_s3_prefix: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -5074,6 +5076,7 @@ class CfnCustomDBEngineVersion(
         :param id: Construct identifier for this resource (unique in its scope).
         :param engine: The database engine to use for your custom engine version (CEV). Valid values: - ``custom-oracle-ee`` - ``custom-oracle-ee-cdb``
         :param engine_version: The name of your CEV. The name format is ``major version.customized_string`` . For example, a valid CEV name is ``19.my_cev1`` . This setting is required for RDS Custom for Oracle, but optional for Amazon RDS. The combination of ``Engine`` and ``EngineVersion`` is unique per customer per Region. *Constraints:* Minimum length is 1. Maximum length is 60. *Pattern:* ``^[a-z0-9_.-]{1,60$`` }
+        :param database_installation_files: 
         :param database_installation_files_s3_bucket_name: The name of an Amazon S3 bucket that contains database installation files for your CEV. For example, a valid bucket name is ``my-custom-installation-files`` .
         :param database_installation_files_s3_prefix: The Amazon S3 directory that contains the database installation files for your CEV. For example, a valid bucket name is ``123456789012/cev1`` . If this setting isn't specified, no prefix is assumed.
         :param description: An optional description of your CEV.
@@ -5092,6 +5095,7 @@ class CfnCustomDBEngineVersion(
         props = CfnCustomDBEngineVersionProps(
             engine=engine,
             engine_version=engine_version,
+            database_installation_files=database_installation_files,
             database_installation_files_s3_bucket_name=database_installation_files_s3_bucket_name,
             database_installation_files_s3_prefix=database_installation_files_s3_prefix,
             description=description,
@@ -5206,6 +5210,21 @@ class CfnCustomDBEngineVersion(
             type_hints = typing.get_type_hints(_typecheckingstub__09530b6c217cbc4998aaea3601330c702807beb29fc30fa9af5ceab12214408d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseInstallationFiles")
+    def database_installation_files(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "databaseInstallationFiles"))
+
+    @database_installation_files.setter
+    def database_installation_files(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__daf9d4b57d65db7666c5ea645dbc79729fd6c79857c2ded1ba31894860a221f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "databaseInstallationFiles", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="databaseInstallationFilesS3BucketName")
@@ -5362,6 +5381,7 @@ class CfnCustomDBEngineVersion(
     name_mapping={
         "engine": "engine",
         "engine_version": "engineVersion",
+        "database_installation_files": "databaseInstallationFiles",
         "database_installation_files_s3_bucket_name": "databaseInstallationFilesS3BucketName",
         "database_installation_files_s3_prefix": "databaseInstallationFilesS3Prefix",
         "description": "description",
@@ -5380,6 +5400,7 @@ class CfnCustomDBEngineVersionProps:
         *,
         engine: builtins.str,
         engine_version: builtins.str,
+        database_installation_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         database_installation_files_s3_bucket_name: typing.Optional[builtins.str] = None,
         database_installation_files_s3_prefix: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -5395,6 +5416,7 @@ class CfnCustomDBEngineVersionProps:
 
         :param engine: The database engine to use for your custom engine version (CEV). Valid values: - ``custom-oracle-ee`` - ``custom-oracle-ee-cdb``
         :param engine_version: The name of your CEV. The name format is ``major version.customized_string`` . For example, a valid CEV name is ``19.my_cev1`` . This setting is required for RDS Custom for Oracle, but optional for Amazon RDS. The combination of ``Engine`` and ``EngineVersion`` is unique per customer per Region. *Constraints:* Minimum length is 1. Maximum length is 60. *Pattern:* ``^[a-z0-9_.-]{1,60$`` }
+        :param database_installation_files: 
         :param database_installation_files_s3_bucket_name: The name of an Amazon S3 bucket that contains database installation files for your CEV. For example, a valid bucket name is ``my-custom-installation-files`` .
         :param database_installation_files_s3_prefix: The Amazon S3 directory that contains the database installation files for your CEV. For example, a valid bucket name is ``123456789012/cev1`` . If this setting isn't specified, no prefix is assumed.
         :param description: An optional description of your CEV.
@@ -5421,6 +5443,7 @@ class CfnCustomDBEngineVersionProps:
                 engine_version="engineVersion",
             
                 # the properties below are optional
+                database_installation_files=["databaseInstallationFiles"],
                 database_installation_files_s3_bucket_name="databaseInstallationFilesS3BucketName",
                 database_installation_files_s3_prefix="databaseInstallationFilesS3Prefix",
                 description="description",
@@ -5440,6 +5463,7 @@ class CfnCustomDBEngineVersionProps:
             type_hints = typing.get_type_hints(_typecheckingstub__70c4d3797ab8093b0278a7f532fcb1c42c50e74a1c04dfe5259dbb57e7fe2191)
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument database_installation_files", value=database_installation_files, expected_type=type_hints["database_installation_files"])
             check_type(argname="argument database_installation_files_s3_bucket_name", value=database_installation_files_s3_bucket_name, expected_type=type_hints["database_installation_files_s3_bucket_name"])
             check_type(argname="argument database_installation_files_s3_prefix", value=database_installation_files_s3_prefix, expected_type=type_hints["database_installation_files_s3_prefix"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -5454,6 +5478,8 @@ class CfnCustomDBEngineVersionProps:
             "engine": engine,
             "engine_version": engine_version,
         }
+        if database_installation_files is not None:
+            self._values["database_installation_files"] = database_installation_files
         if database_installation_files_s3_bucket_name is not None:
             self._values["database_installation_files_s3_bucket_name"] = database_installation_files_s3_bucket_name
         if database_installation_files_s3_prefix is not None:
@@ -5505,6 +5531,14 @@ class CfnCustomDBEngineVersionProps:
         result = self._values.get("engine_version")
         assert result is not None, "Required property 'engine_version' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def database_installation_files(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-customdbengineversion.html#cfn-rds-customdbengineversion-databaseinstallationfiles
+        '''
+        result = self._values.get("database_installation_files")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def database_installation_files_s3_bucket_name(
@@ -39648,6 +39682,12 @@ class PostgresEngineVersion(
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_21"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_14_22")
+    def VER_14_22(cls) -> "PostgresEngineVersion":
+        '''Version "14.22".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_22"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_3")
     def VER_14_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.3".
@@ -39776,6 +39816,12 @@ class PostgresEngineVersion(
     def VER_15_16(cls) -> "PostgresEngineVersion":
         '''Version "15.16".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_16"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_17")
+    def VER_15_17(cls) -> "PostgresEngineVersion":
+        '''Version "15.17".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
@@ -40024,6 +40070,12 @@ class PostgresEngineVersion(
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_8"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_17_9")
+    def VER_17_9(cls) -> "PostgresEngineVersion":
+        '''Version "17.9".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_9"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18")
     def VER_18(cls) -> "PostgresEngineVersion":
         '''Version "18" (only a major version, without a specific minor version).'''
@@ -40040,6 +40092,12 @@ class PostgresEngineVersion(
     def VER_18_2(cls) -> "PostgresEngineVersion":
         '''Version "18.2".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_18_3")
+    def VER_18_3(cls) -> "PostgresEngineVersion":
+        '''Version "18.3".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_24")
@@ -52275,6 +52333,7 @@ def _typecheckingstub__dccc4ebf781452ad945a67eeaa182293b79bd42fee7658aaea830a59e
     *,
     engine: builtins.str,
     engine_version: builtins.str,
+    database_installation_files: typing.Optional[typing.Sequence[builtins.str]] = None,
     database_installation_files_s3_bucket_name: typing.Optional[builtins.str] = None,
     database_installation_files_s3_prefix: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -52315,6 +52374,12 @@ def _typecheckingstub__57b06d6a61a7aa40468b988c47f903780541aacb379dfa0bf146f37e0
 
 def _typecheckingstub__09530b6c217cbc4998aaea3601330c702807beb29fc30fa9af5ceab12214408d(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__daf9d4b57d65db7666c5ea645dbc79729fd6c79857c2ded1ba31894860a221f7(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -52383,6 +52448,7 @@ def _typecheckingstub__70c4d3797ab8093b0278a7f532fcb1c42c50e74a1c04dfe5259dbb57e
     *,
     engine: builtins.str,
     engine_version: builtins.str,
+    database_installation_files: typing.Optional[typing.Sequence[builtins.str]] = None,
     database_installation_files_s3_bucket_name: typing.Optional[builtins.str] = None,
     database_installation_files_s3_prefix: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,

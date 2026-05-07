@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from .._internal import profile_section
 from ..abc import Manager
 
 from ._context import ContextManager
@@ -205,6 +206,7 @@ class KeyManager(Manager):
         return self._pressed.get(key, False) or key in self._step
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.key.update")
     def update(self, dt: float) -> None:
         """Actualisation
         
@@ -212,7 +214,8 @@ class KeyManager(Manager):
             dt: delta-time
         """
         pass
-
+        
+    @profile_section("manager.key.flush")
     def flush(self) -> None:
         """Nettoyage"""
         for key in self._step:

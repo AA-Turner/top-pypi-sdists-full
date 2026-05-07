@@ -57,7 +57,8 @@ extern "C" {
 typedef struct ps_alignment_entry_s {
     int32 start;  /**< Start frame index. */
     int32 duration; /**< Duration in frames. */
-    int32 score;  /**< Alignment score (fairly meaningless). */
+    int32 score;  /**< Acoustic score (log probability).  Higher
+                       (less negative) is better. */
     /**
      * Index of parent node.
      *

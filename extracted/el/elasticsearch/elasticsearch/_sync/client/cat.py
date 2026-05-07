@@ -97,7 +97,7 @@ class CatClient(NamespacedClient):
           <p>IMPORTANT: CAT APIs are only intended for human consumption using the command line or the Kibana console. They are not intended for use by applications. For application consumption, use the aliases API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-aliases>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-aliases>`_
 
         :param name: A comma-separated list of aliases to retrieve. Supports wildcards
             (`*`). To retrieve all aliases, omit this parameter or use `*` or `_all`.
@@ -250,7 +250,7 @@ class CatClient(NamespacedClient):
           <p>IMPORTANT: CAT APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-allocation>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-allocation>`_
 
         :param node_id: A comma-separated list of node identifiers or names used to limit
             the returned information.
@@ -391,7 +391,7 @@ class CatClient(NamespacedClient):
           <p>IMPORTANT: CAT APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-circuit-breaker>`_
 
         :param circuit_breaker_patterns: A comma-separated list of regular-expressions
             to filter the circuit breakers in the output
@@ -533,7 +533,7 @@ class CatClient(NamespacedClient):
           They are not intended for use by applications. For application consumption, use the get component template API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-component-templates>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-component-templates>`_
 
         :param name: The name of the component template. It accepts wildcard expressions.
             If it is omitted, all component templates are returned.
@@ -649,9 +649,10 @@ class CatClient(NamespacedClient):
           The document count only includes live documents, not deleted documents which have not yet been removed by the merge process.</p>
           <p>IMPORTANT: CAT APIs are only intended for human consumption using the command line or Kibana console.
           They are not intended for use by applications. For application consumption, use the count API.</p>
+          <p>NOTE: Starting in Elasticsearch 9.3.0, this endpoint also supports the <code>POST</code> method. This is primarily intended for project routing in serverless environments.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-count>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-count>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. It supports wildcards (`*`). To target all data streams
@@ -721,9 +722,10 @@ class CatClient(NamespacedClient):
                 __body["project_routing"] = project_routing
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "text/plain,application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {
+            "accept": "text/plain,application/json",
+            "content-type": "application/json",
+        }
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -771,7 +773,7 @@ class CatClient(NamespacedClient):
           They are not intended for use by applications. For application consumption, use the nodes stats API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-fielddata>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-fielddata>`_
 
         :param fields: Comma-separated list of fields used to limit returned information.
             To retrieve all fields, omit this parameter.
@@ -921,7 +923,7 @@ class CatClient(NamespacedClient):
           You also can use the API to track the recovery of a large cluster over a longer period of time.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-health>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-health>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -995,7 +997,7 @@ class CatClient(NamespacedClient):
           <p>Get help for the CAT APIs.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-cat>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-cat>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_cat"
@@ -1369,11 +1371,13 @@ class CatClient(NamespacedClient):
           </ul>
           <p>These metrics are retrieved directly from Lucene, which Elasticsearch uses internally to power indexing and search. As a result, all document counts include hidden nested documents.
           To get an accurate count of Elasticsearch documents, use the cat count or count APIs.</p>
+          <p>NOTE: Storage metrics reported by this API reflect the post-compression size of the indices on disk. Because these values are calculated after Elasticsearch compresses the data and processes deletions, they are typically significantly smaller than the raw, uncompressed data volume ingested.</p>
+          <p>IMPORTANT: For Elastic Cloud Serverless, ingest billing is based on the raw, uncompressed data volume, not the post-compression metrics reported here. To learn more, refer to <a href="https://www.elastic.co/docs/deploy-manage/cloud-organization/billing/elasticsearch-billing-dimensions">Elasticsearch billing dimensions</a>.</p>
           <p>CAT APIs are only intended for human consumption using the command line or Kibana console.
           They are not intended for use by applications. For application consumption, use an index endpoint.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-indices>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-indices>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
@@ -1495,7 +1499,7 @@ class CatClient(NamespacedClient):
           <p>IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the nodes info API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-master>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-master>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -1692,7 +1696,7 @@ class CatClient(NamespacedClient):
           application consumption, use the get data frame analytics jobs statistics API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-ml-data-frame-analytics>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-ml-data-frame-analytics>`_
 
         :param id: The ID of the data frame analytics to fetch
         :param allow_no_match: Whether to ignore if a wildcard expression matches no
@@ -1875,7 +1879,7 @@ class CatClient(NamespacedClient):
           application consumption, use the get datafeed statistics API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-ml-datafeeds>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-ml-datafeeds>`_
 
         :param datafeed_id: A numerical character string that uniquely identifies the
             datafeed.
@@ -2256,7 +2260,7 @@ class CatClient(NamespacedClient):
           application consumption, use the get anomaly detection job statistics API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-ml-jobs>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-ml-jobs>`_
 
         :param job_id: Identifier for the anomaly detection job.
         :param allow_no_match: Specifies what to do when the request: * Contains wildcard
@@ -2453,7 +2457,7 @@ class CatClient(NamespacedClient):
           application consumption, use the get trained models statistics API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-ml-trained-models>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-ml-trained-models>`_
 
         :param model_id: A unique identifier for the trained model.
         :param allow_no_match: Specifies what to do when the request: contains wildcard
@@ -2581,7 +2585,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the nodes info API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-nodeattrs>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-nodeattrs>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -2878,7 +2882,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the nodes info API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-nodes>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-nodes>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -2993,7 +2997,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the pending cluster tasks API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-pending-tasks>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-pending-tasks>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -3107,7 +3111,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the nodes info API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-plugins>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-plugins>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -3281,7 +3285,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the index recovery API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-recovery>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-recovery>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
@@ -3388,7 +3392,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the get snapshot repository API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-repositories>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-repositories>`_
 
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
@@ -3547,7 +3551,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the index segments API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-segments>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-segments>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
@@ -3555,11 +3559,12 @@ class CatClient(NamespacedClient):
         :param allow_closed: If true, allow closed indices to be returned in the response
             otherwise if false, keep the legacy behaviour of throwing an exception if
             index pattern matches closed indices
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or _all value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting foo*,bar* returns an error if an index starts
-            with foo but no index starts with bar.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param bytes: Sets the units for columns that contain a byte-size value. Note
             that byte-size value units work in terms of powers of 1024. For instance
             `1kb` means 1024 bytes, not 1000 bytes. If omitted, byte-size values are
@@ -3580,8 +3585,10 @@ class CatClient(NamespacedClient):
             be combined with any other query string option.
         :param ignore_throttled: If true, concrete, expanded or aliased indices are ignored
             when frozen.
-        :param ignore_unavailable: If true, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param local: If `true`, the request computes the list of selected nodes from
             the local cluster state. If `false` the list of selected nodes are computed
             from the cluster state of the master node. In both cases the coordinating
@@ -3838,7 +3845,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-shards>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-shards>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
@@ -3983,7 +3990,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the get snapshot API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-snapshots>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-snapshots>`_
 
         :param repository: A comma-separated list of snapshot repositories used to limit
             the request. Accepts wildcard expressions. `_all` returns all repositories.
@@ -4140,7 +4147,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the task management API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-tasks>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-tasks>`_
 
         :param actions: The task action names, which are used to limit the response.
         :param bytes: Sets the units for columns that contain a byte-size value. Note
@@ -4273,7 +4280,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the get index template API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-templates>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-templates>`_
 
         :param name: The name of the template to return. Accepts wildcard expressions.
             If omitted, all templates are returned.
@@ -4438,7 +4445,7 @@ class CatClient(NamespacedClient):
           IMPORTANT: cat APIs are only intended for human consumption using the command line or Kibana console. They are not intended for use by applications. For application consumption, use the nodes info API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-thread-pool>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-thread-pool>`_
 
         :param thread_pool_patterns: A comma-separated list of thread pool names used
             to limit the request. Accepts wildcard expressions.
@@ -4713,7 +4720,7 @@ class CatClient(NamespacedClient):
           application consumption, use the get transform statistics API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-cat-transforms>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-cat-transforms>`_
 
         :param transform_id: A transform identifier or a wildcard expression. If you
             do not specify one of these options, the API returns information for all

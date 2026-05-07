@@ -39,12 +39,20 @@ class MigrationClient(NamespacedClient):
         .. raw:: html
 
           <p>Get deprecation information.</p>
-          <p>Get information about different cluster, node, and index level settings that use deprecated features that will be removed or changed in the next major version.</p>
-          <p>TIP: This APIs is designed for indirect use by the Upgrade Assistant.
-          You are strongly recommended to use the Upgrade Assistant.</p>
+          <p>Returns information about deprecated features which are in use in the cluster.
+          The reported features include cluster, node, and index level settings that will be removed or changed in the next major version.
+          You must address the reported issues before upgrading to the next major version.
+          However, no action is required when upgrading within the current major version.
+          Deprecated features remain fully supported and will continue to work in the current version, and when upgrading to a newer minor or patch release in the same major version.
+          Use this API to review your usage of these features and migrate away from them at your own pace, before upgrading to a new major version.</p>
+          <blockquote>
+          <p>info
+          This API is designed for indirect use by the <a href="https://www.elastic.co/docs/deploy-manage/upgrade/prepare-to-upgrade/upgrade-assistant">Upgrade Assistant</a>.
+          We recommend learning about deprecated features using the Upgrade Assistant rather than calling this API directly.</p>
+          </blockquote>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-migration-deprecations>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-migration-deprecations>`_
 
         :param index: Comma-separate list of data streams or indices to check. Wildcard
             (*) expressions are supported.
@@ -94,7 +102,7 @@ class MigrationClient(NamespacedClient):
           You are strongly recommended to use the Upgrade Assistant.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-migration-get-feature-upgrade-status>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-migration-get-feature-upgrade-status>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_migration/system_features"
@@ -136,7 +144,7 @@ class MigrationClient(NamespacedClient):
           <p>TIP: The API is designed for indirect use by the Upgrade Assistant. We strongly recommend you use the Upgrade Assistant.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-migration-get-feature-upgrade-status>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-migration-get-feature-upgrade-status>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_migration/system_features"

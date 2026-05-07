@@ -155,6 +155,13 @@ class ChunkingSettings(AttrDict[Any]):
         `10` (for `word` strategy). This value should not exceed the
         window size for the associated model. Defaults to `250` if
         omitted.
+    :arg overlap: The number of overlapping words for chunks. It is
+        applicable only to a `word` chunking strategy. This value cannot
+        be higher than half the `max_chunk_size` value. Defaults to `100`
+        if omitted.
+    :arg sentence_overlap: The number of overlapping sentences for chunks.
+        It is applicable only for a `sentence` chunking strategy. It can
+        be either `1` or `0`. Defaults to `1` if omitted.
     :arg separator_group: Only applicable to the `recursive` strategy and
         required when using it.  Sets a predefined list of separators in
         the saved chunking settings based on the selected text type.
@@ -168,45 +175,38 @@ class ChunkingSettings(AttrDict[Any]):
         in the list.  After splitting, it attempts to recombine smaller
         pieces into larger chunks that stay within the `max_chunk_size`
         limit, to reduce the total number of chunks generated.
-    :arg overlap: The number of overlapping words for chunks. It is
-        applicable only to a `word` chunking strategy. This value cannot
-        be higher than half the `max_chunk_size` value. Defaults to `100`
-        if omitted.
-    :arg sentence_overlap: The number of overlapping sentences for chunks.
-        It is applicable only for a `sentence` chunking strategy. It can
-        be either `1` or `0`. Defaults to `1` if omitted.
     """
 
     strategy: Union[str, DefaultType]
     max_chunk_size: Union[int, DefaultType]
-    separator_group: Union[str, DefaultType]
-    separators: Union[Sequence[str], DefaultType]
     overlap: Union[int, DefaultType]
     sentence_overlap: Union[int, DefaultType]
+    separator_group: Union[str, DefaultType]
+    separators: Union[Sequence[str], DefaultType]
 
     def __init__(
         self,
         *,
         strategy: Union[str, DefaultType] = DEFAULT,
         max_chunk_size: Union[int, DefaultType] = DEFAULT,
-        separator_group: Union[str, DefaultType] = DEFAULT,
-        separators: Union[Sequence[str], DefaultType] = DEFAULT,
         overlap: Union[int, DefaultType] = DEFAULT,
         sentence_overlap: Union[int, DefaultType] = DEFAULT,
+        separator_group: Union[str, DefaultType] = DEFAULT,
+        separators: Union[Sequence[str], DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if strategy is not DEFAULT:
             kwargs["strategy"] = strategy
         if max_chunk_size is not DEFAULT:
             kwargs["max_chunk_size"] = max_chunk_size
-        if separator_group is not DEFAULT:
-            kwargs["separator_group"] = separator_group
-        if separators is not DEFAULT:
-            kwargs["separators"] = separators
         if overlap is not DEFAULT:
             kwargs["overlap"] = overlap
         if sentence_overlap is not DEFAULT:
             kwargs["sentence_overlap"] = sentence_overlap
+        if separator_group is not DEFAULT:
+            kwargs["separator_group"] = separator_group
+        if separators is not DEFAULT:
+            kwargs["separators"] = separators
         super().__init__(kwargs)
 
 
@@ -609,7 +609,7 @@ class FieldLookup(AttrDict[Any]):
     id: Union[str, DefaultType]
     index: Union[str, DefaultType]
     path: Union[str, InstrumentedField, DefaultType]
-    routing: Union[str, Sequence[str], DefaultType]
+    routing: Union[str, DefaultType]
 
     def __init__(
         self,
@@ -617,7 +617,7 @@ class FieldLookup(AttrDict[Any]):
         id: Union[str, DefaultType] = DEFAULT,
         index: Union[str, DefaultType] = DEFAULT,
         path: Union[str, InstrumentedField, DefaultType] = DEFAULT,
-        routing: Union[str, Sequence[str], DefaultType] = DEFAULT,
+        routing: Union[str, DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if id is not DEFAULT:
@@ -656,6 +656,7 @@ class FieldSort(AttrDict[Any]):
             "keyword",
             "text",
             "search_as_you_type",
+            "wildcard",
             "date",
             "date_nanos",
             "boolean",
@@ -721,6 +722,7 @@ class FieldSort(AttrDict[Any]):
                 "keyword",
                 "text",
                 "search_as_you_type",
+                "wildcard",
                 "date",
                 "date_nanos",
                 "boolean",
@@ -2375,6 +2377,40 @@ class LikeDocument(AttrDict[Any]):
         super().__init__(kwargs)
 
 
+class LookupQueryVectorBuilder(AttrDict[Any]):
+    """
+    :arg id: (required) The ID of the document to fetch the vector from
+    :arg index: (required) The name of the index to fetch the document
+        from
+    :arg path: (required) The name of the field containing the vector
+    :arg routing: The routing value to use when fetching the document
+    """
+
+    id: Union[str, DefaultType]
+    index: Union[str, DefaultType]
+    path: Union[str, DefaultType]
+    routing: Union[str, DefaultType]
+
+    def __init__(
+        self,
+        *,
+        id: Union[str, DefaultType] = DEFAULT,
+        index: Union[str, DefaultType] = DEFAULT,
+        path: Union[str, DefaultType] = DEFAULT,
+        routing: Union[str, DefaultType] = DEFAULT,
+        **kwargs: Any,
+    ):
+        if id is not DEFAULT:
+            kwargs["id"] = id
+        if index is not DEFAULT:
+            kwargs["index"] = index
+        if path is not DEFAULT:
+            kwargs["path"] = path
+        if routing is not DEFAULT:
+            kwargs["routing"] = routing
+        super().__init__(kwargs)
+
+
 class MatchBoolPrefixQuery(AttrDict[Any]):
     """
     :arg query: (required) Terms you wish to find in the provided field.
@@ -2683,23 +2719,30 @@ class MatchQuery(AttrDict[Any]):
 
 class MultiTermLookup(AttrDict[Any]):
     """
-    :arg field: (required) A fields from which to retrieve terms.
+    :arg field: A field from which to retrieve terms. It is required if
+        `script` is not provided.
+    :arg script: A script to calculate terms to aggregate on. It is
+        required if `field` is not provided.
     :arg missing: The value to apply to documents that do not have a
         value. By default, documents without a value are ignored.
     """
 
     field: Union[str, InstrumentedField, DefaultType]
+    script: Union["Script", Dict[str, Any], DefaultType]
     missing: Union[str, int, float, bool, DefaultType]
 
     def __init__(
         self,
         *,
         field: Union[str, InstrumentedField, DefaultType] = DEFAULT,
+        script: Union["Script", Dict[str, Any], DefaultType] = DEFAULT,
         missing: Union[str, int, float, bool, DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if field is not DEFAULT:
             kwargs["field"] = str(field)
+        if script is not DEFAULT:
+            kwargs["script"] = script
         if missing is not DEFAULT:
             kwargs["missing"] = missing
         super().__init__(kwargs)
@@ -2884,18 +2927,26 @@ class PrefixQuery(AttrDict[Any]):
 class QueryVectorBuilder(AttrDict[Any]):
     """
     :arg text_embedding:
+    :arg lookup: Lookup a vector from an existing document. Must reference
+        a dense_vector field and a single value.
     """
 
     text_embedding: Union["TextEmbedding", Dict[str, Any], DefaultType]
+    lookup: Union["LookupQueryVectorBuilder", Dict[str, Any], DefaultType]
 
     def __init__(
         self,
         *,
         text_embedding: Union["TextEmbedding", Dict[str, Any], DefaultType] = DEFAULT,
+        lookup: Union[
+            "LookupQueryVectorBuilder", Dict[str, Any], DefaultType
+        ] = DEFAULT,
         **kwargs: Any,
     ):
         if text_embedding is not DEFAULT:
             kwargs["text_embedding"] = text_embedding
+        if lookup is not DEFAULT:
+            kwargs["lookup"] = lookup
         super().__init__(kwargs)
 
 
@@ -3938,7 +3989,7 @@ class TermsLookup(AttrDict[Any]):
     index: Union[str, DefaultType]
     id: Union[str, DefaultType]
     path: Union[str, InstrumentedField, DefaultType]
-    routing: Union[str, Sequence[str], DefaultType]
+    routing: Union[str, DefaultType]
 
     def __init__(
         self,
@@ -3946,7 +3997,7 @@ class TermsLookup(AttrDict[Any]):
         index: Union[str, DefaultType] = DEFAULT,
         id: Union[str, DefaultType] = DEFAULT,
         path: Union[str, InstrumentedField, DefaultType] = DEFAULT,
-        routing: Union[str, Sequence[str], DefaultType] = DEFAULT,
+        routing: Union[str, DefaultType] = DEFAULT,
         **kwargs: Any,
     ):
         if index is not DEFAULT:
@@ -4071,7 +4122,8 @@ class TestPopulation(AttrDict[Any]):
 
 class TextEmbedding(AttrDict[Any]):
     """
-    :arg model_text: (required)
+    :arg model_text: (required) The text to be converted into a vector by
+        the specified model
     :arg model_id: Model ID is required for all dense_vector fields but
         may be inferred for semantic_text fields
     """
@@ -4901,7 +4953,7 @@ class CompletionSuggestOption(AttrDict[Any]):
     fields: Mapping[str, Any]
     _id: str
     _index: str
-    _routing: Union[str, Sequence[str]]
+    _routing: str
     _score: float
     _source: Any
     score: float

@@ -47,6 +47,7 @@ class TextStructureClient(NamespacedClient):
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
         quote: t.Optional[str] = None,
+        should_parse_recursively: t.Optional[bool] = None,
         should_trim_fields: t.Optional[bool] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         timestamp_field: t.Optional[str] = None,
@@ -72,7 +73,7 @@ class TextStructureClient(NamespacedClient):
           It helps determine why the returned structure was chosen.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-text_structure>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-text_structure>`_
 
         :param field: The field that should be analyzed.
         :param index: The name of the index that contains the analyzed field.
@@ -120,6 +121,11 @@ class TextStructureClient(NamespacedClient):
             specified, the default value is a double quote (`"`). If your delimited text
             format does not use quoting, a workaround is to set this argument to a character
             that does not appear anywhere in the sample.
+        :param should_parse_recursively: If the format is `ndjson`, you can specify whether
+            to parse nested JSON objects recursively. The nested objects are parsed to
+            a maximum depth equal to the default value of the `index.mapping.depth.limit`
+            setting. Anything beyond that depth is parsed as an `object` type field.
+            For formats other than `ndjson`, this parameter is ignored.
         :param should_trim_fields: If the format is `delimited`, you can specify whether
             values between delimiters should have whitespace trimmed from them. If this
             parameter is not specified and the delimiter is pipe (`|`), the default value
@@ -192,6 +198,8 @@ class TextStructureClient(NamespacedClient):
             __query["pretty"] = pretty
         if quote is not None:
             __query["quote"] = quote
+        if should_parse_recursively is not None:
+            __query["should_parse_recursively"] = should_parse_recursively
         if should_trim_fields is not None:
             __query["should_trim_fields"] = should_trim_fields
         if timeout is not None:
@@ -232,6 +240,7 @@ class TextStructureClient(NamespacedClient):
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
         quote: t.Optional[str] = None,
+        should_parse_recursively: t.Optional[bool] = None,
         should_trim_fields: t.Optional[bool] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         timestamp_field: t.Optional[str] = None,
@@ -259,7 +268,7 @@ class TextStructureClient(NamespacedClient):
           It helps determine why the returned structure was chosen.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-text-structure-find-message-structure>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-text-structure-find-message-structure>`_
 
         :param messages: The list of messages you want to analyze.
         :param column_names: If the format is `delimited`, you can specify the column
@@ -302,6 +311,11 @@ class TextStructureClient(NamespacedClient):
             specified, the default value is a double quote (`"`). If your delimited text
             format does not use quoting, a workaround is to set this argument to a character
             that does not appear anywhere in the sample.
+        :param should_parse_recursively: If the format is `ndjson`, you can specify whether
+            to parse nested JSON objects recursively. The nested objects are parsed to
+            a maximum depth equal to the default value of the `index.mapping.depth.limit`
+            setting. Anything beyond that depth is parsed as an `object` type field.
+            For formats other than `ndjson`, this parameter is ignored.
         :param should_trim_fields: If the format is `delimited`, you can specify whether
             values between delimiters should have whitespace trimmed from them. If this
             parameter is not specified and the delimiter is pipe (`|`), the default value
@@ -367,6 +381,8 @@ class TextStructureClient(NamespacedClient):
             __query["pretty"] = pretty
         if quote is not None:
             __query["quote"] = quote
+        if should_parse_recursively is not None:
+            __query["should_parse_recursively"] = should_parse_recursively
         if should_trim_fields is not None:
             __query["should_trim_fields"] = should_trim_fields
         if timeout is not None:
@@ -412,6 +428,7 @@ class TextStructureClient(NamespacedClient):
         line_merge_size_limit: t.Optional[int] = None,
         lines_to_sample: t.Optional[int] = None,
         quote: t.Optional[str] = None,
+        should_parse_recursively: t.Optional[bool] = None,
         should_trim_fields: t.Optional[bool] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         timestamp_field: t.Optional[str] = None,
@@ -437,7 +454,7 @@ class TextStructureClient(NamespacedClient):
           However, you can optionally override some of the decisions about the text structure by specifying one or more query parameters.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-text-structure-find-structure>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-text-structure-find-structure>`_
 
         :param text_files:
         :param charset: The text's character set. It must be a character set that is
@@ -509,6 +526,11 @@ class TextStructureClient(NamespacedClient):
             specified, the default value is a double quote (`"`). If your delimited text
             format does not use quoting, a workaround is to set this argument to a character
             that does not appear anywhere in the sample.
+        :param should_parse_recursively: If the format is `ndjson`, you can specify whether
+            to parse nested JSON objects recursively. The nested objects are parsed to
+            a maximum depth equal to the default value of the `index.mapping.depth.limit`
+            setting. Anything beyond that depth is parsed as an `object` type field.
+            For formats other than `ndjson`, this parameter is ignored.
         :param should_trim_fields: If you have set `format` to `delimited`, you can specify
             whether values between delimiters should have whitespace trimmed from them.
             If this parameter is not specified and the delimiter is pipe (`|`), the default
@@ -578,6 +600,8 @@ class TextStructureClient(NamespacedClient):
             __query["lines_to_sample"] = lines_to_sample
         if quote is not None:
             __query["quote"] = quote
+        if should_parse_recursively is not None:
+            __query["should_parse_recursively"] = should_parse_recursively
         if should_trim_fields is not None:
             __query["should_trim_fields"] = should_trim_fields
         if timeout is not None:
@@ -624,7 +648,7 @@ class TextStructureClient(NamespacedClient):
           The API indicates whether the lines match the pattern together with the offsets and lengths of the matched substrings.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-text-structure-test-grok-pattern>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-text-structure-test-grok-pattern>`_
 
         :param grok_pattern: The Grok pattern to run on the text.
         :param text: The lines of text to run the Grok pattern on.

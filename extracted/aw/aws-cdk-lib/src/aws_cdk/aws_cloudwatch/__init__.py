@@ -1177,8 +1177,10 @@ from ..interfaces.aws_cloudwatch import (
     IDashboardRef as _IDashboardRef_3c35946b,
     IInsightRuleRef as _IInsightRuleRef_436d0d73,
     IMetricStreamRef as _IMetricStreamRef_2c784fc6,
+    IOTelEnrichmentRef as _IOTelEnrichmentRef_d7a7e26b,
     InsightRuleReference as _InsightRuleReference_d30ddeea,
     MetricStreamReference as _MetricStreamReference_e417a88f,
+    OTelEnrichmentReference as _OTelEnrichmentReference_8678d69f,
 )
 from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
 from ..interfaces.aws_kinesisfirehose import (
@@ -7981,6 +7983,158 @@ class CfnMetricStreamProps:
 
     def __repr__(self) -> str:
         return "CfnMetricStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IOTelEnrichmentRef_d7a7e26b)
+class CfnOTelEnrichment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOTelEnrichment",
+):
+    '''AWS::CloudWatch::OTelEnrichment enables OTel metric enrichment in CloudWatch, allowing CloudWatch vended metrics to be available for PromQL querying enriched with AWS resource tags and metadata.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html
+    :cloudformationResource: AWS::CloudWatch::OTelEnrichment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_oTel_enrichment = cloudwatch.CfnOTelEnrichment(self, "MyCfnOTelEnrichment")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::OTelEnrichment``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91fe64afece70cc36e2d54718c3c64b53722fa35cafb27766af95dd0a147a667)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOTelEnrichmentProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnOTelEnrichment")
+    @builtins.classmethod
+    def is_cfn_o_tel_enrichment(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOTelEnrichment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1af19ef1ba38cebc54a9624293ee328d04fa84b23a55cd3ffa8d5a7a40087af)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOTelEnrichment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d721c69f1f9b1fb7a3bfa765e04a1f028e5fa6b40940806ac59593cf6bf3dc5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ef03b934f7d0fd97461f0f5a4084cbf1bd814052ece44bc08fd00d54b53b465)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''The AWS account ID.
+
+        This is the primary identifier for this singleton resource.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Current status of OTel enrichment (RUNNING or STOPPED).
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="oTelEnrichmentRef")
+    def o_tel_enrichment_ref(self) -> "_OTelEnrichmentReference_8678d69f":
+        '''A reference to a OTelEnrichment resource.'''
+        return typing.cast("_OTelEnrichmentReference_8678d69f", jsii.get(self, "oTelEnrichmentRef"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOTelEnrichmentProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnOTelEnrichmentProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnOTelEnrichment``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_oTel_enrichment_props = cloudwatch.CfnOTelEnrichmentProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOTelEnrichmentProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -18105,6 +18259,8 @@ __all__ = [
     "CfnInsightRuleProps",
     "CfnMetricStream",
     "CfnMetricStreamProps",
+    "CfnOTelEnrichment",
+    "CfnOTelEnrichmentProps",
     "Color",
     "Column",
     "CommonMetricOptions",
@@ -19265,6 +19421,31 @@ def _typecheckingstub__3841eb4f0098d496658caf6739d964d8b08f872e67d2ad28362ac3882
     name: typing.Optional[builtins.str] = None,
     statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91fe64afece70cc36e2d54718c3c64b53722fa35cafb27766af95dd0a147a667(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1af19ef1ba38cebc54a9624293ee328d04fa84b23a55cd3ffa8d5a7a40087af(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d721c69f1f9b1fb7a3bfa765e04a1f028e5fa6b40940806ac59593cf6bf3dc5(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ef03b934f7d0fd97461f0f5a4084cbf1bd814052ece44bc08fd00d54b53b465(
+    props: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
     pass

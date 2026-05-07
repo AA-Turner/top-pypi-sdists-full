@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skrub
-Version: 0.8.0
+Version: 0.9.0
 Summary: Machine learning with dataframes
 Author: Riccardo Cappuzzo, Jerome Dockes, Guillaume Lemaitre, Vincent Maladiere, Gael Varoquaux
 License-Expression: BSD-3-Clause

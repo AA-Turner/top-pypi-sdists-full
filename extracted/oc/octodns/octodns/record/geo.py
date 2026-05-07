@@ -7,9 +7,10 @@ from logging import getLogger
 
 from ..deprecation import deprecated
 from ..equality import EqualityTupleMixin
-from .base import ValuesMixin
+from .base import ValuesMixin, _process_value_validators
 from .change import Update
 from .geo_data import geo_data
+from .validator import RecordValidator
 
 
 class GeoCodes(object):
@@ -131,16 +132,15 @@ class GeoValue(EqualityTupleMixin):
         )
 
 
-class _GeoMixin(ValuesMixin):
+class GeoValidator(RecordValidator):
     '''
-    Adds GeoDNS support to a record.
-
-    Must be included before `Record`.
+    Validates the deprecated ``geo`` block of a record: each key is a
+    valid continent/country/subdivision code and each list of values
+    passes the record's value-type validation.
     '''
 
-    @classmethod
-    def validate(cls, name, fqdn, data):
-        reasons = super().validate(name, fqdn, data)
+    def validate(self, record_cls, name, fqdn, data):
+        reasons = []
         try:
             geo = dict(data['geo'])
             deprecated(
@@ -149,10 +149,41 @@ class _GeoMixin(ValuesMixin):
             )
             for code, values in geo.items():
                 reasons.extend(GeoValue._validate_geo(code))
-                reasons.extend(cls._value_type.validate(values, cls._type))
+                reasons.extend(
+                    _process_value_validators(
+                        record_cls._value_type, values, record_cls._type
+                    )
+                )
         except KeyError:
             pass
         return reasons
+
+
+class _GeoMixin(ValuesMixin):
+    '''
+    Adds GeoDNS support to a record.
+
+    Must be included before `Record`.
+    '''
+
+    VALIDATORS = [GeoValidator('geo', sets={'legacy'})]
+
+    @classmethod
+    def _schema(cls, value_schema):
+        '''JSON Schema fragment describing the `geo` block.
+
+        Keys are geo codes (continent, continent-country, or
+        continent-country-subdivision); values are lists of record values.
+        '''
+        return {
+            'type': 'object',
+            'propertyNames': {'pattern': r'^[A-Z]{2}(-[A-Z]{2}(-[A-Z]{2})?)?$'},
+            'additionalProperties': {
+                'type': 'array',
+                'items': value_schema,
+                'minItems': 1,
+            },
+        }
 
     def __init__(self, zone, name, data, *args, **kwargs):
         super().__init__(zone, name, data, *args, **kwargs)

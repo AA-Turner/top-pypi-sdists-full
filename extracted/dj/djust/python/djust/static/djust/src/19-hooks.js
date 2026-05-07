@@ -47,11 +47,12 @@ function _getHookDefs() {
  * Map of active hook instances keyed by element id.
  * Each entry: { hookName, instance, el }
  */
-// Use var so declarations hoist above the IIFE guard that calls
-// djustInit() → mountHooks() before this file executes.
-// Initializations are deferred to _ensureHooksInit() since var hoists
-// the name but not the `= new Map()` assignment.
+// var (not let): module 19 is concatenated after the bootstrap call;
+// let would TDZ when _ensureHooksInit() is invoked from earlier modules.
+// The lazy-init pattern below relies on hoisted-undefined semantics.
+// eslint-disable-next-line no-var
 var _activeHooks;
+// eslint-disable-next-line no-var
 var _hookIdCounter;
 
 /**
@@ -101,9 +102,12 @@ function _createHookInstance(hookDef, el) {
     // handleEvent: register a callback for server-pushed events
     instance._eventHandlers = {};
     instance.handleEvent = function(eventName, callback) {
+        // eslint-disable-next-line security/detect-object-injection
         if (!instance._eventHandlers[eventName]) {
+            // eslint-disable-next-line security/detect-object-injection
             instance._eventHandlers[eventName] = [];
         }
+        // eslint-disable-next-line security/detect-object-injection
         instance._eventHandlers[eventName].push(callback);
     };
 
@@ -174,6 +178,7 @@ function mountHooks(root) {
             return;
         }
 
+        // eslint-disable-next-line security/detect-object-injection
         const hookDef = hooks[hookName];
         if (!hookDef) {
             console.warn(`[dj-hook] No hook registered for "${hookName}"`);
@@ -237,6 +242,7 @@ function updateHooks(root) {
             }
         } else {
             // New element — mount it
+            // eslint-disable-next-line security/detect-object-injection
             const hookDef = hooks[hookName];
             if (!hookDef) {
                 console.warn(`[dj-hook] No hook registered for "${hookName}"`);
@@ -300,6 +306,7 @@ function notifyHooksReconnected() {
 function dispatchPushEventToHooks(eventName, payload) {
     _ensureHooksInit();
     for (const [, entry] of _activeHooks) {
+        // eslint-disable-next-line security/detect-object-injection
         const handlers = entry.instance._eventHandlers[eventName];
         if (handlers) {
             handlers.forEach((cb) => {

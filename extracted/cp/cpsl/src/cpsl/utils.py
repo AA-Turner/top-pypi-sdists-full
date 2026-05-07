@@ -166,7 +166,7 @@ def normalize_image(image: dict) -> dict:
     return normalized
 
 
-def build_image_spec(image: dict, *, cpu: float = 0.25, memory: int = 512):
+def build_image_spec(image: dict, *, cpu: float = 0.25, memory: int = 512, gpu: str | None = None):
     """Build a gRPC ``ImageSpec`` from the config dict."""
     from .clients.capsule import ImageSpec
 
@@ -177,6 +177,7 @@ def build_image_spec(image: dict, *, cpu: float = 0.25, memory: int = 512):
         commands=image.get("commands", []),
         cpu=cpu,
         memory_mib=memory,
+        gpu=gpu or "",
     )
 
 

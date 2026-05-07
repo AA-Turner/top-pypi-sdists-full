@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-aws
-Version: 0.7.7
+Version: 0.7.8
 Summary: Prefect integrations for interacting with Amazon Web Services.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -22,7 +22,7 @@ License-File: LICENSE
 Requires-Dist: aiobotocore>=2.23.2
 Requires-Dist: boto3>=1.24.53
 Requires-Dist: botocore>=1.27.53
-Requires-Dist: prefect>=3.6.24
+Requires-Dist: prefect>=3.7.0
 Requires-Dist: pyparsing>=3.1.1
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: typer>=0.9.0
@@ -170,9 +170,9 @@ Before using RDS IAM authentication, you need to configure AWS:
 
 ### Enable the Plugin
 
-1. Enable the experimental plugin system:
+1. Enable the plugin system:
    ```bash
-   export PREFECT_EXPERIMENTS_PLUGINS_ENABLED=true
+   export PREFECT_PLUGINS_ENABLED=true
    ```
 
 2. Enable RDS IAM authentication:

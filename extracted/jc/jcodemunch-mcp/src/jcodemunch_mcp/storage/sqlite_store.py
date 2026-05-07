@@ -113,6 +113,11 @@ _INIT_PRAGMAS = [
     "PRAGMA journal_mode = WAL",
 ]
 
+# SQLite files in ~/.code-index/ that are NOT per-repo indexes — list_repos
+# must skip these so they don't get phantom-resolved as repos (and worse,
+# get auto-initialised with the code-index schema by _connect()).
+_NON_REPO_DB_FILES = frozenset({"telemetry.db"})
+
 # Keys stored in the meta table
 _META_KEYS = [
     "repo", "owner", "name", "indexed_at", "index_version",
@@ -366,6 +371,10 @@ class SQLiteIndexStore:
         if _key not in _VERIFIED_PATHS:
             self.base_path.mkdir(parents=True, exist_ok=True)
             _VERIFIED_PATHS.add(_key)
+        # Instance-scoped cache of resolved content_dir paths (was a class
+        # attribute, which leaked entries across every instance for the life
+        # of the process and shared state across tests).
+        self._resolved_content_dirs: dict[str, str] = {}
 
     # ── Connection helpers ──────────────────────────────────────────
 
@@ -1399,6 +1408,8 @@ class SQLiteIndexStore:
         _pairs = parse_path_map()
         repos = []
         for db_file in self.base_path.glob("*.db"):
+            if db_file.name in _NON_REPO_DB_FILES:
+                continue
             try:
                 entry = self._list_repo_from_db(db_file, _pairs)
                 if entry:
@@ -1439,7 +1450,7 @@ class SQLiteIndexStore:
         finally:
             conn.close()
 
-        if not meta:
+        if not meta or not meta.get("repo"):
             return None
         languages = json.loads(meta.get("languages", "{}"))
         entry = {
@@ -1564,10 +1575,6 @@ class SQLiteIndexStore:
     def _content_dir(self, owner: str, name: str) -> Path:
         """Path to raw content directory."""
         return self.base_path / self._repo_slug(owner, name)
-
-    # Cache of resolved content_dir paths — avoids repeated resolve() syscalls
-    # in search_text (called once per file in the repo) and search_symbols.
-    _resolved_content_dirs: dict[str, str] = {}
 
     def _safe_content_path(self, content_dir: Path, relative_path: str) -> Optional[Path]:
         """Resolve a content path and ensure it stays within content_dir."""

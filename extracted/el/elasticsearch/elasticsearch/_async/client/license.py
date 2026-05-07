@@ -44,7 +44,7 @@ class LicenseClient(NamespacedClient):
           <p>If the operator privileges feature is enabled, only operator users can use this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-delete>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-delete>`_
 
         :param master_timeout: The period to wait for a connection to the master node.
         :param timeout: The period to wait for a response. If no response is received
@@ -98,7 +98,7 @@ class LicenseClient(NamespacedClient):
           </blockquote>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-get>`_
 
         :param accept_enterprise: If `true`, this parameter returns enterprise for Enterprise
             license types. If `false`, this parameter returns platinum for both platinum
@@ -149,7 +149,7 @@ class LicenseClient(NamespacedClient):
           <p>Get the basic license status.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-get-basic-status>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-get-basic-status>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_license/basic_status"
@@ -187,7 +187,7 @@ class LicenseClient(NamespacedClient):
           <p>Get the trial status.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-get-trial-status>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-get-trial-status>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_license/trial_status"
@@ -239,9 +239,11 @@ class LicenseClient(NamespacedClient):
           If the operator privileges feature is enabled, only operator users can use this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-post>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-post>`_
 
-        :param acknowledge: Specifies whether you acknowledge the license changes.
+        :param acknowledge: To update a license, you must accept the acknowledge messages
+            and set this parameter to `true`. In particular, if you are upgrading or
+            downgrading a license, you must acknowlege the feature changes.
         :param license:
         :param licenses: A sequence of one or more JSON documents containing the license
             information.
@@ -274,9 +276,7 @@ class LicenseClient(NamespacedClient):
                 __body["licenses"] = licenses
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -310,9 +310,10 @@ class LicenseClient(NamespacedClient):
           <p>To check the status of your basic license, use the get basic license API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-post-start-basic>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-post-start-basic>`_
 
-        :param acknowledge: Whether the user has acknowledged acknowledge messages
+        :param acknowledge: To start a basic license, you must accept the acknowledge
+            messages and set this parameter to `true`.
         :param master_timeout: Period to wait for a connection to the master node.
         :param timeout: Period to wait for a response. If no response is received before
             the timeout expires, the request fails and returns an error.
@@ -366,9 +367,10 @@ class LicenseClient(NamespacedClient):
           <p>To check the status of your trial, use the get trial status API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-license-post-start-trial>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-license-post-start-trial>`_
 
-        :param acknowledge: Whether the user has acknowledged acknowledge messages
+        :param acknowledge: To start a trial, you must accept the acknowledge messages
+            and set this parameter to `true`.
         :param master_timeout: Period to wait for a connection to the master node.
         :param type: The type of trial license to generate
         """

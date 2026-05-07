@@ -294,6 +294,7 @@ from arthur_client.api_bindings.models.policy import Policy
 from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_assignment import PolicyAssignment
 from arthur_client.api_bindings.models.policy_assignment_detail import PolicyAssignmentDetail
+from arthur_client.api_bindings.models.policy_assignment_job_chain_patch import PolicyAssignmentJobChainPatch
 from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAttestationRule
 from arthur_client.api_bindings.models.policy_sort import PolicySort
 from arthur_client.api_bindings.models.policy_summary import PolicySummary
@@ -404,7 +405,6 @@ from arthur_client.api_bindings.models.rule_response import RuleResponse
 from arthur_client.api_bindings.models.rule_scope import RuleScope
 from arthur_client.api_bindings.models.rule_type import RuleType
 from arthur_client.api_bindings.models.scalar_type import ScalarType
-from arthur_client.api_bindings.models.schedule_compliance_jobs_job_spec import ScheduleComplianceJobsJobSpec
 from arthur_client.api_bindings.models.schedule_jobs_job_spec import ScheduleJobsJobSpec
 from arthur_client.api_bindings.models.schema_inspection_job_spec import SchemaInspectionJobSpec
 from arthur_client.api_bindings.models.scope_schema_tag import ScopeSchemaTag

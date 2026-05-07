@@ -11,7 +11,7 @@ from reflex_base.vars.base import Var
 
 from reflex_components_core.core.breakpoints import Breakpoints
 
-from .base import BaseHTML
+from .base import BaseHTML, VoidBaseHTML
 
 ReferrerPolicy = Literal[
     "",
@@ -1368,7 +1368,7 @@ class Bdo(BaseHTML):
             The component.
         """
 
-class Br(BaseHTML):
+class Br(VoidBaseHTML):
     @classmethod
     def create(
         cls,
@@ -7094,7 +7094,7 @@ class U(BaseHTML):
             The component.
         """
 
-class Wbr(BaseHTML):
+class Wbr(VoidBaseHTML):
     @classmethod
     def create(
         cls,

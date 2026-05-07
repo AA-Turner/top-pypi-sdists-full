@@ -827,8 +827,10 @@ T = TypeVar("T")
 class C(Generic[T]):
     def __init__[V](self: "C[V]", x: V) -> None: pass
 def takes_callable[V](x: Callable[[V], C[V]], y: V) -> C[V]: ...
-assert_type(takes_callable(C, 42), C[int])
-assert_type(takes_callable(C, "hello"), C[str])
+out1 = takes_callable(C, 42)
+assert_type(out1, C[int])
+out2 = takes_callable(C, "hello")
+assert_type(out2, C[str])
     "#,
 );
 

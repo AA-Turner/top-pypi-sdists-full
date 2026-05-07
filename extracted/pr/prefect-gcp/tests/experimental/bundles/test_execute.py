@@ -1,13 +1,11 @@
 import zipfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from prefect_gcp.experimental.bundles.execute import execute_bundle_from_gcs
+from prefect_gcp.bundles.execute import execute_bundle_from_gcs
 from pydantic_core import to_json
-
-from prefect.runner import Runner
 
 
 @pytest.fixture
@@ -30,9 +28,9 @@ def test_execute_bundle_from_gcs_success(
         MagicMock(return_value=gcp_credentials),
     )
 
-    # Mock the Runner and its execute_bundle method
-    mock_runner = MagicMock(spec=Runner)
-    monkeypatch.setattr("prefect.runner.Runner", MagicMock(return_value=mock_runner))
+    # Mock the execute_bundle function
+    mock_exec = AsyncMock()
+    monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
     # Call the function
     bucket = "test-bucket"
@@ -56,8 +54,8 @@ def test_execute_bundle_from_gcs_success(
     gcs_client.bucket(bucket).blob.assert_called_once_with(key)
     gcs_client.bucket(bucket).blob(key).download_to_filename.assert_called_once()
 
-    # Verify the Runner was called correctly
-    mock_runner.execute_bundle.assert_called_once_with(mock_bundle_data)
+    # Verify the bundle was executed
+    mock_exec.assert_called_once_with(mock_bundle_data)
 
 
 def test_execute_bundle_from_gcs_with_default_credentials(
@@ -71,9 +69,9 @@ def test_execute_bundle_from_gcs_with_default_credentials(
         MagicMock(return_value=gcp_credentials),
     )
 
-    # Mock the Runner and its execute_bundle method
-    mock_runner = MagicMock(spec=Runner)
-    monkeypatch.setattr("prefect.runner.Runner", MagicMock(return_value=mock_runner))
+    # Mock the execute_bundle function
+    mock_exec = AsyncMock()
+    monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
     # Call the function
     bucket = "test-bucket"
@@ -96,8 +94,8 @@ def test_execute_bundle_from_gcs_with_default_credentials(
     gcs_client.bucket(bucket).blob.assert_called_once_with(key)
     gcs_client.bucket(bucket).blob(key).download_to_filename.assert_called_once()
 
-    # Verify the Runner was called correctly
-    mock_runner.execute_bundle.assert_called_once_with(mock_bundle_data)
+    # Verify the bundle was executed
+    mock_exec.assert_called_once_with(mock_bundle_data)
 
 
 def test_execute_bundle_from_gcs_download_failure(
@@ -142,10 +140,9 @@ def test_execute_bundle_from_gcs_execution_failure(
         MagicMock(return_value=gcp_credentials),
     )
 
-    # Mock the Runner and its execute_bundle method to raise an exception
-    mock_runner = MagicMock(spec=Runner)
-    mock_runner.execute_bundle.side_effect = Exception("Execution failed")
-    monkeypatch.setattr("prefect.runner.Runner", MagicMock(return_value=mock_runner))
+    # Mock execute_bundle to raise an exception
+    mock_exec = AsyncMock(side_effect=Exception("Execution failed"))
+    monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
     # Call the function
     bucket = "test-bucket"
@@ -189,10 +186,8 @@ class TestExecuteBundleFromGCSWithFiles:
             MagicMock(return_value=gcp_credentials),
         )
 
-        mock_runner = MagicMock(spec=Runner)
-        monkeypatch.setattr(
-            "prefect.runner.Runner", MagicMock(return_value=mock_runner)
-        )
+        mock_exec = AsyncMock()
+        monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
         download_calls: list[str] = []
 
@@ -235,10 +230,8 @@ class TestExecuteBundleFromGCSWithFiles:
             MagicMock(return_value=gcp_credentials),
         )
 
-        mock_runner = MagicMock(spec=Runner)
-        monkeypatch.setattr(
-            "prefect.runner.Runner", MagicMock(return_value=mock_runner)
-        )
+        mock_exec = AsyncMock()
+        monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
         def mock_download_to_filename(path: str) -> None:
             if path.endswith(".zip"):
@@ -280,10 +273,8 @@ class TestExecuteBundleFromGCSWithFiles:
             MagicMock(return_value=gcp_credentials),
         )
 
-        mock_runner = MagicMock(spec=Runner)
-        monkeypatch.setattr(
-            "prefect.runner.Runner", MagicMock(return_value=mock_runner)
-        )
+        mock_exec = AsyncMock()
+        monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
         download_calls: list[str] = []
 
@@ -321,10 +312,8 @@ class TestExecuteBundleFromGCSWithFiles:
             MagicMock(return_value=gcp_credentials),
         )
 
-        mock_runner = MagicMock(spec=Runner)
-        monkeypatch.setattr(
-            "prefect.runner.Runner", MagicMock(return_value=mock_runner)
-        )
+        mock_exec = AsyncMock()
+        monkeypatch.setattr("prefect_gcp.bundles.execute.execute_bundle", mock_exec)
 
         download_calls: list[str] = []
 

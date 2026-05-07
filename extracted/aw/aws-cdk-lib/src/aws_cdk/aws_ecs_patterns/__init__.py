@@ -3843,6 +3843,7 @@ class ApplicationTargetProps:
     jsii_type="aws-cdk-lib.aws_ecs_patterns.FargateServiceBaseProps",
     jsii_struct_bases=[],
     name_mapping={
+        "circuit_breaker": "circuitBreaker",
         "cpu": "cpu",
         "ephemeral_storage_gib": "ephemeralStorageGiB",
         "memory_limit_mib": "memoryLimitMiB",
@@ -3855,6 +3856,7 @@ class FargateServiceBaseProps:
     def __init__(
         self,
         *,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -3863,6 +3865,7 @@ class FargateServiceBaseProps:
         task_definition: typing.Optional["_FargateTaskDefinition_83754b60"] = None,
     ) -> None:
         '''
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -3884,6 +3887,10 @@ class FargateServiceBaseProps:
             # operating_system_family: ecs.OperatingSystemFamily
             
             fargate_service_base_props = ecs_patterns.FargateServiceBaseProps(
+                circuit_breaker=ecs.DeploymentCircuitBreaker(
+                    enable=False,
+                    rollback=False
+                ),
                 cpu=123,
                 ephemeral_storage_gi_b=123,
                 memory_limit_mi_b=123,
@@ -3895,10 +3902,13 @@ class FargateServiceBaseProps:
                 task_definition=fargate_task_definition
             )
         '''
+        if isinstance(circuit_breaker, dict):
+            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
         if isinstance(runtime_platform, dict):
             runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be57306e3f86de996d7bf3938a60ebd3f8fd4e38da3fbde2b8a23f728f3a7ef7)
+            check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument ephemeral_storage_gib", value=ephemeral_storage_gib, expected_type=type_hints["ephemeral_storage_gib"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
@@ -3906,6 +3916,8 @@ class FargateServiceBaseProps:
             check_type(argname="argument runtime_platform", value=runtime_platform, expected_type=type_hints["runtime_platform"])
             check_type(argname="argument task_definition", value=task_definition, expected_type=type_hints["task_definition"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if circuit_breaker is not None:
+            self._values["circuit_breaker"] = circuit_breaker
         if cpu is not None:
             self._values["cpu"] = cpu
         if ephemeral_storage_gib is not None:
@@ -3918,6 +3930,18 @@ class FargateServiceBaseProps:
             self._values["runtime_platform"] = runtime_platform
         if task_definition is not None:
             self._values["task_definition"] = task_definition
+
+    @builtins.property
+    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+        '''Whether to enable the deployment circuit breaker.
+
+        If this property is defined, circuit breaker will be implicitly
+        enabled.
+
+        :default: - disabled
+        '''
+        result = self._values.get("circuit_breaker")
+        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -10067,6 +10091,7 @@ class ApplicationMultipleTargetGroupsFargateService(
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -10091,6 +10116,7 @@ class ApplicationMultipleTargetGroupsFargateService(
         :param target_groups: Properties to specify ALB target groups. Default: - default portMapping registered as target group and attached to the first defined listener
         :param task_image_options: The properties required to create a new task definition. Only one of TaskDefinition or TaskImageOptions must be specified. Default: none
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -10116,6 +10142,7 @@ class ApplicationMultipleTargetGroupsFargateService(
             target_groups=target_groups,
             task_image_options=task_image_options,
             vpc=vpc,
+            circuit_breaker=circuit_breaker,
             cpu=cpu,
             ephemeral_storage_gib=ephemeral_storage_gib,
             memory_limit_mib=memory_limit_mib,
@@ -10180,6 +10207,7 @@ class ApplicationMultipleTargetGroupsFargateService(
         "target_groups": "targetGroups",
         "task_image_options": "taskImageOptions",
         "vpc": "vpc",
+        "circuit_breaker": "circuitBreaker",
         "cpu": "cpu",
         "ephemeral_storage_gib": "ephemeralStorageGiB",
         "memory_limit_mib": "memoryLimitMiB",
@@ -10208,6 +10236,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         target_groups: typing.Optional[typing.Sequence[typing.Union["ApplicationTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["ApplicationLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -10230,6 +10259,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         :param target_groups: Properties to specify ALB target groups. Default: - default portMapping registered as target group and attached to the first defined listener
         :param task_image_options: The properties required to create a new task definition. Only one of TaskDefinition or TaskImageOptions must be specified. Default: none
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -10306,6 +10336,8 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
             cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = ApplicationLoadBalancedTaskImageProps(**task_image_options)
+        if isinstance(circuit_breaker, dict):
+            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
         if isinstance(runtime_platform, dict):
             runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
         if __debug__:
@@ -10322,6 +10354,7 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
             check_type(argname="argument task_image_options", value=task_image_options, expected_type=type_hints["task_image_options"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument ephemeral_storage_gib", value=ephemeral_storage_gib, expected_type=type_hints["ephemeral_storage_gib"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
@@ -10354,6 +10387,8 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
             self._values["task_image_options"] = task_image_options
         if vpc is not None:
             self._values["vpc"] = vpc
+        if circuit_breaker is not None:
+            self._values["circuit_breaker"] = circuit_breaker
         if cpu is not None:
             self._values["cpu"] = cpu
         if ephemeral_storage_gib is not None:
@@ -10494,6 +10529,18 @@ class ApplicationMultipleTargetGroupsFargateServiceProps(
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+
+    @builtins.property
+    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+        '''Whether to enable the deployment circuit breaker.
+
+        If this property is defined, circuit breaker will be implicitly
+        enabled.
+
+        :default: - disabled
+        '''
+        result = self._values.get("circuit_breaker")
+        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -12760,6 +12807,7 @@ class NetworkMultipleTargetGroupsFargateService(
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -12786,6 +12834,7 @@ class NetworkMultipleTargetGroupsFargateService(
         :param target_groups: Properties to specify NLB target groups. Default: - default portMapping registered as target group and attached to the first defined listener
         :param task_image_options: The properties required to create a new task definition. Only one of TaskDefinition or TaskImageOptions must be specified. Default: - none
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -12813,6 +12862,7 @@ class NetworkMultipleTargetGroupsFargateService(
             target_groups=target_groups,
             task_image_options=task_image_options,
             vpc=vpc,
+            circuit_breaker=circuit_breaker,
             cpu=cpu,
             ephemeral_storage_gib=ephemeral_storage_gib,
             memory_limit_mib=memory_limit_mib,
@@ -12877,6 +12927,7 @@ class NetworkMultipleTargetGroupsFargateService(
         "target_groups": "targetGroups",
         "task_image_options": "taskImageOptions",
         "vpc": "vpc",
+        "circuit_breaker": "circuitBreaker",
         "cpu": "cpu",
         "ephemeral_storage_gib": "ephemeralStorageGiB",
         "memory_limit_mib": "memoryLimitMiB",
@@ -12907,6 +12958,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         target_groups: typing.Optional[typing.Sequence[typing.Union["NetworkTargetProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_image_options: typing.Optional[typing.Union["NetworkLoadBalancedTaskImageProps", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -12931,6 +12983,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         :param target_groups: Properties to specify NLB target groups. Default: - default portMapping registered as target group and attached to the first defined listener
         :param task_image_options: The properties required to create a new task definition. Only one of TaskDefinition or TaskImageOptions must be specified. Default: - none
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -12984,6 +13037,8 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
             cloud_map_options = _CloudMapOptions_444ee9f2(**cloud_map_options)
         if isinstance(task_image_options, dict):
             task_image_options = NetworkLoadBalancedTaskImageProps(**task_image_options)
+        if isinstance(circuit_breaker, dict):
+            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
         if isinstance(runtime_platform, dict):
             runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
         if __debug__:
@@ -13000,6 +13055,7 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
             check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
             check_type(argname="argument task_image_options", value=task_image_options, expected_type=type_hints["task_image_options"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument ephemeral_storage_gib", value=ephemeral_storage_gib, expected_type=type_hints["ephemeral_storage_gib"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
@@ -13034,6 +13090,8 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
             self._values["task_image_options"] = task_image_options
         if vpc is not None:
             self._values["vpc"] = vpc
+        if circuit_breaker is not None:
+            self._values["circuit_breaker"] = circuit_breaker
         if cpu is not None:
             self._values["cpu"] = cpu
         if ephemeral_storage_gib is not None:
@@ -13180,6 +13238,18 @@ class NetworkMultipleTargetGroupsFargateServiceProps(
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+
+    @builtins.property
+    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+        '''Whether to enable the deployment circuit breaker.
+
+        If this property is defined, circuit breaker will be implicitly
+        enabled.
+
+        :default: - disabled
+        '''
+        result = self._values.get("circuit_breaker")
+        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -15739,6 +15809,7 @@ class ScheduledFargateTask(
         subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -15762,6 +15833,7 @@ class ScheduledFargateTask(
         :param subnet_selection: In what subnets to place the task's ENIs. (Only applicable in case the TaskDefinition is configured for AwsVpc networking) Default: Private subnets
         :param tags: The metadata that you apply to the task to help you categorize and organize them. Each tag consists of a key and an optional value, both of which you define. Default: - No tags are applied to the task
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -15786,6 +15858,7 @@ class ScheduledFargateTask(
             subnet_selection=subnet_selection,
             tags=tags,
             vpc=vpc,
+            circuit_breaker=circuit_breaker,
             cpu=cpu,
             ephemeral_storage_gib=ephemeral_storage_gib,
             memory_limit_mib=memory_limit_mib,
@@ -15819,6 +15892,7 @@ class ScheduledFargateTask(
         "environment": "environment",
         "log_driver": "logDriver",
         "secrets": "secrets",
+        "circuit_breaker": "circuitBreaker",
         "cpu": "cpu",
         "ephemeral_storage_gib": "ephemeralStorageGiB",
         "memory_limit_mib": "memoryLimitMiB",
@@ -15840,6 +15914,7 @@ class ScheduledFargateTaskImageOptions(
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         log_driver: typing.Optional["_LogDriver_393a21bb"] = None,
         secrets: typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -15855,6 +15930,7 @@ class ScheduledFargateTaskImageOptions(
         :param environment: The environment variables to pass to the container. Default: none
         :param log_driver: The log driver to use. Default: - AwsLogDriver if enableLogging is true
         :param secrets: The secret to expose to the container as an environment variable. Default: - No secret environment variables.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -15879,6 +15955,8 @@ class ScheduledFargateTaskImageOptions(
                 platform_version=ecs.FargatePlatformVersion.LATEST
             )
         '''
+        if isinstance(circuit_breaker, dict):
+            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
         if isinstance(runtime_platform, dict):
             runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
         if __debug__:
@@ -15889,6 +15967,7 @@ class ScheduledFargateTaskImageOptions(
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument log_driver", value=log_driver, expected_type=type_hints["log_driver"])
             check_type(argname="argument secrets", value=secrets, expected_type=type_hints["secrets"])
+            check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument ephemeral_storage_gib", value=ephemeral_storage_gib, expected_type=type_hints["ephemeral_storage_gib"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
@@ -15908,6 +15987,8 @@ class ScheduledFargateTaskImageOptions(
             self._values["log_driver"] = log_driver
         if secrets is not None:
             self._values["secrets"] = secrets
+        if circuit_breaker is not None:
+            self._values["circuit_breaker"] = circuit_breaker
         if cpu is not None:
             self._values["cpu"] = cpu
         if ephemeral_storage_gib is not None:
@@ -15983,6 +16064,18 @@ class ScheduledFargateTaskImageOptions(
         '''
         result = self._values.get("secrets")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_Secret_6be2f64f"]], result)
+
+    @builtins.property
+    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+        '''Whether to enable the deployment circuit breaker.
+
+        If this property is defined, circuit breaker will be implicitly
+        enabled.
+
+        :default: - disabled
+        '''
+        result = self._values.get("circuit_breaker")
+        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -16111,6 +16204,7 @@ class ScheduledFargateTaskImageOptions(
         "subnet_selection": "subnetSelection",
         "tags": "tags",
         "vpc": "vpc",
+        "circuit_breaker": "circuitBreaker",
         "cpu": "cpu",
         "ephemeral_storage_gib": "ephemeralStorageGiB",
         "memory_limit_mib": "memoryLimitMiB",
@@ -16135,6 +16229,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_Tag_dc8ac6d2", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        circuit_breaker: typing.Optional[typing.Union["_DeploymentCircuitBreaker_9739d940", typing.Dict[builtins.str, typing.Any]]] = None,
         cpu: typing.Optional[jsii.Number] = None,
         ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
         memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -16156,6 +16251,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         :param subnet_selection: In what subnets to place the task's ENIs. (Only applicable in case the TaskDefinition is configured for AwsVpc networking) Default: Private subnets
         :param tags: The metadata that you apply to the task to help you categorize and organize them. Each tag consists of a key and an optional value, both of which you define. Default: - No tags are applied to the task
         :param vpc: The VPC where the container instances will be launched or the elastic network interfaces (ENIs) will be deployed. If a vpc is specified, the cluster construct should be omitted. Alternatively, you can omit both vpc and cluster. Default: - uses the VPC defined in the cluster or creates a new VPC.
+        :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cpu: The number of cpu units used by the task. Valid values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments 8192 (8 vCPU) - Available memory values: Between 16GB and 60GB in 4GB increments 16384 (16 vCPU) - Available memory values: Between 32GB and 120GB in 8GB increments This default is set in the underlying FargateTaskDefinition construct. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The minimum supported value is ``21`` GiB and the maximum supported value is ``200`` GiB. Only supported in Fargate platform version 1.4.0 or later. Default: Undefined, in which case, the task will receive 20GiB ephemeral storage.
         :param memory_limit_mib: The amount (in MiB) of memory used by the task. This field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) This default is set in the underlying FargateTaskDefinition construct. Default: 512
@@ -16188,6 +16284,8 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         '''
         if isinstance(subnet_selection, dict):
             subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+        if isinstance(circuit_breaker, dict):
+            circuit_breaker = _DeploymentCircuitBreaker_9739d940(**circuit_breaker)
         if isinstance(runtime_platform, dict):
             runtime_platform = _RuntimePlatform_5ed98a9c(**runtime_platform)
         if isinstance(scheduled_fargate_task_definition_options, dict):
@@ -16206,6 +16304,7 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
             check_type(argname="argument subnet_selection", value=subnet_selection, expected_type=type_hints["subnet_selection"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument ephemeral_storage_gib", value=ephemeral_storage_gib, expected_type=type_hints["ephemeral_storage_gib"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
@@ -16235,6 +16334,8 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
             self._values["tags"] = tags
         if vpc is not None:
             self._values["vpc"] = vpc
+        if circuit_breaker is not None:
+            self._values["circuit_breaker"] = circuit_breaker
         if cpu is not None:
             self._values["cpu"] = cpu
         if ephemeral_storage_gib is not None:
@@ -16359,6 +16460,18 @@ class ScheduledFargateTaskProps(ScheduledTaskBaseProps, FargateServiceBaseProps)
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+
+    @builtins.property
+    def circuit_breaker(self) -> typing.Optional["_DeploymentCircuitBreaker_9739d940"]:
+        '''Whether to enable the deployment circuit breaker.
+
+        If this property is defined, circuit breaker will be implicitly
+        enabled.
+
+        :default: - disabled
+        '''
+        result = self._values.get("circuit_breaker")
+        return typing.cast(typing.Optional["_DeploymentCircuitBreaker_9739d940"], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[jsii.Number]:
@@ -16804,6 +16917,7 @@ def _typecheckingstub__71d73c2659fa1f33af684ebf8ddbca1ec7e44bab1dd25721962f3dd2e
 
 def _typecheckingstub__be57306e3f86de996d7bf3938a60ebd3f8fd4e38da3fbde2b8a23f728f3a7ef7(
     *,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -17461,6 +17575,7 @@ def _typecheckingstub__21d949e97492f7aeebbdedfda795498da7248be2cc48f01eb45a80ef9
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -17485,6 +17600,7 @@ def _typecheckingstub__73b52f632d3e26b256f0a917de129f36c8484b906c75d27af3ae333c6
     target_groups: typing.Optional[typing.Sequence[typing.Union[ApplicationTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[ApplicationLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -17715,6 +17831,7 @@ def _typecheckingstub__d0896ef010a141982cad4e6363ddf5474e1d63a5c38dc712f84a1d13e
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -17739,6 +17856,7 @@ def _typecheckingstub__052b2be34bb887cde358099c21efe7f3e968827a5a4e4c975e35f96da
     target_groups: typing.Optional[typing.Sequence[typing.Union[NetworkTargetProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_image_options: typing.Optional[typing.Union[NetworkLoadBalancedTaskImageProps, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -17999,6 +18117,7 @@ def _typecheckingstub__15eedf0b4c0341f211d295e779c0f7ee21fa9c4c54661f567547054da
     subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -18017,6 +18136,7 @@ def _typecheckingstub__4a749e8e91135e4a7ff734b7c08ac37ec5bc550062036c75493dec950
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     log_driver: typing.Optional[_LogDriver_393a21bb] = None,
     secrets: typing.Optional[typing.Mapping[builtins.str, _Secret_6be2f64f]] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,
@@ -18039,6 +18159,7 @@ def _typecheckingstub__f90096eb899a3c06d73ca9750fbecb38041c3e8d6b078cc4e3353aafd
     subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_Tag_dc8ac6d2, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
+    circuit_breaker: typing.Optional[typing.Union[_DeploymentCircuitBreaker_9739d940, typing.Dict[builtins.str, typing.Any]]] = None,
     cpu: typing.Optional[jsii.Number] = None,
     ephemeral_storage_gib: typing.Optional[jsii.Number] = None,
     memory_limit_mib: typing.Optional[jsii.Number] = None,

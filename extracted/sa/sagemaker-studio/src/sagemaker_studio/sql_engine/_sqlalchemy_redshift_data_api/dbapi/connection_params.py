@@ -74,10 +74,13 @@ class ConnectionParams:
 
     def _validate_param_formats(self):
         """Validate parameter formats."""
-        # Validate database name format (lettersnumbers, underscores, max 64 chars)
-        if not re.match(r"^[a-zA-Z0-9_]{1,64}$", self.database_name):
+        # Validate database name format
+        # Must start with lettersnumbers or underscore. Subsequent characters also allow
+        # hyphens and @ for federated catalog references (e.g., "child-catalog@s3tablescatalog")
+        if not re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_@-]{0,63}$", self.database_name):
             raise InterfaceError(
-                "database_name must be lettersnumbers with underscores, max 64 characters"
+                "database_name must start with a letter, number, or underscore,"
+                " followed by letters, numbers, underscores, hyphens, or @ symbols, max 64 characters"
             )
 
         # Validate cluster identifier if provided

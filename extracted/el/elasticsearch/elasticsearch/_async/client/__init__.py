@@ -145,6 +145,7 @@ class AsyncElasticsearch(BaseClient):
         basic_auth: t.Optional[t.Union[str, t.Tuple[str, str]]] = None,
         bearer_auth: t.Optional[str] = None,
         opaque_id: t.Optional[str] = None,
+        server_mode: str = "stack",
         # Node
         headers: t.Union[DefaultType, t.Mapping[str, str]] = DEFAULT,
         connections_per_node: t.Union[DefaultType, int] = DEFAULT,
@@ -189,6 +190,11 @@ class AsyncElasticsearch(BaseClient):
         if hosts is None and cloud_id is None and _transport is None:
             raise ValueError("Either 'hosts' or 'cloud_id' must be specified")
 
+        if server_mode not in ("stack", "serverless"):
+            raise ValueError(
+                "'server_mode' must be 'stack' or 'serverless', " f"not {server_mode!r}"
+            )
+
         if serializer is not None:
             if serializers is not DEFAULT:
                 raise ValueError(
@@ -215,6 +221,13 @@ class AsyncElasticsearch(BaseClient):
         ):
             raise ValueError(
                 "Sniffing should not be enabled when connecting to Elastic Cloud"
+            )
+
+        if server_mode == "serverless" and any(
+            x is not DEFAULT and x is not None for x in sniffing_options
+        ):
+            raise ValueError(
+                "Sniffing should not be enabled when 'server_mode' is 'serverless'"
             )
 
         sniff_callback = None
@@ -329,6 +342,8 @@ class AsyncElasticsearch(BaseClient):
 
         else:
             super().__init__(_transport)
+
+        self._is_serverless = server_mode == "serverless"
 
         if headers is not DEFAULT and headers is not None:
             self._headers.update(headers)
@@ -476,6 +491,8 @@ class AsyncElasticsearch(BaseClient):
             client._retry_on_timeout = retry_on_timeout
         else:
             client._retry_on_timeout = self._retry_on_timeout
+
+        client._is_serverless = self._is_serverless
 
         return client
 
@@ -653,7 +670,7 @@ class AsyncElasticsearch(BaseClient):
           Refer to the linked documentation for step-by-step instructions using the index settings API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-bulk>`_
 
         :param operations:
         :param index: The name of the data stream, index, or index alias to perform bulk
@@ -778,7 +795,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Clear the search context and results for a scrolling search.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-clear-scroll>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-clear-scroll>`_
 
         :param scroll_id: The scroll IDs to clear. To clear all scroll IDs, use `_all`.
         """
@@ -799,9 +816,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["scroll_id"] = scroll_id
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "DELETE",
             __path,
@@ -835,7 +850,7 @@ class AsyncElasticsearch(BaseClient):
           However, keeping points in time has a cost; close them as soon as they are no longer required for search requests.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-open-point-in-time>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-open-point-in-time>`_
 
         :param id: The ID of the point-in-time.
         """
@@ -916,16 +931,17 @@ class AsyncElasticsearch(BaseClient):
           This means that replicas increase the scalability of the count.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-count>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-count>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams and indices,
             omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param analyze_wildcard: If `true`, wildcard and prefix queries are analyzed.
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: The analyzer to use for the query string. This parameter can
@@ -943,7 +959,9 @@ class AsyncElasticsearch(BaseClient):
         :param ignore_throttled: If `true`, concrete, expanded, or aliased indices are
             ignored when frozen.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param lenient: If `true`, format-based query failures (such as providing text
             to a numeric field) in the query string will be ignored. This parameter can
             be used only when the `q` query string parameter is specified.
@@ -1020,9 +1038,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["query"] = query
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -1121,7 +1137,7 @@ class AsyncElasticsearch(BaseClient):
           The <code>_shards</code> section of the API response reveals the number of shard copies on which replication succeeded and failed.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-create>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-create>`_
 
         :param index: The name of the data stream or index to target. If the target doesn't
             exist and matches the name or wildcard (`*`) pattern of an index template
@@ -1272,7 +1288,7 @@ class AsyncElasticsearch(BaseClient):
           It then gets redirected into the primary shard within that ID group and replicated (if needed) to shard replicas within that ID group.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-delete>`_
 
         :param index: The name of the target index.
         :param id: A unique identifier for the document.
@@ -1466,16 +1482,17 @@ class AsyncElasticsearch(BaseClient):
           The get task status API will continue to list the delete by query task until this task checks that it has been cancelled and terminates itself.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-by-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-delete-by-query>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams or indices,
             omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param analyze_wildcard: If `true`, wildcard and prefix queries are analyzed.
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: Analyzer to use for the query string. This parameter can be
@@ -1494,7 +1511,9 @@ class AsyncElasticsearch(BaseClient):
             values, such as `open,hidden`.
         :param from_: Skips the specified number of documents.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param lenient: If `true`, format-based query failures (such as providing text
             to a numeric field) in the query string will be ignored. This parameter can
             be used only when the `q` query string parameter is specified.
@@ -1663,7 +1682,7 @@ class AsyncElasticsearch(BaseClient):
           Rethrottling that speeds up the query takes effect immediately but rethrotting that slows down the query takes effect after completing the current batch to prevent scroll timeouts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-by-query-rethrottle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-delete-by-query-rethrottle>`_
 
         :param task_id: The ID for the task.
         :param requests_per_second: The throttle for this request in sub-requests per
@@ -1715,7 +1734,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Deletes a stored script or search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-script>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-delete-script>`_
 
         :param id: The identifier for the stored script or search template.
         :param master_timeout: The period to wait for a connection to the master node.
@@ -1799,7 +1818,7 @@ class AsyncElasticsearch(BaseClient):
           Elasticsearch cleans up deleted documents in the background as you continue to index more data.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases. It
             supports wildcards (`*`).
@@ -1922,7 +1941,7 @@ class AsyncElasticsearch(BaseClient):
           <p>A document's source is not available if it is disabled in the mapping.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases. It
             supports wildcards (`*`).
@@ -2028,7 +2047,7 @@ class AsyncElasticsearch(BaseClient):
           It computes a score explanation for a query and a specific document.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-explain>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-explain>`_
 
         :param index: Index names that are used to limit the request. Only a single index
             name can be provided to this parameter.
@@ -2110,9 +2129,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["query"] = query
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -2164,16 +2181,17 @@ class AsyncElasticsearch(BaseClient):
           For example, a runtime field with a type of keyword is returned the same as any other field that belongs to the <code>keyword</code> family.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-field-caps>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-field-caps>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (*). To target all data streams
             and indices, omit this parameter or use * or _all.
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with foo but no index starts with bar.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: The type of index that wildcard patterns can match.
             If the request can target data streams, this argument determines whether
             wildcard expressions match hidden data streams. Supports comma-separated
@@ -2181,8 +2199,10 @@ class AsyncElasticsearch(BaseClient):
         :param fields: A list of fields to retrieve capabilities for. Wildcard (`*`)
             expressions are supported.
         :param filters: A comma-separated list of filters to apply to the response.
-        :param ignore_unavailable: If `true`, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_empty_fields: If false, empty fields are not included in the response.
         :param include_unmapped: If true, unmapped fields are included in the response.
         :param index_filter: Filter indices if the provided query rewrites to `match_none`
@@ -2248,9 +2268,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["runtime_mappings"] = runtime_mappings
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -2334,7 +2352,7 @@ class AsyncElasticsearch(BaseClient):
           Elasticsearch cleans up deleted documents in the background as you continue to index more data.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
 
         :param index: The name of the index that contains the document.
         :param id: A unique document identifier.
@@ -2444,7 +2462,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Retrieves a stored script or search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-get-script>`_
 
         :param id: The identifier for the stored script or search template.
         :param master_timeout: The period to wait for the master node. If the master
@@ -2493,7 +2511,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Get a list of supported script contexts and their methods.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script-context>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-get-script-context>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_script_context"
@@ -2532,7 +2550,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Get a list of available script types, languages, and contexts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script-languages>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-get-script-languages>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_script_language"
@@ -2596,7 +2614,7 @@ class AsyncElasticsearch(BaseClient):
           </code></pre>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
 
         :param index: The name of the index that contains the document.
         :param id: A unique document identifier.
@@ -2692,7 +2710,7 @@ class AsyncElasticsearch(BaseClient):
           When setting up automated polling of the API for health status, set verbose to false to disable the more expensive analysis logic.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-health-report>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-health-report>`_
 
         :param feature: A feature of the cluster, as returned by the top-level health
             report API.
@@ -2856,7 +2874,7 @@ class AsyncElasticsearch(BaseClient):
           Even the simple case of updating the Elasticsearch index using data from a database is simplified if external versioning is used, as only the latest version will be used if the index operations arrive out of order.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-create>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-create>`_
 
         :param index: The name of the data stream or index to target. If the target doesn't
             exist and matches the name or wildcard (`*`) pattern of an index template
@@ -2993,7 +3011,7 @@ class AsyncElasticsearch(BaseClient):
           ::: In Serverless, this API is retained for backward compatibility only. Some response fields, such as the version number, should be ignored.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-info>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-info>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/"
@@ -3062,7 +3080,7 @@ class AsyncElasticsearch(BaseClient):
           You can include the <code>stored_fields</code> query parameter in the request URI to specify the defaults to use when there are no per-document instructions.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-mget>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-mget>`_
 
         :param index: Name of the index to retrieve documents from when `ids` are specified,
             or when a document in the `docs` array does not specify an index.
@@ -3198,16 +3216,17 @@ class AsyncElasticsearch(BaseClient):
           When sending requests to this endpoint the <code>Content-Type</code> header should be set to <code>application/x-ndjson</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-msearch>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-msearch>`_
 
         :param searches:
         :param index: Comma-separated list of data streams, indices, and index aliases
             to search.
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or _all value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting foo*,bar* returns an error if an index starts
-            with foo but no index starts with bar.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param ccs_minimize_roundtrips: If true, network roundtrips between the coordinating
             node and remote clusters are minimized for cross-cluster search requests.
         :param expand_wildcards: Type of index that wildcard expressions can match. If
@@ -3215,8 +3234,10 @@ class AsyncElasticsearch(BaseClient):
             expressions match hidden data streams.
         :param ignore_throttled: If true, concrete, expanded or aliased indices are ignored
             when frozen.
-        :param ignore_unavailable: If true, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_named_queries_score: Indicates whether hit.matched_queries should
             be rendered as a map that includes the name of the matched query associated
             with its score (true) or as an array containing the name of the matched queries
@@ -3352,7 +3373,7 @@ class AsyncElasticsearch(BaseClient):
           </code></pre>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-msearch-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-msearch-template>`_
 
         :param search_templates:
         :param index: A comma-separated list of data streams, indices, and aliases to
@@ -3463,7 +3484,7 @@ class AsyncElasticsearch(BaseClient):
           The mapping used is determined by the specified <code>_index</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-mtermvectors>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-mtermvectors>`_
 
         :param index: The name of the index that contains the documents.
         :param docs: An array of existing or artificial documents.
@@ -3532,9 +3553,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["ids"] = ids
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -3605,7 +3624,7 @@ class AsyncElasticsearch(BaseClient):
           You can check how many point-in-times (that is, search contexts) are open with the nodes stats API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-open-point-in-time>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-open-point-in-time>`_
 
         :param index: A comma-separated list of index names to open point in time; use
             `_all` or empty string to perform the operation on all indices
@@ -3620,7 +3639,9 @@ class AsyncElasticsearch(BaseClient):
             wildcard expressions match hidden data streams. It supports comma-separated
             values, such as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param index_filter: Filter indices if the provided query rewrites to `match_none`
             on every shard.
         :param max_concurrent_shard_requests: Maximum number of concurrent shard requests
@@ -3672,9 +3693,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["project_routing"] = project_routing
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -3709,7 +3728,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Creates or updates a stored script or search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-put-script>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-put-script>`_
 
         :param id: The identifier for the stored script or search template. It must be
             unique within the cluster.
@@ -3801,7 +3820,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Evaluate the quality of ranked search results over a set of typical search queries.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-rank-eval>`_
 
         :param requests: A set of typical search requests, together with their provided
             ratings.
@@ -3809,15 +3828,18 @@ class AsyncElasticsearch(BaseClient):
             used to limit the request. Wildcard (`*`) expressions are supported. To target
             all data streams and indices in a cluster, omit this parameter or use `_all`
             or `*`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Whether to expand wildcard expression to concrete indices
             that are open, closed or both.
-        :param ignore_unavailable: If `true`, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param metric: Definition of the evaluation metric to calculate.
         :param search_type: Search operation type
         """
@@ -3937,7 +3959,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Refer to the linked documentation for examples of how to reindex documents.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-reindex>`_
 
         :param dest: The destination you are copying to.
         :param source: The source you are copying from.
@@ -4042,6 +4064,9 @@ class AsyncElasticsearch(BaseClient):
         requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        group_by: t.Optional[
+            t.Union[str, t.Literal["nodes", "none", "parents"]]
+        ] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -4058,12 +4083,13 @@ class AsyncElasticsearch(BaseClient):
           This behavior prevents scroll timeouts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-reindex>`_
 
         :param task_id: The task identifier, which can be found by using the tasks API.
         :param requests_per_second: The throttle for this request in sub-requests per
             second. It can be either `-1` to turn off throttling or any decimal number
             like `1.7` or `12` to throttle to that level.
+        :param group_by:
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
@@ -4078,6 +4104,8 @@ class AsyncElasticsearch(BaseClient):
             __query["error_trace"] = error_trace
         if filter_path is not None:
             __query["filter_path"] = filter_path
+        if group_by is not None:
+            __query["group_by"] = group_by
         if human is not None:
             __query["human"] = human
         if pretty is not None:
@@ -4116,7 +4144,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Render a search template as a search request body.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-render-search-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-render-search-template>`_
 
         :param id: The ID of the search template to render. If no `source` is specified,
             this or the `id` request body parameter is required.
@@ -4275,7 +4303,7 @@ class AsyncElasticsearch(BaseClient):
           <p>IMPORTANT: Results from a scrolling search reflect the state of the index at the time of the initial search request. Subsequent indexing or document changes only affect later search and scroll requests.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-scroll>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-scroll>`_
 
         :param scroll_id: The scroll ID of the search.
         :param rest_total_hits_as_int: If true, the API response’s hit.total property
@@ -4306,9 +4334,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["scroll"] = scroll
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -4476,15 +4502,14 @@ class AsyncElasticsearch(BaseClient):
           To search a point in time (PIT) for an alias, you must have the <code>read</code> index privilege for the alias's data streams or indices.</p>
           <p><strong>Search slicing</strong></p>
           <p>When paging through a large number of documents, it can be helpful to split the search into multiple slices to consume them independently with the <code>slice</code> and <code>pit</code> properties.
-          By default the splitting is done first on the shards, then locally on each shard.
-          The local splitting partitions the shard into contiguous ranges based on Lucene document IDs.</p>
+          By default the splitting is done first on the shards, then locally on each shard.</p>
           <p>For instance if the number of shards is equal to 2 and you request 4 slices, the slices 0 and 2 are assigned to the first shard and the slices 1 and 3 are assigned to the second shard.</p>
           <p>IMPORTANT: The same point-in-time ID should be used for all slices.
           If different PIT IDs are used, slices can overlap and miss documents.
-          This situation can occur because the splitting criterion is based on Lucene document IDs, which are not stable across changes to the index.</p>
+          This situation can occur because, by default, the splitting criterion is based on Lucene document IDs, which are not stable across changes to the index.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams and indices,
@@ -4492,11 +4517,12 @@ class AsyncElasticsearch(BaseClient):
         :param aggregations: Defines the aggregations that are run as part of the search
             request.
         :param aggs: Defines the aggregations that are run as part of the search request.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param allow_partial_search_results: If `true` and there are shard request timeouts
             or shard failures, the request returns partial results. If `false`, it returns
             an error with no partial results. To override the default behavior, you can
@@ -4544,7 +4570,9 @@ class AsyncElasticsearch(BaseClient):
         :param ignore_throttled: If `true`, concrete, expanded or aliased indices will
             be ignored when frozen.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_named_queries_score: If `true`, the response includes the score
             contribution from any named queries. This functionality reruns each named
             query on every hit in a search response. Typically, this adds a small overhead
@@ -4860,9 +4888,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["version"] = version
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -4883,6 +4909,7 @@ class AsyncElasticsearch(BaseClient):
             "grid_agg",
             "grid_precision",
             "grid_type",
+            "project_routing",
             "query",
             "runtime_mappings",
             "size",
@@ -5198,7 +5225,7 @@ class AsyncElasticsearch(BaseClient):
           <p>Learn how to use the vector tile search API with practical examples in the <a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/vector-tile-search">Vector tile search examples</a> guide.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-mvt>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search-mvt>`_
 
         :param index: A list of indices, data streams, or aliases to search. It supports
             wildcards (`*`). To search all data streams and indices, omit this parameter
@@ -5306,8 +5333,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if not __body:
             if aggs is not None:
                 __body["aggs"] = aggs
@@ -5325,6 +5350,8 @@ class AsyncElasticsearch(BaseClient):
                 __body["grid_precision"] = grid_precision
             if grid_type is not None:
                 __body["grid_type"] = grid_type
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
             if query is not None:
                 __body["query"] = query
             if runtime_mappings is not None:
@@ -5339,9 +5366,10 @@ class AsyncElasticsearch(BaseClient):
                 __body["with_labels"] = with_labels
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/vnd.mapbox-vector-tile"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {
+            "accept": "application/vnd.mapbox-vector-tile",
+            "content-type": "application/json",
+        }
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -5386,22 +5414,25 @@ class AsyncElasticsearch(BaseClient):
           <p>If the Elasticsearch security features are enabled, you must have the <code>view_index_metadata</code> or <code>manage</code> index privilege for the target data stream, index, or alias.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-shards>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search-shards>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams and indices,
             omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param local: If `true`, the request retrieves information from the local node
             only.
         :param master_timeout: The period to wait for a connection to the master node.
@@ -5453,7 +5484,7 @@ class AsyncElasticsearch(BaseClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("explain", "id", "params", "profile", "source"),
+        body_fields=("explain", "id", "params", "profile", "project_routing", "source"),
         ignore_deprecated_options={"params"},
     )
     async def search_template(
@@ -5498,17 +5529,18 @@ class AsyncElasticsearch(BaseClient):
           <p>Run a search with a search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search-template>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`).
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
-        :param ccs_minimize_roundtrips: If `true`, network round-trips are minimized
-            for cross-cluster search requests.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
+        :param ccs_minimize_roundtrips: Indicates whether network round-trips should
+            be minimized as part of cross-cluster search requests execution.
         :param expand_wildcards: The type of index that wildcard patterns can match.
             If the request can target data streams, this argument determines whether
             wildcard expressions match hidden data streams. Supports comma-separated
@@ -5521,7 +5553,9 @@ class AsyncElasticsearch(BaseClient):
         :param ignore_throttled: If `true`, specified concrete, expanded, or aliased
             indices are not included in the response when throttled.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param params: Key-value pairs used to replace Mustache variables in the template.
             The key is the variable name. The value is the variable value.
         :param preference: The node or shard the operation should be performed on. It
@@ -5572,8 +5606,6 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
-        if project_routing is not None:
-            __query["project_routing"] = project_routing
         if rest_total_hits_as_int is not None:
             __query["rest_total_hits_as_int"] = rest_total_hits_as_int
         if routing is not None:
@@ -5593,6 +5625,8 @@ class AsyncElasticsearch(BaseClient):
                 __body["params"] = params
             if profile is not None:
                 __body["profile"] = profile
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
             if source is not None:
                 __body["source"] = source
         __headers = {"accept": "application/json", "content-type": "application/json"}
@@ -5646,7 +5680,7 @@ class AsyncElasticsearch(BaseClient):
           </blockquote>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-terms-enum>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-terms-enum>`_
 
         :param index: A comma-separated list of data streams, indices, and index aliases
             to search. Wildcard (`*`) expressions are supported. To search all data streams
@@ -5792,7 +5826,7 @@ class AsyncElasticsearch(BaseClient):
           Refer to the linked documentation for detailed examples of how to use this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-termvectors>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-termvectors>`_
 
         :param index: The name of the index that contains the document.
         :param id: A unique identifier for the document.
@@ -5880,9 +5914,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["version_type"] = version_type
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -5964,7 +5996,7 @@ class AsyncElasticsearch(BaseClient):
           For usage examples such as partial updates, upserts, and scripted updates, see the External documentation.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-update>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-update>`_
 
         :param index: The name of the target index. By default, the index is created
             automatically if it doesn't exist.
@@ -6210,16 +6242,17 @@ class AsyncElasticsearch(BaseClient):
           Refer to the linked documentation for examples of how to update documents using the <code>_update_by_query</code> API:</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-update-by-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-update-by-query>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams or indices,
             omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param analyze_wildcard: If `true`, wildcard and prefix queries are analyzed.
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: The analyzer to use for the query string. This parameter can
@@ -6238,7 +6271,9 @@ class AsyncElasticsearch(BaseClient):
             values, such as `open,hidden`.
         :param from_: Skips the specified number of documents.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param lenient: If `true`, format-based query failures (such as providing text
             to a numeric field) in the query string will be ignored. This parameter can
             be used only when the `q` query string parameter is specified.
@@ -6397,9 +6432,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["slice"] = slice
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -6429,7 +6462,7 @@ class AsyncElasticsearch(BaseClient):
           Rethrottling that speeds up the query takes effect immediately but rethrotting that slows down the query takes effect after completing the current batch to prevent scroll timeouts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-update-by-query-rethrottle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-update-by-query-rethrottle>`_
 
         :param task_id: The ID for the task.
         :param requests_per_second: The throttle for this request in sub-requests per

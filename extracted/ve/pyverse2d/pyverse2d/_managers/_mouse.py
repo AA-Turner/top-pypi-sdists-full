@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, clamped
+from .._internal import expect, clamped, profile_section
 from .._rendering import Camera, Viewport
 from ..abc import Manager, MouseCursor
 from ..asset import Image
@@ -387,6 +387,7 @@ class MouseManager(Manager):
         self._scroll_dy = scroll_y
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("manager.mouse.update")
     def update(self, dt: float) -> None:
         """Actualisation
         
@@ -395,6 +396,7 @@ class MouseManager(Manager):
         """
         pass
 
+    @profile_section("manager.mouse.flush")
     def flush(self) -> None:
         """Nettoyage"""
         self._mouse_dx = 0.0

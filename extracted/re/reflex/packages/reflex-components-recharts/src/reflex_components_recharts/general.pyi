@@ -54,7 +54,7 @@ class ResponsiveContainer(Recharts, MemoizationLeaf):
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> ResponsiveContainer:
-        """Create a new memoization leaf component.
+        """Create the component.
 
         Args:
             *children: The children of the component.
@@ -90,7 +90,7 @@ class ResponsiveContainer(Recharts, MemoizationLeaf):
             **props: The props of the component.
 
         Returns:
-            The memoization leaf
+            The component.
         """
 
 class Legend(Recharts):

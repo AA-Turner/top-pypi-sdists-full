@@ -1,6 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..._internal import profile_section
 from ...abc import System
 from ...math import Vector
 
@@ -42,6 +43,7 @@ class GravitySystem(System):
         self._gravity = Vector(value)
 
     # ======================================== LIFE CYCLE ========================================
+    @profile_section("world.gravity.update")
     def update(self, world: World, dt: float):
         """Applique la force gravitationnelle sur tous les corps dynamiques
 

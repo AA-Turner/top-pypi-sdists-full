@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.44"
+version = "0.0.46"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"
@@ -14,8 +14,11 @@ pydantic = ">=2.09,<3"
 requests = "^2.32.3"
 traceloop-sdk = ">=0.46.0"
 opentelemetry-sdk = ">=1.39.0"
-urllib3 = ">=2.6.0"
-protobuf = ">=5.29.6,<6"
+# ``urllib3`` is pulled in transitively by ``requests`` (>=1.26,<3). We do
+# not import it directly anywhere in the SDK, so we deliberately do not
+# add a tighter floor here — that lets downstream apps pin urllib3 to
+# whatever version their stack requires (e.g. some apps cap it at 2.3.x).
+protobuf = ">=5.29.6,<7"
 
 
 [tool.poetry.group.dev.dependencies]

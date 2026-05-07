@@ -13,6 +13,7 @@ import ghstack.circleci_real
 import ghstack.config
 import ghstack.github_real
 import ghstack.land
+import ghstack.log
 import ghstack.logs
 import ghstack.rage
 import ghstack.status
@@ -48,22 +49,74 @@ def cli_context(
         yield shell, config, github
 
 
-@click.group(invoke_without_command=True)
+@click.group(
+    invoke_without_command=True,
+    epilog="Running ghstack with no subcommand is equivalent to ghstack submit.",
+)
 @click.pass_context
 @click.version_option(ghstack.__version__, "--version", "-V")
 @click.option("--debug", is_flag=True, help="Log debug information to stderr")
-# hidden arguments that we'll pass along to submit if no other command given
-@click.option("--message", "-m", default="Update", hidden=True)
-@click.option("--update-fields", "-u", is_flag=True, hidden=True)
-@click.option("--short", is_flag=True, hidden=True)
-@click.option("--force", is_flag=True, hidden=True)
-@click.option("--no-skip", is_flag=True, hidden=True)
-@click.option("--draft", is_flag=True, hidden=True)
+# These options are forwarded to the submit command when no subcommand is given.
 @click.option(
-    "--direct/--no-direct", "direct_opt", is_flag=True, hidden=True, default=None
+    "--message",
+    "-m",
+    default="Update",
+    help="Description of change you made",
 )
-@click.option("--base", "-B", default=None, hidden=True)
-@click.option("--stack/--no-stack", "-s/-S", is_flag=True, default=True, hidden=True)
+@click.option(
+    "--update-fields",
+    "-u",
+    is_flag=True,
+    help="Update GitHub pull request summary from the local commit",
+)
+@click.option(
+    "--short", is_flag=True, help="Print only the URL of the latest opened PR to stdout"
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="force push the branch even if your local branch is stale",
+)
+@click.option(
+    "--no-skip",
+    is_flag=True,
+    help="Never skip pushing commits, even if the contents didn't change",
+)
+@click.option(
+    "--draft",
+    is_flag=True,
+    help="Create the pull request in draft mode (only if it has not already been created)",
+)
+@click.option(
+    "--direct/--no-direct",
+    "direct_opt",
+    is_flag=True,
+    default=None,
+    help="Create stack that directly merges into master",
+)
+@click.option(
+    "--base",
+    "-B",
+    default=None,
+    help="Branch to base the stack off of",
+)
+@click.option(
+    "--stack/--no-stack",
+    "-s/-S",
+    is_flag=True,
+    default=True,
+    help="Submit the entire stack of commits reachable from HEAD",
+)
+@click.option(
+    "--reviewer",
+    default=None,
+    help="Comma-separated list of GitHub usernames to add as reviewers",
+)
+@click.option(
+    "--label",
+    default=None,
+    help="Comma-separated list of labels to add to new PRs",
+)
 def main(
     ctx: click.Context,
     debug: bool,
@@ -76,6 +129,8 @@ def main(
     draft: bool,
     base: Optional[str],
     stack: bool,
+    reviewer: Optional[str],
+    label: Optional[str],
 ) -> None:
     """
     Submit stacks of diffs to Github
@@ -100,7 +155,18 @@ def main(
             base=base,
             stack=stack,
             direct_opt=direct_opt,
+            reviewer=reviewer,
+            label=label,
         )
+
+
+@main.command("auth")
+def auth() -> None:
+    """
+    Set up GitHub authentication if not already configured.
+    """
+    with EXIT_STACK:
+        ghstack.config.read_config()
 
 
 @main.command("action")
@@ -147,8 +213,13 @@ def checkout(same_base: bool, pull_request: str) -> None:
     is_flag=True,
     help="Cherry-pick all commits from the commit to the merge-base with main branch",
 )
+@click.option(
+    "--no-fetch",
+    is_flag=True,
+    help="Skip fetching from the remote before cherry-picking",
+)
 @click.argument("pull_request", metavar="PR")
-def cherry_pick(stack: bool, pull_request: str) -> None:
+def cherry_pick(stack: bool, no_fetch: bool, pull_request: str) -> None:
     """
     Cherry-pick a PR
     """
@@ -159,6 +230,7 @@ def cherry_pick(stack: bool, pull_request: str) -> None:
             sh=shell,
             remote_name=config.remote_name,
             stack=stack,
+            no_fetch=no_fetch,
         )
 
 
@@ -177,6 +249,35 @@ def land(force: bool, pull_request: str) -> None:
             github_url=config.github_url,
             remote_name=config.remote_name,
             force=force,
+        )
+
+
+@main.command(
+    "log",
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.option(
+    "--pr",
+    "pull_request",
+    default=None,
+    help="Explicit PR (URL or number) to log.  If omitted, the PR is inferred "
+    "from HEAD's Pull-Request trailer, and local pending changes are shown "
+    "on top as a synthesized commit.",
+)
+@click.argument("git_log_args", nargs=-1, type=click.UNPROCESSED)
+def log(pull_request: Optional[str], git_log_args: Tuple[str, ...]) -> None:
+    """
+    Show git log for a PR, restricted to that PR's commits.
+    Extra arguments are forwarded to git log (e.g. -p).
+    """
+    with cli_context(request_github_token=False) as (shell, config, github):
+        ghstack.log.main(
+            github=github,
+            sh=shell,
+            remote_name=config.remote_name,
+            github_url=config.github_url,
+            args=list(git_log_args),
+            pull_request=pull_request,
         )
 
 

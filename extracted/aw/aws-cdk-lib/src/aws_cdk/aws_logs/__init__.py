@@ -4079,7 +4079,7 @@ class CfnLogGroup(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param bearer_token_authentication_enabled: Default: - false
+        :param bearer_token_authentication_enabled: Indicates whether bearer token authentication is enabled for this log group. When enabled, bearer token authentication is allowed on operations until it is explicitly disabled. Default: - false
         :param data_protection_policy: Creates a data protection policy and assigns it to the log group. A data protection policy can help safeguard sensitive data that's ingested by the log group by auditing and masking the sensitive log data. When a user who does not have permission to view masked data views a log event that includes masked data, the sensitive data is replaced by asterisks.
         :param deletion_protection_enabled: Indicates whether deletion protection is enabled for this log group. When enabled, deletion protection blocks all deletion operations until it is explicitly disabled. Default: - false
         :param field_index_policies: Creates or updates a *field index policy* for the specified log group. Only log groups in the Standard log class support field index policies. For more information about log classes, see `Log classes <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html>`_ . You can use field index policies to create *field indexes* on fields found in log events in the log group. Creating field indexes lowers the costs for CloudWatch Logs Insights queries that reference those field indexes, because these queries attempt to skip the processing of log events that are known to not match the indexed field. Good fields to index are fields that you often need to query for and fields that have high cardinality of values Common examples of indexes include request ID, session ID, userID, and instance IDs. For more information, see `Create field indexes to improve query performance and reduce costs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing.html>`_ . Currently, this array supports only one field index policy object.
@@ -4266,6 +4266,7 @@ class CfnLogGroup(
     def bearer_token_authentication_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether bearer token authentication is enabled for this log group.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "bearerTokenAuthenticationEnabled"))
 
     @bearer_token_authentication_enabled.setter
@@ -4416,7 +4417,7 @@ class CfnLogGroupProps:
     ) -> None:
         '''Properties for defining a ``CfnLogGroup``.
 
-        :param bearer_token_authentication_enabled: Default: - false
+        :param bearer_token_authentication_enabled: Indicates whether bearer token authentication is enabled for this log group. When enabled, bearer token authentication is allowed on operations until it is explicitly disabled. Default: - false
         :param data_protection_policy: Creates a data protection policy and assigns it to the log group. A data protection policy can help safeguard sensitive data that's ingested by the log group by auditing and masking the sensitive log data. When a user who does not have permission to view masked data views a log event that includes masked data, the sensitive data is replaced by asterisks.
         :param deletion_protection_enabled: Indicates whether deletion protection is enabled for this log group. When enabled, deletion protection blocks all deletion operations until it is explicitly disabled. Default: - false
         :param field_index_policies: Creates or updates a *field index policy* for the specified log group. Only log groups in the Standard log class support field index policies. For more information about log classes, see `Log classes <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html>`_ . You can use field index policies to create *field indexes* on fields found in log events in the log group. Creating field indexes lowers the costs for CloudWatch Logs Insights queries that reference those field indexes, because these queries attempt to skip the processing of log events that are known to not match the indexed field. Good fields to index are fields that you often need to query for and fields that have high cardinality of values Common examples of indexes include request ID, session ID, userID, and instance IDs. For more information, see `Create field indexes to improve query performance and reduce costs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing.html>`_ . Currently, this array supports only one field index policy object.
@@ -4495,7 +4496,10 @@ class CfnLogGroupProps:
     def bearer_token_authentication_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        '''
+        '''Indicates whether bearer token authentication is enabled for this log group.
+
+        When enabled, bearer token authentication is allowed on operations until it is explicitly disabled.
+
         :default: - false
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-bearertokenauthenticationenabled

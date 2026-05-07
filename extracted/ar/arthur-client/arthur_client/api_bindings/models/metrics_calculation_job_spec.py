@@ -31,7 +31,8 @@ class MetricsCalculationJobSpec(BaseModel):
     scope_model_id: StrictStr = Field(description="The id of the model to calculate metrics.")
     start_timestamp: datetime = Field(description="The start timestamp to use for fetching data.")
     end_timestamp: datetime = Field(description="The end timestamp to use for fetching data.")
-    __properties: ClassVar[List[str]] = ["job_type", "scope_model_id", "start_timestamp", "end_timestamp"]
+    policy_assignment_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["job_type", "scope_model_id", "start_timestamp", "end_timestamp", "policy_assignment_id"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -82,6 +83,11 @@ class MetricsCalculationJobSpec(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if policy_assignment_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.policy_assignment_id is None and "policy_assignment_id" in self.model_fields_set:
+            _dict['policy_assignment_id'] = None
+
         return _dict
 
     @classmethod
@@ -97,7 +103,8 @@ class MetricsCalculationJobSpec(BaseModel):
             "job_type": obj.get("job_type") if obj.get("job_type") is not None else 'metrics_calculation',
             "scope_model_id": obj.get("scope_model_id"),
             "start_timestamp": obj.get("start_timestamp"),
-            "end_timestamp": obj.get("end_timestamp")
+            "end_timestamp": obj.get("end_timestamp"),
+            "policy_assignment_id": obj.get("policy_assignment_id")
         })
         return _obj
 

@@ -13,7 +13,7 @@ from .constants import (
     KV_KEY_FIELD,
     SCOPE_FIELD_OWNER, SCOPE_FIELD_SESSION, SCOPE_FIELD_USER,
 )
-from .db import Collection, ScopedDatabaseProxy, get_active_identity
+from .db import Collection, CollectionManager, ScopedDatabaseProxy, get_active_identity
 from .integration import (
     IntegrationConfig,
     IntegrationCredentials,
@@ -779,6 +779,7 @@ class Session:
         "_block_callback",
         "_data_change_callback",
         "_db_proxy",
+        "_collections_proxy",
         "_runner",
         "_runner_stub",
         "_session_stub",
@@ -810,6 +811,7 @@ class Session:
         self._block_callback: Any = None
         self._data_change_callback: Any = None
         self._db_proxy: ScopedDatabaseProxy | None = None
+        self._collections_proxy: CollectionManager | None = None
         self._runner: Any = None
         self._runner_stub: Any = None
         self._session_stub: Any = None
@@ -837,6 +839,13 @@ class Session:
         if self._db_proxy is None:
             raise RuntimeError("session.db not available (database not configured)")
         return self._db_proxy
+
+    @property
+    def collections(self) -> CollectionManager:
+        """Dynamic collection manager for scoped runtime collection schemas."""
+        if self._collections_proxy is None:
+            raise RuntimeError("session.collections not available (database not configured)")
+        return self._collections_proxy
 
     # -- key-value store -----------------------------------------------------
 

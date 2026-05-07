@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, clamped, over, CallbackList
+from ..._internal import expect, clamped, over, CallbackList, profile_section
 from ...math import Point
 from ..._core import Transform, Geometry
 
@@ -769,6 +769,7 @@ class Widget(ABC):
     @abstractmethod
     def _update(self, dt: float) -> None: ...
 
+    @profile_section("ui.widget.update")
     def update(self, dt: float) -> None:
         """Actualisation
         
@@ -792,6 +793,7 @@ class Widget(ABC):
     @abstractmethod
     def _draw(self, pipeline: Pipeline, context: RenderContext): ...
 
+    @profile_section("ui.widget.draw")
     def draw(self, pipeline: Pipeline, context: RenderContext, share_scale: bool = True, share_rotation: bool = True) -> None:
         """Affichage
         
@@ -828,6 +830,7 @@ class Widget(ABC):
     @abstractmethod
     def _destroy(self) -> None: ...
 
+    @profile_section("ui.widget.destroy")
     def destroy(self) -> None:
         """Destruction"""
         self._destroy()
@@ -892,6 +895,7 @@ class Widget(ABC):
         tr.scale = context.scale
         tr.rotation = context.rotation
 
+    @profile_section("ui.widget._compute_scissor")
     def _compute_scissor(self) -> tuple | None:
         """Calcule le scissor résolu en coordonnées framebuffer"""
         if not self._scissor_dirty:

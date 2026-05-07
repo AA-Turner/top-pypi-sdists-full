@@ -33,6 +33,7 @@ from .clients.capsule import (
     ClaimTaskRequest,
     CompleteTaskRequest,
     DataServiceStub,
+    GetCollectionSchemaRequest,
     GetSecretRequest,
     GetSessionRequest,
     GetUserIntegrationsRequest,
@@ -80,6 +81,7 @@ from .constants import (
 from .app import _ACCESS_ATTR
 from .db import (
     Collection,
+    CollectionManager,
     DatabaseProxy,
     ScopedDatabaseProxy,
     reset_active_identity,
@@ -140,6 +142,28 @@ def _asset_to_data_uri(path: str) -> str | None:
     ct = mimetypes.guess_type(full)[0] or "application/octet-stream"
     data = open(full, "rb").read()
     return f"data:{ct};base64,{base64.b64encode(data).decode()}"
+
+
+def _serialize_collection_columns(columns) -> list | None:
+    if not columns:
+        return None
+    has_types = any(
+        getattr(c, "type", "text") != "text"
+        or getattr(c, "label", None)
+        or getattr(c, "format", None)
+        for c in columns
+    )
+    if has_types:
+        return [
+            {k: v for k, v in {
+                "key": c.key,
+                "type": getattr(c, "type", "text") or "text",
+                "label": getattr(c, "label", None),
+                "format": getattr(c, "format", None),
+            }.items() if v is not None}
+            for c in columns
+        ]
+    return [c.key for c in columns]
 
 
 def _parse_integration_credential(ic: IntegrationCredential) -> IntegrationCredentials:
@@ -448,6 +472,13 @@ class Runner:
         if self._data_stub:
             db = DatabaseProxy(self._data_stub, self._data_app_id)
             self._instance.db = db
+            scopes = {name: decl.scope for name, decl in self._get_all_collections().items()}
+            self._instance.collections = CollectionManager(
+                self._data_stub,
+                self._data_app_id,
+                default_scope=SCOPE_APP,
+                collection_scopes=scopes,
+            )
             self._bind_collection_refs(db)
             self._bind_settings_accessor()
             self._bind_app_kv()
@@ -658,6 +689,15 @@ class Runner:
             session._db_proxy = ScopedDatabaseProxy(
                 self._data_stub,
                 self._data_app_id,
+                user_id=session.user.id,
+                owner_id=session.user.owner_id,
+                session_id=session.id,
+                collection_scopes=scopes,
+            )
+            session._collections_proxy = CollectionManager(
+                self._data_stub,
+                self._data_app_id,
+                default_scope="session",
                 user_id=session.user.id,
                 owner_id=session.user.owner_id,
                 session_id=session.id,
@@ -1714,12 +1754,7 @@ class Runner:
         _SETTING_WIDGET_TYPES = frozenset({"toggle", "text_input", "number_input", "select"})
 
         def _serialize_decl_columns(decl):
-            if not decl.columns:
-                return None
-            has_types = any(c.type != "text" or c.label or c.format for c in decl.columns)
-            if has_types:
-                return [c.to_dict() for c in decl.columns]
-            return [c.key for c in decl.columns]
+            return _serialize_collection_columns(decl.columns)
 
         def _resolve_widget(node: dict) -> dict:
             if node.get("type") == "table" and "collection_ref" in node:
@@ -2007,13 +2042,37 @@ class Runner:
 
                 collections = self._get_all_collections()
                 decl = collections.get(name)
-                if decl and decl.scope != SCOPE_APP:
-                    sf = decl.scope_filter(
-                        user_id=request.headers.get(HEADER_USER_ID, ""),
-                        owner_id=request.headers.get(HEADER_ORG_ID, ""),
-                        session_id=request.headers.get(HEADER_SESSION_ID, ""),
+                scope = request.query.get("scope") or (decl.scope if decl else SCOPE_APP)
+                user_id = request.headers.get(HEADER_USER_ID, "")
+                owner_id = request.headers.get(HEADER_ORG_ID, "")
+                session_id = request.headers.get(HEADER_SESSION_ID, "")
+                if scope != SCOPE_APP:
+                    scope_decl = decl or CollectionDecl(name=name, scope=scope)
+                    sf = scope_decl.scope_filter(
+                        user_id=user_id,
+                        owner_id=owner_id,
+                        session_id=session_id,
                     )
                     query_filter.update(sf)
+
+                dynamic_columns = None
+                if self._data_stub:
+                    try:
+                        schema_resp = await self._run_rpc(
+                            self._data_stub.get_collection_schema,
+                            GetCollectionSchemaRequest(
+                                app_id=self._data_app_id,
+                                name=name,
+                                scope=scope,
+                                user_id=user_id,
+                                owner_id=owner_id,
+                                session_id=session_id,
+                            ),
+                        )
+                        if schema_resp.found and schema_resp.schema:
+                            dynamic_columns = _serialize_collection_columns(schema_resp.schema.columns)
+                    except Exception as exc:
+                        _log(f"collection schema lookup failed for {name}: {exc}")
 
                 sort_spec = None
                 if sort_field:
@@ -2028,14 +2087,18 @@ class Runner:
                 )
                 total = await col.count(filter=query_filter)
 
-                return web.json_response(
-                    {
-                        "data": data,
-                        "total": total,
-                        "page": page,
-                        "per_page": per_page,
-                    }
-                )
+                response = {
+                    "data": data,
+                    "total": total,
+                    "page": page,
+                    "per_page": per_page,
+                }
+                columns = dynamic_columns
+                if columns is None and decl:
+                    columns = _serialize_collection_columns(decl.columns)
+                if columns:
+                    response["columns"] = columns
+                return web.json_response(response)
             except Exception as exc:
                 _log(f"collection query error: {exc}")
                 return web.json_response({"error": str(exc)}, status=500)

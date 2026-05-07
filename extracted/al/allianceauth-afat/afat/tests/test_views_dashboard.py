@@ -2,6 +2,10 @@
 from http import HTTPStatus
 from unittest.mock import Mock
 
+# Third Party
+# Eve SDE
+from eve_sde.models import ItemType, SolarSystem
+
 # Django
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory
@@ -63,6 +67,16 @@ class TestDashboard(BaseTestCase):
             creator=cls.user,
             character=cls.character_1001,
         )
+        # Ensure we have at least one SDE SolarSystem and ItemType available for FAT records
+        solar_system, _ = SolarSystem.objects.get_or_create(
+            id=30000142, defaults={"name": "Test System"}
+        )
+        ship, _ = ItemType.objects.get_or_create(
+            id=1, defaults={"name": "Test Ship", "published": 1}
+        )
+
+        cls.default_solar_system = solar_system
+        cls.default_ship = ship
 
     def _page_overview_request(self, user):
         """
@@ -90,8 +104,18 @@ class TestDashboard(BaseTestCase):
         :rtype:
         """
 
-        Fat.objects.create(character=self.character_1101, fatlink=self.afat_link)
-        Fat.objects.create(character=self.character_1002, fatlink=self.afat_link)
+        Fat.objects.create(
+            character=self.character_1101,
+            fatlink=self.afat_link,
+            solar_system=self.default_solar_system,
+            ship=self.default_ship,
+        )
+        Fat.objects.create(
+            character=self.character_1002,
+            fatlink=self.afat_link,
+            solar_system=self.default_solar_system,
+            ship=self.default_ship,
+        )
 
         response = self._page_overview_request(user=self.user)
 
@@ -119,8 +143,18 @@ class TestDashboard(BaseTestCase):
         :rtype:
         """
 
-        Fat.objects.create(character=self.character_1101, fatlink=self.afat_link)
-        Fat.objects.create(character=self.character_1002, fatlink=self.afat_link)
+        Fat.objects.create(
+            character=self.character_1101,
+            fatlink=self.afat_link,
+            solar_system=self.default_solar_system,
+            ship=self.default_ship,
+        )
+        Fat.objects.create(
+            character=self.character_1002,
+            fatlink=self.afat_link,
+            solar_system=self.default_solar_system,
+            ship=self.default_ship,
+        )
 
         self.client.force_login(user=self.user)
 

@@ -18,6 +18,7 @@ from wisent.core.primitives.model_interface.adapters import AudioAdapter
 from wisent.core.primitives.model_interface.adapters import VideoAdapter
 from wisent.core.primitives.model_interface.adapters import RoboticsAdapter
 from wisent.core.primitives.model_interface.adapters import MultimodalAdapter
+from wisent.core.primitives.model_interface.adapters import ImageAdapter
 from wisent.core.utils.infra_tools.errors import UnknownTypeError, NoTrainedVectorsError
 from wisent.core.primitives.models.modalities import (
     Modality,
@@ -249,6 +250,28 @@ class Wisent(WisentPairsMixin, WisentTrainingMixin, WisentIOMixin):
             Configured Wisent instance
         """
         adapter = MultimodalAdapter(model_name=model_name, device=device, **kwargs)
+        return cls(adapter)
+
+    @classmethod
+    def for_image(
+        cls,
+        model_name: str,
+        device: str | None = None,
+        **kwargs: Any,
+    ) -> "Wisent":
+        """
+        Create a Wisent instance for text-to-image diffusion model steering.
+
+        Args:
+            model_name: HuggingFace diffusers pipeline identifier
+                (e.g. "Tongyi-MAI/Z-Image-Turbo", "stabilityai/stable-diffusion-xl-base-1.0")
+            device: Target device
+            **kwargs: Additional adapter arguments forwarded to DiffusionPipeline.from_pretrained
+
+        Returns:
+            Configured Wisent instance
+        """
+        adapter = ImageAdapter(model_name=model_name, device=device, **kwargs)
         return cls(adapter)
 
     # ==================== Pair Management ====================

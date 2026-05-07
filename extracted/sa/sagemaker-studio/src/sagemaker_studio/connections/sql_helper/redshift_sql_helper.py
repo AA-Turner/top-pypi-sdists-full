@@ -41,7 +41,8 @@ class RedshiftSqlHelper(SqlHelper):
         aws_location = endpoint.get("awsLocation", {})
         region = aws_location.get("awsRegion")
 
-        database_name = connection_data["database_name"]
+        # Use provided database name, otherwise fall back to connection default
+        database_name = kwargs.get("database_name", connection_data["database_name"])
         storage = connection_data.get("storage", {})
         workgroup_name = storage.get("workgroupName")
         cluster_identifier = storage.get("clusterName")

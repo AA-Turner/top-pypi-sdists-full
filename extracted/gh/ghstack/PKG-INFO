@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghstack
-Version: 0.14.0
+Version: 0.15.0
 Summary: Stack diff support for GitHub
 Author: Edward Z. Yang
 Author-email: Edward Z. Yang <ezyang@mit.edu>

@@ -62,7 +62,7 @@ class IndicesClient(NamespacedClient):
           Index blocks limit the operations allowed on an index by blocking specific operation types.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-add-block>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-add-block>`_
 
         :param index: A comma-separated list or wildcard expression of index names used
             to limit the request. By default, you must explicitly name the indices you
@@ -71,17 +71,20 @@ class IndicesClient(NamespacedClient):
             setting to `false`. You can update this setting in the `elasticsearch.yml`
             file or by using the cluster update settings API.
         :param block: The block type to add to the index.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: The type of index that wildcard patterns can match.
             If the request can target data streams, this argument determines whether
             wildcard expressions match hidden data streams. It supports comma-separated
             values, such as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: The period to wait for the master node. If the master
             node is not available before the timeout expires, the request fails and returns
             an error. It can also be set to `-1` to indicate that the request should
@@ -173,7 +176,7 @@ class IndicesClient(NamespacedClient):
           The <code>_analyze</code> endpoint without a specified index will always use <code>10000</code> as its limit.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-analyze>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-analyze>`_
 
         :param index: Index used to derive the analyzer. If specified, the `analyzer`
             or field parameter overrides this value. If no index is specified or the
@@ -260,7 +263,7 @@ class IndicesClient(NamespacedClient):
           <p>Cancel a migration reindex attempt for a data stream or index.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-cancel-migrate-reindex>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-cancel-migrate-reindex>`_
 
         :param index: The index or data stream name
         """
@@ -322,14 +325,17 @@ class IndicesClient(NamespacedClient):
           To clear the cache only of specific fields, use the <code>fields</code> parameter.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-clear-cache>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-clear-cache>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
@@ -339,7 +345,9 @@ class IndicesClient(NamespacedClient):
         :param fields: Comma-separated list of field names used to limit the `fielddata`
             parameter.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param query: If `true`, clears the query cache.
         :param request: If `true`, clears the request cache.
         """
@@ -444,7 +452,7 @@ class IndicesClient(NamespacedClient):
           <p>Because the clone operation creates a new index to clone the shards to, the wait for active shards setting on index creation applies to the clone index action as well.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-clone>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-clone>`_
 
         :param index: Name of the source index to clone.
         :param target: Name of the target index to create.
@@ -491,9 +499,7 @@ class IndicesClient(NamespacedClient):
                 __body["settings"] = settings
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -548,19 +554,24 @@ class IndicesClient(NamespacedClient):
           Closing indices can be turned off with the cluster settings API by setting <code>cluster.indices.close.enable</code> to <code>false</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-close>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-close>`_
 
         :param index: Comma-separated list or wildcard expression of index names used
             to limit the request.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -649,7 +660,7 @@ class IndicesClient(NamespacedClient):
           Note that changing this setting will also affect the <code>wait_for_active_shards</code> value on all subsequent write operations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-create>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-create>`_
 
         :param index: Name of the index you wish to create. Index names must meet the
             following criteria: * Lowercase only * Cannot include `\\`, `/`, `*`, `?`,
@@ -702,9 +713,7 @@ class IndicesClient(NamespacedClient):
                 __body["settings"] = settings
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -734,7 +743,7 @@ class IndicesClient(NamespacedClient):
           <p>You must have a matching index template with data stream enabled.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-create-data-stream>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-create-data-stream>`_
 
         :param name: Name of the data stream, which must meet the following criteria:
             Lowercase only; Cannot include `\\`, `/`, `*`, `?`, `"`, `<`, `>`, `|`, `,`,
@@ -796,7 +805,7 @@ class IndicesClient(NamespacedClient):
           <p>Copy the mappings and settings from the source index to a destination index while allowing request settings and mappings to override the source values.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-create-from>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-create-from>`_
 
         :param source: The source index or data stream name
         :param dest: The destination index or data stream name
@@ -825,9 +834,7 @@ class IndicesClient(NamespacedClient):
         __body = create_from if create_from is not None else body
         if not __body:
             __body = None
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -863,7 +870,7 @@ class IndicesClient(NamespacedClient):
           <p>Get statistics for one or more data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-data-streams-stats-1>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-data-streams-stats-1>`_
 
         :param name: Comma-separated list of data streams used to limit the request.
             Wildcard expressions (`*`) are supported. To target all data streams in a
@@ -932,21 +939,26 @@ class IndicesClient(NamespacedClient):
           You can then use the delete index API to delete the previous write index.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete>`_
 
         :param index: Comma-separated list of indices to delete. You cannot specify index
             aliases. By default, this parameter does not support wildcards (`*`) or `_all`.
             To use wildcards or `_all`, set the `action.destructive_requires_name` cluster
             setting to `false`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -1006,7 +1018,7 @@ class IndicesClient(NamespacedClient):
           <p>Removes a data stream or index from an alias.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete-alias>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete-alias>`_
 
         :param index: Comma-separated list of data streams or indices used to limit the
             request. Supports wildcards (`*`).
@@ -1074,7 +1086,7 @@ class IndicesClient(NamespacedClient):
           <p>Removes the data stream lifecycle from a data stream, rendering it not managed by the data stream lifecycle.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete-data-lifecycle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete-data-lifecycle>`_
 
         :param name: A comma-separated list of data streams of which the data stream
             lifecycle will be deleted. Use `*` to get all data streams
@@ -1138,7 +1150,7 @@ class IndicesClient(NamespacedClient):
           <p>Deletes one or more data streams and their backing indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete-data-stream>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete-data-stream>`_
 
         :param name: Comma-separated list of data streams to delete. Wildcard (`*`) expressions
             are supported.
@@ -1202,7 +1214,7 @@ class IndicesClient(NamespacedClient):
           <p>Removes the data stream options from a data stream.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete-data-stream-options>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete-data-stream-options>`_
 
         :param name: A comma-separated list of data streams of which the data stream
             options will be deleted. Use `*` to get all data streams
@@ -1261,7 +1273,7 @@ class IndicesClient(NamespacedClient):
           existing templates.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete-index-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete-index-template>`_
 
         :param name: Comma-separated list of index template names used to limit the request.
             Wildcard (*) expressions are supported.
@@ -1299,62 +1311,6 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_availability_warning(Stability.EXPERIMENTAL)
-    def delete_sample_configuration(
-        self,
-        *,
-        index: str,
-        error_trace: t.Optional[bool] = None,
-        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        human: t.Optional[bool] = None,
-        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        pretty: t.Optional[bool] = None,
-        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-    ) -> ObjectApiResponse[t.Any]:
-        """
-        .. raw:: html
-
-          <p>Delete sampling configuration.</p>
-          <p>Delete the sampling configuration for the specified index.</p>
-
-
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
-
-        :param index: The name of the index.
-        :param master_timeout: Period to wait for a connection to the master node. If
-            no response is received before the timeout expires, the request fails and
-            returns an error.
-        :param timeout: Period to wait for a response. If no response is received before
-            the timeout expires, the request fails and returns an error.
-        """
-        if index in SKIP_IN_PATH:
-            raise ValueError("Empty value passed for parameter 'index'")
-        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
-        __path = f'/{__path_parts["index"]}/_sample/config'
-        __query: t.Dict[str, t.Any] = {}
-        if error_trace is not None:
-            __query["error_trace"] = error_trace
-        if filter_path is not None:
-            __query["filter_path"] = filter_path
-        if human is not None:
-            __query["human"] = human
-        if master_timeout is not None:
-            __query["master_timeout"] = master_timeout
-        if pretty is not None:
-            __query["pretty"] = pretty
-        if timeout is not None:
-            __query["timeout"] = timeout
-        __headers = {"accept": "application/json"}
-        return self.perform_request(  # type: ignore[return-value]
-            "DELETE",
-            __path,
-            params=__query,
-            headers=__headers,
-            endpoint_id="indices.delete_sample_configuration",
-            path_parts=__path_parts,
-        )
-
-    @_rewrite_parameters()
     def delete_template(
         self,
         *,
@@ -1373,7 +1329,7 @@ class IndicesClient(NamespacedClient):
           <p>IMPORTANT: This documentation is about legacy index templates, which are deprecated and will be replaced by the composable templates introduced in Elasticsearch 7.8.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-delete-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-delete-template>`_
 
         :param name: The name of the legacy index template to delete. Wildcard (`*`)
             expressions are supported.
@@ -1446,25 +1402,28 @@ class IndicesClient(NamespacedClient):
           <p>For usage examples see the External documentation or refer to <a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/index-disk-usage">Analyze the index disk usage example</a> for an example.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-disk-usage>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-disk-usage>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. It’s recommended to execute this API with a single
             index (or the latest backing index of a data stream) as the API consumes
             resources significantly.
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param flush: If `true`, the API performs a flush before analysis. If `false`,
             the response may not include uncommitted data.
-        :param ignore_unavailable: If `true`, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param run_expensive_tasks: Analyzing field disk usage is resource-intensive.
             To use the API, this parameter must be set to `true`.
         """
@@ -1504,7 +1463,6 @@ class IndicesClient(NamespacedClient):
     @_rewrite_parameters(
         body_name="config",
     )
-    @_availability_warning(Stability.EXPERIMENTAL)
     def downsample(
         self,
         *,
@@ -1534,7 +1492,7 @@ class IndicesClient(NamespacedClient):
           The source index must be read-only (<code>index.blocks.write: true</code>).</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-downsample>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-downsample>`_
 
         :param index: Name of the time series index to downsample.
         :param target_index: Name of the index to create.
@@ -1606,20 +1564,25 @@ class IndicesClient(NamespacedClient):
           <p>Check if one or more indices, index aliases, or data streams exist.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-exists>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-exists>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases. Supports
             wildcards (`*`).
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param flat_settings: If `true`, returns settings in flat format.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_defaults: If `true`, return all default settings in the response.
         :param local: If `true`, the request retrieves information from the local node
             only.
@@ -1688,21 +1651,26 @@ class IndicesClient(NamespacedClient):
           <p>Check if one or more data stream or index aliases exist.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-exists-alias>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-exists-alias>`_
 
         :param name: Comma-separated list of aliases to check. Supports wildcards (`*`).
         :param index: Comma-separated list of data streams or indices used to limit the
             request. Supports wildcards (`*`). To target all data streams and indices,
             omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
-        :param ignore_unavailable: If `false`, requests that include a missing data stream
-            or index in the target indices or data streams return an error.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -1765,7 +1733,7 @@ class IndicesClient(NamespacedClient):
           <p>Check whether index templates exist.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-exists-index-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-exists-index-template>`_
 
         :param name: Comma-separated list of index template names used to limit the request.
             Wildcard (*) expressions are supported.
@@ -1828,7 +1796,7 @@ class IndicesClient(NamespacedClient):
           <p>IMPORTANT: This documentation is about legacy index templates, which are deprecated and will be replaced by the composable templates introduced in Elasticsearch 7.8.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-exists-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-exists-template>`_
 
         :param name: A comma-separated list of index template names used to limit the
             request. Wildcard (`*`) expressions are supported.
@@ -1886,7 +1854,7 @@ class IndicesClient(NamespacedClient):
           <p>Get information about an index or data stream's current data stream lifecycle status, such as time since index creation, time since rollover, the lifecycle configuration managing the index, or any errors encountered during lifecycle execution.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-explain-data-lifecycle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-explain-data-lifecycle>`_
 
         :param index: Comma-separated list of index names to explain
         :param include_defaults: Indicates if the API should return the default values
@@ -1953,23 +1921,26 @@ class IndicesClient(NamespacedClient):
           A given request will increment each count by a maximum value of 1, even if the request accesses the same field multiple times.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-field-usage-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-field-usage-stats>`_
 
         :param index: Comma-separated list or wildcard expression of index names used
             to limit the request.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param fields: Comma-separated list or wildcard expressions of fields to include
             in the statistics.
-        :param ignore_unavailable: If `true`, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         """
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'index'")
@@ -2038,14 +2009,17 @@ class IndicesClient(NamespacedClient):
           If you call the flush API after indexing some documents then a successful response indicates that Elasticsearch has flushed all the documents that were indexed before the flush API was called.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-flush>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-flush>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases to flush.
             Supports wildcards (`*`). To flush all data streams and indices, omit this
             parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
@@ -2053,7 +2027,9 @@ class IndicesClient(NamespacedClient):
         :param force: If `true`, the request forces a flush even if there are no changes
             to commit to the index.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param wait_if_ongoing: If `true`, the flush operation blocks until execution
             when another flush operation is running. If `false`, Elasticsearch returns
             an error if you request a flush when another flush operation is running.
@@ -2163,19 +2139,24 @@ class IndicesClient(NamespacedClient):
           </code></pre>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-forcemerge>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-forcemerge>`_
 
         :param index: A comma-separated list of index names; use `_all` or empty string
             to perform the operation on all indices
-        :param allow_no_indices: Whether to ignore if a wildcard indices expression resolves
-            into no concrete indices. (This includes `_all` string or when no indices
-            have been specified)
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Whether to expand wildcard expression to concrete indices
             that are open, closed or both.
         :param flush: Specify whether the index should be flushed after performing the
             operation
-        :param ignore_unavailable: Whether specified concrete indices should be ignored
-            when unavailable (missing or closed)
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param max_num_segments: The number of segments the index should be merged into
             (default: dynamic)
         :param only_expunge_deletes: Specify whether the operation should only expunge
@@ -2261,23 +2242,26 @@ class IndicesClient(NamespacedClient):
           stream’s backing indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get>`_
 
         :param index: Comma-separated list of data streams, indices, and index aliases
             used to limit the request. Wildcard expressions (*) are supported.
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or _all value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting foo*,bar* returns an error if an index starts
-            with foo but no index starts with bar.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard expressions can match. If
             the request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as open,hidden.
         :param features: Return only information on specified index features
         :param flat_settings: If true, returns settings in flat format.
-        :param ignore_unavailable: If false, requests that target a missing index return
-            an error.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_defaults: If true, return all default settings in the response.
         :param local: If true, the request retrieves information from the local node
             only. Defaults to false, which means information is retrieved from the master
@@ -2354,22 +2338,27 @@ class IndicesClient(NamespacedClient):
           <p>Retrieves information for one or more data stream or index aliases.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-alias>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-alias>`_
 
         :param index: Comma-separated list of data streams or indices used to limit the
             request. Supports wildcards (`*`). To target all data streams and indices,
             omit this parameter or use `*` or `_all`.
         :param name: Comma-separated list of aliases to retrieve. Supports wildcards
             (`*`). To retrieve all aliases, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -2415,53 +2404,6 @@ class IndicesClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_availability_warning(Stability.EXPERIMENTAL)
-    def get_all_sample_configuration(
-        self,
-        *,
-        error_trace: t.Optional[bool] = None,
-        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        human: t.Optional[bool] = None,
-        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        pretty: t.Optional[bool] = None,
-    ) -> ObjectApiResponse[t.Any]:
-        """
-        .. raw:: html
-
-          <p>Get all sampling configurations.</p>
-          <p>Get the sampling configurations for all indices.</p>
-
-
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
-
-        :param master_timeout: Period to wait for a connection to the master node. If
-            no response is received before the timeout expires, the request fails and
-            returns an error.
-        """
-        __path_parts: t.Dict[str, str] = {}
-        __path = "/_sample/config"
-        __query: t.Dict[str, t.Any] = {}
-        if error_trace is not None:
-            __query["error_trace"] = error_trace
-        if filter_path is not None:
-            __query["filter_path"] = filter_path
-        if human is not None:
-            __query["human"] = human
-        if master_timeout is not None:
-            __query["master_timeout"] = master_timeout
-        if pretty is not None:
-            __query["pretty"] = pretty
-        __headers = {"accept": "application/json"}
-        return self.perform_request(  # type: ignore[return-value]
-            "GET",
-            __path,
-            params=__query,
-            headers=__headers,
-            endpoint_id="indices.get_all_sample_configuration",
-            path_parts=__path_parts,
-        )
-
-    @_rewrite_parameters()
     def get_data_lifecycle(
         self,
         *,
@@ -2488,7 +2430,7 @@ class IndicesClient(NamespacedClient):
           <p>Get the data stream lifecycle configuration of one or more data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-data-lifecycle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-data-lifecycle>`_
 
         :param name: Comma-separated list of data streams to limit the request. Supports
             wildcards (`*`). To target all data streams, omit this parameter or use `*`
@@ -2545,7 +2487,7 @@ class IndicesClient(NamespacedClient):
           <p>Get statistics about the data streams that are managed by a data stream lifecycle.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-data-lifecycle-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-data-lifecycle-stats>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_lifecycle/stats"
@@ -2596,7 +2538,7 @@ class IndicesClient(NamespacedClient):
           <p>Get information about one or more data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-data-stream>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-data-stream>`_
 
         :param name: Comma-separated list of data stream names used to limit the request.
             Wildcard (`*`) expressions are supported. If omitted, all data streams are
@@ -2663,7 +2605,7 @@ class IndicesClient(NamespacedClient):
           <p>Get mapping information for one or more data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-data-stream-mappings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-data-stream-mappings>`_
 
         :param name: A comma-separated list of data streams or data stream patterns.
             Supports wildcards (`*`).
@@ -2722,7 +2664,7 @@ class IndicesClient(NamespacedClient):
           <p>Get the data stream options configuration of one or more data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-data-stream-options>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-data-stream-options>`_
 
         :param name: Comma-separated list of data streams to limit the request. Supports
             wildcards (`*`). To target all data streams, omit this parameter or use `*`
@@ -2778,7 +2720,7 @@ class IndicesClient(NamespacedClient):
           <p>Get setting information for one or more data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-data-stream-settings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-data-stream-settings>`_
 
         :param name: A comma-separated list of data streams or data stream patterns.
             Supports wildcards (`*`).
@@ -2842,22 +2784,27 @@ class IndicesClient(NamespacedClient):
           <p>This API is useful if you don't need a complete mapping or if an index mapping contains a large number of fields.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-mapping>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-mapping>`_
 
         :param fields: Comma-separated list or wildcard expression of fields used to
             limit returned information. Supports wildcards (`*`).
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_defaults: If `true`, return all default settings in the response.
         """
         if fields in SKIP_IN_PATH:
@@ -2919,7 +2866,7 @@ class IndicesClient(NamespacedClient):
           <p>Get information about one or more index templates.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-index-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-index-template>`_
 
         :param name: Name of index template to retrieve. Wildcard (*) expressions are
             supported.
@@ -2996,20 +2943,25 @@ class IndicesClient(NamespacedClient):
           <p>For data streams, the API retrieves mappings for the stream’s backing indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-mapping>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-mapping>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param local: If `true`, the request retrieves information from the local node
             only.
         :param master_timeout: Period to wait for a connection to the master node. If
@@ -3069,7 +3021,7 @@ class IndicesClient(NamespacedClient):
           <p>Get the status of a migration reindex attempt for a data stream or index.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-migration>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-migration>`_
 
         :param index: The index or data stream name.
         """
@@ -3093,145 +3045,6 @@ class IndicesClient(NamespacedClient):
             params=__query,
             headers=__headers,
             endpoint_id="indices.get_migrate_reindex_status",
-            path_parts=__path_parts,
-        )
-
-    @_rewrite_parameters()
-    @_availability_warning(Stability.EXPERIMENTAL)
-    def get_sample(
-        self,
-        *,
-        index: str,
-        error_trace: t.Optional[bool] = None,
-        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        human: t.Optional[bool] = None,
-        pretty: t.Optional[bool] = None,
-    ) -> ObjectApiResponse[t.Any]:
-        """
-        .. raw:: html
-
-          <p>Request for a random sample of raw documents ingested into the given index or data stream.</p>
-
-
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
-
-        :param index: Single index or data stream name. Wildcards are not supported.
-        """
-        if index in SKIP_IN_PATH:
-            raise ValueError("Empty value passed for parameter 'index'")
-        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
-        __path = f'/{__path_parts["index"]}/_sample'
-        __query: t.Dict[str, t.Any] = {}
-        if error_trace is not None:
-            __query["error_trace"] = error_trace
-        if filter_path is not None:
-            __query["filter_path"] = filter_path
-        if human is not None:
-            __query["human"] = human
-        if pretty is not None:
-            __query["pretty"] = pretty
-        __headers = {"accept": "application/json"}
-        return self.perform_request(  # type: ignore[return-value]
-            "GET",
-            __path,
-            params=__query,
-            headers=__headers,
-            endpoint_id="indices.get_sample",
-            path_parts=__path_parts,
-        )
-
-    @_rewrite_parameters()
-    @_availability_warning(Stability.EXPERIMENTAL)
-    def get_sample_configuration(
-        self,
-        *,
-        index: str,
-        error_trace: t.Optional[bool] = None,
-        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        human: t.Optional[bool] = None,
-        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        pretty: t.Optional[bool] = None,
-    ) -> ObjectApiResponse[t.Any]:
-        """
-        .. raw:: html
-
-          <p>Get sampling configuration.</p>
-          <p>Get the sampling configuration for the specified index.</p>
-
-
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
-
-        :param index: The name of the index.
-        :param master_timeout: Period to wait for a connection to the master node. If
-            no response is received before the timeout expires, the request fails and
-            returns an error.
-        """
-        if index in SKIP_IN_PATH:
-            raise ValueError("Empty value passed for parameter 'index'")
-        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
-        __path = f'/{__path_parts["index"]}/_sample/config'
-        __query: t.Dict[str, t.Any] = {}
-        if error_trace is not None:
-            __query["error_trace"] = error_trace
-        if filter_path is not None:
-            __query["filter_path"] = filter_path
-        if human is not None:
-            __query["human"] = human
-        if master_timeout is not None:
-            __query["master_timeout"] = master_timeout
-        if pretty is not None:
-            __query["pretty"] = pretty
-        __headers = {"accept": "application/json"}
-        return self.perform_request(  # type: ignore[return-value]
-            "GET",
-            __path,
-            params=__query,
-            headers=__headers,
-            endpoint_id="indices.get_sample_configuration",
-            path_parts=__path_parts,
-        )
-
-    @_rewrite_parameters()
-    @_availability_warning(Stability.EXPERIMENTAL)
-    def get_sample_stats(
-        self,
-        *,
-        index: str,
-        error_trace: t.Optional[bool] = None,
-        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        human: t.Optional[bool] = None,
-        pretty: t.Optional[bool] = None,
-    ) -> ObjectApiResponse[t.Any]:
-        """
-        .. raw:: html
-
-          <p>Request stats for a random sample of raw documents ingested into the given index or data stream.</p>
-
-
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
-
-        :param index: Single index or data stream name. Wildcards are not supported.
-        """
-        if index in SKIP_IN_PATH:
-            raise ValueError("Empty value passed for parameter 'index'")
-        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
-        __path = f'/{__path_parts["index"]}/_sample/stats'
-        __query: t.Dict[str, t.Any] = {}
-        if error_trace is not None:
-            __query["error_trace"] = error_trace
-        if filter_path is not None:
-            __query["filter_path"] = filter_path
-        if human is not None:
-            __query["human"] = human
-        if pretty is not None:
-            __query["pretty"] = pretty
-        __headers = {"accept": "application/json"}
-        return self.perform_request(  # type: ignore[return-value]
-            "GET",
-            __path,
-            params=__query,
-            headers=__headers,
-            endpoint_id="indices.get_sample_stats",
             path_parts=__path_parts,
         )
 
@@ -3268,24 +3081,27 @@ class IndicesClient(NamespacedClient):
           For data streams, it returns setting information for the stream's backing indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-settings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-settings>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
         :param name: Comma-separated list or wildcard expression of settings to retrieve.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with foo but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param flat_settings: If `true`, returns settings in flat format.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param include_defaults: If `true`, return all default settings in the response.
         :param local: If `true`, the request retrieves information from the local node
             only. If `false`, information is retrieved from the master node.
@@ -3360,7 +3176,7 @@ class IndicesClient(NamespacedClient):
           <p>IMPORTANT: This documentation is about legacy index templates, which are deprecated and will be replaced by the composable templates introduced in Elasticsearch 7.8.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-get-template>`_
 
         :param name: Comma-separated list of index template names used to limit the request.
             Wildcard (`*`) expressions are supported. To return all index templates,
@@ -3426,7 +3242,7 @@ class IndicesClient(NamespacedClient):
           The persistent task ID is returned immediately and the reindexing work is completed in that task.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-migrate-reindex>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-migrate-reindex>`_
 
         :param reindex:
         """
@@ -3487,7 +3303,7 @@ class IndicesClient(NamespacedClient):
           The write index for the alias becomes the write index for the stream.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-migrate-to-data-stream>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-migrate-to-data-stream>`_
 
         :param name: Name of the index alias to convert to a data stream.
         :param master_timeout: Period to wait for a connection to the master node. If
@@ -3543,7 +3359,7 @@ class IndicesClient(NamespacedClient):
           <p>Performs one or more data stream modification actions in a single atomic operation.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-modify-data-stream>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-modify-data-stream>`_
 
         :param actions: Actions to perform.
         """
@@ -3622,7 +3438,7 @@ class IndicesClient(NamespacedClient):
           <p>Because opening or closing an index allocates its shards, the <code>wait_for_active_shards</code> setting on index creation applies to the <code>_open</code> and <code>_close</code> index actions as well.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-open>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-open>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). By default, you must explicitly
@@ -3630,15 +3446,20 @@ class IndicesClient(NamespacedClient):
             `_all`, `*`, or other wildcard expressions, change the `action.destructive_requires_name`
             setting to false. You can update this setting in the `elasticsearch.yml`
             file or using the cluster update settings API.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -3708,7 +3529,7 @@ class IndicesClient(NamespacedClient):
           This will affect the lifecycle management of the data stream and interfere with the data stream size and retention.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-promote-data-stream>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-promote-data-stream>`_
 
         :param name: The name of the data stream to promote
         :param master_timeout: Period to wait for a connection to the master node. If
@@ -3758,12 +3579,12 @@ class IndicesClient(NamespacedClient):
         filter: t.Optional[t.Mapping[str, t.Any]] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
-        index_routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        index_routing: t.Optional[str] = None,
         is_write_index: t.Optional[bool] = None,
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         pretty: t.Optional[bool] = None,
-        routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        search_routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        routing: t.Optional[str] = None,
+        search_routing: t.Optional[str] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -3774,7 +3595,7 @@ class IndicesClient(NamespacedClient):
           <p>Adds a data stream or index to an alias.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-alias>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-alias>`_
 
         :param index: Comma-separated list of data streams or indices to add. Supports
             wildcards (`*`). Wildcard patterns that match both data streams and indices
@@ -3835,9 +3656,7 @@ class IndicesClient(NamespacedClient):
                 __body["search_routing"] = search_routing
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,
@@ -3889,7 +3708,7 @@ class IndicesClient(NamespacedClient):
           <p>Update the data stream lifecycle of the specified data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-data-lifecycle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-data-lifecycle>`_
 
         :param name: Comma-separated list of data streams used to limit the request.
             Supports wildcards (`*`). To target all data streams use `*` or `_all`.
@@ -3979,7 +3798,7 @@ class IndicesClient(NamespacedClient):
           that are created during rollover after this API is called. No indices are changed by this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-data-stream-mappings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-data-stream-mappings>`_
 
         :param name: A comma-separated list of data streams or data stream patterns.
         :param mappings:
@@ -4061,7 +3880,7 @@ class IndicesClient(NamespacedClient):
           <p>Update the data stream options of the specified data streams.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-data-stream-options>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-data-stream-options>`_
 
         :param name: Comma-separated list of data streams used to limit the request.
             Supports wildcards (`*`). To target all data streams use `*` or `_all`.
@@ -4130,13 +3949,14 @@ class IndicesClient(NamespacedClient):
         .. raw:: html
 
           <p>Update data stream settings.</p>
+          <p>NOTE: Available in 8.19. Not available in earlier versions.</p>
           <p>This API can be used to override settings on specific data streams. These overrides will take precedence over what
           is specified in the template that the data stream matches. To prevent your data stream from getting into an invalid state,
           only certain settings are allowed. If possible, the setting change is applied to all
           backing indices. Otherwise, it will be applied when the data stream is next rolled over.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-data-stream-settings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-data-stream-settings>`_
 
         :param name: A comma-separated list of data streams or data stream patterns.
         :param settings:
@@ -4251,7 +4071,7 @@ class IndicesClient(NamespacedClient):
           If an entry already exists with the same key, then it is overwritten by the new definition.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-index-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-index-template>`_
 
         :param name: Index or template name
         :param allow_auto_create: This setting overrides the value of the `action.auto_create_index`
@@ -4428,13 +4248,16 @@ class IndicesClient(NamespacedClient):
           <p>Learn how to use the update mapping API with practical examples in the <a href="https://www.elastic.co/docs/manage-data/data-store/mapping/update-mappings-examples">Update mapping API examples</a> guide.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-mapping>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-mapping>`_
 
         :param index: A comma-separated list of index names the mapping should be added
             to (supports wildcards). Use `_all` or omit to add the mapping on all indices.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param date_detection: Controls whether dynamic date detection is enabled.
         :param dynamic: Controls whether new fields are added dynamically.
         :param dynamic_date_formats: If date detection is enabled then new string fields
@@ -4447,7 +4270,9 @@ class IndicesClient(NamespacedClient):
             as `open,hidden`.
         :param field_names: Control whether field names are enabled for the index.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -4523,95 +4348,6 @@ class IndicesClient(NamespacedClient):
             headers=__headers,
             body=__body,
             endpoint_id="indices.put_mapping",
-            path_parts=__path_parts,
-        )
-
-    @_rewrite_parameters(
-        body_fields=("rate", "if_", "max_samples", "max_size", "time_to_live"),
-        parameter_aliases={"if": "if_"},
-    )
-    @_availability_warning(Stability.EXPERIMENTAL)
-    def put_sample_configuration(
-        self,
-        *,
-        index: str,
-        rate: t.Optional[t.Union[str, t.Any]] = None,
-        error_trace: t.Optional[bool] = None,
-        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
-        human: t.Optional[bool] = None,
-        if_: t.Optional[str] = None,
-        master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        max_samples: t.Optional[int] = None,
-        max_size: t.Optional[t.Union[int, str]] = None,
-        pretty: t.Optional[bool] = None,
-        time_to_live: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        body: t.Optional[t.Dict[str, t.Any]] = None,
-    ) -> ObjectApiResponse[t.Any]:
-        """
-        .. raw:: html
-
-          <p>Create or update sampling configuration.</p>
-          <p>Create or update the sampling configuration for the specified index.</p>
-
-
-        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
-
-        :param index: The name of the index or data stream.
-        :param rate: The fraction of documents to sample. Must be greater than 0 and
-            less than or equal to 1. Can be specified as a number or a string.
-        :param if_: An optional condition script that sampled documents must satisfy.
-        :param master_timeout: Period to wait for a connection to the master node. If
-            no response is received before the timeout expires, the request fails and
-            returns an error.
-        :param max_samples: The maximum number of documents to sample. Must be greater
-            than 0 and less than or equal to 10,000.
-        :param max_size: The maximum total size of sampled documents. Must be greater
-            than 0 and less than or equal to 5GB.
-        :param time_to_live: The duration for which the sampled documents should be retained.
-            Must be greater than 0 and less than or equal to 30 days.
-        :param timeout: Period to wait for a response. If no response is received before
-            the timeout expires, the request fails and returns an error.
-        """
-        if index in SKIP_IN_PATH:
-            raise ValueError("Empty value passed for parameter 'index'")
-        if rate is None and body is None:
-            raise ValueError("Empty value passed for parameter 'rate'")
-        __path_parts: t.Dict[str, str] = {"index": _quote(index)}
-        __path = f'/{__path_parts["index"]}/_sample/config'
-        __query: t.Dict[str, t.Any] = {}
-        __body: t.Dict[str, t.Any] = body if body is not None else {}
-        if error_trace is not None:
-            __query["error_trace"] = error_trace
-        if filter_path is not None:
-            __query["filter_path"] = filter_path
-        if human is not None:
-            __query["human"] = human
-        if master_timeout is not None:
-            __query["master_timeout"] = master_timeout
-        if pretty is not None:
-            __query["pretty"] = pretty
-        if timeout is not None:
-            __query["timeout"] = timeout
-        if not __body:
-            if rate is not None:
-                __body["rate"] = rate
-            if if_ is not None:
-                __body["if"] = if_
-            if max_samples is not None:
-                __body["max_samples"] = max_samples
-            if max_size is not None:
-                __body["max_size"] = max_size
-            if time_to_live is not None:
-                __body["time_to_live"] = time_to_live
-        __headers = {"accept": "application/json", "content-type": "application/json"}
-        return self.perform_request(  # type: ignore[return-value]
-            "PUT",
-            __path,
-            params=__query,
-            headers=__headers,
-            body=__body,
-            endpoint_id="indices.put_sample_configuration",
             path_parts=__path_parts,
         )
 
@@ -4692,23 +4428,27 @@ class IndicesClient(NamespacedClient):
           Refer to <a href="https://www.elastic.co/docs/manage-data/data-store/text-analysis/specify-an-analyzer#update-analyzers-on-existing-indices">updating analyzers on existing indices</a> for step-by-step examples.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-settings>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-settings>`_
 
         :param settings:
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param flat_settings: If `true`, returns settings in flat format.
-        :param ignore_unavailable: If `true`, returns settings in flat format.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: Period to wait for a connection to the master node. If
             no response is received before the timeout expires, the request fails and
             returns an error.
@@ -4818,7 +4558,7 @@ class IndicesClient(NamespacedClient):
           NOTE: Multiple matching templates with the same order value will result in a non-deterministic merging order.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-put-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-put-template>`_
 
         :param name: The name of the template
         :param aliases: Aliases for the index.
@@ -4930,15 +4670,18 @@ class IndicesClient(NamespacedClient):
           This means that if a shard copy completes a recovery and then Elasticsearch relocates it onto a different node then the information about the original recovery will not be shown in the recovery API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-recovery>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-recovery>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
         :param active_only: If `true`, the response only includes ongoing shard recoveries.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param detailed: If `true`, the response includes detailed information about
             shard recoveries.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
@@ -4946,7 +4689,9 @@ class IndicesClient(NamespacedClient):
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH:
@@ -5020,20 +4765,25 @@ class IndicesClient(NamespacedClient):
           This option ensures the indexing operation waits for a periodic refresh before running the search.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-refresh>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-refresh>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH:
@@ -5104,16 +4854,21 @@ class IndicesClient(NamespacedClient):
           This ensures the synonym file is updated everywhere in the cluster in case shards are relocated in the future.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-reload-search-analyzers>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-reload-search-analyzers>`_
 
         :param index: A comma-separated list of index names to reload analyzers for
-        :param allow_no_indices: Whether to ignore if a wildcard indices expression resolves
-            into no concrete indices. (This includes `_all` string or when no indices
-            have been specified)
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Whether to expand wildcard expression to concrete indices
             that are open, closed or both.
-        :param ignore_unavailable: Whether specified concrete indices should be ignored
-            when unavailable (missing or closed)
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param resource: Changed resource to reload analyzers from if applicable
         """
         if index in SKIP_IN_PATH:
@@ -5178,7 +4933,7 @@ class IndicesClient(NamespacedClient):
           Index blocks limit the operations allowed on an index by blocking specific operation types.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-remove-block>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-remove-block>`_
 
         :param index: A comma-separated list or wildcard expression of index names used
             to limit the request. By default, you must explicitly name the indices you
@@ -5187,17 +4942,20 @@ class IndicesClient(NamespacedClient):
             setting to `false`. You can update this setting in the `elasticsearch.yml`
             file or by using the cluster update settings API.
         :param block: The block type to remove from the index.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: The type of index that wildcard patterns can match.
             If the request can target data streams, this argument determines whether
             wildcard expressions match hidden data streams. It supports comma-separated
             values, such as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param master_timeout: The period to wait for the master node. If the master
             node is not available before the timeout expires, the request fails and returns
             an error. It can also be set to `-1` to indicate that the request should
@@ -5310,7 +5068,7 @@ class IndicesClient(NamespacedClient):
           If a connection was (re-)established, this will also cause the <code>remote/info</code> endpoint to now indicate a connected status.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-resolve-cluster>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-resolve-cluster>`_
 
         :param name: A comma-separated list of names or index patterns for the indices,
             aliases, and data streams to resolve. Resources on remote clusters can be
@@ -5318,14 +5076,15 @@ class IndicesClient(NamespacedClient):
             (e.g., `-cluster1:*`) are also supported. If no index expression is specified,
             information about all remote clusters configured on the local cluster is
             returned without doing any index matching
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`. NOTE: This option is only supported
-            when specifying an index expression. You will get an error if you specify
-            index options to the `_resolve/cluster` API endpoint that takes no index
-            expression.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result. NOTE:
+            This option is only supported when specifying an index expression. You will
+            get an error if you specify index options to the `_resolve/cluster` API endpoint
+            that takes no index expression.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
@@ -5336,8 +5095,10 @@ class IndicesClient(NamespacedClient):
             ignored when frozen. NOTE: This option is only supported when specifying
             an index expression. You will get an error if you specify index options to
             the `_resolve/cluster` API endpoint that takes no index expression.
-        :param ignore_unavailable: If false, the request returns an error if it targets
-            a missing or closed index. NOTE: This option is only supported when specifying
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored. NOTE: This option is only supported when specifying
             an index expression. You will get an error if you specify index options to
             the `_resolve/cluster` API endpoint that takes no index expression.
         :param timeout: The maximum time to wait for remote clusters to respond. If a
@@ -5425,22 +5186,25 @@ class IndicesClient(NamespacedClient):
           Multiple patterns and remote clusters are supported.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-resolve-index>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-resolve-index>`_
 
         :param name: Comma-separated name(s) or index pattern(s) of the indices, aliases,
             and data streams to resolve. Resources on remote clusters can be specified
             using the `<cluster>`:`<name>` syntax.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices. For
-            example, a request targeting `foo*,bar*` returns an error if an index starts
-            with `foo` but no index starts with `bar`.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param mode: Filter indices by index mode - standard, lookup, time_series, etc.
             Comma-separated list of IndexMode. Empty means no filter.
         :param project_routing: Specifies a subset of projects to target using project
@@ -5475,9 +5239,7 @@ class IndicesClient(NamespacedClient):
                 __body["project_routing"] = project_routing
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -5544,7 +5306,7 @@ class IndicesClient(NamespacedClient):
           If you roll over the alias on May 7, 2099, the new index's name is <code>my-index-2099.05.07-000002</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-rollover>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-rollover>`_
 
         :param alias: Name of the data stream or index alias to roll over.
         :param new_index: Name of the index to create. Supports date math. Data streams
@@ -5617,9 +5379,7 @@ class IndicesClient(NamespacedClient):
                 __body["settings"] = settings
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -5658,20 +5418,25 @@ class IndicesClient(NamespacedClient):
           For data streams, the API returns information about the stream's backing indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-segments>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-segments>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (`*`). To target all data streams
             and indices, omit this parameter or use `*` or `_all`.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams. Supports comma-separated values, such
             as `open,hidden`.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH:
@@ -5747,17 +5512,22 @@ class IndicesClient(NamespacedClient):
           <p>By default, the API returns store information only for primary shards that are unassigned or have one or more unassigned replica shards.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-shard-stores>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-shard-stores>`_
 
         :param index: List of data streams, indices, and aliases used to limit the request.
-        :param allow_no_indices: If false, the request returns an error if any wildcard
-            expression, index alias, or _all value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
             request can target data streams, this argument determines whether wildcard
             expressions match hidden data streams.
-        :param ignore_unavailable: If true, missing or closed indices are not included
-            in the response.
+        :param ignore_unavailable: If `false`, the request returns an error if it targets
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param status: List of shard health statuses used to limit the request.
         """
         __path_parts: t.Dict[str, str]
@@ -5832,6 +5602,7 @@ class IndicesClient(NamespacedClient):
           For example an index with 8 primary shards can be shrunk into 4, 2 or 1 primary shards or an index with 15 primary shards can be shrunk into 5, 3 or 1.
           If the number of shards in the index is a prime number it can only be shrunk into a single primary shard
           Before shrinking, a (primary or replica) copy of every shard in the index must be present on the same node.</p>
+          <p>IMPORTANT: If the source index already has one primary shard, configuring the shrink operation with 'index.number_of_shards: 1' will cause the request to fail. An index with one primary shard cannot be shrunk further.</p>
           <p>The current write index on a data stream cannot be shrunk. In order to shrink the current write index, the data stream must first be rolled over so that a new write index is created and then the previous write index can be shrunk.</p>
           <p>A shrink operation:</p>
           <ul>
@@ -5849,7 +5620,7 @@ class IndicesClient(NamespacedClient):
           </ul>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-shrink>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-shrink>`_
 
         :param index: Name of the source index to shrink.
         :param target: Name of the target index to create.
@@ -5930,7 +5701,7 @@ class IndicesClient(NamespacedClient):
           <p>Get the index configuration that would be applied to the specified index from an existing index template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-simulate-index-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-simulate-index-template>`_
 
         :param name: Name of the index to simulate
         :param cause: User defined reason for dry-run creating the new template for simulation
@@ -5970,9 +5741,7 @@ class IndicesClient(NamespacedClient):
         __body = index_template if index_template is not None else body
         if not __body:
             __body = None
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -6029,7 +5798,7 @@ class IndicesClient(NamespacedClient):
           <p>Get the index configuration that would be applied by a particular index template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-simulate-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-simulate-template>`_
 
         :param name: Name of the index template to simulate. To test a template configuration
             before you add it to the cluster, omit this parameter and specify the template
@@ -6127,9 +5896,7 @@ class IndicesClient(NamespacedClient):
                 __body["version"] = version
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -6201,7 +5968,7 @@ class IndicesClient(NamespacedClient):
           </ul>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-split>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-split>`_
 
         :param index: Name of the source index to split.
         :param target: Name of the target index to create.
@@ -6358,11 +6125,11 @@ class IndicesClient(NamespacedClient):
           Although the shard is no longer part of the node, that node retains any node-level statistics to which the shard contributed.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-stats>`_
 
         :param index: A comma-separated list of index names; use `_all` or empty string
             to perform the operation on all indices
-        :param metric: Limit the information returned the specific metrics
+        :param metric: Comma-separated list of metrics used to limit the request.
         :param completion_fields: Comma-separated list or wildcard expressions of fields
             to include in fielddata and suggest statistics.
         :param expand_wildcards: Type of index that wildcard patterns can match. If the
@@ -6457,7 +6224,7 @@ class IndicesClient(NamespacedClient):
           <p>Adds a data stream or index to an alias.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-update-aliases>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-update-aliases>`_
 
         :param actions: Actions to perform.
         :param master_timeout: Period to wait for a connection to the master node. If
@@ -6536,16 +6303,19 @@ class IndicesClient(NamespacedClient):
           <p>Validates a query without running it.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-validate-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-indices-validate-query>`_
 
         :param index: Comma-separated list of data streams, indices, and aliases to search.
             Supports wildcards (`*`). To search all data streams or indices, omit this
             parameter or use `*` or `_all`.
         :param all_shards: If `true`, the validation is executed on all shards instead
             of one random shard per index.
-        :param allow_no_indices: If `false`, the request returns an error if any wildcard
-            expression, index alias, or `_all` value targets only missing or closed indices.
-            This behavior applies even if the request targets other open indices.
+        :param allow_no_indices: A setting that does two separate checks on the index
+            expression. If `false`, the request returns an error (1) if any wildcard
+            expression (including `_all` and `*`) resolves to zero matching indices or
+            (2) if the complete set of resolved indices, aliases or data streams is empty
+            after all expressions are evaluated. If `true`, index expressions that resolve
+            to no indices are allowed and the request returns an empty result.
         :param analyze_wildcard: If `true`, wildcard and prefix queries are analyzed.
         :param analyzer: Analyzer to use for the query string. This parameter can only
             be used when the `q` query string parameter is specified.
@@ -6561,7 +6331,9 @@ class IndicesClient(NamespacedClient):
         :param explain: If `true`, the response returns detailed information if an error
             has occurred.
         :param ignore_unavailable: If `false`, the request returns an error if it targets
-            a missing or closed index.
+            a concrete (non-wildcarded) index, alias, or data stream that is missing,
+            closed, or otherwise unavailable. If `true`, unavailable concrete targets
+            are silently ignored.
         :param lenient: If `true`, format-based query failures (such as providing text
             to a numeric field) in the query string will be ignored.
         :param q: Query in the Lucene query string syntax.
@@ -6615,9 +6387,7 @@ class IndicesClient(NamespacedClient):
                 __body["query"] = query
         if not __body:
             __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,

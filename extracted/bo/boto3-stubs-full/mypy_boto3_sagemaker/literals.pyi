@@ -91,6 +91,7 @@ __all__ = (
     "ClusterCapacityTypeType",
     "ClusterConfigModeType",
     "ClusterEventResourceTypeType",
+    "ClusterImageVersionStatusType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
     "ClusterInterfaceTypeType",
@@ -932,6 +933,7 @@ ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InServ
 ClusterCapacityTypeType = Literal["OnDemand", "Spot"]
 ClusterConfigModeType = Literal["Disable", "Enable"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
+ClusterImageVersionStatusType = Literal["UpToDate", "UpdateAvailable"]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",
     "Failure",

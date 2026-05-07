@@ -21,8 +21,7 @@ cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
 
 # Add capacity to it
 cluster.add_capacity("DefaultAutoScalingGroupCapacity",
-    instance_type=ec2.InstanceType("t2.xlarge"),
-    desired_capacity=3
+    instance_type=ec2.InstanceType("t2.xlarge")
 )
 
 task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
@@ -36,7 +35,10 @@ task_definition.add_container("DefaultContainer",
 ecs_service = ecs.Ec2Service(self, "Service",
     cluster=cluster,
     task_definition=task_definition,
-    min_healthy_percent=100
+    min_healthy_percent=100,
+    circuit_breaker=ecs.DeploymentCircuitBreaker(
+        enable=True
+    )
 )
 ```
 
@@ -131,8 +133,7 @@ cluster = ecs.Cluster(self, "Cluster",
 
 # Either add default capacity
 cluster.add_capacity("DefaultAutoScalingGroupCapacity",
-    instance_type=ec2.InstanceType("t2.xlarge"),
-    desired_capacity=3
+    instance_type=ec2.InstanceType("t2.xlarge")
 )
 
 # Or add customized capacity. Be sure to start the Amazon ECS-optimized AMI.
@@ -827,7 +828,10 @@ service = ecs.FargateService(self, "Service",
     cluster=cluster,
     task_definition=task_definition,
     desired_count=5,
-    min_healthy_percent=100
+    min_healthy_percent=100,
+    circuit_breaker=ecs.DeploymentCircuitBreaker(
+        enable=True
+    )
 )
 ```
 
@@ -4329,8 +4333,7 @@ class AsgCapacityProvider(
         
         # Either add default capacity
         cluster.add_capacity("DefaultAutoScalingGroupCapacity",
-            instance_type=ec2.InstanceType("t2.xlarge"),
-            desired_capacity=3
+            instance_type=ec2.InstanceType("t2.xlarge")
         )
         
         # Or add customized capacity. Be sure to start the Amazon ECS-optimized AMI.
@@ -34718,16 +34721,17 @@ class DeploymentCircuitBreaker:
         Example::
 
             # cluster: ecs.Cluster
-            # task_definition: ecs.TaskDefinition
             
-            service = ecs.FargateService(self, "Service",
+            service = ecs_patterns.ApplicationLoadBalancedFargateService(self, "Service",
                 cluster=cluster,
-                task_definition=task_definition,
+                memory_limit_mi_b=1024,
+                desired_count=1,
+                cpu=512,
+                task_image_options=ecsPatterns.ApplicationLoadBalancedTaskImageOptions(
+                    image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample")
+                ),
                 min_healthy_percent=100,
-                circuit_breaker=ecs.DeploymentCircuitBreaker(
-                    enable=True,
-                    rollback=True
-                )
+                circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True)
             )
         '''
         if __debug__:
@@ -35883,8 +35887,7 @@ class Ec2ServiceProps(BaseServiceOptions):
             
             # Add capacity to it
             cluster.add_capacity("DefaultAutoScalingGroupCapacity",
-                instance_type=ec2.InstanceType("t2.xlarge"),
-                desired_capacity=3
+                instance_type=ec2.InstanceType("t2.xlarge")
             )
             
             task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
@@ -35898,7 +35901,10 @@ class Ec2ServiceProps(BaseServiceOptions):
             ecs_service = ecs.Ec2Service(self, "Service",
                 cluster=cluster,
                 task_definition=task_definition,
-                min_healthy_percent=100
+                min_healthy_percent=100,
+                circuit_breaker=ecs.DeploymentCircuitBreaker(
+                    enable=True
+                )
             )
         '''
         if isinstance(canary_configuration, dict):
@@ -36783,8 +36789,7 @@ class EcsOptimizedImage(
         
         # Either add default capacity
         cluster.add_capacity("DefaultAutoScalingGroupCapacity",
-            instance_type=ec2.InstanceType("t2.xlarge"),
-            desired_capacity=3
+            instance_type=ec2.InstanceType("t2.xlarge")
         )
         
         # Or add customized capacity. Be sure to start the Amazon ECS-optimized AMI.
@@ -52653,43 +52658,34 @@ class Cluster(
 
     Example::
 
-        # vpc: ec2.Vpc
-        
-        
-        cluster = ecs.Cluster(self, "Cluster",
-            vpc=vpc
+        vpc = ec2.Vpc.from_lookup(self, "Vpc",
+            is_default=True
         )
         
-        auto_scaling_group = autoscaling.AutoScalingGroup(self, "ASG",
-            vpc=vpc,
-            instance_type=ec2.InstanceType("t2.micro"),
-            machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
-            min_capacity=0,
-            max_capacity=100
+        cluster = ecs.Cluster(self, "FargateCluster", vpc=vpc)
+        
+        task_definition = ecs.TaskDefinition(self, "TD",
+            memory_mi_b="512",
+            cpu="256",
+            compatibility=ecs.Compatibility.FARGATE
         )
         
-        capacity_provider = ecs.AsgCapacityProvider(self, "AsgCapacityProvider",
-            auto_scaling_group=auto_scaling_group,
-            instance_warmup_period=300
-        )
-        cluster.add_asg_capacity_provider(capacity_provider)
-        
-        task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
-        
-        task_definition.add_container("web",
-            image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample"),
-            memory_reservation_mi_b=256
+        container_definition = task_definition.add_container("TheContainer",
+            image=ecs.ContainerImage.from_registry("foo/bar"),
+            memory_limit_mi_b=256
         )
         
-        ecs.Ec2Service(self, "EC2Service",
+        run_task = tasks.EcsRunTask(self, "RunFargate",
+            integration_pattern=sfn.IntegrationPattern.RUN_JOB,
             cluster=cluster,
             task_definition=task_definition,
-            min_healthy_percent=100,
-            capacity_provider_strategies=[ecs.CapacityProviderStrategy(
-                capacity_provider=capacity_provider.capacity_provider_name,
-                weight=1
-            )
-            ]
+            assign_public_ip=True,
+            container_overrides=[tasks.ContainerOverride(
+                container_definition=container_definition,
+                environment=[tasks.TaskEnvironmentVariable(name="SOME_KEY", value=sfn.JsonPath.string_at("$.SomeKey"))]
+            )],
+            launch_target=tasks.EcsFargateLaunchTarget(),
+            propagated_tag_source=ecs.PropagatedTagSource.TASK_DEFINITION
         )
     '''
 
@@ -54856,7 +54852,6 @@ class BaseService(
     def _deployment_alarms(
         self,
     ) -> typing.Optional["CfnService.DeploymentAlarmsProperty"]:
-        '''The deployment alarms property - this will be rendered directly and lazily as the CfnService.alarms property.'''
         return typing.cast(typing.Optional["CfnService.DeploymentAlarmsProperty"], jsii.get(self, "deploymentAlarms"))
 
     @_deployment_alarms.setter
@@ -54919,8 +54914,7 @@ class Ec2Service(
         
         # Add capacity to it
         cluster.add_capacity("DefaultAutoScalingGroupCapacity",
-            instance_type=ec2.InstanceType("t2.xlarge"),
-            desired_capacity=3
+            instance_type=ec2.InstanceType("t2.xlarge")
         )
         
         task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
@@ -54934,7 +54928,10 @@ class Ec2Service(
         ecs_service = ecs.Ec2Service(self, "Service",
             cluster=cluster,
             task_definition=task_definition,
-            min_healthy_percent=100
+            min_healthy_percent=100,
+            circuit_breaker=ecs.DeploymentCircuitBreaker(
+                enable=True
+            )
         )
     '''
 

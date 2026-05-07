@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supabase-functions
-Version: 2.29.0
+Version: 2.30.0
 Summary: Library for Supabase Functions
 Author: Joel Lee, Andrew Smith
 Author-email: Joel Lee <joel@joellee.org>, Andrew Smith <a.smith@silentworks.co.uk>
@@ -47,7 +47,7 @@ from supabase_functions import AsyncFunctionsClient
 async def run_func():
     # Initialize the client with your project URL and optional headers
     headers = {
-        "Authorization": "Bearer your-anon-key",
+        "Authorization": "Bearer your-publishable-key",
         # Add any other headers you might need
     }
     
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 from supabase_functions import SyncFunctionsClient
 
 # Initialize the client
-headers = {"Authorization": "Bearer your-anon-key"}
+headers = {"Authorization": "Bearer your-publishable-key"}
 fc = SyncFunctionsClient("https://<project_ref>.functions.supabase.co", headers)
 
 # Invoke your Edge Function

@@ -53,6 +53,7 @@ def deploy(client: ServiceClient, entry_point: str):
     schedules = config.get("schedules", [])
     cpu = config.get("cpu", 0.25)
     memory = config.get("memory", 512)
+    gpu = config.get("gpu")
 
     pages = config.get("pages", [])
     data_sources = config.get("data_sources", [])
@@ -87,7 +88,10 @@ def deploy(client: ServiceClient, entry_point: str):
             suffix = f" ({', '.join(details)})" if details else ""
             terminal.detail(f"  fs:       {mount} -> {fs.get('name', '')}{suffix}")
 
-    terminal.detail(f"  compute:  {cpu} vCPU / {memory} MiB")
+    compute = f"{cpu} vCPU / {memory} MiB"
+    if gpu:
+        compute += f" / {gpu} GPU"
+    terminal.detail(f"  compute:  {compute}")
 
     if image.get("python_packages"):
         terminal.detail(f"  pip:      {', '.join(image['python_packages'])}")
@@ -103,7 +107,7 @@ def deploy(client: ServiceClient, entry_point: str):
 
     req = DeployRequest(
         app_name=config["app_name"],
-        image=build_image_spec(image, cpu=cpu, memory=memory),
+        image=build_image_spec(image, cpu=cpu, memory=memory, gpu=gpu),
         channels=build_channel_specs(channels),
         entry_point=f"{config['module']}:{config['class_name'] or entry_point.rsplit(':', 1)[1]}",
         price_in_cents=config["price"],

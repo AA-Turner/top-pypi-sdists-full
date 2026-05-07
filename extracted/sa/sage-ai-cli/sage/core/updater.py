@@ -293,17 +293,33 @@ class CLIAutoUpdater:
                     "",
                     "echo Upgrading SAGE AI...",
                     "echo.",
-                    f'"{python_exe}" -m pip install --upgrade --disable-pip-version-check '
-                    f"{self.PACKAGE_NAME}",
+                    # --force-reinstall + --no-cache-dir: idempotent, safe when
+                    # a previous run aborted mid-install and left the package
+                    # half-removed (sage.exe present but `import sage` broken).
+                    # Without this, pip's "already up to date" short-circuit
+                    # would skip the install and leave the user permanently
+                    # broken — they had to know to manually pass --force.
+                    f'"{python_exe}" -m pip install --force-reinstall --no-cache-dir '
+                    f"--disable-pip-version-check {self.PACKAGE_NAME}",
                     "set RC=%ERRORLEVEL%",
                     "echo.",
                     "if %RC%==0 (",
-                    "  echo SAGE AI updated successfully.",
-                    f'  "{python_exe}" -m sage --version',
+                    # Verify by importing the package, not just running
+                    # sage --version (the wrapper script can succeed even
+                    # when the package is half-installed in some edge cases).
+                    f'  "{python_exe}" -c "import sage; print(\'SAGE AI\', sage.__version__, \'installed.\')"',
+                    "  set VRC=%ERRORLEVEL%",
+                    "  if not %VRC%==0 (",
+                    "    echo.",
+                    "    echo WARNING: pip reported success but `import sage` failed.",
+                    "    echo Recover with:",
+                    f'    echo   "{python_exe}" -m pip install --force-reinstall --no-cache-dir {self.PACKAGE_NAME}',
+                    "  )",
                     ") else (",
                     "  echo SAGE AI update FAILED with exit code %RC%.",
-                    "  echo If sage.exe was still locked, close every sage window and run "
-                    '"sage update" again.',
+                    "  echo Recover by running this command yourself:",
+                    f'  echo   "{python_exe}" -m pip install --force-reinstall --no-cache-dir {self.PACKAGE_NAME}',
+                    "  echo If sage.exe was still locked, close every sage window first.",
                     ")",
                     "echo.",
                     "echo You can close this window.",

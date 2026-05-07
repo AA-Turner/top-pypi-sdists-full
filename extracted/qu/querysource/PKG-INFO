@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: querysource
-Version: 4.2.0
+Version: 4.2.1
 Summary: Aiohttp web service for querying several databases easily
 Author-email: Jesus Lara <jesuslarag@gmail.com>
 License: BSD-3-Clause

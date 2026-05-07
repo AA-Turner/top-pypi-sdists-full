@@ -53,6 +53,11 @@ urls = [
         name="fatlinks_process_manual_fat",
     ),
     path(
+        route="<str:fatlink_hash>/process/fleet-snapshot/",
+        view=fatlinks.process_fleetsnapshot,
+        name="fatlinks_process_fleetsnapshot",
+    ),
+    path(
         route="<str:fatlink_hash>/details/",
         view=fatlinks.details_fatlink,
         name="fatlinks_details_fatlink",
